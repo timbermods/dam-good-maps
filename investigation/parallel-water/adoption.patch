@@ -1,0 +1,638 @@
+diff --git a/public/isolation-register.js b/public/isolation-register.js
+new file mode 100644
+index 00000000..b9c6d0cc
+--- /dev/null
++++ b/public/isolation-register.js
+@@ -0,0 +1,32 @@
++// Invoke before showing an editable document. This can reload once on first visit.
++export async function registerIsolation(url='./isolation-sw.js') {
++  if (!isSecureContext || !('serviceWorker' in navigator)) return false;
++  const key='dgm-isolation-reload:'+new URL(url,location.href).href;
++  try {
++    const expected=new URL(url,location.href).href;
++    const scope=new URL('./',expected).href;
++    const previous=await navigator.serviceWorker.getRegistration(expected);
++    // Preserve another worker in THIS scope. An inherited parent registration
++    // can remain intact while /preview/ installs its own child-scope policy.
++    if(previous?.scope===scope && previous.active && previous.active.scriptURL!==expected)return crossOriginIsolated;
++    const registration=await navigator.serviceWorker.register(url,{scope,updateViaCache:'none'});
++    if(crossOriginIsolated)return true;
++    // A controller does not upgrade the already loaded document: navigate once.
++    if (navigator.serviceWorker.controller?.scriptURL!==expected) {
++      await new Promise(resolve=>{
++        const check=()=>{
++          if(navigator.serviceWorker.controller?.scriptURL!==expected)return;
++          clearTimeout(timer);navigator.serviceWorker.removeEventListener('controllerchange',check);resolve();
++        };
++        const timer=setTimeout(()=>{navigator.serviceWorker.removeEventListener('controllerchange',check);resolve();},5000);
++        navigator.serviceWorker.addEventListener('controllerchange',check);check();
++      });
++    }
++    if (navigator.serviceWorker.controller?.scriptURL===expected && !sessionStorage.getItem(key)) {
++      sessionStorage.setItem(key,'1'); location.reload(); return await new Promise(()=>{});
++    }
++    // Unsupported isolation remains scalar, without a reload loop. Safe UI can later
++    // message registration.waiting with ACTIVATE_WHEN_SAFE and explicitly navigate.
++    return crossOriginIsolated;
++  } catch {return false;}
++}
+diff --git a/public/isolation-sw.js b/public/isolation-sw.js
+new file mode 100644
+index 00000000..908cbf20
+--- /dev/null
++++ b/public/isolation-sw.js
+@@ -0,0 +1,26 @@
++// Adoption candidate: ONE fetch listener shared with any future offline cache.
++// Bump this version when changing policy. Do not skipWaiting during an active edit.
++const POLICY_VERSION = 'parallel-water-v1';
++self.addEventListener('install', () => {});
++self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
++self.addEventListener('message', event => {
++  if (event.data?.type === 'ACTIVATE_WHEN_SAFE') self.skipWaiting();
++  if (event.data?.type === 'VERSION') event.source?.postMessage({version:POLICY_VERSION});
++});
++function isolate(response) {
++  // An opaque response is unreadable. Never invent CORP permission on somebody else's resource.
++  if (response.type === 'opaque' || response.status === 0) return response;
++  const headers = new Headers(response.headers);
++  headers.set('Cross-Origin-Opener-Policy','same-origin');
++  headers.set('Cross-Origin-Embedder-Policy','require-corp');
++  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
++}
++self.addEventListener('fetch', event => {
++  const request=event.request;
++  if (request.cache==='only-if-cached' && request.mode!=='same-origin') return;
++  const url=new URL(request.url);
++  if (url.origin!==self.location.origin) return;
++  // Put the startup investigation's network/cache selection HERE; policy must run
++  // after BOTH network and cache hits, including cached navigation and worker scripts.
++  event.respondWith(fetch(request).then(isolate));
++});
+diff --git a/src/core/sim/parallel.ts b/src/core/sim/parallel.ts
+new file mode 100644
+index 00000000..415c82df
+--- /dev/null
++++ b/src/core/sim/parallel.ts
+@@ -0,0 +1,61 @@
++import {installWaterConstructionHook} from './water';
++/** Await once in the existing COORDINATOR WORKER before synchronous generation/edit tasks.
++ * Helpers receive a reusable workspace once. Migrate arrays only around run() calls:
++ * no nested-worker IPC while blocked; returned arrays retain their private identities.
++ */
++export async function installParallelWater(threads:number, helperURL:string|URL, timeoutMs=30000, maxTiles=512*512,minTilesPerThread=1024) {
++  if(!Number.isInteger(threads)||threads<1)throw Error('Invalid thread count');
++  if(threads===1||!globalThis.crossOriginIsolated||typeof SharedArrayBuffer==='undefined')return {threads:1,close:()=>{}};
++  const workers:Worker[]=[];
++  const control=new Int32Array(new SharedArrayBuffer((8+2*threads)*4));
++  const indices=new Int32Array(new SharedArrayBuffer(maxTiles*4));
++  const shared:Record<string,any>={};
++  const constructors:Record<string,any>={F:Float64Array,dam:Float64Array,D:Float64Array,Dold:Float64Array,C:Float64Array,out:Float64Array,f:Float64Array,Cnew:Float64Array,mod:Float64Array,wall:Uint8Array,n0:Int32Array,n1:Int32Array,n2:Int32Array,n3:Int32Array};
++  for(const [key,Ctor] of Object.entries(constructors))shared[key]=new Ctor(new SharedArrayBuffer(maxTiles*(key==='out'||key==='f'?4:1)*Ctor.BYTES_PER_ELEMENT));
++  let epoch=0,closed=false,busy=false;
++  const stats={parallelPhases:0,scalarPhases:0};
++  const close=()=>{if(closed)return;closed=true;installWaterConstructionHook(null);Atomics.store(control,0,-1);Atomics.notify(control,0);for(const w of workers)w.terminate();};
++  try{
++    await Promise.all(Array.from({length:threads-1},(_,i)=>new Promise<void>((resolve,reject)=>{
++      const w=new Worker(helperURL,{type:'module'});workers.push(w);
++      const timer=setTimeout(()=>reject(Error('Water helper startup timeout')),timeoutMs);
++      w.onerror=()=>{clearTimeout(timer);reject(Error('Water helper startup failed'));};
++      w.onmessage=e=>{if(e.data?.ready){clearTimeout(timer);resolve();}};
++      w.postMessage({snapshot:{...shared,W:0,H:0,N:maxTiles,game:true,edgeSpill:true},control,indices,id:i+1,threads,dynamicKernel:true});
++    })));
++  }catch{close();return {threads:1,close:()=>{}};}
++  const wait=(slot:number,wanted:number)=>{
++    const deadline=performance.now()+timeoutMs;
++    for(;;){const observed=Atomics.load(control,slot);if(observed===wanted)return;const left=deadline-performance.now();if(left<=0){close();throw Error('Water phase timeout: discard task and restart scalar');}Atomics.wait(control,slot,observed,left);}
++  };
++  installWaterConstructionHook(sim=>{
++    if(sim.N>maxTiles)return;
++    const object=sim as unknown as Record<string,any>;
++    sim.runScope=body=>{
++      if(closed)throw Error('Water pool closed');
++      if(busy)throw Error('Nested water run must use a separate coordinator');
++      busy=true;
++      const original:Record<string,any>={};
++      for(const key of Object.keys(constructors)){
++        original[key]=object[key];if(!original[key])continue;
++        shared[key].set(original[key]);object[key]=shared[key];
++      }
++      Atomics.store(control,3,sim.W);Atomics.store(control,4,sim.H);Atomics.store(control,5,+object.game);Atomics.store(control,6,+sim.edgeSpill);Atomics.store(control,7,+!!original.dam);
++      try{body();}finally{
++        for(const key of ['D','Dold','C','out','f','Cnew','mod'])original[key].set(shared[key].subarray(0,original[key].length));
++        for(const key of Object.keys(constructors))object[key]=original[key];
++        busy=false;
++      }
++    };
++    sim.executor=(phase,list,count)=>{
++      if(closed)throw Error('Water pool closed');
++      // Thin rivers cannot amortize a browser barrier. Same exact kernel, coordinator-only.
++      if(count<threads*minTilesPerThread){stats.scalarPhases++;sim.kernel(phase,list,0,count);return;}
++      stats.parallelPhases++;
++      indices.set(list.subarray(0,count));Atomics.store(control,1,phase);Atomics.store(control,2,count);epoch=epoch>=0x7ffffffe?1:epoch+1;Atomics.store(control,0,epoch);Atomics.notify(control,0);
++      sim.kernel(phase,indices,0,Math.floor(count/threads));
++      for(let id=1;id<threads;id++)wait(8+id,epoch);
++    };
++  });
++  return {threads,close,stats};
++}
+diff --git a/src/core/sim/water-parallel.worker.ts b/src/core/sim/water-parallel.worker.ts
+new file mode 100644
+index 00000000..8dab3415
+--- /dev/null
++++ b/src/core/sim/water-parallel.worker.ts
+@@ -0,0 +1,27 @@
++import { WaterSim } from './water';
++postMessage({booted:true});
++onmessage = ({data}) => {
++  const {snapshot,control,indices,id,threads} = data as {snapshot:Record<string,unknown>;control:Int32Array;indices:Int32Array;id:number;threads:number};
++  const sim = Object.assign(Object.create(WaterSim.prototype),snapshot) as WaterSim;
++  Atomics.store(control,8+threads+id,1);Atomics.notify(control,8+threads+id);
++  postMessage({ready:true});
++  let previous=0;
++  for (;;) {
++    let epoch=Atomics.load(control,0);
++    while (epoch===previous) {
++      Atomics.wait(control,0,previous);
++      epoch=Atomics.load(control,0);
++    }
++    if (epoch<0) return;
++    const count=Atomics.load(control,2), phase=Atomics.load(control,1);
++    if(data.dynamicKernel) {
++      const object=sim as unknown as Record<string,any>;
++      object.W=Atomics.load(control,3);object.H=Atomics.load(control,4);
++      object.game=!!Atomics.load(control,5);object.edgeSpill=!!Atomics.load(control,6);
++      object.dam=Atomics.load(control,7)?snapshot.dam:null;
++    }
++    sim.kernel(phase,indices,Math.floor(count*id/threads),Math.floor(count*(id+1)/threads));
++    previous=epoch;
++    Atomics.store(control,8+id,epoch); Atomics.notify(control,8+id);
++  }
++};
+diff --git a/src/core/sim/water.ts b/src/core/sim/water.ts
+index efd11b7a..fd154306 100644
+--- a/src/core/sim/water.ts
++++ b/src/core/sim/water.ts
+@@ -1,3 +1,4 @@
++// Investigation prototype, derived from M9b by prototype.mjs. See INTEGRATION.md.
+ // The game's water rules on a heightfield (PLAN §10; notes/water_and_soil.md, "Simplified water
+ // simulation spec"): one water column per tile, flows by head difference with momentum, map edges
+ // that drain except beside a source cell. An exact port of prototype/watersim.py, which reproduced
+@@ -23,12 +24,11 @@
+ // The game's fifth rule the port leaves out, direction limiters, needs a badtide drain's roofed
+ // cell, which a heightfield cannot hold (sim/columns.ts).
+ //
+-// Speed: only an *exact* active list is updated each substep: the tiles with water at the start of
+-// the substep, their 4-neighbours, and the source tiles. Every other tile is dry and cannot change,
+-// so the result is identical to updating the whole grid (PLAN §10: a list rebuilt once per tick
+-// changed the settled volume by 5%). An interior tile counts its wet neighbours directly, and the
+-// outflows' direction loop is written out (PLAN §20 D130): exact rewrites, proved bit for bit
+-// against the loops they replace (tests/unit/water-speedups.test.ts).
++// Investigation speedups: incremental wet-neighbour counts and active membership;
++// tick-boundary evaporation invalidation; fixed neighbour indices; clearing only dried
++// flow slots; an exact dry/no-inflow shortcut; periodic private-index sorting. Numerical
++// expressions and the original substeps, source order and settle checks are preserved.
++// See INTEGRATION.md for the dependency proofs and the supported simulator contract.
+
+ export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
+ export const K = 2.25 * DT; // flow factor, 0.675
+@@ -36,9 +36,6 @@ export const SPILL = 0.1; // spill threshold onto dry ground of the same floor
+ export const KEEP = 0.999; // flow momentum kept per substep
+ export const BAL = 0.8; // outflow balancing against the reverse flow
+ export const TICKS_PER_DAY = 768;
+-/** The game days the canonical settle may run before its water counts as not settling (PLAN §10,
+- *  §11.3; D358: 6, 4 before 2026-10-01). It stops at the first check that passes, so a map whose
+- *  water settles sooner is the same whatever the limit. */
+ export const SETTLE_DAYS = 6;
+
+ /** Which rules the simulator runs: the game's (D293, D311), or the port's as it was before M9b. */
+@@ -112,6 +109,9 @@ export interface WaterState {
+   contamination: Float64Array;
+ }
+
++let constructionHook: ((sim: WaterSim) => void) | null = null;
++export function installWaterConstructionHook(hook: ((sim: WaterSim) => void) | null): void { constructionHook = hook; }
++
+ export class WaterSim {
+   readonly W: number;
+   readonly H: number;
+@@ -127,21 +127,30 @@ export class WaterSim {
+   ticks = 0;
+
+   /** Wall bits per tile: bit k set = the out-of-map neighbour in direction k is solid. */
++  // Geometry only: no floor, depth, source or momentum values are cached.
++  private readonly n0: Int32Array;
++  private readonly n1: Int32Array;
++  private readonly n2: Int32Array;
++  private readonly n3: Int32Array;
++  private readonly wetMask: Uint8Array;
++  private readonly dirtyMask: Uint8Array;
++  private readonly dirtyMod: Int32Array;
++  private dirtyModCount = 0;
++  private readonly evap = new Float64Array(9);
++  private readonly activeRefs: Uint8Array;
++  private readonly activePos: Int32Array;
++  private readonly transitions: Int32Array;
+   private readonly wall: Uint8Array;
+   private readonly f: Float64Array;
+   private readonly Cnew: Float64Array;
+   private readonly mod: Float64Array;
+   private readonly wn: Int32Array;
+-  private readonly mark: Int32Array;
+-  private stamp = 0;
+   private wet: Int32Array;
+   private wetCount = 0;
+   private prevWet: Int32Array;
+   private prevWetCount = 0;
+   private active: Int32Array;
+   private activeCount = 0;
+-  private modSet: Int32Array;
+-  private modSetCount = 0;
+   private readonly sourceCells: Int32Array;
+   /** Seep on/off state per emitter (1 = on). */
+   private readonly seepOn: Uint8Array;
+@@ -178,11 +187,9 @@ export class WaterSim {
+     this.Cnew = new Float64Array(N);
+     this.mod = new Float64Array(N).fill(1);
+     this.wn = new Int32Array(N);
+-    this.mark = new Int32Array(N);
+     this.wet = new Int32Array(N);
+     this.prevWet = new Int32Array(N);
+     this.active = new Int32Array(N);
+-    this.modSet = new Int32Array(N);
+     this.seepOn = new Uint8Array(model.emitters.length).fill(1);
+     // the map edge drains water, except the padding next to a source cell, which is solid
+     this.wall = new Uint8Array(N);
+@@ -203,7 +210,35 @@ export class WaterSim {
+       }
+     }
+     this.sourceCells = Int32Array.from(cells);
++    this.n0 = new Int32Array(N);
++    this.n1 = new Int32Array(N);
++    this.n2 = new Int32Array(N);
++    this.n3 = new Int32Array(N);
++    this.wetMask = new Uint8Array(N);
++    this.dirtyMask = new Uint8Array(N);
++    this.dirtyMod = new Int32Array(N);
++    this.activeRefs = new Uint8Array(N);
++    this.activePos = new Int32Array(N).fill(-1);
++    this.transitions = new Int32Array(N);
++    for (let i = 0; i < N; i++) {
++      const x = i % W, y = (i - x) / W;
++      this.n0[i] = y > 0 ? i - W : -1;
++      this.n1[i] = x > 0 ? i - 1 : -1;
++      this.n2[i] = y < H - 1 ? i + W : -1;
++      this.n3[i] = x < W - 1 ? i + 1 : -1;
++      this.wetMask[i] = +(this.D[i] > 0);
++      this.wn[i] = 1;
++      if (this.D[i] > 0) this.dirtyMask[i] = 1, this.dirtyMod[this.dirtyModCount++] = i;
++    }
++    for (let i = 0; i < N; i++) if (this.D[i] > 0) this.adjustWn(i, 1);
++    for (let i = 0; i < N; i++) if (this.D[i] > 0) this.adjustActive(i, 1);
++    for (const i of this.sourceCells) this.adjustActiveTile(i, 1);
++    for (let sat = 1; sat <= 8; sat++) {
++      const t = 10 - sat;
++      this.evap[sat] = 0.0595 * (t * t) + 0.101 * t + 0.72;
++    }
+     for (let i = 0; i < N; i++) if (this.D[i] > 0) this.wet[this.wetCount++] = i;
++    constructionHook?.(this);
+   }
+
+   /** Cluster saturation per wet tile (0 elsewhere): WN = 1 + wet 8-neighbours,
+@@ -218,31 +253,37 @@ export class WaterSim {
+     return sat;
+   }
+
+-  private computeWn(): void {
+-    const { W, H, D, wn } = this;
+-    for (let k = 0; k < this.wetCount; k++) {
+-      const i = this.wet[k];
+-      const x = i % W;
+-      const y = (i - x) / W;
+-      let c = 1;
+-      if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+-        // an interior tile has all eight neighbours: count them directly (an integer count, so
+-        // the order of the additions cannot change it; PLAN §20 D130)
+-        c += +(D[i - W - 1] > 0) + +(D[i - W] > 0) + +(D[i - W + 1] > 0)
+-          + +(D[i - 1] > 0) + +(D[i + 1] > 0)
+-          + +(D[i + W - 1] > 0) + +(D[i + W] > 0) + +(D[i + W + 1] > 0);
+-      } else {
+-        for (let dy = -1; dy <= 1; dy++) {
+-          const yy = y + dy;
+-          if (yy < 0 || yy >= H) continue;
+-          for (let dx = -1; dx <= 1; dx++) {
+-            if (!dx && !dy) continue;
+-            const xx = x + dx;
+-            if (xx >= 0 && xx < W && D[yy * W + xx] > 0) c++;
+-          }
++  // wn[i] is 1 + the current eight-neighbour wet count, also on dry cells.
++  // Integer +/-1 updates commute exactly. Only wet cells' counts are read by satAt.
++  private computeWn(): void {}
++
++  private adjustWn(i: number, delta: number): void {
++    const { W, H, wn } = this;
++    const x = i % W, y = (i - x) / W;
++    for (let dy = -1; dy <= 1; dy++) {
++      const yy = y + dy;
++      if (yy < 0 || yy >= H) continue;
++      for (let dx = -1; dx <= 1; dx++) {
++        if (!dx && !dy) continue;
++        const xx = x + dx;
++        if (xx >= 0 && xx < W) wn[yy * W + xx] += delta;
++      }
++    }
++  }
++
++  // A positivity change can affect saturation at distance at most two. A 5x5 square
++  // deliberately includes a few extra cells; duplicate invalidations are coalesced.
++  private invalidateMod(i: number): void {
++    const { W, H, dirtyMask, dirtyMod } = this;
++    const x = i % W, y = (i - x) / W;
++    for (let yy = Math.max(0, y - 2); yy <= Math.min(H - 1, y + 2); yy++) {
++      for (let xx = Math.max(0, x - 2); xx <= Math.min(W - 1, x + 2); xx++) {
++        const c = yy * W + xx;
++        if (!dirtyMask[c]) {
++          dirtyMask[c] = 1;
++          dirtyMod[this.dirtyModCount++] = c;
+         }
+       }
+-      wn[i] = c;
+     }
+   }
+
+@@ -260,41 +301,44 @@ export class WaterSim {
+
+   /** The evaporation modifier from cluster saturation, recomputed once per tick. */
+   private updateEvapMod(): void {
+-    const mod = this.mod;
+-    for (let k = 0; k < this.modSetCount; k++) mod[this.modSet[k]] = 1;
+-    this.modSetCount = 0;
+-    this.computeWn();
+-    for (let k = 0; k < this.wetCount; k++) {
+-      const i = this.wet[k];
+-      const t = 10 - this.satAt(i);
+-      mod[i] = 0.0595 * (t * t) + 0.101 * t + 0.72;
+-      this.modSet[this.modSetCount++] = i;
++    // Consume topology changes only at the original tick boundary. Both substeps
++    // still use the same modifier, even if a tile becomes wet or dry between them.
++    for (let k = 0; k < this.dirtyModCount; k++) {
++      const i = this.dirtyMod[k];
++      this.mod[i] = this.D[i] > 0 ? this.evap[this.satAt(i)] : 1;
++      this.dirtyMask[i] = 0;
+     }
++    this.dirtyModCount = 0;
+   }
+
+-  private buildActive(): void {
+-    const { W, H, mark } = this;
+-    const s = ++this.stamp;
+-    let n = 0;
+-    const act = this.active;
+-    const add = (i: number) => {
+-      if (mark[i] !== s) {
+-        mark[i] = s;
+-        act[n++] = i;
+-      }
+-    };
+-    for (let k = 0; k < this.wetCount; k++) {
+-      const i = this.wet[k];
+-      add(i);
+-      const x = i % W;
+-      const y = (i - x) / W;
+-      if (y > 0) add(i - W);
+-      if (x > 0) add(i - 1);
+-      if (y < H - 1) add(i + W);
+-      if (x < W - 1) add(i + 1);
++  // Active iff wet, adjacent to wet, or a constructor source cell. Refcounts
++  // are integers in [0,6]. List order may differ, but both numerical passes
++  // read complete previous-state buffers and write only their own tile.
++  private buildActive(): void {}
++
++  private adjustActiveTile(i: number, delta: number): void {
++    const before = this.activeRefs[i];
++    const after = before + delta;
++    this.activeRefs[i] = after;
++    if (!before && after) {
++      this.activePos[i] = this.activeCount;
++      this.active[this.activeCount++] = i;
++    } else if (before && !after) {
++      const pos = this.activePos[i];
++      const last = this.active[--this.activeCount];
++      this.active[pos] = last;
++      this.activePos[last] = pos;
++      this.activePos[i] = -1;
+     }
+-    for (let k = 0; k < this.sourceCells.length; k++) add(this.sourceCells[k]);
+-    this.activeCount = n;
++  }
++
++  private adjustActive(i: number, delta: number): void {
++    this.adjustActiveTile(i, delta);
++    const a = this.n0[i], b = this.n1[i], c = this.n2[i], d = this.n3[i];
++    if (a >= 0) this.adjustActiveTile(a, delta);
++    if (b >= 0) this.adjustActiveTile(b, delta);
++    if (c >= 0) this.adjustActiveTile(c, delta);
++    if (d >= 0) this.adjustActiveTile(d, delta);
+   }
+
+   /** The outflow of wet tile `c` (floor `Fc`, surface `Hc`) into a neighbour holding a partial
+@@ -310,24 +354,19 @@ export class WaterSim {
+     return 0.995 * prev + K * e;
+   }
+
+-  private substep(scale: number): void {
+-    const { W, H, F, D, C, out, f, wall, mod, dam, game, edgeSpill } = this;
+-    // flows of the tiles that had water last substep are stale: clear them
+-    for (let k = 0; k < this.prevWetCount; k++) {
+-      const b = 4 * this.prevWet[k];
+-      f[b] = 0;
+-      f[b + 1] = 0;
+-      f[b + 2] = 0;
+-      f[b + 3] = 0;
+-    }
+-    this.buildActive();
+
+-    // 1. outflows of every wet tile, from the start-of-substep state: the four directions written
+-    //    out in order (−y, −x, +y, +x), each the same steps (PLAN §20 D130)
+-    for (let w = 0; w < this.wetCount; w++) {
+-      const c = this.wet[w];
+-      const x = c % W;
+-      const y = (c - x) / W;
++  executor: ((phase: number, indices: Int32Array, count: number) => void) | null = null;
++  runScope: ((body: () => void) => void) | null = null;
++  private execute(phase: number, indices: Int32Array, count: number): void {
++    if (this.executor) this.executor(phase, indices, count);
++    else this.kernel(phase, indices, 0, count);
++  }
++  kernel(phase: number, indices: Int32Array, lo: number, hi: number): void {
++    const { W, H, F, D, C, out, f, wall, mod, dam, game, edgeSpill } = this;
++    const nb0=this.n0, nb1=this.n1, nb2=this.n2, nb3=this.n3;
++    if (phase === 1) {
++    for (let w = lo; w < hi; w++) {
++      const c = indices[w];
+       const Fc = F[c];
+       const Dc = D[c];
+       const Hc = Fc + Dc;
+@@ -335,7 +374,7 @@ export class WaterSim {
+       const wc = wall[c];
+       // −y
+       {
+-        const n = y > 0 ? c - W : -1;
++        const n = nb0[c];
+         const inside = n >= 0;
+         const Fn = inside ? F[n] : 0;
+         const Dn = inside ? D[n] : 0;
+@@ -356,7 +395,7 @@ export class WaterSim {
+       }
+       // −x
+       {
+-        const n = x > 0 ? c - 1 : -1;
++        const n = nb1[c];
+         const inside = n >= 0;
+         const Fn = inside ? F[n] : 0;
+         const Dn = inside ? D[n] : 0;
+@@ -377,7 +416,7 @@ export class WaterSim {
+       }
+       // +y
+       {
+-        const n = y < H - 1 ? c + W : -1;
++        const n = nb2[c];
+         const inside = n >= 0;
+         const Fn = inside ? F[n] : 0;
+         const Dn = inside ? D[n] : 0;
+@@ -398,7 +437,7 @@ export class WaterSim {
+       }
+       // +x
+       {
+-        const n = x < W - 1 ? c + 1 : -1;
++        const n = nb3[c];
+         const inside = n >= 0;
+         const Fn = inside ? F[n] : 0;
+         const Dn = inside ? D[n] : 0;
+@@ -438,17 +477,15 @@ export class WaterSim {
+       }
+     }
+
+-    // 2. depth, contamination and stored momentum of every active tile
+-    const Cnew = this.Cnew;
+-    for (let a = 0; a < this.activeCount; a++) {
+-      const c = this.active[a];
+-      const x = c % W;
+-      const y = (c - x) / W;
++    } else {
++      const Cnew = this.Cnew;
++    for (let a = lo; a < hi; a++) {
++      const c = indices[a];
+       const b = 4 * c;
+-      const n0 = y > 0 ? c - W : -1;
+-      const n1 = x > 0 ? c - 1 : -1;
+-      const n2 = y < H - 1 ? c + W : -1;
+-      const n3 = x < W - 1 ? c + 1 : -1;
++      const n0 = nb0[c];
++      const n1 = nb1[c];
++      const n2 = nb2[c];
++      const n3 = nb3[c];
+       // inflow from direction k is the neighbour's outflow in the opposite direction
+       const in0 = n0 >= 0 ? f[4 * n0 + 2] : 0;
+       const in1 = n1 >= 0 ? f[4 * n1 + 3] : 0;
+@@ -458,6 +495,15 @@ export class WaterSim {
+       const f1 = f[b + 1];
+       const f2 = f[b + 2];
+       const f3 = f[b + 3];
++      // A dry active neighbour with no inflow remains dry. All four f slots of
++      // a dry tile are zero; retain the old zero's sign in Dold, as the reference does.
++      if (D[c] === 0 && in0 === 0 && in1 === 0 && in2 === 0 && in3 === 0) {
++        this.Dold[c] = D[c];
++        out[b] = 0; out[b + 1] = 0; out[b + 2] = 0; out[b + 3] = 0;
++        Cnew[c] = 0;
++        D[c] = 0;
++        continue;
++      }
+       const outsum = f0 + f1 + f2 + f3;
+       const insum = in0 + in1 + in2 + in3;
+       const cin =
+@@ -483,6 +529,30 @@ export class WaterSim {
+       Cnew[c] = newD > 1e-9 ? clamp01(mass / Math.max(newD, 1e-9)) : 0;
+       D[c] = newD;
+     }
++    }
++  }
++
++  private substep(scale: number): void {
++    const { W, H, F, D, C, out, f, wall, mod, dam, game, edgeSpill, n0: nb0, n1: nb1, n2: nb2, n3: nb3 } = this;
++    // flows of the tiles that had water last substep are stale: clear them
++    for (let k = 0; k < this.prevWetCount; k++) {
++      const c = this.prevWet[k];
++      if (D[c] > 0) continue; // all four slots are overwritten by flow pass 1
++      const b = 4 * c;
++      f[b] = 0;
++      f[b + 1] = 0;
++      f[b + 2] = 0;
++      f[b + 3] = 0;
++    }
++    this.buildActive();
++
++    // 1. outflows of every wet tile, from the start-of-substep state: the four directions written
++    //    out in order (−y, −x, +y, +x), each the same steps (PLAN §20 D130)
++    this.execute(1, this.wet, this.wetCount);
++
++    // 2. depth, contamination and stored momentum of every active tile
++    const Cnew = this.Cnew;
++    this.execute(2, this.active, this.activeCount);
+     for (let a = 0; a < this.activeCount; a++) {
+       const c = this.active[a];
+       C[c] = Cnew[c];
+@@ -508,11 +578,24 @@ export class WaterSim {
+     this.prevWetCount = this.wetCount;
+     this.wet = t;
+     let n = 0;
++    let changed = 0;
+     for (let a = 0; a < this.activeCount; a++) {
+       const c = this.active[a];
+-      if (D[c] > 0) this.wet[n++] = c;
++      const positive = +(D[c] > 0);
++      if (positive !== this.wetMask[c]) {
++        this.adjustWn(c, positive ? 1 : -1);
++        this.wetMask[c] = positive;
++        this.invalidateMod(c);
++        this.transitions[changed++] = c;
++      }
++      if (positive) this.wet[n++] = c;
+     }
+     this.wetCount = n;
++    // Membership changes are applied after scanning the old active list.
++    for (let k = 0; k < changed; k++) {
++      const c = this.transitions[k];
++      this.adjustActive(c, this.wetMask[c] ? 1 : -1);
++    }
+   }
+
+   /** Seeps switch off above their depth limit and back on below the restart depth. */
+@@ -528,7 +611,19 @@ export class WaterSim {
+
+   /** Run `ticks` ticks (2 substeps each). `strengthScale` scales every source (0 = drought). */
+   run(ticks: number, strengthScale = 1): this {
++    if (this.runScope) {
++      const scope = this.runScope; this.runScope = null;
++      try { scope(() => this.run(ticks, strengthScale)); }
++      finally { this.runScope = scope; }
++      return this;
++    }
+     for (let t = 0; t < ticks; t++) {
++      // Sorting indices improves locality without regrouping any physical sum.
++      // Rebuild the swap-delete positions after sorting; memberships stay unchanged.
++      if (this.ticks % 64 === 0) {
++        this.active.subarray(0, this.activeCount).sort();
++        for (let a = 0; a < this.activeCount; a++) this.activePos[this.active[a]] = a;
++      }
+       this.updateSeeps();
+       this.updateEvapMod();
+       this.substep(strengthScale);
+@@ -561,7 +656,7 @@ function clamp(v: number, lo: number, hi: number): number {
+ // ------------------------------------------------------------------------------------------ settle
+
+ export interface SettleOptions {
+-  /** Give up after this many game days (PLAN §11.3: `SETTLE_DAYS`). */
++  /** Give up after this many game days (PLAN §11.3: 4). */
+   maxDays?: number;
+   /** Largest depth change between checks that counts as still (PLAN §11.3: 0.005). */
+   tol?: number;

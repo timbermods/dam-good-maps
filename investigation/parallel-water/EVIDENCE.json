@@ -1,0 +1,7847 @@
+{
+  "base": "6c29b7e5",
+  "faster": "ed6fc4fb",
+  "determinism": "f306fd49",
+  "machine": {
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "logical": 16,
+    "memoryGiB": 61.60379409790039,
+    "os": "Windows_NT 10.0.26200",
+    "node": "v24.13.0"
+  },
+  "sources": {
+    "water.ts": "08799d4f22b3748913d27cb5c7ab9ce9b3d1ee3497a2120c8da8a0d636a703eb",
+    "runtime.ts": "e04570f63f0da83a2a8556dd873f810f2d075f8c1e4efa043734522b02ff6f02",
+    "helper.ts": "60e479a6d7decdb6179bd96e7661cf1ca026ba3198be8d91877a8563538d442c",
+    "isolation-sw.js": "454093597dc990507e1b3a1ef0e30b3e2a909775717be4724faeebaa42cb34a7",
+    "isolation-register.js": "91cf9bd0af5bf04e42dd09047c355e81b07ccc4fd65100e1e7d7ed8752e4912d",
+    "adoption.patch": "38f70be82b291e262b3fb7aa40e2bca6caebe00fda46cebb3f7d35a83ea44973",
+    "coordinator.ts": "e0d85548e48090721e457f789ef24b264c2eba80c31595932acc0d21a262f680",
+    "weather-coordinator.ts": "d114bdbd1850d8222595da183dca565268d47e55884533972a8353e64f53f11d",
+    "generation-coordinator.ts": "dc539e51835072379e93e7dcf6f6280f4c547f6b52385895808d2007911d04e5"
+  },
+  "engines": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "counts": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ]
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "counts": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ]
+    },
+    "webkit": {
+      "version": "26.0",
+      "counts": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ]
+    }
+  },
+  "counts": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "timingContext": "Investigation verification/input/timing jobs sequenced; other host activity uncontrolled. Three pairs at 128/256, one long pair at 512.",
+  "inputs": {
+    "complete": 1050,
+    "refused": 12,
+    "api": "3c3a3682c854ff40886689180459474ceb5001319e4f1b747fe6ff46ecb77e9f",
+    "recordsRoot": "c05752fcaf61351babf7316875e08726b9fb66a08898c97766320896dca9242d"
+  },
+  "suites": {
+    "batch": {
+      "build": "01d7547383d2cdefecf1db266212bd5d7c24b0ab41204d5f1b9cc432bb82288f",
+      "complete": 1050,
+      "records": 15750,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "efa16fa3ebdcc73cc346bc92b10ecf16b2a44656143bbeba8867cf7299f46709"
+    },
+    "survey": {
+      "build": "01d7547383d2cdefecf1db266212bd5d7c24b0ab41204d5f1b9cc432bb82288f",
+      "complete": 52,
+      "records": 780,
+      "tickOrSliceChecks": 359880,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "38e453a5c90ecec6b4d60a7c2f1cf195dce2b6db90ff1a25385338ecdf98c8c5"
+    },
+    "forced": {
+      "build": "01d7547383d2cdefecf1db266212bd5d7c24b0ab41204d5f1b9cc432bb82288f",
+      "complete": 24,
+      "records": 504,
+      "tickOrSliceChecks": 100800,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "4128095664a8ba4a87cbb79bc671a01014f74a29785181a1b4ab384d980953fe"
+    },
+    "weather": {
+      "build": "8f19236f8b0fd19bf84bc5e114290c34ab3d44c46b24ed0904e494e11d958c5b",
+      "complete": 9,
+      "records": 135,
+      "tickOrSliceChecks": 65145,
+      "directScalarChecks": 13029,
+      "frameHashes": 65145,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "052ba72036fee7bcc417a7de5288f933292eb7818e7229dffa066c7e502e1871"
+    },
+    "benchmark": {
+      "build": "01d7547383d2cdefecf1db266212bd5d7c24b0ab41204d5f1b9cc432bb82288f",
+      "complete": 21,
+      "records": 315,
+      "tickOrSliceChecks": 5145,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "73464dc83f92dee34dce5c37a8e10d50f88653029fc9813d0073fd2053e16435"
+    },
+    "slow-benchmark": {
+      "build": "01d7547383d2cdefecf1db266212bd5d7c24b0ab41204d5f1b9cc432bb82288f",
+      "complete": 6,
+      "records": 90,
+      "tickOrSliceChecks": 3105,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "5270864c24bb268722f16ec52e818e6a2744234aa80d68b5cbb4345e6aa85f87"
+    },
+    "generation": {
+      "build": "0613370692a3988d2809954eab23f2ed0e978be6f2bd859488f68a89614b27a9",
+      "complete": 6,
+      "records": 90,
+      "tickOrSliceChecks": 0,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "f4800bbec3fca38c3ad5216cf690dcf5aee0a53e9a3f3e0777bc4afaed80ccb7"
+    },
+    "runtime": {
+      "build": "52ec0d755a5cf4c2304ad503422bf804e2d2b5e4d18e9bdb96b90f54c4b69541",
+      "complete": 1,
+      "records": 15,
+      "tickOrSliceChecks": 0,
+      "directScalarChecks": 0,
+      "frameHashes": 0,
+      "errors": 0,
+      "mismatches": 0,
+      "recordsRoot": "a9275b7ba9d7803f57230d731b0868113679ca8bc6cc3822e8ff137f4fc8a421"
+    }
+  },
+  "isolation": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "isolated": true,
+      "sab": true,
+      "loads": 2,
+      "controller": true,
+      "resources": {
+        "denied": false,
+        "corp": true,
+        "cors": true
+      },
+      "warm": {
+        "isolated": true,
+        "loads": 3
+      },
+      "update": {
+        "waiting": true,
+        "loads": 3,
+        "loadsAfter": 3,
+        "isolated": true
+      },
+      "preview": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/isolation-sw.js"
+      },
+      "sibling": {
+        "isolated": false,
+        "controlled": false
+      },
+      "blocked": {
+        "isolated": false,
+        "loads": 1
+      },
+      "existingWorker": {
+        "isolated": false,
+        "loads": 1,
+        "script": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "previewOverCache": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "cacheAttempt": "passed online and network-failure navigation",
+      "cacheOffline": {
+        "isolated": true,
+        "loads": 4
+      },
+      "networkFailureCached": {
+        "isolated": true,
+        "loads": 5
+      }
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "isolated": true,
+      "sab": true,
+      "loads": 2,
+      "controller": true,
+      "resources": {
+        "denied": false,
+        "corp": true,
+        "cors": true
+      },
+      "warm": {
+        "isolated": true,
+        "loads": 3
+      },
+      "update": {
+        "waiting": true,
+        "loads": 3,
+        "loadsAfter": 3,
+        "isolated": true
+      },
+      "preview": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/isolation-sw.js"
+      },
+      "sibling": {
+        "isolated": false,
+        "controlled": false
+      },
+      "blocked": {
+        "isolated": false,
+        "loads": 1
+      },
+      "existingWorker": {
+        "isolated": false,
+        "loads": 1,
+        "script": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "previewOverCache": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "cacheAttempt": "passed online and network-failure navigation",
+      "cacheOffline": {
+        "isolated": true,
+        "loads": 4
+      },
+      "networkFailureCached": {
+        "isolated": true,
+        "loads": 5
+      }
+    },
+    "webkit": {
+      "version": "26.0",
+      "isolated": true,
+      "sab": true,
+      "loads": 2,
+      "controller": true,
+      "resources": {
+        "denied": false,
+        "corp": true,
+        "cors": true
+      },
+      "warm": {
+        "isolated": true,
+        "loads": 3
+      },
+      "update": {
+        "waiting": true,
+        "loads": 3,
+        "loadsAfter": 3,
+        "isolated": true
+      },
+      "preview": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/isolation-sw.js"
+      },
+      "sibling": {
+        "isolated": false,
+        "controlled": false
+      },
+      "blocked": {
+        "isolated": false,
+        "loads": 1
+      },
+      "existingWorker": {
+        "isolated": false,
+        "loads": 1,
+        "script": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "previewOverCache": {
+        "isolated": true,
+        "script": "http://127.0.0.1:61673/dam-good-maps/preview/isolation-sw.js",
+        "parent": "http://127.0.0.1:61673/dam-good-maps/existing-cache.js"
+      },
+      "cacheAttempt": "passed online and network-failure navigation",
+      "offlineEmulationError": "Error: page.reload: WebKit encountered an internal error\nCall log:\n\u001b[2m  - waiting for navigation until \"load\"\u001b[22m\n",
+      "networkFailureCached": {
+        "isolated": true,
+        "loads": 4
+      },
+      "plainOfflineControl": "Error: page.reload: WebKit encountered an internal error\nCall log:\n\u001b[2m  - waiting for navigation until \"load\"\u001b[22m\n"
+    }
+  },
+  "fallback": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "noIsolation": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": false
+      },
+      "failedStartup": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": true
+      }
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "noIsolation": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": false
+      },
+      "failedStartup": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": true
+      }
+    },
+    "webkit": {
+      "version": "26.0",
+      "noIsolation": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": false
+      },
+      "failedStartup": {
+        "threads": 1,
+        "tickChecks": 400,
+        "isolated": true
+      }
+    }
+  },
+  "failure": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "phaseTimeout": true,
+      "discarded": true,
+      "scalarRetryTicks": 20,
+      "partialTicks": 0
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "phaseTimeout": true,
+      "discarded": true,
+      "scalarRetryTicks": 20,
+      "partialTicks": 0
+    },
+    "webkit": {
+      "version": "26.0",
+      "phaseTimeout": true,
+      "discarded": true,
+      "scalarRetryTicks": 20,
+      "partialTicks": 0
+    }
+  },
+  "forcingCounterexample": [
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 22,
+      "components": [
+        "forcing",
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 23,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 24,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 25,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 26,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 27,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 28,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 29,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 30,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 31,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 32,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 33,
+      "components": [
+        "contamination"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "mode": "fractionalNative",
+      "tick": 34,
+      "components": [
+        "contamination"
+      ]
+    }
+  ],
+  "slowSelection": [
+    {
+      "id": "m9b-lakeBasin-128-41",
+      "selection": {
+        "id": "m9b-lakeBasin-128-41",
+        "seed": 41,
+        "ticks": 4352,
+        "result": {
+          "settled": true,
+          "ticks": 4352
+        },
+        "proofHash": "96953d1a6dd34a7cebf6a026360f09a4a8f1a99470b85a17da757cebfdfcb781"
+      },
+      "provenance": {
+        "base": "6c29b7e5",
+        "api": "3c3a3682c854ff40886689180459474ceb5001319e4f1b747fe6ff46ecb77e9f"
+      }
+    },
+    {
+      "id": "m9b-lakeBasin-256-20",
+      "selection": {
+        "id": "m9b-lakeBasin-256-20",
+        "seed": 20,
+        "ticks": 4480,
+        "result": {
+          "settled": true,
+          "ticks": 4480
+        },
+        "proofHash": "1c68ea1ef08020177cdf1094342152951c088d9bc98f546c1fe135b816b31589"
+      },
+      "provenance": {
+        "base": "6c29b7e5",
+        "api": "3c3a3682c854ff40886689180459474ceb5001319e4f1b747fe6ff46ecb77e9f"
+      }
+    }
+  ],
+  "benchmark": [
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "threads": 1,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 406.5949999690056,
+      "parallelMs": 493.97000002861023,
+      "pairedSpeedup": 0.8832388309536973,
+      "range": [
+        0.8231167883585158,
+        0.8832388309536973,
+        0.9453664754050448
+      ],
+      "startupMs": [
+        3.259999990463257,
+        3.725000023841858,
+        2.185000002384186
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "threads": 2,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 418.1399999856949,
+      "parallelMs": 390.28499990701675,
+      "pairedSpeedup": 1.1166455285399477,
+      "range": [
+        0.7840909091061504,
+        1.1166455285399477,
+        1.156403545913136
+      ],
+      "startupMs": [
+        14.270000040531158,
+        5.534999966621399,
+        4.080000042915344
+      ],
+      "dispatch": [
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "threads": 4,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 408.45500010252,
+      "parallelMs": 414.7299998998642,
+      "pairedSpeedup": 0.9848696747308868,
+      "range": [
+        0.9280342717680349,
+        0.9848696747308868,
+        1.0370566893588442
+      ],
+      "startupMs": [
+        58.814999997615814,
+        2.125,
+        3.0550000071525574
+      ],
+      "dispatch": [
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "threads": 8,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 518.2199999690056,
+      "parallelMs": 438.70500004291534,
+      "pairedSpeedup": 1.082044673776053,
+      "range": [
+        0.8709927266512913,
+        1.082044673776053,
+        1.181249358722403
+      ],
+      "startupMs": [
+        112.09499996900558,
+        3.25,
+        2.324999988079071
+      ],
+      "dispatch": [
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "threads": 16,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 397.52999997138977,
+      "parallelMs": 424.86500000953674,
+      "pairedSpeedup": 0.9185213859147335,
+      "range": [
+        0.8516379143915677,
+        0.9185213859147335,
+        0.9356619160497255
+      ],
+      "startupMs": [
+        386.5600000023842,
+        5.719999969005585,
+        2.1700000166893005
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "threads": 1,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 349.4799999999998,
+      "parallelMs": 374.820000000298,
+      "pairedSpeedup": 0.9480392156967569,
+      "range": [
+        0.9174148159815193,
+        0.9480392156967569,
+        1.006776586092268
+      ],
+      "startupMs": [
+        4.480000000000018,
+        4.46000000089407,
+        2.6200000010430813
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "threads": 2,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 351.69999999999993,
+      "parallelMs": 225.0800000000745,
+      "pairedSpeedup": 1.2217985800710314,
+      "range": [
+        0.8546364696734061,
+        1.2217985800710314,
+        1.698240625555789
+      ],
+      "startupMs": [
+        205.32000000000002,
+        4.480000000447035,
+        2.480000000447035
+      ],
+      "dispatch": [
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "threads": 4,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 453.49999999999955,
+      "parallelMs": 459.85999999940395,
+      "pairedSpeedup": 0.9860368713634619,
+      "range": [
+        0.9071451432229146,
+        0.9860368713634619,
+        1.0564954551476666
+      ],
+      "startupMs": [
+        1621.9399999999998,
+        4.439999999478459,
+        2.3600000012665987
+      ],
+      "dispatch": [
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "threads": 8,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 347.1200000010431,
+      "parallelMs": 353.4999999999998,
+      "pairedSpeedup": 1.002828854314003,
+      "range": [
+        0.9413679015046718,
+        1.002828854314003,
+        1.0582148948389591
+      ],
+      "startupMs": [
+        310.1,
+        4.660000000149012,
+        2.3399999998509884
+      ],
+      "dispatch": [
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "threads": 16,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 425.35999999940395,
+      "parallelMs": 413.7999999999995,
+      "pairedSpeedup": 0.9830405814594745,
+      "range": [
+        0.9280851806654407,
+        0.9830405814594745,
+        1.0993716771387148
+      ],
+      "startupMs": [
+        177.33999999999992,
+        4.5599999986588955,
+        2.5399999991059303
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "threads": 1,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 252.32000000216067,
+      "parallelMs": 239.63999999687076,
+      "pairedSpeedup": 0.9740154283403138,
+      "range": [
+        0.9579994063520326,
+        0.9740154283403138,
+        1.0529127024096792
+      ],
+      "startupMs": [
+        4.359999999999957,
+        4.579999998211861,
+        2.080000000074506
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "threads": 2,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 195.9000000000002,
+      "parallelMs": 269.90000000037253,
+      "pairedSpeedup": 0.746498703224042,
+      "range": [
+        0.1668029018085217,
+        0.746498703224042,
+        1.0934952586288633
+      ],
+      "startupMs": [
+        140.07999999999998,
+        3.699999999254942,
+        1.3599999994039536
+      ],
+      "dispatch": [
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        },
+        {
+          "parallel": 2560,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "threads": 4,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 240.3599999975413,
+      "parallelMs": 356.48000000603497,
+      "pairedSpeedup": 0.6742594254754044,
+      "range": [
+        0.5861955628594901,
+        0.6742594254754044,
+        1.164427383193123
+      ],
+      "startupMs": [
+        177.66,
+        2.0599999986588955,
+        2.6600000001490116
+      ],
+      "dispatch": [
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        },
+        {
+          "parallel": 83,
+          "scalar": 2477
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "threads": 8,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 229.51999999999964,
+      "parallelMs": 399.5800000010058,
+      "pairedSpeedup": 0.6377696581344082,
+      "range": [
+        0.4068349404424266,
+        0.6377696581344082,
+        1.0548360429938552
+      ],
+      "startupMs": [
+        266.05999999999995,
+        3.459999999962747,
+        1.099999999627471
+      ],
+      "dispatch": [
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        },
+        {
+          "parallel": 34,
+          "scalar": 2526
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "threads": 16,
+      "ticks": 640,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 282.9400000004098,
+      "parallelMs": 222.5200000004843,
+      "pairedSpeedup": 1.0146091076766737,
+      "range": [
+        0.9252651880424306,
+        1.0146091076766737,
+        1.271526154951438
+      ],
+      "startupMs": [
+        243.05999999999997,
+        2.860000000335276,
+        1.280000001192093
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        },
+        {
+          "parallel": 0,
+          "scalar": 2560
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 728.2349999547005,
+      "parallelMs": 734.410000026226,
+      "pairedSpeedup": 0.9584008942709529,
+      "range": [
+        0.9104272700637394,
+        0.9584008942709529,
+        0.9915918899915509
+      ],
+      "startupMs": [
+        2.1299999952316284,
+        1.4549999833106995,
+        2.324999988079071
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 895.4700000286102,
+      "parallelMs": 782.6750000119209,
+      "pairedSpeedup": 1.144114734742992,
+      "range": [
+        0.9910137157072821,
+        1.144114734742992,
+        1.309566799143201
+      ],
+      "startupMs": [
+        1.8199999928474426,
+        4.25,
+        0.9200000166893005
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 853.4050000309944,
+      "parallelMs": 741.5250000357628,
+      "pairedSpeedup": 1.0192600814610742,
+      "range": [
+        0.9138348275916496,
+        1.0192600814610742,
+        1.1508782576310115
+      ],
+      "startupMs": [
+        3.2299999594688416,
+        3.9950000047683716,
+        2.1200000047683716
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 846.8149999976158,
+      "parallelMs": 947.5200000405312,
+      "pairedSpeedup": 0.9200052624704838,
+      "range": [
+        0.8937172829717499,
+        0.9200052624704838,
+        0.9852539792022261
+      ],
+      "startupMs": [
+        2.084999978542328,
+        2.650000035762787,
+        0.6049999594688416
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 737.6249998807907,
+      "parallelMs": 755.5450001358986,
+      "pairedSpeedup": 0.9762820212536849,
+      "range": [
+        0.9592824995640283,
+        0.9762820212536849,
+        1.0037803187286303
+      ],
+      "startupMs": [
+        2.2950000166893005,
+        2.0200000405311584,
+        0.8100000023841858
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 713.3000000007451,
+      "parallelMs": 743.1199999973178,
+      "pairedSpeedup": 0.982162550947053,
+      "range": [
+        0.9598718914890187,
+        0.982162550947053,
+        0.982711846384736
+      ],
+      "startupMs": [
+        3.040000000000873,
+        3.1600000001490116,
+        1.7200000006705523
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 695.0199999999968,
+      "parallelMs": 513.1199999991804,
+      "pairedSpeedup": 1.1908654820536169,
+      "range": [
+        0.8131361583639313,
+        1.1908654820536169,
+        1.6518942937371315
+      ],
+      "startupMs": [
+        3.3999999999941792,
+        2.5400000009685755,
+        1.180000001564622
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 531.8600000012666,
+      "parallelMs": 532.0600000005215,
+      "pairedSpeedup": 0.90572424094008,
+      "range": [
+        0.8775151307525464,
+        0.90572424094008,
+        0.9996241025462265
+      ],
+      "startupMs": [
+        4.060000000004948,
+        2.2399999983608723,
+        3.1799999997019768
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 416.6400000024587,
+      "parallelMs": 414.3799999989569,
+      "pairedSpeedup": 0.9048013673852564,
+      "range": [
+        0.8833934925633149,
+        0.9048013673852564,
+        1.0054539311827488
+      ],
+      "startupMs": [
+        3.400000000001455,
+        1.200000001117587,
+        1.200000001117587
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 491.4599999990314,
+      "parallelMs": 480.5999999977648,
+      "pairedSpeedup": 0.9718530555394229,
+      "range": [
+        0.8686873485610921,
+        0.9718530555394229,
+        1.0225967540601688
+      ],
+      "startupMs": [
+        3.819999999999709,
+        1.9599999990314245,
+        2.2600000016391277
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 298.3400000000038,
+      "parallelMs": 292.30000000002474,
+      "pairedSpeedup": 1.01665004217843,
+      "range": [
+        0.952768290491652,
+        1.01665004217843,
+        1.0206637016762865
+      ],
+      "startupMs": [
+        4.379999999997381,
+        1.200000001117587,
+        1.299999998882413
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 268.1999999999971,
+      "parallelMs": 275.1200000000099,
+      "pairedSpeedup": 0.9748473393427866,
+      "range": [
+        0.929209728837925,
+        0.9748473393427866,
+        0.9944316613449371
+      ],
+      "startupMs": [
+        3.8800000000046566,
+        2.3200000002980232,
+        1.1799999997019768
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 389.4800000000032,
+      "parallelMs": 386.9800000000032,
+      "pairedSpeedup": 0.9987797735214201,
+      "range": [
+        0.9621923369720651,
+        0.9987797735214201,
+        1.0064602821851258
+      ],
+      "startupMs": [
+        5.319999999999709,
+        2.419999999925494,
+        1.7600000016391277
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 454.7599999960512,
+      "parallelMs": 460.1799999959767,
+      "pairedSpeedup": 0.9882220000869815,
+      "range": [
+        0.8663237129780479,
+        0.9882220000869815,
+        1.0261066969638157
+      ],
+      "startupMs": [
+        1.9199999999982538,
+        2.1400000005960464,
+        1
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 443.6799999959767,
+      "parallelMs": 470.90000000596046,
+      "pairedSpeedup": 0.9521306032096677,
+      "range": [
+        0.9421957952651534,
+        0.9521306032096677,
+        0.9821548821849914
+      ],
+      "startupMs": [
+        6.059999999997672,
+        1.9399999985471368,
+        0.6999999992549419
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2244.5599999427795,
+      "parallelMs": 2204.790000140667,
+      "pairedSpeedup": 1.0643894943889867,
+      "range": [
+        1.0180379989929087,
+        1.0643894943889867,
+        1.1671190162063347
+      ],
+      "startupMs": [
+        3.2300000190734863,
+        8.349999964237213,
+        1.1549999713897705
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2487.5400000810623,
+      "parallelMs": 1902.699999988079,
+      "pairedSpeedup": 1.3073737321157552,
+      "range": [
+        1.2882027019372875,
+        1.3073737321157552,
+        1.4155693117210684
+      ],
+      "startupMs": [
+        2.474999964237213,
+        4.519999980926514,
+        1.3649999499320984
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2133.9750000834465,
+      "parallelMs": 1162.7800000309944,
+      "pairedSpeedup": 1.9353672509037902,
+      "range": [
+        1.5920137271792536,
+        1.9353672509037902,
+        2.2446034503083157
+      ],
+      "startupMs": [
+        1.3899999856948853,
+        3.949999988079071,
+        2.2450000047683716
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2182.7100000977516,
+      "parallelMs": 2006.8400000333786,
+      "pairedSpeedup": 1.0876352873479938,
+      "range": [
+        0.8354097701560604,
+        1.0876352873479938,
+        1.2500613554397868
+      ],
+      "startupMs": [
+        4.514999985694885,
+        2.699999988079071,
+        2.534999966621399
+      ],
+      "dispatch": [
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2485.319999933243,
+      "parallelMs": 2294.9749997854233,
+      "pairedSpeedup": 1.0504488664033977,
+      "range": [
+        0.9394837903895087,
+        1.0504488664033977,
+        1.0832732384404193
+      ],
+      "startupMs": [
+        2.7049999833106995,
+        25.26500004529953,
+        3.199999988079071
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2155.10000000149,
+      "parallelMs": 2018.7400000002235,
+      "pairedSpeedup": 1.001004961431217,
+      "range": [
+        0.9450526750691844,
+        1.001004961431217,
+        1.0675470838251837
+      ],
+      "startupMs": [
+        4,
+        3.919999999925494,
+        3.580000000074506
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2090.140000000043,
+      "parallelMs": 1143.480000000447,
+      "pairedSpeedup": 1.4468945799471615,
+      "range": [
+        1.149540214713168,
+        1.4468945799471615,
+        2.0829397978132884
+      ],
+      "startupMs": [
+        4.3399999999965075,
+        3.9399999994784594,
+        1.680000001564622
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2395.1800000000076,
+      "parallelMs": 1477.359999999404,
+      "pairedSpeedup": 1.6226376780188394,
+      "range": [
+        1.5293524206009734,
+        1.6226376780188394,
+        2.0091608502484495
+      ],
+      "startupMs": [
+        3.7400000000052387,
+        4.099999999627471,
+        1.8600000012665987
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1964.640000000014,
+      "parallelMs": 2092.520000005141,
+      "pairedSpeedup": 0.9787146598320161,
+      "range": [
+        0.8963755155673945,
+        0.9787146598320161,
+        1.10730019605936
+      ],
+      "startupMs": [
+        3.959999999991851,
+        3.9399999994784594,
+        2
+      ],
+      "dispatch": [
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2066.660000000018,
+      "parallelMs": 2098.3399999999965,
+      "pairedSpeedup": 0.9461883408042877,
+      "range": [
+        0.9425803816242593,
+        0.9461883408042877,
+        0.9849023513825317
+      ],
+      "startupMs": [
+        3.6199999999953434,
+        4.240000000223517,
+        1.7200000006705523
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "threads": 1,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1099.8400000000547,
+      "parallelMs": 1099.7799999999988,
+      "pairedSpeedup": 1.0000545563658694,
+      "range": [
+        0.960358157774031,
+        1.0000545563658694,
+        1.006977769701446
+      ],
+      "startupMs": [
+        28.579999999987194,
+        1.300000000745058,
+        0.7600000016391277
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "threads": 2,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1111.0599999999686,
+      "parallelMs": 785.5999999959022,
+      "pairedSpeedup": 1.3233888132810512,
+      "range": [
+        1.0104403499518364,
+        1.3233888132810512,
+        1.514714867626147
+      ],
+      "startupMs": [
+        1.7399999999906868,
+        2.3399999998509884,
+        0.5800000000745058
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "threads": 4,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1091.2799999999697,
+      "parallelMs": 1693.0000000000582,
+      "pairedSpeedup": 0.6445835794447325,
+      "range": [
+        0.23124758332242357,
+        0.6445835794447325,
+        1.8659864612917707
+      ],
+      "startupMs": [
+        2.55999999998312,
+        2.5799999982118607,
+        2.4799999985843897
+      ],
+      "dispatch": [
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        },
+        {
+          "parallel": 5632,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "threads": 8,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1119.3399999999674,
+      "parallelMs": 4633.3399999999965,
+      "pairedSpeedup": 0.24158382505923767,
+      "range": [
+        0.15704736627755556,
+        0.24158382505923767,
+        1.2595002422514434
+      ],
+      "startupMs": [
+        2.360000000015134,
+        2.400000000372529,
+        0.7399999983608723
+      ],
+      "dispatch": [
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        },
+        {
+          "parallel": 2816,
+          "scalar": 2816
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "threads": 16,
+      "ticks": 1408,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1169.4400000000896,
+      "parallelMs": 1179.4999999990687,
+      "pairedSpeedup": 0.9688965092283088,
+      "range": [
+        0.9639936692166894,
+        0.9688965092283088,
+        1.0649088596899596
+      ],
+      "startupMs": [
+        2.620000000024447,
+        2.5399999991059303,
+        0.7200000006705523
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        },
+        {
+          "parallel": 0,
+          "scalar": 5632
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "threads": 1,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4807.365000009537,
+      "parallelMs": 4792.254999935627,
+      "pairedSpeedup": 1.0031530041857357,
+      "range": [
+        0.9993172650115367,
+        1.0031530041857357,
+        1.013880163136833
+      ],
+      "startupMs": [
+        12.134999990463257,
+        4.459999978542328,
+        2.314999997615814
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "threads": 2,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5666.550000011921,
+      "parallelMs": 3975.0049999952316,
+      "pairedSpeedup": 1.4255453766771913,
+      "range": [
+        1.1040105121032857,
+        1.4255453766771913,
+        1.629344810342185
+      ],
+      "startupMs": [
+        11.585000038146973,
+        14.710000038146973,
+        3.1449999809265137
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "threads": 4,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6240.954999983311,
+      "parallelMs": 3313.190000116825,
+      "pairedSpeedup": 2.0019560368241573,
+      "range": [
+        1.5684850602355418,
+        2.0019560368241573,
+        2.4602467711295373
+      ],
+      "startupMs": [
+        4.589999973773956,
+        16.039999961853027,
+        3.449999988079071
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "threads": 8,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 7432.819999933243,
+      "parallelMs": 3574.3599999547005,
+      "pairedSpeedup": 2.174166843864109,
+      "range": [
+        1.4138860170880274,
+        2.174166843864109,
+        2.4385210017848684
+      ],
+      "startupMs": [
+        9.129999995231628,
+        4.76500004529953,
+        2.6050000190734863
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "threads": 16,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6709.709999799728,
+      "parallelMs": 4306.285000085831,
+      "pairedSpeedup": 1.55812028225396,
+      "range": [
+        1.3057013201602714,
+        1.55812028225396,
+        1.762206396210143
+      ],
+      "startupMs": [
+        4.980000019073486,
+        6.224999964237213,
+        5.074999988079071
+      ],
+      "dispatch": [
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "threads": 1,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5444.420000003651,
+      "parallelMs": 5397.680000001565,
+      "pairedSpeedup": 0.9963109296893619,
+      "range": [
+        0.9875512763995201,
+        0.9963109296893619,
+        1.0086592758374102
+      ],
+      "startupMs": [
+        8.840000000025611,
+        9.760000001639128,
+        3.119999999180436
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "threads": 2,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5850.560000004247,
+      "parallelMs": 3164.9799999985844,
+      "pairedSpeedup": 1.5415768220497164,
+      "range": [
+        1.2583047103026543,
+        1.5415768220497164,
+        1.8485298485320172
+      ],
+      "startupMs": [
+        9.600000000034925,
+        8.279999999329448,
+        3.1200000010430813
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "threads": 4,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6104.5600000005215,
+      "parallelMs": 2875.5800000038,
+      "pairedSpeedup": 2.0522620471063666,
+      "range": [
+        1.6063074323217719,
+        2.0522620471063666,
+        2.1228969460047904
+      ],
+      "startupMs": [
+        6.760000000009313,
+        10.419999999925494,
+        3.4600000008940697
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "threads": 8,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5405.7600000000675,
+      "parallelMs": 2553.9399999994785,
+      "pairedSpeedup": 2.274540513871339,
+      "range": [
+        2.0481018413276724,
+        2.274540513871339,
+        2.317678708694267
+      ],
+      "startupMs": [
+        4.459999999962747,
+        8.519999999552965,
+        3.080000000074506
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "threads": 16,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4347.119999995455,
+      "parallelMs": 2436.9999999962747,
+      "pairedSpeedup": 1.520451951827224,
+      "range": [
+        1.3780678630334016,
+        1.520451951827224,
+        1.7837997537965122
+      ],
+      "startupMs": [
+        10.040000000037253,
+        3.5600000005215406,
+        3.6600000001490116
+      ],
+      "dispatch": [
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "threads": 1,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3414.1999999973923,
+      "parallelMs": 3260.6600000038743,
+      "pairedSpeedup": 1.0223928285748567,
+      "range": [
+        1.015353401982411,
+        1.0223928285748567,
+        1.0470886262270018
+      ],
+      "startupMs": [
+        2.8800000000046566,
+        9.799999998882413,
+        4.320000000298023
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "threads": 2,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3665.1399999987334,
+      "parallelMs": 2631.439999995753,
+      "pairedSpeedup": 1.3906874572302519,
+      "range": [
+        0.8919056912586286,
+        1.3906874572302519,
+        1.3928267412537045
+      ],
+      "startupMs": [
+        15.260000000009313,
+        11.040000000968575,
+        3.2799999993294477
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "threads": 4,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3533,
+      "parallelMs": 4759.220000004396,
+      "pairedSpeedup": 0.7423485361039701,
+      "range": [
+        0.7367924457657276,
+        0.7423485361039701,
+        1.9980237805029857
+      ],
+      "startupMs": [
+        9.460000000020955,
+        9.160000000149012,
+        4.680000001564622
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "threads": 8,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3262.4799999998068,
+      "parallelMs": 7721.280000000086,
+      "pairedSpeedup": 0.4225309793194613,
+      "range": [
+        0.33840517606718096,
+        0.4225309793194613,
+        2.347876004602205
+      ],
+      "startupMs": [
+        9.059999999997672,
+        10.02000000141561,
+        2.099999999627471
+      ],
+      "dispatch": [
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        },
+        {
+          "parallel": 7680,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "threads": 16,
+      "ticks": 1920,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3366.7199999969453,
+      "parallelMs": 4043.059999998659,
+      "pairedSpeedup": 0.8327158142590172,
+      "range": [
+        0.6114790640473251,
+        0.8327158142590172,
+        1.5550065239606883
+      ],
+      "startupMs": [
+        17.35999999998603,
+        10.100000001490116,
+        2.380000000819564
+      ],
+      "dispatch": [
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        },
+        {
+          "parallel": 4794,
+          "scalar": 2886
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 1,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5761.2300000190735,
+      "parallelMs": 5748.195000231266,
+      "pairedSpeedup": 1.0022676683354137,
+      "range": [
+        0.9952554186884316,
+        1.0022676683354137,
+        1.0043600408480926
+      ],
+      "startupMs": [
+        4.7950000166893005,
+        6.134999990463257,
+        11.009999990463257
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 2,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6540.945000052452,
+      "parallelMs": 5204.380000054836,
+      "pairedSpeedup": 1.1543258514101291,
+      "range": [
+        1.0160580777961303,
+        1.1543258514101291,
+        1.2769426905421233
+      ],
+      "startupMs": [
+        5.834999978542328,
+        3.2950000166893005,
+        9.469999969005585
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 4,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6975.145000040531,
+      "parallelMs": 5950.100000023842,
+      "pairedSpeedup": 1.0885111174658666,
+      "range": [
+        1.0476706522279813,
+        1.0885111174658666,
+        1.4968044780552467
+      ],
+      "startupMs": [
+        14.290000021457672,
+        14.860000014305115,
+        5.435000002384186
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 8,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 7369.609999895096,
+      "parallelMs": 5082.719999790192,
+      "pairedSpeedup": 1.425416902832231,
+      "range": [
+        0.8627151393939172,
+        1.425416902832231,
+        1.5974357306417724
+      ],
+      "startupMs": [
+        3.2699999809265137,
+        3.9850000143051147,
+        6.264999985694885
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 16,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 7292.474999785423,
+      "parallelMs": 7823.54499989748,
+      "pairedSpeedup": 0.9484808298191758,
+      "range": [
+        0.9321190074168403,
+        0.9484808298191758,
+        1.0027814074573862
+      ],
+      "startupMs": [
+        5.899999976158142,
+        7.905000030994415,
+        7.284999966621399
+      ],
+      "dispatch": [
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 1,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5993.0600000005215,
+      "parallelMs": 6074.88000000082,
+      "pairedSpeedup": 0.9823831911083777,
+      "range": [
+        0.969210460376393,
+        0.9823831911083777,
+        0.9901138297339233
+      ],
+      "startupMs": [
+        7.880000000004657,
+        6.519999999552965,
+        17.43999999947846
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 2,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6176.679999999702,
+      "parallelMs": 3597.219999998808,
+      "pairedSpeedup": 1.7170704043683036,
+      "range": [
+        1.2674144666494367,
+        1.7170704043683036,
+        1.8358208109197658
+      ],
+      "startupMs": [
+        6.260000000009313,
+        6.580000000074506,
+        7.699999999254942
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 4,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6229.440000001341,
+      "parallelMs": 3673.520000000135,
+      "pairedSpeedup": 1.8687798079224827,
+      "range": [
+        1.4358050095109536,
+        1.8687798079224827,
+        2.0827560382001087
+      ],
+      "startupMs": [
+        7.839999999967404,
+        8.06000000052154,
+        8.900000000372529
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 8,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 5671.280000001192,
+      "parallelMs": 2759.280000001192,
+      "pairedSpeedup": 2.0553477718820643,
+      "range": [
+        1.8579917859002748,
+        2.0553477718820643,
+        2.2030920019501607
+      ],
+      "startupMs": [
+        8.540000000037253,
+        8.53999999910593,
+        2.919999999925494
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 16,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 6069.939999997616,
+      "parallelMs": 5975.779999995604,
+      "pairedSpeedup": 1.014038520256484,
+      "range": [
+        0.9831409070613036,
+        1.014038520256484,
+        1.0157569388434784
+      ],
+      "startupMs": [
+        7.580000000074506,
+        8.080000000074506,
+        2.980000000447035
+      ],
+      "dispatch": [
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 1,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3368.539999999106,
+      "parallelMs": 3577.560000004247,
+      "pairedSpeedup": 0.9415747045458657,
+      "range": [
+        0.9258416144989862,
+        0.9415747045458657,
+        1.0331429009570736
+      ],
+      "startupMs": [
+        4.0799999999580905,
+        7.620000001043081,
+        3.219999998807907
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 2,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3227.260000003502,
+      "parallelMs": 2560.5600000005215,
+      "pairedSpeedup": 1.2603727309662123,
+      "range": [
+        0.6973098140706762,
+        1.2603727309662123,
+        1.4286990849199663
+      ],
+      "startupMs": [
+        11.040000000037253,
+        8.02000000141561,
+        2.880000000819564
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 4,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3573.6400000024587,
+      "parallelMs": 3592.599999997765,
+      "pairedSpeedup": 0.9947224851095814,
+      "range": [
+        0.9174591614261183,
+        0.9947224851095814,
+        1.9800936591902696
+      ],
+      "startupMs": [
+        8.35999999998603,
+        6.000000001862645,
+        3.619999999180436
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 8,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3880.3400000003166,
+      "parallelMs": 8578.699999997392,
+      "pairedSpeedup": 0.46671407089696865,
+      "range": [
+        0.23296698282561704,
+        0.46671407089696865,
+        2.175933017685941
+      ],
+      "startupMs": [
+        7.620000000111759,
+        6.200000001117587,
+        3.699999999254942
+      ],
+      "dispatch": [
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        },
+        {
+          "parallel": 11776,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "threads": 16,
+      "ticks": 2944,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 3773.519999999553,
+      "parallelMs": 3785.759999996051,
+      "pairedSpeedup": 0.9967668314957866,
+      "range": [
+        0.9106553444833655,
+        0.9967668314957866,
+        1.0001388385375445
+      ],
+      "startupMs": [
+        9.35999999998603,
+        3.6400000005960464,
+        3.2200000006705523
+      ],
+      "dispatch": [
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        },
+        {
+          "parallel": 16,
+          "scalar": 11760
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "threads": 1,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11461.189999818802,
+      "parallelMs": 11059.17500025034,
+      "pairedSpeedup": 1.036351264860115,
+      "range": [
+        0.9830269813996824,
+        1.036351264860115,
+        1.0506488830874792
+      ],
+      "startupMs": [
+        9.534999966621399,
+        4.805000007152557,
+        2.284999966621399
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "threads": 2,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11366.569999992847,
+      "parallelMs": 9520.789999842644,
+      "pairedSpeedup": 1.1938683659844098,
+      "range": [
+        1.0239203564131336,
+        1.1938683659844098,
+        1.516831743076882
+      ],
+      "startupMs": [
+        4.969999969005585,
+        10.344999969005585,
+        3.074999988079071
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "threads": 4,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10503.90499997139,
+      "parallelMs": 7888.944999992847,
+      "pairedSpeedup": 1.5480206795726263,
+      "range": [
+        1.3192255884602384,
+        1.5480206795726263,
+        2.331496677308455
+      ],
+      "startupMs": [
+        27.605000019073486,
+        9.449999988079071,
+        5.159999966621399
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "threads": 8,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11106.945000052452,
+      "parallelMs": 6518.364999830723,
+      "pairedSpeedup": 1.7039464651551257,
+      "range": [
+        1.5263410326802311,
+        1.7039464651551257,
+        2.5681136059792116
+      ],
+      "startupMs": [
+        17.355000019073486,
+        7.399999976158142,
+        49.564999997615814
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "threads": 16,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10315.91999989748,
+      "parallelMs": 4648.544999957085,
+      "pairedSpeedup": 2.2349315753860757,
+      "range": [
+        1.6847696106944061,
+        2.2349315753860757,
+        2.5544825126687414
+      ],
+      "startupMs": [
+        5,
+        6.610000014305115,
+        5.134999990463257
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "threads": 1,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 9543.839999999967,
+      "parallelMs": 9553.46000000008,
+      "pairedSpeedup": 0.993671933329794,
+      "range": [
+        0.964778826904367,
+        0.993671933329794,
+        0.998993034984172
+      ],
+      "startupMs": [
+        8.57999999995809,
+        4.53999999910593,
+        7.759999999776483
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "threads": 2,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 9121.060000002384,
+      "parallelMs": 5142.88000000082,
+      "pairedSpeedup": 1.57591153786991,
+      "range": [
+        1.5287769316310784,
+        1.57591153786991,
+        1.7735315620821273
+      ],
+      "startupMs": [
+        5.5,
+        4,
+        7.919999999925494
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "threads": 4,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 9266.09999999986,
+      "parallelMs": 4131.659999999916,
+      "pairedSpeedup": 2.171418775581728,
+      "range": [
+        2.1226387387436065,
+        2.171418775581728,
+        2.242706321430139
+      ],
+      "startupMs": [
+        4.4799999999813735,
+        3.280000001192093,
+        4.8599999994039536
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "threads": 8,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 7462.320000000764,
+      "parallelMs": 2876.119999999646,
+      "pairedSpeedup": 2.4046041078115805,
+      "range": [
+        2.11525911371904,
+        2.4046041078115805,
+        2.59457880756077
+      ],
+      "startupMs": [
+        4.679999999934807,
+        3.3200000002980232,
+        8.419999999925494
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "threads": 16,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 7444.799999999581,
+      "parallelMs": 3015.320000000531,
+      "pairedSpeedup": 2.468991682474255,
+      "range": [
+        2.3028002165304717,
+        2.468991682474255,
+        2.6279095684588727
+      ],
+      "startupMs": [
+        3.7399999999906868,
+        3.799999998882413,
+        9.580000000074506
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "threads": 1,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4880.399999998277,
+      "parallelMs": 4863.640000000363,
+      "pairedSpeedup": 0.9994711360992942,
+      "range": [
+        0.9833486561288961,
+        0.9994711360992942,
+        1.0034459787315493
+      ],
+      "startupMs": [
+        4.440000000176951,
+        7.919999999925494,
+        8.199999999254942
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "threads": 2,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4678.419999998994,
+      "parallelMs": 3706.5399999972433,
+      "pairedSpeedup": 1.4861289418178503,
+      "range": [
+        1.1422872015741272,
+        1.4861289418178503,
+        1.5755394518896197
+      ],
+      "startupMs": [
+        9.579999999841675,
+        3.5,
+        5.47999999858439
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "threads": 4,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4144.760000001406,
+      "parallelMs": 2030.0799999991432,
+      "pairedSpeedup": 2.0416732345538873,
+      "range": [
+        0.949583472411503,
+        2.0416732345538873,
+        2.11459560909881
+      ],
+      "startupMs": [
+        5.240000000223517,
+        2.939999997615814,
+        4.280000001192093
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "threads": 8,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4327.159999999916,
+      "parallelMs": 2167.339999999618,
+      "pairedSpeedup": 1.9965303090427338,
+      "range": [
+        0.4585640045026639,
+        1.9965303090427338,
+        2.628352343291763
+      ],
+      "startupMs": [
+        4.179999999934807,
+        2.999999998137355,
+        3.3600000012665987
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "threads": 16,
+      "ticks": 2176,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 4626.059999999125,
+      "parallelMs": 2519.2000000001863,
+      "pairedSpeedup": 1.83632105430247,
+      "range": [
+        0.41070408573408085,
+        1.83632105430247,
+        2.556231040370725
+      ],
+      "startupMs": [
+        7.2000000001862645,
+        4.080000001937151,
+        3.4399999994784594
+      ],
+      "dispatch": [
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        },
+        {
+          "parallel": 8704,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-riverValley-512",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 54838.440000116825,
+      "parallelMs": 55033.18000000715,
+      "pairedSpeedup": 0.9964614074656362,
+      "range": [
+        0.9964614074656362
+      ],
+      "startupMs": [
+        11.0450000166893
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-riverValley-512",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 62628.859999895096,
+      "parallelMs": 45617.61500006914,
+      "pairedSpeedup": 1.3729095657412203,
+      "range": [
+        1.3729095657412203
+      ],
+      "startupMs": [
+        18.69999998807907
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-riverValley-512",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 48311.874999940395,
+      "parallelMs": 19675.30500036478,
+      "pairedSpeedup": 2.455457488412235,
+      "range": [
+        2.455457488412235
+      ],
+      "startupMs": [
+        20.460000038146973
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-riverValley-512",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 47226.16999977827,
+      "parallelMs": 13565.994999945164,
+      "pairedSpeedup": 3.4812168219116377,
+      "range": [
+        3.4812168219116377
+      ],
+      "startupMs": [
+        32.1599999666214
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-riverValley-512",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 45703.97999984026,
+      "parallelMs": 13061.754999995232,
+      "pairedSpeedup": 3.4990688464036377,
+      "range": [
+        3.4990688464036377
+      ],
+      "startupMs": [
+        25.15499997138977
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-riverValley-512",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 60591.45999999996,
+      "parallelMs": 61500.399999999994,
+      "pairedSpeedup": 0.985220583931161,
+      "range": [
+        0.985220583931161
+      ],
+      "startupMs": [
+        16.95999999999998
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-riverValley-512",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 56553.03999999996,
+      "parallelMs": 32893.82000000006,
+      "pairedSpeedup": 1.719260335224059,
+      "range": [
+        1.719260335224059
+      ],
+      "startupMs": [
+        28.620000000000005
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-riverValley-512",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 51699.52000000008,
+      "parallelMs": 21581.02000000001,
+      "pairedSpeedup": 2.395601320048823,
+      "range": [
+        2.395601320048823
+      ],
+      "startupMs": [
+        53.58000000000001
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-riverValley-512",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 57506.50000000008,
+      "parallelMs": 18912.379999999932,
+      "pairedSpeedup": 3.040680231678947,
+      "range": [
+        3.040680231678947
+      ],
+      "startupMs": [
+        52.58000000000001
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-riverValley-512",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 67761.84000000003,
+      "parallelMs": 23431.839999999997,
+      "pairedSpeedup": 2.891870207375948,
+      "range": [
+        2.891870207375948
+      ],
+      "startupMs": [
+        1094.1999999999998
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-riverValley-512",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 47194.17999999995,
+      "parallelMs": 47716.739999999954,
+      "pairedSpeedup": 0.9890487070156091,
+      "range": [
+        0.9890487070156091
+      ],
+      "startupMs": [
+        25.37999999999994
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-riverValley-512",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 49591.400000000016,
+      "parallelMs": 28965.219999999994,
+      "pairedSpeedup": 1.7121016170427854,
+      "range": [
+        1.7121016170427854
+      ],
+      "startupMs": [
+        52.24000000000001
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-riverValley-512",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 43502.91999999994,
+      "parallelMs": 52020.35999999991,
+      "pairedSpeedup": 0.8362671846177153,
+      "range": [
+        0.8362671846177153
+      ],
+      "startupMs": [
+        119.02000000000004
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-riverValley-512",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 46302.36000000003,
+      "parallelMs": 45328.99999999995,
+      "pairedSpeedup": 1.021473229058662,
+      "range": [
+        1.021473229058662
+      ],
+      "startupMs": [
+        165.24
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-riverValley-512",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 40167.87999999993,
+      "parallelMs": 23699.700000000084,
+      "pairedSpeedup": 1.694868711418279,
+      "range": [
+        1.694868711418279
+      ],
+      "startupMs": [
+        91.97999999999999
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-lakeBasin-512",
+      "threads": 1,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 33304.9549998641,
+      "parallelMs": 33798.25499999523,
+      "pairedSpeedup": 0.9854045719185444,
+      "range": [
+        0.9854045719185444
+      ],
+      "startupMs": [
+        18.610000014305115
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-lakeBasin-512",
+      "threads": 2,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 32025.800000071526,
+      "parallelMs": 19971.05000001192,
+      "pairedSpeedup": 1.6036112272540708,
+      "range": [
+        1.6036112272540708
+      ],
+      "startupMs": [
+        31.035000026226044
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-lakeBasin-512",
+      "threads": 4,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 33504.72500002384,
+      "parallelMs": 13224.8599999547,
+      "pairedSpeedup": 2.5334653826307885,
+      "range": [
+        2.5334653826307885
+      ],
+      "startupMs": [
+        21.125
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-lakeBasin-512",
+      "threads": 8,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 32080.814999997616,
+      "parallelMs": 10194.410000026226,
+      "pairedSpeedup": 3.146902567182906,
+      "range": [
+        3.146902567182906
+      ],
+      "startupMs": [
+        13.299999952316284
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-lakeBasin-512",
+      "threads": 16,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 52543.35499972105,
+      "parallelMs": 22244.950000166893,
+      "pairedSpeedup": 2.3620352034653638,
+      "range": [
+        2.3620352034653638
+      ],
+      "startupMs": [
+        40.875
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-lakeBasin-512",
+      "threads": 1,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 42831.35999999847,
+      "parallelMs": 41403.90000000177,
+      "pairedSpeedup": 1.03447646236216,
+      "range": [
+        1.03447646236216
+      ],
+      "startupMs": [
+        19.080000000074506
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-lakeBasin-512",
+      "threads": 2,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 44895.80000000261,
+      "parallelMs": 24778.95999999903,
+      "pairedSpeedup": 1.8118516677053582,
+      "range": [
+        1.8118516677053582
+      ],
+      "startupMs": [
+        14.379999999888241
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-lakeBasin-512",
+      "threads": 4,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 39951.140000000596,
+      "parallelMs": 17012.999999999534,
+      "pairedSpeedup": 2.348271321930388,
+      "range": [
+        2.348271321930388
+      ],
+      "startupMs": [
+        22.859999999869615
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-lakeBasin-512",
+      "threads": 8,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 33376.17999999877,
+      "parallelMs": 10674.159999999683,
+      "pairedSpeedup": 3.126820283750643,
+      "range": [
+        3.126820283750643
+      ],
+      "startupMs": [
+        14.040000000037253
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-lakeBasin-512",
+      "threads": 16,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 44572.70000000112,
+      "parallelMs": 12834.800000000745,
+      "pairedSpeedup": 3.472800511110304,
+      "range": [
+        3.472800511110304
+      ],
+      "startupMs": [
+        12.600000000093132
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-lakeBasin-512",
+      "threads": 1,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 26396.759999998845,
+      "parallelMs": 29371.359999998473,
+      "pairedSpeedup": 0.8987244717302916,
+      "range": [
+        0.8987244717302916
+      ],
+      "startupMs": [
+        22.21999999973923
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-lakeBasin-512",
+      "threads": 2,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 32434.01999999932,
+      "parallelMs": 16610.98000000161,
+      "pairedSpeedup": 1.9525651105471304,
+      "range": [
+        1.9525651105471304
+      ],
+      "startupMs": [
+        15.979999999748543
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-lakeBasin-512",
+      "threads": 4,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 28455.24000000069,
+      "parallelMs": 32067.1399999985,
+      "pairedSpeedup": 0.8873644484666241,
+      "range": [
+        0.8873644484666241
+      ],
+      "startupMs": [
+        18.639999999897555
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-lakeBasin-512",
+      "threads": 8,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 37377.38000000059,
+      "parallelMs": 125384.3599999994,
+      "pairedSpeedup": 0.29810241085890427,
+      "range": [
+        0.29810241085890427
+      ],
+      "startupMs": [
+        53.919999999925494
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-lakeBasin-512",
+      "threads": 16,
+      "ticks": 3456,
+      "settled": true,
+      "n": 1,
+      "scalarMs": 30972.380000000587,
+      "parallelMs": 125770.84000000032,
+      "pairedSpeedup": 0.24626042093700343,
+      "range": [
+        0.24626042093700343
+      ],
+      "startupMs": [
+        21.979999999981374
+      ],
+      "dispatch": [
+        {
+          "parallel": 13824,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-islands-512",
+      "threads": 1,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 108436.54499977827,
+      "parallelMs": 104977.91000008583,
+      "pairedSpeedup": 1.0329463122259683,
+      "range": [
+        1.0329463122259683
+      ],
+      "startupMs": [
+        16.30000001192093
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-islands-512",
+      "threads": 2,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 118895.56500005722,
+      "parallelMs": 90324.71500009298,
+      "pairedSpeedup": 1.3163126504183802,
+      "range": [
+        1.3163126504183802
+      ],
+      "startupMs": [
+        66.17500001192093
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-islands-512",
+      "threads": 4,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 118235.87999981642,
+      "parallelMs": 81335.83000022173,
+      "pairedSpeedup": 1.453675212996463,
+      "range": [
+        1.453675212996463
+      ],
+      "startupMs": [
+        32.435000002384186
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-islands-512",
+      "threads": 8,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 146117.61500000954,
+      "parallelMs": 201062.19499999285,
+      "pairedSpeedup": 0.7267284384317735,
+      "range": [
+        0.7267284384317735
+      ],
+      "startupMs": [
+        50.439999997615814
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "chromium",
+      "id": "tiled-islands-512",
+      "threads": 16,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 160354.43499994278,
+      "parallelMs": 135220.03499996662,
+      "pairedSpeedup": 1.1858777806113003,
+      "range": [
+        1.1858777806113003
+      ],
+      "startupMs": [
+        89.52999997138977
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-islands-512",
+      "threads": 1,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 116920.12000000197,
+      "parallelMs": 117439.63999999315,
+      "pairedSpeedup": 0.9955762807175567,
+      "range": [
+        0.9955762807175567
+      ],
+      "startupMs": [
+        22.240000000223517
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-islands-512",
+      "threads": 2,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 124399.42000000086,
+      "parallelMs": 64221.71999999974,
+      "pairedSpeedup": 1.9370303380227338,
+      "range": [
+        1.9370303380227338
+      ],
+      "startupMs": [
+        21.3199999993667
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-islands-512",
+      "threads": 4,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 110464.91999999806,
+      "parallelMs": 46747.800000000745,
+      "pairedSpeedup": 2.3629971891724595,
+      "range": [
+        2.3629971891724595
+      ],
+      "startupMs": [
+        25.720000000670552
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-islands-512",
+      "threads": 8,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 74518.12000000011,
+      "parallelMs": 25031.38000000175,
+      "pairedSpeedup": 2.9769880845560612,
+      "range": [
+        2.9769880845560612
+      ],
+      "startupMs": [
+        15.379999999888241
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "firefox",
+      "id": "tiled-islands-512",
+      "threads": 16,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 114372.10000000335,
+      "parallelMs": 36046.23999999836,
+      "pairedSpeedup": 3.172927328897787,
+      "range": [
+        3.172927328897787
+      ],
+      "startupMs": [
+        12.959999999962747
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-islands-512",
+      "threads": 1,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 80175.0400000047,
+      "parallelMs": 80521.86000000127,
+      "pairedSpeedup": 0.9956928466382102,
+      "range": [
+        0.9956928466382102
+      ],
+      "startupMs": [
+        30.020000000484288
+      ],
+      "dispatch": [
+        null
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-islands-512",
+      "threads": 2,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 59064.10000000335,
+      "parallelMs": 38185.099999998696,
+      "pairedSpeedup": 1.5467839549982942,
+      "range": [
+        1.5467839549982942
+      ],
+      "startupMs": [
+        19.12000000011176
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-islands-512",
+      "threads": 4,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 63798.32000000123,
+      "parallelMs": 46303.26000000164,
+      "pairedSpeedup": 1.3778364633505065,
+      "range": [
+        1.3778364633505065
+      ],
+      "startupMs": [
+        24.799999999813735
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-islands-512",
+      "threads": 8,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 63015.46000000276,
+      "parallelMs": 48910.699999999255,
+      "pairedSpeedup": 1.288377798723055,
+      "range": [
+        1.288377798723055
+      ],
+      "startupMs": [
+        55.53999999910593
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "representative",
+      "engine": "webkit",
+      "id": "tiled-islands-512",
+      "threads": 16,
+      "ticks": 4608,
+      "settled": false,
+      "n": 1,
+      "scalarMs": 62626.47999999579,
+      "parallelMs": 60117.64000000153,
+      "pairedSpeedup": 1.0417321771113137,
+      "range": [
+        1.0417321771113137
+      ],
+      "startupMs": [
+        21.800000000745058
+      ],
+      "dispatch": [
+        {
+          "parallel": 18432,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2210.6150001883507,
+      "parallelMs": 2175.1749997735023,
+      "pairedSpeedup": 1.0144041059556517,
+      "range": [
+        0.9377746771305935,
+        1.0144041059556517,
+        1.0162929421396156
+      ],
+      "startupMs": [
+        1.4399999976158142,
+        1.9599999785423279,
+        2.625
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2736.050000011921,
+      "parallelMs": 1712.744999885559,
+      "pairedSpeedup": 1.3503586321298633,
+      "range": [
+        0.9200290460612751,
+        1.3503586321298633,
+        1.5974648883486662
+      ],
+      "startupMs": [
+        6.605000019073486,
+        2.1200000047683716,
+        4.569999992847443
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2451.984999835491,
+      "parallelMs": 2215.435000002384,
+      "pairedSpeedup": 1.0653983896581616,
+      "range": [
+        0.7236781282283596,
+        1.0653983896581616,
+        1.1067736132330004
+      ],
+      "startupMs": [
+        8.365000009536743,
+        1.840000033378601,
+        4.185000002384186
+      ],
+      "dispatch": [
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2380.3099998235703,
+      "parallelMs": 2459.58500033617,
+      "pairedSpeedup": 0.9677689526884556,
+      "range": [
+        0.9592519124829714,
+        0.9677689526884556,
+        1.0085772059523967
+      ],
+      "startupMs": [
+        11.040000021457672,
+        2.0949999690055847,
+        4.0450000166893005
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 2235.489999949932,
+      "parallelMs": 2262.8349999189377,
+      "pairedSpeedup": 0.9643458554045449,
+      "range": [
+        0.8603474781661168,
+        0.9643458554045449,
+        0.9879156014601218
+      ],
+      "startupMs": [
+        17.230000019073486,
+        2.125,
+        10.439999997615814
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1986.9400000001187,
+      "parallelMs": 1978.9199999998673,
+      "pairedSpeedup": 0.9899696048632214,
+      "range": [
+        0.984345744894661,
+        0.9899696048632214,
+        1.0040527156227903
+      ],
+      "startupMs": [
+        1.7800000000000011,
+        1.9200000000419095,
+        3.8800000003539026
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1944.7399999999325,
+      "parallelMs": 1351.2399999997579,
+      "pairedSpeedup": 1.4392261922384484,
+      "range": [
+        1.3784785554217862,
+        1.4392261922384484,
+        1.4740592168099313
+      ],
+      "startupMs": [
+        11.34,
+        1.0800000000162981,
+        3.540000000037253
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1968.8199999999488,
+      "parallelMs": 1870.200000000128,
+      "pairedSpeedup": 1.0527323280931526,
+      "range": [
+        1.0128440130118235,
+        1.0527323280931526,
+        1.1105205193593293
+      ],
+      "startupMs": [
+        14.64,
+        1.6999999999534339,
+        3.3799999998882413
+      ],
+      "dispatch": [
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1905.2600000000093,
+      "parallelMs": 1908.5200000000186,
+      "pairedSpeedup": 0.9806789560851127,
+      "range": [
+        0.9727528257879312,
+        0.9806789560851127,
+        0.9982918701402085
+      ],
+      "startupMs": [
+        24.799999999999997,
+        3.320000000006985,
+        3.8000000002793968
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1711.300000000163,
+      "parallelMs": 1678.840000000142,
+      "pairedSpeedup": 1.0043705544605377,
+      "range": [
+        0.9819324430475209,
+        1.0043705544605377,
+        1.0193347787758322
+      ],
+      "startupMs": [
+        52.92,
+        2,
+        1.8399999998509884
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 1,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1316.7999999997555,
+      "parallelMs": 1294.079999999958,
+      "pairedSpeedup": 1.0148061363960936,
+      "range": [
+        0.9765702442101455,
+        1.0148061363960936,
+        1.0175568743816443
+      ],
+      "startupMs": [
+        2.6600000000000037,
+        2.080000000016298,
+        6.620000000111759
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 2,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1283.1999999998952,
+      "parallelMs": 1148.0199999999986,
+      "pairedSpeedup": 0.9777181582202419,
+      "range": [
+        0.3838175633110153,
+        0.9777181582202419,
+        1.2810989976440394
+      ],
+      "startupMs": [
+        14.280000000000005,
+        2.0399999999790452,
+        52.77999999979511
+      ],
+      "dispatch": [
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        },
+        {
+          "parallel": 17408,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 4,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1283.0799999998417,
+      "parallelMs": 1174.2200000000303,
+      "pairedSpeedup": 0.9092504557923957,
+      "range": [
+        0.46541361554303323,
+        0.9092504557923957,
+        1.0927083510754447
+      ],
+      "startupMs": [
+        17.799999999999997,
+        1.679999999993015,
+        51.47999999998137
+      ],
+      "dispatch": [
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        },
+        {
+          "parallel": 3789,
+          "scalar": 13619
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 8,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1346.160000000149,
+      "parallelMs": 1345.0599999999395,
+      "pairedSpeedup": 1.000817807384213,
+      "range": [
+        0.9918474139238598,
+        1.000817807384213,
+        1.0396903350519429
+      ],
+      "startupMs": [
+        28.860000000000007,
+        1.9400000000023283,
+        11.380000000353903
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-41",
+      "threads": 16,
+      "ticks": 4352,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 1380.04000000027,
+      "parallelMs": 1387.6000000002095,
+      "pairedSpeedup": 0.9945517440184936,
+      "range": [
+        0.9362097779473951,
+        0.9945517440184936,
+        0.9951084798382694
+      ],
+      "startupMs": [
+        38.31999999999999,
+        1.4600000000209548,
+        9.479999999981374
+      ],
+      "dispatch": [
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        },
+        {
+          "parallel": 0,
+          "scalar": 17408
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 1,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11397.920000076294,
+      "parallelMs": 11068.70999968052,
+      "pairedSpeedup": 1.0293339759128983,
+      "range": [
+        0.9983110046738106,
+        1.0293339759128983,
+        1.0585282564942073
+      ],
+      "startupMs": [
+        4.564999997615814,
+        9.965000033378601,
+        27.339999973773956
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 2,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11035.025000095367,
+      "parallelMs": 7388.730000138283,
+      "pairedSpeedup": 1.4831267633723961,
+      "range": [
+        1.055095637454264,
+        1.4831267633723961,
+        1.4934941457989184
+      ],
+      "startupMs": [
+        4.900000035762787,
+        5.480000019073486,
+        32.99000000953674
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 4,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10010.239999949932,
+      "parallelMs": 4600.630000054836,
+      "pairedSpeedup": 2.134443543568941,
+      "range": [
+        0.561200413214494,
+        2.134443543568941,
+        2.1978717821437344
+      ],
+      "startupMs": [
+        5.735000014305115,
+        4.6700000166893005,
+        17.219999969005585
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 8,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 9864.675000071526,
+      "parallelMs": 3843.5199999809265,
+      "pairedSpeedup": 2.523489732635024,
+      "range": [
+        1.0012662629659161,
+        2.523489732635024,
+        2.5665730892828655
+      ],
+      "startupMs": [
+        6.569999992847443,
+        5.870000004768372,
+        33.839999973773956
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 16,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10157.050000071526,
+      "parallelMs": 10487.835000276566,
+      "pairedSpeedup": 0.968460125450456,
+      "range": [
+        0.9683767224767432,
+        0.968460125450456,
+        0.9892104533240107
+      ],
+      "startupMs": [
+        5.035000026226044,
+        4.6049999594688416,
+        32.689999997615814
+      ],
+      "dispatch": [
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 1,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 14174.840000000084,
+      "parallelMs": 14112.399999999558,
+      "pairedSpeedup": 0.9778011104541663,
+      "range": [
+        0.975241890107763,
+        0.9778011104541663,
+        1.0044244777642732
+      ],
+      "startupMs": [
+        3.1600000000034925,
+        7.619999999995343,
+        4.9200000003911555
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 2,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 13699.980000000098,
+      "parallelMs": 9449.779999999679,
+      "pairedSpeedup": 1.4098415691324,
+      "range": [
+        1.392190904478403,
+        1.4098415691324,
+        1.4497670845247788
+      ],
+      "startupMs": [
+        5.7999999999883585,
+        8.979999999981374,
+        6.620000000111759
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 4,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10911.640000000247,
+      "parallelMs": 4511.340000000084,
+      "pairedSpeedup": 2.2121370625991066,
+      "range": [
+        2.164315659877873,
+        2.2121370625991066,
+        2.4187137302885713
+      ],
+      "startupMs": [
+        3.0599999999976717,
+        6.85999999998603,
+        13
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 8,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 11155.460000000196,
+      "parallelMs": 4159.579999999609,
+      "pairedSpeedup": 2.681871727434319,
+      "range": [
+        2.052809807535779,
+        2.681871727434319,
+        2.8235019829994354
+      ],
+      "startupMs": [
+        2.9600000000209548,
+        7.820000000065193,
+        5.580000000074506
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 16,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 10898.440000000177,
+      "parallelMs": 10676.899999999674,
+      "pairedSpeedup": 0.985613890573485,
+      "range": [
+        0.9333469003277469,
+        0.985613890573485,
+        1.020749468478726
+      ],
+      "startupMs": [
+        7.260000000009313,
+        6.9799999999813735,
+        6.540000000037253
+      ],
+      "dispatch": [
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 1,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 8430.639999999199,
+      "parallelMs": 8430.09999999986,
+      "pairedSpeedup": 0.9592509115472363,
+      "range": [
+        0.9375223417298764,
+        0.9592509115472363,
+        1.0000640561795635
+      ],
+      "startupMs": [
+        3.2399999999906868,
+        16.399999999906868,
+        10.700000000186265
+      ],
+      "dispatch": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 2,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 13397.240000000224,
+      "parallelMs": 14326.50000000163,
+      "pairedSpeedup": 0.9351369839108435,
+      "range": [
+        0.687376978112283,
+        0.9351369839108435,
+        1.4022624858718122
+      ],
+      "startupMs": [
+        7.599999999976717,
+        27.699999999953434,
+        45.3199999993667
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 4,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 39022.38000000082,
+      "parallelMs": 153551.6199999994,
+      "pairedSpeedup": 0.7631815281401755,
+      "range": [
+        0.1573647282224466,
+        0.7631815281401755,
+        1.8769699049363013
+      ],
+      "startupMs": [
+        8.419999999983702,
+        227.62000000011176,
+        174.5200000004843
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 8,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 16506.740000000224,
+      "parallelMs": 471319.24000000034,
+      "pairedSpeedup": 0.0596106791651431,
+      "range": [
+        0.013314788217323176,
+        0.0596106791651431,
+        2.6458343381335307
+      ],
+      "startupMs": [
+        7.0799999999580905,
+        43.37999999988824,
+        41.6800000006333
+      ],
+      "dispatch": [
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        },
+        {
+          "parallel": 17920,
+          "scalar": 0
+        }
+      ]
+    },
+    {
+      "cohort": "lake-tail",
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-20",
+      "threads": 16,
+      "ticks": 4480,
+      "settled": true,
+      "n": 3,
+      "scalarMs": 8799.900000000373,
+      "parallelMs": 11386.680000000633,
+      "pairedSpeedup": 0.8936537160475934,
+      "range": [
+        0.7728240365058018,
+        0.8936537160475934,
+        0.9894991359352232
+      ],
+      "startupMs": [
+        4.240000000048894,
+        34.780000000144355,
+        15.400000000372529
+      ],
+      "dispatch": [
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        },
+        {
+          "parallel": 96,
+          "scalar": 17824
+        }
+      ]
+    }
+  ],
+  "generation": [
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 0.675000011920929,
+      "baseline": {
+        "firstLook": 593,
+        "firstWater": 1324,
+        "final": 1964
+      },
+      "candidate": {
+        "firstLook": 595,
+        "firstWater": 1217,
+        "final": 1792
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 7.064999997615814,
+      "baseline": {
+        "firstLook": 582,
+        "firstWater": 1311,
+        "final": 1901
+      },
+      "candidate": {
+        "firstLook": 552,
+        "firstWater": 1171,
+        "final": 1818
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 76.18000000715256,
+      "baseline": {
+        "firstLook": 886,
+        "firstWater": 2182,
+        "final": 3152
+      },
+      "candidate": {
+        "firstLook": 866,
+        "firstWater": 1923,
+        "final": 2695
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 50.514999985694885,
+      "baseline": {
+        "firstLook": 822,
+        "firstWater": 1634,
+        "final": 2408
+      },
+      "candidate": {
+        "firstLook": 693,
+        "firstWater": 1312,
+        "final": 1970
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 45.15499997138977,
+      "baseline": {
+        "firstLook": 823,
+        "firstWater": 1913,
+        "final": 2838
+      },
+      "candidate": {
+        "firstLook": 654,
+        "firstWater": 1400,
+        "final": 2015
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 0.13999999999987267,
+      "baseline": {
+        "firstLook": 680,
+        "firstWater": 1509,
+        "final": 2191
+      },
+      "candidate": {
+        "firstLook": 699,
+        "firstWater": 1286,
+        "final": 1860
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 20.279999999999745,
+      "baseline": {
+        "firstLook": 610,
+        "firstWater": 1371,
+        "final": 1962
+      },
+      "candidate": {
+        "firstLook": 632,
+        "firstWater": 1192,
+        "final": 1790
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 17.800000000000182,
+      "baseline": {
+        "firstLook": 723,
+        "firstWater": 1591,
+        "final": 2165
+      },
+      "candidate": {
+        "firstLook": 601,
+        "firstWater": 1141,
+        "final": 1673
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 36.840000000000146,
+      "baseline": {
+        "firstLook": 627,
+        "firstWater": 1536,
+        "final": 2130
+      },
+      "candidate": {
+        "firstLook": 603,
+        "firstWater": 1178,
+        "final": 1648
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 90.48000000000002,
+      "baseline": {
+        "firstLook": 536,
+        "firstWater": 1050,
+        "final": 1474
+      },
+      "candidate": {
+        "firstLook": 448,
+        "firstWater": 858,
+        "final": 1338
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 0.42000000000007276,
+      "baseline": {
+        "firstLook": 610,
+        "firstWater": 1133,
+        "final": 1617
+      },
+      "candidate": {
+        "firstLook": 519,
+        "firstWater": 1019,
+        "final": 1529
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 18.61999999999989,
+      "baseline": {
+        "firstLook": 635,
+        "firstWater": 1219,
+        "final": 1725
+      },
+      "candidate": {
+        "firstLook": 573,
+        "firstWater": 1004,
+        "final": 1475
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 23.579999999999927,
+      "baseline": {
+        "firstLook": 602,
+        "firstWater": 1174,
+        "final": 1662
+      },
+      "candidate": {
+        "firstLook": 510,
+        "firstWater": 949,
+        "final": 1423
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 31.980000000000018,
+      "baseline": {
+        "firstLook": 523,
+        "firstWater": 1040,
+        "final": 1537
+      },
+      "candidate": {
+        "firstLook": 553,
+        "firstWater": 982,
+        "final": 1447
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "44e6b1da8e6d21283a71ca7a84edbf122136c68329f79996a67b6de5753dcc43",
+      "waterHash": "2e46a637f0235d1614aa63f13a0ea5b2f97005e6d84a765509a6717cae335e34",
+      "exportHash": "c0c491cf599fa64eeb9f39749ba6e8440429a9a1e2c311ac1c37af35fee798eb",
+      "ticks": 640,
+      "settled": true,
+      "passed": true,
+      "bytes": 152883,
+      "startupMs": 50.299999999999955,
+      "baseline": {
+        "firstLook": 519,
+        "firstWater": 1040,
+        "final": 1500
+      },
+      "candidate": {
+        "firstLook": 520,
+        "firstWater": 960,
+        "final": 1354
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 0.19499999284744263,
+      "baseline": {
+        "firstLook": 928,
+        "firstWater": 1914,
+        "final": 2358
+      },
+      "candidate": {
+        "firstLook": 787,
+        "firstWater": 1513,
+        "final": 2029
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 7.430000007152557,
+      "baseline": {
+        "firstLook": 939,
+        "firstWater": 1814,
+        "final": 2309
+      },
+      "candidate": {
+        "firstLook": 797,
+        "firstWater": 1411,
+        "final": 1849
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 8.490000009536743,
+      "baseline": {
+        "firstLook": 874,
+        "firstWater": 1660,
+        "final": 2123
+      },
+      "candidate": {
+        "firstLook": 775,
+        "firstWater": 1545,
+        "final": 1989
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 9.519999980926514,
+      "baseline": {
+        "firstLook": 926,
+        "firstWater": 1770,
+        "final": 2225
+      },
+      "candidate": {
+        "firstLook": 758,
+        "firstWater": 1344,
+        "final": 1722
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 21.235000014305115,
+      "baseline": {
+        "firstLook": 921,
+        "firstWater": 1638,
+        "final": 2084
+      },
+      "candidate": {
+        "firstLook": 773,
+        "firstWater": 1384,
+        "final": 1738
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 0.11999999999989086,
+      "baseline": {
+        "firstLook": 704,
+        "firstWater": 1493,
+        "final": 1833
+      },
+      "candidate": {
+        "firstLook": 764,
+        "firstWater": 1345,
+        "final": 1684
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 13.059999999999945,
+      "baseline": {
+        "firstLook": 797,
+        "firstWater": 1640,
+        "final": 1976
+      },
+      "candidate": {
+        "firstLook": 782,
+        "firstWater": 1328,
+        "final": 1660
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 15.440000000000055,
+      "baseline": {
+        "firstLook": 777,
+        "firstWater": 1590,
+        "final": 1955
+      },
+      "candidate": {
+        "firstLook": 713,
+        "firstWater": 1216,
+        "final": 1529
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 28.059999999999718,
+      "baseline": {
+        "firstLook": 736,
+        "firstWater": 1583,
+        "final": 1904
+      },
+      "candidate": {
+        "firstLook": 740,
+        "firstWater": 1308,
+        "final": 1666
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 40.19999999999982,
+      "baseline": {
+        "firstLook": 727,
+        "firstWater": 1501,
+        "final": 1825
+      },
+      "candidate": {
+        "firstLook": 712,
+        "firstWater": 1246,
+        "final": 1661
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 0.5399999999999636,
+      "baseline": {
+        "firstLook": 1200,
+        "firstWater": 1980,
+        "final": 2430
+      },
+      "candidate": {
+        "firstLook": 1032,
+        "firstWater": 1621,
+        "final": 2088
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 18.7800000000002,
+      "baseline": {
+        "firstLook": 976,
+        "firstWater": 1719,
+        "final": 2149
+      },
+      "candidate": {
+        "firstLook": 885,
+        "firstWater": 1475,
+        "final": 1971
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 23.220000000000255,
+      "baseline": {
+        "firstLook": 996,
+        "firstWater": 1743,
+        "final": 2178
+      },
+      "candidate": {
+        "firstLook": 841,
+        "firstWater": 1419,
+        "final": 1851
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 34.90000000000009,
+      "baseline": {
+        "firstLook": 972,
+        "firstWater": 1722,
+        "final": 2156
+      },
+      "candidate": {
+        "firstLook": 949,
+        "firstWater": 1519,
+        "final": 1954
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "ea1374fee3e4b5c0206c48d2422c592034679a4e054a339afab15f4f90c16ec8",
+      "waterHash": "77ea23d456d480d3990d8719ee537124ff9d45a24fb13d471f0fc5f53e08fb28",
+      "exportHash": "020fcf202d287234c3c63854e578ed992c613da31eb7361f1a388f1606403a29",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 156931,
+      "startupMs": 52.24000000000024,
+      "baseline": {
+        "firstLook": 1059,
+        "firstWater": 1802,
+        "final": 2266
+      },
+      "candidate": {
+        "firstLook": 934,
+        "firstWater": 1542,
+        "final": 1985
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 0.25,
+      "baseline": {
+        "firstLook": 826,
+        "firstWater": 2768,
+        "final": 3357
+      },
+      "candidate": {
+        "firstLook": 660,
+        "firstWater": 2317,
+        "final": 2906
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 5.730000019073486,
+      "baseline": {
+        "firstLook": 789,
+        "firstWater": 2608,
+        "final": 3246
+      },
+      "candidate": {
+        "firstLook": 659,
+        "firstWater": 1869,
+        "final": 2465
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 8.120000004768372,
+      "baseline": {
+        "firstLook": 779,
+        "firstWater": 3000,
+        "final": 3694
+      },
+      "candidate": {
+        "firstLook": 738,
+        "firstWater": 1695,
+        "final": 2269
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 10.0799999833107,
+      "baseline": {
+        "firstLook": 811,
+        "firstWater": 2788,
+        "final": 3434
+      },
+      "candidate": {
+        "firstLook": 691,
+        "firstWater": 2120,
+        "final": 2774
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 16.839999973773956,
+      "baseline": {
+        "firstLook": 787,
+        "firstWater": 2828,
+        "final": 3450
+      },
+      "candidate": {
+        "firstLook": 725,
+        "firstWater": 2468,
+        "final": 3075
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 0.09999999999990905,
+      "baseline": {
+        "firstLook": 718,
+        "firstWater": 2605,
+        "final": 3162
+      },
+      "candidate": {
+        "firstLook": 642,
+        "firstWater": 1745,
+        "final": 2314
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 12.539999999999964,
+      "baseline": {
+        "firstLook": 612,
+        "firstWater": 2435,
+        "final": 2922
+      },
+      "candidate": {
+        "firstLook": 639,
+        "firstWater": 1457,
+        "final": 1955
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 17.7199999999998,
+      "baseline": {
+        "firstLook": 619,
+        "firstWater": 2379,
+        "final": 2904
+      },
+      "candidate": {
+        "firstLook": 751,
+        "firstWater": 1407,
+        "final": 1885
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 22.76000000000022,
+      "baseline": {
+        "firstLook": 617,
+        "firstWater": 2386,
+        "final": 2903
+      },
+      "candidate": {
+        "firstLook": 644,
+        "firstWater": 1748,
+        "final": 2340
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 50.88000000000011,
+      "baseline": {
+        "firstLook": 606,
+        "firstWater": 2395,
+        "final": 2888
+      },
+      "candidate": {
+        "firstLook": 629,
+        "firstWater": 1787,
+        "final": 2368
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 0.45999999999958163,
+      "baseline": {
+        "firstLook": 929,
+        "firstWater": 2465,
+        "final": 3101
+      },
+      "candidate": {
+        "firstLook": 817,
+        "firstWater": 1962,
+        "final": 2627
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 21.640000000000327,
+      "baseline": {
+        "firstLook": 904,
+        "firstWater": 2422,
+        "final": 3011
+      },
+      "candidate": {
+        "firstLook": 959,
+        "firstWater": 1893,
+        "final": 2508
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 19.820000000000164,
+      "baseline": {
+        "firstLook": 931,
+        "firstWater": 2554,
+        "final": 3166
+      },
+      "candidate": {
+        "firstLook": 814,
+        "firstWater": 1569,
+        "final": 2230
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 35.92000000000007,
+      "baseline": {
+        "firstLook": 897,
+        "firstWater": 2521,
+        "final": 3147
+      },
+      "candidate": {
+        "firstLook": 866,
+        "firstWater": 1843,
+        "final": 2502
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-128-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1eef7948f2c3f862bb461e3861835a1782051db3ca1b5ac1af593b9e016f0bb1",
+      "waterHash": "fe863435bfc70b0de434f74fbe298593f8cfc283217751bcff46cad933244a54",
+      "exportHash": "cc4e7f8b51e4b85af39c40e8a9bb6179b3f0d1694d25d7aadc4defd734313f61",
+      "ticks": 1408,
+      "settled": true,
+      "passed": true,
+      "bytes": 250809,
+      "startupMs": 56.11999999999989,
+      "baseline": {
+        "firstLook": 927,
+        "firstWater": 2540,
+        "final": 3177
+      },
+      "candidate": {
+        "firstLook": 963,
+        "firstWater": 2146,
+        "final": 3403
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 0.26999998092651367,
+      "baseline": {
+        "firstLook": 8072,
+        "firstWater": 25547,
+        "final": 27593
+      },
+      "candidate": {
+        "firstLook": 6078,
+        "firstWater": 20260,
+        "final": 22008
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 6.110000014305115,
+      "baseline": {
+        "firstLook": 7924,
+        "firstWater": 23365,
+        "final": 24910
+      },
+      "candidate": {
+        "firstLook": 5703,
+        "firstWater": 13213,
+        "final": 14692
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 8.610000014305115,
+      "baseline": {
+        "firstLook": 5650,
+        "firstWater": 18811,
+        "final": 20234
+      },
+      "candidate": {
+        "firstLook": 5503,
+        "firstWater": 10714,
+        "final": 12206
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 13.495000004768372,
+      "baseline": {
+        "firstLook": 5898,
+        "firstWater": 19288,
+        "final": 20660
+      },
+      "candidate": {
+        "firstLook": 5712,
+        "firstWater": 10740,
+        "final": 12188
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-riverValley-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 18.394999980926514,
+      "baseline": {
+        "firstLook": 6022,
+        "firstWater": 19569,
+        "final": 21023
+      },
+      "candidate": {
+        "firstLook": 5678,
+        "firstWater": 11789,
+        "final": 13200
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 0.2999999999992724,
+      "baseline": {
+        "firstLook": 5782,
+        "firstWater": 26633,
+        "final": 28561
+      },
+      "candidate": {
+        "firstLook": 10164,
+        "firstWater": 23371,
+        "final": 25549
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 88.4800000000032,
+      "baseline": {
+        "firstLook": 9239,
+        "firstWater": 30081,
+        "final": 31724
+      },
+      "candidate": {
+        "firstLook": 7582,
+        "firstWater": 13250,
+        "final": 14571
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 16.55999999999767,
+      "baseline": {
+        "firstLook": 6326,
+        "firstWater": 19504,
+        "final": 20716
+      },
+      "candidate": {
+        "firstLook": 6518,
+        "firstWater": 11063,
+        "final": 12353
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 24.299999999999272,
+      "baseline": {
+        "firstLook": 6088,
+        "firstWater": 19314,
+        "final": 20527
+      },
+      "candidate": {
+        "firstLook": 5837,
+        "firstWater": 9568,
+        "final": 10899
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-riverValley-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 53.279999999998836,
+      "baseline": {
+        "firstLook": 5683,
+        "firstWater": 18622,
+        "final": 19877
+      },
+      "candidate": {
+        "firstLook": 6107,
+        "firstWater": 11729,
+        "final": 13029
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 0.3599999999969441,
+      "baseline": {
+        "firstLook": 7543,
+        "firstWater": 17581,
+        "final": 20058
+      },
+      "candidate": {
+        "firstLook": 11636,
+        "firstWater": 19517,
+        "final": 22250
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 22.779999999998836,
+      "baseline": {
+        "firstLook": 12951,
+        "firstWater": 23371,
+        "final": 25820
+      },
+      "candidate": {
+        "firstLook": 7649,
+        "firstWater": 12910,
+        "final": 15570
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 38.02000000000044,
+      "baseline": {
+        "firstLook": 11741,
+        "firstWater": 22445,
+        "final": 25010
+      },
+      "candidate": {
+        "firstLook": 10475,
+        "firstWater": 15041,
+        "final": 17577
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 32.279999999998836,
+      "baseline": {
+        "firstLook": 8011,
+        "firstWater": 18530,
+        "final": 21072
+      },
+      "candidate": {
+        "firstLook": 10347,
+        "firstWater": 15133,
+        "final": 17686
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-riverValley-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "9191bcde402122d41906eba51db94f8d346d8242c5c15adc2e97229b49d271f0",
+      "waterHash": "453498a718d65858f212e90d73e0eda8e039eebfad396720b6c1fa7863c1b440",
+      "exportHash": "90ef6e124c6bc8e4dbda107877d498f2a2ad9511f41505f7626a1370089e16e6",
+      "ticks": 1920,
+      "settled": true,
+      "passed": true,
+      "bytes": 537968,
+      "startupMs": 79.26000000000204,
+      "baseline": {
+        "firstLook": 11663,
+        "firstWater": 22449,
+        "final": 25082
+      },
+      "candidate": {
+        "firstLook": 7979,
+        "firstWater": 13077,
+        "final": 15638
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 0.24500000476837158,
+      "baseline": {
+        "firstLook": 2408,
+        "firstWater": 9691,
+        "final": 11102
+      },
+      "candidate": {
+        "firstLook": 2264,
+        "firstWater": 7844,
+        "final": 9262
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 6.6700000166893005,
+      "baseline": {
+        "firstLook": 2421,
+        "firstWater": 9972,
+        "final": 11452
+      },
+      "candidate": {
+        "firstLook": 2379,
+        "firstWater": 6915,
+        "final": 8290
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 9.620000004768372,
+      "baseline": {
+        "firstLook": 2411,
+        "firstWater": 9626,
+        "final": 11048
+      },
+      "candidate": {
+        "firstLook": 2267,
+        "firstWater": 5602,
+        "final": 6995
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 11.290000021457672,
+      "baseline": {
+        "firstLook": 2381,
+        "firstWater": 9744,
+        "final": 11254
+      },
+      "candidate": {
+        "firstLook": 2312,
+        "firstWater": 5534,
+        "final": 6917
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 18.0900000333786,
+      "baseline": {
+        "firstLook": 2272,
+        "firstWater": 9479,
+        "final": 10898
+      },
+      "candidate": {
+        "firstLook": 2302,
+        "firstWater": 7914,
+        "final": 9289
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 0.13999999999941792,
+      "baseline": {
+        "firstLook": 2862,
+        "firstWater": 10853,
+        "final": 12317
+      },
+      "candidate": {
+        "firstLook": 2541,
+        "firstWater": 7022,
+        "final": 8376
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 22.400000000001455,
+      "baseline": {
+        "firstLook": 2371,
+        "firstWater": 9303,
+        "final": 10697
+      },
+      "candidate": {
+        "firstLook": 2410,
+        "firstWater": 5760,
+        "final": 7116
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 14.899999999999636,
+      "baseline": {
+        "firstLook": 2426,
+        "firstWater": 9381,
+        "final": 10750
+      },
+      "candidate": {
+        "firstLook": 2412,
+        "firstWater": 5005,
+        "final": 6422
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 34.73999999999978,
+      "baseline": {
+        "firstLook": 2351,
+        "firstWater": 9470,
+        "final": 10900
+      },
+      "candidate": {
+        "firstLook": 2388,
+        "firstWater": 4853,
+        "final": 6287
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 75.57999999999993,
+      "baseline": {
+        "firstLook": 2356,
+        "firstWater": 9370,
+        "final": 10827
+      },
+      "candidate": {
+        "firstLook": 2563,
+        "firstWater": 7508,
+        "final": 9015
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 0.5,
+      "baseline": {
+        "firstLook": 3149,
+        "firstWater": 9639,
+        "final": 11297
+      },
+      "candidate": {
+        "firstLook": 2836,
+        "firstWater": 7711,
+        "final": 9272
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 30.5,
+      "baseline": {
+        "firstLook": 2803,
+        "firstWater": 9048,
+        "final": 10616
+      },
+      "candidate": {
+        "firstLook": 3140,
+        "firstWater": 7000,
+        "final": 8752
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 23.460000000000946,
+      "baseline": {
+        "firstLook": 2781,
+        "firstWater": 9101,
+        "final": 10600
+      },
+      "candidate": {
+        "firstLook": 3070,
+        "firstWater": 6291,
+        "final": 7841
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 110.86000000000058,
+      "baseline": {
+        "firstLook": 3903,
+        "firstWater": 19094,
+        "final": 22115
+      },
+      "candidate": {
+        "firstLook": 5594,
+        "firstWater": 39129,
+        "final": 42580
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-lakeBasin-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "1519b7585c6114602e4ad2184c56dedb5b421869a3fcce234220449c3aa4da7d",
+      "waterHash": "24d60bbc2d3a31f9685de9d1b1559fe0eea7a3a0b6fa66828f43022a4c244dfc",
+      "exportHash": "a3a20601b41d2ba8b8879314bcc6ab419a6cf9adb98b9ecce0202b68b8089ae9",
+      "ticks": 2944,
+      "settled": true,
+      "passed": true,
+      "bytes": 393811,
+      "startupMs": 315.5400000000009,
+      "baseline": {
+        "firstLook": 8063,
+        "firstWater": 22011,
+        "final": 26628
+      },
+      "candidate": {
+        "firstLook": 8283,
+        "firstWater": 19696,
+        "final": 23547
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 0.29499995708465576,
+      "baseline": {
+        "firstLook": 5680,
+        "firstWater": 46133,
+        "final": 48722
+      },
+      "candidate": {
+        "firstLook": 4691,
+        "firstWater": 36852,
+        "final": 40388
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 12.375,
+      "baseline": {
+        "firstLook": 5567,
+        "firstWater": 46649,
+        "final": 49148
+      },
+      "candidate": {
+        "firstLook": 4247,
+        "firstWater": 21846,
+        "final": 23268
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 67.80500000715256,
+      "baseline": {
+        "firstLook": 4196,
+        "firstWater": 41089,
+        "final": 44010
+      },
+      "candidate": {
+        "firstLook": 4605,
+        "firstWater": 46810,
+        "final": 49435
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 33.80000001192093,
+      "baseline": {
+        "firstLook": 6646,
+        "firstWater": 46972,
+        "final": 49191
+      },
+      "candidate": {
+        "firstLook": 4220,
+        "firstWater": 19252,
+        "final": 21736
+      }
+    },
+    {
+      "engine": "chromium",
+      "id": "m9b-islands-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 186.38999998569489,
+      "baseline": {
+        "firstLook": 3955,
+        "firstWater": 43923,
+        "final": 46820
+      },
+      "candidate": {
+        "firstLook": 5313,
+        "firstWater": 28634,
+        "final": 31595
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 0.12000000000261934,
+      "baseline": {
+        "firstLook": 4334,
+        "firstWater": 43406,
+        "final": 45693
+      },
+      "candidate": {
+        "firstLook": 4154,
+        "firstWater": 24975,
+        "final": 27125
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 132.02000000000407,
+      "baseline": {
+        "firstLook": 4602,
+        "firstWater": 40725,
+        "final": 42939
+      },
+      "candidate": {
+        "firstLook": 4185,
+        "firstWater": 18730,
+        "final": 20848
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 125.30000000000291,
+      "baseline": {
+        "firstLook": 4422,
+        "firstWater": 41198,
+        "final": 43235
+      },
+      "candidate": {
+        "firstLook": 4492,
+        "firstWater": 14264,
+        "final": 16490
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 113.94000000000233,
+      "baseline": {
+        "firstLook": 4128,
+        "firstWater": 38651,
+        "final": 40615
+      },
+      "candidate": {
+        "firstLook": 3932,
+        "firstWater": 11584,
+        "final": 13426
+      }
+    },
+    {
+      "engine": "firefox",
+      "id": "m9b-islands-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 208.13999999999942,
+      "baseline": {
+        "firstLook": 3841,
+        "firstWater": 36497,
+        "final": 38659
+      },
+      "candidate": {
+        "firstLook": 4241,
+        "firstWater": 12725,
+        "final": 15107
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "requested": 1,
+      "threads": 1,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 0.5,
+      "baseline": {
+        "firstLook": 5395,
+        "firstWater": 29255,
+        "final": 31374
+      },
+      "candidate": {
+        "firstLook": 4168,
+        "firstWater": 17554,
+        "final": 19481
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "requested": 2,
+      "threads": 2,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 30.039999999997235,
+      "baseline": {
+        "firstLook": 4106,
+        "firstWater": 24152,
+        "final": 25958
+      },
+      "candidate": {
+        "firstLook": 3994,
+        "firstWater": 15139,
+        "final": 16886
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "requested": 4,
+      "threads": 4,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 34.95999999999549,
+      "baseline": {
+        "firstLook": 4016,
+        "firstWater": 22600,
+        "final": 24495
+      },
+      "candidate": {
+        "firstLook": 4812,
+        "firstWater": 13495,
+        "final": 15575
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "requested": 8,
+      "threads": 8,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 52.57999999999811,
+      "baseline": {
+        "firstLook": 4122,
+        "firstWater": 22953,
+        "final": 25029
+      },
+      "candidate": {
+        "firstLook": 3996,
+        "firstWater": 16631,
+        "final": 18333
+      }
+    },
+    {
+      "engine": "webkit",
+      "id": "m9b-islands-256-1",
+      "requested": 16,
+      "threads": 16,
+      "hash": "d4caa8cdf88b2362f8af113bacc70ee93a8f30e0f2be8b72d258bbfc6808374c",
+      "waterHash": "74651f2114708ee2ffdaeb5dcbce4b3b0cbb6fb7d9476d095501924f24abe665",
+      "exportHash": "d425612fd2dd4deccb892a33179b9fbe2eef2d41358078bb9aa5fbde680be4a4",
+      "ticks": 2176,
+      "settled": true,
+      "passed": true,
+      "bytes": 695411,
+      "startupMs": 50.04000000000087,
+      "baseline": {
+        "firstLook": 3802,
+        "firstWater": 21939,
+        "final": 23553
+      },
+      "candidate": {
+        "firstLook": 3678,
+        "firstWater": 13953,
+        "final": 15503
+      }
+    }
+  ],
+  "generationCrossEngine": []
+}
