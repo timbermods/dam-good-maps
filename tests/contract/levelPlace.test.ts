@@ -4,7 +4,7 @@
 // only the map's own limits (its edge, a cave, another object's tiles) refuse, with one plain reason.
 
 import { describe, expect, it } from "vitest";
-import { cornerFor } from "../../src/core/doc/tools";
+import { cornerFor } from "../../src/core/doc/start";
 import { footprintTiles, startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { ORIENTATION_NAMES } from "../../src/render3d/model";

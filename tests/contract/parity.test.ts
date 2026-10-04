@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { planContextOf, planLake } from "../../src/core/doc/tools";
+import { planEntity } from "../../src/core/doc/placing";
 import { readTimber } from "../../src/core/format/timber";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
@@ -39,17 +39,11 @@ function edit(s: MapSession): void {
   const cells: [number, number, number][] = [];
   for (let y = py - 2; y <= py + 2; y++) cells.push([y, px - 2, px + 2]);
   expect(s.apply({ op: "sculpt", params: { mode: "lower", cells, amount: 1 } }).ok).toBe(true);
-  // a lake somewhere it fits
+  // a water source from the shelf somewhere it fits
   for (let y = 16; y < W - 16; y += 11) {
     let done = false;
     for (let x = 16; x < W - 16 && !done; x += 11) {
-      const outline: [number, number][] = [
-        [x - 3.5, y - 3.5],
-        [x + 3.5, y - 3.5],
-        [x + 3.5, y + 3.5],
-        [x - 3.5, y + 3.5],
-      ];
-      const p = planLake({ outline }, planContextOf(s), "7a1b2c3d-1111-4222-8333-444455556666");
+      const p = planEntity(s, { template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } }, "7a1b2c3d-1111-4222-8333-444455556666");
       if (p.ok && s.applyAll(p.ops, "user", p.label).ok) done = true;
     }
     if (done) break;

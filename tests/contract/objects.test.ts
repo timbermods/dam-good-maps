@@ -1,26 +1,19 @@
 // ROADMAP M7: resources, map objects, themes II.
-// - Resource areas respect moisture reach and the calibrated clustering: a forest or berry patch
-//   drawn in the editor grows alive only on moist soil (and says where), ruin areas become fields
-//   of the official shape (PLAN §9.7).
-// - Invalid placements are shown and refused: map objects on uneven ground, in rivers, on other
-//   objects or at the start, entities the game would delete on load.
+// - Invalid placements are shown and refused: objects the game would delete on load.
 // - Every new object passes the placement emulation (entities.placement, the loader's rules), on
 //   edited maps and on generated maps of all six themes; the Python validator agrees (npm run
 //   oracle).
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { acrossRiver, entityProblem, footprintCheck, objectGround, planArea, planEntity, planObject, planRiverBadwater } from "../../src/core/doc/placing";
-import { planPiece } from "../../src/core/doc/tools";
-import { footprintAt, fitProblems } from "../../src/core/features/objects";
-import type { Feature, MapObjectKind, RiverFeature } from "../../src/core/features/schema";
+import { footprintCheck, planEntity } from "../../src/core/doc/placing";
 import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
-import { components, walkRegions } from "../../src/core/analysis/regions";
+import { walkRegions } from "../../src/core/analysis/regions";
 import { walkWorld } from "../../src/core/analysis/walk";
 import type { BuildResult } from "../../src/core/features/build";
-import { pathField, polygonMask } from "../../src/core/features/geometry";
+import { pathField } from "../../src/core/features/geometry";
 import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
@@ -35,249 +28,47 @@ function session(fragment: string): MapSession {
   return MapSession.fromGenerated(r);
 }
 
-/** A tile where a single object of this kind fits, scanning from the far corner of the start
- *  (every other row, from row 4 + `row`). */
-function spotFor(s: MapSession, kind: MapObjectKind, row = 0): [number, number] {
-  const g = objectGround(s);
-  const { W, H } = g;
-  for (let y = 4 + row; y < H - 8; y += 2) for (let x = 4; x < W - 8; x += 2) if (!fitProblems(kind, footprintAt(kind, x, y, "Cw0"), g).length) return [x, y];
-  throw new Error(`no spot for ${kind}`);
+/** A tile where an object from the shelf stands as it is, without levelling (its footprint check
+ *  green, on level dry ground), scanning from the far corner of the start (every other row, from
+ *  row 4 + `row`). */
+function spotFor(s: MapSession, template: string, row = 0): [number, number] {
+  const { x: W, y: H } = s.size;
+  for (let y = 4 + row; y < H - 8; y += 2)
+    for (let x = 4; x < W - 8; x += 2) {
+      const f = footprintCheck(s, { template, x, y, orientation: "Cw0" });
+      if (!f.problem && f.tiles.every((i) => s.built.heights[i] === s.built.heights[f.tiles[0]] && !s.built.water[i])) return [x, y];
+    }
+  throw new Error(`no spot for ${template}`);
 }
 
 function loadChecks(s: MapSession) {
   return validateFile(s.exportFile(), { profile: "export", spec: s.spec, features: s.features, loadOnly: true }).checks;
 }
 
-describe("map objects placed in the editor (ROADMAP M7)", () => {
+describe("objects placed from the shelf (ROADMAP M7)", () => {
   const s = session("s=4242&t=riverValley&z=128&d=n");
   const W = 128;
 
-  it("single objects fit on level, dry, free ground, pass the placement emulation, and say how far out they are", () => {
-    let k = 0;
-    for (const kind of ["mineSite", "relicSmall", "relicMedium", "relicLarge", "geothermal", "unstableCore"] as MapObjectKind[]) {
-      const at = spotFor(s, kind);
-      const p = planObject(s, { kind, at, orientation: "Cw90", ...(kind === "unstableCore" ? { core: { radius: 2, cycles: 6 } } : {}) }, uuid(k++));
-      expect(p.ok, JSON.stringify(p)).toBe(true);
-      if (!p.ok) continue;
-      expect(p.report.join(" ")).toMatch(/tiles from the start/);
-      const r = s.applyAll(p.ops, "user", p.label);
-      expect(r.errors).toEqual([]);
-    }
-    const placement = loadChecks(s).find((c) => c.id === "entities.placement")!;
-    expect(placement.ok, placement.message).toBe(true);
-    for (const t of ["UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic", "GeothermalField", "UnstableCore"]) expect(s.built.entities.some((e) => e.template === t && e.owner.startsWith("0b8e9a64")), t).toBe(true);
-    const core = s.built.entities.find((e) => e.template === "UnstableCore" && e.owner.startsWith("0b8e9a64"))!;
-    expect(core.components.UnstableCore).toEqual({ ExplosionRadius: 2 });
-  });
-
-  it("refuses a placement that does not fit, and says why", () => {
-    const g = objectGround(s);
-    const h = s.built.heights;
-    // uneven ground: a tile beside a step
-    let uneven: [number, number] | null = null;
-    for (let y = 4; y < 120 && !uneven; y++) for (let x = 4; x < 120 && !uneven; x++) if (h[y * W + x] !== h[y * W + x + 3] && !g.channel![y * W + x] && !g.occupied![y * W + x]) uneven = [x, y];
-    const a = planObject(s, { kind: "mineSite", at: uneven!, orientation: "Cw0" }, uuid(50));
-    expect(a.ok).toBe(false);
-    if (!a.ok) expect(a.errors[0]).toMatch(/not level/);
-    // in a river
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river")!;
-    const [px, py] = river.params.path[8];
-    const b = planObject(s, { kind: "geothermal", at: [Math.round(px) - 1, Math.round(py) - 1], orientation: "Cw0" }, uuid(51));
-    expect(b.ok).toBe(false);
-    if (!b.ok) expect(b.errors[0]).toMatch(/river|water/);
-    // at the start
-    const st = s.built.start!;
-    const c = planObject(s, { kind: "relicSmall", at: [st.x, st.y], orientation: "Cw0" }, uuid(52));
-    expect(c.ok).toBe(false);
-    if (!c.ok) expect(c.errors[0]).toMatch(/start|object/);
-    // an entity the game would delete: on a slope, and floating off a step
-    const slope = s.built.entities.find((e) => e.template === "Slope")!;
-    expect(entityProblem(s, { template: "Blockage", x: slope.x, y: slope.y, orientation: "Cw0" })).toMatch(/slope/);
-    const refused = s.apply({ op: "placeEntity", params: { id: "33333333-2222-4333-8444-555555555555", template: "LargeRelic", x: uneven![0], y: uneven![1], orientation: "Cw0" } });
-    expect(refused.ok).toBe(false);
-    // one plain reason (D290)
-    expect(refused.errors).toEqual(["the ground under it is not level"]);
-  });
-
   it("previews the footprint under the pointer: red with the reason where the click would be refused", () => {
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river")!;
-    const [px, py] = river.params.path[8];
-    const at: [number, number] = [Math.round(px) - 1, Math.round(py) - 1];
-    const red = footprintCheck(s, { tool: "object", kind: "geothermal", at, orientation: "Cw0" });
-    expect(red.tiles.length).toBe(9);
-    expect(red.problem).toMatch(/river|water/);
-    const refused = planObject(s, { kind: "geothermal", at, orientation: "Cw0" }, uuid(60));
-    expect(refused.ok ? null : refused.errors[0]).toBe(red.problem);
-    const ok = spotFor(s, "geothermal");
-    const green = footprintCheck(s, { tool: "object", kind: "geothermal", at: ok, orientation: "Cw0" });
-    expect(green.problem).toBeNull();
-    expect(new Set(green.tiles)).toEqual(new Set(footprintAt("geothermal", ok[0], ok[1], "Cw0").map(([x, y]) => y * W + x)));
-    // an entity by hand: the loader's reason, the same one placeEntity refuses with
+    // on a slope: the loader's reason, the same one the placement refuses with
     const slope = s.built.entities.find((e) => e.template === "Slope")!;
-    const e = footprintCheck(s, { tool: "entity", template: "Blockage", x: slope.x, y: slope.y, orientation: "Cw0" });
+    const e = footprintCheck(s, { template: "Blockage", x: slope.x, y: slope.y, orientation: "Cw0" });
     expect(e.tiles).toEqual([slope.y * W + slope.x]);
     expect(e.problem).toMatch(/slope/);
-  });
-
-  it("a weir and a plug close a river's channel wall to wall and hold its water", () => {
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
-    // the first free place from 30 tiles down the river where its channel is 3 or more wide (M9a:
-    // the generator's own weir or another object may stand at any one place, and the tool refuses
-    // there, as it should)
-    const free = (kind: "weir" | "plug", from: number, k: number) => {
-      let last = "";
-      for (let at = from; at < from + 60; at += 3) {
-        if (acrossRiver(s, river.id, at).length < 3) continue;
-        const p = planObject(s, { kind, river: { id: river.id, at } }, uuid(k));
-        if (p.ok) return { at, p };
-        last = p.errors.join("; ");
-      }
-      throw new Error(`no free place for a ${kind} from ${from} tiles down the river: ${last}`);
-    };
-    const { at, p: weir } = free("weir", 30, 60);
-    const line = acrossRiver(s, river.id, at);
-    expect(line.length).toBeGreaterThanOrEqual(3);
-    expect(weir.ok, JSON.stringify(weir)).toBe(true);
-    if (weir.ok) expect(s.applyAll(weir.ops, "user", weir.label).errors).toEqual([]);
-    expect(s.built.waterModel.dam).not.toBeNull();
-    const { p: plug } = free("plug", at + 30, 61);
-    expect(plug.ok, JSON.stringify(plug)).toBe(true);
-    if (plug.ok) expect(s.applyAll(plug.ops, "user", plug.label).errors).toEqual([]);
-    const blocks = s.built.entities.filter((e) => e.template === "Blockage" && e.owner === uuid(61));
-    expect(blocks.length).toBeGreaterThanOrEqual(3);
-    for (const e of blocks) expect(s.built.waterModel.floor[e.y * W + e.x]).toBe(e.z + 1);
-    expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
-  });
-
-  it("a thorn belt keeps to dry ground and dries the soil under it", () => {
-    const tiles: number[] = [];
-    for (let y = 100; y < 104; y++) for (let x = 20; x < 60; x++) tiles.push(y * W + x);
-    const p = planObject(s, { kind: "thornBelt", tiles, density: 0.6 }, uuid(70));
-    expect(p.ok, JSON.stringify(p)).toBe(true);
-    if (!p.ok) return;
-    s.applyAll(p.ops, "user", p.label);
-    const thorns = s.built.entities.filter((e) => e.template === "Thorns" && e.owner === uuid(70));
-    expect(thorns.length).toBeGreaterThan(10);
-    for (const e of thorns) {
-      expect(s.built.water[e.y * W + e.x]).toBeLessThanOrEqual(0.05);
-      expect(s.built.moisture[e.y * W + e.x]).toBe(0);
-    }
+    const refused = planEntity(s, { template: "Blockage", x: slope.x, y: slope.y, orientation: "Cw0" }, uuid(60));
+    expect(refused.ok ? null : refused.errors[0]).toBe(e.problem);
+    const ok = spotFor(s, "GeothermalField");
+    const green = footprintCheck(s, { template: "GeothermalField", x: ok[0], y: ok[1], orientation: "Cw0" });
+    expect(green.problem).toBeNull();
+    expect(green.tiles.length).toBe(9);
   });
 
   it("an entity placed by hand passes the loader's rules", () => {
-    // off the scan's even rows: a spot where the relic fits one row up
-    const at = spotFor(s, "relicMedium", 1);
+    // off the scan's even rows
+    const at = spotFor(s, "MediumRelic", 1);
     const p = planEntity(s, { template: "MediumRelic", x: at[0], y: at[1], orientation: "Cw0" }, "44444444-2222-4333-8444-555555555555");
     expect(p.ok, JSON.stringify(p)).toBe(true);
     if (p.ok) expect(s.applyAll(p.ops, "user", p.label).errors).toEqual([]);
-    expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
-  });
-});
-
-describe("resource areas respect moisture reach and the calibrated clustering (ROADMAP M7)", () => {
-  // (seed 78 since D333, D148: seed 77's ruin field filled 95% of its box on D333's maps)
-  const s = session("s=78&t=riverValley&z=128&d=n");
-  const W = 128;
-  // a big rectangle across the valley: moist ground by the river, dry ground on the terraces
-  const outline: [number, number][] = [[30.5, 20.5], [70.5, 20.5], [70.5, 107.5], [30.5, 107.5]];
-
-  it("a forest grows alive only where the soil stays moist, as its preview said", () => {
-    const p = planArea(s, { kind: "forest", outline, density: 0.5, species: "Oak", life: "alive" }, uuid(1));
-    expect(p.ok, JSON.stringify(p)).toBe(true);
-    if (!p.ok || !p.preview) return;
-    expect(p.preview.alive.length).toBeGreaterThan(20);
-    expect(p.preview.bare.length).toBeGreaterThan(20);
-    s.applyAll(p.ops, "user", p.label);
-    const trees = s.built.entities.filter((e) => e.owner === uuid(1));
-    expect(trees.length).toBe(p.preview.alive.length);
-    for (const e of trees) {
-      const i = e.y * W + e.x;
-      expect(s.built.moisture[i]).toBeGreaterThan(0);
-      expect(e.components.LivingNaturalResource).toBeUndefined();
-    }
-    // with dead trees on dry ground, as the official maps store them
-    const q = planArea(s, { kind: "forest", outline: [[80.5, 20.5], [120.5, 20.5], [120.5, 60.5], [80.5, 60.5]], density: 0.5, species: "Pine", life: "auto" }, uuid(2));
-    expect(q.ok).toBe(true);
-    if (q.ok && q.preview) expect(q.preview.dead.length).toBeGreaterThan(0);
-    const plants = validateFile(s.exportFile(), { profile: "export", spec: s.spec, features: s.features }).checks.find((c) => c.id === "plants.survive")!;
-    expect(plants.ok, plants.message).toBe(true);
-  });
-
-  it("berry bushes only on moist ground", () => {
-    const p = planArea(s, { kind: "berryPatch", outline, density: 0.4 }, uuid(3));
-    expect(p.ok).toBe(true);
-    if (!p.ok) return;
-    s.applyAll(p.ops, "user", p.label);
-    for (const e of s.built.entities.filter((x) => x.owner === uuid(3))) expect(s.built.moisture[e.y * W + e.x]).toBeGreaterThan(0);
-  });
-
-  it("ruins grow as fields of the official shape: one level each, 10+ columns, holes and clumps", () => {
-    const p = planArea(s, { kind: "ruinField", outline: [[80.5, 64.5], [124.5, 64.5], [124.5, 110.5], [80.5, 110.5]], density: 1 }, uuid(4));
-    expect(p.ok, JSON.stringify(p)).toBe(true);
-    if (!p.ok) return;
-    expect(p.ops.length).toBeGreaterThanOrEqual(1);
-    s.applyAll(p.ops, "user", p.label);
-    const ids = new Set(p.ops.map((o) => (o.op === "addFeature" ? o.params.feature.id : "")));
-    for (const id of ids) {
-      const cols = s.built.entities.filter((e) => e.owner === id);
-      expect(cols.length).toBeGreaterThanOrEqual(10);
-      // one level, and one blob of touching columns
-      expect(new Set(cols.map((e) => e.z)).size).toBe(1);
-      const m = new Uint8Array(W * W);
-      for (const e of cols) m[e.y * W + e.x] = 1;
-      expect(components(m, W, W, true).sizes.filter((n) => n >= 10).reduce((a, n) => a + n, 0) / cols.length).toBeGreaterThanOrEqual(0.8);
-      // it fills its box roughly as official fields do (0.56 median)
-      const xs = cols.map((e) => e.x);
-      const ys = cols.map((e) => e.y);
-      const box = (Math.max(...xs) - Math.min(...xs) + 1) * (Math.max(...ys) - Math.min(...ys) + 1);
-      expect(cols.length / box).toBeGreaterThan(0.3);
-      expect(cols.length / box).toBeLessThan(0.95);
-    }
-    const checks = validateFile(s.exportFile(), { profile: "export", spec: s.spec, features: s.features }).checks;
-    for (const id of ["ruins.fields", "ruins.access"]) expect(checks.find((c) => c.id === id)!.ok, id).toBe(true);
-  });
-});
-
-describe("spillways and badwater rivers in the editor (ROADMAP M7)", () => {
-  it("a plugged spillway drains a lake only over its plug", () => {
-    // the map's biggest natural lake (generator 0.7.0 reads the lakes back out of the field)
-    const s = session("s=6&t=lakeBasin&z=96&d=n");
-    const area = (f: Feature) => (f.kind === "lake" ? polygonMask(f.params.outline, 96, 96).reduce((a, v) => a + v, 0) : 0);
-    const lake = s.features.filter((f) => f.kind === "lake" && f.params.natural).sort((a, c) => area(c) - area(a))[0];
-    expect(lake).toBeDefined();
-    if (lake.kind !== "lake") return;
-    const [x, y] = lake.params.outline[8];
-    const p = planPiece(s, "plugSpillway", { lake: lake.id, at: [x, y], width: 3 }, uuid(80));
-    expect(p.ok, JSON.stringify(p)).toBe(true);
-    if (!p.ok) return;
-    expect(p.report.join(" ")).toMatch(/demolishing the plug lowers the lake/);
-    s.applyAll(p.ops, "user", p.label);
-    const plug = s.built.entities.filter((e) => e.template === "Blockage" && e.owner === uuid(80));
-    expect(plug.length).toBeGreaterThanOrEqual(2);
-    expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
-    // the lake still stands at its sill
-    const W = 96;
-    let deep = 0;
-    for (let i = 0; i < W * W; i++) if (s.built.heights[i] <= lake.params.outlet.sill - 1 && s.built.water[i] > 0.5) deep++;
-    expect(deep).toBeGreaterThan(100);
-  });
-
-  it("a river made badwater gets BadwaterSources on its mouth and carries badwater", () => {
-    // a map whose start is beside its main river (seed 3 since batch 5 raised the land, D148)
-    const s = session("s=3&t=riverValley&z=128&d=n");
-    const river = s.features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main")!;
-    const p = planRiverBadwater(s, river.id, true);
-    expect(p.ok, JSON.stringify(p)).toBe(true);
-    if (!p.ok) return;
-    expect(p.report.join(" ")).toMatch(/trees and bushes there die/);
-    // the start drinks from its main river: a warning before the change is made
-    expect(p.report.join(" ")).toMatch(/start is beside this river/);
-    s.applyAll(p.ops, "user", p.label);
-    expect(s.built.entities.some((e) => e.template === "BadwaterSource" && e.owner === river.id)).toBe(true);
-    const W = 128;
-    let bad = 0;
-    for (let i = 0; i < W * W; i++) if (s.built.channel[i] && s.built.contamination[i] > 0.5) bad++;
-    expect(bad).toBeGreaterThan(50);
     expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
   });
 });

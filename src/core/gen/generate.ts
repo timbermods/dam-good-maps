@@ -37,7 +37,7 @@ import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
 import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
-import { buildMap, SettleCache, type BuildResult, type GeneratedField, type LockedLayer } from "../features/build";
+import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
 import { previewSettle } from "../sim/preview";
 import type { FieldCache } from "../features/target";
 import { featureId } from "../features/ids";
@@ -117,14 +117,6 @@ const SETTLE_BUDGET = 5;
 export const FIRST_DROUGHT_DAYS = 3;
 /** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85). */
 const MOIST_WALK = 160;
-
-/** Regeneration constraints (PLAN §7.0): tiles the plan keeps off (the player's features, locked
- *  and keep-out regions), the player's features, and what a regeneration keeps under locks. */
-export interface PlanContext {
-  protect: Uint8Array | null;
-  features: readonly Feature[];
-  locked: LockedLayer | null;
-}
 
 export interface GenerationInfo {
   /** Genomes drawn; the accepted map's genome. */
@@ -216,8 +208,6 @@ export interface GenerateOptions {
   /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
    *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
-  /** Regeneration constraints (PLAN §7.0). */
-  context?: PlanContext | null;
   /** Steering (D138, M12): these intentions instead of the drawn ones; [] for none. */
   intentions?: IntentionId[] | null;
   /** The map, as soon as it passed (D329: the first candidate that passes the absolutes is the map,
@@ -501,11 +491,11 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
  *  the sea, and any lake on an island) that stand at the level their water spills at, in 4-connected
  *  groups of 8 tiles or more, off the locks and the protected tiles, rise a level and are dry: the
  *  water stands a level or more deep everywhere but at its shore. Returns how many rose. */
-function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null): number {
+function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array): number {
   const N = W * H;
   const spill = drainage(h, W, H, { eight: false }).filled;
   const shelf = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i] && !locked?.[i] && !protect?.[i]) shelf[i] = 1;
+  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i]) shelf[i] = 1;
   const seen = new Uint8Array(N);
   let rose = 0;
   for (let s0 = 0; s0 < N; s0++) {
@@ -543,11 +533,11 @@ function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array,
  *  Drought reserve setting reads), off the locks and the protected tiles; each is cut a level
  *  lower, never below the beds' floor. Returns how many were cut. */
 export const SHELF_MIN = 60;
-function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, locked: Uint8Array | null, protect: Uint8Array | null, seed = 0): number {
+function lowerShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, seed = 0): number {
   const N = W * H;
   const spill = drainage(h, W, H, { eight: false }).filled;
   const shelf = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i] && h[i] > BED_FLOOR && !locked?.[i] && !protect?.[i]) shelf[i] = 1;
+  for (let i = 0; i < N; i++) if (water[i] === 2 && h[i] >= spill[i] && h[i] > BED_FLOOR) shelf[i] = 1;
   const seen = new Uint8Array(N);
   const q = new Int32Array(N);
   const cut: number[] = [];
@@ -1203,26 +1193,24 @@ function wetRing(b: BuildResult, p: StartPick): boolean {
 /** The land stage of an attempt (D333 (2)): the genome's levels, the rivers and lakes planned on
  *  them, the processes' carving, the edge lip and the course check. Everything after it plans on
  *  this land and never changes it but locally (the start's pad, the badwater hollows). */
-function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, ctx: PlanContext | null, protect: Uint8Array | null, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
+function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
   const g = land.g;
   const N = W * H;
   const h = land.h0.slice();
-  // what a regeneration keeps under locks stands as it was; the water finds its way round it
-  if (ctx?.locked) for (let i = 0; i < N; i++) if (ctx.locked.mask[i]) h[i] = ctx.locked.heights[i];
   // no edge walls: the land runs on past the edge, before the water is planned and after the
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  const hy = planHydro(land.E, h, g, seed, W, H, attempt, { protect });
+  const hy = planHydro(land.E, h, g, seed, W, H, attempt);
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   relaxEdges(h, W, H, mouthBanks(hy, W, H));
   const keep = new Uint8Array(N);
-  for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 || ctx?.locked?.mask[i] ? 1 : 0;
+  for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
   mergeSmallRegions(h, W, H, 4, keep);
   cleanPitsAndSpikes(h, W, H, keep);
   fillDryHollows(h, W, H, keep);
-  const ramps = naturalRamps(h, W, H, keep, protect ?? new Uint8Array(N), g, seed, attempt);
+  const ramps = naturalRamps(h, W, H, keep, new Uint8Array(N), g, seed, attempt);
   if (ramps.cut) {
     cleanPitsAndSpikes(h, W, H, keep);
     fillDryHollows(h, W, H, keep);
@@ -1239,7 +1227,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   if (dry.length) {
     for (const k of dry)
       for (const i of hy.lakes[k].tiles)
-        if (hy.water[i] === 2 && !ctx?.locked?.mask[i]) {
+        if (hy.water[i] === 2) {
           keep[i] = 0;
           hy.water[i] = 0;
         }
@@ -1251,7 +1239,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // level below it, so their water leaves as a river does instead of a sheet over the flat, which
   // takes days to settle; the channel is as wide as the map's flow needs
   const channels = new Uint8Array(N);
-  for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 || ctx?.locked?.mask[i] ? 1 : 0;
+  for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
@@ -1274,7 +1262,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       // stood between ruler-straight walls, Islands 128² seed 12)
       for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if ((!g.seaLayout || dx * dx + dy * dy <= 40) && cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) heads[(cy + dy) * W + cx + dx] = 1;
     }
-    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i] || hy.water[i] === 2) heads[i] = 1;
+    for (let i = 0; i < N; i++) if (hy.water[i] === 2) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
@@ -1291,20 +1279,19 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       return { x, y, r: p.size, aspect: p.kind === "isle" && p.extra > 0 ? p.extra : 1, ux: (x2 - x) / 10, uy: (y2 - y) / 10 };
     });
     const keepI = new Uint8Array(N);
-    for (let i = 0; i < N; i++) keepI[i] = ctx?.locked?.mask[i] || protect?.[i] || hy.water[i] === 1 ? 1 : 0;
+    for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
     // (only round an inland sea: where the ring breaks, an island may reach the land round it, D417)
     if (g.seaRing) standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
-  for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR && !ctx?.locked?.mask[i]) h[i] = BED_FLOOR;
+  for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR) h[i] = BED_FLOOR;
   // item 27: a river that starts at the map's edge flows into the map, never off it: the edge tiles
   // its head's water would reach beside its row (a lake's shore at the edge too) stand a level above
   // that water (a natural lip, water/edgeLip.ts); the mouths themselves and the player's ground stay
   {
     const est = plannedWater(h, hy, W, H);
     const keep = new Uint8Array(N);
-    for (let i = 0; i < N; i++) keep[i] = ctx?.locked?.mask[i] || protect?.[i] ? 1 : 0;
     const rows = hy.rivers.map((r) => mouthTilesOf(r, W, H));
     for (const row of rows) for (const i of row) keep[i] = 1;
     for (const row of rows) {
@@ -1339,13 +1326,13 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
-  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect, hash32(seed, "shelves", attempt));
+  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, hash32(seed, "shelves", attempt));
   // (D410: round a sea the shelf at its spill level rises a level instead, to the low shore it is, so no
   // pale sheet of water a few hundredths deep lies round its islands and along its coast)
-  else if (raiseSeaShelves(h, W, H, hy.water, ctx?.locked?.mask ?? null, protect)) {
+  else if (raiseSeaShelves(h, W, H, hy.water)) {
     // (the shelves risen are dry land: they leave the water kept, so the start's walkable land holds
     // them; kept as water, a start on one read no walkable land and its score was not a number)
-    for (let i = 0; i < N; i++) if (keep[i] && !hy.water[i] && !ctx?.locked?.mask[i]) keep[i] = 0;
+    for (let i = 0; i < N; i++) if (keep[i] && !hy.water[i]) keep[i] = 0;
   }
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -1369,8 +1356,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const rule = spec.settings.start.rules.waterWithin;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
-  const ctx = opts.context ?? null;
-  const protect = ctx?.protect ?? null;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
   const policy: DroughtPolicy = spec.designedFor === "easy" ? "require" : "prefer";
   let h: Uint8Array;
@@ -1387,7 +1372,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keep = from.keep;
     ramps = from.ramps;
   } else {
-    const st = planLandStage(land, attempt, W, H, seed, ctx, protect, opts);
+    const st = planLandStage(land, attempt, W, H, seed, opts);
     h = st.h;
     hy = st.hy;
     keep = st.keep;
@@ -1419,7 +1404,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
   };
   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
-    const b = buildMap({ W, H, seed, features, field: fieldOf(), locked: ctx?.locked ?? null }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
+    const b = buildMap({ W, H, seed, features, field: fieldOf() }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
     if (stop === "water") return b;
     // (a settle counts once: the cache hands the attempts on a land the settles they share)
     if (!counted.has(b.settle.depth)) {
@@ -1433,14 +1418,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   for (const f of lakes) contains.add(f.id);
   // the pre-built weir (D72), on half the maps where a river's channel takes one; the start and the
   // badwater keep off its pool
-  const weir = bundle ? bundle.weir : planWeir(h, W, H, hy, seed, attempt, protect);
+  const weir = bundle ? bundle.weir : planWeir(h, W, H, hy, seed, attempt);
   const pool = new Uint8Array(N);
   if (weir) for (const i of weir.pool) pool[i] = 1;
   // M9b ("a plug holds back a lake", D274): on a map steered toward it, a plug across a big lake's
   // way out; the start and the badwater keep off it and its lake
-  const plug = bundle ? bundle.plug : g.plugLake ? planPlug(h, W, H, hy, seed, protect) : null;
+  const plug = bundle ? bundle.plug : g.plugLake ? planPlug(h, W, H, hy, seed) : null;
   if (plug) for (const i of plug.pool) pool[i] = 1;
-  let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(plug ? [plug.feature] : []), ...(ctx?.features ?? [])];
+  let rivers: Feature[] = [...hy.rivers, ...lakes, ...(weir ? [weir.feature] : []), ...(plug ? [plug.feature] : [])];
   // rivers that leave the map (their spring or row of sources reached by another's water, D171)
   const dropRivers = (ids: readonly string[]) => {
     const dropped = new Set(ids);
@@ -1535,7 +1520,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // stand where a start failed, D363)
   const avoidOf = (bad: Hazards | null, starts = true) => {
     const a = new Uint8Array(N);
-    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (protect?.[i] ?? 0) || (starts && tried[i]) ? 1 : 0;
+    for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (starts && tried[i]) ? 1 : 0;
     return a;
   };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
@@ -1608,7 +1593,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
     distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
-    keepOff: weir ? orMask(protect, pool) : protect,
+    keepOff: (weir ? pool : null) as Uint8Array | null,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -1776,7 +1761,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // pad, taken down a level at most, clear of the water)
       if (guess) {
         const keepP = new Uint8Array(N);
-        for (let i = 0; i < N; i++) keepP[i] = keep[i] || hy.water[i] === 1 || hy.water[i] === 2 || pool[i] || ramps.tiles[i] || protect?.[i] || ctx?.locked?.mask[i] ? 1 : 0;
+        for (let i = 0; i < N; i++) keepP[i] = keep[i] || hy.water[i] === 1 || hy.water[i] === 2 || pool[i] || ramps.tiles[i] ? 1 : 0;
         const scale = bandScale(W, H);
         const want = minesWanted(W, H);
         const lo = MINE_REACH_LO * scale + 1;
@@ -1914,7 +1899,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
         const pf = prefill(model);
         const pb = { ...bw, waterModel: model, water: pf.depth, contamination: pf.contamination } as BuildResult;
-        const obj = planExtras({ spec, base: pb, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh }).filter((f) => f.params.kind === "mineSite");
+        const obj = planExtras({ spec, base: pb, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh }).filter((f) => f.params.kind === "mineSite");
         const mb = build([...layout, ...obj], "water");
         const objs = mapObjects({ entities: mb.entities.map(entityJson) });
         const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
@@ -1962,7 +1947,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const y = (i - x) / W;
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) keepW[(y + dy) * W + x + dx] = 1;
       }
-    for (let i = 0; i < N; i++) if (bad.avoid[i] || protect?.[i] || ctx?.locked?.mask[i]) keepW[i] = 1;
+    for (let i = 0; i < N; i++) if (bad.avoid[i]) keepW[i] = 1;
     // (a source's tiles are no way out: the game walls them off from the edge)
     const sourceTiles = new Uint8Array(N);
     for (const e of b.waterModel.emitters) for (const i of e.cells) sourceTiles[i] = 1;
@@ -2240,8 +2225,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (what the objects' placement keeps off, gen/extras.ts: the hollows' ground and what the start
   // keeps off, channels, objects, lakes, protected set pieces)
   const roomKeepOf = (b: typeof b1) => {
-    const k = objectKeepOff(b, [...rivers, ...bad.features], protect, avoidOf(bad, false));
-    for (let i = 0; i < N; i++) if (ctx?.locked?.mask[i]) k[i] = 1;
+    const k = objectKeepOff(b, [...rivers, ...bad.features], null, avoidOf(bad, false));
     return k;
   };
   const scale = bandScale(W, H);
@@ -2401,7 +2385,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     if (!why && N <= 96 * 96) {
-      const objects = planExtras({ spec, base: b, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
+      const objects = planExtras({ spec, base: b, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
       const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");
       const objs = mapObjects({ entities: mb.entities.map(entityJson) });
       const wet = Uint8Array.from(mb.water, d => d > WET ? 1 : 0);
@@ -2444,7 +2428,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const objs = mapObjects({ entities: b.entities.map(entityJson) });
     return minesReached(objs, W, H, colonyReach(W, H, b.heights, wetB, objs, b.start));
   };
-  const objects = provedObjects ?? planExtras({ spec, base, features: layout, protect, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
+  const objects = provedObjects ?? planExtras({ spec, base, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
   if (objects.length) {
     let b2 = build([...layout, ...objects], "resources");
     const own = (f: MapObjectFeature) => objectTiles(f, W, H).length;
@@ -2503,7 +2487,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       for (const [x, y] of districtCandidates(base, layout, avoid, band ? 8 : 4, band ?? undefined, onWalk)) {
         const role = "setpiece/secondDistrict/primary";
         const pctx = { W, H, seed, features: layout, heights: base.heights, channel: base.channel, water: base.water, contamination: base.contamination, start: { x: base.start!.x, y: base.start!.y, radius: 4 } };
-        const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role }, true);
+        const r = planSetPiece("secondDistrict", { at: [x, y] }, pctx, { id: featureId(seed, "setPiece", role), origin: "generated", role });
         if (!r.ok) continue;
         let b2 = build([...layout, r.feature], "resources");
         if (!walkableFromStart(b2, x, y)) continue;
@@ -2532,7 +2516,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // ---- ruins on a natural rise (PLAN §9.4, found on the land and never raised: stairs-only ground
   //      is a reward): a ruin field on level ground one flight of player stairs above the colony's
   const keepOff = new Uint8Array(N);
-  for (let i = 0; i < N; i++) keepOff[i] = bad.avoid[i] || (protect?.[i] ?? 0) ? 1 : 0;
+  for (let i = 0; i < N; i++) keepOff[i] = bad.avoid[i] ? 1 : 0;
   let scrapPlaced = 0;
   const rise: Feature[] = [];
   let risePlan: ObstaclePlan | null = null;
@@ -2565,8 +2549,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
   }
   opts.onProgress?.({ attempt, stage: "resources" });
-  const lockedMask = ctx?.locked?.mask ?? null;
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, lockedMask, scrapPlaced }, sites)];
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -2587,7 +2570,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, lockedMask, scrapPlaced }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, scrapPlaced }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);

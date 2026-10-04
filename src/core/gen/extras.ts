@@ -36,14 +36,15 @@ export interface ExtrasInput {
   base: BuildResult;
   /** The planned features so far (reservoir sites, set pieces). */
   features: readonly Feature[];
-  /** Tiles no object may take: the player's features, locks and keep-out regions (regeneration). */
-  protect?: Uint8Array | null;
   /** More tiles to keep off (a dam site's band, badwater basins). */
   avoid?: Uint8Array | null;
   candidate: number;
   attempt: number;
   /** M9b: the first medium or large relic tries ground the start cannot walk to (D274). */
   relicHigh?: boolean;
+  /** Retired (D253, D270, D336: no locks or keep-outs); always null. Kept only so the frozen
+   *  investigation prototypes that still pass it type-check (investigation/generative/proto). */
+  protect?: null;
 }
 
 /** How many of each object the settings ask for on this map (PLAN §5.4–5.5). */
@@ -125,7 +126,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   // tiles an object may not take: other objects and the start's zone (build.occupied), rivers, the
   // flood reach (water within the margin + 1, reservoir sites), the protected set-piece tiles, the
   // player's tiles and the map's border
-  const blocked = objectKeepOff(b, inp.features, inp.protect, inp.avoid);
+  const blocked = objectKeepOff(b, inp.features, null, inp.avoid);
   // start's zone and a margin: nothing of this within 8 tiles
   for (let i = 0; i < N; i++) if (sd[i] < 8) blocked[i] = 1;
 

@@ -19,7 +19,7 @@ export interface PlugPlan {
 }
 
 /** A plug across the outlet of the biggest lake with a clear way out, or null. */
-export function planPlug(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers" | "lakes" | "water">, seed: number, protect: Uint8Array | null): PlugPlan | null {
+export function planPlug(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers" | "lakes" | "water">, seed: number): PlugPlan | null {
   const N = W * H;
   const areaK = N / (128 * 128);
   // (a lake on a side river first: below the plug its river runs dry until the plug is opened, and
@@ -46,7 +46,7 @@ export function planPlug(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "r
       let bed = Infinity;
       for (let i = 0; i < N; i++) {
         if (!(f.d[i] < reach) || Math.abs(f.s[i] - at) > 0.5 || hy.water[i] !== 1) continue;
-        if (inLake[i] || protect?.[i]) {
+        if (inLake[i]) {
           tiles.length = 0;
           break;
         }

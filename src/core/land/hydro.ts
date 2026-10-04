@@ -72,9 +72,6 @@ export interface HydroOptions {
   /** Meanders and varying widths (M9a's no-straight-rivers rule); false gives the prototype's
    *  courses, for comparisons. */
   meander?: boolean;
-  /** Tiles the rivers keep off (a regeneration's constraints, PLAN §7.0: the player's features,
-   *  locked and keep-out regions): no head, course, channel or valley lake on them. */
-  protect?: Uint8Array | null;
 }
 
 /** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
@@ -325,12 +322,6 @@ function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wan
   return smoothPath(out, 1, 1);
 }
 
-/** Whether a course comes within `reach` tiles of a marked tile. */
-function touches(path: Point[], reach: number, mask: Uint8Array, W: number, H: number): boolean {
-  const st = stamp(path, W, H, Math.ceil(reach));
-  return st.tiles.some((i) => mask[i] && st.d[i] < reach);
-}
-
 /** A channel's half-width along its course: its own, varied by noise along its length (so its
  *  banks are never parallel for long), and exactly its own near both ends (the build finds its
  *  mouth and spring tiles with its plain width). */
@@ -368,10 +359,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   const Er = new Float64Array(N);
   const wander = g.wander;
   const wanderCell = g.wanderCell;
-  const protect = opts.protect ?? null;
-  // a course keeps a channel's width and a little more off the protected tiles
-  const nearProtect = protect ? distanceFrom(protect, W, H) : null;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) Er[y * W + x] = E[y * W + x] + wander * fbm(rs, x, y, wanderCell, 2) + (protect?.[y * W + x] ? 1000 : 0);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) Er[y * W + x] = E[y * W + x] + wander * fbm(rs, x, y, wanderCell, 2);
   const dr = drainage(Er, W, H, { outlet: (i) => !onUp(i), epsilon: 1e-6 });
   // (M9b: the spill of each tile's lowest way down on the land's levels, as the game's water moves)
   const drH = natural ? drainage(h, W, H, { outlet: (i) => !onUp(i), eight: false }) : null;
@@ -442,7 +430,6 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 || drH.filled[hd.cell] > h[hd.cell])) return false;
     // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
     if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell]) return false;
-    if (nearProtect && cells.some((i) => nearProtect[i] < 7)) return false;
     // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
     // does not drain)
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
@@ -460,7 +447,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean, separate = false): number => {
       const cands: [number, number][] = [];
       for (let i = 0; i < N; i++) {
-        if (!onUp(i) || protect?.[i]) continue;
+        if (!onUp(i)) continue;
         const e = edgeOf(i, W, H)!;
         const x = i % W;
         const y = (i - x) / W;
@@ -520,7 +507,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     for (let y = 12; y < H - 12; y++)
       for (let x = 12; x < W - 12; x++) {
         const i = y * W + x;
-        if (downLen[i] < 0.35 * side || owner[i] >= 0 || protect?.[i]) continue;
+        if (downLen[i] < 0.35 * side || owner[i] >= 0) continue;
         if (joinable && (!joinable.reach[i] || joinable.len[i] < minTributary)) continue;
         cands.push([E[i] + 0.01 * downLen[i] + 3 * rng.float(), i]);
       }
@@ -557,7 +544,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       for (let y = 12; y < H - 12; y++)
         for (let x = 12; x < W - 12; x++) {
           const i = y * W + x;
-          if (dist[i] <= R || downLen[i] < 0.35 * side || owner[i] >= 0 || protect?.[i]) continue;
+          if (dist[i] <= R || downLen[i] < 0.35 * side || owner[i] >= 0) continue;
           if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
           if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
           else apart.push([dist[i] + 0.01 * downLen[i], i]);
@@ -719,8 +706,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         path[path.length - 1] = [Math.round(bp[0] * 100) / 100, Math.round(bp[1] * 100) / 100];
       }
       const wandered = meanderPath(path, h, W, H, wv, hash32(seed, "meander", attempt, tr.k));
-      // a course that would wander onto the player's tiles keeps to its valley's line there
-      if (!protect || !touches(wandered, widthFor(hd.flow) / 2 + g.hydro.floor + 2, protect, W, H)) path = wandered;
+      path = wandered;
     }
     courses.push(path);
     wanders.push(wv);
@@ -773,7 +759,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       for (let y = Math.max(1, Math.floor(y0) - R); y <= Math.min(H - 2, Math.ceil(y1) + R); y++)
         for (let x = Math.max(1, Math.floor(x0) - R); x <= Math.min(W - 2, Math.ceil(x1) + R); x++) {
           const i = y * W + x;
-          if (h[i] > level + 1 || (owner[i] >= 0 && owner[i] !== t.k) || protect?.[i]) continue;
+          if (h[i] > level + 1 || (owner[i] >= 0 && owner[i] !== t.k)) continue;
           // the nearest point of the stretch, and how far along it lies
           let best = Infinity;
           let at = 0;
@@ -1023,7 +1009,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     }
   const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number): void => {
     for (const i of st.tiles) {
-      if (protect?.[i] || mouthBank[i]) continue;
+      if (mouthBank[i]) continue;
       const d = st.d[i];
       const x = i % W;
       const y = (i - x) / W;
@@ -1190,7 +1176,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         for (const a of mr.along) {
           const x = e === "west" ? t : e === "east" ? W - 1 - t : a;
           const y = e === "south" ? t : e === "north" ? H - 1 - t : a;
-          if (x < 0 || y < 0 || x >= W || y >= H || protect?.[y * W + x]) continue;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
           block.push(y * W + x);
         }
       // (at its lowest tile: the bed only ever lowers)
@@ -1299,8 +1285,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
             if ((xx - cx) * (xx - cx) + (yy - cy) * (yy - cy) > 1.7 * 1.7) continue;
             const i = yy * W + xx;
             if (mark[i]) continue;
-            if (water[i] === 1 || water[i] === 2 || protect?.[i] || h[i] <= floor) {
-              if (water[i] === 1 || water[i] === 2 || protect?.[i]) ok = false;
+            if (water[i] === 1 || water[i] === 2 || h[i] <= floor) {
+              if (water[i] === 1 || water[i] === 2) ok = false;
               continue;
             }
             // (D447: a bank stays between the hollow and any water but at its join: where it touched
