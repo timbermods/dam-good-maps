@@ -174,7 +174,8 @@ async function check(page: Page, w: number, state: string) {
   expect(water.l - row.r, `a clear gap between the Show row and the water row (${state})`).toBeGreaterThanOrEqual(16);
   const legendRow = find(".legend-row");
   const topDown = bs.filter((b) => b.name.startsWith(".camera-group > button")).sort((a, b) => a.l - b.l)[0];
-  same(legendRow.r, topDown.l - 8, `Legend one corner gap left of Top-down (${state})`);
+  // (Legend centred in the gap between the water row's right edge and Top-down's left, Kyler, 2026-10-04)
+  same((legendRow.l + legendRow.r) / 2, (water.r + topDown.l) / 2, `Legend centred between the water row and Top-down (${state})`);
   same(legendRow.t, row.t, `Legend's top the Show row's (${state})`);
   // the top band shares one top and one bottom: the toggles, the water row, Legend, Top-down, Reset view and the
   // compass (Kyler, 2026-10-04)
@@ -182,24 +183,24 @@ async function check(page: Page, w: number, state: string) {
     same(b.t, row.t, `${b.name}: the top band's top (${state})`);
     same(b.b, row.b, `${b.name}: the top band's bottom (${state})`);
   }
-  // the bottom-left group: the minimap at the foot, level with the bar's, on the left margin; beside it, one gap to its
-  // right (at its widest, 168px), the readout at the foot and the coordinates one gap above it (Kyler, 2026-10-04)
+  // the bottom-left group: the minimap at the foot, level with the bar's, on the left margin; directly above it, one gap
+  // between each, the readout and over it the coordinates, their left edges on the minimap's (Kyler, 2026-10-04)
   const minimap = find(".editor-view .minimap");
   same(minimap.l, map.l + MARGIN, `the minimap on the map's left margin (${state})`);
   same(map.b - minimap.b, MARGIN, `the minimap on the map's foot margin (${state})`);
   const groupTop = minimap.t;
-  let foot = minimap.b;
+  let foot = minimap.t;
   for (const name of [".readout", ".coords"]) {
     const b = bs.find((x) => x.name === name);
     if (!b) continue;
-    same(b.l, map.l + MARGIN + 168 + 6, `${name} beside the minimap (${state})`);
-    same(foot - b.b, name === ".readout" ? 0 : 6, `${name} at the foot, the coordinates one gap above the readout (${state})`);
+    same(b.l, minimap.l, `${name}'s left edge on the minimap's (${state})`);
+    same(foot - b.b, 6, `${name} one gap above what is under it (${state})`);
     foot = b.t;
   }
   const legend = bs.find((b) => b.name === ".legend-panel");
   void groupTop;
   if (legend) {
-    same(legend.r, legendRow.r, `the legend's right edge is Legend's (${state})`);
+    same((legend.l + legend.r) / 2, (legendRow.l + legendRow.r) / 2, `the legend centred under Legend (${state})`);
     same(legend.t, legendRow.b + 6, `the legend one gap under Legend (${state})`);
     expect(legend.b, `the legend ends on the map's foot margin or higher (${state})`).toBeLessThanOrEqual(map.b - MARGIN + 0.5);
     const scroll = await page.locator(".legend-panel").evaluate((e) => e.scrollHeight - e.clientHeight);

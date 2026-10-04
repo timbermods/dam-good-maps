@@ -42,13 +42,13 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   await expect(page.locator("aside.legend-panel")).toHaveCount(0);
   const closed = await places(page);
 
-  // ticked: under Legend, its right edge on Legend's, over the map, and nothing else moves
+  // ticked: one gap under Legend, centred under it (its title), over the map, and nothing else moves
   const legend = await openLegend(page);
   await expect(button).toHaveAttribute("aria-checked", "true");
   const canvas = (await page.locator(".view3d > canvas").boundingBox())!;
   const toggle = (await page.locator(".legend-row").boundingBox())!;
   const box = (await legend.boundingBox())!;
-  expect(Math.abs(box.x + box.width - (toggle.x + toggle.width))).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(box.x + box.width / 2 - (toggle.x + toggle.width / 2))).toBeLessThanOrEqual(0.5);
   expect(box.y).toBeGreaterThan(toggle.y + toggle.height);
   expect(box.y + box.height).toBeLessThanOrEqual(canvas.y + canvas.height + 0.5);
   expect(box.width).toBeLessThan(260);

@@ -410,19 +410,20 @@ refinements and what the mockups left open:
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Under roofs** (only on a map
   with roofed water) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
-- **Legend on its own at the top right**, one corner gap (8px) left of Top-down, its top level with the row's and the
-  water row's, the same toggle look. Ticked, the legend (190px) hangs one gap under it, its right edge on Legend's,
-  clear of the camera controls, the water row, the objects list and its window, and the bar at both sizes (at
-  1920×1080 it spans 1402–1592px; the bar ends at 1400px). The fullest legend fits.
+- **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
+  and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
+  closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
+  the camera controls, the water row, the objects list and its window, and the bar at both sizes. The fullest
+  legend fits.
 - **The overlays' keys** (what Heights, Badwater and Under roofs show; Lines, Markers, Flow and See-through need
   none) sit in the legend's place under Legend: with Legend off, a small key (190px) holds Heights' "Ground height"
   with the ramp and the map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the
   overlay's caption heads the legend (which holds Heights' own line).
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
 - **The bottom-left group** (Kyler, 2026-10-04): the minimap at the foot, on the page's 10px margin, its bottom level
-  with the bar's and the objects list's; beside it, 6px right of its widest (168px), the readout at the foot and the
-  coordinates 6px above it, 32px plates, so they show whether a panel is open or not. The readout stops at 330px, short
-  of the bar.
+  with the bar's and the objects list's, with no outline of the view; directly above it, one gap between each, the
+  readout and over it the coordinates, their left edges on the minimap's. The readout shows its whole text: past
+  500px (short of the bar) it takes a second line and the group grows upward.
 - **The map generator lies over the map** (Kyler, 2026-10-04): opening it never resizes the map. The panel sits at
   the window's left edge, vertically centred between the header (10px below it) and the bar (11px above it, so the
   room is an even number of pixels and a centred panel sits on whole pixels), over whatever is there while it is open.
@@ -435,9 +436,10 @@ refinements and what the mockups left open:
   window at 2560×1440 would only stretch the sliders), on the page's 10px margin at the left, under the Show row
   (Kyler, 2026-10-04: nothing beside it, nothing hidden under it; opening and closing changes nothing on screen but
   the panel), its corners rounded.
-  It starts one gap (10px) under the top band at both sizes and is 748px tall: at 1920×1080 it ends 11px above the
-  bar's settings (the bar reaches under it there).
-  Every setting shows at once, nothing scrolls, each on one 28px line: its name, then a slider and its value, or a
+  It starts one gap (10px) under the top band at both sizes and is 684px tall (its lines 25px): at 1920×1080 it ends
+  19px above the coordinates over the minimap, and above the bar's settings, which reach under it there. Your maps
+  and Real places take the same box.
+  Every setting shows at once, nothing scrolls, each on one 25px line: its name, then a slider and its value, or a
   segmented choice (a choice too wide for the column takes room from the name; each column's sliders and values line
   up). A title block (the Name, two lines kept, beside Generate and Surprise me; Theme, with Reset settings under
   Surprise me, the three buttons in the panel's 13px; Seed with Keep, and Size with "128 × 128" or a custom width and
@@ -450,7 +452,7 @@ refinements and what the mockups left open:
   each button lit while its panel is open), in the generator's exact box: four to a row, scrolling inside when there
   are more.
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
-  the same box, three across and three down (rows of 238px, so exactly three show and a fourth never peeks; the
+  the same box, three across and three down (rows of 218px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
   ("Crater Lake"; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on

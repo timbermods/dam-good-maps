@@ -659,3 +659,9 @@ included; the panels one gap under the band at 2560×1440 too; Reset settings it
 Real places' names without "Near".
 Top-down and Reset view are 129px so the camera group stays 310px wide with the 36px compass. No map here shows Under
 roofs: none of the 22 official maps has roofed water, so its capture waits for a map that does.
+
+**Kyler's next three (2026-10-04):** the coordinates and the readout stacked directly above the minimap (the readout
+never cut off: it wraps past 500px); the minimap's view outline gone; Legend centred in the gap between the water row
+and Top-down, the legend centred under it. The coordinates above the minimap reach up to 826px at 1920×1080, so the
+generator (and Your maps and Real places) is 684px tall now, its lines 25px, ending at 807px. Rift and Deposit wait
+for the milestone session's word that #268's adoption is in dev.

@@ -198,9 +198,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   water while paused), Speed, Skip, Replay, Drought and Badtide (§5); one unavailable (Pause water, Skip and Replay
   while the water is settled) has a fainter plate and fainter words.
 - **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
-  small top-down view of the whole map, refreshed after edits settle, with an outline of what the camera sees;
-  click or drag on it to move there. Beside it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the
-  game's order) over the readout, showing whether a panel is open or not.
+  small top-down view of the whole map, refreshed after edits settle (no outline of the view); click or drag on it to
+  move there. Directly above it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order)
+  over the readout, which always shows its whole text.
 - **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land rises, a puff of dust
   when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts, each force's own
   moment), with Codex's second-round sounds (#64: recorded CC0 foley; a bed for as long as a stroke changes the

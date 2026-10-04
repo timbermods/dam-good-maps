@@ -537,12 +537,15 @@ export function View3D(props: View3DProps) {
             <div class="corner-level">{props.cornerLevel}</div>
             {props.cornerBelow}
           </div>
-          <div ref={coordsEl} class="coords" aria-label="Coordinates" hidden />
-          {props.hoverText ? (
-            <div class="readout" role="status">
-              {props.hoverText}
-            </div>
-          ) : null}
+          {/* the coordinates over the readout, directly above the minimap (Kyler, 2026-10-04) */}
+          <div class="bottom-left-stack">
+            <div ref={coordsEl} class="coords" aria-label="Coordinates" hidden />
+            {props.hoverText ? (
+              <div class="readout" role="status">
+                {props.hoverText}
+              </div>
+            ) : null}
+          </div>
           {props.children}
         </div>
       </div>

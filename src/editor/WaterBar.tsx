@@ -26,13 +26,19 @@ export function WaterBar({ player: p, weather, onWeather }: WaterBarProps) {
     const el = bar.current;
     const view = el?.parentElement;
     if (!el || !view || typeof ResizeObserver === "undefined") return;
-    const note = () => view.style.setProperty("--water-bar-h", `${el.getBoundingClientRect().height}px`);
+    const note = () => {
+      const b = el.getBoundingClientRect();
+      view.style.setProperty("--water-bar-h", `${b.height}px`);
+      // (Legend centres in the gap between the row's right edge and Top-down's left)
+      view.style.setProperty("--water-bar-w", `${b.width}px`);
+    };
     note();
     const watch = new ResizeObserver(note);
     watch.observe(el);
     return () => {
       watch.disconnect();
       view.style.removeProperty("--water-bar-h");
+      view.style.removeProperty("--water-bar-w");
     };
   }, []);
   return (
