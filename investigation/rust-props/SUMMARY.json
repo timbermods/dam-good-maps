@@ -1,0 +1,51 @@
+{
+  "base": "72257712cf51c9e60d80c2e2deffb4bf246be754",
+  "toolchain": "Rust 1.90.0 x86_64-pc-windows-gnu / Node v24.13.0",
+  "forces": {
+    "cases": 430,
+    "identity": 430,
+    "repeat": 430,
+    "flags": {
+      "1": 63,
+      "2": 0,
+      "4": 83,
+      "8": 113,
+      "16": 61,
+      "32": 0
+    },
+    "maxNativePeak": 313140188,
+    "maxWasmMemory": 388562944,
+    "maxNativePairMs": 980.7654000000002,
+    "maxWasmMs": 776.7420999999995
+  },
+  "water": {
+    "generated": 96,
+    "completed": 93,
+    "identity": 93,
+    "repeated": 93,
+    "timeouts": [
+      79,
+      87,
+      95
+    ],
+    "maxNativePeak": 99090456,
+    "maxWasmMemory": 111345664
+  },
+  "adoption": {
+    "cases": 430,
+    "identity": 430,
+    "repeat": 430,
+    "flags": {
+      "1": 0,
+      "2": 0,
+      "4": 83,
+      "8": 113,
+      "16": 61,
+      "32": 0
+    },
+    "maxNativePeak": 313140188,
+    "maxWasmMemory": 388562944,
+    "maxNativePairMs": 994.6530000000021,
+    "maxWasmMs": 905.3899999999994
+  }
+}
