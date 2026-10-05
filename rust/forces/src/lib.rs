@@ -5,6 +5,7 @@ use portable as portable_math;
 mod json;
 mod rift;
 mod deposit;
+mod maturity;
 // Reused from rust-water 2ebeea87, including its validated pointer cache.
 mod water {
     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
@@ -1931,6 +1932,7 @@ pub fn prepare(input: &[u8]) -> Job {
     if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
     if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
+    if opcode == 4.0 { command[37] = match job["settings"].get("maturity") {None => 0.0,Some(v) if matches!(v,V::Null) || v.as_str()==Some("auto") => 2.0,Some(v) if v.as_str()==Some("young") => 0.0,Some(v) if v.as_str()==Some("mature") => 1.0,_ => -1.0}; }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
     command[35] = index(
@@ -1941,7 +1943,7 @@ pub fn prepare(input: &[u8]) -> Job {
         job["settings"]["steps"].as_str().unwrap_or("some"),
         &["few", "some", "many"],
     );
-    command[37] = job["settings"]["tarn"].as_bool().unwrap_or(true) as u8 as f64;
+    if opcode != 4.0 { command[37] = job["settings"]["tarn"].as_bool().unwrap_or(true) as u8 as f64; }
     command[38] = job["settings"]["scree"].as_bool().unwrap_or(true) as u8 as f64;
     let mut path = vec![0.0; 2048.max(intent.path.len() * 2)];
     for (i, p) in intent.path.iter().enumerate() {
@@ -2037,7 +2039,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 35] = [
+const FORCE_ERRORS: [&str; 36] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -2073,6 +2075,7 @@ const FORCE_ERRORS: [&str; 35] = [
     "the working area leaves nothing to take sediment from",
     "the Floor leaves nothing to take sediment from",
     "the map leaves no room for sediment here",
+    "the Floor or kept ground leaves no room to age this river",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -2139,7 +2142,7 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
             }
         }
         4 => {
-            if !power || !tile(c[15]) {
+            if !whole(c[37],0.0,2.0) || !power || !tile(c[15]) {
                 return 11;
             }
             if !seed
@@ -2343,6 +2346,7 @@ pub fn plan(task: &mut Job) {
             &before,
             m,
             &CarveSettings {
+                mature: c[37] == 1.0 || c[37] == 2.0 && maturity::auto(&before, intent.origin as usize, c[3] as u32),
                 power: c[1],
                 wander: c[24],
                 width: if c[25].is_nan() { None } else { Some(c[25]) },
@@ -2892,6 +2896,7 @@ fn describe(task: &mut Job) {
                 pair(d, 41, &r.step_metrics);
                 pair(d, 45, &p.step_objects);
                 pair(d, 54, &r.step_object_changes);
+                if let Some(stats)=&r.maturity { pair(d,31,stats); }
                 pair(d, 63, &r.knobs);
                 pair(d, 64, &r.rock);
                 pair(d, 65, &r.sediment);
@@ -3701,6 +3706,7 @@ fn points(v: &V) -> Vec<Point> {
 // These types contain only typed numbers/strings, never generic map values.
 #[derive(Clone)]
 struct CarveSettings {
+    mature: bool,
     power: f64,
     wander: f64,
     width: Option<f64>,
@@ -3718,6 +3724,7 @@ struct CarveSettings {
 impl CarveSettings {
     fn from(v: &V) -> Self {
         Self {
+            mature: s(v, "maturity") == "mature",
             power: n(v, "power"),
             wander: v["wander"].as_f64().unwrap_or(35.0),
             width: v["width"].as_f64(),
@@ -5930,6 +5937,7 @@ fn carve_metrics_record(m: &CarveMetrics) -> [f64; 14] {
     ]
 }
 struct CarveRecords {
+    maturity: Option<Vec<f64>>,
     initial_entities: Vec<Entity>,
     raw_changes: Vec<i32>,
     raw_offsets: Vec<u32>,
@@ -6015,7 +6023,7 @@ impl CarveRecords {
                 .id
                 .as_ref()
         };
-        json!({"metrics":{"cut":m[0],"deposited":m[1],"exported":m[2],"suspended":m[3],"bankCuts":m[4],"bendCuts":m[5],"steps":m[6],"stable":m[7]!=0.0,"distance":m[8],"reason":self.reason,"splits":m[9],"waterfalls":m[10],"rapids":m[11],"oxbows":m[12]},"total":self.total,
+        let mut value = json!({"metrics":{"cut":m[0],"deposited":m[1],"exported":m[2],"suspended":m[3],"bankCuts":m[4],"bendCuts":m[5],"steps":m[6],"stable":m[7]!=0.0,"distance":m[8],"reason":self.reason,"splits":m[9],"waterfalls":m[10],"rapids":m[11],"oxbows":m[12]},"total":self.total,
         "changes":self.change_offsets.windows(2).map(|w|self.changes[w[0] as usize..w[1] as usize].to_vec()).collect::<Vec<_>>(),
         "heads":self.head_offsets.windows(2).map(|w|carve_head_value(&self.heads[w[0] as usize..w[1] as usize])).collect::<Vec<_>>(),"lengths":self.lengths,
         "path":self.path_offsets.windows(2).map(|w|{let r=&self.path[w[0] as usize..w[1] as usize];json!({"x":r[0],"y":r[1],"bed":r[2],"width":r[3],"dx":r[4],"dy":r[5],"bend":r[6],"lanes":r[8..].chunks_exact(3).map(|a|json!({"x":a[0],"y":a[1],"width":a[2]})).collect::<Vec<_>>()})}).collect::<Vec<_>>(),
@@ -6024,10 +6032,15 @@ impl CarveRecords {
         "stepMetrics":self.step_metrics.chunks_exact(14).map(carve_metrics_value).collect::<Vec<_>>(),
         "stepObjectChanges":self.step_object_changes.chunks_exact(5).map(|v|json!({"step":v[0],"id":self.initial_entities.iter().find(|e|e.slot==v[1] as u32).unwrap().id.as_ref(),"x":v[2],"y":v[3],"z":v[4]})).collect::<Vec<_>>(),
         "oxbows":self.oxbows.iter().map(carve_oxbow_value).collect::<Vec<_>>(),"oxbowBasin":self.oxbow_basin,"retained":self.retained.as_ref().map(|r|json!({"tiles":r.tiles,"floor":r.floor,"depth":r.depth,"contamination":r.contamination})),"unleashedId":self.unleashed,"badwater":self.bad,
-        "removedAt":self.removed.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"goneSpread":self.spread.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"group":self.group.iter().map(|g|json!({"id":g.id.as_ref(),"tile":g.tile,"strength":g.strength})).collect::<Vec<_>>(),"closure":self.closure.as_ref().map(Map::value),"strengthDepth":self.strength_depth})
+        "removedAt":self.removed.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"goneSpread":self.spread.iter().map(|(slot,s)|json!([id(*slot),s])).collect::<Vec<_>>(),"group":self.group.iter().map(|g|json!({"id":g.id.as_ref(),"tile":g.tile,"strength":g.strength})).collect::<Vec<_>>(),"closure":self.closure.as_ref().map(Map::value),"strengthDepth":self.strength_depth});
+        if let Some(stats)=&self.maturity { value["maturity"] = json!({"youngSteps":stats[0],"rounds":stats[1],"eroded":stats[2],"deposited":stats[3],"oxbows":stats[4],"bluffLimited":stats[5],"existingRiver":stats[6]!=0.0,"changed":stats[7],"original":stats[8..].chunks_exact(2).map(|p|json!({"x":p[0],"y":p[1]})).collect::<Vec<_>>()}); }
+        value
     }
 }
-fn carve(
+fn carve(before: &Map, map: Map, s: &CarveSettings, i: &Intent, keep: &[u8], options: CarveOptions) -> Plan {
+    if s.mature { maturity::plan(before,map,s,i,keep,options) } else { carve_young(before,map,s,i,keep,options) }
+}
+fn carve_young(
     before: &Map,
     map: Map,
     s: &CarveSettings,
@@ -6193,6 +6206,7 @@ fn carve(
     let knobs = run.character.knobs.iter().flat_map(|k| [k.x, k.y, k.radius]).collect();
     let curve = run.course.curve.as_ref().map_or(vec![], |c| (0..c.x.len()).flat_map(|i| [c.x[i], c.y[i], c.s[i]]).collect());
     let r = CarveRecords {
+        maturity: None,
         knobs,
         rock: run.character.rock.clone(),
         sediment: run.sediment.clone(),

@@ -162,6 +162,7 @@
             "scarp": { "enum": ["sheer", "stepped"] },
             "meltwater": { "type": "boolean" },
             "channels": { "enum": ["auto", "few", "many"] },
+            "maturity": { "enum": ["young", "mature", "auto", null] },
             "benches": { "enum": ["none", "some", "many"] },
             "steps": { "enum": ["few", "some", "many"] },
             "tarn": { "type": "boolean" },
