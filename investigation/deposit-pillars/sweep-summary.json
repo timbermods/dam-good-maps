@@ -1,0 +1,328 @@
+[
+  {
+    "theme": "any",
+    "side": 64,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 102,
+    "refused": 18,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 3
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 14,
+      "scattered": 83,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "riverValley",
+    "side": 64,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 102,
+    "refused": 18,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 3
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 12,
+      "scattered": 82,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "canyon",
+    "side": 64,
+    "maps": 3,
+    "skipped": [
+      2
+    ],
+    "uses": 120,
+    "kept": 97,
+    "refused": 23,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 8
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 11,
+      "scattered": 88,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "highlands",
+    "side": 64,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 94,
+    "refused": 26,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 11
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 14,
+      "scattered": 86,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "lakeBasin",
+    "side": 64,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 100,
+    "refused": 20,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 5
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 23,
+      "scattered": 76,
+      "weak": 1
+    }
+  },
+  {
+    "theme": "delta",
+    "side": 64,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 100,
+    "refused": 20,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 15,
+      "the map leaves no room for sediment here": 5
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 15,
+      "scattered": 90,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "islands",
+    "side": 64,
+    "maps": 3,
+    "skipped": [
+      3
+    ],
+    "uses": 120,
+    "kept": 96,
+    "refused": 24,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 12,
+      "the map leaves no room for sediment here": 12
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 10,
+      "scattered": 84,
+      "weak": 1
+    }
+  },
+  {
+    "theme": "any",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 97,
+    "refused": 23,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 9
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 8,
+      "scattered": 63,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "riverValley",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 103,
+    "refused": 17,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 3
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 8,
+      "scattered": 55,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "canyon",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 99,
+    "refused": 21,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 7
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 4,
+      "scattered": 74,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "highlands",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 101,
+    "refused": 19,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 5
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 10,
+      "scattered": 78,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "lakeBasin",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 102,
+    "refused": 18,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 4
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 15,
+      "scattered": 69,
+      "weak": 0
+    }
+  },
+  {
+    "theme": "delta",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 97,
+    "refused": 23,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 9
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 12,
+      "scattered": 66,
+      "weak": 1
+    }
+  },
+  {
+    "theme": "islands",
+    "side": 128,
+    "maps": 3,
+    "skipped": [],
+    "uses": 120,
+    "kept": 103,
+    "refused": 17,
+    "spiky": 0,
+    "scattered": 0,
+    "weak": 0,
+    "reasons": {
+      "Draw a longer line for a fan (at least 8 tiles)": 14,
+      "the map leaves no room for sediment here": 3
+    },
+    "before": {
+      "kept": 120,
+      "refused": 0,
+      "spiky": 10,
+      "scattered": 86,
+      "weak": 0
+    }
+  }
+]

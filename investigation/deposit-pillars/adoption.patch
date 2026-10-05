@@ -1,0 +1,176 @@
+diff --git a/rust/forces/src/deposit.rs b/rust/forces/src/deposit.rs
+index af5d93ea..51bd444c 100644
+--- a/rust/forces/src/deposit.rs
++++ b/rust/forces/src/deposit.rs
+@@ -177,27 +177,58 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
+     }
+-    let minimum=round(48.0+power*160.0) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
+-    if room<minimum||offers.len()<min_area{
+-        let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
+-        candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+-        for (i,d) in candidates{let h=before.heights[i];if d>max(16.0,width*0.6)||h as f64>=map.ceiling||h as f64>mouth_h as f64+3.0+power*2.0||wet&&before.depth[i]>0.05{continue;}
+-            if used[i]{donors.retain(|v|v.i!=i);used[i]=false;}
+-            let base=max(mouth_h as f64+2.0,(h as f64+before.depth[i]).ceil()+1.0);let target=min(map.ceiling,max(h as f64+1.0,base+round(power*2.0-d*0.1))) as u8;let target=target.min(h.saturating_add(room_at(i)));
+-            offers.push(Offer{i,target,rank:d/max(12.0,reach),u:d/max(12.0,reach)});offered[i]=true;room+=(target-h) as usize;if room>=minimum&&offers.len()>=min_area{break;}
++    // A budget is a layer over a connected fan, never a prefix of full-height columns.
++    // Do not mint extra receiving sites or inflate the cone to meet a minimum volume.
++    offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
++    donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
++    let mut site=vec![usize::MAX;n];for (k,o) in offers.iter().enumerate(){site[o.i]=k;}
++    let mut seen=vec![false;n];let mut footprint=vec![];
++    // Existing ridges, kept tiles and wet outlets can split the geometric cone. Use its
++    // largest connected receiving patch; ties retain the patch nearest the mouth.
++    for o in &offers{if seen[o.i]{continue;}let mut patch=vec![o.i];seen[o.i]=true;let mut at=0;
++        while at<patch.len(){let i=patch[at];at+=1;for j in neighbours(&map,i).into_iter().flatten(){
++            if site[j]!=usize::MAX&&!seen[j]{seen[j]=true;patch.push(j);}
++        }}
++        if patch.len()>footprint.len(){footprint=patch;}
++    }
++    let mut included=vec![false;n];for &i in &footprint{included[i]=true;}
++    let capacity:usize=footprint.iter().map(|&i|(offers[site[i]].target-before.heights[i]) as usize).sum();
++    let minimum=round(48.0+power*160.0) as usize;
++    let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
++    let budget=capacity.min((round(expected) as usize).max(minimum)).min(donor_capacity);
++    // Reserve donors' deepest possible beds before shaping: cutting a neighbouring
++    // bank later must not turn an already supported deposit into a lone pillar.
++    let mut support=before.heights.clone();for d in &donors{support[d.i]=d.target;}
++    let mut remaining=budget;let mut placed=vec![false;n];let mut order=vec![];
++    // Start near the mouth on a tile that can accept its first level safely.
++    let root=offers.iter().find(|o|included[o.i]&&neighbours(&map,o.i).into_iter().flatten()
++        .map(|j|support[j]).max().unwrap_or(0).saturating_add(2)>before.heights[o.i]);
++    if let Some(root)=root{
++        order.push(root.i);let mut queued=vec![false;n];queued[root.i]=true;let mut at=0;
++        while at<order.len(){let i=order[at];at+=1;for j in neighbours(&map,i).into_iter().flatten(){
++            if included[j]&&!queued[j]{queued[j]=true;order.push(j);}
++        }}
++        loop{let mut grew=false;
++            for &i in &order{
++                if remaining==0{break;}let o=&offers[site[i]];
++                if map.heights[i]>=o.target{continue;}
++                if !placed[i]&&i!=root.i&&!neighbours(&map,i).into_iter().flatten().any(|j|placed[j]){continue;}
++                let cap=neighbours(&map,i).into_iter().flatten().map(|j|support[j]).max().unwrap_or(0).saturating_add(2);
++                if map.heights[i]>=cap{continue;}
++                map.heights[i]+=1;support[i]=map.heights[i];placed[i]=true;remaining-=1;grew=true;
++            }
++            if remaining==0||!grew{break;}
+         }
+     }
+-    while room<minimum{let mut grew=false;for o in &mut offers{let h=before.heights[o.i];let cap=min(map.ceiling,min(h as f64+3.0+round(power*5.0),h as f64+room_at(o.i) as f64)) as u8;
+-        if o.target>=cap||channel[o.i]!=0||outlet[o.i]!=0{continue;}o.target+=1;room+=1;grew=true;if room>=minimum{break;}}
+-        if !grew{break;}
+-    }
+-    offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
+-    let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
+-    let budget=capacity.min(supply).min(donor_capacity);let mut remaining=budget;let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
+-    for o in &offers{let add=remaining.min((o.target-before.heights[o.i]) as usize);map.heights[o.i]+=add as u8;remaining-=add;
+-        if add>0{let x=(o.i%map.w) as f64-mouth.x;let y=(o.i/map.w) as f64-mouth.y;let side=(-x*dir.y+y*dir.x)/max(1.0,width);
+-            arrival[o.i]=clamp(0.08+o.u*0.66+0.16*smooth(side*sin(o.u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(o.i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;}
++    let mut deposited=budget-remaining;
++    // Fewer than a 3 x 3 patch is scattered debris, not a fan. Refuse atomically.
++    if placed.iter().filter(|&&v|v).count()<9{map.heights.clone_from(&before.heights);placed.fill(false);deposited=0;}
++    let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
++    for o in &offers{if placed[o.i]{let x=(o.i%map.w) as f64-mouth.x;let y=(o.i/map.w) as f64-mouth.y;let side=(-x*dir.y+y*dir.x)/max(1.0,width);
++        arrival[o.i]=clamp(0.08+o.u*0.66+0.16*smooth(side*sin(o.u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(o.i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;
++    }}
++    remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;
++        if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}
+     }
+-    remaining=budget;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}}
+     for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
+     stats[3]=stats[2]-stats[1];debug_assert_eq!(stats[3],0.0);
+-    if budget==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
++    if deposited==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
+     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
+diff --git a/rust/forces/src/lib.rs b/rust/forces/src/lib.rs
+index e98017c3..0d0fa68e 100644
+--- a/rust/forces/src/lib.rs
++++ b/rust/forces/src/lib.rs
+@@ -2041,3 +2041,3 @@ fn refresh_id_bytes(task: &mut Job) {
+ }
+-const FORCE_ERRORS: [&str; 36] = [
++const FORCE_ERRORS: [&str; 37] = [
+     "",
+@@ -2078,2 +2078,3 @@ const FORCE_ERRORS: [&str; 36] = [
+     "the Floor or kept ground leaves no room to age this river",
++    "Draw a longer line for a fan (at least 8 tiles)",
+ ];
+@@ -2227,2 +2228,3 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
+             if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return path_error;}
++            if opcode==7&&points>1 {let length=hypot(path[(points-1)*2]-path[0],path[(points-1)*2+1]-path[1]);if length>1.0&&length<8.0{return 36;}}
+             0
+diff --git a/src/core/forces/rust/bridge.ts b/src/core/forces/rust/bridge.ts
+index 0f36fc2d..1c301146 100644
+--- a/src/core/forces/rust/bridge.ts
++++ b/src/core/forces/rust/bridge.ts
+@@ -90,2 +90,3 @@ const FORCE_ERRORS = [
+   "the Floor or kept ground leaves no room to age this river",
++  "Draw a longer line for a fan (at least 8 tiles)",
+ ];
+diff --git a/tools/rust/forces-pins.json b/tools/rust/forces-pins.json
+index d051155f..f56d4b68 100644
+--- a/tools/rust/forces-pins.json
++++ b/tools/rust/forces-pins.json
+@@ -37,8 +37,8 @@
+   "rift 64 odd 1": "51dd86ec2b7fbea4b2b36a86b24dc5a9c02d887428dda9003ae09eab579c78bf",
+-  "deposit 64 0": "3632fc66df42b021005575722fabe51c992e178b5656c3eed386cd31e032c842",
+-  "deposit 64 1": "acdd93c057f5eb862920802b7e7060bb175bfa9238d8a6ccf05b8e5ff62a02ce",
++  "deposit 64 0": "0473397b2e4e819d5cebc08517edee036a1941d0f6702cbedf5c4666330c8e62",
++  "deposit 64 1": "09536cbc1f59d597fc4a14c2539ce2ae694e81e768cc3bc3af6ff8bdcdefb77b",
+   "deposit 64 2": "9d0acb76f91ff9ecb1c71c080a080fe08e95acda8c16a1e1268d907c194c8a27",
+-  "deposit 64 3": "aeafeef8a3ce0202a92b6c3505fee36d4866931d96d071b27c1ee12e95413fc9",
+-  "deposit 64 odd 0": "b691724de00ead6b1fe9175a1c647fdd9052762af0e9ec46f6ce231299d0fa5b",
+-  "deposit 64 odd 1": "cf1cd49ea9d522cdec59326899db8419ec7c3fd16bf5289c18ffb20f7b701099",
++  "deposit 64 3": "0dcaa27b23c6fed1dac9ea88b56d5b15a999d3223eb08f9763cf031f8e9a5110",
++  "deposit 64 odd 0": "ab2977669bbca2031c5c9d7f6d23e8330ffbb6cac0a096594978630d0ce86f37",
++  "deposit 64 odd 1": "b9e941e4449f7ee9ce6d2d6e899bf0f48cd05107dee735bfdc5a03f7f1a5bf17",
+   "maturity 64 0": "bdbaae36fdec3998c927bb8e89272dc10cf37c969e368dc567a6737249cb85fc",
+diff --git a/tests/contract/depositFan.test.ts b/tests/contract/depositFan.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/contract/depositFan.test.ts
+@@ -0,0 +1,45 @@
++// Deposit's connected fan and predictable short-line contract (D342).
++import {describe,expect,test} from "vitest";
++import {DepositRun,DEPOSIT_DEFAULTS} from "../../src/core/forces/deposit";
++import {fixture} from "./forceFixtures";
++function fan(before:Uint8Array,h:Uint8Array,W:number){
++ const raised=new Set<number>();
++ const neighbours=(i:number)=>[i%W>0?i-1:-1,i%W+1<W?i+1:-1,i-W,i+W].filter(j=>j>=0&&j<h.length);
++ for(let i=0;i<h.length;i++)if(h[i]>before[i]){raised.add(i);expect(neighbours(i).some(j=>h[i]-h[j]<3)).toBe(true);}
++ expect(raised.size).toBeGreaterThanOrEqual(9);
++ const todo=[raised.values().next().value!];raised.delete(todo[0]);
++ while(todo.length)for(const j of neighbours(todo.pop()!))if(raised.delete(j))todo.push(j);
++ expect(raised.size).toBe(0);expect(h.reduce((s,v)=>s+v,0)).toBe(before.reduce((s,v)=>s+v,0));
++}
++describe("Deposit fan shaping",()=>{
++ test("a small material budget covers connected ground before building relief",()=>{
++  for(const seed of [0,1,2,7,41])for(const power of [0,35,70,100]){
++   const m=fixture("plain",64);m.entities=[];m.heights.fill(1);
++   // Only a narrow upstream bank pays for a broad fan.
++   for(let y=27;y<=33;y++)for(let x=20;x<=26;x++)m.heights[y*64+x]=5;
++   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power,seed,size:40},{path:[{x:30,y:30},{x:53,y:30}]}).finishAll();
++   fan(m.heights,r.map.heights,64);expect(r.plan0.stats.balance).toBe(0);
++  }
++ });
++ test("donor cuts cannot leave a raised tile standing over all neighbours",()=>{
++  for(const seed of [0,1,2,7]){
++   const m=fixture("slide",64);m.entities=[];
++   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,seed},{path:[{x:22,y:30},{x:46,y:30}]}).finishAll();
++   fan(m.heights,r.map.heights,64);
++  }
++ });
++ test("every seed refuses a short line with the same actionable line and preserves input",()=>{
++  for(const seed of [0,1,2,7,41,0xffffffff])for(const power of [0,35,70,100]){
++   const m=fixture("plain",64),before=m.heights.slice();
++   expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power,seed},{path:[{x:30,y:30},{x:35,y:30}]})).toThrow("Draw a longer line for a fan (at least 8 tiles)");
++   expect(m.heights).toEqual(before);
++  }
++ });
++ test("a working area too small for a fan refuses atomically",()=>{
++  const m=fixture("plain",64),before=m.heights.slice(),area=new Uint8Array(4096);
++  for(let x=18;x<30;x++)area[30*64+x]=2;
++  for(let x=30;x<35;x++)area[30*64+x]=2;
++  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[{x:30,y:30},{x:42,y:30}]},null,area)).toThrow("the map leaves no room for sediment here");
++  expect(m.heights).toEqual(before);
++ });
++});
