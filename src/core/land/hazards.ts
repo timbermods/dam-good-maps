@@ -64,9 +64,48 @@ export interface BadwaterAsk {
   /** The eroded field the land was snapped from (levels, floats): a ditch follows its drainage as
    *  the rivers do. Without it the ditch takes the cheapest way. */
   field?: Float64Array | null;
-  /** Lake Basin's main lake stays clean (Kyler, 2026-10-05, #265): no ditch joins the map's largest
-   *  lake or water that flows into it, which would carry its badwater there. */
-  cleanLake?: boolean;
+  /** The theme's main water, kept clean on most maps (Kyler, 2026-10-05, #265): Lake Basin's main lake
+   *  (`mainLake`), River Valley's and Delta's main river (`mainRiver`). No ditch joins it or water that
+   *  flows into it, which would carry its badwater there. */
+  keepClean?: Uint8Array | null;
+}
+
+/** The main river's water (River Valley's and Delta's main water, kept clean on most maps: Kyler,
+ *  2026-10-05, #265): the planned water (channels and lakes) of the river the hydrology names
+ *  "river/main", from its head to where it leaves the map, with the arms it splits round an island
+ *  and the lakes it runs through; on a delta its trunk and its own channel below the fan's apex, not
+ *  the fan's other arms (side channels, which badwater may join, D469). Empty on a map without one. */
+export function mainRiver(hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  const main = hy.rivers.find((r) => r.role === "river/main");
+  if (!main) return out;
+  const isWater = (i: number) => hy.water[i] === 1 || hy.water[i] === 2;
+  // each course's line, then the planned water within its half-width (and a tile) of it
+  const near = new Float64Array(N).fill(Infinity);
+  const mark = (path: readonly Point[], half: number) => {
+    for (let k = 0; k + 1 < path.length; k++) {
+      const [ax, ay] = path[k];
+      const [bx, by] = path[k + 1];
+      const n = Math.max(1, Math.ceil(2 * Math.max(Math.abs(bx - ax), Math.abs(by - ay))));
+      for (let t = 0; t <= n; t++) {
+        const px = ax + ((bx - ax) * t) / n;
+        const py = ay + ((by - ay) * t) / n;
+        const R = Math.ceil(half);
+        for (let y = Math.max(0, Math.round(py) - R); y <= Math.min(H - 1, Math.round(py) + R); y++)
+          for (let x = Math.max(0, Math.round(px) - R); x <= Math.min(W - 1, Math.round(px) + R); x++) {
+            const d = Math.max(Math.abs(x - px), Math.abs(y - py));
+            const i = y * W + x;
+            if (d <= half && d < near[i]) near[i] = d;
+          }
+      }
+    }
+  };
+  mark(main.params.path, main.params.width / 2 + 1);
+  for (const a of hy.arms) if (a.kind === "split" && a.river === main.id) mark(a.path, (0.6 * main.params.width) / 2 + 1);
+  for (let i = 0; i < N; i++) if (Number.isFinite(near[i]) && isWater(i)) out[i] = 1;
+  for (const lk of hy.lakes) if (lk.river === main.id) for (const i of lk.tiles) if (isWater(i)) out[i] = 1;
+  return out;
 }
 
 /** The map's main lake: the largest body of the lakes the hydrology planned (side to side). */
@@ -282,11 +321,12 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // where a ditch may end: any river or lake beyond the badwater distance whose water never
   // passes the start (the water near the start, and what flows past it, stays clean: D85); and the
   // tiles it keeps off (the start's ground, the start's water, a river's head at the edge)
-  // (Lake Basin's main lake, kept clean on most maps)
-  const lake = ask.cleanLake ? mainLake(hy.water, W, H) : null;
+  // (the theme's main water, kept clean on most maps: Lake Basin's lake, River Valley's and Delta's
+  // main river)
+  const lake = ask.keepClean ?? null;
   const outlets = (dn: ReturnType<typeof drainage>): { goal: Uint8Array; keepOff: Uint8Array } => {
     // water on each tile goes side to side down the land's drainage: whether it passes the start,
-    // and whether it ends in the main lake kept clean
+    // and whether it ends in the main water kept clean
     const reachesStart = new Uint8Array(N);
     const reachesLake = new Uint8Array(N);
     for (let q = 0; q < dn.order.length; q++) {

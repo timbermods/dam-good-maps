@@ -51,7 +51,7 @@ import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad 
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
-import { mainLake, planBadwater, type Hazards } from "../land/hazards";
+import { mainLake, mainRiver, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
@@ -105,6 +105,9 @@ const HOLLOW_TRIES = 3;
 /** Lake Basin maps (in 100) whose main lake badwater may reach (Kyler, 2026-10-05: the occasional
  *  variation, not the rule). */
 const POISONED_LAKE = 15;
+/** River Valley and Delta maps (in 100) whose main river badwater may reach (Kyler, 2026-10-05, #265:
+ *  the same occasional variation as Lake Basin's lake, drawn apart). */
+const POISONED_RIVER = 15;
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
@@ -1695,6 +1698,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the size, each about as strong (resources/badwater.ts `badwaterBudget`, moved by the seed and
   // scaled by the Badwater setting), each in a hollow of its own
   const budget = badwaterBudget(W, H, spec.settings.hazards.badwater, seed);
+  // (the theme's main water stays clean: Lake Basin's lake, River Valley's and Delta's main river; on
+  // about one map in seven its badwater may reach it, the occasional poisoned lake or river: Kyler,
+  // 2026-10-05, #265)
+  const cleanKind =
+    shown.theme === "lakeBasin" && hash32(seed, "poisoned lake") % 100 >= POISONED_LAKE
+      ? "lake"
+      : (shown.theme === "riverValley" || shown.theme === "delta") && hash32(seed, "poisoned river") % 100 >= POISONED_RIVER
+        ? "river"
+        : null;
+  const mainWater = (): Uint8Array | null => (cleanKind === "lake" ? mainLake(hy.water, W, H) : cleanKind === "river" ? mainRiver(hy, W, H) : null);
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
@@ -1703,9 +1716,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
-    // (Lake Basin's main lake stays clean; on about one map in seven its badwater may reach it, the
-    // occasional poisoned lake: Kyler, 2026-10-05, #265)
-    cleanLake: shown.theme === "lakeBasin" && hash32(seed, "poisoned lake") % 100 >= POISONED_LAKE,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -1721,7 +1731,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, keepClean: mainWater() }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
@@ -1955,12 +1965,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const fill = pf.depth;
         const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
         shownFill = Float64Array.from(fill);
-        // (Lake Basin's main lake kept clean, Kyler, 2026-10-05, #265: a ditch whose badwater the
+        // (the theme's main water kept clean, Kyler, 2026-10-05, #265: a ditch whose badwater the
         // pre-fill carries into it, through water the land's drainage did not lead there, a flat that
         // floods into the lake, is planned again off that water while tries are left)
         let poisons = false;
-        if (badAsk.cleanLake && bad.features.length && hollowTries + 1 < HOLLOW_TRIES) {
-          lakeOf ??= mainLake(hy.water, W, H);
+        if (cleanKind && bad.features.length && hollowTries + 1 < HOLLOW_TRIES) {
+          lakeOf ??= mainWater()!;
           let n = 0;
           let hit = 0;
           for (let i = 0; i < N; i++) if (lakeOf[i]) { n++; if (fill[i] > WET && pf.contamination[i] >= 0.05) hit++; }
