@@ -151,14 +151,10 @@ describe("an edit never places an object (D368 (10))", () => {
       expect(shown(entities())).toEqual(shown(before));
     }
   };
-  // (seed 1 on 0.8.1's maps, D148: seed 3's map has a two-tile spring river at (34, 29) whose head
-  // row the Lift lengthens from 2 to 3 springs, the new one counted as added, kept below as an expected failure)
   it("a Quake Lift after a wide Flatten adds nothing back: what the Flatten's ground and water took stays gone (D404)", () => liftAfterFlatten(1), 300000);
-  // An expected failure, kept on the seed that caught it (the finding on 0.8.1's maps): a Lift lengthens
-  // a generated spring river's head row, and a row's ids follow its places along the row (water/sourceGroups.ts
-  // `groupIds`), so a longer row gets a new id and the new spring is counted as placed. Whether that breaks
-  // D368 (10) is for the milestone session; when it passes, `fails` comes off.
-  it.fails("Highlands seed 3: a Lift that lengthens a spring river's head row (2 → 3 springs at (34, 27–29)) counts the new spring as placed", () => liftAfterFlatten(3), 300000);
+  // (seed 3 on 0.8.1's maps: a two-tile spring river at (34, 29) whose head row the Lift once lengthened
+  // to 3 springs, the new one counted as added; an edited map now keeps the generation's row, D314)
+  it("Highlands seed 3, beside a two-spring head row: a Quake Lift after a wide Flatten adds nothing back", () => liftAfterFlatten(3), 300000);
 });
 
 describe("a spring the build derives again after an edit keeps its id (PLAN §19.4, D314)", () => {
