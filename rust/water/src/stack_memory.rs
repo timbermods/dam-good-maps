@@ -258,7 +258,7 @@ struct Registry {
     error: Refusal,
 }
 thread_local! {static REGISTRY:RefCell<Registry>=RefCell::new(Registry{next:1,maps:BTreeMap::new(),error:""});}
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_create(w: u32, h: u32, objects: u32, retained: u32) -> u32 {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();
@@ -281,7 +281,7 @@ pub extern "C" fn stack_create(w: u32, h: u32, objects: u32, retained: u32) -> u
         }
     })
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_free(handle: u32) -> u32 {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();
@@ -294,7 +294,7 @@ pub extern "C" fn stack_free(handle: u32) -> u32 {
         }
     })
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_ptr(handle: u32, which: u32) -> *mut u8 {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();
@@ -307,7 +307,7 @@ pub extern "C" fn stack_ptr(handle: u32, which: u32) -> *mut u8 {
         }
     })
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_len(handle: u32, which: u32) -> usize {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();
@@ -320,7 +320,7 @@ pub extern "C" fn stack_len(handle: u32, which: u32) -> usize {
         }
     })
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_op(handle: u32, op: u32, a: f64, b: f64) -> u32 {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();
@@ -342,17 +342,17 @@ pub extern "C" fn stack_op(handle: u32, op: u32, a: f64, b: f64) -> u32 {
     })
 }
 /// UTF-8 one-line refusal from the last ABI call on this thread, or empty after success.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_error_ptr() -> *const u8 {
     REGISTRY.with(|r| r.borrow().error.as_ptr())
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_error_len() -> usize {
     REGISTRY.with(|r| r.borrow().error.len())
 }
 /// Query 0 ticks, 1 representation (0 flat, 1 stacked), 2 settle status (0 running,
 /// 1 settled, 2 exhausted), 3 steady ticks (negative when absent), 4 max ticks.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn stack_info(handle: u32, which: u32) -> f64 {
     REGISTRY.with(|r| {
         let mut r = r.borrow_mut();

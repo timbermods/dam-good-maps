@@ -74,6 +74,7 @@ describe("which suites a change needs", () => {
     expect(isRustInput("src/core/forces/runs.ts")).toBe(false);
     for (const f of ["src/core/analysis/rust/bridge.ts", "src/core/analysis/rust/analysisWasm.ts", "tools/rust/analysis-pins.json", "tests/golden/water.json.gz"]) expect(isRustInput(f), f).toBe(true);
     expect(isRustInput("src/core/analysis/story.ts")).toBe(false);
+    for (const f of ["src/core/validate/rust.ts", "src/core/validate/checksWasm.ts", "src/core/validate/checks.ts", "src/core/sim/model.ts", "tools/rust/checks-pins.json"]) expect(isRustInput(f), f).toBe(true);
   });
   it("dependency changes run everything; a descriptive package.json change is a document", () => {
     const deps = readWith({ "package.json": [pkg(), pkg({ dependencies: { a: "2" } })] });

@@ -7,10 +7,19 @@ name = "analysis"
 version = "0.1.0"
 
 [[package]]
+name = "checks"
+version = "0.1.0"
+dependencies = [
+ "analysis",
+ "portable",
+]
+
+[[package]]
 name = "forces"
 version = "0.1.0"
 dependencies = [
  "portable",
+ "water",
 ]
 
 [[package]]

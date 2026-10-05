@@ -1251,10 +1251,10 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     s.checkReplay();
   }
   if (s.waterPending) {
-    const run = s.canonicalRun();
-    const w = await settleInSlices(run.model, current, onProgress);
+    const model = s.built.waterModel;
+    const w = await settleInSlices(model, current, onProgress);
     if (!w) return null;
-    s.adoptWater(run.model, w);
+    s.adoptWater(model, w);
     // the canonical water replaces the preview's: the background preview has nothing left to do
     stopWater();
     view = settledNews(s, viewUpdate(s));

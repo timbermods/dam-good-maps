@@ -1572,7 +1572,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (its land, built only if something reads it: a land drawn again before it was shown costs
       // no build, time to land, D333 (2))
       const features = [...rivers];
-      const field = fieldData(fieldOf());
+      const field = fieldData(fieldOf(), W);
       let land: BuildResult | null = null;
       let file: TimberFile | null = null;
       const landOf = () => (land ??= build(features, "water"));
@@ -1588,7 +1588,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       passed: false,
       replannable,
       stage: landStage,
-      result: { spec: shown, features: [...rivers], built, report: { ...v.report, passed: false }, analysis: v.analysis, bytes: new Uint8Array(), file, attempts: attempt + 1, failures: [], field: fieldData(fieldOf()), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
+      result: { spec: shown, features: [...rivers], built, report: { ...v.report, passed: false }, analysis: v.analysis, bytes: new Uint8Array(), file, attempts: attempt + 1, failures: [], field: fieldData(fieldOf(), W), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
     };
   };
   let landStage: LandStage | null = from;
@@ -2742,7 +2742,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       file,
       attempts: attempt + 1,
       failures: [],
-      field: fieldData(fieldOf()),
+      field: fieldData(fieldOf(), W),
       intentions,
       info,
       timings: { firstLook, firstWater, final: Math.round(performance.now() - t0) },
@@ -2774,7 +2774,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
 }
 
 /** A generation's field as the document stores it (format 3). */
-export function fieldData(f: GeneratedField, W = Math.round(portable.sqrt(f.heights.length))): FieldData {
+export function fieldData(f: GeneratedField, W: number): FieldData {
   const out: FieldData = { ...terrainData(f.heights), contains: [...f.contains].sort() };
   if (f.ramps?.length) out.ramps = f.ramps.flatMap(([a, b]) => [a, b]);
   if (f.top !== undefined) out.top = f.top;

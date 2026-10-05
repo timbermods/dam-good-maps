@@ -27,8 +27,8 @@ import { encode } from "./protocol";
 
 interface Exports {
   memory: WebAssembly.Memory;
-  water_alloc(len: number): number;
-  water_dealloc(ptr: number, len: number): void;
+  forces_alloc(len: number): number;
+  forces_dealloc(ptr: number, len: number): void;
   forces_create(ptr: number, len: number): number;
   forces_checkpoint(job: number): void;
   forces_descriptor(job: number): number;
@@ -239,13 +239,13 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     },
     false,
   );
-  const p = x.water_alloc(metadata.length);
+  const p = x.forces_alloc(metadata.length);
   new Uint8Array(x.memory.buffer, p, metadata.length).set(metadata);
   let task = 0;
   try {
     task = x.forces_create(p, metadata.length);
   } finally {
-    x.water_dealloc(p, metadata.length);
+    x.forces_dealloc(p, metadata.length);
   }
   try {
     const descriptor = x.forces_descriptor(task);
@@ -274,18 +274,18 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
 /** Runs a whole job (jobBytes) and returns its packed result (the identity check's, in Node's Wasm). */
 export function executeInRust(job: Uint8Array): Uint8Array {
   const x = rustForces();
-  const p = x.water_alloc(job.length);
+  const p = x.forces_alloc(job.length);
   new Uint8Array(x.memory.buffer, p, job.length).set(job);
-  const lenPtr = x.water_alloc(4);
+  const lenPtr = x.forces_alloc(4);
   try {
     const out = x.forces_execute(p, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const bytes = new Uint8Array(x.memory.buffer, out, len).slice();
-    x.water_dealloc(out, len);
+    x.forces_dealloc(out, len);
     return bytes;
   } finally {
-    x.water_dealloc(lenPtr, 4);
-    x.water_dealloc(p, job.length);
+    x.forces_dealloc(lenPtr, 4);
+    x.forces_dealloc(p, job.length);
   }
 }
 
