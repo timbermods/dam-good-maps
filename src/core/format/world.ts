@@ -171,6 +171,12 @@ export function numToken(v: number): string {
   return formatFloat(Number(v.toPrecision(7)));
 }
 
+/** A water depth or contamination token: nine significant places of the Single the view is sent, so a
+ *  .timber download reopens to the very water shown (#310 F3, investigation/page-qa). */
+function waterToken(v: number): string {
+  return formatFloat(Number(Math.fround(v).toPrecision(9)));
+}
+
 export interface SettledState {
   /** Surface (water column floor) per tile. */
   floor: Uint8Array;
@@ -219,9 +225,9 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
   for (let i = 0; i < n; i++) {
     const d = st.depth[i];
     if (d > 1e-6) {
-      const ds = numToken(d);
+      const ds = waterToken(d);
       const c = st.contamination[i];
-      water[i] = `${ds}:${c > 1e-6 ? numToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
+      water[i] = `${ds}:${c > 1e-6 ? waterToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
       if (flows) flows[i] = outflowToken(st.out!, i, sizeX);
     } else {
       water[i] = "0";

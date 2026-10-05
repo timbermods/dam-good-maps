@@ -74,7 +74,9 @@ export interface BadwaterAsk {
  *  2026-10-05, #265): the planned water (channels and lakes) of the river the hydrology names
  *  "river/main", from its head to where it leaves the map, with the arms it splits round an island
  *  and the lakes it runs through; on a delta its trunk and its own channel below the fan's apex, not
- *  the fan's other arms (side channels, which badwater may join, D469). Empty on a map without one. */
+ *  the fan's other arms (side channels, which badwater may join, D469); and the water of every river
+ *  that joins it, whose badwater would run on into it below the junction. Rivers that leave the map
+ *  on their own stay open to badwater. Empty on a map without a main river. */
 export function mainRiver(hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
   const N = W * H;
   const out = new Uint8Array(N);
@@ -101,10 +103,21 @@ export function mainRiver(hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">
       }
     }
   };
-  mark(main.params.path, main.params.width / 2 + 1);
+  // (and the rivers that flow into it, by the hydrology's own joins: badwater in a tributary runs on
+  // into the main river below the junction)
+  const into = new Set([main.id]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const r of hy.rivers)
+      if (!into.has(r.id) && "river" in r.params.exit && into.has(r.params.exit.river)) {
+        into.add(r.id);
+        grew = true;
+      }
+  }
+  for (const r of hy.rivers) if (into.has(r.id)) mark(r.params.path, r.params.width / 2 + 1);
   for (const a of hy.arms) if (a.kind === "split" && a.river === main.id) mark(a.path, (0.6 * main.params.width) / 2 + 1);
   for (let i = 0; i < N; i++) if (Number.isFinite(near[i]) && isWater(i)) out[i] = 1;
-  for (const lk of hy.lakes) if (lk.river === main.id) for (const i of lk.tiles) if (isWater(i)) out[i] = 1;
+  for (const lk of hy.lakes) if (lk.river && into.has(lk.river)) for (const i of lk.tiles) if (isWater(i)) out[i] = 1;
   return out;
 }
 

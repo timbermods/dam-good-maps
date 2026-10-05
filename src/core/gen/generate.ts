@@ -27,7 +27,7 @@ import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
-import { WaterSim } from "../sim/water";
+import { TICKS_PER_DAY, WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
 import { seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
@@ -108,6 +108,11 @@ const POISONED_LAKE = 15;
 /** River Valley and Delta maps (in 100) whose main river badwater may reach (Kyler, 2026-10-05, #265:
  *  the same occasional variation as Lake Basin's lake, drawn apart). */
 const POISONED_RIVER = 15;
+/** Days the water is run on past its settle for the start's badwater distance, where badwater mixes
+ *  into water near the start (#265: River Valley 128² seed 12's came to rest by the fourth day), and
+ *  the least share of badwater that starts the run. */
+const REST_DAYS = 6;
+const REST_TRACE = 0.001;
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
@@ -1768,7 +1773,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!from) {
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
       if (shown.theme === "canyon" && N <= 128 * 128) {
-        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
@@ -1827,7 +1832,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       // (Canyon at 128² and under is screened above, before its other land checks: round 2)
       if (shown.theme !== "canyon" || N > 128 * 128) {
-        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
@@ -2347,6 +2352,29 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (d[i] < badWithin + 2) out[i] = 1;
     return out;
   };
+  // (the nearest badwater or its soil to a start, start.badwater's reading, on the water as the file
+  // holds it and as its badwater comes to rest: the settle stops once the water's depth is still, and
+  // where badwater mixes into water near the start it goes on spreading for a few days, in the game as
+  // here (River Valley 128² seed 12: 17.5 tiles at the settle, 13.8 four days on). The water is run on
+  // only when water within the distance carries some badwater)
+  const badwaterNear = (b: BuildResult, st: { x: number; y: number }): number => {
+    const d0 = nearestBadwater(W, H, [st.x, st.y], b.water, b.contamination, b.soilContamination).distance;
+    if (d0 < badWithin) return d0;
+    const m = new Uint8Array(N);
+    for (let y = st.y - 1; y <= st.y + 1; y++) for (let x = st.x - 1; x <= st.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1;
+    const sd = distanceFrom(m, W, H);
+    let mixing = false;
+    for (let i = 0; i < N && !mixing; i++) if (sd[i] < badWithin && b.water[i] > WET && b.contamination[i] >= REST_TRACE) mixing = true;
+    if (!mixing) return d0;
+    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    let d = d0;
+    for (let day = 0; day < REST_DAYS && d >= badWithin; day++) {
+      sim.run(TICKS_PER_DAY);
+      d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], sim.D, sim.C, b.soilContamination).distance);
+    }
+    sim.dispose();
+    return d;
+  };
   // (near the guess: the hollows were planned from it, so they keep the distance the settings ask
   // for, and the land was judged and shaped round it before it was shown: its second place for a
   // start, its mine-site pads, D363)
@@ -2534,6 +2562,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         fixes.push("spring by the start");
       }
     }
+    // the start's badwater distance is a rule (Kyler, 2026-10-05, #265; start.badwater blocks a
+    // generated map): badwater or its soil nearer the start, on the water as the file holds it or as
+    // its badwater comes to rest, gives way to another start on the same settled water, as a start
+    // whose water moved does (not on the last attempt, whose map is the one kept when none passes)
+    if (!why && !lastAttempt && b.start && badwaterNear(b, b.start) < badWithin) why = "start.badwater";
     if (!why && N <= 96 * 96) {
       const objects = planExtras({ spec, base: b, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
       const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");
@@ -2558,15 +2591,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   pick = cur;
   if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
-  // the start's badwater distance is a rule (Kyler, 2026-10-05, #265; start.badwater blocks a generated
-  // map): badwater or its soil nearer the start is never kept. A land not yet shown is planned again,
-  // its hollows with it; on a land already shown, whose hollows stay (D348), the next attempt looks
-  // for a start elsewhere on it (not on the last attempt, whose map is the one kept when none passes)
-  if (!lastAttempt && base.start && nearestBadwater(W, H, [base.start.x, base.start.y], base.water, base.contamination, base.soilContamination).distance < badWithin) {
-    if (!landStage?.shown) return { ...fail("start.badwater", base, true), stuck: true };
-    markTried(landStage.tried, pick, W, H);
-    return fail("start.badwater", base, true);
-  }
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)
