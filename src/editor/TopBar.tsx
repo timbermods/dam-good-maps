@@ -242,7 +242,7 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     key: "size",
     row: 1,
     at: 1,
-    span: 4,
+    span: 6,
     node: <NumberSetting label="Size" title="The brush's size" keys={SIZE_KEYS} value={s.size} min={BRUSH_SIZE_MIN} max={sizeMax} step={0.5} onChange={(size) => set({ size })} />,
   };
   const free = t === "raise" || t === "lower";
@@ -252,8 +252,8 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     ? {
         key: "level",
         row: 1,
-        at: 5,
-        span: 5,
+        at: 7,
+        span: 7,
         node: (
           <NumberSetting
             label="Level"
@@ -272,15 +272,15 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     : {
         key: "strength",
         row: 1,
-        at: 5,
-        span: 5,
+        at: 7,
+        span: 7,
         node: <NumberSetting label="Strength" title={t === "smooth" ? "How strongly it smooths" : "How strongly it weathers"} keys={["Shift+scroll", "[", "]"]} value={s.strength} min={1} max={10} step={1} onChange={(strength) => set({ strength })} />,
       };
   const mode: Group = {
     key: "mode",
-    row: 1,
-    at: 10,
-    span: 4,
+    row: 2,
+    at: 1,
+    span: 6,
     node: (
       <ChoiceSetting<BrushMode>
         label="Mode"
@@ -298,8 +298,8 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   const sources: Group = {
     key: "sources",
     row: 2,
-    at: 1,
-    span: flatten ? 4 : 6,
+    at: 7,
+    span: 7,
     node: (
       <ChoiceSetting<SourcesChoice>
         label="Sources"
@@ -316,9 +316,9 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   const shape = s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
-    row: 2,
-    at: flatten ? 5 : 7,
-    span: flatten ? 5 : 7,
+    row: 3,
+    at: 1,
+    span: flatten ? 6 : 13,
     node: (
       <ChoiceSetting<"round" | "square" | "straight">
         label="Brush"
@@ -336,9 +336,9 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   if (flatten)
     groups.push({
       key: "steps",
-      row: 2,
-      at: 10,
-      span: 4,
+      row: 3,
+      at: 7,
+      span: 7,
       node: (
         <ChoiceSetting<number>
           label="Steps"

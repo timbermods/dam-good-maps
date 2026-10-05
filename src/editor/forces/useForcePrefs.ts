@@ -99,15 +99,15 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
       watch,
       floor,
       more: moreOpen,
-      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks },
-      craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
-      erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
-      quake: { scarp: quakeUi.scarp },
-      glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree },
-      rift: { walls: riftUi.walls },
-      deposit: { channels: depositUi.channels },
+      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks, sources: carveUi.sources },
+      craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays, sources: craterUi.sources },
+      erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges, sources: eruptUi.sources },
+      quake: { scarp: quakeUi.scarp, sources: quakeUi.sources },
+      glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree, sources: glaciateUi.sources },
+      rift: { walls: riftUi.walls, sources: riftUi.sources },
+      deposit: { channels: depositUi.channels, sources: depositUi.sources },
     });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels, carveUi.sources, craterUi.sources, eruptUi.sources, quakeUi.sources, glaciateUi.sources, riftUi.sources, depositUi.sources]);
   const [, setForceTick] = useState(0);
 
   return {

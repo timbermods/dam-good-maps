@@ -17,6 +17,7 @@ import { CEILING } from "../core/format/world";
 import { wanderWord, type ForceStatus } from "./forceDriver";
 import { FloorSetting, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
 import { ButtonSetting, ChoiceSetting, NumberSetting, SettingsGrid, Words } from "./settings";
+import { SOURCES_DEFAULT, SourcesSetting, type ForceSources } from "./ForceRows";
 import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next carve (the page keeps it for the visit). Its details (wander,
@@ -37,12 +38,14 @@ export interface CarveUi {
   riverDepth: number | null;
   /** Banks (item 18): tiles of flat land each side, or null: drawn from the land and the seed. */
   banks: number | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
 
 /** River depth's default (item 17): most of Timberborn's rivers are one or two levels deep. */
 export const RIVER_DEPTH_DEFAULT = 2;
 
-export const DEFAULT_CARVE: CarveUi = { power: 65, width: null, dry: false, wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null };
+export const DEFAULT_CARVE: CarveUi = { power: 65, width: null, dry: false, wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null, sources: SOURCES_DEFAULT };
 
 /** The row's current detail pins (D309), sent with Try another: `null` for a detail still on Auto
  *  (nature draws it again), or the value the player pinned (nature leaves it). */
@@ -100,7 +103,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 1,
             span: 9,
-            rows: 2,
+            rows: 3,
             centre: true,
             node: <Words status>{st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}</Words>,
           },
@@ -109,7 +112,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 10,
             span: 2,
-            rows: 2,
+            rows: 3,
             centre: true,
             node: (
               <button type="button" class="set-button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
@@ -122,7 +125,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 12,
             span: 2,
-            rows: 2,
+            rows: 3,
             centre: true,
             node: (
               <button type="button" class="set-button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
@@ -149,14 +152,14 @@ export function CarveRow(p: CarveRowProps) {
           key: "power",
           row: 1,
           at: 1,
-          span: 2,
+          span: 3,
           node: <NumberSetting label="Power" title="How hard it cuts" keys={STRENGTH_KEYS} value={u.power} words={String(u.power)} min={0} max={100} step={5} onChange={(power) => set({ power })} />,
         },
         {
           key: "size",
           row: 1,
-          at: 3,
-          span: 2,
+          at: 4,
+          span: 3,
           node: (
             <NumberSetting
               label="Size"
@@ -175,7 +178,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "leaves",
           row: 1,
-          at: 5,
+          at: 7,
           span: 3,
           node: (
             <ChoiceSetting<"river" | "canyon">
@@ -192,14 +195,14 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "wander",
           row: 1,
-          at: 8,
-          span: 3,
+          at: 10,
+          span: 4,
           node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
         },
         {
           key: "walls",
-          row: 1,
-          at: 11,
+          row: 2,
+          at: 1,
           span: 3,
           node: (
             <ChoiceSetting<"steep" | "wide">
@@ -217,7 +220,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "depth",
           row: 2,
-          at: 1,
+          at: 4,
           span: 3,
           node: (
             <NumberSetting
@@ -235,7 +238,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "river",
           row: 2,
-          at: 4,
+          at: 7,
           span: 3,
           node: (
             <NumberSetting
@@ -252,13 +255,14 @@ export function CarveRow(p: CarveRowProps) {
         },
         {
           key: "banks",
-          row: 2,
-          at: 7,
+          row: 3,
+          at: 1,
           span: 3,
           node: <NumberSetting label="Banks" title="Flat land beside the water" value={banks} words={banks ? String(banks) : "None"} min={0} max={BANKS_MAX} step={1} onChange={(v) => set({ banks: v })} auto={{ on: u.banks === null, onAuto: (on) => set({ banks: on ? null : banks }) }} />,
         },
-        { key: "floor", row: 2, at: 10, span: 2, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 12, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
+        { key: "sources", row: 3, at: 4, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 7, span: 3, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
       ]}
     />
   );

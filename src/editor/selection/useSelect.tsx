@@ -401,7 +401,7 @@ export function useSelect(ed: Ed): SelectSlice {
       key,
       row: 2,
       at,
-      span: 1,
+      span: 2,
       node: (
         <div class="set">
           <button type="button" class="set-button" disabled={!z} {...title} {...way(what)} onClick={run}>
@@ -420,27 +420,27 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "level",
         row: 2,
         at: 1,
-        span: 2,
+        span: 3,
         node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
-      act("up", 3, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
-      act("down", 4, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
-      act("flatten", 5, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
-      act("cut", 6, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
-      act("fill", 7, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
+      act("up", 4, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
+      act("down", 6, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
+      act("flatten", 8, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
+      act("cut", 10, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
+      act("fill", 12, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
       {
         key: "depth",
-        row: 2,
-        at: 9,
-        span: 3,
+        row: 3,
+        at: 4,
+        span: 8,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 3, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
-        row: 2,
-        at: 8,
-        span: 1,
+        row: 3,
+        at: 1,
+        span: 3,
         node: (
           <div class="set">
 
