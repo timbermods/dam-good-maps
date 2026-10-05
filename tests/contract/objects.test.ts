@@ -115,8 +115,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // for D348–D360's, and for M9b's small starts and speed rounds, which left canyon 3 without a site;
     // Islands 3 for 2 since Islands' second shape round, D417, D429, left seed 2 without one; canyon 6 for
     // canyon 4, which 0.8.1's maps (badwater ditches along the land) left without one; canyon 3 for canyon 6
-    // since the start's badwater distance became a rule, Kyler, 2026-10-05, D148)
-    for (const [theme, seed] of [["islands", 3], ["riverValley", 3], ["canyon", 3], ["riverValley", 4]] as [ThemeId, number][]) {
+    // since the start's badwater distance became a rule, Kyler, 2026-10-05, D148; Islands 1 for 3 since #265
+    // read that rule at rest and moves a start that breaks it on the same land: seed 3 has no site)
+    for (const [theme, seed] of [["islands", 1], ["riverValley", 3], ["canyon", 3], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");

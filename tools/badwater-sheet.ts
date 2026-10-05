@@ -118,7 +118,7 @@ parentPort.on("message", (job) => {
       const i = y * W + x;
       put(x, y, b.water[i] > WET && b.contamination[i] >= BAD ? [150, 48, 32] : [rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]]);
     }
-    for (const s of b.sources) if (s.template === "BadwaterSource") for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) put(s.x + dx, s.y + dy, Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? [30, 20, 0] : [255, 205, 0]);
+    for (const s of b.sources) if (s.template === "BadwaterSource") for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) put(s.x + dx, s.y + dy, [255, 205, 0]);
     if (b.start) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) put(b.start.x + dx, b.start.y + dy, Math.max(Math.abs(dx), Math.abs(dy)) === 3 ? [255, 255, 255] : [220, 30, 30]);
     const m = mainMask(r, job.theme);
     let n = 0, bad = 0;

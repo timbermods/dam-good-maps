@@ -7,7 +7,8 @@
 // layer showing, a dry canyon stopped early, and a Try another path that replaced it (its undo data
 // holding the canyon's `carve`). Project and digests were written by the code before the `carve`
 // operation was retired (this file's DGM_RECORD branch at f8b61db6), so the digests are of the map that
-// code built.
+// code built; the file's digest was taken again when #310 F3 wrote the water's tokens to nine places
+// (generator 0.8.1, D455: a project from an older version may reopen a few bytes different).
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
