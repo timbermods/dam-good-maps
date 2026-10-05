@@ -16,3 +16,4 @@ path = "src/main.rs"
 
 [dependencies]
 portable = { path = "../portable" }
+water = { path = "../water", default-features = false }

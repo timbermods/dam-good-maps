@@ -21,8 +21,9 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
 - `forces/`: the forces' planning, Carve, Craterize, Erupt, Quake and Glaciate (#158, D381; their TypeScript planners
   are tag `ts-forces-final`). Its Wasm is committed in `src/core/forces/rust/forcesWasm.ts` and bound by
   `src/core/forces/rust/bridge.ts` (one call plans a force); `forces-batch` is the native binary the identity check
-  runs. It keeps its own copy of the water kernel for the water a force plans with (a carve's oxbow lake, a
-  glacier's floor), the same arithmetic as `water/`.
+  runs. The water a force plans with (a carve's oxbow lake, a glacier's floor) is `water/`'s simulation and settle
+  (`Sim`, `SettleRun`), linked without `water/`'s Wasm exports (its default `exports` feature), so the forces get the
+  water's speed work. It runs on one thread inside the plan; the multi-core strips stay the editor water's.
 - `analysis/`: the six analysis kernels generation and the checks repeat most (#157, D391): `distanceFrom`,
   `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` (their TypeScript is tag
   `ts-analysis-final`). Its Wasm is committed in `src/core/analysis/rust/analysisWasm.ts` and bound by

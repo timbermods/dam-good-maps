@@ -321,16 +321,16 @@ const FORCES_IN_PAGE = `async ({ wasm, jobs }) => {
   const out = [];
   for (const j of jobs) {
     const job = decode(j);
-    const ptr = x.water_alloc(job.length);
+    const ptr = x.forces_alloc(job.length);
     new Uint8Array(x.memory.buffer, ptr, job.length).set(job);
-    const lenPtr = x.water_alloc(4);
+    const lenPtr = x.forces_alloc(4);
     const res = x.forces_execute(ptr, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const b = new Uint8Array(x.memory.buffer, res, len);
     let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
-    x.water_dealloc(res, len);
-    x.water_dealloc(lenPtr, 4);
-    x.water_dealloc(ptr, job.length);
+    x.forces_dealloc(res, len);
+    x.forces_dealloc(lenPtr, 4);
+    x.forces_dealloc(ptr, job.length);
   }
   return out;
 }`;
