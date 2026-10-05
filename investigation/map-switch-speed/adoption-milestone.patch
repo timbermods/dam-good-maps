@@ -1,0 +1,199 @@
+diff --git a/src/core/doc/session.ts b/src/core/doc/session.ts
+index b074f3a3..4b969b02 100644
+--- a/src/core/doc/session.ts
++++ b/src/core/doc/session.ts
+@@ -19,7 +19,7 @@
+ import { isTall, surfaceOf, withTallNote } from "../format/world";
+ import { mapObjects } from "../sim/model";
+ import { mineSitesCutAt } from "../validate/playability";
+-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
++import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+ import type { TerrainState } from "../features/raster/strokePreview";
+ import { isResource } from "../features/raster/resources";
+ import { weatherKeep } from "../features/raster/objectGround";
+@@ -173,7 +173,7 @@ export class MapSession {
+    *  `lastSettled` and puts it in place with `adoptWater`. */
+   private waterMode: WaterMode = "canonical";
+ 
+-  private constructor(doc: MapDocument, built?: BuildResult, opts: { rebuild?: boolean } = {}) {
++  private constructor(doc: MapDocument, built?: BuildResult, opts: { rebuild?: boolean; deferWater?: boolean } = {}) {
+     this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+     const r = replay(this.gen.baseFeatures, doc.edits);
+     this.log = r.log;
+@@ -196,7 +196,15 @@ export class MapSession {
+       this.notices.push(`This map was made with generator ${this.gen.generatorVersion}. It opens exactly as it was saved.`);
+     }
+     const stored = built || opts.rebuild ? null : this.restored(doc);
+-    this.cur = built ?? stored ?? buildMap(this.input());
++    // A cacheless generated project saved during a settle need not settle twice at open:
++    // its editor carries the saved base water, and the checks replica builds the exact result.
++    // Stored maps, imports, old generators and explicit replay builds keep their existing path.
++    const defer = opts.deferWater && !opts.rebuild && !built && !stored && this.mode === "live" && doc.base.world !== null;
++    if (defer) {
++      const { layer } = this.baseStuff();
++      const W = this.gen.base.sizeX, H = this.gen.base.sizeY;
++      this.cur = buildMap(this.input(), { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
++    } else this.cur = built ?? stored ?? buildMap(this.input());
+     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
+       this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
+     }
+@@ -392,7 +400,7 @@ export class MapSession {
+   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
+    *  stored map opens from it without rebuilding (D367); `rebuild` builds it from its generation and
+    *  its log instead (the replay, D455). */
+-  static open(doc: MapDocument, opts: { rebuild?: boolean } = {}): MapSession {
++  static open(doc: MapDocument, opts: { rebuild?: boolean; deferWater?: boolean } = {}): MapSession {
+     checkDocument(doc);
+     return new MapSession(doc, undefined, opts);
+   }
+diff --git a/src/core/features/build.ts b/src/core/features/build.ts
+index f4927f08..804859ef 100644
+--- a/src/core/features/build.ts
++++ b/src/core/features/build.ts
+@@ -225,6 +225,9 @@ export interface BuildOptions {
+    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
+    *  settles it in the background, so an edit never waits on the water. */
+   water?: "canonical" | "preview" | "defer";
++  /** A cacheless editor open can carry the saved base water until its background canonical build.
++   *  Used only in defer mode; never accepted as canonical water. */
++  initialWater?: { model: WaterModel; water: CanonicalWater };
+   /** Path and inward fields shared by the builds of one generated land (looked up there first; a
+    *  full build without `prev` only). The result's own cache keeps the fields it used. */
+   fieldCache?: FieldCache;
+@@ -1061,7 +1064,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
+   const fileWater = !!base && sameModelAsBase(base, model, W, H);
+   const needWater = !fileWater || resourceFeatures.length > 0;
+   let settle: CanonicalWater | null = null;
+-  let settleEntry = prev?.settle ?? null;
++  const initial = opts.water === "defer" ? opts.initialWater : undefined;
++  let settleEntry = prev?.settle ?? (initial ? { model: initial.model, emitters: JSON.stringify(initial.model.emitters), water: { ...initial.water, preview: true } } : null);
+   if (needWater) {
+     const preview = opts.water === "preview" || opts.water === "defer";
+     // the previous water serves when nothing that moves water changed; preview water only in a
+diff --git a/src/core/library/saver.ts b/src/core/library/saver.ts
+index 36fb69e1..8f5b6845 100644
+--- a/src/core/library/saver.ts
++++ b/src/core/library/saver.ts
+@@ -53,7 +53,9 @@ export class YourMapsSaver {
+ 
+   /** Save now what is waiting (one map, or all). Nobody needs to await it. */
+   flush(id?: string): Promise<void> {
+-    const ids = id === undefined ? [...this.pending.keys()] : this.pending.has(id) ? [id] : [];
++    // A snapshot already taken is still an outgoing save. Wait for it too, even when
++    // the debounce queue is empty, before a page replaces the worker's current map.
++    const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
+     return Promise.all(ids.map((k) => this.run(k))).then(() => undefined);
+   }
+ 
+diff --git a/src/worker/session.ts b/src/worker/session.ts
+index 6f2a48d2..806ebe34 100644
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -86,6 +86,8 @@ export interface SessionInfo {
+   forceAgain: Verb | null;
+   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
+   badwaterRemoved: boolean;
++  /** True until the canonical water can be carried in a saved project (D367). */
++  waterPending?: boolean;
+ }
+ 
+ /** The parts of the map view that changed. */
+@@ -192,6 +194,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
+     views: s.views,
+     forceAgain: againVerb(s, history),
+     badwaterRemoved: s.badwaterRemoved(),
++    waterPending: s.waterPending,
+     version,
+   };
+ }
+@@ -969,7 +972,11 @@ export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
+ 
+ /** Open a project file (.damgoodmaps.json). */
+ export function openProject(bytes: Uint8Array): SessionOpen {
+-  const s = MapSession.open(decodeProject(bytes));
++  const doc = decodeProject(bytes);
++  // Old drawn landforms are baked synchronously, on their exact map; everything else can
++  // use the saved base water while the independent checks replica rebuilds canonically.
++  const drawn = doc.features.some((f) => f.kind === "landform" && f.origin !== "generated");
++  const s = MapSession.open(doc, { deferWater: !drawn });
+   // landforms drawn with the old tools become terrain, the land exactly as it was (D182)
+   bakeLandforms(s);
+   return opened(s);
+diff --git a/tests/contract/storedMap.test.ts b/tests/contract/storedMap.test.ts
+index 4ba25840..273ce166 100644
+--- a/tests/contract/storedMap.test.ts
++++ b/tests/contract/storedMap.test.ts
+@@ -65,6 +65,41 @@ function tampered(bytes: Uint8Array): { bytes: Uint8Array; heights: Uint8Array }
+   return { bytes: encodeProject({ ...doc, stored: { ...st, blobs } }), heights };
+ }
+ 
++describe("a cacheless editor open defers water only", () => {
++  it("the canonical map and project match the synchronous open, and an intervening edit is kept", () => {
++    const { s } = edited();
++    const bytes = withoutStored(s.project(6));
++    const exact = MapSession.open(decodeProject(bytes));
++    const quick = MapSession.open(decodeProject(bytes), { deferWater: true });
++    expect(quick.waterPending).toBe(true);
++    expect(decodeProject(quick.project(6)).stored).toBeUndefined();
++    expect(quick.features).toEqual(exact.features);
++    expect(quick.history()).toEqual(exact.history());
++    quick.settleCanonical();
++    expect(timber(quick)).toBe(timber(exact));
++    expect(sha(quick.project(6))).toBe(sha(exact.project(6)));
++    const mid = MapSession.open(decodeProject(bytes), { deferWater: true });
++    mid.setWaterMode("defer");
++    const op = { op: "sculpt" as const, params: { mode: "raise" as const, cells: box(24, 24, 27, 27), amount: 1 } };
++    expect(mid.apply(op).ok).toBe(true);
++    expect(exact.apply(op).ok).toBe(true);
++    mid.settleCanonical();
++    expect(timber(mid)).toBe(timber(exact));
++    expect(mid.undo()).toBe(true);
++    expect(timber(mid)).toBe(timber(quick));
++  });
++
++  it("a stored map still opens exactly and keeps D455's comparison", () => {
++    const { s } = edited();
++    const { bytes, heights } = tampered(s.project());
++    const quick = MapSession.open(decodeProject(bytes), { deferWater: true });
++    expect(quick.openedFromStored).toBe(true);
++    expect(quick.built.heights).toEqual(heights);
++    expect(quick.undo()).toBe(false);
++    expect(quick.canUndo).toBe(false);
++  });
++});
++
+ describe("a saved project opens from its stored map (D367)", () => {
+   it("the reopened project's map equals what was saved, byte for byte, with its stored map (no rebuild) and without it (rebuilt)", () => {
+     const { s, exports } = edited();
+diff --git a/tests/contract/yourMaps.test.ts b/tests/contract/yourMaps.test.ts
+index fbb15bed..379b32bd 100644
+--- a/tests/contract/yourMaps.test.ts
++++ b/tests/contract/yourMaps.test.ts
+@@ -167,6 +167,27 @@ describe("saving in the background", () => {
+     expect(saver.busy()).toBe(false);
+   });
+ 
++  it("flush waits for an in-flight outgoing snapshot and write with no pending timer", async () => {
++    let take!: (value: { entry: YourMapEntry; project: Uint8Array }) => void;
++    let write!: (value: { ok: true }) => void;
++    const c = clock();
++    const saver = new YourMapsSaver({ put: () => new Promise((r) => { write = r; }) }, c);
++    saver.changed("a", () => new Promise((r) => { take = r; }));
++    void saver.flush("a");
++    await settle();
++    let done = false;
++    const barrier = saver.flush().then(() => { done = true; });
++    await settle();
++    expect(done).toBe(false);
++    take({ entry: entry("a", 1), project: bytes(1) });
++    await settle();
++    expect(done).toBe(false);
++    write({ ok: true });
++    await barrier;
++    expect(done).toBe(true);
++    expect(saver.busy()).toBe(false);
++  });
++
+   it("reports a failed save so the page can say so", async () => {
+     const results: string[] = [];
+     const saver = new YourMapsSaver({ put: async () => ({ ok: false, reason: "full" }) }, { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
