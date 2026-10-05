@@ -204,10 +204,10 @@ section below).
   next generator re-pin (the badwater rework's), never on its own.
 - **Force playback (#312):** all three parts adopted once #311 merges: renderer.patch and worker.patch to the renderer session
   (forces play), page.patch to the page session; the page part lands before the worker part.
-- **Custom sizes (#313):** a record. Its fieldData width fix (src/core/gen/generate.ts) is adopted by the milestone session.
+- **Custom sizes (#313):** a record. Its fieldData width fix (src/core/gen/generate.ts) is adopted (done, #319).
   Parked for when D357 starts: "every side from 4" conflicts with "absolutes never relax" (a 4-wide map can't hold a 5×5 mine
   site; a 4×4 map can't reach 178 logs). Kyler decides it then.
-- **Long session (#315):** LS1 adopted by the milestone session: drop backgroundCheck's unused canonical run
+- **Long session (#315):** LS1 adopted (done, #319): backgroundCheck's unused canonical run is dropped
   (src/worker/session.ts).
 
 ## Parity core (done, #269; D337–D339)
