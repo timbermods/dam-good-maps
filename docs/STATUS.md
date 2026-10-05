@@ -50,7 +50,7 @@ as of 2026-10-04 and move.
 | Water speed | `feature/water-speed` | #290 | Merged: the flow layout and the skipped wet-list rebuild, byte-identical; no SIMD |
 | Generation speed | `investigation/gen-speed-2` | #291 | Closed, not adopted (Kyler, 2026-10-04: 7% on one case, no overall gain, built on old dev); no more rounds: generation gets faster with the generator's Rust port after the theme queue |
 | Forces speed, half A | `feature/forces-speed` | #289 | Merged: invariant hoists and playback reuse, TypeScript only, every forces pin unchanged; half B left out |
-| Deposit's pillars | `investigation/deposit-pillars` | #285 | Back to Codex for one round (it refuses every short draw; some fans shrank); adopted when its next push is approved |
+| Deposit's pillars | `feature/deposit-pillars` | #285, adoption PR open | Round 3 approved on the sheet (2026-10-04); adoption re-pins Deposit's five changed pins, every other pin unchanged; review and merge |
 | Dam sketch round 3 | `investigation/dam-sketch-3` | #279 | Parked until its adoption after the Weather view; the engine on the Rust water (446c641a). Two doubts to settle then: "two stacked dams" holds exactly what one dam holds (18.207 m³, the same dry-out day), and every wall change restarts the worker instead of cancelling inside it. Its `rust/water` patch needs reconciling with multi-core and water speed |
 | Islands round 6 | `investigation/islands-round-3` | #235 | `approved`; adopted in the generator queue's order, re-pinned; no more Islands rounds |
 | Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
