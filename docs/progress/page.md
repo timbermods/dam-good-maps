@@ -763,3 +763,13 @@ for the milestone session's word that #268's adoption is in dev.
 - The readout over the minimap is kept left of the settings (it wraps instead; it reached under them at 1920 with a
   long readout); the panels reserve two readout lines where it is narrow; their room is measured against the dock's
   pieces, not its whole width (the first run's hints sit centred, not under the panels).
+
+## Rows sharing their edges, Your maps' names in full (2026-10-05)
+
+- Every tool's rows share their edges (the planning chat's review of 96f36792): the forces on cells 3, 6 and 9 with Try
+  another at 10–13 over rows 2 and 3; the brushes on 6; Select on 3, 6, 9 and 11 (Fill up moves to row 3). `layout.spec.ts`
+  checks it for every tool.
+- Your maps' names: Real places' form, two lines kept for the name (17px each: 16 left a 1px overflow) and the size on
+  its own line; all 365 names the generator can make fit at 1920 and 2560, every tile 206px tall. A renamed name longer
+  than two lines ends in an ellipsis.
+- The delete dialog's Enter already deleted (checked with the Your maps push).

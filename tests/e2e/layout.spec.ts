@@ -161,6 +161,19 @@ async function onTheCells(page: Page, state: string) {
     expect(Math.min(...r.lefts.map((x) => Math.abs(x - g.l))), `${g.name} starts on a cell (${state})`).toBeLessThanOrEqual(0.6);
     expect(Math.min(...r.rights.map((x) => Math.abs(x - g.r))), `${g.name} ends on a cell (${state})`).toBeLessThanOrEqual(0.6);
   }
+  // the rows share their edges (Kyler, 2026-10-05): every gap between two plates in a row lines up with a gap in each
+  // other row, or a plate there spans across it
+  const rowsAt = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b).slice(0, 3);
+  const inRow = (top: number) => r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
+  for (const a of rowsAt)
+    for (const g of inRow(a)) {
+      if (g.r >= r.settings[1] - 6) continue;
+      for (const b of rowsAt) {
+        if (b === a) continue;
+        const ok = inRow(b).some((h) => Math.abs(h.r - g.r) < 1 || (h.l < g.r - 1 && h.r > g.r + 1));
+        expect(ok, `${g.name}'s right edge lines up with the row at ${b} (${state})`).toBe(true);
+      }
+    }
   // no empty cells: each row's groups cover its thirteen cells (a group on several rows counts in each)
   const width = r.rights[12] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);

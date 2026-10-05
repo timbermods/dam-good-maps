@@ -2022,3 +2022,32 @@
   box-shadow: 0 0 0 2px var(--panel);
   pointer-events: none;
 }
+
+/* Your maps' names in full (Kyler, 2026-10-05): as Real places has them, two lines kept for the name whatever it says,
+   the size on its own line under it, so every tile is one size */
+.your-maps .ym-line {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.your-maps .ym-name {
+  flex: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  height: 34px;
+  line-height: 17px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.your-maps .ym-size {
+  line-height: 16px;
+}
+
+/* (renamed in place: the field in the name's two lines, one line of text in the middle) */
+.your-maps .ym-rename {
+  display: block;
+  box-sizing: border-box;
+}

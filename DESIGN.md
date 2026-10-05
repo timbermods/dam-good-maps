@@ -379,7 +379,9 @@ refinements and what the mockups left open:
   no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another sits at cells
-  10–13 across the lower two rows; Sources and Floor on the bottom row; the brushes two settings a row. The rest of this item describes the build before.
+  10–13 across the lower two rows; every tool's rows share their edges (each gap between plates lines up with a gap in
+  the other rows, or a plate there spans it: the forces on cells 3, 6 and 9, the brushes on 6, Select on 3, 6, 9 and
+  11); the brushes two settings a row. The rest of this item describes the build before.
 - **The settings on the bar's cells:** each group keeps its place on every tool of its kind, an empty place left
   empty, so nothing jumps between tools: Smooth and Naturalize (no Level) give Size cells 1–4; Flatten's In steps
   takes cells 9–11 of the row above; Quake (no Size) has its Lift or Slide in the choice's cells 7–9; Glaciate's
@@ -456,7 +458,8 @@ refinements and what the mockups left open:
 - **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header (one panel open at a time,
   each button lit while its panel is open), in the generator's exact box: four to a row, scrolling inside when there
   are more. Its heading row (Kyler, 2026-10-05): "Your maps" at the left, **Rename** and **Delete** at the tiles' right
-  edge, 13px ghost buttons 26px high, 8px apart and 8px above the tiles; it stays put while the tiles scroll. A
+  edge, 13px ghost buttons 26px high, 8px apart and 8px above the tiles; it stays put while the tiles scroll. Each
+  name in full on two lines kept for it (17px each), the size on its own line under it, so every tile is one size. A
   selected tile: the mint at 16% behind it and a 20px mint check at its picture's corner (the open map keeps its mint
   edge).
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in

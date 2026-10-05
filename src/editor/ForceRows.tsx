@@ -255,7 +255,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
           key: "debris",
           row: 2,
           at: 1,
-          span: 4,
+          span: 3,
           node: (
             <ChoiceSetting<"light" | "heavy">
               label="Debris"
@@ -269,9 +269,9 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
             />
           ),
         },
-        { key: "rays", row: 2, at: 5, span: 5, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
-        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
+        { key: "sources", row: 2, at: 7, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "impact") },
       ]}
     />
@@ -337,7 +337,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
           key: "flows",
           row: 2,
           at: 1,
-          span: 4,
+          span: 3,
           node: (
             <ChoiceSetting<"light" | "heavy">
               label="Flows"
@@ -351,9 +351,9 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
             />
           ),
         },
-        { key: "ridges", row: 2, at: 5, span: 5, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
-        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
+        { key: "sources", row: 2, at: 7, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "eruption") },
       ]}
     />
@@ -408,7 +408,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
           key: "scarp",
           row: 2,
           at: 1,
-          span: 4,
+          span: 3,
           node: (
             <ChoiceSetting<"sheer" | "stepped">
               label="Scarp"
@@ -422,7 +422,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "sources", row: 2, at: 4, span: 6, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "quake") },
       ]}
@@ -488,8 +488,8 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         },
         { key: "tarn", row: 2, at: 4, span: 3, node: <OnOffSetting label="Tarn" title="A small lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
         { key: "scree", row: 2, at: 7, span: 3, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
-        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "sources", row: 3, at: 1, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 4, span: 6, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "glacier") },
       ]}
     />
@@ -514,7 +514,7 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
           key: "walls",
           row: 2,
           at: 1,
-          span: 4,
+          span: 6,
           node: (
             <ChoiceSetting<"sheer" | "stepped">
               label="Walls"
@@ -528,7 +528,7 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
             />
           ),
         },
-        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "sources", row: 2, at: 7, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "rift") },
       ]}
@@ -554,7 +554,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
           key: "channels",
           row: 2,
           at: 1,
-          span: 4,
+          span: 6,
           node: (
             <ChoiceSetting<"few" | "many">
               label="Channels"
@@ -568,7 +568,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
             />
           ),
         },
-        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "sources", row: 2, at: 7, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
         { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "fan") },
       ]}
