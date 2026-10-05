@@ -89,37 +89,27 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const frames = () => page.evaluate(() => (window as unknown as { dgmShown: number[] }).dgmShown);
   await page.mouse.click(p.x, p.y);
   await idle(page);
-  // pause holds it, while it flows ("Pause water" is unavailable once the water is settled, never hidden)
-  const pause = bar.getByRole("button", { name: "Pause water", exact: true });
-  await expect(pause).toBeEnabled({ timeout: 10_000 });
-  await pause.click();
-  const held = await wet(page);
-  await page.waitForTimeout(600);
-  expect(await wet(page)).toBe(held);
-  await bar.getByRole("button", { name: "Play water", exact: true }).click();
+  // the row has no controls for the water's journey (Kyler, 2026-10-04): it plays into place by itself
+  await expect(bar.getByRole("button")).toHaveText(["Drought", "Badtide", "◀", "▶"]);
   // it grows over the frames, not in one step: the page shows at least four different waters on its way
   await expect.poll(async () => new Set(await frames()).size, { timeout: 60_000 }).toBeGreaterThanOrEqual(4);
   expect(Math.max(...(await frames()))).toBeGreaterThan(w0);
   await expect(bar.getByRole("status")).toContainText(/Water flowing|Water settled/);
-  await expect(pause).toBeDisabled({ timeout: 60_000 });
 
   // it ends at the map's water: what the worker has, what the export gets
   await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 60_000 });
   await endsAtMapWater(page);
 
-  // replay: from the water right after the edit, then back to the same end
   const settled = await wet(page);
-  await bar.getByRole("button", { name: "Replay" }).click();
-  await page.waitForTimeout(200);
-  expect(await wet(page)).not.toBe(settled);
-  await bar.getByRole("button", { name: "Skip" }).click();
-  await expect(bar.getByRole("status")).toHaveText("Water settled");
-  await endsAtMapWater(page);
 
   // a drought, held on a day (Kyler, 2026-10-04): its last day shows and stays, the water drained; ◀ steps a day back,
-  // ▶ past the default length; Speed, Skip and Replay greyed; Drought again brings the map's own water back
+  // ▶ past the default length; a day typed into the box (double-clicked) shows, Esc cancels one; Drought again brings
+  // the map's own water back
   const day = bar.locator(".day-label");
   await expect(day).toHaveText("Day –");
+  // (with no hazard shown, a double-click does nothing)
+  await day.dblclick();
+  await expect(bar.getByRole("textbox", { name: "Day" })).toHaveCount(0);
   await bar.getByRole("button", { name: "Drought" }).click();
   // (the box reads the day at once; its quiet fill runs until the day shows)
   await expect(day).toHaveText(/^Day \d+$/);
@@ -127,8 +117,6 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const last = Number((await day.textContent())!.replace(/\D/g, ""));
   expect(last).toBeGreaterThan(1);
   expect(await wet(page)).toBeLessThan(settled / 2);
-  await expect(bar.getByRole("button", { name: "Skip" })).toBeDisabled();
-  await expect(bar.getByRole("button", { name: "Replay" })).toBeDisabled();
   await page.waitForTimeout(1500);
   await expect(day).toHaveText(`Day ${last}`);
   await bar.getByRole("button", { name: "Day on" }).click();
@@ -138,6 +126,21 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await bar.getByRole("button", { name: "Day back" }).click();
   await expect(day).toHaveText(`Day ${last - 1}`);
   await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
+  // a typed day, in the box's own place and size
+  const box = await day.boundingBox();
+  await day.dblclick();
+  const field = bar.getByRole("textbox", { name: "Day" });
+  await expect(field).toBeFocused();
+  const typed = await field.boundingBox();
+  expect([typed!.x, typed!.y, typed!.width, typed!.height]).toEqual([box!.x, box!.y, box!.width, box!.height]);
+  await field.fill("2");
+  await field.press("Enter");
+  await expect(day).toHaveText("Day 2");
+  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
+  await day.dblclick();
+  await field.fill("5");
+  await field.press("Escape");
+  await expect(day).toHaveText("Day 2");
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
   await expect(day).toHaveText("Day –");

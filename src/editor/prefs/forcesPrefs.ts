@@ -16,7 +16,7 @@ export interface ForcesPrefs {
   /** The forces' Floor (D321, item 40): 1 unless set. */
   floor: number;
   more: Partial<Record<Verb, boolean>>;
-  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks" | "maturity">;
+  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks">;
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays">;
   erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges">;
   quake: Pick<QuakeUi, "scarp">;
@@ -29,7 +29,7 @@ export const AUTO_FORCES_PREFS: ForcesPrefs = {
   watch: false,
   floor: FLOOR_DEFAULT,
   more: {},
-  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null, maturity: "young" },
+  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null },
   craterize: { walls: null, centre: null, debris: null, rays: null },
   erupt: { shape: null, summit: null, flows: null, ridges: null },
   quake: { scarp: null },
@@ -60,8 +60,6 @@ export function loadForcesPrefs(): ForcesPrefs {
         depth: typeof s.carve?.depth === "number" ? s.carve.depth : null,
         riverDepth: s.carve?.riverDepth === null ? null : typeof s.carve?.riverDepth === "number" && Number.isInteger(s.carve.riverDepth) && s.carve.riverDepth >= 1 && s.carve.riverDepth <= 22 ? s.carve.riverDepth : RIVER_DEPTH_DEFAULT,
         banks: typeof s.carve?.banks === "number" && s.carve.banks >= 0 && s.carve.banks <= 10 ? s.carve.banks : null,
-        // (Young unless Mature or Auto was chosen)
-        maturity: s.carve?.maturity === null ? null : s.carve?.maturity === "mature" ? "mature" : "young",
       },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null },
       erupt: { shape: among(s.erupt?.shape, ["steep", "broad"]), summit: among(s.erupt?.summit, ["auto", "peak", "crater", "caldera"]), flows: among(s.erupt?.flows, ["light", "heavy"]), ridges: typeof s.erupt?.ridges === "boolean" ? s.erupt.ridges : null },

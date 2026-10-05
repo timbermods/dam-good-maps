@@ -315,10 +315,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   its longest line (183px on River Valley 4242), down to 8px above the minimap at most. Its rows are 20px, even,
   at the legend's own type size; content taller than the room scrolls inside it. At 1920×1080 River Valley 4242's 21
   lines need 456px of the 472px there (16px to spare); at 2560×1440 there are 832px.
-- **Top middle:** the water controls in one row, centred in the map area: Water settled (plain text), Pause water,
-  Speed, Skip, Replay, Drought, Badtide, each control floating on its own. An unavailable one (Pause water, Skip and
-  Replay while the water is settled) has a fainter plate (the plate's colour at 38%, no shadow) and fainter words
-  (42%); available ones are unchanged.
+- **Top middle:** the water row, centred in the map area: Water settled (plain text), Drought, Badtide and the day
+  box (◀ Day 7 ▶; double-clicked, a field in its place for a typed day), each floating on its own. No controls for
+  the water's journey: it plays into place after every edit; undo and redo show a change again (Kyler, 2026-10-04).
 - **Top right:** the camera group (Top-down, Reset view, the compass), then the height slice, Slow forces and the
   sound under them, as a three-column grid 310px wide (the sound under the compass).
 - **Bottom right: the objects,** a menu always shown, with no headings: one object per row, its picture then its
@@ -488,8 +487,7 @@ refinements and what the mockups left open:
   water is kept; the ground's moisture and contamination are worked out for the day shown. The water is exactly the
   simulation's (D173): only when days are computed and what is kept changed. An edit while a day is held keeps the view: once its water has settled the hazard runs
   again from it, the label counting, and the same day shows with the edit's effect. The readout reports the day
-  shown (its water and soil). Speed, Skip and Replay are greyed while a view is on; a held hazard's button is lit in
-  the mint. A held badtide never ends, so its sources stay at full strength after their opening curve. The row's
+  shown (its water and soil). A held hazard's button is lit in the mint. A held badtide never ends, so its sources stay at full strength after their opening curve. The row's
   pieces have 6px padding and the Show row's toggles 6px and 5px, 4px apart, so the wider row clears the Show row by
   22px at 1920×1080; Legend stays centred between Badtide and Top-down.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a

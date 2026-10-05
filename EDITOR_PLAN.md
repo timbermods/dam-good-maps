@@ -208,11 +208,12 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 - **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
   `waterSettled`; the page begins a water journey only when it is false, and reads "Water settled" at once when it
   is true, so an undo, a redo or an edit that leaves the water as it is never leaves "Water flowing… 0%" waiting
-  (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water's controls are one row at the top middle,
-  centred in the map area, each floating on its own: the status (plain text over the sky), **Pause water** (Play
-  water while paused), Skip, Replay, Drought and Badtide (§5; no Speed: the water always plays at one pace), then the weather's day (◀ Day 7 ▶: a
-  drought or a badtide held on any day, from Day 0, the map's own water, to past its default length); one unavailable (Pause water, Skip and Replay
-  while the water is settled) has a fainter plate and fainter words.
+  (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water row is at the top middle, centred in the
+  map area, each piece floating on its own: the status (plain text over the sky), Drought and Badtide (§5), then the
+  weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
+  default length). The water plays into place after every edit with no controls, always at one pace; undo and redo
+  show a change again (Kyler, 2026-10-04). Double-clicking the day box while a hazard is shown turns it into a field
+  in place, same size: a day from 0 to 99, Enter or clicking away shows it, Esc cancels.
 - **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
   small top-down view of the whole map, refreshed after edits settle (no outline of the view); click or drag on it to
   move there. Directly above it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order)
@@ -363,8 +364,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   floodplain forms between the bluffs and cut-off necks leave wet oxbows; along an existing source-to-edge river it ages
   that course directly, adding no objects; Power sets the rounds of aging, Keep, the Floor and high bluffs limit it) or
   **Auto** (resolved once from the ground and the seed: open ground leans Mature, rugged ground Young; the operation
-  keeps the resolved setting). Try another keeps it as set. In Carve's settings, Young and Mature with the Auto
-  word, as every detail has (on Auto the last carve's pick is outlined); remembered with the other pins.
+  keeps the resolved setting). Try another keeps it as set. Removed from the product (Kyler, 2026-10-04): the
+  page has no Maturity control; the core's half goes with the milestone.
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
@@ -617,8 +618,8 @@ Make a valley, drop a source, and there's a river.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit starts moving
   within a frame or two, the rest of the map follows, always at one brisk pace (D197, D268): small edits settle
-  nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water bar: the status,
-  Pause, Skip (straight to where it settles), Replay, Drought and Badtide; no speed control there (D268).
+  nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water row: the status,
+  Drought and Badtide and the day; no controls for the water's journey (D268; Kyler, 2026-10-04).
 - **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once (with progress
   while it's worked out); clicking again returns to the map's own water. While one is shown, a day strip on the
   water bar runs from Day 0 to the last day: previous and next, a click on any day, play, and **Speed** (slower,

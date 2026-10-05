@@ -136,6 +136,8 @@ export interface SessionSlice {
   heldDay: { current: number | null };
   /** Step the held day back or on (◀ ▶, ← →). */
   stepWeather: (delta: -1 | 1) => void;
+  /** Show a typed day (the day box, double-clicked). */
+  holdWeatherDay: (day: number) => void;
   /** Ask the worker for the held day again (after an edit's water has settled: it re-runs from it). */
   requestHeldDay: () => void;
   lastHover: { current: { x: number; y: number } | null };
@@ -528,6 +530,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const from = heldDay.current ?? weatherTarget ?? weatherDay ?? 0;
     const day = Math.max(0, from + delta);
     if (day === from && heldDay.current !== null) return;
+    holdWeatherDay(day);
+  }
+  /** Hold a day of the hazard shown: at once when it is kept, or worked out first (the box's fill meanwhile). */
+  function holdWeatherDay(day: number) {
+    const h = weatherRef.current;
+    if (!h) return;
     heldDay.current = day;
     setWeatherTarget(day);
     setWeatherCounting(0);
@@ -622,7 +630,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
-    setWeatherCounting, heldDay, stepWeather, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

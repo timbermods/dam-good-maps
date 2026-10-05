@@ -532,15 +532,6 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 6px rgba(0, 0, 0, 0.6);
 }
 
-/* an unavailable one: a fainter plate and fainter words */
-.editor-view .water-bar > button:disabled {
-  opacity: 1;
-  box-shadow: none;
-  cursor: default;
-  background: color-mix(in srgb, var(--overlay) 38%, transparent);
-  color: color-mix(in srgb, var(--ink) 42%, transparent);
-}
-
 /* ---- top right: the camera group (Top-down, Reset view, the compass), then the height slice, Slow forces and the
    sound under them: three columns, 310px */
 .editor-view .view3d-corner {
@@ -1960,4 +1951,24 @@
 
 .day-stepper .day-words {
   position: relative;
+}
+
+/* a typed day (Kyler, 2026-10-04): the field fills the day box exactly, its words where the box's were */
+.day-stepper .day-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }

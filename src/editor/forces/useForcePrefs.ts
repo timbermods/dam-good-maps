@@ -99,7 +99,7 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
       watch,
       floor,
       more: moreOpen,
-      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks, maturity: carveUi.maturity },
+      carve: { wander: carveUi.wander, walls: carveUi.walls, depth: carveUi.depth, riverDepth: carveUi.riverDepth, banks: carveUi.banks },
       craterize: { walls: craterUi.walls, centre: craterUi.centre, debris: craterUi.debris, rays: craterUi.rays },
       erupt: { shape: eruptUi.shape, summit: eruptUi.summit, flows: eruptUi.flows, ridges: eruptUi.ridges },
       quake: { scarp: quakeUi.scarp },
@@ -107,7 +107,7 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
       rift: { walls: riftUi.walls },
       deposit: { channels: depositUi.channels },
     });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, carveUi.maturity, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels]);
   const [, setForceTick] = useState(0);
 
   return {

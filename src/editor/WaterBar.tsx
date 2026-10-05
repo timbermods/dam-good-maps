@@ -1,9 +1,9 @@
-// The water's time controls over the map (live editing, PLAN §20 D180 (8)): pause, speed, skip to
-// the result, replay the last journey, and a drought or a badtide to watch. The camera never moves
-// by itself (D265: no Follow).
+// The water row over the map (live editing, PLAN §20 D180 (8)): the water's status (it plays into place after every
+// edit, with no controls: undo and redo show a change again, Kyler, 2026-10-04), then a drought or a badtide held on a
+// day, the day stepped with ◀ ▶ or typed into its box. The camera never moves by itself (D265: no Follow).
 // Built from the shared bar and button styles (D176).
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { tip } from "../ui/Tooltip";
@@ -19,11 +19,39 @@ export interface WaterBarProps {
   target: number | null;
   counting: number | null;
   onStep(delta: -1 | 1): void;
+  /** Show a typed day (0 to 99). */
+  onDay(day: number): void;
 }
 
+/** The days the box takes typed. */
+const DAY_MAX = 99;
 
-export function WaterBar({ player: p, weather, onWeather, day, target, counting, onStep }: WaterBarProps) {
+
+export function WaterBar({ player: p, weather, onWeather, day, target, counting, onStep, onDay }: WaterBarProps) {
   const shown = target ?? day;
+  /** The day being typed into the box (Kyler, 2026-10-04: a double-click on it while a hazard is shown), or null. */
+  const [typing, setTypingState] = useState<string | null>(null);
+  // (the field's words as typed, read when it closes: Esc empties it first, so the blur that follows shows nothing)
+  const typed = useRef<string | null>(null);
+  const setTyping = (t: string | null) => {
+    typed.current = t;
+    setTypingState(t);
+  };
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (typing !== null) field.current?.select();
+  }, [typing !== null]);
+  // (the hazard put away: the typing goes with it)
+  useEffect(() => {
+    if (!weather) setTyping(null);
+  }, [weather]);
+  const commit = () => {
+    const t = typed.current;
+    if (t === null) return;
+    const n = Number(t);
+    setTyping(null);
+    if (t !== "" && Number.isInteger(n) && n >= 0 && n <= DAY_MAX && n !== shown) onDay(n);
+  };
   const progress = p.progress;
   const status = p.words ?? (progress !== null ? `Water flowing… ${Math.round(progress * 100)}%` : "Water settled");
   // the view reads the bar's height from --water-bar-h: the legend panel ends one gap above it
@@ -53,17 +81,6 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
       <span class={`bar-status${weather ? " off" : ""}`} role="status">
         {status}
       </span>
-      <button type="button" class="icon-button" aria-pressed={p.paused} disabled={progress === null && !p.paused} title={p.paused ? "Play the water" : progress === null ? "The water is settled" : "Pause the water"} onClick={() => p.pause(!p.paused)}>
-        <span class="icon-word">{p.paused ? "Play water" : "Pause water"}</span>
-      </button>
-      {/* (Skip and Replay control the water's journey after an edit: greyed while a weather day is held; the water
-          always plays at one pace, Kyler, 2026-10-04: no Speed beside the weather) */}
-      <button type="button" class="icon-button" title="Skip to where the water settles" disabled={progress === null || !!weather} onClick={() => p.skip()}>
-        <span class="icon-word">Skip</span>
-      </button>
-      <button type="button" class="icon-button" title="Play the last change's water again" disabled={!p.canReplay || !!weather} onClick={() => p.replay()}>
-        <span class="icon-word">Replay</span>
-      </button>
       <button type="button" class="icon-button" aria-pressed={weather === "drought"} title={weather === "drought" ? "Back to the map's own water" : "Hold a drought's last day: the sources stop"} onClick={() => onWeather("drought")}>
         <span class="icon-word">Drought</span>
       </button>
@@ -76,10 +93,38 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
         <button type="button" class="day-step" aria-label="Day back" disabled={!weather || shown === 0} {...tip("A day back", "←")} onClick={() => onStep(-1)}>
           ◀
         </button>
-        {/* the day asked for, at once (Kyler, 2026-10-04: never counting); a quiet fill inside the box until it shows */}
-        <span class={`day-label${weather && counting !== null ? " working" : ""}`} aria-live="polite">
-          {weather && counting !== null ? <span class="day-fill" style={{ width: `${Math.round(counting * 100)}%` }} aria-hidden="true" /> : null}
-          <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
+        {/* the day asked for, at once (Kyler, 2026-10-04: never counting); a quiet fill inside the box until it shows;
+            double-clicked while a hazard is shown, a field in its place for a typed day (Enter or clicking away shows it,
+            Esc cancels), the box's size and place unchanged */}
+        <span
+          class={`day-label${weather && counting !== null ? " working" : ""}${typing !== null ? " typing" : ""}`}
+          aria-live="polite"
+          {...tip("Type a day", "Double-click")}
+          onDblClick={() => weather && setTyping(shown === null ? "" : String(shown))}
+        >
+          {weather && counting !== null && typing === null ? <span class="day-fill" style={{ width: `${Math.round(counting * 100)}%` }} aria-hidden="true" /> : null}
+          {typing !== null ? (
+            <input
+              ref={field}
+              class="day-field"
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              aria-label="Day"
+              {...tip("A day from 0 to 99", "Enter", "Esc cancels")}
+              value={typing}
+              onInput={(e) => setTyping((e.target as HTMLInputElement).value.replace(/\D/g, "").slice(0, 2))}
+              onKeyDown={(e) => {
+                // (the editor's keys wait while a day is typed)
+                e.stopPropagation();
+                if (e.key === "Enter") commit();
+                else if (e.key === "Escape") setTyping(null);
+              }}
+              onBlur={commit}
+            />
+          ) : (
+            <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
+          )}
         </span>
         <button type="button" class="day-step" aria-label="Day on" disabled={!weather} {...tip("A day on", "→")} onClick={() => onStep(1)}>
           ▶

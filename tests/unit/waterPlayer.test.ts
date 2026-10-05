@@ -31,6 +31,6 @@ describe("the water player's state after undo, redo and an edit (D345, B14)", ()
     const p = player();
     p.settled();
     expect(p.progress).toBeNull();
-    expect(p.canReplay).toBe(false);
+    expect(p.playing).toBe(false);
   });
 });

@@ -717,3 +717,14 @@ for the milestone session's word that #268's adoption is in dev.
 - **The reopen test** (`editor.spec.ts`, the next visit opens the map left open) left the page after a fixed 2.5 s;
   the save waits 1.5 s of quiet, then the worker and the write, so on a loaded machine it hadn't landed. It now waits
   on `window.dgm.kept(version)`: the open map's last save took that version and was written, nothing waiting.
+
+## The water row without its journey controls, a typed day, no Maturity (2026-10-04)
+
+- **Water row:** Pause water, Skip and Replay gone (with the player's pause and replay and the row's greyed-plate
+  style); the row is the status, Drought, Badtide and the day box, 4px apart, centred as before. "Pause water" is a
+  retired term.
+- **Typed day:** a double-click on the day box while a hazard is shown puts a field in its place (62×28, the box's
+  own), 0 to 99; Enter or clicking away shows the day (`holdWeatherDay`, the path ◀ ▶ take), Esc cancels. No hazard
+  shown: nothing. Tooltip "Type a day" with a Double-click key cap.
+- **Maturity** gone from Carve's settings and prefs; Carve's rows now share every edge (3, 6, 9, 11, 13 cells).
+- Captures: `docs/design/water-row-{held,typing}-{1300x900,1920x1080,2560x1440}.png`, `forces-carve-1920x1080.png`.

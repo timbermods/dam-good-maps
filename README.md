@@ -68,8 +68,9 @@ The editor:
   brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
   it. Esc or X puts anything down and goes back to Select.
 - Drag the start to move it. Point at it to see its water, wood and berries.
-- The water flows as you edit. **Pause water**, **Skip** and **Replay** control it.
-- **Drought** and **Badtide** hold their last day on the map. **◀** and **▶** step through the days.
+- The water flows into place after each edit. Undo and redo show a change again.
+- **Drought** and **Badtide** hold their last day on the map. **◀** and **▶** step through the days; double-click the
+  day to type one.
 - A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
 - Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
