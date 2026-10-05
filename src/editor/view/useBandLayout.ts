@@ -66,11 +66,15 @@ export function useBandLayout(ready: boolean): void {
       panelLeft = Math.round(panelLeft);
       const below = top + BAND;
       // the controls under a panel or the legend: as tall as the room above the first of them it would meet
-      // (over the minimap, room for the coordinates and the readout, a line each, one gap apart)
+      // (over the minimap, room for the coordinates and the readout, one gap apart: the readout a line, or two where
+      // it is narrow, kept left of the bar's settings)
+      // (the dock's pieces each by its own box: the first run's hints sit centred above the settings, not across them)
+      const dock = box(".tool-dock");
+      const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
       const under = [
-        { b: box(".tool-dock"), over: 0 },
+        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .first-run", ".tool-dock > .working-note"].map((s) => ({ b: box(s), over: 0 })),
         { b: box(".objects-dock"), over: 0 },
-        { b: box(".minimap"), over: 6 + 32 + 6 + 32 },
+        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32) },
       ].filter((u): u is { b: DOMRect; over: number } => !!u.b);
       const roomAbove = (x0: number, x1: number, from: number) => {
         let floor = v.height - TOP;

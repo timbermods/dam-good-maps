@@ -741,7 +741,8 @@
 
 .editor-view .bottom-left-stack .readout {
   position: static;
-  max-width: 500px;
+  /* (at most 500px, and never as far as the bar's settings: it wraps onto more lines instead; 10px margin, 12px gap) */
+  max-width: min(500px, calc(50vw - var(--dock-w) / 2 - 22px));
   min-height: 32px;
   white-space: normal;
   line-height: 20px;
@@ -781,10 +782,14 @@
    on a grid whose columns are the bar's cells (six tools, the hairline, seven forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
    the left and the objects menu at the right (each 190px with its gap); the dock on whole pixels. */
-.tool-dock {
+/* (on the view: the readout keeps left of the dock with them) */
+.editor-view {
   --cell: 76px;
   /* the hairline, the 13 gaps between the 14 columns and the bar's padding */
   --dock-w: calc(13 * var(--cell) + 48px);
+}
+
+.tool-dock {
   --cells: repeat(6, var(--cell)) 14px repeat(7, var(--cell));
   position: absolute;
   z-index: 2;
@@ -800,8 +805,11 @@
 }
 
 @supports (width: round(down, 10px, 1px)) {
-  .tool-dock {
+  .editor-view {
     --cell: clamp(62px, round(down, calc((100vw - 428px) / 13), 1px), 76px);
+  }
+
+  .tool-dock {
     left: round(down, calc(50% - var(--dock-w) / 2), 1px);
   }
 }
@@ -857,14 +865,16 @@
 .tool-dock > .tool-settings {
   display: block;
   box-sizing: border-box;
-  height: 120px;
+  /* (three rows of 53px, a plate's name, gap and control exactly, 4px apart, and the plate's padding: Kyler,
+     2026-10-05; the map generator's 692px still fits above it at 1920×1080) */
+  height: 175px;
   padding: 4px;
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: var(--cells);
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
   gap: 4px 2px;
   height: 100%;
 }

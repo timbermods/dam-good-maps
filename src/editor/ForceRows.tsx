@@ -22,6 +22,26 @@ import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from 
 import { ButtonSetting, ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
 import { tip } from "../ui/Tooltip";
 
+/** A force's Sources (Kyler, 2026-10-05): the sources it reaches ride with the ground, or it removes them (the
+ *  default); remembered per force, as a brush's is per brush. */
+export type ForceSources = "ride" | "clear";
+export const SOURCES_DEFAULT: ForceSources = "clear";
+
+/** The Sources choice, in the brushes' Sources look. */
+export function SourcesSetting(p: { value: ForceSources; onChange(v: ForceSources): void }) {
+  return (
+    <ChoiceSetting<ForceSources>
+      label="Sources"
+      value={p.value}
+      options={[
+        ["ride", "Ride", "Sources move with the ground"],
+        ["clear", "Clear", "The force removes sources it reaches"],
+      ]}
+      onChange={p.onChange}
+    />
+  );
+}
+
 /** What the player set for the next impact (kept for the visit). Its details (walls, centre, debris,
  *  rays), behind More, start on Auto (null) until the player pins one (D309). */
 export interface CraterUi {
@@ -31,8 +51,10 @@ export interface CraterUi {
   centre: CraterSettings["centre"] | null;
   debris: "light" | "heavy" | null;
   rays: boolean | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_CRATER: CraterUi = { power: CRATER_DEFAULTS.power, size: CRATER_DEFAULTS.size, walls: null, centre: null, debris: null, rays: null };
+export const DEFAULT_CRATER: CraterUi = { power: CRATER_DEFAULTS.power, size: CRATER_DEFAULTS.size, walls: null, centre: null, debris: null, rays: null, sources: SOURCES_DEFAULT };
 
 export interface EruptUi {
   power: number;
@@ -43,8 +65,10 @@ export interface EruptUi {
   summit: EruptSettings["summit"] | null;
   flows: "light" | "heavy" | null;
   ridges: boolean | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_ERUPT: EruptUi = { power: ERUPT_DEFAULTS.power, size: null, shape: null, summit: null, flows: null, ridges: null };
+export const DEFAULT_ERUPT: EruptUi = { power: ERUPT_DEFAULTS.power, size: null, shape: null, summit: null, flows: null, ridges: null, sources: SOURCES_DEFAULT };
 
 export interface QuakeUi {
   mode: "lift" | "slide";
@@ -53,8 +77,10 @@ export interface QuakeUi {
   side: 1 | -1;
   /** Sheer or stepped, or null: drawn from the land and the seed (D309). */
   scarp: "sheer" | "stepped" | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_QUAKE: QuakeUi = { mode: QUAKE_DEFAULTS.mode, power: QUAKE_DEFAULTS.power, side: 1, scarp: null };
+export const DEFAULT_QUAKE: QuakeUi = { mode: QUAKE_DEFAULTS.mode, power: QUAKE_DEFAULTS.power, side: 1, scarp: null, sources: SOURCES_DEFAULT };
 
 /** The row's current detail pins (D309), sent with Try another: `null` for a detail still on Auto
  *  (nature draws it again), or the value the player pinned (nature leaves it). */
@@ -72,8 +98,10 @@ export interface GlaciateUi {
   steps: "few" | "some" | "many" | null;
   tarn: boolean | null;
   scree: boolean | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater, benches: null, steps: null, tarn: null, scree: null };
+export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater, benches: null, steps: null, tarn: null, scree: null, sources: SOURCES_DEFAULT };
 export const glaciateDetails = (u: GlaciateUi): Record<string, unknown> => ({ benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree });
 
 export interface RiftUi {
@@ -82,8 +110,10 @@ export interface RiftUi {
   size: number | null;
   /** Sheer or stepped walls, or null: the land decides. */
   walls: "sheer" | "stepped" | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_RIFT: RiftUi = { power: RIFT_DEFAULTS.power, size: null, walls: null };
+export const DEFAULT_RIFT: RiftUi = { power: RIFT_DEFAULTS.power, size: null, walls: null, sources: SOURCES_DEFAULT };
 export const riftDetails = (u: RiftUi): Record<string, unknown> => ({ walls: u.walls });
 
 export interface DepositUi {
@@ -92,8 +122,10 @@ export interface DepositUi {
   size: number | null;
   /** Few or many channels, or null: the land decides. */
   channels: "few" | "many" | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
 }
-export const DEFAULT_DEPOSIT: DepositUi = { power: DEPOSIT_DEFAULTS.power, size: null, channels: null };
+export const DEFAULT_DEPOSIT: DepositUi = { power: DEPOSIT_DEFAULTS.power, size: null, channels: null, sources: SOURCES_DEFAULT };
 export const depositDetails = (u: DepositUi): Record<string, unknown> => ({ channels: u.channels });
 
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
@@ -120,13 +152,13 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
     <SettingsGrid
       label={`${p.force.name} at work`}
       groups={[
-        { key: "status", row: 1, at: 1, span: 11, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        { key: "status", row: 1, at: 1, span: 11, rows: 3, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
         {
           key: "revert",
           row: 1,
           at: 12,
           span: 2,
-          rows: 2,
+          rows: 3,
           centre: true,
           node: (
             <button type="button" class="set-button" onClick={p.onRevert} {...(st.painting && !st.stopping ? tip("Take the fault back", "Esc") : tip("Take all of it back", "Ctrl+Z", "Esc skips to its end"))}>
@@ -223,7 +255,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
           key: "debris",
           row: 2,
           at: 1,
-          span: 3,
+          span: 4,
           node: (
             <ChoiceSetting<"light" | "heavy">
               label="Debris"
@@ -237,9 +269,10 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
             />
           ),
         },
-        { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
-        { key: "floor", row: 2, at: 7, span: 4, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 11, span: 3, node: again(p, "impact") },
+        { key: "rays", row: 2, at: 5, span: 5, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
+        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "impact") },
       ]}
     />
   );
@@ -304,7 +337,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
           key: "flows",
           row: 2,
           at: 1,
-          span: 3,
+          span: 4,
           node: (
             <ChoiceSetting<"light" | "heavy">
               label="Flows"
@@ -318,9 +351,10 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
             />
           ),
         },
-        { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
-        { key: "floor", row: 2, at: 7, span: 4, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 11, span: 3, node: again(p, "eruption") },
+        { key: "ridges", row: 2, at: 5, span: 5, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
+        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "eruption") },
       ]}
     />
   );
@@ -338,7 +372,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
           key: "mode",
           row: 1,
           at: 1,
-          span: 4,
+          span: 3,
           node: (
             <ChoiceSetting<"lift" | "slide">
               label="Mode"
@@ -351,7 +385,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "power", row: 1, at: 5, span: 5, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
+        { key: "power", row: 1, at: 4, span: 6, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
         {
           key: "side",
           row: 1,
@@ -388,8 +422,9 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 5, span: 5, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 10, span: 4, node: again(p, "quake") },
+        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "quake") },
       ]}
     />
   );
@@ -451,10 +486,11 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
             />
           ),
         },
-        { key: "tarn", row: 2, at: 4, span: 2, node: <OnOffSetting label="Tarn" title="A small lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
-        { key: "scree", row: 2, at: 6, span: 2, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
-        { key: "floor", row: 2, at: 8, span: 3, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 11, span: 3, node: again(p, "glacier") },
+        { key: "tarn", row: 2, at: 4, span: 3, node: <OnOffSetting label="Tarn" title="A small lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
+        { key: "scree", row: 2, at: 7, span: 3, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
+        { key: "sources", row: 3, at: 1, span: 4, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "glacier") },
       ]}
     />
   );
@@ -472,13 +508,13 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
     <SettingsGrid
       label="Rift options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 4, node: power("rift", u.power, (v) => set({ power: v }), "How far the land drops") },
-        { key: "size", row: 1, at: 5, span: 4, node: size("Size", "How wide it opens", sz, String(sz), RIFT_SIZE_MIN, RIFT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 6, node: power("rift", u.power, (v) => set({ power: v }), "How far the land drops") },
+        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How wide it opens", sz, String(sz), RIFT_SIZE_MIN, RIFT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "walls",
-          row: 1,
-          at: 9,
-          span: 5,
+          row: 2,
+          at: 1,
+          span: 4,
           node: (
             <ChoiceSetting<"sheer" | "stepped">
               label="Walls"
@@ -492,8 +528,9 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 1, span: 8, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 9, span: 5, node: again(p, "rift") },
+        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "rift") },
       ]}
     />
   );
@@ -511,13 +548,13 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
     <SettingsGrid
       label="Deposit options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 4, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
-        { key: "size", row: 1, at: 5, span: 4, node: size("Size", "How far the fan spreads", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 6, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
+        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How far the fan spreads", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "channels",
-          row: 1,
-          at: 9,
-          span: 5,
+          row: 2,
+          at: 1,
+          span: 4,
           node: (
             <ChoiceSetting<"few" | "many">
               label="Channels"
@@ -531,8 +568,9 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 1, span: 8, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 9, span: 5, node: again(p, "fan") },
+        { key: "sources", row: 2, at: 5, span: 5, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 3, at: 1, span: 9, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: again(p, "fan") },
       ]}
     />
   );

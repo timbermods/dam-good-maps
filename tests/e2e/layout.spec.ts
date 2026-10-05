@@ -120,7 +120,7 @@ const settle = async (page: Page, w: number, h: number) => {
 };
 
 /** The held tool's settings stand on the bar's cells (Kyler's option B): one panel at the bar's exact width and one
- *  height, 120px, for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
+ *  height, 175px (three rows, Kyler, 2026-10-05), for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
  *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
 async function onTheCells(page: Page, state: string) {
   const r = await page.evaluate(() => {
@@ -156,15 +156,15 @@ async function onTheCells(page: Page, state: string) {
   expect(cut, `cut off (${state})`).toEqual([]);
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
-  same(r.settings[2], 120, `the settings' one height (${state})`);
+  same(r.settings[2], 175, `the settings' one height (${state})`);
   for (const g of r.groups) {
     expect(Math.min(...r.lefts.map((x) => Math.abs(x - g.l))), `${g.name} starts on a cell (${state})`).toBeLessThanOrEqual(0.6);
     expect(Math.min(...r.rights.map((x) => Math.abs(x - g.r))), `${g.name} ends on a cell (${state})`).toBeLessThanOrEqual(0.6);
   }
-  // no empty cells: each row's groups cover its thirteen cells (a group on both rows counts in each)
+  // no empty cells: each row's groups cover its thirteen cells (a group on several rows counts in each)
   const width = r.rights[12] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
-  for (const top of tops.slice(0, 2)) {
+  for (const top of tops.slice(0, 3)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
     const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[5] && g.r > r.lefts[6]) ? 0 : r.lefts[6] - r.rights[5] - 2);
     same(covered, width, `the row at ${top} has no empty cells (${state})`, 1);
