@@ -794,39 +794,45 @@ export function startWeather(hazard: Hazard): void {
   const send = (phase: "drought" | "badtide" | "return" | "end", water: WaterView, day: number, soil?: SoilView) => listener?.({ kind: "weather", version: v, water, phase, day, days, ...(soil ? { soil } : {}) });
   const soilNow = (depth: Float64Array, contamination: Float64Array) => soilView(moisture(s.built.heights, depth, contamination, W, H, null), soilContamination(s.built.heights, depth, contamination, W, H, null));
   void (async () => {
-    let nextSoil = TICKS_PER_DAY;
-    for (let t = 0; t < total; ) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
-        // closer frames the first day, while the rivers drain or the badwater surges
-        const gap = t < TICKS_PER_DAY ? 12 : 96;
-        run.step(gap);
-        t += gap;
-        const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
-        if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
-      }
-      await breathe();
-    }
-    // then the sources run as the map has them, and the water comes back to the settled water
-    const back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
-    let last = 0;
-    for (;;) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      let r: CanonicalWater | null = null;
-      while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-        r = back.advance(4);
-        if (!r && back.ticks - last >= frameGap(back.ticks)) {
-          last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
+    let back: PreviewJob | null = null;
+    try {
+      let nextSoil = TICKS_PER_DAY;
+      for (let t = 0; t < total; ) {
+        if (token !== weatherToken || session !== s) return;
+        const t0 = performance.now();
+        while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
+          // closer frames the first day, while the rivers drain or the badwater surges
+          const gap = t < TICKS_PER_DAY ? 12 : 96;
+          run.step(gap);
+          t += gap;
+          const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
+          if (soil) nextSoil += TICKS_PER_DAY;
+          send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
         }
+        await breathe();
       }
-      if (r) break;
-      await breathe();
+      // then the sources run as the map has them, and the water comes back to the settled water
+      back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
+      let last = 0;
+      for (;;) {
+        if (token !== weatherToken || session !== s) return;
+        const t0 = performance.now();
+        let r: CanonicalWater | null = null;
+        while (!r && performance.now() - t0 < WATER_SLICE_MS) {
+          r = back.advance(4);
+          if (!r && back.ticks - last >= frameGap(back.ticks)) {
+            last = back.ticks;
+            send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
+          }
+        }
+        if (r) break;
+        await breathe();
+      }
+      if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
+    } finally {
+      sim.dispose();
+      back?.dispose();
     }
-    if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
   })();
 }
 
@@ -877,13 +883,28 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
 
 // ------------------------------------------------------------------------------------ opening
 
+/** Dropping a map drops every job that still owns its water and force state. */
+function discardSessionWork(): void {
+  stopWater();
+  draft?.job.dispose();
+  draft = null;
+  draftToken++;
+  handoff = null;
+  endForceWater();
+  weatherToken++;
+  force = null;
+  series = null;
+  lastKept = null;
+  takenBack.clear();
+}
+
 function opened(s: MapSession): SessionOpen {
   // an edit never waits on the water (live editing): it shows the last settled water on the new
   // ground at once, the water settles again in the background and flows into the new shape
   // (`kickWater`), and the canonical settle follows, always before an export (EDITOR_PLAN §6)
   // (edits never wait on the water: the page's flow)
   s.setWaterMode("defer");
-  stopWater();
+  discardSessionWork();
   session = s;
   sent = null;
   originalFull = null;
@@ -916,11 +937,7 @@ export function openProject(bytes: Uint8Array): SessionOpen {
 }
 
 export function closeSession(): void {
-  stopWater();
-  force = null;
-  series = null;
-  lastKept = null;
-  takenBack.clear();
+  discardSessionWork();
   session = null;
   sent = null;
   originalFull = null;

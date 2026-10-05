@@ -18,7 +18,7 @@
 // single-threaded (the identity check installs a pool to compare).
 
 import { parallelWaterSupported, threadsFor } from "./parallelPolicy";
-import { RustStrip, rustWater, type RustModel, type RustRules } from "./rustWater";
+import { RustStrip, rustWater, sameBits, type RustModel, type RustRules } from "./rustWater";
 
 export { parallelWaterSupported, threadsFor };
 
@@ -216,8 +216,8 @@ class StripRunner {
     for (let m = 0; m < this.local.length; m++) this.strip.seep(m, this.f[L.seeps + this.local[m]] ? 1 : 0);
   }
 
-  /** Runs `ticks` ticks with the others, then writes its own rows back; false when a thread failed (nothing is
-   *  written then, so the shared state is still the run's start). */
+  /** Runs ticks with the others, then writes its own rows back. A failure during the final
+   *  commit can leave partial rows written; the coordinator keeps a separate private carry for retry. */
   run(ctl: Int32Array, dead: Int32Array | null, ticks: number, scale: number): boolean {
     const { info, f, lo, y0, y1, index } = this;
     const { W, layout: L } = info;
@@ -373,7 +373,12 @@ class Pool {
   }
 
   add(h: HelperPort): void {
-    h.postMessage({ kind: "hello", ctl: this.ready.buffer, index: this.helpers.length } satisfies Message);
+    try {
+      h.postMessage({ kind: "hello", ctl: this.ready.buffer, index: this.helpers.length } satisfies Message);
+    } catch (error) {
+      try { h.terminate(); } catch { /* a failed port may already be closed */ }
+      throw error;
+    }
     this.helpers.push(h);
   }
 
@@ -387,7 +392,9 @@ class Pool {
   /** A helper failed or stopped answering: the water runs on one thread from now on. */
   break(): void {
     this.broken = true;
-    for (const h of this.helpers) h.terminate();
+    for (const h of this.helpers) {
+      try { h.terminate(); } catch { /* continue releasing the rest of a failed pool */ }
+    }
     this.helpers.length = 0;
   }
 }
@@ -403,9 +410,15 @@ export function installParallelWater(opts: ParallelOptions): boolean {
   if (forced === null && !parallelWaterSupported()) return false;
   if (forced !== null && forced < 2) return false;
   pool = new Pool(opts.spawn, forced);
-  for (const h of opts.helpers ?? []) {
-    if (pool.helpers.length < pool.cap - 1) pool.add(h);
-    else h.terminate();
+  try {
+    for (const h of opts.helpers ?? []) {
+      if (pool.helpers.length < pool.cap - 1) pool.add(h);
+      else h.terminate();
+    }
+  } catch {
+    pool.break();
+    for (const h of opts.helpers ?? []) { try { h.terminate(); } catch { /* already closed */ } }
+    return false;
   }
   pool.grow(opts.eager ?? (forced ?? threadsFor(256 * 256)) - 1);
   return true;
@@ -469,6 +482,7 @@ export class WaterThreads {
   private sinceInit = 0;
   private dead = false;
   private freed = false;
+  private failedCarry: { dold: Float64Array; seeps: Uint8Array } | null = null;
 
   constructor(
     private readonly pool: Pool,
@@ -493,10 +507,21 @@ export class WaterThreads {
   }
 
   /** The state only the simulation itself holds (the old depth and the seeps), from the last run here, for the
-   *  single thread to take over. */
-  carry(): { dold: Float64Array; seeps: Uint8Array } {
+   *  single thread to take over; after a failed run, the run's start (kept outside the shared memory). `water`
+   *  is the water the threads last held when the caller's `D`, `C` or `out` were edited directly since. */
+  carry(D: Float64Array, C: Float64Array, out: Float64Array): { dold: Float64Array; seeps: Uint8Array; water?: { depth: Float64Array; contamination: Float64Array; out: Float64Array } } {
+    if (this.failedCarry) return this.failedCarry;
     const { layout: L, W, H, emitters } = this.info;
-    return { dold: this.f.slice(L.dold, L.dold + W * H), seeps: Uint8Array.from(this.f.subarray(L.seeps, L.seeps + emitters.length)) };
+    const f = this.f, n = W * H;
+    const water = this.changed(D, C, out) ? { depth: f.subarray(L.d, L.d + n), contamination: f.subarray(L.c, L.c + n), out: f.subarray(L.out, L.out + 4 * n) } : undefined;
+    return { dold: f.slice(L.dold, L.dold + n), seeps: Uint8Array.from(f.subarray(L.seeps, L.seeps + emitters.length)), water };
+  }
+
+  /** Whether the caller's water differs from the water the threads hold (a direct edit since they last ran). */
+  changed(D: Float64Array, C: Float64Array, out: Float64Array): boolean {
+    if (!this.fresh || !this.shared) return false;
+    const f = this.shared, L = this.info.layout, n = this.info.W * this.info.H;
+    return !sameBits(D, f.subarray(L.d, L.d + n)) || !sameBits(C, f.subarray(L.c, L.c + n)) || !sameBits(out, f.subarray(L.out, L.out + 4 * n));
   }
 
   /** Runs `ticks` ticks on several threads, the water back in D, C and out; false when it doesn't (too little
@@ -507,45 +532,51 @@ export class WaterThreads {
     if (this.dead || this.freed || this.pool.broken || paused) return false;
     const { W, H, layout: L } = this.info;
     const N = W * H;
+    // Public water edits preserve the established single-thread bookkeeping.
+    if (this.changed(D, C, out)) return false;
     const replan = !this.fresh || this.sinceInit >= REBALANCE_TICKS;
     const strips0 = replan ? this.plan(D) : null;
     if (replan && !strips0) return false;
     // (the shared state is made here, once the threads are really used)
     const f = this.f;
-    if (strips0) {
-      const strips = strips0;
-      if (!this.fresh) {
-        const s = single();
-        f.set(D, L.d);
-        f.set(C, L.c);
-        f.set(out, L.out);
-        f.set(s.dold, L.dold);
-        for (let k = 0; k < s.seeps.length; k++) f[L.seeps + k] = s.seeps[k];
-      }
-      if (!this.fresh || !sameStrips(strips, this.strips)) this.init(strips);
-      this.sinceInit = 0;
-    }
-    const strips = this.strips!;
-    f.set(m.floor, L.floor);
-    if (m.dam) f.set(m.dam, L.dam);
-    for (let k = 0; k < m.emitters.length; k++) {
-      const e = m.emitters[k];
-      const at = L.params + 4 * k;
-      f[at] = e.strength;
-      f[at + 1] = e.contamination;
-      f[at + 2] = e.depthLimit ? e.depthLimit.off : 0;
-      f[at + 3] = e.depthLimit ? e.depthLimit.on : 0;
-    }
-    for (let j = 1; j < strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "run", job: this.id, ticks, scale } satisfies Message);
+    // A helper can fail after another strip wrote its final rows. Public water has not been
+    // overwritten yet; preserve the private carry too, so a single-thread retry starts exactly.
+    const checkpoint = f.slice(L.dold, L.seeps + this.info.emitters.length);
     let ok = false;
     try {
+      if (strips0) {
+        const strips = strips0;
+        if (!this.fresh) {
+          const s = single();
+          f.set(D, L.d);
+          f.set(C, L.c);
+          f.set(out, L.out);
+          f.set(s.dold, L.dold);
+          for (let k = 0; k < s.seeps.length; k++) f[L.seeps + k] = s.seeps[k];
+        }
+        if (!this.fresh || !sameStrips(strips, this.strips)) this.init(strips);
+        this.sinceInit = 0;
+      }
+      const strips = this.strips!;
+      f.set(m.floor, L.floor);
+      if (m.dam) f.set(m.dam, L.dam);
+      for (let k = 0; k < m.emitters.length; k++) {
+        const e = m.emitters[k];
+        const at = L.params + 4 * k;
+        f[at] = e.strength;
+        f[at + 1] = e.contamination;
+        f[at + 2] = e.depthLimit ? e.depthLimit.off : 0;
+        f[at + 3] = e.depthLimit ? e.depthLimit.on : 0;
+      }
+      for (let j = 1; j < strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "run", job: this.id, ticks, scale } satisfies Message);
       ok = this.own!.run(this.ctl, this.pool.ready, ticks, scale);
     } catch {
       ok = false;
     }
     if (!ok) {
-      // a thread failed or stopped answering: the shared state is still the run's start, and the water runs
-      // on one thread from now on
+      // Keep private carry outside shared memory: another strip may still be exiting its failed run.
+      this.failedCarry = { dold: checkpoint.slice(0, N), seeps: Uint8Array.from(checkpoint.subarray(N + 4 * this.info.emitters.length)) };
+      // The public water still holds the run's start; retry all ticks on one thread.
       fail(this.ctl);
       this.dead = true;
       this.pool.break();
@@ -639,7 +670,11 @@ export class WaterThreads {
     this.own?.free();
     this.own = null;
     const used = this.strips?.length ?? 1;
-    if (!this.pool.broken) for (let j = 1; j < used; j++) this.pool.helpers[j - 1]?.postMessage({ kind: "free", job: this.id } satisfies Message);
+    if (!this.pool.broken) {
+      try {
+        for (let j = 1; j < used; j++) this.pool.helpers[j - 1]?.postMessage({ kind: "free", job: this.id } satisfies Message);
+      } catch { this.pool.break(); }
+    }
   }
 }
 
