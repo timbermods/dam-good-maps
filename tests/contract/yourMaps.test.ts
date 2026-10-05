@@ -75,7 +75,7 @@ describe("the store", () => {
     const r = await none.put(entry("a", 1), bytes(1));
     expect(r).toEqual({ ok: false, reason: "unavailable" });
     expect(storeProblem(r)).toMatch(/isn't keeping Your maps/);
-    expect(storeProblem({ ok: false, reason: "full" })).toMatch(/^Browser storage is full/);
+    expect(storeProblem({ ok: false, reason: "full" })).toBe("Browser storage is full. Delete some maps or download this one.");
     expect(storeProblem({ ok: true })).toBe(null);
   });
 });
@@ -214,7 +214,7 @@ describe("saving safely", () => {
     await sb.flush();
     expect(await a.project("a")).toEqual(bytes(2));
     expect(results).toEqual(["conflict"]);
-    expect(storeProblem({ ok: false, reason: "conflict" })).toMatch(/another tab/);
+    expect(storeProblem({ ok: false, reason: "conflict" })).toBe("Changed in another tab. Download the project to keep your edits.");
   });
 
   it("a second tab's stale save can't bring back a deleted map", async () => {

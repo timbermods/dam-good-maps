@@ -79,10 +79,10 @@ export interface Removed {
 /** The words for a save that failed (D234 (5)). */
 export function storeProblem(r: StoreResult): string | null {
   if (r.ok) return null;
-  if (r.reason === "conflict") return "This map changed or was deleted in another tab. Your edits are still open here: download the project file to keep them before closing it.";
+  if (r.reason === "conflict") return "Changed in another tab. Download the project to keep your edits.";
   return r.reason === "full"
-    ? "Browser storage is full, so Your maps can't keep this map. Delete some maps, or download them as project files."
-    : "This browser isn't keeping Your maps (private window or blocked site data). Download the project file to keep a map.";
+    ? "Browser storage is full. Delete some maps or download this one."
+    : "This browser can't keep Your maps. Download the project to keep this one.";
 }
 
 /** The list's order: newest edit first. */
