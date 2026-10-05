@@ -61,7 +61,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   computation in `rust/water`, no wiring yet).
 - **The Rust forces** (done, #254; #158, D400, D453): the planners are Rust (`rust/forces`), byte-identical to the TypeScript
   computation they replaced (tag `ts-forces-final`, then deleted); their byte fixtures run in CI's `rust` job. Rift and Deposit
-  (#273) are adopted directly in Rust. Next: the analysis (#157) and the checks (#207), the
+  (#273) are adopted directly in Rust. The analysis' six kernels are Rust too (#157, D391). Next: the checks (#207), the
   cleanup's groups 5 and 6 being in; Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
 
 **3. The generator queue**, one re-pin at a time (D148, D308)
@@ -166,9 +166,11 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   (Chromium, Firefox and WebKit) at every size, with no corrected comparison against TypeScript; its TypeScript is tagged
   and deleted. Firefox's speed is not investigated and the Codex round on it is dropped (D440). Rust 1.90, the wasm32
   target and the Rust build join CI and the setup command first (item 3a).
-- **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
-  after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
-  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
+- **The Rust analysis** (done; #157, D391, D453): adopted (D442 (d)) with its fixed six-kernel policy in every engine,
+  Firefox included: `distanceFrom`, `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` run in Rust
+  (`rust/analysis`), byte-identical to the TypeScript they replaced (tag `ts-analysis-final`, then deleted); their byte
+  fixtures run in CI's `rust` job. The outcomes and M9b's descriptive rows stay on TypeScript (a TypeScript
+  `distanceFrom` kept for them).
 - **The Rust forces** (done, #254; #158, D400, D453): adopted (D442 (c)): the planners are Rust (`rust/forces`); the core keeps the
   request, Keep, the build's last touches, the record and the showing; the TypeScript computation is tag `ts-forces-final`
   and deleted. New forces (Erode first) are built directly in Rust on it, never in TypeScript first (D438). Round 1's lesson

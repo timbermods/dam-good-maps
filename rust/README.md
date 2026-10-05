@@ -23,12 +23,19 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   `src/core/forces/rust/bridge.ts` (one call plans a force); `forces-batch` is the native binary the identity check
   runs. It keeps its own copy of the water kernel for the water a force plans with (a carve's oxbow lake, a
   glacier's floor), the same arithmetic as `water/`.
+- `analysis/`: the six analysis kernels generation and the checks repeat most (#157, D391): `distanceFrom`,
+  `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` (their TypeScript is tag
+  `ts-analysis-final`). Its Wasm is committed in `src/core/analysis/rust/analysisWasm.ts` and bound by
+  `src/core/analysis/rust/bridge.ts` (one call runs a kernel on a frame of binary64 values, written straight into
+  the module's memory); each kernel's export keeps its TypeScript signature. The outcomes and M9b's descriptive
+  rows keep a TypeScript `distanceFrom` (`distanceFromInTs`). `analysis-batch` is the native binary the
+  identity check runs.
 
 **Setup.** Rust 1.90.0 and the `wasm32-unknown-unknown` target, pinned by `rust-toolchain.toml`: install rustup for your
 user from https://rustup.rs (on Windows without Visual Studio's C++ tools, pick the host `x86_64-pc-windows-gnu`), then
 run `rustup toolchain install` in the repository. `npm run setup:machine` says whether it's ready.
 
-**Build.** `npx tsx tools/rust/build.ts [--native]` rebuilds the committed Wasm, the water's and the forces' (source
+**Build.** `npx tsx tools/rust/build.ts [--native]` rebuilds the committed Wasm, the water's, the forces' and the analysis' (source
 paths written with forward slashes, so every OS builds the same bytes) and, with `--native`, the batch binaries;
 `--check` fails when a committed Wasm differs from a fresh build. While `npm run dev` runs, saving any `.rs` file rebuilds it and the page reloads
 (`tools/rust/vite-plugin.mjs`; D444); a failed build shows in the page's error overlay.
@@ -37,9 +44,11 @@ paths written with forward slashes, so every OS builds the same bytes) and, with
 file, strict builds for wasm32 and the host with their IR, assembly and Wasm audited (no libm, no FMA, no transcendental
 intrinsics; `tools/rust/guard.mjs`), then `portable/` against `portable.ts` bit for bit, natively, in Node's
 WebAssembly and, with `--engines`, in Chromium, Firefox and WebKit, the Rust water's canonical settle the same
-bytes natively, in Node's WebAssembly and in each engine, and the forces' byte fixtures (`tools/rust/forces-jobs.ts`)
-the same packed results on each, as pinned in `tools/rust/forces-pins.json`. A deliberate change to a force re-pins
-them (`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`) and says so in its PR. Cargo runs with `-j 4` (`--jobs N` changes it).
+bytes natively, in Node's WebAssembly and in each engine, the forces' byte fixtures (`tools/rust/forces-jobs.ts`)
+the same packed results on each, as pinned in `tools/rust/forces-pins.json`, and the analysis' byte fixtures
+(`tools/rust/analysis-jobs.ts`) the same results on each, as pinned in `tools/rust/analysis-pins.json`. A deliberate
+change to a force or a kernel re-pins them (`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`,
+`npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`) and says so in its PR. Cargo runs with `-j 4` (`--jobs N` changes it).
 
 **Threads.** Each Wasm stays single-threaded, built with no extra target features: Rust 1.90 still marks wasm32's
 `+atomics` unstable (a warning, and a shared-memory `std` needs nightly's `-Zbuild-std`), so threaded Rust stays parked

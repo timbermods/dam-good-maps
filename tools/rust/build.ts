@@ -2,10 +2,11 @@
 //
 // - The WebAssembly every engine and Node run, embedded in TypeScript (committed, so the app, the tests and
 //   every checkout work without Rust): the water's in src/core/sim/waterWasm.ts, the forces' in
-//   src/core/forces/rust/forcesWasm.ts. Source paths inside them are written with forward slashes, so Windows
+//   src/core/forces/rust/forcesWasm.ts, the analysis' in src/core/analysis/rust/analysisWasm.ts. Source paths inside them are written with forward slashes, so Windows
 //   and Linux build the same bytes. The Wasm guard (tools/rust/guard.mjs) checks each.
 // - With --native, also the native batch binaries (rust/target/release/water-batch, which
-//   tools/rust/native-water.ts runs for batch jobs, and forces-batch, the forces' identity check's).
+//   tools/rust/native-water.ts runs for batch jobs, and forces-batch and analysis-batch, the forces' and
+//   the analysis' identity checks').
 // - With --check, nothing is written: it fails when a committed Wasm differs from a fresh build (CI's
 //   `rust` job), so the committed modules always match rust/.
 //
@@ -39,6 +40,7 @@ if (/source = "registry/.test(readFileSync(join(RUST, "Cargo.lock"), "utf8"))) t
 const EMBEDS = [
   { pkg: "water", lib: "water", out: "src/core/sim/waterWasm.ts", name: "WATER_WASM" },
   { pkg: "forces", lib: "forces", out: "src/core/forces/rust/forcesWasm.ts", name: "FORCES_WASM" },
+  { pkg: "analysis", lib: "analysis", out: "src/core/analysis/rust/analysisWasm.ts", name: "ANALYSIS_WASM" },
 ];
 let stale = false;
 for (const { pkg, lib, out, name } of EMBEDS) {
@@ -85,7 +87,7 @@ for (const { pkg, lib, out, name } of EMBEDS) {
 if (stale) process.exit(1);
 
 if (process.argv.includes("--native")) {
-  for (const [pkg, bin] of [["water", "water-batch"], ["forces", "forces-batch"]])
+  for (const [pkg, bin] of [["water", "water-batch"], ["forces", "forces-batch"], ["analysis", "analysis-batch"]])
     execFileSync("cargo", ["build", "--release", "-j", JOBS, "-p", pkg, "--bin", bin], { cwd: RUST, stdio: ["ignore", "inherit", "inherit"], windowsHide: true });
-  console.log("built rust/target/release/water-batch and forces-batch");
+  console.log("built rust/target/release/water-batch, forces-batch and analysis-batch");
 }

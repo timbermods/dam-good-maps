@@ -26,7 +26,7 @@ import { dirname, resolve } from 'node:path';
 import { generate } from '../../src/core/gen/generate';
 import { decodeSpecFragment, makeSpec, type ThemeId } from '../../src/core/spec/mapspec';
 import { AVAILABLE_THEMES } from '../../src/core/spec/mapspec';
-import { levelRegions } from '../../src/core/math/grid';
+import { distanceFromInTs, levelRegions } from '../../src/core/math/grid';
 import { cutShape, wearReach } from '../../src/core/water/outletWear';
 
 function arg(name: string, fallback: string): string {
@@ -232,7 +232,7 @@ function measureOne(theme: ThemeId, seed: number, size: number, set: string, cyc
     preWet: r.info.preWet ?? null,
     fillWalls: r.info.fillWalls ?? null,
     wetShare: r.built ? Math.round((r.built.water.reduce((a: number, v: number) => a + (v > 0.05 ? 1 : 0), 0) / r.built.water.length) * 1000) / 1000 : null,
-    worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width)) } : null,
+    worn: r.info.worn ? { cut: r.info.worn.cut.length, width: r.info.worn.width, shape: cutShape(r.info.worn.cut, r.info.worn.route, b.W, b.H, wearReach(r.info.worn.width), distanceFromInTs) } : null,
     settleTicks: b.settle.ticks,
     redrawn: r.failures.filter((f) => f.failed.some((w) => w.includes('(planned)'))).length,
     failedChecks: r.report.passed ? [] : r.report.checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => c.id).concat(r.info.stage !== 'built' && r.info.stage !== 'checks' ? [r.info.stage] : []),
