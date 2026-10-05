@@ -20,7 +20,7 @@ test("the public site shows no forces before their release: no button, no key, n
   await expect(bar.getByRole("button", { name: "Select (M)" })).toBeVisible();
   // no forces group, and none of the forces
   await expect(bar.getByRole("group", { name: "Forces" })).toHaveCount(0);
-  for (const name of ["Carve", "Craterize", "Quake", "Erupt", "Glaciate"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
+  for (const name of ["Carve", "Craterize", "Quake", "Erupt", "Glaciate", "Rift", "Deposit"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
   // Carve's key does nothing: no options row, no Unleash or Aim
   await page.mouse.move(700, 500);
   await page.keyboard.press("7");

@@ -329,7 +329,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Quake, Glaciate; eleven 76px cells, icon above name, keys only in tooltips. The held
+  Carve, Craterize, Erupt, Rift, Quake, Glaciate, Deposit; thirteen cells of one width (76px where there is room,
+  narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
+  in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
   spans whole cells, its label above its control, on one row:
   - **Select:** How to select 6 (cells 1–6, one shape per cell, icon above its name: Rectangle, Circle, Freehand,
@@ -371,7 +373,7 @@ refinements and what the mockups left open:
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
-  for every tool, two rows on one grid of the bar's own 11 cells, every setting a plate on whole cells (its edges on
+  for every tool, two rows on one grid of the bar's own 13 cells, every setting a plate on whole cells (its edges on
   the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
   of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
   (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;

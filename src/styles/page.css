@@ -796,19 +796,32 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (six tools, the hairline, five forces) */
+   on a grid whose columns are the bar's cells (six tools, the hairline, seven forces). Every cell one width, 76px
+   where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
+   the left and the objects menu at the right (each 190px with its gap); the dock on whole pixels. */
 .tool-dock {
-  --cells: repeat(6, 76px) 14px repeat(5, 76px);
+  --cell: 76px;
+  /* the hairline, the 13 gaps between the 14 columns and the bar's padding */
+  --dock-w: calc(13 * var(--cell) + 48px);
+  --cells: repeat(6, var(--cell)) 14px repeat(7, var(--cell));
   position: absolute;
   z-index: 2;
   bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: calc(50% - var(--dock-w) / 2);
+  width: var(--dock-w);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   pointer-events: none;
+}
+
+@supports (width: round(down, 10px, 1px)) {
+  .tool-dock {
+    --cell: clamp(62px, round(down, calc((100vw - 428px) / 13), 1px), 76px);
+    left: round(down, calc(50% - var(--dock-w) / 2), 1px);
+  }
 }
 
 .tool-dock > * {

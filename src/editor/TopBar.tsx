@@ -1,6 +1,6 @@
 // The bar (PLAN §20 D184, D212; Layout 2): Select, the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, a
-// hairline, then the forces (D194, D202, D203, D206, D246: Carve, Craterize, Erupt, Quake, Glaciate; keys 7, 8, 0, 9
-// and -), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
+// hairline, then the forces in D352's order (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake,
+// Glaciate, Deposit; keys 7, 8, 0, 9 and -; Rift and Deposit have none yet), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
 // the bar's width and one height for every tool, every setting always shown (More is gone). The brushes: Size, Level
 // (Raise, Lower and Flatten's target, D322 item 37: Auto follows the ground, Free sculpts softly) or Strength
 // (Smooth, Naturalize), Mode (item 2), Sources (item 31), Brush (round, square or straight lines, one at a time) and
@@ -85,6 +85,18 @@ function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
           <path d="M2 4c2 0 3 2 3 6s2 6 5 6 5-2 5-6 1-6 3-6M7 4c1 2 2 3 3 3s2-1 3-3" />
         </svg>
       );
+    case "rift":
+      return (
+        <svg {...ICON}>
+          <path d="M2 6h5l1 3 2-1 2 3 1-5h5M7 6v9h6V6M8 11l2 1 2-1" />
+        </svg>
+      );
+    case "deposit":
+      return (
+        <svg {...ICON}>
+          <path d="M10 3v5M10 8c-3 2-6 5-8 9M10 8c3 2 6 5 8 9M10 8c-1 3-2 6-2 9M10 8c1 3 2 6 2 9" />
+        </svg>
+      );
     case "select":
       return (
         <svg {...ICON}>
@@ -128,6 +140,8 @@ const FORCE_LIST: readonly Force[] = [
   { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "a fault that lifts or slides the land" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "a glacier carves a valley" },
+  { id: "rift", name: "Rift", ready: true, hint: "the land cracks open and drops" },
+  { id: "deposit", name: "Deposit", ready: true, hint: "a fan of sediment at a valley's mouth" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */
@@ -228,7 +242,7 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     key: "size",
     row: 1,
     at: 1,
-    span: 3,
+    span: 4,
     node: <NumberSetting label="Size" title="The brush's size" keys={SIZE_KEYS} value={s.size} min={BRUSH_SIZE_MIN} max={sizeMax} step={0.5} onChange={(size) => set({ size })} />,
   };
   const free = t === "raise" || t === "lower";
@@ -238,7 +252,7 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     ? {
         key: "level",
         row: 1,
-        at: 4,
+        at: 5,
         span: 5,
         node: (
           <NumberSetting
@@ -258,15 +272,15 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     : {
         key: "strength",
         row: 1,
-        at: 4,
+        at: 5,
         span: 5,
         node: <NumberSetting label="Strength" title={t === "smooth" ? "How strongly it smooths" : "How strongly it weathers"} keys={["Shift+scroll", "[", "]"]} value={s.strength} min={1} max={10} step={1} onChange={(strength) => set({ strength })} />,
       };
   const mode: Group = {
     key: "mode",
     row: 1,
-    at: 9,
-    span: 3,
+    at: 10,
+    span: 4,
     node: (
       <ChoiceSetting<BrushMode>
         label="Mode"
@@ -285,7 +299,7 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     key: "sources",
     row: 2,
     at: 1,
-    span: flatten ? 4 : 5,
+    span: flatten ? 4 : 6,
     node: (
       <ChoiceSetting<SourcesChoice>
         label="Sources"
@@ -303,8 +317,8 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: flatten ? 5 : 6,
-    span: flatten ? 4 : 6,
+    at: flatten ? 5 : 7,
+    span: flatten ? 5 : 7,
     node: (
       <ChoiceSetting<"round" | "square" | "straight">
         label="Brush"
@@ -323,8 +337,8 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
     groups.push({
       key: "steps",
       row: 2,
-      at: 9,
-      span: 3,
+      at: 10,
+      span: 4,
       node: (
         <ChoiceSetting<number>
           label="Steps"

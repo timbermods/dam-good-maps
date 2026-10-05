@@ -190,8 +190,10 @@ test("the next visit, with no link in the address, opens the map left open, with
   await drag(page, [30, 40], [34, 40]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   expect((await info(page)).edits).toBe(1);
-  const name = (await info(page)).name;
-  await page.waitForTimeout(2500);
+  const { name, version } = await info(page);
+  // (left once Your maps holds it at this version: its save waits for the edits to settle, then for the worker,
+  // which a busy machine slows; a fixed wait left too early there)
+  await page.waitForFunction((v) => window.dgm!.kept!(v), version, { timeout: 60_000, polling: 200 });
   await page.goto("about:blank");
   await page.goto("./");
   await waitForEditor(page);

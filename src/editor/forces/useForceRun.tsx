@@ -9,7 +9,9 @@ import { plain } from "../panels";
 import { ForceDriver, paceOf } from "../forceDriver";
 import { carveDetails, carveSettingsOf, DEFAULT_CARVE } from "../CarveRow";
 import { craterDetails, craterSettingsOf, eruptDetails, eruptSettingsOf, quakeDetails } from "../ForceRows";
-import { glaciateDetails, glaciateSettingsOf } from "../ForceRows";
+import { depositDetails, glaciateDetails, glaciateSettingsOf, riftDetails } from "../ForceRows";
+import { depositWidth } from "../../core/forces/deposit";
+import { riftWidth } from "../../core/forces/rift";
 import { sizeOf as glacierSize } from "../../core/forces/glaciate/model";
 import { forceReach } from "../../core/forces/reach";
 import { MAX_PATH_POINTS } from "../../core/forces/carve/run";
@@ -60,7 +62,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, localUndo, localRedo, painter,
     notePointer, sourcesChanged, pointerWords, flashNote, carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi,
     craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi,
-    glaciateUiRef, watchRef, floorRef, setForceTick
+    glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, watchRef, floorRef, setForceTick
   } = ed;
 
   /** The map's own views that came while a force was at work (the settled water, a check's): they
@@ -181,7 +183,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
                     ? quakeDetails(quakeUiRef.current)
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
-                      : undefined;
+                      : verb === "rift"
+                        ? riftDetails(riftUiRef.current)
+                        : verb === "deposit"
+                          ? depositDetails(depositUiRef.current)
+                          : undefined;
           // (and the row's Power and Size as they are now, D361 (1): Try another answers them)
           const now = verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {};
           return api.forceAgain(pins && { ...pins, ...now, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
@@ -319,11 +325,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     return {
       label: "Unleash at work",
       groups: [
-        { key: "status", row: 1, at: 1, span: 7, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
+        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
         {
           key: "pause",
           row: 1,
-          at: 8,
+          at: 10,
           span: 2,
           rows: 2,
           centre: true,
@@ -336,7 +342,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         {
           key: "revert",
           row: 1,
-          at: 10,
+          at: 12,
           span: 2,
           rows: 2,
           centre: true,
@@ -417,11 +423,12 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The band's half width for the force picked, as drawn (D344 A3, amended by D361 (2)): the preview
    *  is the player's stroke, never what the force decides. Carve's and Glaciate's width is their Size,
-   *  the player's own; a fault or a fissure is its line, a narrow band about as wide as a fault's crack
-   *  (its reach, a fissure's breadth and the ground inside a loop are the force's, never drawn). */
+   *  the player's own, and a rift's too (its drawn fault opens at its Size); a fault, a fissure or a fan's
+   *  line is its line, a narrow band about as wide as a fault's crack (its reach, a fissure's breadth, a fan's
+   *  spread and the ground inside a loop are the force's, never drawn). */
   function bandRadius(): number {
     const verb = ed.toolRef.current;
-    if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
+    if (verb === "quake" || verb === "erupt" || verb === "deposit") return STROKE_RADIUS;
     return reachNow() ?? 0;
   }
 
@@ -451,6 +458,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
       case "glaciate":
         // (its width: where it goes depends on the land)
         return glacierSize(glaciateUiRef.current) / 2;
+      case "rift":
+        return (riftUiRef.current.size ?? Math.round(riftWidth(riftUiRef.current.power) / 2) * 2) / 2;
+      case "deposit":
+        return (depositUiRef.current.size ?? Math.round(depositWidth(depositUiRef.current.power) / 2) * 2) / 2;
       default:
         return null;
     }
@@ -480,7 +491,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const r = reachNow();
     if (r === null) setForceRing(null);
     else if (r !== ring.r) setForceRing({ ...ring, r });
-  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, tool]);
+  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, riftUi, depositUi, tool]);
 
   // A force's Size and Power from the keys, exactly as a brush's (D344, A1; forceSize.ts): hold F and
   // move the mouse to size its ring on the map, its size beside the pointer (a click or letting go keeps
@@ -538,22 +549,26 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The Size field of a force's row: a number, or null on Auto. */
   function forceSizeField(verb: SizedForce): number | null {
-    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : glaciateUiRef.current.size;
+    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : verb === "rift" ? riftUiRef.current.size : verb === "deposit" ? depositUiRef.current.size : glaciateUiRef.current.size;
   }
   function setForceSize(verb: SizedForce, size: number | null) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, width: size }));
     else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, size }));
     else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, size }));
+    else if (verb === "rift") setRiftUi({ ...riftUiRef.current, size });
+    else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, size });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, size }));
   }
   function forcePowerOf(verb: Verb): number {
-    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : glaciateUiRef.current.power;
+    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : glaciateUiRef.current.power;
   }
   function setForcePower(verb: Verb, power: number) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, power }));
     else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, power }));
     else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, power }));
     else if (verb === "quake") setQuakeUi({ ...quakeUiRef.current, power });
+    else if (verb === "rift") setRiftUi({ ...riftUiRef.current, power });
+    else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, power });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, power }));
   }
 

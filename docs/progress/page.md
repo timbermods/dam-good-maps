@@ -701,3 +701,19 @@ for the milestone session's word that #268's adoption is in dev.
    the water settles (Drought, then Badtide), stops on any press and resumes when the press ends with the water
    settled; only each day's water is kept, the ground worked out for the day shown. On a fresh 256² map both
    hazards are ready in about 0.1 s of the click, even straight after it opens.
+
+## Rift, Deposit and Carve's Maturity on the page; the reopen test's flake (2026-10-04)
+
+- **Merged dev** (multi-core water #281, Rift and Deposit #273, Maturity #278): the held weather days run on the core's
+  `HazardRun` (held without an end), and the water's helper threads end with the editor's worker.
+- **The bar, 13 cells:** Carve, Craterize, Erupt, Rift, Quake, Glaciate, Deposit. Every cell one width: 76px where
+  there is room, narrower in whole pixels where not (65 at 1280, 67 at 1300, 74 at 1400), clear of the minimap and the
+  objects menu by 15–19px; the dock on whole pixels. Every tool's settings re-spread over 13 cells; nothing clipped at
+  1280–2560. Captures: `docs/design/forces-{rift,deposit,carve-maturity}-*.png`.
+- **Rift and Deposit:** Power, Size (Auto follows Power: the Rust formulas, `riftWidth`, `depositWidth`), Walls or
+  Channels with Auto, Floor, Try another; a click or a drawn line (Rift's band its Size, Deposit's its line); sounds
+  from the bank; no keys yet (the number row is full). Their effects on the land are the renderer's.
+- **Maturity** in Carve's settings: Young (default) and Mature with the Auto word; remembered with the pins.
+- **The reopen test** (`editor.spec.ts`, the next visit opens the map left open) left the page after a fixed 2.5 s;
+  the save waits 1.5 s of quiet, then the worker and the write, so on a loaded machine it hadn't landed. It now waits
+  on `window.dgm.kept(version)`: the open map's last save took that version and was written, nothing waiting.

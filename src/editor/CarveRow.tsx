@@ -1,7 +1,7 @@
 // Carve's options row (PLAN §20 D194, D199, D226, D289, D309): Power (a creek to a catastrophe), Size
 // (how wide it cuts: following Power, or set by hand), its one choice, Keep river or Dry canyon, Try
 // another path once a carve is kept, and a small More button for its other settings. More opens
-// wander, walls, Canyon depth and Banks, each on Auto (drawn from the land and the seed,
+// Maturity (Young by default, Mature, or Auto: D199, D355), wander, walls, Canyon depth and Banks, each on Auto (drawn from the land and the seed,
 // core/forces/nature.ts) until the player sets one, which pins it with a small way back to Auto (D309;
 // the controls themselves are back from before D289), and River depth (D321 item 17: 2 unless set, or
 // Off) beside Canyon depth (item 25). Try another re-rolls only the details still on Auto. The
@@ -37,17 +37,19 @@ export interface CarveUi {
   riverDepth: number | null;
   /** Banks (item 18): tiles of flat land each side, or null: drawn from the land and the seed. */
   banks: number | null;
+  /** Maturity (D199, D355): Young (the default) or Mature, or null: Auto, the land and the seed decide. */
+  maturity: "young" | "mature" | null;
 }
 
 /** River depth's default (item 17): most of Timberborn's rivers are one or two levels deep. */
 export const RIVER_DEPTH_DEFAULT = 2;
 
-export const DEFAULT_CARVE: CarveUi = { power: 65, width: null, dry: false, wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null };
+export const DEFAULT_CARVE: CarveUi = { power: 65, width: null, dry: false, wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null, maturity: "young" };
 
 /** The row's current detail pins (D309), sent with Try another: `null` for a detail still on Auto
  *  (nature draws it again), or the value the player pinned (nature leaves it). */
 export function carveDetails(u: CarveUi): Record<string, unknown> {
-  return { wander: u.wander, walls: u.walls, depth: u.depth, banks: u.banks, riverDepth: u.riverDepth };
+  return { wander: u.wander, walls: u.walls, depth: u.depth, banks: u.banks, riverDepth: u.riverDepth, maturity: u.maturity };
 }
 
 /** The run's settings for a new carve (a new series: seed 0; the rock's layers always on). `aimed`:
@@ -65,6 +67,7 @@ export function carveSettingsOf(u: CarveUi, aimed = false): CarveSettings {
     banks: u.banks,
     seed: 0,
     walls: u.walls,
+    maturity: u.maturity,
     defyGravity: aimed,
     dry: u.dry,
     layers: true,
@@ -99,7 +102,7 @@ export function CarveRow(p: CarveRowProps) {
             key: "status",
             row: 1,
             at: 1,
-            span: 7,
+            span: 9,
             rows: 2,
             centre: true,
             node: <Words status>{st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}</Words>,
@@ -107,7 +110,7 @@ export function CarveRow(p: CarveRowProps) {
           {
             key: "pause",
             row: 1,
-            at: 8,
+            at: 10,
             span: 2,
             rows: 2,
             centre: true,
@@ -120,7 +123,7 @@ export function CarveRow(p: CarveRowProps) {
           {
             key: "revert",
             row: 1,
-            at: 10,
+            at: 12,
             span: 2,
             rows: 2,
             centre: true,
@@ -140,6 +143,8 @@ export function CarveRow(p: CarveRowProps) {
   const walls = u.walls ?? drawn?.walls ?? "steep";
   const depth = u.depth ?? drawn?.depth ?? naturalDepth(u.power, width);
   const banks = u.banks ?? drawn?.banks ?? 0;
+  // (on Auto: the Maturity the last carve resolved, outlined, until it runs again)
+  const maturity = u.maturity ?? (drawn?.maturity === "young" || drawn?.maturity === "mature" ? drawn.maturity : null);
   const OFF = CEILING + 1;
   return (
     <SettingsGrid
@@ -190,16 +195,34 @@ export function CarveRow(p: CarveRowProps) {
           ),
         },
         {
-          key: "wander",
+          key: "maturity",
           row: 1,
           at: 8,
-          span: 2,
+          span: 3,
+          node: (
+            <ChoiceSetting<"young" | "mature">
+              label="Maturity"
+              value={maturity}
+              options={[
+                ["young", "Young", "A young river, cut fresh"],
+                ["mature", "Mature", "An old river: wide bends, a floodplain, oxbow lakes"],
+              ]}
+              onChange={(v) => set({ maturity: v })}
+              auto={{ on: u.maturity === null, onAuto: (on) => set({ maturity: on ? null : (maturity ?? "young") }) }}
+            />
+          ),
+        },
+        {
+          key: "wander",
+          row: 1,
+          at: 11,
+          span: 3,
           node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
         },
         {
           key: "walls",
-          row: 1,
-          at: 10,
+          row: 2,
+          at: 1,
           span: 2,
           node: (
             <ChoiceSetting<"steep" | "wide">
@@ -217,7 +240,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "depth",
           row: 2,
-          at: 1,
+          at: 3,
           span: 3,
           node: (
             <NumberSetting
@@ -235,7 +258,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "river",
           row: 2,
-          at: 4,
+          at: 6,
           span: 2,
           node: (
             <NumberSetting
@@ -253,12 +276,12 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "banks",
           row: 2,
-          at: 6,
+          at: 8,
           span: 2,
           node: <NumberSetting label="Banks" title="Flat land beside the water" value={banks} words={banks ? String(banks) : "None"} min={0} max={BANKS_MAX} step={1} onChange={(v) => set({ banks: v })} auto={{ on: u.banks === null, onAuto: (on) => set({ banks: on ? null : banks }) }} />,
         },
-        { key: "floor", row: 2, at: 8, span: 2, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 10, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
+        { key: "floor", row: 2, at: 10, span: 2, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 12, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
       ]}
     />
   );

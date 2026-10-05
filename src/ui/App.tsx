@@ -51,12 +51,17 @@ declare global {
     dgm?: {
       generate(fragment: string): Promise<{ sha256: string; bytes: number; passed: boolean; ms: number; ticks: number }>;
       current?(): { made: number; sha256: string; link: string; passed: boolean; checks: { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } }[] } | null;
+      /** The open map is kept in Your maps as it stands now: nothing waiting to be saved, and its stored row at the
+       *  map's `version` (a test waits on it before leaving the page, never on a fixed time). */
+      kept?(version: number): boolean;
     };
   }
 }
 let shown: GenerateResponse | null = null;
 /** How many maps the page has made (a test hook: waits for the next one). */
 let made = 0;
+/** Whether the open map is kept as it stands (the page sets it; a test hook). */
+let keptNow: (version: number) => boolean = () => false;
 window.dgm = {
   async generate(fragment: string) {
     const d = decodeSpecFragment(fragment);
@@ -64,6 +69,7 @@ window.dgm = {
     const r = await generator.generate(d.spec);
     return { sha256: r.sha256, bytes: r.timber.length, passed: r.passed, ms: r.ms, ticks: r.facts.settle.ticks };
   },
+  kept: (version: number) => keptNow(version),
   current() {
     return shown ? { made, ms: shown.ms, attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
@@ -204,6 +210,8 @@ export function App() {
   const keeping = useRef(true);
 
   const refresh = () => void yourMaps.list().then(setMaps, () => setMaps([]));
+  // (its last save took this version and was written, and nothing waits to be saved)
+  keptNow = (version: number) => entry.current?.revision === version && !unsaved.current && !saver.busy() && keeping.current;
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {

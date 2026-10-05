@@ -94,10 +94,12 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a
   hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
-  Craterize, Erupt, Quake, Glaciate, keys 7, 8, 0, 9, -; a force not adopted yet takes its place in the list):
-  eleven 76px cells, icon above name, keys only in tooltips. **The held tool's settings sit directly above it**
+  Craterize, Erupt, Rift, Quake, Glaciate, Deposit, keys 7, 8, 0, none, 9, -, none; a force not adopted yet takes its
+  place in the list): thirteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
+  map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
+  minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
   (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
-  120px, for every tool; two rows on one grid, the bar's own 11 cells, every group spanning whole cells, so each edge
+  120px, for every tool; two rows on one grid, the bar's own 13 cells, every group spanning whole cells, so each edge
   in one row lines up with the other and with the bar; no empty cells, a tool with fewer settings giving each more
   room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
   bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
@@ -359,7 +361,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   floodplain forms between the bluffs and cut-off necks leave wet oxbows; along an existing source-to-edge river it ages
   that course directly, adding no objects; Power sets the rounds of aging, Keep, the Floor and high bluffs limit it) or
   **Auto** (resolved once from the ground and the seed: open ground leans Mature, rugged ground Young; the operation
-  keeps the resolved setting). Try another keeps it as set. The core half is in; the page adds it to Carve's More.
+  keeps the resolved setting). Try another keeps it as set. In Carve's settings, Young and Mature with the Auto
+  word, as every detail has (on Auto the last carve's pick is outlined); remembered with the other pins.
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
@@ -419,14 +422,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
-  `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
+  `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),
+  a click or a drawn fault, the stroke band as wide as its Size, the ring at the cursor, its sounds (a split, a deep
+  drop, falling stone); no key yet. Its crack-and-drop effects on the land are the renderer's, to come.
 - **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
   of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
   area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
   sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
   another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
-  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
-  page's row and its sediment-and-water effects are to come.
+  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
+  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a narrow band),
+  the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
+  land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held

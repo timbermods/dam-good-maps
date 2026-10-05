@@ -136,7 +136,7 @@ async function onTheCells(page: Page, state: string) {
       groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
-  expect(r.lefts.length, "the bar's eleven cells").toBe(11);
+  expect(r.lefts.length, "the bar's thirteen cells").toBe(13);
   if (!r.settings) return;
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
@@ -145,8 +145,8 @@ async function onTheCells(page: Page, state: string) {
     expect(Math.min(...r.lefts.map((x) => Math.abs(x - g.l))), `${g.name} starts on a cell (${state})`).toBeLessThanOrEqual(0.6);
     expect(Math.min(...r.rights.map((x) => Math.abs(x - g.r))), `${g.name} ends on a cell (${state})`).toBeLessThanOrEqual(0.6);
   }
-  // no empty cells: each row's groups cover its eleven cells (a group on both rows counts in each)
-  const width = r.rights[10] - r.lefts[0];
+  // no empty cells: each row's groups cover its thirteen cells (a group on both rows counts in each)
+  const width = r.rights[12] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
   for (const top of tops.slice(0, 2)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
@@ -282,6 +282,12 @@ for (const [w, h] of SIZES) {
     await onTheCells(page, "Select");
     for (const [key, what] of [["1", "Raise"], ["2", "Lower"], ["3", "Flatten"], ["4", "Smooth"], ["5", "Naturalize"], ["7", "Carve"], ["8", "Craterize"], ["0", "Erupt"], ["9", "Quake"], ["-", "Glaciate"]] as const) {
       await page.keyboard.press(key);
+      await onTheCells(page, what);
+      await page.keyboard.press("Escape");
+    }
+    // (Rift and Deposit have no key yet)
+    for (const what of ["Rift", "Deposit"]) {
+      await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: what, exact: true }).click();
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
     }

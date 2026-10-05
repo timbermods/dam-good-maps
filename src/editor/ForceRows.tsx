@@ -15,6 +15,8 @@ import { CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from 
 import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
+import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
+import { DEPOSIT_DEFAULTS, DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN, depositWidth, type DepositSettings } from "../core/forces/deposit";
 import { type ForceStatus } from "./forceDriver";
 import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
 import { ButtonSetting, ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
@@ -74,6 +76,26 @@ export interface GlaciateUi {
 export const DEFAULT_GLACIATE: GlaciateUi = { power: GLACIATE_DEFAULTS.power, size: GLACIATE_DEFAULTS.size, meltwater: GLACIATE_DEFAULTS.meltwater, benches: null, steps: null, tarn: null, scree: null };
 export const glaciateDetails = (u: GlaciateUi): Record<string, unknown> => ({ benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree });
 
+export interface RiftUi {
+  power: number;
+  /** How wide it drops, tiles across, or null: it follows Power. */
+  size: number | null;
+  /** Sheer or stepped walls, or null: the land decides. */
+  walls: "sheer" | "stepped" | null;
+}
+export const DEFAULT_RIFT: RiftUi = { power: RIFT_DEFAULTS.power, size: null, walls: null };
+export const riftDetails = (u: RiftUi): Record<string, unknown> => ({ walls: u.walls });
+
+export interface DepositUi {
+  power: number;
+  /** How broad the fan spreads, tiles across, or null: it follows Power. */
+  size: number | null;
+  /** Few or many channels, or null: the land decides. */
+  channels: "few" | "many" | null;
+}
+export const DEFAULT_DEPOSIT: DepositUi = { power: DEPOSIT_DEFAULTS.power, size: null, channels: null };
+export const depositDetails = (u: DepositUi): Record<string, unknown> => ({ channels: u.channels });
+
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
  *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
@@ -85,20 +107,24 @@ export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, p
 /** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
 export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
 
+/** A rift's and a deposit's settings (their gesture's line is the worker's; Auto is the land's: "auto"). */
+export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, power: u.power, size: u.size, walls: u.walls ?? "auto" });
+export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto" });
+
 /** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
  *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
   return (
     <SettingsGrid
       label={`${p.force.name} at work`}
       groups={[
-        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        { key: "status", row: 1, at: 1, span: 11, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
         {
           key: "revert",
           row: 1,
-          at: 10,
+          at: 12,
           span: 2,
           rows: 2,
           centre: true,
@@ -113,7 +139,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   );
 }
 
-function power(verb: "craterize" | "erupt" | "quake" | "glaciate", value: number, onChange: (v: number) => void, title: string) {
+function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit", value: number, onChange: (v: number) => void, title: string) {
   return <NumberSetting label="Power" title={title} keys={STRENGTH_KEYS} value={value} words={String(value)} min={0} max={100} step={5} onChange={onChange} />;
 }
 
@@ -151,12 +177,12 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
     <SettingsGrid
       label="Craterize options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 2, node: power("craterize", u.power, (v) => set({ power: v }), "How hard it hits") },
-        { key: "size", row: 1, at: 3, span: 2, node: size("Size", "The crater's width", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), 4, 180, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 3, node: power("craterize", u.power, (v) => set({ power: v }), "How hard it hits") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "The crater's width", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), 4, 180, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "walls",
           row: 1,
-          at: 5,
+          at: 7,
           span: 3,
           node: (
             <ChoiceSetting<"steep" | "terraced">
@@ -174,7 +200,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
         {
           key: "centre",
           row: 1,
-          at: 8,
+          at: 10,
           span: 4,
           node: (
             <ChoiceSetting<string>
@@ -209,9 +235,9 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
             />
           ),
         },
-        { key: "rays", row: 2, at: 4, span: 2, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
-        { key: "floor", row: 2, at: 6, span: 3, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 9, span: 3, node: again(p, "impact") },
+        { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
+        { key: "floor", row: 2, at: 7, span: 4, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 11, span: 3, node: again(p, "impact") },
       ]}
     />
   );
@@ -231,12 +257,12 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
     <SettingsGrid
       label="Erupt options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 2, node: power("erupt", u.power, (v) => set({ power: v }), "How high it throws") },
-        { key: "size", row: 1, at: 3, span: 2, node: size("Size", "How broad it spreads", breadth, String(breadth), ERUPT_SIZE_MIN, ERUPT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 3, node: power("erupt", u.power, (v) => set({ power: v }), "How high it throws") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How broad it spreads", breadth, String(breadth), ERUPT_SIZE_MIN, ERUPT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "shape",
           row: 1,
-          at: 5,
+          at: 7,
           span: 3,
           node: (
             <ChoiceSetting<"steep" | "broad">
@@ -254,7 +280,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
         {
           key: "summit",
           row: 1,
-          at: 8,
+          at: 10,
           span: 4,
           node: (
             <ChoiceSetting<string>
@@ -288,9 +314,9 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
             />
           ),
         },
-        { key: "ridges", row: 2, at: 4, span: 2, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
-        { key: "floor", row: 2, at: 6, span: 3, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 9, span: 3, node: again(p, "eruption") },
+        { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
+        { key: "floor", row: 2, at: 7, span: 4, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 11, span: 3, node: again(p, "eruption") },
       ]}
     />
   );
@@ -308,7 +334,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
           key: "mode",
           row: 1,
           at: 1,
-          span: 3,
+          span: 4,
           node: (
             <ChoiceSetting<"lift" | "slide">
               label="Mode"
@@ -321,12 +347,12 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "power", row: 1, at: 4, span: 5, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
+        { key: "power", row: 1, at: 5, span: 5, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
         {
           key: "side",
           row: 1,
-          at: 9,
-          span: 3,
+          at: 10,
+          span: 4,
           node: (
             <ChoiceSetting<1 | -1>
               label="Side"
@@ -358,8 +384,8 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 5, span: 4, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 9, span: 3, node: again(p, "quake") },
+        { key: "floor", row: 2, at: 5, span: 5, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, node: again(p, "quake") },
       ]}
     />
   );
@@ -380,13 +406,13 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
     <SettingsGrid
       label="Glaciate options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 2, node: power("glaciate", u.power, (v) => set({ power: v }), "How deep the ice carves") },
-        { key: "size", row: 1, at: 3, span: 2, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
-        { key: "melt", row: 1, at: 5, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
+        { key: "power", row: 1, at: 1, span: 3, node: power("glaciate", u.power, (v) => set({ power: v }), "How deep the ice carves") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "melt", row: 1, at: 7, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
         {
           key: "benches",
           row: 1,
-          at: 8,
+          at: 10,
           span: 4,
           node: (
             <ChoiceSetting<"none" | "some" | "many">
@@ -423,8 +449,84 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         },
         { key: "tarn", row: 2, at: 4, span: 2, node: <OnOffSetting label="Tarn" title="A small lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
         { key: "scree", row: 2, at: 6, span: 2, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
-        { key: "floor", row: 2, at: 8, span: 2, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 10, span: 2, node: again(p, "glacier") },
+        { key: "floor", row: 2, at: 8, span: 3, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 11, span: 3, node: again(p, "glacier") },
+      ]}
+    />
+  );
+}
+
+/** Rift's settings (D352, D438): Power, Size and its walls, on Auto until pinned. */
+export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
+  const u = p.ui;
+  const set = (patch: Partial<RiftUi>) => p.onUi({ ...u, ...patch });
+  const sz = u.size ?? Math.round(riftWidth(u.power) / 2) * 2;
+  const drawn = p.drawn?.walls;
+  const walls = u.walls ?? (drawn === "sheer" || drawn === "stepped" ? drawn : null);
+  return (
+    <SettingsGrid
+      label="Rift options"
+      groups={[
+        { key: "power", row: 1, at: 1, span: 4, node: power("rift", u.power, (v) => set({ power: v }), "How far the land drops") },
+        { key: "size", row: 1, at: 5, span: 4, node: size("Size", "How wide it opens", sz, String(sz), RIFT_SIZE_MIN, RIFT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        {
+          key: "walls",
+          row: 1,
+          at: 9,
+          span: 5,
+          node: (
+            <ChoiceSetting<"sheer" | "stepped">
+              label="Walls"
+              value={walls}
+              options={[
+                ["sheer", "Sheer", "Sheer walls"],
+                ["stepped", "Stepped", "Ledges stepping down"],
+              ]}
+              onChange={(v) => set({ walls: v })}
+              auto={{ on: u.walls === null, onAuto: (on) => set({ walls: on ? null : (walls ?? "sheer") }) }}
+            />
+          ),
+        },
+        { key: "floor", row: 2, at: 1, span: 8, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 9, span: 5, node: again(p, "rift") },
+      ]}
+    />
+  );
+}
+
+/** Deposit's settings (D352, D438): Power, Size and its channels, on Auto until pinned. */
+export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
+  const u = p.ui;
+  const set = (patch: Partial<DepositUi>) => p.onUi({ ...u, ...patch });
+  const sz = u.size ?? Math.round(depositWidth(u.power) / 2) * 2;
+  const drawn = p.drawn?.channels;
+  const channels = u.channels ?? (drawn === "few" || drawn === "many" ? drawn : null);
+  return (
+    <SettingsGrid
+      label="Deposit options"
+      groups={[
+        { key: "power", row: 1, at: 1, span: 4, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
+        { key: "size", row: 1, at: 5, span: 4, node: size("Size", "How far the fan spreads", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        {
+          key: "channels",
+          row: 1,
+          at: 9,
+          span: 5,
+          node: (
+            <ChoiceSetting<"few" | "many">
+              label="Channels"
+              value={channels}
+              options={[
+                ["few", "Few", "A few channels across the fan"],
+                ["many", "Many", "Many channels across the fan"],
+              ]}
+              onChange={(v) => set({ channels: v })}
+              auto={{ on: u.channels === null, onAuto: (on) => set({ channels: on ? null : (channels ?? "few") }) }}
+            />
+          ),
+        },
+        { key: "floor", row: 2, at: 1, span: 8, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 9, span: 5, node: again(p, "fan") },
       ]}
     />
   );

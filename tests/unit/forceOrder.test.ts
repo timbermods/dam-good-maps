@@ -13,7 +13,7 @@ describe("the forces row's order (D352)", () => {
     ]);
   });
   it("the forces that exist follow it, and every one has a place in it", () => {
-    expect(FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "quake", "glaciate"]);
+    expect(FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "rift", "quake", "glaciate", "deposit"]);
     for (const f of FORCES) expect(FORCE_GROUPS.some((g) => g.includes(f.id))).toBe(true);
   });
 });
