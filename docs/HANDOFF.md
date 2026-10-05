@@ -15,7 +15,8 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 
 ## 1. Starting a session
 
-1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`) at Opus 5.5, high, so `.claude/agents/` load.
+1. Start in the main clone (`C:\Users\Kyler\code\DGM` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
+   machine) at Opus 5.5, high, so `.claude/agents/` load.
 2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
    the plan's worktrees and the probe folder `-probe` beside the clone, installs their dependencies, writes the probe allow
    rules into `.claude/settings.local.json`, checks the tools and Timberborn's folders, and prints what's ready and what's
@@ -198,12 +199,17 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 7. The machine
 
-**A new computer (2026-10-05 handover):** the next milestone session starts on another computer. Before work starts: clone
-the repository, run `npm ci`, run `npm run setup:machine` (it makes the page worktree, writes the probe allow rules into
-`.claude/settings.local.json`, checks the tools; restart the session after it adds allow rules), install Rust 1.90 with the
-`wasm32-unknown-unknown` target (the Rust checks and the Wasm rebuilds need it), and `gh auth login`. **Probe batches need
-Kyler's yes in chat on any machine but the dedicated one** (D117; D218 lifts the ask only there). The section below describes
-the dedicated machine.
+**Kyler's PC (since 2026-10-05):** the milestone session runs in `C:\Users\Kyler\code\DGM` (Ryzen 7 9800X3D, 16 threads,
+RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8, Python 3.13, gh), with `DGM-page` (`feature/page`) and `DGM-probe` beside
+it. The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
+Every other folder under `C:\Users\Kyler\code` and `C:\Users\Kyler\Documents\ChatGPT` belongs to another session or to Codex:
+never touch them. Not here yet: the decompiled game code and the official maps (made only when a task needs them). **Probe
+batches need Kyler's yes in chat on any machine but the dedicated one** (D117; D218 lifts the ask only there).
+
+**On any new computer:** clone the repository, run `npm run setup:machine` (it installs the dependencies, makes the page
+worktree, writes the probe allow rules into `.claude/settings.local.json` and checks the tools; restart the session after it
+adds allow rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`. The section below
+describes the dedicated machine.
 
 The computer kept for this work (D218): always on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; the repository and its worktrees (one per branch, each with its own
 `node_modules`: run `npm ci` in one only if its `package-lock.json` changed) are under `C:\Users\krams\code\`.

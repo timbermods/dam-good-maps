@@ -6,8 +6,9 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-05, the milestone session handed over (Kyler's usage on its account ran low); a new milestone session continues
-on another computer. `dev` is clean.
+As of 2026-10-05, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DGM`), shared with the renderer
+session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
+chat (D117). The page's worktree is `DGM-page`, the probe folder `DGM-probe`.
 
 ## Released
 
@@ -20,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D476**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
+- **The page session** (Opus 5.5, high, D468; worktree `DGM-page`, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play (#311). The old renderer session is closed.
@@ -47,12 +48,12 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view; reconcile its rust/water patch with multi-core and water speed; two doubts listed in ROADMAP |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
-| #79, #73, #71, #35 | Source groups, weather days, 3D step 1, Real places 2 | parked drafts | #79 is redundant (to close); the others are parked by Kyler |
+| #73, #71, #35 | Weather days, 3D step 1, Real places 2 | parked drafts | Parked by Kyler (#79 closed as redundant) |
 
 ## Left for the next milestone session, in order
 
 1. Merged at the handover: #317 (saving review), #314 (the Rust analysis, after a green full run) and the four Codex reports
-   (#310, #312, #313, #315). Check #236 for the analysis session's request to tag the TypeScript analysis before it's deleted.
+   (#310, #312, #313, #315); the TypeScript analysis is tagged `ts-analysis-final` (790f8da1).
 2. The adoptions Kyler decided (ROADMAP, "Codex adoptions"): #313's fieldData width fix (src/core/gen/generate.ts); #315's
    LS1 (drop backgroundCheck's unused canonical run, src/worker/session.ts); #310's F3 folded into the next generator re-pin
    only. #310's F1 and #312's page.patch go to the page session; #312's renderer.patch and worker.patch to the renderer
