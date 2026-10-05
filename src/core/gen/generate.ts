@@ -51,7 +51,7 @@ import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad 
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
-import { planBadwater, type Hazards } from "../land/hazards";
+import { mainLake, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
@@ -70,7 +70,7 @@ import { AVAILABLE_THEMES, EDITOR_LEVEL, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFA
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -102,6 +102,9 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Lake Basin maps (in 100) whose main lake badwater may reach (Kyler, 2026-10-05: the occasional
+ *  variation, not the rule). */
+const POISONED_LAKE = 15;
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
@@ -1700,6 +1703,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
+    // (Lake Basin's main lake stays clean; on about one map in seven its badwater may reach it, the
+    // occasional poisoned lake: Kyler, 2026-10-05, #265)
+    cleanLake: shown.theme === "lakeBasin" && hash32(seed, "poisoned lake") % 100 >= POISONED_LAKE,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -1939,18 +1945,31 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // is shown, D348)
       let keepOffH = badAsk.keepOff ?? null;
       let hollowTries = 0;
+      let lakeOf: Uint8Array | null = null;
       // (the pre-fill of the land as it will be shown, for the dam-wall check below)
       let shownFill: Float64Array | null = null;
       for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
         const bw = build([...rivers, ...bad.features], "water");
         const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
-        const fill = prefill(model).depth;
+        const pf = prefill(model);
+        const fill = pf.depth;
         const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
         shownFill = Float64Array.from(fill);
-        if (!reached.size) break;
+        // (Lake Basin's main lake kept clean, Kyler, 2026-10-05, #265: a ditch whose badwater the
+        // pre-fill carries into it, through water the land's drainage did not lead there, a flat that
+        // floods into the lake, is planned again off that water while tries are left)
+        let poisons = false;
+        if (badAsk.cleanLake && bad.features.length && hollowTries + 1 < HOLLOW_TRIES) {
+          lakeOf ??= mainLake(hy.water, W, H);
+          let n = 0;
+          let hit = 0;
+          for (let i = 0; i < N; i++) if (lakeOf[i]) { n++; if (fill[i] > WET && pf.contamination[i] >= 0.05) hit++; }
+          poisons = hit > 0.1 * n;
+        }
+        if (!reached.size && !poisons) break;
         shownFill = null;
         const leave = hy.rivers.filter((r) => reached.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
-        if (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length) {
+        if (reached.size && (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length)) {
           if (!lastAttempt) return fail("source in a flow", null, true);
           break;
         }
@@ -1958,10 +1977,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           dropRivers(leave.map((r) => r.id));
           droppedPre.push(...leave.map((r) => r.id));
         }
-        if (bad.features.some((f) => reached.has(f.id))) {
+        if (poisons || bad.features.some((f) => reached.has(f.id))) {
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
           keepOffH = orMask(keepOffH, bad.avoid);
+          if (poisons) {
+            const took = new Uint8Array(N);
+            for (let i = 0; i < N; i++) if (fill[i] > WET && pf.contamination[i] > 0) took[i] = 1;
+            keepOffH = orMask(keepOffH, took);
+          }
           bad = ++hollowTries < HOLLOW_TRIES && guess ? planBad(est, { ...badAsk, keepOff: keepOffH }, attempt * 4 + 5 + hollowTries, guess) : noBad;
           if (bad.features.length) {
             h.set(bad.heights);
@@ -2524,6 +2548,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   pick = cur;
   if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
+  // the start's badwater distance is a rule (Kyler, 2026-10-05, #265; start.badwater blocks a generated
+  // map): badwater or its soil nearer the start is never kept. A land not yet shown is planned again,
+  // its hollows with it; on a land already shown, whose hollows stay (D348), the next attempt looks
+  // for a start elsewhere on it (not on the last attempt, whose map is the one kept when none passes)
+  if (!lastAttempt && base.start && nearestBadwater(W, H, [base.start.x, base.start.y], base.water, base.contamination, base.soilContamination).distance < badWithin) {
+    if (!landStage?.shown) return { ...fail("start.badwater", base, true), stuck: true };
+    markTried(landStage.tried, pick, W, H);
+    return fail("start.badwater", base, true);
+  }
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)

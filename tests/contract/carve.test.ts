@@ -528,11 +528,11 @@ describe("a carve in the document (breakage rule)", () => {
     // (48, 86) toward (48, 10); Canyon 96² seed 5 until M9b turned and replanned the land, seed 11
     // until its water took the game's rules, seed 22 until batch 5 raised the land on its floor, seed
     // 44 until D333's maps, where no Canyon seed to 400 seals one; Highlands 96² seed 8 with the carve's seed 4 since
-    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; Canyon 96² seed 4 with the carve's seed 5 since 0.8.1's maps, where Highlands 8 and Canyon 11 seal none; of Highlands and Canyon seeds 1–24 only Canyon 4 with seed 5 and Canyon 12 with seed 3 seal a lake that keeps evaporating, the rest settle whole and the quiet dot never shows; this lake is 111 tiles, D148)
-    const r = generate(makeSpec({ seed: 4, theme: "canyon", size: { x: 96, y: 96 } }));
+    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; Canyon 96² seed 4 with the carve's seed 5 since 0.8.1's maps, where Highlands 8 and Canyon 11 seal none; of Highlands and Canyon seeds 1–24 only Canyon 4 with seed 5 and Canyon 12 with seed 3 seal a lake that keeps evaporating, the rest settle whole and the quiet dot never shows; this lake is 111 tiles; Canyon 12 with the carve's seed 3 since the start's badwater distance became a rule, Kyler, 2026-10-05, and Canyon 4's map changed, D148)
+    const r = generate(makeSpec({ seed: 12, theme: "canyon", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 5, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 3, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);

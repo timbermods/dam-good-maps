@@ -64,6 +64,47 @@ export interface BadwaterAsk {
   /** The eroded field the land was snapped from (levels, floats): a ditch follows its drainage as
    *  the rivers do. Without it the ditch takes the cheapest way. */
   field?: Float64Array | null;
+  /** Lake Basin's main lake stays clean (Kyler, 2026-10-05, #265): no ditch joins the map's largest
+   *  lake or water that flows into it, which would carry its badwater there. */
+  cleanLake?: boolean;
+}
+
+/** The map's main lake: the largest body of the lakes the hydrology planned (side to side). */
+export function mainLake(water: ArrayLike<number>, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const label = new Int32Array(N).fill(-1);
+  const stack: number[] = [];
+  let best = -1;
+  let bestSize = 0;
+  for (let i = 0; i < N; i++) {
+    if (water[i] !== 2 || label[i] >= 0) continue;
+    let size = 0;
+    label[i] = i;
+    stack.push(i);
+    while (stack.length) {
+      const c = stack.pop()!;
+      size++;
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const n = yy * W + xx;
+        if (water[n] === 2 && label[n] < 0) {
+          label[n] = i;
+          stack.push(n);
+        }
+      }
+    }
+    if (size > bestSize) {
+      bestSize = size;
+      best = i;
+    }
+  }
+  const out = new Uint8Array(N);
+  if (best >= 0) for (let i = 0; i < N; i++) if (label[i] === best) out[i] = 1;
+  return out;
 }
 
 /** The field's own way down from the pit's rim (the drainage the rivers' courses are traced on):
@@ -241,16 +282,21 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // where a ditch may end: any river or lake beyond the badwater distance whose water never
   // passes the start (the water near the start, and what flows past it, stays clean: D85); and the
   // tiles it keeps off (the start's ground, the start's water, a river's head at the edge)
+  // (Lake Basin's main lake, kept clean on most maps)
+  const lake = ask.cleanLake ? mainLake(hy.water, W, H) : null;
   const outlets = (dn: ReturnType<typeof drainage>): { goal: Uint8Array; keepOff: Uint8Array } => {
-    // water on each tile goes side to side down the land's drainage: whether it passes the start
+    // water on each tile goes side to side down the land's drainage: whether it passes the start,
+    // and whether it ends in the main lake kept clean
     const reachesStart = new Uint8Array(N);
+    const reachesLake = new Uint8Array(N);
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
       reachesStart[j] = sd[j] <= 26 || (r >= 0 && reachesStart[r]) ? 1 : 0;
+      if (lake) reachesLake[j] = lake[j] || (r >= 0 && reachesLake[r]) ? 1 : 0;
     }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && !startWater[j] && sd[j] > D + 6 && !reachesStart[j]) goal[j] = 1;
+    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && !startWater[j] && sd[j] > D + 6 && !reachesStart[j] && !reachesLake[j]) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water

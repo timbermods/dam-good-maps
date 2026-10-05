@@ -225,7 +225,8 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
   it("walling the mine site off from the start adds no slope and reports resources.mine_site", async () => {
     // a generated map whose mine site the colony reaches
     let mine: { x: number; y: number; z: number } | null = null;
-    for (const seed of [4, 2, 5, 6]) {
+    // (7 to 12 since the start's badwater distance became a rule, Kyler, 2026-10-05, D148: none of 4, 2, 5, 6 has one now)
+    for (const seed of [4, 2, 5, 6, 7, 8, 9, 10, 11, 12]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;

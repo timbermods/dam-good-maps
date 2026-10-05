@@ -588,6 +588,29 @@ interface Fields {
   barrier: Uint8Array | null;
 }
 
+/** The nearest badwater or contaminated soil to the start, measured from the district center's 3×3
+ *  middle: start.badwater's reading, one function for the check and the generator, which holds it as
+ *  a rule (Kyler, 2026-10-05, #265). `at` is its tile, -1 where the map has none. */
+export function nearestBadwater(W: number, H: number, middle: readonly [number, number], depth: ArrayLike<number>, contamination: ArrayLike<number>, soilContamination: ArrayLike<number>, sd?: ArrayLike<number>): { distance: number; at: number } {
+  const N = W * H;
+  let d = sd;
+  if (!d) {
+    const mask = new Uint8Array(N);
+    const [sx, sy] = middle;
+    for (let y = sy - 1; y <= sy + 1; y++) for (let x = sx - 1; x <= sx + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) mask[y * W + x] = 1;
+    d = distanceFrom(mask, W, H);
+  }
+  let distance = Infinity;
+  let at = -1;
+  for (let i = 0; i < N; i++) {
+    if ((soilContamination[i] > 0 || (depth[i] > WET && contamination[i] >= BAD)) && d[i] < distance) {
+      distance = d[i];
+      at = i;
+    }
+  }
+  return { distance, at };
+}
+
 function checkStart(
   inp: PlayabilityInput,
   c: Collector,
@@ -651,18 +674,13 @@ function checkStart(
             ? `${puddleText}No other clean water within ${WALK_LIMIT} tiles' walk of the start`
             : `No clean water within ${WALK_LIMIT} tiles' walk of the start`,
   });
-  let db = Infinity;
-  let badAt = -1;
-  for (let i = 0; i < N; i++) {
-    if ((SC[i] > 0 || (wet[i] && C[i] >= BAD)) && sd[i] < db) {
-      db = sd[i];
-      badAt = i;
-    }
-  }
+  const { distance: db, at: badAt } = nearestBadwater(W, H, [sx, sy], D, C, SC, sd);
   c.add({
     id: "start.badwater",
     class: "playability",
-    advisory: true,
+    // (a rule for a generated map: no badwater within the distance of its start, Kyler, 2026-10-05,
+    // #265; a warning on an edited or imported one)
+    advisory: c.profile !== "generate",
     ok: db >= rules.badwaterWithin,
     value: Number.isFinite(db) ? Math.round(db * 10) / 10 : "none",
     limit: rules.badwaterWithin,
