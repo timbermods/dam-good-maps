@@ -1667,7 +1667,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; sent?: Float64Array } | null = null;
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
@@ -1678,16 +1678,132 @@ function startForceWater(f: NonNullable<typeof force>): void {
   if (!p || p.run.settings.dry) return;
   const m = p.map;
   const model = modelOf(m);
-  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice() };
+  const depth = Float64Array.from(m.water.depth);
+  const contamination = Float64Array.from(m.water.contamination);
+  const front = carveFront(p, model, depth, contamination);
+  forceWater = { force: f, sim: new WaterSim(model, { depth, contamination }), model, ground: m.heights.slice(), front };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
+}
+
+/** A carve's cutting front, for its water (D371: the river follows the cut, never leads it). Its source
+ *  runs from the first step, and the land its course takes mostly runs downhill already, so its water
+ *  would race down it ahead of the cut; instead each dry tile is held, a wall to the water, until the
+ *  front reaches it: the step of the showing at which the tile's ground first changes as shown (shown
+ *  from its end, A5: its last change, the first shown), and for a tile the carve never changes, its
+ *  nearest changed tile's. A held tile's own film of water (a damp tile's) is set aside, shown as it
+ *  was, and goes when the front arrives; deeper water ahead (a lake, a river) flows on as it does. */
+interface CarveFront {
+  /** The step of the showing at which the front reaches each tile. */
+  reach: Int32Array;
+  /** Tiles still held, the floor each has under its wall, and its own water set aside. */
+  held: Uint8Array;
+  base: Float64Array;
+  film: Float64Array;
+  filmBad: Float64Array;
+  /** The step at which the front reaches the carve's origin (its source flows from then). */
+  origin: number;
+}
+
+/** A floor no water climbs: a wall round the tiles the front hasn't reached. */
+const FRONT_WALL = 1024;
+/** Water up to this deep ahead of the front is a film on damp ground, held with its tile. */
+const FRONT_FILM = 0.05;
+
+/** The front for a carve's water, its held tiles taken out of `depth` and `contamination` (the water the
+ *  simulation starts from) and walled off in `model`. */
+function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contamination: Float64Array): CarveFront {
+  const changes = p.run.records.changes;
+  const total = changes.length - 1;
+  const { W, H } = model;
+  const N = W * H;
+  const reach = new Int32Array(N).fill(-1);
+  const queue = new Int32Array(N);
+  let tail = 0;
+  // (a change that leaves a tile at its own level doesn't reach it: the ground there shows no cut yet)
+  const before = p.map.heights;
+  if (p.fromEnd) {
+    // each tile shown once, at the level its last change left: the first of them shown
+    const last = new Int32Array(N);
+    const level = new Int32Array(N);
+    for (let s = 1; s <= total; s++)
+      for (let j = 0; j < changes[s].length; j += 2) {
+        last[changes[s][j]] = s;
+        level[changes[s][j]] = changes[s][j + 1];
+      }
+    for (let i = 0; i < N; i++) if (last[i] && level[i] !== before[i]) reach[i] = total - last[i] + 1;
+  } else
+    for (let s = 1; s <= total; s++)
+      for (let j = 0; j < changes[s].length; j += 2) {
+        const i = changes[s][j];
+        if (reach[i] < 0 && changes[s][j + 1] !== before[i]) reach[i] = s;
+      }
+  for (let i = 0; i < N; i++) if (reach[i] >= 0) queue[tail++] = i;
+  if (!tail) reach.fill(0);
+  // (each other tile: its nearest changed tile's step, breadth first over the eight neighbours)
+  for (let head = 0; head < tail; head++) {
+    const i = queue[head];
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (reach[j] >= 0) continue;
+        reach[j] = reach[i];
+        queue[tail++] = j;
+      }
+  }
+  const held = new Uint8Array(N);
+  const base = new Float64Array(N);
+  const film = new Float64Array(N);
+  const filmBad = new Float64Array(N);
+  for (let i = 0; i < N; i++)
+    if (reach[i] > 0 && !(depth[i] > FRONT_FILM)) {
+      held[i] = 1;
+      base[i] = model.floor[i];
+      model.floor[i] = FRONT_WALL;
+      film[i] = depth[i];
+      filmBad[i] = contamination[i];
+      depth[i] = 0;
+      contamination[i] = 0;
+    }
+  return { reach, held, base, film, filmBad, origin: Math.max(1, reach[p.run.intent.origin]) };
+}
+
+/** The force's water as shown: the simulation's, with the held tiles' own films as they were. */
+function frontWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; contamination: Float64Array } {
+  const depth = w.sim.D.slice();
+  const contamination = w.sim.C.slice();
+  const { held, film, filmBad } = w.front;
+  for (let i = 0; i < held.length; i++)
+    if (held[i]) {
+      depth[i] = film[i];
+      contamination[i] = filmBad[i];
+    }
+  return { depth, contamination };
+}
+
+/** The walls the front has passed (all of them, `all`: the force kept or skipped to its end) let go. */
+function frontPassed(w: NonNullable<typeof forceWater>, shown: number, all = false): void {
+  const { reach, held, base } = w.front;
+  for (let i = 0; i < held.length; i++)
+    if (held[i] && (all || reach[i] <= shown)) {
+      held[i] = 0;
+      w.model.floor[i] = base[i];
+    }
 }
 
 /** The force's water now, to flow on from (null: it has none). */
 function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
   const w = forceWater;
   if (!w || w.force !== f) return null;
+  // (kept: the map's water flows on from it over all of the land, the films still held with it)
+  const { depth, contamination } = frontWater(w);
+  frontPassed(w, Infinity, true);
   const sim = w.sim;
-  return { model: w.model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+  return { model: w.model, water: { settled: false, ticks: sim.ticks, depth, contamination, sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
 
 function endForceWater(): void {
@@ -1697,17 +1813,21 @@ function endForceWater(): void {
 }
 
 /** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
- *  flows before the cut); its floor brought to the ground shown. */
+ *  flows before the cut reaches its source); its floor brought to the ground shown, the tiles the
+ *  front has reached let go (`carveFront`). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
   const p = w.force.play!;
   if (p.shown === 0) return false;
   const h = p.map.heights;
+  const { held, base } = w.front;
   for (let i = 0; i < h.length; i++)
     if (h[i] !== w.ground[i]) {
-      w.model.floor[i] += h[i] - w.ground[i];
+      if (held[i]) base[i] += h[i] - w.ground[i];
+      else w.model.floor[i] += h[i] - w.ground[i];
       w.ground[i] = h[i];
     }
-  return true;
+  frontPassed(w, p.shown);
+  return p.shown >= w.front.origin;
 }
 
 /** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
@@ -1716,7 +1836,7 @@ export function flowForceWater(ticks: number): Float64Array | null {
   const w = forceWater;
   if (!w || force !== w.force) return null;
   if (forceWaterFlows(w)) w.sim.run(ticks);
-  return w.sim.D.slice();
+  return frontWater(w).depth;
 }
 
 /** How fast a force's own water flows: substeps a second (two game minutes a second), whatever the map's
@@ -1747,7 +1867,7 @@ async function runForceWater(token: number): Promise<void> {
         for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - w.sent![i]) > 0.01) moved = true;
         if (moved) {
           w.sent = D.slice();
-          listener({ kind: "water", version, water: waterOf(w.force.session, { depth: D, contamination: w.sim.C, out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
+          listener({ kind: "water", version, water: waterOf(w.force.session, { ...frontWater(w), out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
         }
       }
     } else owed = 0;

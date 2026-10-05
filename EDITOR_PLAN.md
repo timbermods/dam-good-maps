@@ -202,7 +202,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
   any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
   as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
-  channel (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
+  channel and never leads it (each dry or damp tile is held until the front reaches it; water already there flows on)
+  (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
