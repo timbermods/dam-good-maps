@@ -2,6 +2,7 @@
 // cursor's ring and sizing.
 
 import type { ComponentChildren } from "preact";
+import { applyForceTerrain } from "../session/mirror";
 import { useEffect, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import type { EntityView } from "../../render3d/model";
 import type { EntityInfo, ForceFrame, ForceRequest, ViewUpdate } from "../../worker/session";
@@ -99,10 +100,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
-    if (f.heights && f.rect) {
-      m.heights = f.heights;
-      r?.updateTerrainRect(f.heights, f.rect);
-    }
+    if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);
     const v = forceView.current;
     if (f.entities) v.entities = f.entities;
     if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
