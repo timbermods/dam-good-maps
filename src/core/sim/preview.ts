@@ -292,7 +292,7 @@ export class PreviewJob {
   ) {
     const { state, out, seeds } = warmStart(from, model);
     this.current = new WaterSim(model, state);
-    if (out) this.current.out.set(out);
+    if (out) this.current.setOut(out);
     this.seeds = seeds;
     this.sealed = sealedTiles(model);
     this.run = new PreviewRun(this.current, this.sealed);
