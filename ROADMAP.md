@@ -43,7 +43,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **Merged since:** every setting makes a map (#277, #283, #287), multi-core water and its follow-ups (#281, #284), water speed (#290), forces speed half A (#289), the second core hunt (#280), Deposit's pillars investigation (#285), parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274). Carve's aging setting is removed (D473, #293). Generation speed round 2 (#291) is closed unadopted.
 - **The generator queue's adoptions, waiting their turn** (milestone session, one re-pin at a time after #265): Delta arms round 2 (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), each merged as an investigation and not yet adopted.
 - **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152), scaling (#132) and the parked drafts (#95, #79, #73, #71, #35); STATUS has each one's state.
-- **Next, after the generator queue** (which waits on #265): the merge review's fixes, the Rust checks (#207), the forces' shared water kernel, custom map sizes, the dam sketch.
+- **Next, after the generator queue** (which waits on #265): the merge review's fixes, the forces' shared water kernel, custom map sizes, the dam sketch.
 
 **1. Released, and the coherence cleanup**
 
@@ -61,8 +61,9 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   computation in `rust/water`, no wiring yet).
 - **The Rust forces** (done, #254; #158, D400, D453): the planners are Rust (`rust/forces`), byte-identical to the TypeScript
   computation they replaced (tag `ts-forces-final`, then deleted); their byte fixtures run in CI's `rust` job. Rift and Deposit
-  (#273) are adopted directly in Rust. The analysis' six kernels are Rust too (#157, D391). Next: the checks (#207), the
-  cleanup's groups 5 and 6 being in; Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
+  (#273) are adopted directly in Rust. The analysis' six kernels are Rust too (#157, D391), and the checks (done; #207,
+  D465): `rust/checks`, byte-identical to the TypeScript they replaced (tag `ts-checks-final`, then deleted), their byte
+  fixtures in CI's `rust` job. Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
 
 **3. The generator queue**, one re-pin at a time (D148, D308)
 
@@ -246,7 +247,7 @@ before its TypeScript is deleted: (1) the water settle (above), and the stacked-
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift and Deposit
 adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
-its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
+its own contract tests (D444); (4b) the checks (done; #207, D465: `rust/checks`, tag `ts-checks-final`; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 

@@ -11,7 +11,7 @@ use crate::misc::{asks_for_badwater, channel_bed, guid_from, official_range, pol
 use crate::report::Collector;
 use crate::words::{cap, counted, counted_as, lines, place_of, possessive};
 use crate::soil::game_soil;
-use crate::tables::*;
+use crate::tables::{self, *};
 use crate::water::{self, Model};
 
 pub const WET: f64 = 0.05;
@@ -26,15 +26,8 @@ pub const FLOOD_MARGIN: i64 = 2;
 fn is_tree(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak")
 }
-/// analysis/walk.ts `WALK_BLOCKERS`: objects a beaver never walks through.
-fn walk_blocker(t: &str) -> bool {
-    matches!(
-        t,
-        "Thorns" | "Blockage" | "NaturalDam" | "UnstableCore" | "GeothermalField" | "UndergroundRuins" | "SmallRelic" | "MediumRelic" | "LargeRelic" | "ReservePile" | "ReserveWarehouse" | "ReserveTank" | "AncientAquiferDrill" | "BadtideDrain"
-    )
-}
-
-/// analysis/walk.ts `walkWorld`: the tiles the objects that block walking cover, and the links (low tile,
+/// analysis/walk.ts `walkWorld`: the tiles the objects that block walking cover (`WALK_BLOCKERS`, tables.rs
+/// `walk_blocker`), and the links (low tile,
 /// high tile) of the map's slopes, in the objects' order.
 fn walk_world(objects: &[&Entity], w: usize, h: usize) -> (Vec<u8>, Vec<f64>) {
     let inb = |x: i64, y: i64| x >= 0 && x < w as i64 && y >= 0 && y < h as i64;
@@ -88,20 +81,23 @@ fn start_area(key: &str) -> Option<(f64, f64)> {
     }
 }
 
+/// A setting whose value is not one of its choices.
+const SETTING: &str = "A map setting is not one of its choices";
+
 /// `rulesFor`.
 pub fn rules_for(p: &Playable) -> Result<Rules, Refusal> {
     let name = p.spec.as_ref().map(|s| s.designed_for.as_str()).unwrap_or(p.designed_for.as_str());
-    let difficulty = DIFFICULTIES.iter().position(|d| *d == name).ok_or_else(|| format!("difficulty {name:?}"))?;
+    let difficulty = DIFFICULTIES.iter().position(|d| *d == name).ok_or("The map's difficulty is not Easy, Normal or Hard")?;
     let d = DIFFICULTY_RULES[difficulty];
     let st = p.spec.as_ref().and_then(|s| s.settings.as_ref());
     let r = st.and_then(|s| s.rules).unwrap_or(d);
     let badwater_within = match st {
-        Some(s) => portable::max(s.badwater_distance, s.rules.ok_or("settings without start rules")?[3]),
+        Some(s) => portable::max(s.badwater_distance, s.rules.ok_or("The map's settings have no start rules")?[3]),
         None => r[3],
     };
     let land = st.and_then(|s| s.buildable_land.clone()).unwrap_or_else(|| "normal".into());
     let area = st.and_then(|s| s.start_area.clone()).unwrap_or_else(|| "normal".into());
-    let (area_k, level) = start_area(&area).ok_or_else(|| format!("start area {area:?}"))?;
+    let (area_k, level) = start_area(&area).ok_or(SETTING)?;
     let reserve_key = st.and_then(|s| s.drought_reserve.clone()).unwrap_or_else(|| "normal".into());
     let theme = p.spec.as_ref().map(|s| s.theme.as_str());
     Ok(Rules {
@@ -111,12 +107,12 @@ pub fn rules_for(p: &Playable) -> Result<Rules, Refusal> {
         bushes_within20: r[2],
         badwater_within,
         ruins_within: r[4],
-        reach_min: reach_min(&land).ok_or_else(|| format!("buildable land {land:?}"))? * area_k,
+        reach_min: reach_min(&land).ok_or(SETTING)? * area_k,
         level_land: level,
         farmland: FARMLAND_NEAR,
         sources_none: st.is_some_and(|s| s.sources.as_deref() == Some("none")),
         drought_days: DROUGHT[difficulty][0],
-        reservoir_need: RESERVOIR_NEEDED[difficulty] * reserve(&reserve_key).ok_or_else(|| format!("drought reserve {reserve_key:?}"))?,
+        reservoir_need: RESERVOIR_NEEDED[difficulty] * reserve(&reserve_key).ok_or(SETTING)?,
         reservoir_depth: if difficulty == 2 { 3.0 } else { 0.0 },
         max_water_share: if theme == Some("islands") {
             0.7
@@ -1248,18 +1244,11 @@ struct Band {
     flat: bool,
 }
 
+/// A map object's distance band (`EXTRA_BANDS`, tables.rs), and whether it sits on flat, dry ground outside
+/// flood reach (§11.4: mine sites, relics and geothermal fields).
 fn extra_band(kind: &str) -> Option<Band> {
-    let inf = f64::INFINITY;
-    Some(match kind {
-        "relicSmall" => Band { lo: 13.0, hi: 70.0, scaled: true, flat: true },
-        "relicMedium" => Band { lo: 40.0, hi: 140.0, scaled: true, flat: true },
-        "relicLarge" => Band { lo: 140.0, hi: inf, scaled: true, flat: true },
-        "geothermal" => Band { lo: 30.0, hi: 120.0, scaled: true, flat: true },
-        "mineSite" => Band { lo: 30.0, hi: inf, scaled: true, flat: true },
-        "thornBelt" => Band { lo: 20.0, hi: inf, scaled: false, flat: false },
-        "unstableCore" => Band { lo: 40.0, hi: inf, scaled: false, flat: false },
-        _ => return None,
-    })
+    let (lo, hi, scaled) = tables::extra_band(kind)?;
+    Some(Band { lo, hi, scaled, flat: matches!(kind, "mineSite" | "relicSmall" | "relicMedium" | "relicLarge" | "geothermal") })
 }
 
 /// `extras.placement`.

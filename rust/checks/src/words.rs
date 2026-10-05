@@ -83,3 +83,28 @@ pub fn lines(all: &[String]) -> String {
         all.join("\n")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_take_the_right_plural() {
+        assert_eq!(possessive(1.0, "source"), "1 source's");
+        assert_eq!(possessive(3.0, "source"), "3 sources'");
+        assert_eq!(counted(1.0, "mine site"), "1 mine site");
+        assert_eq!(counted(2.0, "mine site"), "2 mine sites");
+        assert_eq!(counted_as(2.0, "blueberry bush", "blueberry bushes"), "2 blueberry bushes");
+    }
+
+    #[test]
+    fn objects_take_their_game_names() {
+        assert_eq!(name_of("UndergroundRuins"), "Mine site");
+        assert_eq!(name_of("RuinColumnH3"), "Ruin");
+        assert_eq!(name_of("LargeRelic"), "Relic");
+        assert_eq!(name_of("NaturalOverhang2x1"), "Natural Overhang2x1");
+        assert_eq!(object_line("BlueberryBush", "floating", 105, 7, 11), "Blueberry bush floating · X 105 · Y 7 · Z 11");
+        let many: Vec<String> = (0..8).map(|k| k.to_string()).collect();
+        assert_eq!(lines(&many), "0\n1\n2\n3\n4\n5\nand 2 more");
+    }
+}

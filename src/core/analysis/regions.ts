@@ -70,7 +70,7 @@ export function landRegions(h: ArrayLike<number>, W: number, H: number, wet: Arr
 /** Connected set tiles (4- or 8-connected). Labels −1 on unset tiles; sizes per label, numbered in
  *  index order of each one's first tile; `order`, every set tile as the flood reached it, one
  *  component after another (4-connected: neighbours in `N4`'s order). The one flood of a mask's
- *  components: the bodies of water (`walk.ts` `startWaterShore`, `storage.ts` `runningFlow`) and
+ *  components: the bodies of water (`walk.ts` `startWaterShore`; the checks' running flow is the same flood in rust/checks) and
  *  the wet systems (`story.ts` `wetSystems`) are this flood. */
 export function components(mask: ArrayLike<number>, W: number, H: number, eight = false): { labels: Int32Array; sizes: number[]; order: Int32Array } {
   const N = W * H;
