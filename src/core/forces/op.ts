@@ -4,7 +4,8 @@
 // (the force, its settings and where: a record, since a replay never runs the force again), then what
 // it left: the changed tiles and their levels, the fresh volcanic rock on them (rock.ts), the objects
 // that lost their ground, the ones it carried (a Slide), the trees it knocked down (dead, lying away
-// from the blow), a carve's source and sealed oxbow lake, a glacier's springs and tarn. "Try another"
+// from the blow), a carve's source and sealed oxbow lake, a glacier's springs and tarn, the sources
+// it cleared (D474, clear.ts: its settings' `sources`, Clear when absent). "Try another"
 // replaces the force before it (`replaces`): undoing it brings that one back. The build applies its
 // levels with the sculpts (step 6, kept out of the integrity pass) and its objects' changes with the
 // entity edits.
@@ -16,6 +17,7 @@ import * as portable from "../math/portable";
 import type { Rect } from "../features/target";
 import type { RetainedWater } from "../sim/water";
 import { forceSettingsProblems } from "./settings";
+import type { ClearedSource, SourcesRule } from "./clear";
 
 export { forceSettingsProblems };
 
@@ -34,15 +36,17 @@ export interface ForceWhere {
   source?: string;
 }
 
-/** A force's settings, as each force's options row sets them (the seed is its personality). */
-export type ForceSettingsRecord =
+/** A force's settings, as each force's options row sets them (the seed is its personality), and
+ *  its Sources choice (D474: Clear when absent). */
+export type ForceSettingsRecord = { sources?: SourcesRule } & (
   | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
   | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number; maturity?: "young" | "mature" | "auto" | null }
+  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
-  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean; floor?: number };
+  | { mode: "flow" | "aim"; power: number; size: number | null; meltwater: boolean; seed: number; benches?: "none" | "some" | "many"; steps?: "few" | "some" | "many"; tarn?: boolean; scree?: boolean; floor?: number }
+);
 
 export interface ForceResultParams {
   version: 1;
@@ -72,6 +76,9 @@ export interface ForceResultParams {
    *  anchor (core/water/sourceGroups.ts), the strength shared (absent on carves from before); Glaciate's
    *  springs (D246): its cirque head's and its hanging valleys' (Meltwater). */
   sources?: { id: string; x: number; y: number; strength: number }[];
+  /** Sources set to Clear (D474): the sources it cleared, each with the step of its showing that
+   *  took it (clear.ts); the build removes them with `removed`, and undo brings them back. */
+  cleared?: ClearedSource[];
   /** Carve's sealed oxbow lake, Glaciate's tarn: the water it keeps (carve/run.ts `retained`). */
   lake?: RetainedWater;
   /** Try another: the force (its operation's seq) this one replaces. */
@@ -214,6 +221,17 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
       if (!(q.strength > 0 && q.strength <= 8)) return ["a glacier's spring gives 0 to 8 water a second"];
     }
     if (new Set(p.sources.map((q) => q.id)).size !== p.sources.length) return ["a glacier's springs each have their own id"];
+  }
+  if (p.cleared !== undefined) {
+    if (p.settings.sources === "ride") return ["a force set to ride clears no sources"];
+    if (!Array.isArray(p.cleared) || !p.cleared.length || p.cleared.length > 65536) return ["a force's cleared sources are a list of 1 to 65536"];
+    const own = new Set([...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
+    const seen = new Set<string>();
+    for (const c of p.cleared) {
+      if (!c || typeof c.id !== "string" || !Number.isInteger(c.step) || c.step < 0) return ["a cleared source is its id and the step that took it (a whole number from 0)"];
+      if (own.has(c.id) || seen.has(c.id)) return [`source ${c.id} is cleared once, and is not one the force took, carried or placed itself`];
+      seen.add(c.id);
+    }
   }
   if (p.lake) {
     if (p.verb !== "carve" && p.verb !== "glaciate") return ["only a carve or a glacier keeps a lake"];

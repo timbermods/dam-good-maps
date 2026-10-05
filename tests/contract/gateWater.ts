@@ -35,7 +35,7 @@ export function tilesOf(W: number, x0: number, y0: number, x1: number, y1: numbe
 export function gameRun(s: MapSession, ticks: number): WaterSim {
   const b = s.built;
   const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
-  if (b.settle.out) sim.out.set(b.settle.out);
+  if (b.settle.out) sim.setOut(b.settle.out);
   sim.run(ticks);
   return sim;
 }

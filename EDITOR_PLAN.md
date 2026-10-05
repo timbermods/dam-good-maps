@@ -211,6 +211,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
+- **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
+  operation without the choice), removes every water and badwater source and seep on a tile whose ground the force
+  changes (a multi-tile one if any of its tiles changes; in a working area, the feathered ground the force keeps);
+  **Ride** keeps them, moving with the ground, on every force (Carve and Glaciate plan with them, and Glaciate's
+  springs take none of their water). The sources a force places itself always stay (Carve's river source,
+  Glaciate's meltwater, the source an Unleash starts from); every other object keeps riding the ground. A source
+  goes at the step the force first changes one of its tiles, never at the end, and its water drains from then as
+  the game's would (a carve's live water stops a source's emitter the step it leaves the land shown and keeps a
+  riding one running; the others' water flows on from the final land). Under Clear, Carve and Glaciate take what
+  they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
+  (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
+  them back. Where the row shows the choice is the page's.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -277,13 +289,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
-  has, D222). Fresh volcanic rock (Erupt's) is hard for it. **Maturity** (D199, D355; built in Rust, #276,
-  `rust/forces/src/maturity.rs`): **Young** (the default, today's Carve; a carve saved without the setting reads as
-  Young), **Mature** (carves the river, then ages it: bends migrate, point bars balance every cut with a fill, a
-  floodplain forms between the bluffs and cut-off necks leave wet oxbows; along an existing source-to-edge river it ages
-  that course directly, adding no objects; Power sets the rounds of aging, Keep, the Floor and high bluffs limit it) or
-  **Auto** (resolved once from the ground and the seed: open ground leans Mature, rugged ground Young; the operation
-  keeps the resolved setting). Try another keeps it as set. The core half is in; the page adds it to Carve's More.
+  has, D222). Fresh volcanic rock (Erupt's) is hard for it. Banks and Wander give it its flat land and bends; it has no
+  aging setting (D473): a carve saved with the retired one opens as recorded and, run again, is this carve.
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
@@ -340,7 +347,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 - **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
   dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
-  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
+  a drag draws the fault.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
@@ -349,7 +357,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
   sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
   another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
-  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
+  lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
   page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
@@ -664,7 +673,8 @@ The landform tools and their handles, the river and lake tools, the Channel tool
 Remove tool, Terrace and Ramp as brushes, precise mode and hold-to-dig, Flatten's ramped edges, the Show dropdown,
 the Advanced checkbox, the four text tabs, the health pill, the legend always beside the map, the busy readouts,
 the stamp library, symmetry, regenerate-an-area and locks, the Dam sites, Moisture and Drought views, waypoints and
-the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, and Claude as a panel. The superseded
+the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, Carve's Maturity (Young, Mature, Auto;
+D473), and Claude as a panel. The superseded
 table, each with the decision that replaced it, is in the archive; `tools/retired-terms.json` names them and CI
 flags them if they reappear anywhere else (D188).
 <!-- /retired-terms:allow -->
@@ -791,8 +801,11 @@ adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recover
 (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
 a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
 what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
-once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
-rebuilding, as every project did before.
+once, without rebuilding. A project saved while its water was still pending opens by rebuilding its land with the
+saved base water shown as a preview: the checks replica
+builds the canonical water and the editor adopts it, and `SessionInfo.waterPending` turning false tells the page it
+can save the map again, now with its stored map. A
+project saved by another version of the app opens by rebuilding.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
 history is visible as a list the user can step back through. A map opened from its stored map has its log replayed

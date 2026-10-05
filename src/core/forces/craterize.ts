@@ -12,6 +12,7 @@
 // Planned in Rust (rust/forces, PLAN §20 D381; rust/bridge.ts): this file keeps its settings, its checks
 // and its anatomy's shape; the TypeScript planner it replaced is tag `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import type { FullForceMap } from "./force";
 import { planInRust } from "./rust/bridge";
@@ -19,6 +20,8 @@ import { forceSettingsProblem } from "./settings";
 
 export interface CraterSettings {
   mode: "strike" | "aim";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   /** The crater's diameter in tiles, 4–180, or null: it follows Power. */

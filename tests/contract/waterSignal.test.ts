@@ -217,6 +217,9 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
     m.open(ed.openProject(saved).view);
     const reopened = m.facts();
     fires(redoSettled, reopened, deep, "opening a map");
-    expect(words(reopened, deep)).toBe(words(undoSettled, deep));
+    // (saved before its canonical water, it opens on its saved base water; the canonical water follows)
+    const canonical = await ed.backgroundCheck();
+    if (canonical?.view) m.view(canonical.view);
+    expect(words(m.facts(), deep)).toBe(words(undoSettled, deep));
   }, 300_000);
 });

@@ -25,6 +25,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
+import { changedGround, clearable, clears, CLEARABLE, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -86,6 +87,12 @@ export interface StagedRun {
   finishAll(): void;
   /** The build's last touches on the planned map. */
   finalize: Finalize | null;
+  /** Sources set to Clear (D474): the sources its showing has cleared so far, each with the step
+   *  (`shown`) that took it; all of them once shown to its end. */
+  readonly cleared: readonly ClearedSource[];
+  /** The working area's depth (D254), or null: what it clears is on the ground its operation keeps
+   *  changed, feathered. */
+  ease: Uint8Array | null;
 }
 
 /** The water model of a force's map (features/build.ts). */
@@ -187,14 +194,50 @@ export abstract class Staged {
     }
     this.stage++;
     this.show(this.stage);
+    this.clearShown();
     if (this.stage >= this.stages) this.ended = true;
   }
 
-  /** Its last touches, if not made yet (tests, Claude's step). */
+  /** Its settings (each force's own): Sources among them (D474). */
+  abstract readonly settings: { sources?: SourcesRule };
+  /** The planned result (null until planned). */
+  abstract final(): FullForceMap | null;
+  /** Sources set to Clear: the sources it clears, once planned (D474). */
+  protected clearing: SourceClearing | null = null;
+  /** The working area (D254): how many levels each tile may change, or null for none (`planForce`
+   *  sets it): it clears the sources on the ground its operation keeps changed, feathered. */
+  ease: Uint8Array | null = null;
+
+  get cleared(): readonly ClearedSource[] {
+    return this.clearing?.record ?? [];
+  }
+
+  /** The frame just shown without the sources it has cleared: each goes at the first step its land
+   *  differs at one of the source's tiles (D474: no pop), the last at the latest. */
+  protected clearShown(): void {
+    const c = this.clearing;
+    if (!c) return;
+    this.map.entities = c.show(this.map.heights, this.map.entities, this.shown, this.shown >= this.total);
+  }
+
+  /** Its last touches, if not made yet (tests, Claude's step); with Sources set to Clear, the sources
+   *  its planned land takes (those on ground it changed that it neither took nor carried away itself). */
   planAll(): this {
     if (!this.settled) {
       this.settle();
       this.settled = true;
+      this.clearing = null;
+      const after = this.final();
+      // (Ride: a source or seep stands on the ground its last touches left, D474)
+      if (after && !clears(this.settings.sources)) {
+        const W = after.W;
+        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+      }
+      if (after && clears(this.settings.sources)) {
+        const ground = this.before.heights;
+        const standing = new Set(after.entities.map((e) => e.id));
+        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, changedGround(ground, after.heights, this.ease), (id) => !standing.has(id)));
+      }
     }
     return this;
   }
@@ -405,6 +448,7 @@ export class QuakeRun extends Staged implements StagedRun {
     this.map = m;
     this.ground = null;
     this.stage = this.stages;
+    this.clearShown();
   }
 
   /** The painted fault is let go: the quake is done. */

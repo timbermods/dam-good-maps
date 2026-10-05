@@ -1,0 +1,24 @@
+[package]
+name = "rust-props"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "AGPL-3.0-or-later"
+
+[workspace]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = ["forces"]
+forces = ["dep:forces"]
+water = ["dep:water"]
+
+[dependencies]
+forces = { optional = true, path = "../../rust/forces" }
+water = { optional = true, path = "../../rust/water" }
+
+[profile.release]
+opt-level = 3
+codegen-units = 1

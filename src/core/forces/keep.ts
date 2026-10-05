@@ -2,9 +2,11 @@
 // worker only drives the run and applies the operation): what the player asked of it, as its
 // operation keeps it (`forceRecordOf`), and the operation itself (`keptForceParams`): a carve's or a
 // staged force's result, a glacier's springs and tarn and the ground it owns, eased to the working
-// area's edge, its object changes only for the objects still standing.
+// area's edge, its object changes only for the objects still standing, and with Sources set to Clear
+// the sources it cleared (D474).
 
 import { areaDepth } from "../features/raster/brush";
+import { clearable, clears, SOURCES_DEFAULT, type ClearedSource } from "./clear";
 import { carveForceParams } from "./carve/result";
 import type { DepositRun } from "./deposit";
 import type { RiftRun } from "./rift";
@@ -63,6 +65,9 @@ export interface KeptForceInput {
   staged: StagedRun | null;
   replaces?: number;
   standing?: ReadonlySet<string>;
+  /** Sources set to Clear (D474): the steps a carve's playback cleared its sources at (carve/play.ts
+   *  `cleared`); a staged force's run keeps its own. Left out, each goes at the force's last step. */
+  shownCleared?: readonly ClearedSource[];
 }
 
 /** The operation a kept force becomes (`forceResult`, op.ts), or why there is none (one plain
@@ -108,7 +113,37 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
     if (params.moved) params.moved = params.moved.filter((m) => here.has(m.id));
     if (params.felled) params.felled = params.felled.filter((m) => here.has(m.id));
   }
-  return { ok: true, params };
+  return { ok: true, params: withSources(params, before, request.settings.sources, input) };
+}
+
+/** A kept force's Sources choice (D474) in its record (none given: Clear), and with Clear the sources
+ *  it cleared: every water and badwater source and seep on ground its result changes (feathered in a
+ *  working area, as its showing cleared them), save the ones it placed itself (Carve's river,
+ *  Glaciate's springs, an unleashed source) and the ones it took itself; carried, it goes instead.
+ *  Each with the step its showing took it at (the run's record, `shownCleared` for a carve's
+ *  playback), else its last step. */
+function withSources(p: ForceResultParams, before: ForceMap, given: ForceSettingsRecord["sources"], input: KeptForceInput): ForceResultParams {
+  const rule = given ?? SOURCES_DEFAULT;
+  const out: ForceResultParams = { ...p, settings: { ...p.settings, sources: rule } };
+  if (!clears(rule)) return out;
+  const changed = new Uint8Array(before.W * before.H);
+  p.tiles.forEach((i, k) => {
+    if (p.heights[k] !== before.heights[i]) changed[i] = 1;
+  });
+  const own = new Set([...p.removed, ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
+  const here = p.replaces === undefined ? input.standing : undefined;
+  const ids = clearable(before, (i) => changed[i] === 1, (id) => own.has(id) || (here !== undefined && !here.has(id))).map((e) => e.id);
+  if (!ids.length) return out;
+  const shown = new Map((input.staged?.cleared ?? input.shownCleared ?? []).map((c) => [c.id, c.step]));
+  const last = input.staged ? input.staged.total : p.steps;
+  const gone = new Set(ids);
+  out.cleared = ids.map((id) => ({ id, step: shown.get(id) ?? last })).sort((a, b) => a.step - b.step);
+  if (p.moved) {
+    const moved = p.moved.filter((m) => !gone.has(m.id));
+    if (moved.length) out.moved = moved;
+    else delete out.moved;
+  }
+  return out;
 }
 
 /** A force's result with the ground it owns listed too, at its level (unchanged ones included). */

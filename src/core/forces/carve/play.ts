@@ -17,6 +17,8 @@
 // spreading of that last step).
 
 import type { EntitySpec } from "../../format/entities";
+import { changedGround, clearable, clears, CLEARABLE, type ClearedSource } from "../clear";
+import { footprint } from "../objects";
 import type { ForceHead, ForceMap } from "../force";
 import type { CarveRun, Station } from "./run";
 
@@ -36,6 +38,8 @@ export class CarvePlay {
   private removedShown = 0;
   /** Its own sources, or an unleashed one: they follow the ground as it is cut. */
   private readonly riders: boolean;
+  /** Sources set to Ride (D474): the map's sources and seeps ride the cut ground too. */
+  private readonly riding: boolean;
 
   /** Shown from its end (A5): each step's changes, the latest step first, each tile once at its final
    *  level; made once it is worked out. */
@@ -56,14 +60,15 @@ export class CarvePlay {
     // (drawn from its end: its surge gathers there while it is worked out)
     const end = run.intent.end;
     if (fromEnd && end !== undefined) this.first = { ...this.first, x: end % m.W, y: Math.floor(end / m.W), z: m.heights[end], dx: -this.first.dx, dy: -this.first.dy };
-    this.riders = run.group.length > 0 || run.unleashedId !== null;
+    // (and with Sources set to Ride, every source and seep it reaches, D474)
+    this.riding = !clears(run.settings.sources);
+    this.riders = run.group.length > 0 || run.unleashedId !== null || this.riding;
     this.heads = [{ ...run.head }];
   }
 
   /** The forward step shown at step `k` from the end (k from 1 to total). */
   private forward(k: number): number {
-    const young = this.run.records.maturity?.youngSteps ?? this.total;
-    return k <= young ? young - k + 1 : k;
+    return this.total - k + 1;
   }
 
   /** The changes shown from the end: step k shows the forward step total - k + 1's tiles, each tile once,
@@ -73,8 +78,7 @@ export class CarvePlay {
     const total = this.total;
     const seen = new Uint8Array(this.map.heights.length);
     const out: Int32Array[] = [new Int32Array(0)];
-    const young = this.run.records.maturity?.youngSteps ?? total;
-    for (let s = young; s >= 1; s--) {
+    for (let s = total; s >= 1; s--) {
       const c = this.changes[s];
       const keep: number[] = [];
       for (let j = 0; j < c.length; j += 2)
@@ -84,7 +88,6 @@ export class CarvePlay {
         }
       out.push(Int32Array.from(keep));
     }
-    for (let s = young+1; s <= total; s++) out.push(this.changes[s]);
     return (this.backward = out);
   }
 
@@ -102,15 +105,49 @@ export class CarvePlay {
   /** Work it out: the run goes to its end, its steps as shown taken from its plan (made when the carve
    *  started). True once it is. */
   plan(): boolean {
-    if (!this.run.done || this.run.records.maturity && this.changes.length === 1) {
+    if (!this.run.done) {
       this.run.finish();
       const r = this.run.records;
       this.changes = r.changes;
       this.heads = r.heads;
       this.lengths = r.lengths;
       this.goneSpread = new Map(r.goneSpread);
+      this.clearAhead();
     }
     return this.run.done;
+  }
+
+  /** Sources set to Clear (D474): the sources the carve clears, each with the step of its showing
+   *  that first changes one of its tiles (as shown: from the end too, eased in a working area), once
+   *  it is worked out; its own sources and an unleashed one stay. */
+  readonly cleared: ClearedSource[] = [];
+  private readonly clearedAt = new Map<string, number>();
+
+  private clearAhead(): void {
+    const run = this.run;
+    if (!clears(run.settings.sources)) return;
+    const was = run.original;
+    const ease = run.ease;
+    const eased = (i: number, h: number) => (ease ? Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], h)) : h);
+    const standing = new Set(run.map.entities.map((e) => e.id));
+    const own = new Set([run.sourceId, ...run.group.map((g) => g.id), ...(run.unleashedId ? [run.unleashedId] : [])]);
+    // (the carve takes what it reaches itself, in Rust: this finds only what it left standing on changed ground)
+    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, changedGround(was, run.map.heights, ease), (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
+    if (!sources.length) return;
+    // (each tile's first step shown with its level changed)
+    const first = new Int32Array(was.length);
+    const changes = this.fromEnd ? this.backwardChanges() : this.changes;
+    for (let s = 1; s < changes.length; s++) {
+      const c = changes[s];
+      for (let j = 0; j < c.length; j += 2) if (!first[c[j]] && eased(c[j], c[j + 1]) !== was[c[j]]) first[c[j]] = s;
+    }
+    for (const e of sources) {
+      let at = this.total;
+      for (const i of footprint(this.map, e)) if (first[i] && first[i] < at) at = first[i];
+      this.cleared.push({ id: e.id, step: at });
+      this.clearedAt.set(e.id, at);
+    }
+    this.cleared.sort((a, b) => a.step - b.step);
   }
 
   /** Steps to show in all (once planned), and shown so far. */
@@ -140,36 +177,28 @@ export class CarvePlay {
     if (ease) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) { const i = changes[s][j]; heights[i] = Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], heights[i])); }
     if (this.map.lava) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) this.map.lava[changes[s][j]] &= (1 << heights[changes[s][j]]) - 1;
     this.at = k;
-    // the objects the head has reached go; its own sources and an unleashed one ride the ground
+    // the objects the head has reached go; its own sources and an unleashed one ride the ground (with
+    // Sources set to Ride, every source and seep it reaches)
     const removed = this.run.removedAt;
     const W = this.map.W;
     let gone = 0;
     for (const [id, s] of removed) if (this.goneAt(s, id) <= k) gone++;
+    // (and the sources it clears, D474: each at its step as shown)
+    const cleared = this.clearedAt;
+    for (const c of this.cleared) if (c.step <= k) gone++;
     if (gone !== this.removedShown || this.riders) {
       this.removedShown = gone;
       const ownById = new Map<string, typeof this.run.group[number]>();
       for (const g of this.run.group) if (!ownById.has(g.id)) ownById.set(g.id, g);
       const unleashed = this.unleashedObject();
       this.map.entities = this.objects
-        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k))
+        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k) && !((cleared.get(e.id) ?? Infinity) <= k))
         .map((e) => {
           const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
-          if (e === unleashed) return { ...e, z: heights[e.y * W + e.x] };
+          if ((e === unleashed || (this.riding && CLEARABLE.has(e.template))) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < this.map.H) return e.z === heights[e.y * W + e.x] ? e : { ...e, z: heights[e.y * W + e.x] };
           return e;
         });
-    }
-    if (this.run.records.maturity) {
-      const records=this.run.records, moves=new Map<string,typeof records.stepObjectChanges[number]>();
-      // Native changes are absolute poses; age stages must never run backwards with the drawn carve.
-      for (const move of records.stepObjectChanges) if (this.goneAt(move.step)<=k) moves.set(move.id,move);
-      this.map.entities=this.objects.filter(e=>!removed.has(e.id)||this.goneAt(removed.get(e.id)!,e.id)>k).map(e=>{
-        const pose=moves.get(e.id);return pose?{...e,x:pose.x,y:pose.y,z:pose.z}:e;
-      });
-      this.map.fallen=(this.run.records.raw.fallen??[]).flatMap(f=>{
-        if (removed.has(f.id)&&this.goneAt(removed.get(f.id)!,f.id)<=k)return [];
-        const i=Math.floor(f.y)*W+Math.floor(f.x);return [{...f,z:f.z+heights[i]-records.map.heights[i]}];
-      });
     }
   }
 
@@ -182,7 +211,7 @@ export class CarvePlay {
    *  end, heading back up its course). */
   get head(): ForceHead {
     if (this.at === 0) return this.first;
-    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) return this.heads[this.at];
+    if (!this.fromEnd) return this.heads[this.at];
     const h = this.heads[this.forward(this.at)];
     return { ...h, dx: -h.dx, dy: -h.dy };
   }
@@ -190,7 +219,7 @@ export class CarvePlay {
   /** The last stretch of the course shown (the effects' muddy surge): behind the head, the way it
    *  goes. */
   trail(): Station[] {
-    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) {
+    if (!this.fromEnd) {
       const n = this.lengths[this.at];
       return this.run.path.slice(Math.max(0, n - 28), n);
     }
