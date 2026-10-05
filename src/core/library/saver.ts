@@ -53,7 +53,9 @@ export class YourMapsSaver {
 
   /** Save now what is waiting (one map, or all). Nobody needs to await it. */
   flush(id?: string): Promise<void> {
-    const ids = id === undefined ? [...this.pending.keys()] : this.pending.has(id) ? [id] : [];
+    // A snapshot already taken is still an outgoing save. Wait for it too, even when
+    // the debounce queue is empty, before a page replaces the worker's current map.
+    const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
     return Promise.all(ids.map((k) => this.run(k))).then(() => undefined);
   }
 
