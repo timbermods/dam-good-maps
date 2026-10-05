@@ -52,7 +52,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 ## Left for the next milestone session, in order
 
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
-   both merged after a green full run, no pin moved. Still to land with other work: #310's F3, folded into the next generator
+   each merged after a green full run, no pin moved. Still to land with other work: #310's F3, folded into #265's generator
    re-pin only; #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's after #311 (page part before worker part).
 2. The generator queue, one re-pin at a time, once Kyler approves #265's reworked sheets: the badwater line (#265), then Delta arms round 2
