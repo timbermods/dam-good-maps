@@ -69,6 +69,13 @@ test("generate → refine → back to settings → Generate → back to editing 
           let wet = false;
           for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
           if (!wet) continue;
+          // clear of the bars over the map by a margin: the water bar's width follows its status (the nearest
+          // tile to it sat 14 px off its edge), and a press on a bar is no press on the map
+          const c = window.dgmEditor!.tileToClient(x2, y);
+          const box = window.dgm3d!.renderer.canvas;
+          let bare = true;
+          for (const ox of [-70, 0, 70]) for (const oy of [-70, 0, 70]) if (document.elementFromPoint(c.x + ox, c.y + oy) !== box) bare = false;
+          if (!bare) continue;
           let empty = true;
           for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) empty = false;
           if (empty && m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1) return [x2, y] as [number, number];
