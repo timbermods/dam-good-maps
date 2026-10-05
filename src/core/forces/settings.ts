@@ -72,7 +72,6 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
     name: "a carve",
     choices: { mode: ["unleash", "aim"], walls: ["steep", "wide"] },
     flags: ["defyGravity", "dry"],
-    details: [{key:"maturity",options:["young","mature","auto"],why:"a carve's maturity is Young, Mature or Auto"}],
     ranges: [
       { key: "wander", min: WANDER_MIN, max: WANDER_MAX, empty: "required", why: `a carve's wander is ${WANDER_MIN} to ${WANDER_MAX}` },
       { key: "width", min: CARVE_WIDTH_MIN, max: CARVE_WIDTH_MAX, empty: "null", why: `a carve's width is ${CARVE_WIDTH_MIN} to ${CARVE_WIDTH_MAX} tiles, or null (it follows Power)` },
