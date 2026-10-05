@@ -38,7 +38,6 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
 | #311 | Every force plays smoothly | renderer (forces play) | `needs-kyler`: merges once green and Kyler has played it |
-| #304 | The forces share rust/water's kernel | milestone | Conflicts: reconcile with D474's re-pins (#308) and Deposit (#301), rebuild forcesWasm.ts, every pin unchanged |
 | #265 | Badwater line, wave check, wider names (generator 0.8.1) | theme critique session | `needs-kyler`: first of the generator queue; Kyler asked for three facts (the sheets' red marks, badwater's share against the official maps, Delta seed 16's start water); Lake Basin's lake is mostly badwater on 17 of 20 sheet seeds |
 | #261 | Canyon and Highlands height (generator 0.9.0) | Canyon session | `approved`; adopted in the generator queue's order, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; adopted in the generator queue's order, re-pinned |
@@ -52,17 +51,14 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 ## Left for the next milestone session, in order
 
-1. Merged at the handover: #317 (saving review), #314 (the Rust analysis, after a green full run) and the four Codex reports
-   (#310, #312, #313, #315); the TypeScript analysis is tagged `ts-analysis-final` (790f8da1).
-2. The adoptions Kyler decided (ROADMAP, "Codex adoptions"): #313's fieldData width fix (src/core/gen/generate.ts); #315's
-   LS1 (drop backgroundCheck's unused canonical run, src/worker/session.ts); #310's F3 folded into the next generator re-pin
-   only. #310's F1 and #312's page.patch go to the page session; #312's renderer.patch and worker.patch to the renderer
-   session after #311 (page part before worker part).
-3. #304: reconcile and merge.
-4. The generator queue, one re-pin at a time, once Kyler approves #265: the badwater line (#265), then Delta arms round 2
+1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), and #304 (the forces run rust/water's kernel),
+   both merged after a green full run, no pin moved. Still to land with other work: #310's F3, folded into the next generator
+   re-pin only; #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
+   session's after #311 (page part before worker part).
+2. The generator queue, one re-pin at a time, once Kyler approves #265: the badwater line (#265), then Delta arms round 2
    (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
-5. Settle with Kyler who owns #275 and #225.
-6. Then, by the roadmap: the Rust checks (#207), custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
+3. Settle with Kyler who owns #275 and #225.
+4. Then, by the roadmap: the Rust checks (#207), custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
    the dam sketch after the Weather view.
 
 ## Waiting for Kyler
