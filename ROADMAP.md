@@ -650,18 +650,16 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    the last day of a drought (the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed;
    the start's water is marked a little more strongly. It updates in the background after each edit, like the checks, and
    never blocks: feedback from the land itself, not a readout (D184).
-2. **A map-card line** about the first drought and badtide, in one or two lines, from the model ("In a 7-day drought the
-   river dries below the falls by day 3.").
-3. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
+2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
 
-Every claim traces to the model and a verified rule, and never promises colony survival (the catalogue's limit: economic
-timing is unverified).
+The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
+promises colony survival (the catalogue's limit: economic timing is unverified).
 
 **Acceptance** (Kyler's one rule, D115)
-- Blocking: no map file changes; the drought line and the map-card line trace to the model and the verified rules; the
-  drought line updates in the background and never blocks editing.
+- Blocking: no map file changes; the drought line traces to the model and the verified rules, updates in the background
+  and never blocks editing.
 
 **In-game check:** none beyond what D267's buttons already have. **Effort:** high.
 

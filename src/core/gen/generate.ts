@@ -118,6 +118,8 @@ const SETTLE_BUDGET = 5;
 export const FIRST_DROUGHT_DAYS = 3;
 /** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85). */
 const MOIST_WALK = 160;
+/** Grown logs an oak gives, its saplings counted out (resources: an oak 8 logs, a third young). */
+const OAK_LOGS = 5;
 
 export interface GenerationInfo {
   /** Genomes drawn; the accepted map's genome. */
@@ -224,10 +226,14 @@ export interface GenerateOptions {
    *  the measures). */
   screen?: boolean;
   /** The rescue round (D471, set by `generate` itself): from 1 the start's groves may lean to the
-   *  wood each species gives; from 2 the start's ground asks for half the land it otherwise joins
-   *  (`minFoot`, a target, D85) and a plan's start may be levelled from further; from 3 a land
-   *  holding fewer rivers on its edge than the Rivers count is kept; from 4 the land is drawn nearer
-   *  the theme's own settings (`easedSettings`). */
+   *  wood each species gives, a shown land's start asks only for Buildable land's walkable land, a
+   *  Water without stairs rule under 7 is held to itself, the start's walk asks for moist land
+   *  enough for the wood and berries asked, and the badwater distance no more than the map allows;
+   *  from 2 the start's ground asks for half the land it otherwise joins (`minFoot`, a target, D85),
+   *  a plan's start may be levelled from further (by a bank too) and needs no second place; from 3
+   *  a land holding fewer rivers on its edge than the Rivers count is kept and a small map's start
+   *  may stand nearer its edge; from 4 the land is drawn nearer the theme's own settings, and from 8
+   *  it is gentle (`easedSettings`). */
   ease?: number;
 }
 
@@ -396,6 +402,9 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
  *  it, the terrain and water a third of the way nearer the theme's own settings each round, all the
  *  way by the sixth (a candidate's ambition lowered where the settings fight on the map's size). The
  *  map's spec, its checks and its start rules stay the player's. */
+/** The gentle land a late rescue round draws (D471). */
+const GENTLE = { relief: 25, terracing: 20, verticality: 10, variety: 40 };
+
 export function easedSettings(s: Settings, theme: ThemeId, ease: number): Settings {
   if (ease < 4) return s;
   const k = Math.min(1, (ease - 3) / 3);
@@ -411,6 +420,14 @@ export function easedSettings(s: Settings, theme: ThemeId, ease: number): Settin
   const w = out.water;
   w.rivers = to(w.rivers, p.rivers);
   if (k >= 2 / 3) Object.assign(w, { riverStyle: p.riverStyle, riverFlow: p.riverFlow, lakes: p.lakes, waterfalls: p.waterfalls });
+  // (from the eighth, gentle land: a small map whose theme's own land leaves its start no room)
+  if (ease >= 8) {
+    t.relief = Math.min(t.relief, GENTLE.relief);
+    t.terracing = Math.min(t.terracing, GENTLE.terracing);
+    t.verticality = Math.min(t.verticality, GENTLE.verticality);
+    t.variety = Math.min(t.variety, GENTLE.variety);
+    t.highestTerrain = Math.min(t.highestTerrain, EDITOR_LEVEL);
+  }
   return out;
 }
 
@@ -1409,6 +1426,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const rule = spec.settings.start.rules.waterWithin;
   // (a rescue round's easing, D471)
   const ease = opts.ease ?? 0;
+  // the walk the start's settled water is held to: the rule less a margin (`waterAim`); in a rescue
+  // round, a rule under 7 is held to itself, as the check reads it (the margin leaves a start at 4
+  // or 5 a tile or two to its shore)
+  const aim = ease >= 1 && rule < 7 ? rule : waterAim(rule);
+  // the moist land the start's walk asks for: in a rescue round, room for the wood and berries the
+  // start rules ask (a tree or bush a tile, the wood by oak's yield, with room between)
+  const startRules = spec.settings.start.rules;
+  const moistWant = ease >= 1 ? Math.max(MOIST_WALK, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : MOIST_WALK;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
@@ -1611,7 +1636,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const { kept, storage, view, prepared } = data;
     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -1647,7 +1672,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
-    distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
+    // (a target, D85; a rescue round, D471, asks no more than the map's size allows)
+    distance: Math.min(Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin), ease >= 1 ? Math.max(8, Math.round(0.3 * Math.max(W, H))) : Infinity),
     keepOff: (weir ? pool : null) as Uint8Array | null,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
@@ -1785,10 +1811,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const off = avoidOf(null);
         markTried(off, guess, W, H);
         second = settlerOn(held, zero, heldMoist, 5, off, 1, null, true);
-        if (!second) return fail("one place for a start", null, true);
+        // (not in a rescue round's later lands, D471: a small or rugged land may hold only one)
+        if (!second && ease < 2) return fail("one place for a start", null, true);
         // (and the places after it, apart from each other: every start a shown land may fall back
         // on has its pad ready, levelled now if it needs it, D373 (3))
-        markTried(off, second, W, H);
+        if (second) markTried(off, second, W, H);
         for (let k = 0; k < PREPARED_MORE; k++) {
           const more = settlerOn(held, zero, heldMoist, 9 + k, off, 1, null, true);
           if (!more) break;
@@ -2414,11 +2441,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     let why: string | null = null;
     // (the settled water covers the start's ground)
     if (wetRing(b, cur)) why = "start water moved";
-    else if (!(startWaterServed(b, rule, droughtDays) <= waterAim(rule))) {
+    else if (!(startWaterServed(b, rule, droughtDays) <= aim)) {
       // the water beside the start only a sealed puddle (D302), or the water moved away. The land is
       // shown (D348): a spring by the start (D330's fix) gives it water, the first place and strength
       // that serves it and leaves no source in another's flow
-      const sealed = startWaterWalk(b) <= waterAim(rule);
+      const sealed = startWaterWalk(b) <= aim;
       const at = cur;
       const lay = layout;
       const spring = springByStart(b, rule, seed, attempt + 1000 * tryN, (f) => {
@@ -2431,13 +2458,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
           const pf = prefill(model);
           const guessB = { ...bw, water: pf.depth, contamination: pf.contamination, waterModel: model } as BuildResult;
-          if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= waterAim(rule))) {
+          if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= aim)) {
             contains.delete(f.id);
             return false;
           }
         }
         const bs = build([...lay, f], "resources");
-        const ok = bs.settle.settled && !wetRing(bs, at) && startWaterServed(bs, rule, droughtDays) <= waterAim(rule) && !sourcesInFlow(bs.waterModel, mapObjects({ entities: bs.entities.map(entityJson) }), bs.water).inFlow.length;
+        const ok = bs.settle.settled && !wetRing(bs, at) && startWaterServed(bs, rule, droughtDays) <= aim && !sourcesInFlow(bs.waterModel, mapObjects({ entities: bs.entities.map(entityJson) }), bs.water).inFlow.length;
         if (ok) b = bs;
         else contains.delete(f.id);
         return ok;
@@ -2627,7 +2654,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!p3 || p3.levelled || (p3.x === pick!.x && p3.y === pick!.y)) return null;
       const lay3 = [...layout.filter((f) => f.kind !== "start"), startOf(p3)];
       const b3 = build(lay3, "resources");
-      if (!(startWaterServed(b3, rule, droughtDays) <= waterAim(rule)) || wetRing(b3, p3)) return null;
+      if (!(startWaterServed(b3, rule, droughtDays) <= aim) || wetRing(b3, p3)) return null;
       // the second district keeps its distance and its walk from the start, the rise its stairs
       for (const st of sites) {
         const d = portable.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
