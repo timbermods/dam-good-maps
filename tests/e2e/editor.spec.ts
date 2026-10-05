@@ -3,7 +3,7 @@
 // undo and redo, the history, export from both screens, and the autosave after a reload.
 
 import { expect, test, type Page } from "@playwright/test";
-import { toolInHand } from "./helpers";
+import { toolInHand, toolPutAway } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -53,6 +53,7 @@ test("generate → refine → back to settings → Generate → back to editing 
   await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
   // a spring on dry, empty ground beside the river, its water running straight in: away from the
   // start and from the relics, mine sites and geothermal fields, which must stay off water
   const spring = await page.evaluate(
@@ -84,6 +85,7 @@ test("generate → refine → back to settings → Generate → back to editing 
   await page.evaluate(() => window.dgmEditor!.idle());
   // (Esc puts the water source back on the shelf)
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
   i = await info(page);
   expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source"]);
   const springs = () => page.evaluate(async ([a, b]) => (await window.dgmEditor!.worker.entitiesAt(a, b)).filter((e) => e.template === "WaterSource").length, spring!);
