@@ -202,7 +202,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
   any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
   as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
-  channel (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
+  channel and never leads it (each dry or damp tile is held until the front reaches it; water already there flows on as
+  it flowed, its currents carried in)
+  (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
@@ -901,9 +903,11 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
-    soon as it has answered; the renderer's water worker meshes the chunks a stroke's water changed, nearest the
-    view first (`updateWaterSoon`, `waterMesher.ts`), and the page draws a few milliseconds of them a frame (on its
-    own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
+    soon as it has answered. Moving water (a stroke's, a force's, the water's journey after an edit) is drawn again only
+    where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
+    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
+    the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
+    the game's pace they play at (on its own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
     two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
