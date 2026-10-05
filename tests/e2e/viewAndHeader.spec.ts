@@ -93,8 +93,16 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await page.keyboard.press("Shift+Digit2");
   await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
   expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
-  // kept with the project: Your maps keeps them, and a reload of the address brings the open map back with them
-  await page.waitForTimeout(2500);
+  // bookmarks alone don't keep a map (D330, Kyler, 2026-10-05): a reload makes the address's map again, without them
+  await page.reload();
+  await waitForEditor(page);
+  expect((await info(page)).views).toEqual([]);
+  // once an edit keeps it, they are kept with its project, and a reload brings the open map back with them
+  await page.keyboard.press("Control+Shift+Digit2");
+  await expect.poll(async () => (await info(page)).views.map((v) => v.slot)).toEqual([2]);
+  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15 } } as never, "Raise a tile"));
+  await expect.poll(async () => (await info(page)).edits).toBe(1);
+  await page.waitForFunction((v) => window.dgm!.kept!(v), (await info(page)).version, { timeout: 60_000, polling: 200 });
   await page.reload();
   await waitForEditor(page);
   expect((await info(page)).views.map((v) => v.slot)).toEqual([2]);

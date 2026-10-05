@@ -130,7 +130,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   // the strokes are kept: a reload opens the map with them (from Your maps)
   i = await info(page);
   const kept = await heights(page);
-  await page.waitForTimeout(2500);
+  await page.waitForFunction((v) => window.dgm!.kept!(v), i.version, { timeout: 60_000, polling: 200 });
   await page.reload();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
   expect((await info(page)).edits).toBe(i.edits);

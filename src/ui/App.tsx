@@ -139,7 +139,9 @@ function thumbnailUrl(m: MapPicture): string | null {
 }
 
 /** Where an opened map comes from: a row of Your maps keeps its id and name; anything else is a new row. */
-type Origin = { entry: YourMapEntry } | { kind: YourMapEntry["kind"] };
+/** Where an open map comes from: a row of Your maps (`kept` false: a map Cancel brings back that was never kept), or a
+ *  new map of a kind. */
+type Origin = { entry: YourMapEntry; kept?: boolean } | { kind: YourMapEntry["kind"] };
 
 interface Confirm {
   text: string;
@@ -149,6 +151,8 @@ interface Confirm {
   yesTitle?: string;
   /** Offer to save the open map's project first (the browser isn't keeping Your maps). */
   offerProject?: boolean;
+  /** Focus starts on the yes button, so Enter confirms (a delete). */
+  focusYes?: boolean;
 }
 
 export function App() {
@@ -182,7 +186,7 @@ export function App() {
    *  else can be clicked or started; "back" while Cancel puts the open map back; the words when it failed. */
   const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
   /** The open map as it was when a new one was asked for: Cancel opens it again, its edits and history with it. */
-  const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array } | null>(null);
+  const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean } | null>(null);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
   // the map generator's panel, Real places or Your maps, one at a time
@@ -203,7 +207,11 @@ export function App() {
   /** The map's version and views when it opened or was last saved: a save only when they change. */
   const lastKey = useRef("");
   /** The open map is new and not yet in Your maps. */
-  const unsaved = useRef(false);
+  /** The open map is kept in Your maps (D330, Kyler, 2026-10-05): from its first edit or rename on, or opened from it.
+   *  An unedited map is never written there; Cancel brings it back from memory. Once kept, it stays kept. */
+  const kept = useRef(false);
+  /** The open map's version when it opened: a later one is an operation applied, an edit. */
+  const openedVersion = useRef(0);
   /** Set while the open map is being replaced: the editor's last changes then belong to the map leaving. */
   const switching = useRef(false);
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
@@ -211,7 +219,7 @@ export function App() {
 
   const refresh = () => void yourMaps.list().then(setMaps, () => setMaps([]));
   // (its last save took this version and was written, and nothing waits to be saved)
-  keptNow = (version: number) => entry.current?.revision === version && !unsaved.current && !saver.busy() && keeping.current;
+  keptNow = (version: number) => kept.current && entry.current?.revision === version && !saver.busy() && keeping.current;
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {
@@ -273,7 +281,6 @@ export function App() {
 
   /** The open map, as Your maps keeps it: its project file now. */
   async function snapshot() {
-    unsaved.current = false;
     const p = await generator.project(6);
     const pic = picture.current?.();
     const e = { ...entry.current!, name: nameRef.current || entry.current!.name, revision: infoRef.current?.version ?? entry.current!.revision, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail: (pic && thumbnailUrl(pic)) ?? entry.current!.thumbnail };
@@ -281,10 +288,9 @@ export function App() {
     return { entry: e, project: p.bytes };
   }
 
-  /** Replace the open map: what is waiting to be saved of it is saved first, from the map itself. */
+  /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
   async function replacing<T>(load: () => Promise<T>): Promise<T> {
     switching.current = true;
-    if (unsaved.current && entry.current) saver.changed(entry.current.id, snapshot);
     try {
       await saver.flush();
       return await load();
@@ -293,7 +299,8 @@ export function App() {
     }
   }
 
-  /** The map is the editor's: it gets its row in Your maps (a new map's is saved at once), the address its link. */
+  /** The map is the editor's, the address its link; it gets its row in Your maps at its first edit or rename (a map
+   *  opened from Your maps has it already). */
   function enterEditor(data: SessionOpen, origin: Origin, place?: string, keepView = false) {
     const now = new Date().toISOString();
     const isNew = !("entry" in origin);
@@ -309,15 +316,9 @@ export function App() {
     if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
     history.replaceState(null, "", link || location.pathname + location.search);
     noteCurrent(e.id, link);
-    // a new map joins Your maps once the editor has settled on it (writing its project at once would hold up the
-    // worker while the editor opens), or at once when something replaces it first
-    unsaved.current = isNew;
-    if (isNew) {
-      const id = e.id;
-      window.setTimeout(() => {
-        if (unsaved.current && entry.current?.id === id) saver.changed(id, snapshot);
-      }, 4000);
-    } else refresh();
+    kept.current = !isNew && origin.kept !== false;
+    openedVersion.current = data.info.version;
+    if (!isNew) refresh();
   }
 
   function onEditorChange(info: SessionInfo) {
@@ -328,6 +329,11 @@ export function App() {
     const key = `${info.version}|${JSON.stringify(info.views ?? [])}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
+    // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
+    if (!kept.current) {
+      if (info.version === openedVersion.current) return;
+      kept.current = true;
+    }
     saver.changed(entry.current.id, snapshot);
   }
 
@@ -340,6 +346,8 @@ export function App() {
     infoRef.current = info;
     setName(result.name);
     setSession(info);
+    // (a rename keeps the map in Your maps, as an edit does)
+    kept.current = true;
     if (entry.current) saver.changed(entry.current.id, snapshot);
     return null;
   }
@@ -396,30 +404,35 @@ export function App() {
     return null;
   }
 
-  /** A map deleted from Your maps, asked once; the open one gives way to the next map in Your maps, or a new map. */
-  function deleteMap(id: string) {
-    const e = maps.find((m) => m.id === id);
-    if (!e) return;
+  /** Maps deleted from Your maps, asked once ("Delete <name>?", "Delete 7 maps?"), focus on Delete so Enter confirms;
+   *  the open one gives way to the next map in Your maps, or a new map. Nothing of a deleted map waiting to be saved
+   *  brings it back. */
+  function deleteMaps(ids: readonly string[]) {
+    const gone = maps.filter((m) => ids.includes(m.id));
+    if (!gone.length) return;
     setConfirm({
-      text: `Delete ${e.name}?`,
+      text: gone.length === 1 ? `Delete ${gone[0].name}?` : `Delete ${gone.length} maps?`,
       yes: "Delete",
-      yesTitle: "Delete it from Your maps",
+      yesTitle: gone.length === 1 ? "Delete it from Your maps" : "Delete them from Your maps",
+      focusYes: true,
       onYes: () =>
         void (async () => {
-          const here = id === entry.current?.id;
-          const at = maps.findIndex((m) => m.id === id);
+          const here = gone.some((m) => m.id === entry.current?.id);
+          const at = maps.findIndex((m) => m.id === entry.current?.id);
           if (here) {
             // (nothing of it is saved again)
-            unsaved.current = false;
+            kept.current = false;
             entry.current = null;
           }
-          // (anything of it waiting to be saved is written first, so nothing brings it back after)
+          // (anything of them waiting to be saved is written first, so nothing brings them back after)
           await saver.flush();
-          await yourMaps.remove(id).catch(() => null);
-          const left = await yourMaps.list().catch(() => maps.filter((m) => m.id !== id));
+          for (const m of gone) await yourMaps.remove(m.id).catch(() => null);
+          const left = await yourMaps.list().catch(() => maps.filter((m) => !ids.includes(m.id)));
           setMaps(left);
           if (!here) return;
-          const next = left[Math.min(at, left.length - 1)];
+          // (the next map after where the open one was, among those left; the last one, past the end)
+          const after = maps.slice(at + 1).find((m) => left.some((l) => l.id === m.id));
+          const next = after ? left.find((l) => l.id === after.id) : left.at(-1);
           if (next) await openMap(next.id, left);
           else await generate({ theme: "any" });
         })(),
@@ -498,13 +511,16 @@ export function App() {
     if (over) setMaking("making");
     performance.mark("dgm:generate");
     try {
-      // the open map saved first (it would be before the new one replaces it): its project is what Cancel opens again
+      // the open map's project, which Cancel opens again: kept in memory, and saved first when Your maps keeps it
       if (over && entry.current && tries === 0) {
-        const kept = await snapshot();
-        saver.changed(kept.entry.id, () => kept);
-        await saver.flush();
+        const was = kept.current;
+        const snap = await snapshot();
+        if (was) {
+          saver.changed(snap.entry.id, () => snap);
+          await saver.flush();
+        }
         if (id !== runId.current) return null;
-        back.current = { entry: kept.entry, bytes: kept.project };
+        back.current = { entry: snap.entry, bytes: snap.project, kept: was };
       }
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
@@ -585,7 +601,7 @@ export function App() {
     }
     setMaking("back");
     try {
-      enterEditor(await generator.openProject(b.bytes), { entry: b.entry }, undefined, true);
+      enterEditor(await generator.openProject(b.bytes), { entry: b.entry, kept: b.kept }, undefined, true);
       setMaking(null);
     } catch (e) {
       setMaking({ failed: words(e) });
@@ -739,10 +755,27 @@ export function App() {
     onOpenPlace: (id) => guard(() => void openPlace(id), "Opening a real place"),
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
-    onDeleteMap: deleteMap,
+    onDeleteMaps: deleteMaps,
     name,
     onRename: rename,
   };
+
+  // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms); Esc cancels, and goes
+  // no further (autoFocus works once a page in some browsers: the focus is set here)
+  const confirmNo = useRef<HTMLButtonElement>(null);
+  const confirmYes = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!confirm) return;
+    (confirm.focusYes ? confirmYes : confirmNo).current?.focus();
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setConfirm(null);
+    };
+    window.addEventListener("keydown", esc, true);
+    return () => window.removeEventListener("keydown", esc, true);
+  }, [confirm]);
 
   // a map being made: the modal over the editor, the one way out its Cancel (Esc too); every other key waits
   useEffect(() => {
@@ -783,7 +816,7 @@ export function App() {
       <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-text">
         <p id="confirm-text">{confirm.text}</p>
         <footer>
-          <button type="button" class="ghost" title="Keep the map as it is" onClick={() => setConfirm(null)} autoFocus>
+          <button ref={confirmNo} type="button" class="ghost" title="Keep the map as it is" onClick={() => setConfirm(null)}>
             Cancel
           </button>
           {confirm.offerProject ? (
@@ -793,6 +826,7 @@ export function App() {
           ) : null}
           <button
             type="button"
+            ref={confirmYes}
             class="primary"
             title={confirm.yesTitle ?? "Replace the map"}
             onClick={() => {

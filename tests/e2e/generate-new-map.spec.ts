@@ -51,12 +51,11 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   expect(now.edits).toBe(0);
   expect(now.history.filter((h) => h.applied)).toEqual([]);
 
-  // the edited map is in Your maps, edit and all: its row (the one not marked as open) brings it back
-  // (the new map joins Your maps a few seconds after it opens: its tile is waited for, not assumed)
+  // the edited map is in Your maps, edit and all, and its row brings it back; the new map, unedited, isn't (D330)
   const yours = await openYourMaps(page);
-  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
-  await expect(yours.locator("button[aria-current=true]")).toHaveCount(1);
-  await yours.locator("button:not([aria-current])").click();
+  await expect(yours.locator(".ym-tile")).toHaveCount(1, { timeout: 30_000 });
+  await expect(yours.locator(".ym-tile[aria-current]")).toHaveCount(0);
+  await yours.locator(".ym-tile").click();
   await page.waitForFunction(() => window.dgmEditor?.info().W === 96 && window.dgm3d?.renderer.mapState()?.W === 96, null, { timeout: 120_000 });
   const back = await page.evaluate(() => window.dgmEditor!.info());
   expect(back.edits).toBe(1);

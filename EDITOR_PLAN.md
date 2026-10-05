@@ -76,14 +76,20 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
   its tooltip); the code is `src/editor/generator/`. Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
-  without asking: edits never replay onto new land (D336), and the map it replaces is already in Your maps.
-- **Your maps** (D234): every map opened or made is kept in this browser and saved quietly after its edits settle
-  (`core/library/saver.ts`), a new one a moment after it opens and the open one before anything replaces it; **Your
-  maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
+- **Your maps** (D234, D330): a map is kept in this browser from its first edit (an operation applied) or rename,
+  whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
+  unedited map is never written (Cancel during a Generate brings it back from memory). Kept maps are saved quietly
+  after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
   right-click on one, open or not, offers **Download .timber file**, **Rename** (in place) and **Delete** (asked
-  once; the open map gives way to the next one, or a new map when none is left). Phones stay view-only (D185).
+  once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
+  desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a
+  map; a selected tile is tinted with a check at its corner, nothing moving. The heading row holds **Rename** (one
+  selected) and **Delete** (any), always shown, greyed otherwise; Delete asks once ("Delete 7 maps?"), focus on
+  Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
+  the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
   map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
   edits and all. A real place's address is `#place=<id>`; an opened file has none.

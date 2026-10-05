@@ -26,10 +26,10 @@ export interface GeneratorModel extends SettingsProps {
   onOpenMap(id: string): void;
   /** Open a real place in the editor (the map it replaces is kept in Your maps). */
   onOpenPlace(id: string): void;
-  /** A map of Your maps, open or not: its .timber downloaded; renamed (null, or why not); deleted (asked first). */
+  /** A map of Your maps, open or not: its .timber downloaded; renamed (null, or why not); maps deleted (asked once). */
   onDownloadMap(id: string): void;
   onRenameMap(id: string, name: string): Promise<string | null>;
-  onDeleteMap(id: string): void;
+  onDeleteMaps(ids: readonly string[]): void;
   /** The map's name (the title's), and renaming it through the core: null, or why not. */
   name: string;
   onRename(name: string): Promise<string | null>;

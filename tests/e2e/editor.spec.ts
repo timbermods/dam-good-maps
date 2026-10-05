@@ -125,10 +125,11 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
   await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
   expect((await info(page)).edits).toBe(0);
-  // (the new map joins Your maps a few seconds after it opens, so its tile is waited for, not assumed)
+  // (the new map, unedited, is never kept: Your maps holds only the edited one, D330)
   const yours = await openYourMaps(page);
-  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
-  await yours.locator("button:not([aria-current])").click();
+  await expect(yours.locator(".ym-tile")).toHaveCount(1, { timeout: 30_000 });
+  await expect(yours.locator(".ym-tile[aria-current]")).toHaveCount(0);
+  await yours.locator(".ym-tile").click();
   // (the editor opens again for the map from Your maps: wait for it before asking it anything)
   await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().edits ?? -1), { timeout: 60_000 }).toBe(3);
   await waitForEditor(page);
@@ -144,7 +145,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   expect(await springs()).toBe(1);
 
   // a reload of the address opens the open map with its edits, from Your maps, not a fresh generation
-  await page.waitForTimeout(2500);
+  await page.waitForFunction((v) => window.dgm!.kept!(v), (await info(page)).version, { timeout: 60_000, polling: 200 });
   await page.reload();
   await waitForEditor(page);
   const again = await info(page);

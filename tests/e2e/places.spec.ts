@@ -158,12 +158,11 @@ test("a real place replaces the open map without asking, and the replaced map st
   expect(await page.evaluate(() => window.dgmEditor!.info().name)).toBe(SMALL.name);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
 
-  // the map it replaced is in Your maps, its edit with it, and its row opens it again
-  // (the place joins Your maps a few seconds after it opens: its tile is waited for)
+  // the map it replaced is in Your maps, its edit with it, and its row opens it again; the place, unedited, isn't (D330)
   const yours = await openYourMaps(page);
-  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
-  await expect(yours.locator("button[aria-current=true]")).toContainText(SMALL.name);
-  await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  await expect(yours.locator(".ym-tile")).toHaveCount(1, { timeout: 30_000 });
+  await expect(yours.locator(".ym-tile[aria-current]")).toHaveCount(0);
+  await yours.locator(".ym-tile").filter({ hasText: name }).click();
   await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name), { timeout: 60_000 }).toBe(name);
   expect((await page.evaluate(() => window.dgmEditor!.info())).edits).toBe(1);
 });

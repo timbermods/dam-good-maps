@@ -739,3 +739,15 @@ for the milestone session's word that #268's adoption is in dev.
 - **Nothing cut off:** every setting measured with its longest value and Auto, every tool, at 62 and 76px cells. Carve's
   Wander gets 3 cells (row 1: Power 2, Size 2, What it leaves 3, Wander 3, Walls 3; row 2 as before), and Select's
   buttons 4px padding ("Cut down" was 1px short at 62px). `layout.spec.ts` now checks this for every tool.
+
+## Your maps: only edited maps, selection, Rename and Delete (2026-10-05)
+
+- **Kept maps (D330):** a map joins Your maps at its first operation applied (its version moving after it opened)
+  or a rename; bookmarks alone don't. Once kept it stays kept. No 4-second save; Generate saves the open map first
+  only when kept, and Cancel brings an unkept one back from memory. Tests that expected every map kept now count
+  `.ym-tile`; viewAndHeader's bookmarks test checks bookmarks alone don't keep a map, then that an edit does.
+- **Selection:** Ctrl-click toggles, Shift-click a range, a plain click opens and clears; a tint and a check mark.
+- **Heading row:** new (there was none): "Your maps", Rename and Delete; Delete asks "Delete <name>?" or
+  "Delete N maps?". The confirm dialog now sets its focus itself (autoFocus worked once a page) and Esc cancels it.
+- **Delete key:** decided by what is under the pointer when it's pressed, or a tile focused with Tab.
+- "Undo to get <name> back" after a Generate doesn't exist in the page; only Cancel does.

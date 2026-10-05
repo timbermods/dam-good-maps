@@ -455,7 +455,10 @@ refinements and what the mockups left open:
   Tight, Normal and Roomy, "Unstable cores" has "advanced" in its tooltip. "Limits for this size" is gone.
 - **Your maps** (Kyler, 2026-10-04): its own panel, opened by **Your maps** in the header (one panel open at a time,
   each button lit while its panel is open), in the generator's exact box: four to a row, scrolling inside when there
-  are more.
+  are more. Its heading row (Kyler, 2026-10-05): "Your maps" at the left, **Rename** and **Delete** at the tiles' right
+  edge, 13px ghost buttons 26px high, 8px apart and 8px above the tiles; it stays put while the tiles scroll. A
+  selected tile: the mint at 16% behind it and a 20px mint check at its picture's corner (the open map keeps its mint
+  edge).
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"

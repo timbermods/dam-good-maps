@@ -1,16 +1,93 @@
 // Your maps (Kyler, 2026-10-04): its own panel, opened by Your maps in the header, in the map generator's place (640px
-// at the left, over the map, between the header and the bar's settings). Every map's whole picture, four to a row,
-// its name and size under it, newest first, the open map marked; a click opens one; a right-click gives Download
+// at the left, over the map, between the header and the bar's settings). Every kept map's whole picture, four to a
+// row, its name and size under it, newest first, the open map marked; a click opens one; a right-click gives Download
 // .timber file, Rename (in place) and Delete (asked once). More maps than the panel holds scroll inside it.
+// Several maps are selected as on a desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the
+// last one clicked, neither opening a map; Rename and Delete on the heading row act on the selection, and the Delete
+// key deletes it (or the map under the pointer) while the pointer is over the panel or a tile has the focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
+import { tip } from "../../ui/Tooltip";
 
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
   // the right-click menu, and the map whose name is being renamed in place
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** The maps selected, and the last tile clicked (a Shift-click's range runs from it). */
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const anchor = useRef<string | null>(null);
+  const panel = useRef<HTMLElement>(null);
+  // (maps gone from the list leave the selection)
+  const ids = m.maps.map((e) => e.id).join("|");
+  useEffect(() => {
+    setSelected((was) => {
+      const now = new Set([...was].filter((id) => m.maps.some((e) => e.id === id)));
+      return now.size === was.size ? was : now;
+    });
+  }, [ids]);
+  const click = (ev: MouseEvent, id: string, here: boolean) => {
+    if (ev.ctrlKey || ev.metaKey) {
+      const next = new Set(selected);
+      if (!next.delete(id)) next.add(id);
+      anchor.current = id;
+      return setSelected(next);
+    }
+    if (ev.shiftKey) {
+      const from = Math.max(0, m.maps.findIndex((e) => e.id === (anchor.current ?? id)));
+      const to = m.maps.findIndex((e) => e.id === id);
+      const [a, b] = from <= to ? [from, to] : [to, from];
+      return setSelected(new Set(m.maps.slice(a, b + 1).map((e) => e.id)));
+    }
+    anchor.current = id;
+    setSelected(new Set());
+    if (!here) m.onOpenMap(id);
+  };
+  const chosen = m.maps.filter((e) => selected.has(e.id)).map((e) => e.id);
+  const rename = () => {
+    if (chosen.length !== 1) return;
+    setProblem(null);
+    setRenaming(chosen[0]);
+  };
+  const remove = () => chosen.length && m.onDeleteMaps(chosen);
+  // the Delete key: the selected maps, or the map under the pointer, while the pointer is over Your maps or a tile has
+  // the focus (over the land it keeps everything it does there)
+  const latest = useRef({ chosen, deleteMaps: m.onDeleteMaps, renaming });
+  latest.current = { chosen, deleteMaps: m.onDeleteMaps, renaming };
+  useEffect(() => {
+    // (where the pointer is, asked when the key is pressed: what is under it then decides)
+    let at: { x: number; y: number } | null = null;
+    const move = (ev: PointerEvent) => (at = { x: ev.clientX, y: ev.clientY });
+    // (keyboard focus: the focus moved with Tab since the last press of the pointer; a tile just clicked has the focus
+    // too, but not the keyboard's)
+    let tabbed = false;
+    const press = () => (tabbed = false);
+    const key = (ev: KeyboardEvent) => {
+      if (ev.key === "Tab") tabbed = true;
+      if (ev.key !== "Delete" || ev.ctrlKey || ev.altKey || ev.metaKey || latest.current.renaming) return;
+      const under = at ? document.elementFromPoint(at.x, at.y) : null;
+      const overPanel = !!under && !!panel.current?.contains(under);
+      const hovered = overPanel ? (under!.closest("li[data-id]")?.getAttribute("data-id") ?? null) : null;
+      const f = document.activeElement as HTMLElement | null;
+      const focused = tabbed && !!f && !!panel.current?.contains(f) && f.classList.contains("ym-tile");
+      if (!overPanel && !focused) return;
+      const l = latest.current;
+      const which = l.chosen.length ? l.chosen : hovered ? [hovered] : [];
+      if (!which.length) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      l.deleteMaps(which);
+    };
+    window.addEventListener("pointermove", move, { capture: true, passive: true });
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("keydown", key, true);
+    return () => {
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, []);
   const openMenu = (ev: MouseEvent, id: string) => {
     ev.preventDefault();
     setMenu({ id, x: ev.clientX, y: ev.clientY });
@@ -25,7 +102,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
         setRenaming(id);
       },
     },
-    { label: "Delete", title: "Delete this map from Your maps", run: () => m.onDeleteMap(id) },
+    { label: "Delete", title: "Delete this map from Your maps", run: () => m.onDeleteMaps([id]) },
   ];
   const finishRename = async (id: string, name: string | null, leaving: boolean) => {
     const was = m.maps.find((e) => e.id === id)?.name;
@@ -40,11 +117,24 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setRenaming(null);
   };
   return (
-    <aside class="gen maps-panel" aria-label="Your maps panel">
+    <aside ref={panel} class="gen maps-panel" aria-label="Your maps panel">
       <section class="your-maps" aria-label="Your maps">
+        {/* the heading row: Rename and Delete at the tiles' right edge, always there, greyed until a selection fits */}
+        <div class="ym-head">
+          <h2 class="ym-title">Your maps</h2>
+          <span class="ym-acts">
+            <button type="button" class="ghost ym-act" disabled={chosen.length !== 1} {...tip("Rename the selected map")} onClick={rename}>
+              Rename
+            </button>
+            <button type="button" class="ghost ym-act" disabled={!chosen.length} {...tip("Delete the selected maps", "Delete")} onClick={remove}>
+              Delete
+            </button>
+          </span>
+        </div>
         <ul>
           {m.maps.map((e) => {
             const here = e.id === m.current;
+            const picked = selected.has(e.id);
             const inside = (
               <>
                 {e.thumbnail ? <img class="ym-pic" src={e.thumbnail} alt="" width={142} height={142} draggable={false} /> : <span class="ym-pic" aria-hidden="true" />}
@@ -59,14 +149,20 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
               </>
             );
             return (
-              <li key={e.id} onContextMenu={(ev) => openMenu(ev, e.id)}>
+              <li key={e.id} class={picked ? "selected" : undefined} data-id={e.id} onContextMenu={(ev) => openMenu(ev, e.id)}>
                 {renaming === e.id ? (
                   // (an input can't sit in a button: the tile is drawn the same without one while it is renamed)
                   <div class="ym-tile" aria-current={here ? "true" : undefined}>
                     {inside}
                   </div>
                 ) : (
-                  <button type="button" class="ym-tile" aria-current={here ? "true" : undefined} title={here ? "The map open now" : "Open this map"} onClick={() => !here && m.onOpenMap(e.id)}>
+                  <button
+                    type="button"
+                    class="ym-tile"
+                    aria-current={here ? "true" : undefined}
+                    {...tip(here ? "The map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
+                    onClick={(ev) => click(ev, e.id, here)}
+                  >
                     {inside}
                   </button>
                 )}

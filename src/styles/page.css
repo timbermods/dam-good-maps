@@ -1951,3 +1951,64 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+
+/* Your maps' heading row (Kyler, 2026-10-05): its name at the left, Rename and Delete at the tiles' right edge, one
+   tiles' gap apart and above the tiles; it stays put while the tiles scroll under it */
+.maps-panel .ym-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  margin: 0 0 8px;
+  background: var(--panel);
+  /* (the panel's top padding covered too, so no tile shows above the row while they scroll) */
+  box-shadow: 0 -10px 0 var(--panel), 0 8px 0 var(--panel);
+}
+
+.maps-panel .ym-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.maps-panel .ym-acts {
+  display: flex;
+  gap: 8px;
+}
+
+.maps-panel .ym-act {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* a selected map: a tint and a check at its picture's corner, unlike the open map's mint edge; nothing changes size */
+.your-maps li {
+  position: relative;
+}
+
+.your-maps li.selected .ym-tile {
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+.your-maps li.selected::after {
+  content: "✓";
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--panel);
+  pointer-events: none;
+}
