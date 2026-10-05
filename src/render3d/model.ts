@@ -138,7 +138,20 @@ export interface SurfaceWater {
   lower: number[];
 }
 
+const surfaces = new WeakMap<WaterView, SurfaceWater>();
+
+/** The surface water of a water view, made once for each view (a view's arrays never change once
+ *  made, and nothing writes into the answer): the renderer and the page's copy of the map both ask
+ *  for it on every water update, and the editor on every render. */
 export function surfaceWater(W: number, H: number, w: WaterView): SurfaceWater {
+  const known = surfaces.get(w);
+  if (known && known.surface.length === W * H) return known;
+  const s = surfaceOf(W, H, w);
+  surfaces.set(w, s);
+  return s;
+}
+
+function surfaceOf(W: number, H: number, w: WaterView): SurfaceWater {
   const N = W * H;
   const surface = new Float32Array(N).fill(NaN);
   const floor = new Float32Array(N).fill(NaN);

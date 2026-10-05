@@ -36,6 +36,8 @@ export interface WaterMeshData {
   /** The chunk's falls, FALL_STRIDE floats each (falls.ts `pushFall`), and how many. */
   falls: Float32Array;
   fallCount: number;
+  /** Its bounding sphere (x, y, z, radius), when made beside it (the water worker). */
+  sphere?: Float64Array;
 }
 
 class WaterBuffer {
@@ -283,8 +285,11 @@ export function lowerByTile(sw: SurfaceWater, view: WaterView): Map<number, numb
  *  blended badwater share changed (the blend reaches a few tiles past a change of badwater). A
  *  top's corners and curtains read the tiles round it, and a fall the flow of the lips beside it and
  *  round its corners (which reads the tiles round them) and the pool up to three tiles out (its
- *  splash's room), so a chunk is also dirty when a tile up to three away changed. */
-export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: SurfaceWater, aLower: number, bLower: number): Set<string> {
+ *  splash's room), so a chunk is also dirty when a tile up to three away changed. `quick` (a stroke's
+ *  water, many times a second): the raw badwater share compared instead of the blend, and every
+ *  change reaching three tiles further (as far as the blend reaches), so no blend is made for it:
+ *  every chunk the blend's comparison finds, and a few more. */
+export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: SurfaceWater, aLower: number, bLower: number, quick = false): Set<string> {
   const out = new Set<string>();
   const nx = Math.ceil(W / CHUNK);
   const ny = Math.ceil(H / CHUNK);
@@ -294,16 +299,17 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
     return out;
   }
   const dirty = new Uint8Array(nx * ny);
-  /** The chunks of the tiles up to three from (x, y). */
+  const R = quick ? 6 : 3;
+  /** The chunks of the tiles up to R from (x, y). */
   const mark = (x: number, y: number) => {
-    const cx0 = Math.floor(Math.max(0, x - 3) / CHUNK);
-    const cx1 = Math.floor(Math.min(W - 1, x + 3) / CHUNK);
-    const cy0 = Math.floor(Math.max(0, y - 3) / CHUNK);
-    const cy1 = Math.floor(Math.min(H - 1, y + 3) / CHUNK);
+    const cx0 = Math.floor(Math.max(0, x - R) / CHUNK);
+    const cx1 = Math.floor(Math.min(W - 1, x + R) / CHUNK);
+    const cy0 = Math.floor(Math.max(0, y - R) / CHUNK);
+    const cy1 = Math.floor(Math.min(H - 1, y + R) / CHUNK);
     for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
   };
-  const ba = blendedBadwater(W, H, a);
-  const bb = blendedBadwater(W, H, b);
+  const ba = quick ? a.contamination : blendedBadwater(W, H, a);
+  const bb = quick ? b.contamination : blendedBadwater(W, H, b);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;

@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { firstVisitProblems, pickFirstVisit, reopensAs, type FirstVisitIndex } from "../../src/core/library/firstVisit";
@@ -33,11 +34,14 @@ describe("picking a first-visit map", () => {
 describe("the deploy's checks on a first-visit map", () => {
   // (seed 5 on M9b's maps, D148: canyon seeds 1, 3, 4, 9 and 10 miss one of the three outcomes there; 5 meets them all, and 2, the map it must not reopen as, is another)
   const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
-  const project = encodeProject(generatedDocument(r));
+  // (the project file as the tool writes it: with the map stored, so it opens without rebuilding, D367)
+  const project = MapSession.fromGenerated(r).project();
 
-  it("a map that passes them all, and reopens as itself from its project file", () => {
+  it("a map that passes them all, and reopens as itself from its project file, from its stored map", () => {
     expect(firstVisitProblems(r)).toEqual([]);
     expect(reopensAs(r, project).same).toBe(true);
+    // a project without its stored map would open by rebuilding: not a first-visit map
+    expect(reopensAs(r, encodeProject(generatedDocument(r))).same).toBe(false);
   });
 
   it("turns a map away when its own checks fail", () => {
@@ -61,7 +65,7 @@ describe("the deploy's checks on a first-visit map", () => {
 
   it("turns a map away when its project file reopens as another map", () => {
     const other = generate(makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } }));
-    expect(reopensAs(r, encodeProject(generatedDocument(other))).same).toBe(false);
+    expect(reopensAs(r, MapSession.fromGenerated(other).project()).same).toBe(false);
   });
 });
 

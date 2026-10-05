@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -28,7 +28,6 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
   it("Highlands 64², seed 3: a Quake Slide clicked at (20, 16) carries the start; Try another leaves the start's ground alone, so the start stays at (20, 23) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const orig = startMiddle(open())!;
     expect(orig).toEqual([20, 23]);

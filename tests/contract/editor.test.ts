@@ -43,7 +43,7 @@ describe("the editor's document in the worker", () => {
 
     // back to settings: the card shows the edited map
     const card = await ed.settingsResponse();
-    expect(card.edits).toBe(2);
+    expect(ed.sessionInfo().edits).toBe(2);
     expect(card.features.some((f) => f.id === forest.id)).toBe(true);
 
     const edited = await ed.exportTimber(true);
@@ -57,7 +57,6 @@ describe("the editor's document in the worker", () => {
     expect(made.spec.designedFor).toBe("hard");
     expect(Buffer.from(made.heights).equals(Buffer.from(fresh.built.heights))).toBe(true);
     expect(made.features.some((f) => f.id === forest.id || f.id === plateau.id)).toBe(false);
-    expect(made.edits).toBe(0);
 
     // the edited map is one step away (Back to editing), exactly as it was
     const again = ed.sessionView();
@@ -71,9 +70,8 @@ describe("the editor's document in the worker", () => {
     expect(Buffer.from(still.bytes).equals(Buffer.from(edited.bytes))).toBe(true);
 
     // the export check (export profile) and the export
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
-    expect(c.playability).toBe(true);
     const out = await ed.exportTimber(true);
     expect(out.ok).toBe(true);
     expect(out.fileName).toBe("dgm-river-valley-77.timber");
@@ -84,7 +82,7 @@ describe("the editor's document in the worker", () => {
     const r = generate(spec);
     await runGenerate(spec);
     ed.refine();
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
     expect(c.warnings).toEqual([]);
     const out = await ed.exportTimber(false);
@@ -109,8 +107,7 @@ describe("the editor's document in the worker", () => {
     expect(open.info.timberName).toBe("dgm-mine.timber");
     expect(open.view.water.count).toBe(r.built.water.filter((d) => d > 0.001).length);
     // since M8 the water and colony checks run on imports too (decisions-pending #9)
-    const c = ed.exportCheck();
-    expect(c.playability).toBe(true);
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking).toEqual([]);
     expect(c.warnings).toEqual([]);
     const out = await ed.exportTimber(false);

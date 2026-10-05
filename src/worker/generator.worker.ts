@@ -121,7 +121,6 @@ const api = {
   },
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
-  check: (op: EditOp) => ed.check(op),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
   /** A slider's step: steps a moment apart with the same key are one undo step. */
   applyStep: (op: EditOp, label: string, key: string) => sendUpdate(ed.applyStep(op, label, key)),
@@ -129,14 +128,11 @@ const api = {
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
-  // the tools: plan (a preview), then apply; move and delete with planning again
-  planTool: (req: ed.ToolRequest, id: string) => ed.planTool(req, id),
+  // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
   stopWeather: () => ed.stopWeather(),
-  moveFeature: (id: string, dx: number, dy: number) => sendUpdate(ed.moveFeature(id, dx, dy)),
-  deleteFeature: (id: string) => sendUpdate(ed.deleteFeature(id)),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
@@ -144,14 +140,12 @@ const api = {
   setViews: (views: SavedView[]) => ed.setViews(views),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
-  describeTile: (x: number, y: number) => ed.describeTileAt(x, y),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
   applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
   /** A brush stroke that clears the sources it passed over (D249): one undo step. */
   strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
-  instantCheck: () => ed.instantCheck(),
   // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
   // Esc drops it
   forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
@@ -168,20 +162,10 @@ const api = {
     const v = ed.forceCancel(gesture);
     return transfer(v, viewBuffers(v) as Transferable[]);
   },
-  // (the carve's own calls)
-  carveStart: (req: ed.CarveRequest) => sendStarted(ed.carveStart(req)),
-  carveAgain: () => sendStarted(ed.carveAgain()),
-  carveAdvance: (steps: number) => sendFrame(ed.carveAdvance(steps)),
-  carveStop: () => sendUpdate(ed.carveStop()),
-  carveCancel() {
-    const v = ed.carveCancel();
-    return transfer(v, viewBuffers(v) as Transferable[]);
-  },
   async settingsResponse(): Promise<GenerateResponse> {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
-  exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
     return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);

@@ -7,10 +7,11 @@
 // `resources.mine_site`, advisory in the editor), for the player to fix; nothing is placed silently.
 
 import { describe, expect, it } from "vitest";
-import { decodeProject } from "../../src/core/doc/document";
+import { decodeProject, encodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import type { BrushTool } from "../../src/core/features/raster/brush";
+import type { RiverFeature } from "../../src/core/features/schema";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
@@ -37,7 +38,6 @@ function added(before: ReturnType<typeof entities>, after: ReturnType<typeof ent
 
 async function open(seed: number, side = W) {
   await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: side, y: side } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   const st = b.start!;
@@ -158,7 +158,7 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // springs' row on the lifted side; the build placed the row again a tile over, and the moved spring
   // came back with a new id, counted as added. A row's ids follow its places along the row
   // (water/sourceGroups.ts `groupIds`), never its tiles. A flat imported map (no generator, the same
-  // on every branch) and a river drawn on it, its bed 9 tiles across: room for its head's row to move.
+  // on every branch) and a river an old project drew on it, its bed 9 tiles across: room for its head's row to move.
   const S = 64;
   const flat = buildMap({ W: S, H: S, seed: 1, features: [], base: { heights: new Uint8Array(S * S).fill(8), columns: new Map(), entities: [] } });
   const bytes = writeTimber(toTimberFile(makeSpec({ seed: 1, theme: "highlands", size: { x: S, y: S } }), flat));
@@ -167,9 +167,10 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   it("a Quake Lift across a river's head adds no spring; undo and the project give the same map", async () => {
     for (const flow of [1, 2]) {
       ed.openTimber(bytes, "flat.timber");
-      ed.setEditorWaterMode("defer");
       const id = `11111111-2222-4333-8444-00000000000${flow}`;
-      expect(ed.applyTool({ tool: "river", points: [[16, 32], [40, 32], [S - 1, 32]], flow, width: 9 }, id).errors).toEqual([]);
+      // (a river as the retired river tool drew it, kept in an old project: its head a spring)
+      const river = { id, kind: "river", origin: "user", locked: false, params: { path: [[16, 32], [40, 32], [S - 1, 32]], width: 9, bedDepth: 1, bedProfile: { start: 7, steps: [] }, flow, style: "straight", entry: { spring: [16, 32] }, exit: { edge: "east" }, badwater: false, banks: true } } as RiverFeature;
+      expect(ed.apply({ op: "addFeature", params: { feature: river } }, "user", "Add river").errors).toEqual([]);
       const before = entities();
       const springs = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === id);
       expect(springs(before).length, "the river's head has a spring").toBeGreaterThan(0);
@@ -187,6 +188,33 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
       }
     }
   }, 240000);
+
+  // Generator 0.8.1's Highlands 128² seed 3 (#265): a spring river's head row stood two long, the
+  // start's ground keeping the third tile; a Lift carried the start away, the row was placed again
+  // three long, and the third spring was new, an object the force added (D368 (10), D314). An edited
+  // map keeps the row the generation placed. Here Highlands 96² seed 1's three-spring row at
+  // (14–16, 44) is stored two long, as that one was: no edit may give it its third.
+  it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
+    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: 96, y: 96 } }));
+    ed.refine();
+    const doc = decodeProject(ed.project().bytes);
+    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-6uggq3u6cd3wu").map((e) => `${e.id}@${e.x},${e.y}`);
+    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 16 && e.y === 44)!;
+    const world = JSON.parse(doc.base.world!) as { Entities: { Id: string }[] };
+    const k = world.Entities.findIndex((e) => e.Id === third.id);
+    world.Entities.splice(k, 1);
+    doc.base.owners!.splice(k, 1);
+    doc.base.world = JSON.stringify(world);
+    doc.stored = undefined;
+    ed.openProject(encodeProject(doc));
+    const before = row(entities());
+    expect(before.map((s) => s.split("@")[1])).toEqual(["14,44", "15,44"]);
+    for (const side of [1, -1] as const) {
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: 2, y: 44.5 }, { x: 48, y: 44.5 }, { x: 93, y: 44.5 }], side, cut: null, natural: true });
+      expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
+      ed.undo();
+    }
+  }, 240000);
 });
 
 describe("an edit that leaves the mine site out of reach shows in the checks, and places nothing (D368 (10))", () => {
@@ -201,7 +229,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
       if (found.x + 2 < 10 || found.y + 2 < 10 || found.x + 2 > 85 || found.y + 2 > 85) continue;
       // (before any edit the check has nothing to say; a harmless first edit makes it apply)
       expect(ed.apply({ op: "brush", params: { tool: "raise", size: 1, strength: 1, target: 0, dabs: [8, 8] } }, "user", "touch").errors).toEqual([]);
-      const c = ed.exportCheck();
+      const c = (await ed.backgroundCheck())!.check;
       if ([...c.advisory, ...c.warnings, ...c.blocking].some((i) => i.id === "resources.mine_site")) {
         ed.undo();
         continue;
@@ -221,7 +249,7 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
     const r = ed.apply({ op: "brush", params: { tool: "raise", size: 2.5, strength: 10, target: Math.min(16, mine!.z + 6), dabs } }, "user", "wall");
     expect(r.errors).toEqual([]);
     expect(added(before, entities()).map((e) => `${e.template}@${e.x},${e.y}`)).toEqual([]);
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     const item = [...c.advisory, ...c.warnings, ...c.blocking].find((i) => i.id === "resources.mine_site");
     expect(item, "the checks say the mine site is out of reach").toBeTruthy();
     expect(item!.message).toMatch(/mine site/);

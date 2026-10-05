@@ -53,6 +53,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import { BlockGhost, type GhostTile } from "./blockGhost";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -61,11 +62,12 @@ import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSou
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, lowerByTile, meshWaterChunk } from "./waterMesh";
+import { changedWaterChunks, lowerByTile, meshWaterChunk, type WaterMeshData } from "./waterMesh";
+import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
-import { Baker } from "./high/fields";
+import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
@@ -190,6 +192,32 @@ function sourceMiddle(e: EntityView, k: number, W: number, H: number): number {
   return x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
 }
 
+/** The even margin a framed map keeps inside the part of the view the page leaves it (CSS pixels). */
+export const FRAME_MARGIN = 12;
+
+/** The map as drawn, for framing: its edges' corners at their ground's height and at the sides' foot
+ *  (three levels below level 0 or its lowest ground), and its ground inside, every few tiles; x, y, z
+ *  in the scene's own axes, three to a point. */
+export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32Array {
+  let lo = 255;
+  for (let i = 0; i < heights.length; i++) if (heights[i] < lo) lo = heights[i];
+  const foot = Math.min(0, lo) - 3;
+  const pts: number[] = [];
+  const at = (x: number, y: number) => heights[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))];
+  const edge = (x: number, y: number, top: number) => pts.push(x, top, -y, x, foot, -y);
+  for (let x = 0; x <= W; x++) {
+    edge(x, 0, Math.max(at(x - 1, 0), at(x, 0)));
+    edge(x, H, Math.max(at(x - 1, H - 1), at(x, H - 1)));
+  }
+  for (let y = 1; y < H; y++) {
+    edge(0, y, Math.max(at(0, y - 1), at(0, y)));
+    edge(W, y, Math.max(at(W - 1, y - 1), at(W - 1, y)));
+  }
+  const step = Math.max(1, Math.round(Math.max(W, H) / 64));
+  for (let y = 0; y < H; y += step) for (let x = 0; x < W; x += step) pts.push(x + 0.5, heights[y * W + x], -(y + 0.5));
+  return Float32Array.from(pts);
+}
+
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
 export const DEFAULT_YAW = -Math.PI / 6;
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
@@ -274,8 +302,6 @@ export class MapRenderer {
   private std: HighMaterials;
   /** The High look while it is drawn (render3d/high). */
   private high: HighLook | null = null;
-  /** The renderer's bake worker (the moving water's fields and shapes, High's occlusion). */
-  private bakerOwn: Baker | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -655,9 +681,10 @@ export class MapRenderer {
     return (this.high ? this.high.settled : true) && (this.waterMotion?.ready ?? true);
   }
 
-  /** The renderer's bake worker, made when first needed. */
+  /** The page's bake worker (the moving water's fields and shapes, High's occlusion), shared by every
+   *  view. */
   private get baker(): Baker {
-    return (this.bakerOwn ??= new Baker());
+    return pageBaker();
   }
 
   /** The Flow view: the water's current shown as streaks travelling down its lanes (the moving
@@ -932,6 +959,12 @@ export class MapRenderer {
     const t0 = performance.now();
     this.clearMap();
     this.waterQueue.clear();
+    // (the last map's water still with the worker is never drawn on this one)
+    this.waterVersion++;
+    this.waterFloor = this.waterVersion;
+    this.drawnWater.clear();
+    this.waterReady.clear();
+    this.mesherOwn?.clear();
     const { W, H, heights } = v;
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
@@ -1107,10 +1140,14 @@ export class MapRenderer {
   }
 
   private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
-    const key = `${cx},${cy}`;
-    const old = this.water.get(key);
     const m = this.map!;
-    const d = meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy), this.waterVersion);
+  }
+
+  /** A water chunk's mesh on the scene, made on the water of `version`. */
+  private drawWater(key: string, d: WaterMeshData, version: number): number {
+    const old = this.water.get(key);
+    this.drawnWater.set(key, version);
     this.meshFalls(key, d.falls, d.fallCount);
     const arrays: ChunkArrays = {
       quads: d.quads,
@@ -1120,6 +1157,7 @@ export class MapRenderer {
         { name: "wdata", array: d.data, itemSize: 2 },
         { name: "wflags", array: d.flags, itemSize: 1 },
       ],
+      sphere: d.sphere ?? null,
     };
     if (old && d.quads && refillChunk(old.geometry, arrays)) return d.quads;
     if (old) this.dropMesh(old);
@@ -1320,10 +1358,15 @@ export class MapRenderer {
     const changed = changedWaterChunks(m.W, m.H, m.surface, surface, m.surface.lower.length, surface.lower.length);
     m.water = water;
     m.surface = surface;
+    this.waterVersion++;
     const lower = lowerByTile(surface, water);
-    // (a stroke's chunks still waiting are meshed now too, on this water)
+    // (a stroke's chunks still waiting, or with the worker, are meshed now too, on this water)
     for (const key of this.waterQueue) changed.add(key);
+    for (const key of this.waterReady.keys()) changed.add(key);
+    for (const key of this.mesherOwn?.asked.keys() ?? []) changed.add(key);
     this.waterQueue.clear();
+    this.waterReady.clear();
+    this.mesherOwn?.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
       this.meshWater(cx, cy, lower);
@@ -1344,6 +1387,16 @@ export class MapRenderer {
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
+  /** The map's water's version: one more each time it is replaced. */
+  private waterVersion = 0;
+  /** The oldest version a chunk from the worker may show (the map's first water). */
+  private waterFloor = 0;
+  /** The water's version each drawn water chunk was meshed on. */
+  private readonly drawnWater = new Map<string, number>();
+  /** Chunks the water worker meshed, waiting for a frame to draw them (the newest of each). */
+  private readonly waterReady = new Map<string, { version: number; data: WaterMeshData }>();
+  /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
+  private mesherOwn: WaterMesher | null = null;
 
   /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
    *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
@@ -1357,9 +1410,10 @@ export class MapRenderer {
     if (!m) return 0;
     const surface = surfaceWater(m.W, m.H, water);
     if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
-    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0);
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, 0, 0, true);
     m.water = water;
     m.surface = surface;
+    this.waterVersion++;
     for (const key of changed) this.waterQueue.add(key);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
@@ -1374,33 +1428,74 @@ export class MapRenderer {
     this.lightRows.touch(a.sx0, a.sy0, a.sx1, a.sy1);
   }
 
-  /** Mesh waiting water chunks for at most `budget` ms, nearest the view's middle first. */
+  /** The worker's water, made when first wanted (none where workers can't start: the page's thread). */
+  private get mesher(): WaterMesher | null {
+    this.mesherOwn ??= new WaterMesher(
+      (key, version, data) => {
+        // (older than the water already drawn there, or the last map's: dropped)
+        if (version < this.waterFloor || version <= (this.drawnWater.get(key) ?? -1)) return;
+        this.waterReady.set(key, { version, data });
+        this.requestRender();
+      },
+      (keys) => {
+        for (const k of keys) this.waterQueue.add(k);
+        this.requestRender();
+      },
+    );
+    return this.mesherOwn.working ? this.mesherOwn : null;
+  }
+
+  /** A stroke's water: the chunks the worker has meshed drawn for at most `budget` ms, and the ones
+   *  still to mesh sent to it, nearest the view's middle first; without the worker, meshed here for
+   *  at most `budget` ms. */
   private drainWater(budget: number): void {
     const m = this.map;
     if (!m) {
       this.waterQueue.clear();
+      this.waterReady.clear();
       return;
     }
     const t0 = performance.now();
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
-    const keys = [...this.waterQueue].map((k) => {
-      const [cx, cy] = k.split(",").map(Number);
-      return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
-    });
-    keys.sort((a, b) => a.d - b.d);
-    let baked = false;
-    for (const { k, cx, cy } of keys) {
-      if (baked && performance.now() - t0 > budget) break;
+    const nearest = (keys: Iterable<string>) =>
+      [...keys]
+        .map((k) => {
+          const [cx, cy] = k.split(",").map(Number);
+          return { k, cx, cy, d: (cx + 0.5 - tx) ** 2 + (cy + 0.5 - ty) ** 2 };
+        })
+        .sort((a, b) => a.d - b.d);
+    let done = false;
+    for (const { k, cx, cy } of nearest(this.waterReady.keys())) {
+      if (done && performance.now() - t0 > budget) break;
+      const r = this.waterReady.get(k)!;
+      this.waterReady.delete(k);
+      if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
+      this.drawWater(k, r.data, r.version);
+      this.waterTiles(m, cx, cy);
+      done = true;
+    }
+    if (!this.waterQueue.size) return;
+    const mesher = this.mesher;
+    if (mesher) {
+      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest(this.waterQueue).map((c) => c.k));
+      this.waterQueue.clear();
+      return;
+    }
+    for (const { k, cx, cy } of nearest(this.waterQueue)) {
+      if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
       this.meshWater(cx, cy, null);
-      // the ground under it: its tile data (the water over each top)
-      if (this.tileTex) {
-        tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
-        this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
-      }
-      baked = true;
+      this.waterTiles(m, cx, cy);
+      done = true;
     }
+  }
+
+  /** The ground's tile data under a water chunk drawn anew (the water over each top). */
+  private waterTiles(m: MapState, cx: number, cy: number): void {
+    if (!this.tileTex) return;
+    tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1854,6 +1949,19 @@ export class MapRenderer {
 
   /** The brush under the cursor, as last shown (tests). */
   brushCursorState: BrushCursorState | null = null;
+  /** The brush moved since it was last laid on the ground. */
+  private cursorStale = false;
+
+  private blockGhost: BlockGhost | null = null;
+
+  /** The blocks an area stroke will add or take away, while it is dragged (the area brush, the
+   *  game's Terrain): each tile's level before and after; null or none puts them away. */
+  setBlockGhost(tiles: readonly GhostTile[] | null): void {
+    const m = this.map;
+    if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
+    else this.blockGhost?.clear();
+    this.requestRender();
+  }
 
   /** Show the brush under the cursor (null hides it). */
   setBrushCursor(s: BrushCursorState | null): void {
@@ -1865,7 +1973,8 @@ export class MapRenderer {
       if (!s) return;
       this.cursor = new BrushCursor(this.scene);
     }
-    this.cursor.set(s, m.heights, m.W, m.H);
+    // (laid on the ground once a frame, however many times the pointer moved: renderNow)
+    this.cursorStale = true;
     this.requestRender();
   }
 
@@ -2080,8 +2189,9 @@ export class MapRenderer {
   /** Frame the map in the view (D345, B1): the whole map inside the canvas with a margin, its middle at
    *  the canvas's middle, whatever the view (orbit or top-down) and however big the window; clear of
    *  the page's controls (`setFrameInsets`), in the part of the canvas they leave (a side they would
-   *  leave under a quarter of the canvas is framed whole). The map's four corners are projected; the
-   *  distance scales to fit them and the target moves to centre them. */
+   *  leave under a quarter of the canvas is framed whole). The map as drawn is fitted (its edges at their
+   *  own heights, the sides below them, and the hills inside), snug with FRAME_MARGIN all round: the
+   *  distance scales to fit its box and the target moves to centre it. */
   frameMap(): void {
     const m = this.map;
     if (!m) return;
@@ -2095,18 +2205,24 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const corners: [number, number][] = [[0, 0], [m.W, 0], [0, m.H], [m.W, m.H]];
+    const outline = drawnOutline(m.W, m.H, m.heights);
+    const v = new Vector3();
+    /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
+      this.placeCamera();
+      const cam = this.camera();
       let x0 = Infinity;
       let y0 = Infinity;
       let x1 = -Infinity;
       let y1 = -Infinity;
-      for (const [x, y] of corners) {
-        const p = this.project(x, level, -y);
-        x0 = Math.min(x0, p.x);
-        x1 = Math.max(x1, p.x);
-        y0 = Math.min(y0, p.y);
-        y1 = Math.max(y1, p.y);
+      for (let k = 0; k < outline.length; k += 3) {
+        v.set(outline[k], outline[k + 1], outline[k + 2]).project(cam);
+        const x = ((v.x + 1) / 2) * w;
+        const y = ((1 - v.y) / 2) * h;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
       }
       return { x0, y0, x1, y1 };
     };
@@ -2119,9 +2235,11 @@ export class MapRenderer {
     const top = down ? ins.top : 0;
     const fw = across ? w - ins.left - ins.right : w;
     const fh = down ? h - ins.top - ins.bottom : h;
-    for (let pass = 0; pass < 4; pass++) {
+    // snug, a small even margin all round (D345 B1; Kyler's sitting on Layout 2, 2026-10-03)
+    const room = (n: number) => Math.max(n / 2, n - 2 * FRAME_MARGIN);
+    for (let pass = 0; pass < 6; pass++) {
       let b = box();
-      const s = Math.max((b.x1 - b.x0) / (fw * 0.86), (b.y1 - b.y0) / (fh * 0.86));
+      const s = Math.max((b.x1 - b.x0) / room(fw), (b.y1 - b.y0) / room(fh));
       if (Number.isFinite(s) && s > 0) this.view.distance = Math.min(this.view.distance * s, Math.max(m.W, m.H) * 6);
       b = box();
       const at = this.pickAtLevel(r.left + (b.x0 + b.x1) / 2, r.top + (b.y0 + b.y1) / 2, level);
@@ -2180,10 +2298,14 @@ export class MapRenderer {
   renderNow(): void {
     if (this.disposed) return;
     this.flushTerrain();
-    // a stroke's water still to mesh: a few milliseconds of it a frame (updateWaterSoon)
-    if (this.waterQueue.size) {
+    if (this.cursorStale && this.cursor && this.map) {
+      this.cursorStale = false;
+      this.cursor.set(this.brushCursorState, this.map.heights, this.map.W, this.map.H);
+    }
+    // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
+    if (this.waterQueue.size || this.waterReady.size) {
       this.drainWater(WATER_MESH_BUDGET_MS);
-      if (this.waterQueue.size) this.requestRender();
+      if (this.waterQueue.size || this.waterReady.size) this.requestRender();
     }
     this.placeCamera();
     this.uniforms.time.value = this.clock ?? (performance.now() - this.t0) / 1000;
@@ -2651,14 +2773,15 @@ export class MapRenderer {
     this.clearMap();
     this.retiredMotion?.dispose();
     this.retiredMotion = null;
+    this.mesherOwn?.dispose();
     this.cursor?.dispose();
     this.ring?.dispose();
     this.effects?.dispose();
+    this.blockGhost?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.high?.dispose();
     this.high = null;
-    this.bakerOwn?.dispose();
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();

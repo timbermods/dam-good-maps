@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
+import { buildMap } from "../../src/core/features/build";
+import { writeTimber } from "../../src/core/format/timber";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { canonicalSettle } from "../../src/core/sim/prefill";
@@ -29,7 +32,6 @@ function maxDepthOps(s: MapSession, tiles: number[], depth: number): { ops: Edit
 describe("Max water depth (D264)", () => {
   const lakeAndRiver = async (seed: number) => {
     await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     let s = open();
     // a lake: a 10 × 10 pit at level 4 in a 14 × 14 block at level 10, on dry ground far from the
@@ -90,4 +92,19 @@ describe("Max water depth (D264)", () => {
   // seed 3 the settle leaves the pit 0.07 over the 3, past the 0.06 the bound allows (the editor's water,
   // for the milestone session); when it passes, `fails` comes off.
   it.fails("seed 3: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(3));
+
+  // Where no water is deeper than the number there is nothing to raise, and nothing is sent; an empty
+  // step reaching the session is refused with a reason, never a history entry (reading the history
+  // crashed on one).
+  it("with no water deeper than the number nothing is sent, and an empty step is refused, the history as it was", () => {
+    const S = 32;
+    const flat = buildMap({ W: S, H: S, seed: 1, features: [], base: { heights: new Uint8Array(S * S).fill(8), columns: new Map(), entities: [] } });
+    const s = MapSession.importMap(writeTimber(toTimberFile(makeSpec({ seed: 1, theme: "highlands", size: { x: S, y: S } }), flat)), "flat.timber");
+    const all = Array.from({ length: S * S }, (_, i) => i);
+    expect(depthLevels(all, s.built.heights, new Float64Array(S * S), s.built.heights, 2).size).toBe(0);
+    const r = s.applyAll([], "user", "Water no deeper than 2");
+    expect(r).toMatchObject({ ok: false, errors: ["nothing to change"] });
+    expect(s.history()).toEqual([]);
+    expect(s.canUndo).toBe(false);
+  });
 });

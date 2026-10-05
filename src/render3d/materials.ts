@@ -1174,7 +1174,7 @@ ${hook(h, "water")}        // clear water (D196, D212; waterPalette.ts CLEAR_WAT
               float reach = sv.g > 0.5 ? 1.5 : 0.5;
               lit = max(lit, 1.0 - smoothstep(reach - 0.06, reach + 0.04, max(q.x, q.y)));
             }
-          c = mix(c, vec3(0.9, 0.12, 0.08), lit * 0.9);
+          c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
           alpha = mix(alpha, 0.97, lit * 0.9);
         }
         gl_FragColor = vec4(finish(c, vWorld), alpha);

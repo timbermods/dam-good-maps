@@ -1,6 +1,9 @@
 // Calibrated targets (PLAN §4, §5): the TypeScript side of prototype/calibrated.py. The numbers come
 // from investigation/calibration.json; tests/contract/calibrated.test.ts asserts the two agree.
 
+import { hazardDays } from "../sim/weather";
+import * as portable from "../math/portable";
+
 /** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). The resource rows
  *  (scrap, trees, bushes, ruin field columns) are investigation/official-baselines.json's class
  *  medians: Nomads and Oasis left out (Kyler), and the clear outliers of each rate (Beaverome's trees,
@@ -18,42 +21,9 @@ export const DENSITY = {
 } as const;
 export type DensityKey = keyof typeof DENSITY;
 
-/** log(area) interpolation without Math.log: ln(a) − ln(b) = ln(a/b), and the anchors are fixed,
- *  so the interpolation weight is computed from a deterministic ln of a ratio. */
+/** A density row at a map's size: the size classes' medians joined in ln(area) (`officialPerMap`). */
 export function density(key: DensityKey, area: number): number {
-  const ys = DENSITY[key];
-  const a = Math.max(area, 1);
-  if (a <= SIZE_ANCHORS[0]) return ys[0];
-  for (let i = 1; i < SIZE_ANCHORS.length; i++) {
-    if (a <= SIZE_ANCHORS[i]) {
-      const t = lnDet(a / SIZE_ANCHORS[i - 1]) / lnDet(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
-      return ys[i - 1] + t * (ys[i] - ys[i - 1]);
-    }
-  }
-  return ys[ys.length - 1];
-}
-
-/** Natural log for x in [1, 64] by halving to [1, 2) and the atanh series (basic operations only). */
-export function lnDet(x: number): number {
-  if (x <= 0) throw new Error("lnDet of a non-positive number");
-  let k = 0;
-  while (x >= 2) {
-    x /= 2;
-    k++;
-  }
-  while (x < 1) {
-    x *= 2;
-    k--;
-  }
-  const z = (x - 1) / (x + 1);
-  const z2 = z * z;
-  let term = z;
-  let sum = 0;
-  for (let n = 1; n < 60; n += 2) {
-    sum += term / n;
-    term *= z2;
-  }
-  return 2 * sum + k * 0.6931471805599453;
+  return officialPerMap(DENSITY[key], area);
 }
 
 /** Official ruin column height shares H1…H8 (official-baselines.json `ruins.storeys`, Nomads and
@@ -103,16 +73,12 @@ export const OFFICIAL_LAYOUT = {
   ruinOrientations: { Cw0: 0.593, Cw90: 0.139, Cw180: 0.098, Cw270: 0.17 },
   /** A field's columns fill this share of their bounding box (25th 0.50, 75th 0.64). */
   fieldFill: 0.56,
-  /** Mean storeys per field: 10th and 90th percentiles (some fields short, some tall). */
-  fieldMeanStoreys: [2.19, 3.88],
 } as const;
 
 export const RUINS = {
-  singlesShare: 0.05,
   centerBias: 0.35,
   holeShare: 0.05,
   compactness: 2 as const,
-  minStartDist: 22, // official nearest ruin to the start: p10 22
   minFieldSpacing: 18,
   sizeFactors: [0.6, 0.8, 1.0, 1.2, 1.5, 1.9],
 };
@@ -125,7 +91,6 @@ export const FOREST = {
 };
 
 export const BUSHES = {
-  patchMedian: 20,
   nearStartRadius: 16,
 };
 
@@ -134,9 +99,6 @@ export const RIVER_FLOW_MULTIPLIER = { trickle: 0.6, normal: 1, strong: 2, lush:
 /** The strongest river an official map has, blocks of water per second: about its whole water
  *  (water_strength_per_10k × area, about 7 on 256²). A drawn river may be stronger, and says so. */
 export const OFFICIAL_FLOW = 8;
-
-/** Badwater-to-clean strength ratio by the Badwater setting (PLAN §5.4; official median 0.65). */
-export const BADWATER_RATIO = { off: 0, low: 0.3, normal: 0.65, high: 1.2 } as const;
 
 /** Badwater sources like the official maps (Kyler's "Badwater on every map", 2026-09-26, D200;
  *  official-baselines.json `rates.badwater_*` and `badwater`): BadwaterSources per map and their
@@ -159,14 +121,15 @@ export const BADWATER_SETTING = {
   high: { sources: 1.5, strength: 1.75 },
 } as const;
 
-/** A per-map official median at `area`: the class medians joined in ln(area), as `density` joins
- *  its rows. */
+/** A per-map official median at `area`: the class medians joined in ln(area) (`density` reads its
+ *  rows through it). Without Math.log: ln(a) − ln(b) = ln(a/b), and the anchors are fixed, so the
+ *  weight is a deterministic ln of a ratio (math/portable.ts `log`). */
 export function officialPerMap(ys: readonly number[], area: number): number {
   const a = Math.max(area, 1);
   if (a <= SIZE_ANCHORS[0]) return ys[0];
   for (let i = 1; i < SIZE_ANCHORS.length; i++) {
     if (a <= SIZE_ANCHORS[i]) {
-      const t = lnDet(a / SIZE_ANCHORS[i - 1]) / lnDet(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
+      const t = portable.log(a / SIZE_ANCHORS[i - 1]) / portable.log(SIZE_ANCHORS[i] / SIZE_ANCHORS[i - 1]);
       return ys[i - 1] + t * (ys[i] - ys[i - 1]);
     }
   }
@@ -178,11 +141,13 @@ export const RESERVE = { scarce: 1, normal: 1.5, plenty: 3 } as const;
 /** Lakes and basins: multipliers on the official natural-basin median for the size (PLAN §5.3). */
 export const LAKES = { none: 0, few: 0.5, some: 1, many: 2 } as const;
 
-/** Stored water a colony needs through the worst drought (PLAN §11.4). */
+/** Stored water a colony needs through the worst drought (PLAN §11.4): the longest drought of the
+ *  difficulty (sim/weather.ts `hazardDays`, the game's own range; prototype/playability.py
+ *  `DROUGHT_DAYS` writes them out) and the colony it waters. */
 export const DROUGHT = {
-  easy: { days: 4, colony: 40 },
-  normal: { days: 9, colony: 50 },
-  hard: { days: 30, colony: 50 },
+  easy: { days: hazardDays("easy", "drought"), colony: 40 },
+  normal: { days: hazardDays("normal", "drought"), colony: 50 },
+  hard: { days: hazardDays("hard", "drought"), colony: 50 },
 } as const;
 
 export function reservoirNeeded(d: keyof typeof DROUGHT): number {

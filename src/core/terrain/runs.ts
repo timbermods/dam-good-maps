@@ -3,8 +3,8 @@
 // bottom to top: a heightfield tile is one run [0, h); a cave, an overhang or a tunnel is a tile
 // with two runs or more; an arch's span is a run over air.
 //
-// - In memory (`ColumnTerrain`): one 23-bit mask per tile (bit z set: voxel z is solid), the
-//   surface derived from it. 3D-a moves the build onto it; M9a uses it for the document.
+// - In memory: one 23-bit mask per tile (bit z set: voxel z is solid), the surface derived from it
+//   (sim/columns.ts `VoxelMasks`). 3D-a moves the build onto it; M9a uses it for the document.
 // - In the document (project format 3, `TerrainData`): the surface per tile, plus the runs of every
 //   tile that is not one plain run from z = 0, in index order. A generated map without 3D forms
 //   stores an empty list, so the format needs no change when terrain above terrain arrives (I-1).
@@ -75,7 +75,8 @@ export function terrainColumns(d: TerrainData, N: number): { heights: Uint8Array
   return { heights, columns };
 }
 
-/** The terrain in memory: one voxel mask per tile. */
+/** The terrain in memory: one voxel mask per tile, with its runs and surface (the Unstable Core's blast,
+ *  sim/explosion.ts, and its after view, doc/blast.ts). */
 export class ColumnTerrain {
   readonly N: number;
   constructor(

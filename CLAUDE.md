@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+@AGENTS.md
+
 > **Kyler's standing rule on checks, above every other (PLAN §20, D454):** no excessive tests, timings or validation, only
 > when genuinely necessary or when Kyler asks. Speed is judged by Kyler using the product. What stays: CI and the nightly
 > suite, checks that catch real bugs, and a real check that the change works before reporting it done. Before adding any
@@ -34,6 +36,9 @@
 >   the change before reporting it done. If none can run, say which and why.
 > - Downscale screenshots and captures before a model reads them, unless the detail is what's being judged.
 
+> **Decisions (D467):** read [docs/decisions/README.md](docs/decisions/README.md), then
+> [docs/decisions/how-we-work.md](docs/decisions/how-we-work.md), then only the topic files your task touches.
+
 > **New milestone session? Read [docs/HANDOFF.md](docs/HANDOFF.md) first.** It says how to start, how things are run here
 > and the machine; [docs/STATUS.md](docs/STATUS.md) says what's in flight and what waits for Kyler.
 
@@ -42,6 +47,23 @@
 
 Dam Good Maps: a map generator for Timberborn. The README says what the repository holds; [docs/README.md](docs/README.md)
 maps the documents.
+
+## Coordination (D470)
+
+- **Labels on your own PRs:** `hold` (never merge), `needs-kyler` (waiting on Kyler's eye; never merge while on),
+  `approved` (Kyler approved the human-facing result). Anything a player sees, hears or feels needs `approved` to merge.
+- **The Coordination issue** ([#236](https://github.com/timbermods/dam-good-maps/issues/236)): read it when you start a
+  task, before you push and when you finish; answer there, each comment starting "To milestone:", "To page:", "To renderer:" or
+  "To <session name>:". Codex doesn't use it.
+- **The line:** sessions settle merge order, holds, rebases, re-pins, CI failures (whoever broke it fixes it) and ordering on
+  overlapping files. Kyler alone decides what a player sees, hears or feels, a new direction or scope, rules, adopting Codex
+  work, releases, probe batches, anything that spends usage, and anything you're unsure about: `needs-kyler` and a ping.
+- **Everything that needs Kyler carries `needs-kyler`,** so one GitHub list shows it all: the PR if there is one; otherwise a
+  small issue with the question in a few lines, closed once he has answered. Codex PRs ready for his verdict get it too.
+- **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.
+- **Pings** only when Kyler's attention is needed, never for progress: the `needs-kyler` label pings his phone from GitHub;
+  `tools/notify.ps1` adds a toast on this machine.
+- A decision gets a number only when it's a rule that constrains future work. Full version: `docs/HANDOFF.md`.
 
 ## Standing rules
 
@@ -142,5 +164,8 @@ text.
 - The deploy workflow can publish a branch at `/preview/` (noindex): run it by hand with `preview_ref=<branch>`. The slot
   belongs to the page session while it works (D396): ask Kyler before publishing anything else there. Small changes to the
   deploy workflow itself are released as their own tag, like `preview-workflow-done`.
+- The roadmap canvas (`tools/roadmap-canvas/index.html`) is published at `/roadmap/` from dev, not main, always noindex:
+  deploy.yml copies dev's file when it builds, and `roadmap-sync.yml` runs that deploy again when dev's copy changes,
+  keeping `/preview/` (its `ref.txt`).
 - Tokens and secrets are Kyler's to create and store with `gh secret set`. Never ask Kyler to paste one into chat.
 - Kyler has said Claude may merge tagged releases into `main` and manage the Pages setting.

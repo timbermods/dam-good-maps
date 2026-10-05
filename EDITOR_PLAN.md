@@ -3,8 +3,8 @@
 > **The yardstick for every review: [docs/PERFECT.md](docs/PERFECT.md)** (what perfect means, `PLAN.md` §20 D225).
 
 **Read this before any editor work** (`CLAUDE.md`). Part 1 is the editor's vision and how it works now, taken from
-Kyler's decisions (`PLAN.md` §20: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
-reference. Where anything here conflicts with `PLAN.md` §20, §20 wins. The next screen is
+Kyler's decisions (`docs/decisions/`: D158, D172, D179–D187 and the later ones it cites). Part 2 is the technical
+reference. Where anything here conflicts with `docs/decisions/`, the decisions win. The next screen is
 [docs/UI-BRIEF.md](docs/UI-BRIEF.md)'s ("The page is the editor", D330; a separate page session owns that design):
 where this document describes the screen and the brief differs, the brief wins. What was superseded, the detailed
 text this document condensed (at D390) and the deferred Claude integration's design are in
@@ -91,6 +91,19 @@ The editor's parts as they are now; their placement and styling are the design p
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
+  - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill
+    (it stands on an aquifer), Badtide Drain (1×3 in the game's data), Unstable Core, Reserve Pile, Warehouse and
+    Tank, Succulent and Mixed woods, with the game's values pinned in `core/data/parity-values.json`. The core has
+    them all; the shelf's tiles, models and settings are the page's. `planEntity` places one at the game's
+    defaults (a new badwater source writes 3; older operations without components keep 1); `optionsOf` and
+    `setOptionsOp` read and change strength or sink (`maxStrength`, 8 a tile), a start delay (Starts at once, or
+    a cycle and countdown days; none for aquifers), a core's radius 0–5 and cycle, a reserve's good (`goodsFor`)
+    and whole stock up to its capacity, each checked against the whole result with a one-line refusal;
+    `planPaintObjects` and the `paintObjects` operation scatter a stroke as literal placed objects in one undo
+    step (Size, Density 0.05–1, Age); `markerNotes` labels them; `blastInfo` and `explosionAfter` answer what a
+    core clears and draw the map after it goes off, the water re-settled, without changing the session;
+    `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
+    never use the placement path (D425).
 - **The view buttons** (D287): one **Top-down** toggle (lit while the view looks straight down), Reset view, Height
   colours, **Level lines** (D248: a thin line wherever the ground steps down a level, off by default), Markers (the
   sources and the slopes), Clear water and the overlays, **Badwater** and **Under roofs** (where the map has roofed
@@ -103,7 +116,8 @@ The editor's parts as they are now; their placement and styling are the design p
   (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the whole map, centred in the map area** (D345,
   B1), clear of the page's controls: the page tells the renderer which edges of the canvas they cover
   (`setFrameInsets`, CSS pixels, none by default), and Reset view, a view switched and a new map frame within what
-  is left; a panel opening or closing never moves the camera by itself (D265).
+  is left: the map as drawn (its edges at their heights, its sides, its hills) fitted snugly, a small even margin
+  all round; a panel opening or closing never moves the camera by itself (D265).
 - **Visible layers, identical to Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows. Everything above the chosen level is hidden (terrain, water, objects) and the cut
   surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's level, and again on the
@@ -155,7 +169,7 @@ The editor's parts as they are now; their placement and styling are the design p
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate; Erode and Deposit when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
@@ -188,7 +202,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. The water, swept sources' water included, stays as it was until the land is final, then flows on as after
   any edit; except a carve's river, **born as it cuts** (D371): while it is shown, the map's water flows on the land
   as each frame has it, its source running from the first step, so the water follows the cutting edge down the new
-  channel (shown as a stroke's water is); kept (or skipped to its end), the map's water flows on from that water, so
+  channel (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
+  the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
@@ -231,7 +246,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `src/editor/forceSize.ts`): hold F and move the mouse to size the ring on the map (a click or letting go keeps
   it, Esc or a right click puts it back), { and } step the Size, [ and ] the Power by five (or F held and the wheel,
   D368 (11)), the number beside the pointer. **Size sets how far a force reaches; Power how strong it is within
-  that** (`core/forces/strength.ts`): a force set larger than its Power's own size keeps its reach and acts in
+  that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
   (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
@@ -254,11 +269,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
-  two levels; moist for crops and may flood when the river refills, D307; `core/forces/carve/river.ts`). **Keep
+  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
-  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. A
-  source row at the map's edge must flow into the map (D321, item 27: `core/water/edgeSources.ts` keeps what leaks
-  with the run, `edgeLeaks`; the fix, M9b's edge lip, plugs into `EDGE_LIP`). Space pauses it. An oxbow lake holds its
+  fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
   has, D222). Fresh volcanic rock (Erupt's) is hard for it.
 
@@ -315,6 +328,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
+- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
+  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
+  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
+  More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
+  `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
+- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
+  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
+  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
+  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
+  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
@@ -638,7 +664,7 @@ flags them if they reappear anywhere else (D188).
 ## Working rules
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
-  entry. Record deviations and decisions in `PLAN.md` §20.
+  entry. Record deviations and decisions in `docs/decisions/` (its index says how).
 - The editor must never export a file that breaks the game. Load problems block export; playability and design
   problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only
@@ -701,7 +727,9 @@ stroke records the options it used:
   bed) and `dry`; a stroke that never leaves the water it began in is a deepening pass (`deepen`: a level off what
   the brush's middle passes over, once). The bed never rises along the stroke, so the replay carves the same bed.
   Strokes saved before D263 keep their old start and replay exactly.
-- Also recorded: the brush kit's options (`square`; `target`, D322: Raise, Lower and Flatten exact with hard edges,
+- Also recorded: the brush kit's options (`square`; `shape: "area"`, Timberborn's Terrain on Raise and Lower: a
+  rectangle between the stroke's two dabs, every tile to the tool's Level, or a block up or down per tile on Free; one
+  operation, one undo step, #227; `target`, D322: Raise, Lower and Flatten exact with hard edges,
   a stroke without one is soft, Free; `mode` with the tiles that were wet when it started and, for Ground, the
   banks' levels, `wet`, `bank`; `sources: "keep"` with its `keep` runs; the tiles a layer cut keeps; the pieces
   that ride whole, `rigid`, a 3 × 3 badwater source's rectangle taking its middle tile's level, D249 (a stroke that
@@ -719,7 +747,8 @@ stroke records the options it used:
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
   item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. Projects saved with the `carve` operation of before still open and replay exactly.
+  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
 the stored base, D37). The log replays only onto that generation: undo and redo, reopening a project and share
@@ -728,7 +757,10 @@ nothing replaces a document's generation under its log, at any size or setting, 
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
 away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
-leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385). Its slopes, trees
+and bushes stand exactly as stored, whatever today's rules would make, except where the edits changed a tile (its
+ground, or its water or soil against the stored map's): there a slope whose step went is gone for good, and a tree or
+bush is judged again, dead or alive, as a live map's is (D368 (10), D404).
 
 After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
@@ -747,10 +779,18 @@ Dirty-region tracking lets rendering, validation and the water preview update on
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; autosave in the browser through the storage
 adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recovering the last session on reload
 (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
-a new imported map.
+a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
+what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
+once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
+rebuilding, as every project did before.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
-history is visible as a list the user can step back through. A step of several operations (a force with its objects,
+history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
+once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
+with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
+code changed since the save), and undo stops at the save point, with a notice: the map as saved is the earliest
+state, never an approximate replay, and the history lists only the steps undo can reach. An undo that would cross the
+save point before the comparison is in does the comparison first, right there. A step of several operations (a force with its objects,
 a stroke that clears sources, a source changed) stays one undo step after the project is reopened: each of its
 operations records where its step begins (`step`, the first one's `seq`; its label is the first one's), D456. A
 project saved before that undoes operation by operation; an older app ignores the field. Undo never crosses from one map to another: each
@@ -787,19 +827,20 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
-  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
-  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
+  generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
+  stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
+  ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
-  objects under it in the same step (`doc/tools.ts` `startClears`). `tests/contract/editSequences.ts` runs every
+  objects under it in the same step (`doc/start.ts` `startClears`). `tests/contract/editSequences.ts` runs every
   brush and force in sequences and fails on any new object id (a few every run, every theme nightly). The same holds for an edited import and for the start (moving it places
   nothing, and its checks predict only the slopes that stand). What an edit leaves out of reach is reported, never
   repaired: the start's walk by `start.reach`, `start.water` and the rest, a mine site the colony reached when
   the map was opened and no longer does by `resources.mine_site` (advisory in the editor, on the quiet dot), each for the
   player to fix with a Slope from the shelf or the land. Two forces place the water they make, by design: Carve's
   river its source group (D314) and Glaciate its meltwater springs (D246). A stroke from before D247 or D270 that
-  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`worker/session.ts`
+  asked the planner for slopes still replays exactly; a new ramped Flatten is refused (`doc/strokes.ts`
   `newRampedStroke`). `tests/contract/editsPlaceNothing.test.ts` runs every force and brush and compares the objects
   before and after.
 - **One-click fixes** wherever a sensible fix exists: move the start to the nearest valid spot, add an outlet to a
@@ -811,8 +852,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
     stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
     tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
     **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
-  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps stop at 0.8 deep, and
-    aquifers run only under a powered drill. Drought is shown analytically: what the basins still hold after N days.
+  - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
+    above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
+    is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
   - **Sealed oxbow lakes** (D216): a carve's cut-off bend is a basin no source feeds; the carve stores the water the
     game settles there just before its mouths closed (`RetainedWater`), every settle starts the lake from it, and
     it evaporates as an unfed one does in the game. Its evaporation is not the water still changing (D222, D413), so
@@ -857,8 +899,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
-    soon as it has answered; the page meshes a stroke's water a few chunks a frame (`updateWaterSoon`), so painting
-    and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
+    soon as it has answered; the renderer's water worker meshes the chunks a stroke's water changed, nearest the
+    view first (`updateWaterSoon`, `waterMesher.ts`), and the page draws a few milliseconds of them a frame (on its
+    own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
+    two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history.
@@ -952,7 +996,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
     hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
     change, at most ten times a second while a brush paints), ambient occlusion made in a small worker
-    (`bake.worker.ts`), trees batched by species (at most 32 draws). Each effect is a uniform switch.
+    (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
@@ -968,7 +1012,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `carve/unleash.ts`): `breakout` finds where the water would spill over, `unleashWidth` its width from its
     strength; the operation names the source (`where.source`). The map's hidden rock is derived once from the map
     as opened; fresh volcanic rock comes from the forces' operations. What is kept is always the plan's final map,
-    touched by the build's own integrity pass in the worker.
+    touched by the build's own integrity pass. A force is planned and its operation assembled in the core
+    (`forces/start.ts` `planForce`, `forces/keep.ts` `keptForceParams`); the worker drives, shows and applies it.
   - The editor's worker works a force out a slice a call, then shows as many steps a frame as the page asks
     (`forceStart`, `forceAdvance`, `forcePaint`, `forceStop`, `forceCancel`, `forceAgain`; no second history or water
     owner); its frames carry the ground and the objects, never water, and say once it is worked out (`planned`) how

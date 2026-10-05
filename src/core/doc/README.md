@@ -4,6 +4,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 
 **Rules**
 - A saved document rebuilds to the same map, byte for byte, even after the generator changes (PLAN §19.7). The base map is stored and never mutated.
+- A project carries the map as it was saved (`stored.ts`, D367): it opens from it without rebuilding. On reopen the log is replayed once (the checks worker's replica, or `checkReplay`) and compared with the stored map byte for byte: the same, and undo below the save point works as normal; different, and undo stops at the save point, never an approximate replay (D455); an undo that would cross the save point before the comparison is in does it first. A project saved while its water was pending, or by another version, opens by rebuilding.
 - Operations are small and serialisable, and are checked against their schema and the current map. An invalid one is rejected, never clamped silently.
 - Old saved strokes and operations replay exactly (D158). Changing an operation's meaning breaks saved projects.
 - Headless: it runs in the page's worker and in Node.
@@ -12,8 +13,24 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `session.ts` `MapSession`: `apply`, undo and redo, export. Edits never replay onto new land (D336): no regeneration under a document's edits.
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
-- `base.ts` (the stored base map), `placing.ts` and `tools.ts` (turn a request into planned features and operations), `bake.ts` (old drawn landforms become plain terrain, D182).
-- `waterFix.ts` `waterFix`: the automatic water fix (D330): the operations that fix the start's water checks after edits (a spring by the start), as one step.
+- `stored.ts`: the stored map (`storeBuilt`, `restoreBuilt`, `sameMap`).
+- The editor's edits as plain questions on the session's map, each returning the operations and label (or why not) for
+  the worker to apply (D342): `placing.ts` (an object or a source from the shelf, `planEntity`; moving one; trees and
+  bushes painted, `planPlant`; a group of edits' spring pools, `withSpringPools`), `remove.ts` `planRemove` (Remove and
+  Clear everything), `strokes.ts` (a stroke with Clear sources, `planStrokeClearing`; a new ramped Flatten refused,
+  `newRampedStroke`), `tools.ts` (moving, turning or placing the start, `planStart`; what reshaped ground does to the
+  objects on it; features' plain names), `describeTile.ts` (what is on a tile: `describeTileOf`, `entitiesAtTile`).
+- `checkItems.ts`: the checks as the editor lists them: `checkItem` (every one-click fix a check has, the start's moves
+  among them), `instantChecks` (the load and design checks after an edit, those in its region marked), `groupChecks`
+  (the export dialog's groups, an import's own problems apart, D43).
+- `base.ts` (the stored base map), `bake.ts` (old drawn landforms become plain terrain, D182).
+- `start.ts`: the start's helpers the forces, Select, the shelf and the checks' fixes share (`startProblem`, `moveStartNear`,
+  `startClears`, `startCarry`, `startMiddle`), and Select's step with its start carry (`applySelection`).
+- `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
+  D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
+  it today (the page's fix waits on #92).
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
-**Tests**: `tests/contract/` (document, ops, bake, import, projects, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
+**Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
+
+**Map-editor object parity (D337–D339)**: `objectOps.ts` gives defaults, component patches, options and marker notes; `placing.ts` plans player placement; `paint.ts` plans explicit scatter placement, recorded as literal entities in one undo step. `blast.ts` answers `blastInfo` and `explosionAfter` without changing the session. Terrain brushes and forces never invoke these placement paths. Partial option changes are validated against the resulting components, with a one-line refusal. Historical no-component BadwaterSource operations keep strength 1; new planned placement writes the game default 3 explicitly.

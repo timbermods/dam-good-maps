@@ -5,13 +5,14 @@
 // as the editor opens it: its settings, seed, land, water and objects; gzip JSON). What makes a map fit to be one, and the
 // making itself, are plain core functions here (D342 (3), (4)): every map passed over says why.
 
-import { decodeProject, encodeProject, generatedDocument } from "../doc/document";
+import { decodeProject } from "../doc/document";
 import { MapSession } from "../doc/session";
 import { readTimber } from "../format/timber";
 import { generate, type GenerateResult } from "../gen/generate";
 import { mapName } from "../gen/pack";
 import { encodeSpecFragment, makeSpec, THEME_NAMES, type ThemeId } from "../spec/mapspec";
 import { validateMap } from "../validate/checks";
+import { failing } from "../validate/report";
 
 export const FIRST_VISIT_FORMAT = 1;
 /** Their folder under the site's base, and in the repository under public/. */
@@ -58,11 +59,11 @@ export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: 
 export function firstVisitProblems(r: GenerateResult): string[] {
   const out: string[] = [];
   if (!r.report.passed) {
-    const failed = r.report.checks.filter((c) => !c.ok && !c.advisory && c.severity === "error" && c.applicable !== false).map((c) => c.id);
+    const failed = r.report.checks.filter((c) => failing(c) && c.severity === "error").map((c) => c.id);
     out.push(`its checks fail (${failed.join(", ") || "the report"})`);
   }
   const v = validateMap(readTimber(r.bytes), { profile: "export", designedFor: r.spec.designedFor });
-  const blocking = v.report.checks.filter((c) => !c.ok && c.severity !== "info" && !c.advisory && c.applicable !== false).map((c) => c.id);
+  const blocking = v.report.checks.filter((c) => failing(c) && c.severity !== "info").map((c) => c.id);
   if (blocking.length) out.push(`its file fails ${blocking.join(", ")}`);
   const floor = v.report.checks.find((c) => c.id === "start.wood_floor");
   if (!floor || !floor.ok) out.push("its file misses the starting-logs floor");
@@ -72,15 +73,17 @@ export function firstVisitProblems(r: GenerateResult): string[] {
 }
 
 /** Whether a project file reopens as the map it was made from (the same size, land and objects),
- *  and how long opening it took, in ms. */
+ *  from its stored map (D367) and with its replay matching it (D455), and how long opening it took,
+ *  in ms. */
 export function reopensAs(r: GenerateResult, project: Uint8Array): { same: boolean; ms: number } {
   const t0 = performance.now();
-  const b = MapSession.open(decodeProject(project)).built;
+  const s = MapSession.open(decodeProject(project));
   const ms = Math.round(performance.now() - t0);
+  const b = s.built;
   const h = r.built.heights;
   let same = b.W === r.built.W && b.H === r.built.H && b.heights.length === h.length && b.entities.length === r.built.entities.length;
   for (let i = 0; same && i < h.length; i++) if (b.heights[i] !== h[i]) same = false;
-  return { same, ms };
+  return { same: same && s.openedFromStored && s.checkReplay(), ms };
 }
 
 export interface FirstVisitMade {
@@ -107,7 +110,8 @@ export function makeFirstVisit(theme: ThemeId, maxSeeds = 24): { made: FirstVisi
       passedOver.push({ seed, why });
       continue;
     }
-    const project = encodeProject(generatedDocument(r));
+    // (the project file as the editor saves it: with the map stored, so it opens without rebuilding)
+    const project = MapSession.fromGenerated(r).project();
     const back = reopensAs(r, project);
     if (!back.same) {
       passedOver.push({ seed, why: ["its project file reopens as a different map"] });

@@ -13,6 +13,7 @@ import type { IntentionId } from "../land/intentions";
 import { INTENTION_TEXT } from "../land/intentions";
 import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
+import { PROMISES } from "./outcomes";
 import type { ThemeId } from "../spec/mapspec";
 import * as portable from "../math/portable";
 
@@ -22,7 +23,6 @@ const TITLES: Record<IntentionId, string[]> = {
   "under-cliff": ["Cliff Shelter", "Under the Bluff", "Bluff Hollow {land}", "Crag Foot", "Sheltered Ledge"],
   landmark: ["Lone Spire", "The Watchstone", "Needle {land}", "Standing Stone", "Sentinel {land}"],
   "farmland-past-gorge": ["Beyond the Gorge", "Far Fields", "Gorge Crossing", "Fields Past the Chasm", "Across the Cut"],
-  "safe-water-uphill": ["Uphill Water", "The High Well"],
   "falls-shield": ["Falls Guard", "Behind the Falls", "Falls Watch {land}", "Curtain Falls", "Waterfall Ward"],
   "hidden-valley": ["Hidden Vale", "The Secret Shelf", "High Hollow", "Tucked Vale", "Lost Shelf {land}"],
   "high-lake": ["Sky Lake", "Perched Lake", "Upper Pool {land}", "Hanging Tarn", "Summit Water"],
@@ -49,30 +49,24 @@ const FALLBACK = ["Quiet {land}", "Open {land}", "Wide {land}"];
 
 const SEA_NOUNS: Record<SeaLayout, string> = { central: "Isles", edge: "Coast", archipelago: "Archipelago", chain: "Island Chain", atolls: "Atolls", twoSeas: "Twin Seas" };
 
+/** The lines Any's land word reads on the signature, first that holds: a delta's mouths, a lake
+ *  basin's share and big lake, a canyon's length (tiles), the highlands' share and plateaus, a
+ *  valley's share. They restate the themes' promises (outcomes.ts `PROMISES.holds`) at fixed values
+ *  where those scale with the map (canyon 20 here against max(16, …) there; valley 0.2 here against a
+ *  size-scaled floor; no cliffs line here); making them one changes Any maps' names. */
+const ANY_LAND = { mouths: 3, lakeShare: 0.55, bigLake: 0.04, canyon: 20, high: 0.6, plateaus: 3, valley: 0.2 } as const;
+
 /** The land's noun: the theme's, or for Any what the map shows most. */
 export function landNoun(theme: ThemeId, sig: Signature, seaLayout: SeaLayout | null | undefined): string {
   if (seaLayout) return SEA_NOUNS[seaLayout];
-  switch (theme) {
-    case "riverValley":
-      return "Valley";
-    case "canyon":
-      return "Gorge";
-    case "highlands":
-      return "Heights";
-    case "lakeBasin":
-      return "Lakelands";
-    case "delta":
-      return "Delta";
-    case "islands":
-      return "Isles";
-    default:
-      if (sig.mouths >= 3) return "Delta";
-      if (sig.lakeShare >= 0.55 && sig.bigLake >= 0.04) return "Lakelands";
-      if (sig.canyon >= 20) return "Gorge";
-      if (sig.high >= 0.6 && sig.plateaus >= 3) return "Heights";
-      if (sig.valley >= 0.2) return "Valley";
-      return "Lands";
-  }
+  if (theme !== "any") return PROMISES[theme].noun;
+  const A = ANY_LAND;
+  if (sig.mouths >= A.mouths) return PROMISES.delta.noun;
+  if (sig.lakeShare >= A.lakeShare && sig.bigLake >= A.bigLake) return PROMISES.lakeBasin.noun;
+  if (sig.canyon >= A.canyon) return PROMISES.canyon.noun;
+  if (sig.high >= A.high && sig.plateaus >= A.plateaus) return PROMISES.highlands.noun;
+  if (sig.valley >= A.valley) return PROMISES.riverValley.noun;
+  return "Lands";
 }
 
 function normal(s: string): string {

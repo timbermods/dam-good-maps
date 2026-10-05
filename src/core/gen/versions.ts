@@ -13,8 +13,8 @@
 
 import { sameLand } from "../analysis/story";
 import type { MapSpec, ThemeId } from "../spec/mapspec";
-import { generate, type GenerateOptions, type GenerateResult } from "./generate";
-import type { Outcomes } from "./outcomes";
+import { generate, type GenerateResult } from "./generate";
+import { PROMISES, type Outcomes } from "./outcomes";
 
 /** The most versions the background search makes before it gives up (the session's default,
  *  decisions-pending). */
@@ -44,20 +44,11 @@ export function notifies(m: Misses): boolean {
   return m.promise;
 }
 
-/** What a version that meets all three has that the map missed, in a few words, for its note:
- *  "A version with its sea is ready". */
-const PROMISE_WORDS: Record<Exclude<ThemeId, "any">, string> = {
-  riverValley: "its broad valley",
-  canyon: "its canyon",
-  highlands: "its highlands",
-  lakeBasin: "its big lakes",
-  delta: "its delta",
-  islands: "its sea",
-};
-
 export function versionNote(theme: ThemeId, m: Misses): string {
   const parts: string[] = [];
-  if (m.promise && theme !== "any") parts.push(PROMISE_WORDS[theme]);
+  // (what a version that meets all three has that the map missed, in a few words: "A version with
+  // its sea is ready"; outcomes.ts `PROMISES`)
+  if (m.promise && theme !== "any") parts.push(PROMISES[theme].words);
   if (m.water) parts.push(parts.length ? "clearer water" : "water you can follow");
   return `A version with ${parts.join(" and ") || "all it promises"} is ready`;
 }
@@ -78,19 +69,16 @@ export interface VersionSearch {
 
 /**
  * The background search: siblings of the map (its spec, the intentions it was steered toward, its
- * land) past its own variation, until one passes and meets all three outcomes. `stop()` ends it
- * early (a new map was asked for); `onTry` hears each sibling.
+ * land) past its own variation, until one passes and meets all three outcomes.
  */
-export function findVersion(from: { spec: MapSpec; intentions: readonly string[]; heights: ArrayLike<number> }, opts: { tries?: number; stop?: () => boolean; onTry?: (variation: number, r: GenerateResult) => void; generate?: GenerateOptions } = {}): VersionSearch {
+export function findVersion(from: { spec: MapSpec; intentions: readonly string[]; heights: ArrayLike<number> }): VersionSearch {
   const spec = from.spec;
   const intentions = spec.intentions ?? from.intentions;
-  const tries = opts.tries ?? VERSION_TRIES;
+  const tries = VERSION_TRIES;
   let variation = spec.variation ?? 0;
   for (let k = 0; k < tries; k++) {
-    if (opts.stop?.()) return { result: null, tried: k };
     variation++;
-    const r = generate(siblingSpec(spec, variation, intentions), opts.generate ?? {});
-    opts.onTry?.(variation, r);
+    const r = generate(siblingSpec(spec, variation, intentions));
     if (!r.report.passed || !r.outcomes?.met || sameLand(from.heights, r.built.heights)) continue;
     return { result: r, tried: k + 1 };
   }

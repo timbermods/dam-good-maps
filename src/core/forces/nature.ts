@@ -12,10 +12,12 @@
 import { stream } from "../math/rng";
 import type { CarveSettings } from "./carve/run";
 import type { CraterSettings } from "./craterize";
-import type { EruptSettings } from "./erupt";
+import type { EruptSettings, Point } from "./erupt";
 import type { QuakeSettings } from "./quake";
 import type { GlaciateSettings } from "./glaciate/model";
 import type { Verb } from "./op";
+import type { ForceRequest } from "./start";
+import { clamp } from "./random";
 
 /** The ground a force acts on: the map's heights and the tile it acts round. */
 export interface ForceGround {
@@ -42,7 +44,6 @@ export function ruggedness(g: ForceGround, r = 8): number {
   return hi > lo ? Math.min(1, (hi - lo) / 8) : 0;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const chance = (rng: { float(): number }, p: number) => rng.float() < clamp(p, 0, 1);
 /** The draws for one force at one place and seed (the ground's own height and relief lean them). */
 function draws(verb: string, seed: number, g: ForceGround) {
@@ -138,6 +139,10 @@ export function glaciateNature(s: GlaciateDraft, g: ForceGround): GlaciateSettin
  *  sends no pins, and the base a pinned subset is applied over. */
 export function autoDetailsOf(verb: Verb): Record<string, null> {
   switch (verb) {
+    case "rift":
+      return { walls: null };
+    case "deposit":
+      return { channels: null };
     case "carve":
       return AUTO_CARVE_DETAILS;
     case "craterize":
@@ -148,5 +153,33 @@ export function autoDetailsOf(verb: Verb): Record<string, null> {
       return AUTO_QUAKE_DETAILS;
     case "glaciate":
       return AUTO_GLACIATE_DETAILS;
+  }
+}
+
+/** The editor's force (D289): the choices its row doesn't show, drawn from the ground where it acts
+ *  (its origin, a painted stroke's middle) and the series' seed; what it runs with, and what its
+ *  operation keeps. */
+export function natureOf(req: ForceRequest, base: { W: number; H: number; heights: ArrayLike<number> }): ForceRequest {
+  const { W, H } = base;
+  const clampTile = (x: number, y: number) => Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)));
+  const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
+  const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
+  switch (req.verb) {
+    case "rift":
+      return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };
+    case "deposit":
+      return { ...req, settings: { ...req.settings, channels: req.settings.channels ?? "auto" } };
+    case "carve":
+      return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "craterize":
+      return { ...req, settings: craterNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "erupt":
+      return { ...req, settings: eruptNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
+    case "quake": {
+      const m = mid(req.path);
+      return { ...req, settings: quakeNature(req.settings, ground(clampTile(m.x, m.y))) };
+    }
+    case "glaciate":
+      return { ...req, settings: glaciateNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
   }
 }

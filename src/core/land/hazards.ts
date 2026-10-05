@@ -2,9 +2,8 @@
 // rises in a hollow on high ground (a pit dug two levels into the rock, its outline irregular) and
 // drains by its own winding ditch down the slope to a river below the start's water, or to the
 // map's edge, so the colony meets it later, downstream or across the valley, as a threat and a
-// late-game resource. The containment rule is the product's (`water.badwater_contained`): with the
-// outlet blocked, the water rising in the pit cannot leave its rim, so a levee on the ditch is the
-// counterplay. The set piece carries the pit's source, floor and outlet; the pit's own shape is the
+// late-game resource. A levee on the ditch is the counterplay; badwater may join rivers and lakes (D469,
+// `water.badwater_contained` is information). The set piece carries the pit's source, floor and outlet; the pit's own shape is the
 // terrain's, which the generated field holds.
 //
 // Every map gets `count` hollows unless its player chose No badwater (D200), each beyond the
@@ -19,7 +18,7 @@ import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
 import type { Feature, SetPieceFeature } from "../features/schema";
 import { hash32 } from "../math/hash";
-import { distanceFrom, MinHeap } from "../math/grid";
+import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import { windRoute } from "./wind";
@@ -29,7 +28,7 @@ import type { Hydro } from "./hydro";
 import { BED_FLOOR } from "./genome";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { LIP_REACH } from "../water/edgeLip";
-import { dist, N4 } from "./num";
+import { dist } from "./num";
 
 export interface Hazards {
   /** Hollows planned (0 when none fits, or No badwater). */
@@ -49,7 +48,7 @@ export interface BadwaterAsk {
   /** No badwater within this many tiles of the start: the larger of the Badwater distance setting
    *  and the start rule's (D85, D200). */
   distance: number;
-  /** Tiles no pit or ditch may take (a regeneration's constraints, PLAN §7.0). */
+  /** Tiles no pit or ditch may take (the weir's pool). */
   keepOff?: Uint8Array | null;
 }
 

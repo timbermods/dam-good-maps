@@ -6,7 +6,7 @@
 // the checks on open and rebuild the same .timber byte for byte, or the batch fails.
 //
 //   npx tsx tools/batch.ts [--seeds 1-100] [--size 128] [--difficulty normal] [--theme riverValley]
-//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6] [--native]
+//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6] [--wasm]
 //
 // --set takes settings in the share link's short keys (src/core/spec/codec.ts).
 //
@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { decodeProject, encodeProject, generatedDocument } from "../src/core/doc/document";
 import { MapSession } from "../src/core/doc/session";
+import { toMapObject } from "../src/core/features/build";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
 import { officialRange } from "../src/core/gen/calibrated";
 import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
@@ -24,6 +25,7 @@ import { atan2, hypot } from "../src/core/math/portable";
 import { badwaterBudget } from "../src/core/resources/badwater";
 import { decodeSpecFragment, type Difficulty, type ThemeId } from "../src/core/spec/mapspec";
 import { useNativeWater } from "./rust/native-water";
+import { measureResources } from "./lib/resources";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -48,9 +50,9 @@ const extra = arg("set", "");
 const minFinal = Number(arg("min-final", "0.98"));
 const minFirst = Number(arg("min-first", "0.6"));
 const report = arg("report", "");
-// --native: the canonical settles run in the native Rust water (PLAN §20 D381; build it with
-// `npx tsx tools/rust/build.ts --native`). Not the default until the Rust water is switched on (after M9b).
-if (process.argv.includes("--native")) useNativeWater();
+// the canonical settles run in the native Rust water (PLAN §20 D381; build it with `npx tsx
+// tools/rust/build.ts --native`); --wasm keeps them in WebAssembly, the same bytes
+if (!process.argv.includes("--wasm")) useNativeWater();
 
 let first = 0;
 let final = 0;
@@ -130,15 +132,11 @@ for (const seed of seeds) {
   for (const f of r.failures) for (const id of f.failed) failedChecks.set(id, (failedChecks.get(id) ?? 0) + 1);
   for (const c of r.report.checks) if (c.advisory && !c.ok) advisory.set(c.id, (advisory.get(c.id) ?? 0) + 1);
   if (r.report.passed) {
-    const have = { trees: 0, bushes: 0, scrap: 0 };
-    let m = 0;
-    for (const e of r.built.entities) {
-      const t = e.template;
-      if (t === "Pine" || t === "Birch" || t === "Oak" || t === "Succulent") have.trees++;
-      else if (t === "BlueberryBush") have.bushes++;
-      else if (t.startsWith("RuinColumnH")) have.scrap += 15 * Number(t.slice(11));
-      else if (t === "UndergroundRuins") m++;
-    }
+    // the resources as the official maps were measured (tools/lib/resources.ts), on the map's own water and soil
+    const b = r.built;
+    const res = measureResources({ W: b.W, H: b.H, heights: b.heights, depth: b.water, moisture: b.moisture, objects: b.entities.map(toMapObject) });
+    const have = { trees: res.trees.total, bushes: res.bushes.total, scrap: res.ruins.scrap };
+    const m = res.mines.count;
     const bad = r.built.entities.filter((e) => e.template === "BadwaterSource").length;
     badwater.push(bad);
     if (bad < badwaterBudget(r.spec.size.x, r.spec.size.y, r.spec.settings.hazards.badwater, r.spec.seed).sources) badwaterShort++;

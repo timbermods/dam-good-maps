@@ -380,25 +380,54 @@ export function placeSourceGroup(req: SourceGroupRequest, ground: SourceGroundIn
   return placeRow(req, ground, G);
 }
 
+/** A clean row of `n` sources sharing `total` as the rule shares it, each at most the game's cap: the
+ *  strengths of a row kept as it was placed (a generated spring's, features/build.ts). */
+export function rowStrengths(total: number, n: number): number[] {
+  return strengthsFor(total, n, MAX_STRENGTH_PER_TILE).each;
+}
+
 /** Tiles every source of a group takes (for the caller's `occupied` before the next group). */
 export function groupTiles(group: SourceGroup): number[] {
   return group.sources.flatMap((s) => s.tiles);
 }
 
 /**
+ * The one rule for a group member's id (D462, answer 5): the source at `place` (its place along the
+ * row, counted round the rule's count; a badwater pair's partner is place 1) takes an id derived from
+ * the anchor's (`anchorId`, place 0 keeps it). `taken` (a force's: the ids already standing or used):
+ * an id taken is passed over for the next one derived from the same place, so a new source never
+ * takes an id an object holds. Without `taken` (the build, which derives a group again on every
+ * replay), the id depends on the anchor and the place alone.
+ */
+export function groupMemberId(anchorId: string, place: number, taken?: (id: string) => boolean): string {
+  if (place === 0) return anchorId;
+  let id = guidFrom(anchorId, "sourceGroup", place);
+  for (let k = 1; taken?.(id); k++) id = guidFrom(anchorId, "sourceGroup", place, k);
+  return id;
+}
+
+/**
  * The ids of a group's sources, in `group.sources`' order (PLAN §19.4's stable ids): the anchor keeps
  * `anchorId`, the caller's id for the source at the requested tile, and every other source takes an
  * id derived from it and its place along the row counted round the rule's count (its offset from the
- * anchor modulo `group.wanted`; a badwater pair's partner is the one), never its tile. The rule's
- * count depends on the request alone, and a row is one unbroken run of at most that many tiles
- * through its anchor, so its places are distinct: two sources never share an id. A group placed
- * again for the same request on ground an edit changed (a Quake Lift raising one side of a row, a
- * stroke) keeps every id it still has: a source that stays keeps its own, and one the land moves to
- * the row's other end, the same spring, keeps the id of the one it replaces. A row that loses
- * sources loses their ids; only a longer row than before has a new one.
+ * anchor modulo `group.wanted`; a badwater pair's partner is the one), never its tile
+ * (`groupMemberId`). The rule's count depends on the request alone, and a row is one unbroken run of
+ * at most that many tiles through its anchor, so its places are distinct: two sources never share an
+ * id. A group placed again for the same request on ground an edit changed (a Quake Lift raising one
+ * side of a row, a stroke) keeps every id it still has: a source that stays keeps its own, and one
+ * the land moves to the row's other end, the same spring, keeps the id of the one it replaces. A row
+ * that loses sources loses their ids; only a longer row than before has a new one. `taken`: as
+ * `groupMemberId` (a force's new group, never an id already standing; its own members count as taken
+ * as they are named).
  */
-export function groupIds(anchorId: string, req: SourceGroupRequest, group: SourceGroup): string[] {
-  const member = (place: number) => guidFrom(anchorId, "sourceGroup", place);
+export function groupIds(anchorId: string, req: SourceGroupRequest, group: SourceGroup, taken?: (id: string) => boolean): string[] {
+  const named = new Set<string>([anchorId]);
+  const free = taken ? (id: string) => taken(id) || named.has(id) : undefined;
+  const member = (place: number) => {
+    const id = groupMemberId(anchorId, place, free);
+    named.add(id);
+    return id;
+  };
   if (req.kind === "badwater") return group.sources.map((_, k) => (k === 0 ? anchorId : member(k)));
   const n = Math.max(group.wanted, group.sources.length);
   return group.sources.map((s) => {

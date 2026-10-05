@@ -12,8 +12,10 @@
 // `features` is the current state, the log applied to the generation. It is stored for readers of
 // the file (the Python validator reads `spec` and `features`) and checked against the log when the
 // file is opened. `dropRetired` migrates a project file that still holds a lock, a `setLock` or
-// `regenerateRegion` operation, or a "stamp" origin (all removed): they are dropped or converted
-// quietly, and the land they held stays as it was saved.
+// `regenerateRegion` operation, a "stamp" origin or one of the editor's retired set pieces (all
+// removed): they are dropped or converted quietly, and the land the saved map holds stays as it was.
+// `upgradeCarves` turns a project's `carve` operations, from before the forces shared `forceResult`
+// (D220), into that one; they build exactly as they did.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -21,13 +23,15 @@ import type { BuildResult } from "../features/build";
 import { readTimber, type TimberFile } from "../format/timber";
 import { normalizeImport, type ImportReport } from "../format/normalize";
 import type { Runs } from "../math/grid";
-import { GENERATOR_VERSION, upgradeHighestTerrain, upgradeMineSites, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, upgradeHighestTerrain, upgradeMineSites, upgradeRetiredFields, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
 import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
+import { forceOfCarve, type SavedCarve } from "../forces/op";
 import { replay, type AppliedOp } from "./ops";
+import type { StoredState } from "./stored";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
@@ -116,6 +120,10 @@ export interface MapDocument {
   /** The next operation's `seq`. */
   nextSeq: number;
   meta: DocMeta;
+  /** The map as it was when the project was saved (Startup part 1, D367, D455; stored.ts): the
+   *  session opens from it without rebuilding. Absent in older files and in projects saved while
+   *  their water was still pending, which open by rebuilding. */
+  stored?: StoredState;
 }
 
 export function baseFeaturesOf(doc: MapDocument): Feature[] {
@@ -204,13 +212,14 @@ export interface RetiredNotes {
 }
 
 /** An old project may hold a lock, a `setLock` or `regenerateRegion` operation, or a "stamp"
- *  origin: all removed (D253, D270). Dropped or converted here, quietly; the land they held stays
- *  as it was saved (`kept` and the stored `base` are untouched). Mutates `raw` in place; returns a
- *  note for each thing changed. */
+ *  origin: all removed (D253, D270); or one of the editor's retired set pieces (D462,
+ *  `dropRetiredPieces`). Dropped or converted here, quietly; the land they held stays as it was
+ *  saved (`kept` and the stored `base` are untouched). Mutates `raw` in place; returns a note for
+ *  each thing changed. */
 function dropRetired(raw: Record<string, unknown>): string[] {
   const notes: string[] = [];
-  const spec = raw.spec as { constraints?: Record<string, unknown> } | null | undefined;
-  if (spec?.constraints && "locks" in spec.constraints) delete spec.constraints.locks;
+  // (a spec's locks went with its constraints and requested set pieces, which nothing read)
+  upgradeRetiredFields(raw.spec);
   if ("locks" in raw) {
     const locks = raw.locks;
     delete raw.locks;
@@ -234,7 +243,81 @@ function dropRetired(raw: Record<string, unknown>): string[] {
     }
   }
   if (stamped) notes.push("This project held features placed by the stamp tool, which is no longer a feature. They open as the player's own.");
+  const pieces = dropRetiredPieces(raw);
+  if (pieces) notes.push(pieces);
   return notes;
+}
+
+/** The editor's set pieces retired with its drawing tools (D462), and what the note calls each. */
+const RETIRED_PIECES: Record<string, string> = {
+  waterfall: "a waterfall",
+  damSite: "a dam site",
+  gorge: "a gorge",
+  terracedCliffs: "terraced cliffs",
+  plugSpillway: "a plugged spillway",
+  naturalNarrows: "a natural narrows",
+};
+
+/** An old project may hold one of the editor's retired set pieces (D462): it is left out of the
+ *  generation's features, the current ones and the log (the operations that added, changed, moved
+ *  or deleted it), and a river's bed step keeps its drop but no longer names it. The land a stored
+ *  map holds stays as it was saved (an older generation's map, `MapSession`'s frozen mode); a piece
+ *  the build made (one the player placed) no longer builds, its ground and its sources gone. Mutates
+ *  `raw`; returns the note, or null when there was none. */
+function dropRetiredPieces(raw: Record<string, unknown>): string | null {
+  const retired = (f: unknown): f is { id: string; params: { kind: string } } => {
+    const g = f as { kind?: unknown; id?: unknown; params?: { kind?: unknown } } | null;
+    return !!g && g.kind === "setPiece" && typeof g.id === "string" && typeof g.params?.kind === "string" && g.params.kind in RETIRED_PIECES;
+  };
+  const ids = new Set<string>();
+  const kinds = new Set<string>();
+  const edits = Array.isArray(raw.edits) ? (raw.edits as { op?: string; params?: { id?: unknown; feature?: unknown } }[]) : [];
+  for (const f of [...(Array.isArray(raw.baseFeatures) ? raw.baseFeatures : []), ...(Array.isArray(raw.features) ? raw.features : []), ...edits.map((e) => (e?.op === "addFeature" ? e.params?.feature : null))]) {
+    if (!retired(f)) continue;
+    ids.add(f.id);
+    kinds.add(f.params.kind);
+  }
+  if (!ids.size) return null;
+  for (const key of ["baseFeatures", "features"]) if (Array.isArray(raw[key])) raw[key] = (raw[key] as unknown[]).filter((f) => !retired(f));
+  if (Array.isArray(raw.edits))
+    raw.edits = edits.filter((e) => {
+      if (e?.op === "addFeature") return !retired(e.params?.feature);
+      if (e?.op === "updateFeature" || e?.op === "deleteFeature" || e?.op === "reorderFeature") return !ids.has(e.params?.id as string);
+      return true;
+    });
+  // a river's bed step that an on-river piece put there keeps its drop, without the piece's name
+  const unlink = (v: unknown): void => {
+    if (Array.isArray(v)) for (const x of v) unlink(x);
+    else if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (typeof o.setPiece === "string" && ids.has(o.setPiece)) delete o.setPiece;
+      for (const k of Object.keys(o)) unlink(o[k]);
+    }
+  };
+  unlink(raw.baseFeatures);
+  unlink(raw.features);
+  unlink(raw.edits);
+  const names = [...kinds].map((k) => RETIRED_PIECES[k]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return `This project held ${list}, which the editor no longer makes. ${ids.size > 1 ? "They are" : "It is"} left out; land the saved map holds stays as it was.`;
+}
+
+/** A project saved before D220 keeps its carves as the `carve` operation: each becomes the forces'
+ *  one operation, `forceResult` (forces/op.ts `forceOfCarve`, the conversion the build always made of
+ *  it), in the log and in a Try another's undo data. Quiet: the map is the same. Mutates `raw`. */
+function upgradeCarves(raw: Record<string, unknown>): void {
+  const upgrade = (op: unknown) => {
+    const o = op as { op?: string; params?: unknown } | null;
+    if (o?.op === "carve" && o.params && typeof o.params === "object") {
+      o.op = "forceResult";
+      o.params = forceOfCarve(o.params as SavedCarve);
+    }
+  };
+  if (!Array.isArray(raw.edits)) return;
+  for (const e of raw.edits as { undo?: { replaced?: { op?: unknown } } }[]) {
+    upgrade(e);
+    upgrade(e?.undo?.replaced?.op);
+  }
 }
 
 /** Open a project file. Version 1 files (M1, M2) hold the spec, the features and the heights; they
@@ -254,6 +337,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
   const notes = dropRetired(raw as Record<string, unknown>);
+  upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
   upgradeSpec((raw as { spec?: unknown }).spec);
   // a spec saved before every map had two mine sites may ask for fewer; it opens asking for two
@@ -268,6 +352,8 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   if (raw.formatVersion === 2) fromV2(raw as unknown as Record<string, unknown>);
   else if (raw.formatVersion !== 3) throw new ProjectError(`project file format ${String(raw.formatVersion)} is newer than this app understands`);
   const doc = raw as MapDocument;
+  // a stored map that is not one (a hand-edited file) is left out: the project opens by rebuilding
+  if ("stored" in doc && (!doc.stored || typeof doc.stored !== "object")) delete doc.stored;
   // a project saved without a stored name opens with the name it has always had (D382)
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
   if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
@@ -310,6 +396,17 @@ export function checkDocument(doc: MapDocument): void {
   if (!jsonEqual(state.features, doc.features)) throw new ProjectError("the project file is damaged: its features do not match its edits");
   const top = doc.edits.reduce((m, e) => Math.max(m, e.seq), 0);
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
+}
+
+/** The document as it stood after its first `edits` operations (the save point of a stored map):
+ *  the log cut there, the features replayed to it. For the replay comparison of a project whose
+ *  log grew since it was opened (D455). */
+export function documentAt(doc: MapDocument, edits: number): MapDocument {
+  if (edits >= doc.edits.length) return doc;
+  const cut = doc.edits.slice(0, edits);
+  const { state } = replay(baseFeaturesOf(doc), cut);
+  const { stored: _s, ...rest } = doc;
+  return { ...rest, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut };
 }
 
 /** A map's name as the player typed it, trimmed; an empty one is refused with a one-line reason (D443). */

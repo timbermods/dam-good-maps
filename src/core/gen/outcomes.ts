@@ -11,30 +11,22 @@ import { KYLERS, type IntentionId } from "../land/intentions";
 import type { ThemeId } from "../spec/mapspec";
 import * as portable from "../math/portable";
 
-/** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words. Any makes
- *  no promise. The lines sit where the theme's maps part from the others' (M9b's measures,
- *  docs/progress/m9b.md). */
-export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; holds: (s: Signature, side: number, m?: number) => boolean }> = {
-  // (`m`, 1 unless asked: a margin the lines are raised by, for the land-stage screen's reading on
-  // the water the rivers were planned with, which the settled water falls short of: `PLAN_MARGIN`)
+/** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
+ *  promise, `words` what a version that keeps it has (gen/versions.ts `versionNote`), `noun` the
+ *  land's word in a map's name (gen/names.ts `landNoun`). Any makes no promise. The lines sit where
+ *  the theme's maps part from the others' (M9b's measures, docs/progress/m9b.md). */
+export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: string; noun: string; holds: (s: Signature, side: number) => boolean }> = {
   // (a floor 20% of the side at 128², growing with the square root of the side, as the floor does)
-  riverValley: { text: "a main river through a broad valley", holds: (s, side, m = 1) => s.valley * side >= m * 0.2 * 128 * portable.sqrt(side / 128) },
+  riverValley: { text: "a main river through a broad valley", words: "its broad valley", noun: "Valley", holds: (s, side) => s.valley * side >= 0.2 * 128 * portable.sqrt(side / 128) },
   // (a gorge is carved to the rivers' own size, not the map's: its line grows as the square root
   // of the side, as the floors do; its share of a longer course falls the same way)
-  canyon: { text: "a river cut deep between cliffs for a real stretch", holds: (s, side, m = 1) => s.canyon >= m * Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= m * 0.2 * portable.sqrt(128 / side) },
+  canyon: { text: "a river cut deep between cliffs for a real stretch", words: "its canyon", noun: "Gorge", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side) },
   // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side)
-  highlands: { text: "high, rugged ground with plateaus and valleys among it", holds: (s, side, m = 1) => s.high >= m * 0.6 && s.plateaus >= 3 && s.cliffs >= m * 0.1 * portable.sqrt(128 / side) },
-  lakeBasin: { text: "big lakes that dominate the water", holds: (s, _side, m = 1) => s.lakeShare >= m * 0.55 && s.bigLake >= m * 0.04 },
-  delta: { text: "a river splitting into several channels as it reaches low ground", holds: (s) => s.mouths >= 3 },
-  islands: { text: "land broken by water into islands", holds: (s, _side, m = 1) => s.islands >= 3 && s.mainBody >= m * 0.25 && s.apart >= m * 0.05 },
+  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: "its highlands", noun: "Heights", holds: (s, side) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / side) },
+  lakeBasin: { text: "big lakes that dominate the water", words: "its big lakes", noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.04 },
+  delta: { text: "a river splitting into several channels as it reaches low ground", words: "its delta", noun: "Delta", holds: (s) => s.mouths >= 3 },
+  islands: { text: "land broken by water into islands", words: "its sea", noun: "Isles", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
 };
-
-/** How much the land-stage screen raises each theme's promise lines when it reads them on the water
- *  the rivers were planned with (D333 (3)): the settled water falls short of the plan's (a lake a
- *  little lower, a valley floor a little narrower), so a land that only just keeps its promise on
- *  the plan misses it once settled. From the shown lands' planned and settled readings
- *  (docs/progress/m9b.md). */
-export const PLAN_MARGIN: Record<Exclude<ThemeId, "any">, number> = { riverValley: 1, canyon: 1, highlands: 1, lakeBasin: 1, delta: 1, islands: 1 };
 
 export interface OutcomeInput {
   spec: { theme: ThemeId; size: { x: number; y: number } };

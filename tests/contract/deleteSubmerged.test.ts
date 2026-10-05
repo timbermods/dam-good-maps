@@ -45,7 +45,6 @@ function inTheTrees(): [number, number] {
 describe("Delete counts what is under water too (D345, B5)", () => {
   it("a lake over a forest: its trees stand in the water and are counted, none hidden, and deleting everything leaves none to appear as it drains", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const [x, y] = inTheTrees();
     const dry = growing();
@@ -78,7 +77,6 @@ describe("Delete takes the ruin columns inside a selection, under water too, whe
     let checked = false;
     for (const seed of [1, 2, 3, 4, 5, 6]) {
       await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-      ed.setEditorWaterMode("defer");
       ed.refine();
       const info = ed.sessionView().info;
       for (const f of info.features.filter((g) => g.kind === "ruinField")) {

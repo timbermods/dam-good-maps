@@ -266,7 +266,6 @@ describe("Esc or undo at any moment of a force (D341)", () => {
   const gestures: Gesture[] = [];
   beforeAll(async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const b = MapSession.open(decodeProject(ed.project().bytes)).built;
     const st = b.start!;
@@ -357,7 +356,6 @@ describe("Esc or undo at any moment of a force (D341)", () => {
 describe("taking a kept force back in the worker (D341)", () => {
   it("only while its step is the latest: after another edit it stays, and undo takes it back", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const before = state();
     const st = ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 45 }, origin: [W >> 1, W >> 1], cut: null, gesture: 900 });
@@ -387,7 +385,6 @@ describe("taking a kept force back in the worker (D341)", () => {
 
   it("a gesture taken back before its start reached the worker never starts, and a keep after Esc keeps nothing", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const before = state();
     expect(ed.forceCancel(5000).taken).toBe(null);
@@ -405,7 +402,6 @@ describe("taking a kept force back in the worker (D341)", () => {
 describe("MapSession.takeBack (D341): a step taken back as if never taken", () => {
   it("the map, the history and Redo exactly as at the mark; never once another step came", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const ids = s.built.entities.filter((e) => e.template !== "StartingLocation").map((e) => e.id);

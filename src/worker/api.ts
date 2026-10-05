@@ -2,8 +2,8 @@
 // downloads need, with the big arrays as typed arrays (transferred, not copied).
 
 import { encodeProject, projectFileName, generatedDocument } from "../core/doc/document";
-import { startBench } from "../core/analysis/metrics";
-import { isSapling, type WoodBySpecies } from "../core/analysis/wood";
+import { isSapling } from "../core/analysis/wood";
+import { componentsOf } from "../core/format/entities";
 import type { JsonObject } from "../core/format/json";
 import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
@@ -12,7 +12,8 @@ import { generate, type GenerateResult } from "../core/gen/generate";
 import { findVersion, missesOf, notifies, versionNote, worthSearching, type Misses } from "../core/gen/versions";
 import { fileName, mapName, description, toTimberFile } from "../core/gen/pack";
 import type { MapSpec } from "../core/spec/mapspec";
-import { rulesFor, type PlayabilityAnalysis } from "../core/validate/playability";
+import type { PlayabilityAnalysis } from "../core/validate/playability";
+import { mapFacts, type MapFacts } from "../core/validate/facts";
 import type { CheckResult } from "../core/validate/report";
 
 export interface PreviewEntity {
@@ -28,32 +29,8 @@ export interface PreviewEntity {
   variant?: string;
 }
 
-/** Key facts for the map card (PLAN §14.3). */
-export interface MapFacts {
-  cleanSources: number;
-  cleanFlow: number;
-  badwaterFlow: number;
-  /** Badwater sources (one per basin). */
-  badwaterSources: number;
-  /** Share of the map under water (deeper than 0.05). */
-  wetShare: number;
-  /** The best dam site within 40 tiles of the start. */
-  bestDam: { x: number; y: number; dir: [number, number]; length: number; height: number; volume: number; area: number } | null;
-  /** Water natural pools keep through the worst drought, within 40 tiles of the start. */
-  naturalStorage: number;
-  /** Stored water the colony needs through the worst drought. */
-  reservoirNeed: number;
-  /** Tiles' walk from the start to a shore a pump works from (null: none). */
-  waterDistance: number | null;
-  /** Starting wood by species: the logs of the grown trees within 20 tiles' walk (D164); and the
-   *  saplings' logs there, still growing. */
-  woodBySpecies: WoodBySpecies | null;
-  woodGrowing: number;
-  /** The start's bench: tiles at the district center's level within 8 tiles (Start area is a
-   *  preference, D211; null without a start). */
-  startBench: number | null;
-  settle: { ticks: number; settled: boolean };
-}
+// (the map card's facts are the core's: validate/facts.ts)
+export type { MapFacts };
 
 export interface GenerateResponse {
   spec: MapSpec;
@@ -82,17 +59,8 @@ export interface GenerateResponse {
   premise: string;
   sha256: string;
   ms: number;
-  /** The player's edits on this map (0 for a freshly generated map). */
-  edits: number;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
-  /** Items 24's and 47's numbers (information, D325; the map card of "The page is the editor", #92,
-   *  reads them): the trees within the starting-logs floor's walk and their logs, the farmland and
-   *  level building land within 20 tiles' walk; and the five difficulty levers. The shapes of
-   *  `PlayabilityAnalysis`; null without a start. Every map carries them: generated, a background
-   *  version, a sibling, an edited document. */
-  walkReach: PlayabilityAnalysis["walkReach"];
-  levers: PlayabilityAnalysis["levers"];
   /** D329: the outcomes a generated map missed, when a background search for a version meeting
    *  them all is worth starting, and the note that version gets ("A version with its sea is ready"),
    *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
@@ -145,7 +113,6 @@ export interface ResponseInput {
   ms: number;
   timber: Uint8Array;
   project: Uint8Array;
-  edits: number;
   /** A generated map's own name and how it plays (D278 (1b)); else the theme's name and the map's
    *  description. */
   name?: string;
@@ -158,26 +125,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
   const b = r.built;
   const a = r.analysis;
   const N = b.W * b.H;
-  let wet = 0;
-  for (let i = 0; i < N; i++) if (b.water[i] > 0.05) wet++;
-  const clean = b.sources.filter((s) => s.template === "WaterSource");
-  const bad = b.sources.filter((s) => s.template === "BadwaterSource");
-  const sum = (xs: { strength: number }[]) => Math.round(xs.reduce((s, x) => s + x.strength, 0) * 100) / 100;
-  const facts: MapFacts = {
-    cleanSources: clean.length,
-    cleanFlow: sum(clean),
-    badwaterFlow: sum(bad),
-    badwaterSources: bad.length,
-    wetShare: wet / N,
-    bestDam: a?.bestDam ?? null,
-    naturalStorage: a ? Math.round(a.naturalStorage) : 0,
-    reservoirNeed: Math.round(rulesFor(r.spec).reservoirNeed),
-    waterDistance: a && Number.isFinite(a.waterDistance) ? Math.round(a.waterDistance * 10) / 10 : null,
-    woodBySpecies: a ? { ...a.woodBySpecies } : null,
-    woodGrowing: a ? a.woodGrowing : 0,
-    startBench: b.start ? startBench(b.heights, b.W, b.H, b.start) : null,
-    settle: { ticks: b.settle.ticks, settled: b.settle.settled },
-  };
+  const facts = mapFacts(r.spec, b, a);
   return {
     spec: r.spec,
     features: r.features,
@@ -191,7 +139,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     reach: a ? a.reach.slice() : new Uint8Array(N),
     facts,
     entities: b.entities.map((e) => {
-      const comps = e.raw ? (e.raw.Components as Record<string, unknown>) : { ...(e.before ?? {}), ...e.components };
+      const comps = componentsOf(e) as Record<string, unknown>;
       return { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, ...lifeOf(comps), ...variantOf(comps) };
     }),
     checks: r.checks,
@@ -205,27 +153,17 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     premise: r.premise ?? description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",
     ms: r.ms,
-    edits: r.edits,
     intentions: r.intentions ?? [],
-    walkReach: a?.walkReach ? { ...a.walkReach } : null,
-    levers: a?.levers ? { ...a.levers } : null,
   };
 }
 
 /** D329's background search (gen/versions.ts): siblings of the map until one meets all three
- *  outcomes. Run in a worker of its own, so the editor never waits on it; `stop` is checked between
- *  siblings. Null when none was found. */
-let searchId = 0;
-export function stopVersionSearch(): void {
-  searchId++;
-}
-
+ *  outcomes. Run in a worker of its own, so the editor never waits on it (the page ends it by
+ *  terminating the worker). Null when none was found. */
 export async function runFindVersion(from: { spec: MapSpec; intentions: string[]; heights: Uint8Array }): Promise<GenerateResponse | null> {
-  const id = ++searchId;
   const t0 = performance.now();
-  const found = findVersion(from, { stop: () => id !== searchId });
-  const r = found.result;
-  if (!r || id !== searchId) return null;
+  const r = findVersion(from).result;
+  if (!r) return null;
   return responseOf({
     spec: r.spec,
     features: r.features,
@@ -237,7 +175,6 @@ export async function runFindVersion(from: { spec: MapSpec; intentions: string[]
     ms: Math.round(performance.now() - t0),
     timber: r.bytes,
     project: encodeProject(generatedDocument(r)),
-    edits: 0,
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],
@@ -286,7 +223,6 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     ms,
     timber: r.bytes,
     project,
-    edits: 0,
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],

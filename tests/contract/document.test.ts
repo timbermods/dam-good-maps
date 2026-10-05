@@ -51,6 +51,9 @@ describe("project files (PLAN §19.6)", () => {
     expect(doc.nextSeq).toBe(3);
     const reopened = MapSession.open(doc);
     expect(sha(reopened.exportTimber().bytes)).toBe(sha(s.exportTimber().bytes));
+    // (it opened from its stored map: undo goes below the save point once the log's replay is
+    // compared with it, D455; tests/contract/storedMap.test.ts)
+    expect(reopened.checkReplay()).toBe(true);
     expect(reopened.history().map((h) => h.label)).toEqual(["Raise terrain", "Add forest"]);
     while (reopened.undo());
     expect(sha(reopened.exportTimber().bytes)).toBe(sha(r.bytes));
@@ -60,11 +63,13 @@ describe("project files (PLAN §19.6)", () => {
     expect(MapSession.open(doc).apply({ op: "removeSlope", params: { x: kept.x, y: kept.y } }).applied[0].seq).toBe(3);
   });
 
-  it("an old project with a lock, a setLock edit and a stamp feature still opens, with its land as it was kept (D253, D270)", () => {
+  it("an old project with a lock, a setLock edit, a stamp feature and a spec's constraints and set pieces still opens, with its land as it was kept (D253, D270, D462)", () => {
     const region = box(4, 4, 20, 20);
     const tiles = runsToTiles(region, W) ?? [];
     const raw = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
-    raw.spec.constraints.locks = [{ runs: region }];
+    // (a spec saved then carried its constraints and requested set pieces, its locks among them)
+    raw.spec.constraints = { keepOut: [{ runs: region }], keep: ["f-abc"], locks: [{ runs: region }] };
+    raw.spec.setPieces = [{ kind: "waterfall", params: { mode: "standalone", lip: [40, 90], facing: "north", width: 20, drop: 6 } }];
     raw.locks = [{ id: "corner", region: { runs: region } }];
     raw.edits = [{ op: "setLock", params: { id: "corner", region: { runs: region } }, seq: 1, origin: "user" }];
     raw.nextSeq = 2;
@@ -72,7 +77,8 @@ describe("project files (PLAN §19.6)", () => {
     raw.baseFeatures = raw.features;
     const before = raw.base.heights;
     const doc = decodeProject(gzipSync(strToU8(JSON.stringify(raw))));
-    expect(doc.spec!.constraints).not.toHaveProperty("locks");
+    expect(doc.spec!).not.toHaveProperty("constraints");
+    expect(doc.spec!).not.toHaveProperty("setPieces");
     expect(doc).not.toHaveProperty("locks");
     expect(doc.edits).toEqual([]);
     expect(doc.features[0].origin).toBe("user");
@@ -82,6 +88,37 @@ describe("project files (PLAN §19.6)", () => {
     expect(s.notices.some((n) => /lock/.test(n))).toBe(true);
     expect(s.notices.some((n) => /stamp/.test(n))).toBe(true);
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
+  });
+
+  it("an old project holding the editor's retired set pieces opens without them (D462)", () => {
+    // the shapes the retired tools saved: a gorge the generator made, and a waterfall the player put
+    // on a river (its step in the river's bed names it), then changed
+    const plain = JSON.parse(strFromU8(gunzipSync(encodeProject(generatedDocument(r)))));
+    const river = plain.features.find((f: { kind: string }) => f.kind === "river");
+    const stepped = { ...river, params: { ...river.params, bedProfile: { ...river.params.bedProfile, steps: [{ at: 20, drop: 1 }] } } };
+    const opened = (raw: unknown) => decodeProject(gzipSync(strToU8(JSON.stringify(raw))));
+    // the project as it opens: the river keeps its step, without the fall
+    const without = { ...plain, edits: [{ op: "updateFeature", params: { id: river.id, patch: { params: { bedProfile: { steps: [{ at: 20, drop: 1 }] } } } }, seq: 1, origin: "user" }], nextSeq: 2 };
+    without.baseFeatures = plain.features;
+    without.features = plain.features.map((f: { id: string }) => (f.id === river.id ? stepped : f));
+    const gorge = { id: "0d1e2f3a-4b5c-4d6e-8f70-000000000001", kind: "setPiece", origin: "generated", role: "setpiece/gorge/1", locked: false, params: { kind: "gorge", request: { river: river.id, from: 30, length: 10, width: 3, wallHeight: 3, access: "none" }, plan: { river: river.id, from: 30, to: 40, width: 3, wallHeight: 3 }, report: [] } };
+    const fall = { id: "0d1e2f3a-4b5c-4d6e-8f70-000000000002", kind: "setPiece", origin: "user", locked: false, params: { kind: "waterfall", request: { mode: "on-river", river: river.id, at: 20, drop: 1 }, plan: { mode: "on-river", river: river.id, at: 20, drop: 1 }, report: [] } };
+    const changed = { ...fall, params: { ...fall.params, report: ["changed"] } };
+    const raw = { ...plain, nextSeq: 4 };
+    raw.baseFeatures = [...plain.features, gorge];
+    raw.edits = [
+      { op: "addFeature", params: { feature: fall }, seq: 1, origin: "user" },
+      { op: "updateFeature", params: { id: river.id, patch: { params: { bedProfile: { steps: [{ at: 20, drop: 1, setPiece: fall.id }] } } } }, seq: 2, origin: "user" },
+      { op: "updateFeature", params: { id: fall.id, patch: { params: { report: ["changed"] } } }, seq: 3, origin: "user" },
+    ];
+    raw.features = [...raw.baseFeatures.map((f: { id: string }) => (f.id === river.id ? { ...stepped, params: { ...stepped.params, bedProfile: { ...stepped.params.bedProfile, steps: [{ at: 20, drop: 1, setPiece: fall.id }] } } } : f)), changed];
+    const doc = opened(raw);
+    expect(doc.features.some((f) => f.kind === "setPiece" && (f.params.kind === "gorge" || f.params.kind === "waterfall"))).toBe(false);
+    expect(doc.edits.map((e) => e.op)).toEqual(["updateFeature"]);
+    const s = MapSession.open(doc);
+    expect(s.notices.some((n) => /a waterfall and a gorge|a gorge and a waterfall/.test(n))).toBe(true);
+    expect(s.history().map((h) => h.applied)).toEqual([true]);
+    expect(sha(s.exportTimber().bytes)).toBe(sha(MapSession.open(opened(without)).exportTimber().bytes));
   });
 
   it("a map from another generator version opens exactly from its stored base (PLAN §19.7)", () => {

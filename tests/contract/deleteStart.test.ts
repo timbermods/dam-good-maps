@@ -5,7 +5,7 @@
 // undo step, leaving only the terrain.
 
 import { describe, expect, it } from "vitest";
-import { cornerFor } from "../../src/core/doc/tools";
+import { cornerFor } from "../../src/core/doc/start";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
@@ -27,7 +27,6 @@ const startTile = (): [number, number] => {
 
 async function fresh(seed = 4) {
   await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  ed.setEditorWaterMode("defer");
   ed.refine();
 }
 
@@ -45,7 +44,7 @@ describe("the start can be deleted (D323 item 44)", () => {
     expect(ed.sessionView().info.features.some((f) => f.kind === "start")).toBe(false);
     // the project saves; the checks say "No start"; the game's save and the download refuse
     expect(ed.project().bytes.length).toBeGreaterThan(100);
-    const c = ed.exportCheck();
+    const c = (await ed.backgroundCheck())!.check;
     expect(c.blocking.map((b) => b.message)).toContain("No start");
     const out = await ed.exportTimber(true);
     expect(out.ok).toBe(false);
@@ -64,7 +63,7 @@ describe("the start can be deleted (D323 item 44)", () => {
     expect(r.ok, JSON.stringify(r.errors)).toBe(true);
     expect(steps()).toBe(n + 1);
     expect(templates().filter((t) => t === "StartingLocation").length).toBe(1);
-    expect(ed.exportCheck().blocking.map((b) => b.message)).not.toContain("No start");
+    expect((await ed.backgroundCheck())!.check.blocking.map((b) => b.message)).not.toContain("No start");
     void cornerFor;
   });
 

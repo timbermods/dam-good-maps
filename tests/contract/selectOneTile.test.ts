@@ -22,7 +22,6 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // ((15, 8) on M9b's map, D148: dev's (18, 3) is not a lone level tile there)
   it("Highlands 64², seed 3: the dry level tile (15, 8), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const t = 8 * W + 15;
     const b = open().built;

@@ -5,8 +5,6 @@
 import type { Orientation } from "../format/footprints";
 import type { Runs } from "../math/grid";
 
-export const FEATURE_SCHEMA_VERSION = 1;
-
 export type FeatureKind = "river" | "lake" | "landform" | "setPiece" | "forest" | "berryPatch" | "ruinField" | "mapObject" | "start";
 export type Origin = "generated" | "user" | "claude";
 export type Edge = "west" | "east" | "south" | "north";
@@ -137,6 +135,10 @@ export interface LandformParams {
 
 // -------------------------------------------------------------------------------------- set piece
 
+/** The set-piece kinds a document may name. The generator makes the second district's site, ruins on
+ *  a rise and badwater hollows; the editor's waterfalls, dam sites, gorges, terraced cliffs, plugged
+ *  spillways and natural narrows are retired (D462): a project that held one opens without it
+ *  (doc/document.ts `dropRetired`), and no builder makes them (setpieces/index.ts `BUILDERS`). */
 export type SetPieceKind =
   | "waterfall"
   | "damSite"
@@ -146,7 +148,6 @@ export type SetPieceKind =
   | "plugSpillway"
   | "obstaclePayoff"
   | "secondDistrict"
-  // M9a: two hillside spurs closing in on a river (#63: an internal operation for M12's Claude)
   | "naturalNarrows";
 
 export interface SetPieceParams {
@@ -245,7 +246,3 @@ export type Feature =
   | RuinFieldFeature
   | MapObjectFeature
   | StartFeature;
-
-export function byKind<K extends FeatureKind>(features: readonly Feature[], kind: K): Extract<Feature, { kind: K }>[] {
-  return features.filter((f) => f.kind === kind) as Extract<Feature, { kind: K }>[];
-}

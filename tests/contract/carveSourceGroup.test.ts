@@ -8,7 +8,9 @@ import { describe, expect, it } from "vitest";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { DEFAULTS as CARVE_DEFAULTS, sourceStrength } from "../../src/core/forces/carve/run";
+import { CarveRun, DEFAULTS as CARVE_DEFAULTS, sourceStrength } from "../../src/core/forces/carve/run";
+import { groupMemberId } from "../../src/core/water/sourceGroups";
+import { fixture } from "./forceFixtures";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -22,7 +24,6 @@ describe("Carve's source group (D314)", () => {
     // (seed 4 for 3, D148: after D447's bank rule seed 3's highest ground away from the start stands
     // where a row has no room, and the carve's source stays single)
     await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
@@ -72,7 +73,6 @@ describe("Carve's source group (D314)", () => {
 
   it("a carve kept before D314 (a single source) replays unchanged; Unleash places no source", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.setEditorWaterMode("defer");
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const n0 = s.built.entities.filter((e) => e.template === "WaterSource").length;
@@ -95,5 +95,22 @@ describe("Carve's source group (D314)", () => {
     // Unleash on a placed source: the player's source is the origin, no new one
     const src = s.built.entities.find((e) => e.id === "d3140000-0000-4000-8000-000000000001")!;
     expect(src).toBeTruthy();
+  });
+
+  it("the Rust carve names its row's members by the one rule (sourceGroups.ts groupMemberId), passing over an id the document has used", () => {
+    const m = fixture("plain", 64);
+    const carve = (usedIds?: Set<string>) => new CarveRun({ ...m, ...(usedIds ? { usedIds } : {}) }, { ...CARVE_DEFAULTS, power: 100, width: 24 }, { origin: 30 * 64 + 30 }, { sourceId: "anchor-1" }).group;
+    const row = carve();
+    expect(row.length).toBeGreaterThan(2);
+    expect(row[0].id).toBe("anchor-1");
+    // each member's place along the row, by the rule
+    const places = row.map((g) => [...Array(32).keys()].find((p) => groupMemberId("anchor-1", p) === g.id));
+    expect(places.every((p) => p !== undefined)).toBe(true);
+    // a member's id already used: it takes the rule's next for its place, the others keep theirs
+    const used = new Set([row[1].id]);
+    const again = carve(used);
+    expect(again.map((g) => g.tile)).toEqual(row.map((g) => g.tile));
+    again.forEach((g, k) => expect(g.id, `member ${k}`).toBe(groupMemberId("anchor-1", places[k]!, (id) => used.has(id))));
+    expect(again[1].id).not.toBe(row[1].id);
   });
 });

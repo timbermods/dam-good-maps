@@ -14,9 +14,9 @@ The generator: settings in, a map out. `generate` draws a genome, grows the land
 - Real places are never generator input (D108): nothing here reads `places/`.
 
 **Start from**
-- `generate.ts` `generate`.
-- `settler.ts` `pickStart` (the start rules); `intentions.ts` (checks on the finished map); `resources.ts` `planResources`; `extras.ts` `planExtras` (mine sites, relics, thorns); `weir.ts` `planWeir`.
-- `layout.ts` (settings to targets); `calibrated.ts` (official-map targets, mirrors `prototype/calibrated.py`); `pack.ts` `toTimberFile` (the one path to file bytes).
-- `riverValley.ts` and `valley.ts` are remnants kept for `PlanConflict` and `startWalkable`.
+- `generate.ts` `generate`. A start without water gets a spring at a place by `water/springSites.ts` `springCandidates`, the candidate rule `doc/waterFix.ts` shares (each keeps its own walk, filters, tries and strengths).
+- `settler.ts` `pickStart` (the start rules); `intentions.ts` (checks on the finished map); `resources.ts` `planResources` (on `resources/baseline.ts`'s planners and its shared rules: `woodPerTree`, `succulentsOf`, `saplings`, `NEAR_WALK`, `startWalkField`); `outcomes.ts` `PROMISES` (each theme's promise, its version-note words and its land noun, one table); `extras.ts` `planExtras` (mine sites, relics, thorns); `weir.ts` `planWeir`.
+- `valley.ts` is a remnant: `startWalkable`, kept only for the frozen design prototypes the equivalence tools import.
+- `calibrated.ts` (official-map targets, mirrors `prototype/calibrated.py`); `pack.ts` `worldOf` (the one path to file bytes, PLAN §19.7: the generator's `toTimberFile`, Real places' `buildPlace` and the probe's test maps (both on `places/place.ts` `buildFileFromHeights`) and an opened map's export all write their world through it).
 
 **Tests**: `tests/contract/` (calibrated, parity, share, resources, badwater, outflows, start) and `tests/e2e/determinism.spec.ts`. Batches: `tools/batch.ts`, `tools/batches.ts`. Run `npx vitest run tests/contract/calibrated.test.ts`.

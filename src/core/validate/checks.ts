@@ -5,19 +5,18 @@
 // principles terrain.edge_wall and terrain.dam_wall, and `validateFile`, which adds the playability
 // class (playability.ts) on the map's canonically settled water.
 
-import { FOOTPRINTS, OCC, ORIENTATIONS, slopeHighSide, startEntranceTile, worldBlocks, type Orientation, type Placement } from "../format/footprints";
+import { FOOTPRINTS, ORIENTATIONS, slopeHighSide, startEntranceTile, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import { isObject, num, type JsonObject } from "../format/json";
 import { placementOf } from "../format/entities";
 import { EDITOR_MAX_HEIGHT, floorsOf, GAME_MAX_HEIGHT, GAME_VERSION, MAX_OBJECT_Z, storedWater, surfaceOf } from "../format/world";
 import type { TimberFile } from "../format/timber";
 import type { Feature } from "../features/schema";
-import { EDGE_BAND, EDGE_INSIDE, EDGE_NAMES, EDGE_RISE, EDGE_SHARE, edgeRuleApplies, edgeWalls, type EdgeName } from "../analysis/edges";
+import { EDGE_BAND, EDGE_INSIDE, EDGE_NAMES, EDGE_RISE, EDGE_SHARE, edgeRise, edgeRuleApplies, edgeTile, edgeWalls, type EdgeName } from "../analysis/edges";
 import { damWalls } from "../analysis/ridge";
 import { approximateId, approximateReason, mechanicsOf, startRing, storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { mapObjects, waterModel, type MapObject } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import type { WaterModel, WaterRules } from "../sim/water";
-import type { SoilRules } from "../sim/soil";
+import type { WaterModel } from "../sim/water";
 import type { Difficulty, MapSpec } from "../spec/mapspec";
 import { checkPlayability, rulesFor, type PlayabilityAnalysis } from "./playability";
 import { tilesToRuns } from "../math/grid";
@@ -198,21 +197,11 @@ function lowerTheWall(h: ArrayLike<number>, W: number, H: number, edges: readonl
   for (const name of edges) {
     const e = EDGE_NAMES.indexOf(name);
     const L = e < 2 ? W : H;
-    const at = (p: number, d: number): [number, number] => (e === 0 ? [p, d] : e === 1 ? [p, H - 1 - d] : e === 2 ? [d, p] : [W - 1 - d, p]);
     for (let p = 0; p < L; p++) {
-      let band = 0;
-      for (let d = 0; d < EDGE_BAND; d++) {
-        const [x, y] = at(p, d);
-        band = Math.max(band, h[y * W + x]);
-      }
-      let inside = 0;
-      for (let d = EDGE_BAND; d < EDGE_BAND + EDGE_INSIDE; d++) {
-        const [x, y] = at(p, d);
-        inside = Math.max(inside, h[y * W + x]);
-      }
+      const { band, inside } = edgeRise(h, W, H, e, p);
       if (band - inside < EDGE_RISE) continue;
       for (let d = 0; d < EDGE_BAND; d++) {
-        const [x, y] = at(p, d);
+        const [x, y] = edgeTile(e, W, H, p, d);
         const i = y * W + x;
         if (h[i] > inside) to.set(i, Math.min(to.get(i) ?? inside, inside));
       }
@@ -301,7 +290,6 @@ function unsupportedVoxels(file: TimberFile, stackTops: Set<number>): number {
 interface EntityScan {
   occupied: Map<number, number>;
   stackTops: Set<number>;
-  startCells: number[];
   placements: Placement[];
 }
 
@@ -413,7 +401,7 @@ function checkEntities(file: TimberFile, c: Collector, surface: Uint8Array): Ent
   });
   const overlap = startCells.filter((k) => occupied.has(k)).length;
   c.add({ id: "start.clear", class: "load", ok: overlap === 0, value: overlap, limit: 0, message: overlap ? `Objects cover ${counted(overlap, "tile")} of the start` : "Nothing covers the start" });
-  return { occupied, stackTops, startCells, placements };
+  return { occupied, stackTops, placements };
 }
 
 // ---------------------------------------------------------------------------------- slopes and start
@@ -484,10 +472,6 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
-  /** The water rules for the validator's own settle (without `water`), and the soil rules: the
-   *  defaults when absent (sim/water.ts, sim/soil.ts; D308). */
-  waterRules?: WaterRules;
-  soilRules?: SoilRules;
   /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
@@ -529,7 +513,7 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
     const w = file.world;
     const objects: MapObject[] = mapObjects(w);
     model = opts.water?.model ?? waterModel(w.sizeX, w.sizeY, surface, objects);
-    water = opts.water?.settled ?? canonicalSettle(model, opts.waterRules ? { rules: opts.waterRules } : {});
+    water = opts.water?.settled ?? canonicalSettle(model);
     analysis = checkPlayability(
       {
         W: w.sizeX,
@@ -541,7 +525,6 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
         rules: rulesFor(opts.spec ?? null, opts.designedFor ?? "normal", String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "")),
         features: opts.features ?? null,
         ids: w.entities.filter((e) => placementOf(e)).map((e) => String(e.Id)),
-        ...(opts.soilRules ? { soilRules: opts.soilRules } : {}),
         ...(opts.mineCutAtOpen ? { mineCutAtOpen: opts.mineCutAtOpen } : {}),
       },
       c,
@@ -562,5 +545,3 @@ export function validateMap(file: TimberFile, opts: ValidateOptions): Validation
 export function validateFile(file: TimberFile, opts: ValidateOptions): ValidationReport {
   return validateMap(file, opts).report;
 }
-
-export { OCC };

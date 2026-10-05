@@ -53,6 +53,8 @@ export interface HighMaterials {
 
 /** The time between redraws of the sun's depth map while the land keeps changing (a brush). */
 const SHADOW_EVERY = 100;
+/** How long a frame may spend redoing the occlusion round a brush's changes (AmbientField.catchUp). */
+const AMBIENT_BUDGET_MS = 1.5;
 /** The mist follows the water this long after it changes (and at least this often). */
 const WATER_WAIT = 250;
 const WATER_MOST = 1000;
@@ -341,9 +343,12 @@ export class HighLook {
 
   // --------------------------------------------------------------------------------- each frame
 
-  /** Before each frame: the trees' models for this camera, the wind's clock, the sun's depth map. */
+  /** Before each frame: the occlusion round a brush's changes, the trees' models for this camera, the
+   *  wind's clock, the sun's depth map. */
   beforeRender(camera: Camera, pixels: number, time: number): void {
     this.vegTime.value = time;
+    // (what can't be redone in this frame, the next)
+    if (this.ambient?.catchUp(AMBIENT_BUDGET_MS)) this.host.requestRender();
     // (a tree's close-up or far model casts nearly the same shadow: the depth map keeps the one it
     // was drawn with, and isn't drawn again for the camera's moves)
     if (this.forest && this.effects.vegetation) this.forest.update(camera, pixels, !this.lower);

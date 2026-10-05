@@ -4,8 +4,9 @@
 // scaled by its setting (Forests, Berries, Ruins). Light enough for the settings panel;
 // resources/baseline.ts places them.
 
-import { lnDet, officialRange, OFFICIAL_LAYOUT as L } from "../gen/calibrated";
+import { officialRange, OFFICIAL_LAYOUT as L } from "../gen/calibrated";
 import { expDet } from "../math/detmath";
+import * as portable from "../math/portable";
 import { stream } from "../math/rng";
 import type { Settings } from "../spec/mapspec";
 
@@ -29,9 +30,10 @@ export interface ResourceBudget {
   official: { trees: [number, number]; bushes: [number, number]; scrap: [number, number] };
 }
 
-/** Between lo and hi at t in [0, 1], evenly in ln (a ratio, so a factor of the median). */
-function between(lo: number, hi: number, t: number): number {
-  return lo * expDet(t * lnDet(hi / lo));
+/** Between lo and hi at t in [0, 1], evenly in ln (a ratio, so a factor of the median); the
+ *  badwater budget (badwater.ts) moves within its range the same way. */
+export function between(lo: number, hi: number, t: number): number {
+  return lo * expDet(t * portable.log(hi / lo));
 }
 
 /** A map's resource amounts for its size and settings (see the file's header). The seed alone moves
