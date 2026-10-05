@@ -93,7 +93,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setMenu({ id, x: ev.clientX, y: ev.clientY });
   };
   const menuItems = (id: string) => [
-    { label: "Download .timber file", title: "Download it for Timberborn's Maps folder", run: () => m.onDownloadMap(id) },
+    { label: "Download .timber", title: "Download it for Timberborn's Maps folder", run: () => m.onDownloadMap(id) },
     {
       label: "Rename",
       title: "Rename this map",

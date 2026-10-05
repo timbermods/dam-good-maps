@@ -30,7 +30,7 @@ test("the page generates a map and offers both downloads", async ({ page }) => {
   await openEditor(page, `s=4242&z=128&d=n&t=riverValley&v=${GENERATOR_VERSION}`);
   const menu = await openFileMenu(page);
   await expect(menu.getByRole("menuitem", { name: "Download .timber" })).toBeEnabled();
-  await expect(menu.getByRole("menuitem", { name: "Save project" })).toBeEnabled();
+  await expect(menu.getByRole("menuitem", { name: "Download project" })).toBeEnabled();
   const download = page.waitForEvent("download");
   await menu.getByRole("menuitem", { name: "Download .timber" }).click();
   expect((await download).suggestedFilename()).toBe("dgm-river-valley-4242.timber");

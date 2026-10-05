@@ -124,7 +124,7 @@ test("the header names the open map: a generated map, then an opened file, the r
   const edit = () => page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15 } } as never, "Raise a tile"));
   await edit();
 
-  await page.getByLabel("Open a map or project file").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
   await expect(page.locator(".editor-title h1")).toHaveText("My island", { timeout: 60_000 });
   await expect(page.locator(".editor-title .muted")).toHaveText("96×96");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);

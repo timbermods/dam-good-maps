@@ -312,7 +312,7 @@ export function App() {
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
       await saver.flush();
-      if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before replacing it.");
+      if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
       switching.current = true;
       return await load();
     } finally {
@@ -382,7 +382,7 @@ export function App() {
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
   function guard(action: () => void, what: string) {
     if (!keeping.current && session && session.edits > 0) {
-      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: () => {
+      setConfirm({ text: `${what} closes ${nameRef.current}, which this browser isn't keeping. Download the project first to keep its edits.`, yes: "Close it", onYes: () => {
           discardAllowed.current = true;
           action();
         }, offerProject: true });
@@ -409,7 +409,7 @@ export function App() {
       let r;
       if (bg) {
         const bytes = await yourMaps.project(id);
-        if (!bytes) throw new Error("its project file is missing from this browser");
+        if (!bytes) throw new Error("its project is missing from this browser");
         await openEntry(bytes, e, bg.api);
         r = await bg.api.exportTimber(true);
       } else r = await generator.exportTimber(true);
@@ -483,7 +483,7 @@ export function App() {
     try {
       const data = await replacing(async () => {
         const bytes = await yourMaps.project(id);
-        if (!bytes) throw new Error("its project file is missing from this browser");
+        if (!bytes) throw new Error("its project is missing from this browser");
         return openEntry(bytes, e);
       });
       enterEditor(data, { entry: e });
@@ -578,7 +578,7 @@ export function App() {
         if (was) {
           saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
           await saver.flush();
-          if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before generating another.");
+          if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before generating another.");
         }
         if (id !== runId.current) return null;
         back.current = b;
@@ -894,8 +894,8 @@ export function App() {
             Cancel
           </button>
           {confirm.offerProject ? (
-            <button type="button" class="ghost" title="Save the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
-              Save project file
+            <button type="button" class="ghost" title="Download the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
+              Download project
             </button>
           ) : null}
           <button

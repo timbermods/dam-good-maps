@@ -29,7 +29,7 @@ The generator:
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
   name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
-  **File → Save project** keeps the map for editing later.
+  **File → Download project** keeps the map for editing later.
 
 The editor:
 - Middle-drag turns the view, right-drag moves it, scroll zooms. WASD and the arrow keys move, Q and
@@ -81,7 +81,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Save project**, **Download .timber**, **Clear everything**, **History** and
+  has **Open…**, **Download project**, **Download .timber**, **Clear everything**, **History** and
   **About**.
 - Click the map's name at the top to rename it. The saved file takes the name.
 - **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.

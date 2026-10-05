@@ -1,4 +1,4 @@
-// Saving waits for a force at work (Codex's page QA, investigation/page-qa F1, adopted by Kyler 2026-10-05): Save
+// Saving waits for a force at work (Codex's page QA, investigation/page-qa F1, adopted by Kyler 2026-10-05): Download
 // project, Save to Timberborn and Download .timber keep a running force first, so the file holds the land shown.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -28,9 +28,9 @@ async function watchFiles(page: Page) {
   });
 }
 
-test("Save project and Download .timber keep a paused Fast force, and the file reopens on the land shown", async ({ page }) => {
+test("Download project and Download .timber keep a paused Fast force, and the file reopens on the land shown", async ({ page }) => {
   test.setTimeout(300_000);
-  for (const choice of ["Save project", "Download .timber"]) {
+  for (const choice of ["Download project", "Download .timber"]) {
     await openEditor(page, "s=4242&z=256&d=n&t=highlands");
     await watchFiles(page);
     await page.getByRole("button", { name: "Top-down", exact: true }).click();
@@ -63,7 +63,7 @@ test("Save project and Download .timber keep a paused Fast force, and the file r
     const shown = await land(page);
     expect(shown).not.toEqual(before);
     const version = await page.evaluate(() => window.dgmEditor!.info().version);
-    await page.getByLabel("Open a map or project file").setInputFiles({ name: file.name, mimeType: "application/octet-stream", buffer: Buffer.from(file.bytes) });
+    await page.getByLabel("Open a map or a project").setInputFiles({ name: file.name, mimeType: "application/octet-stream", buffer: Buffer.from(file.bytes) });
     await page.waitForFunction((v) => (window.dgmEditor?.info().version ?? 0) > v, version, { timeout: 120_000 });
     const reopened = await land(page);
     expect(reopened.filter((h, i) => h !== shown[i]).length, `${choice}: tiles missing from the land shown when the file was offered`).toBe(0);

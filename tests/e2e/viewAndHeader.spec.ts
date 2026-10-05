@@ -35,7 +35,7 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(edit.getByRole("button", { name: "Redo (Ctrl+Y)" })).toBeDisabled();
   await expect(edit.getByRole("button", { name: "Save to Timberborn" })).toHaveClass(/primary/);
   const menu = await openFileMenu(page);
-  for (const item of ["Open…", "Save project", "Download .timber", "Clear everything", "History", "About"]) await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
+  for (const item of ["Open…", "Download project", "Download .timber", "Clear everything", "History", "About"]) await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
 

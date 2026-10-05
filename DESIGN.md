@@ -421,7 +421,8 @@ refinements and what the mockups left open:
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
   the camera controls, the water row, the objects list and its window, and the bar at both sizes. The fullest
-  legend fits.
+  legend fits. Where the room is short (1300 and 1280 wide) Legend and its legend move left together, the legend 8px
+  clear of the corner's second row (`docs/design/legend-open-1300x900`, `legend-open-1280x800`).
 - **The overlays' keys** (what Heights, Badwater and Under roofs show; Lines, Markers, Flow and See-through need
   none) sit in the legend's place under Legend: with Legend off, a small key (190px) holds Heights' "Ground height"
   with the ramp and the map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the
@@ -503,10 +504,20 @@ refinements and what the mockups left open:
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks stay left-aligned.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
-- **Messages sit above the bar** (2026-10-05): the editor's (a file saved, a save that failed) and the page's (Your
-  maps couldn't keep the map, a version found) are centred above the first steps' hints and the bar's settings, one
-  gap apart, never over the bar or another control. A save that another tab overtook says the store's words, text
-  only: "Changed in another tab. Download the project to keep your edits." (`docs/design/conflict-1920x1080.png`).
+- **Messages sit above the bar** (Kyler, 2026-10-05): the editor's (a file saved, a save that failed) and the page's
+  (Your maps couldn't keep the map, a version found) sit above the first steps' hints and the bar's settings, one gap
+  apart, never over the bar or another control. A message is exactly as wide as the hints box, 522px, sharing its left
+  and right edges to the pixel at every size, and keeps that width with no hints showing, so nothing changes shape
+  when they close; its words are centred and wrap, its × 10px in from the right edge as the hints' is. A save that
+  another tab overtook says the store's words, text only: "Changed in another tab. Download the project to keep your
+  edits." Captures: `docs/design/conflict-*` (1920×1080, 2560×1440, 1300×900), `message-alone-1920x1080`,
+  `confirm-1920x1080`.
+- **One verb for the project: Download** (Kyler, 2026-10-05). File's **Download project** ("Download the map and its
+  edits as a project"; `docs/design/file-menu-*`); Your maps' right-click **Download .timber**, as in File; a save
+  that failed stops a replacement with "Your map was not saved. Download the project before replacing it." (or
+  "…before generating another."); the question before closing a map Your maps isn't keeping reads "<what> closes
+  <name>, which this browser isn't keeping. Download the project first to keep its edits.", its button **Download
+  project**. Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
   clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
@@ -516,7 +527,7 @@ refinements and what the mockups left open:
   water/s" (this source's, of the row's); Pointing at the same.
 - **No focus ring on the map from the mouse:** a click on the map after a key no longer outlines it; Tab still does.
 - **Your maps' right-click menu** (Kyler, 2026-10-03): on any map, open or not, the File menu's look at the pointer,
-  kept on screen, closed by Esc or a click elsewhere: **Download .timber file** (a closed map's made from its project
+  kept on screen, closed by Esc or a click elsewhere: **Download .timber** (a closed map's made from its project
   in a worker of its own), **Rename** (in place, on the name's own box, font and size; Enter or clicking away
   renames, Esc cancels; the open map's is the title's rename, D443; a closed map's name is the one it opens with),
   **Delete** (asked once, "Delete <name>?"; the open map gives way to the next map in Your maps, or a new Surprise me
@@ -549,7 +560,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Save project, Download .timber, Clear everything, History, About. There is no Copy
+- **File** holds exactly Open…, Download project, Download .timber, Clear everything, History, About. There is no Copy
   link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
@@ -580,7 +591,7 @@ D380 work.
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches and caps the info's width between them, so a name too long truncates with an
   ellipsis and its tooltip holds the full name. On the right Undo, Redo, the checks dot with its words, Save to
-  Timberborn (the only lit control), Look, and **File** (Open…, Save project, Download .timber, Clear everything,
+  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
   History, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in

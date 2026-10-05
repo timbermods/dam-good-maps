@@ -67,7 +67,7 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
   expect(making).toBe(null);
 });
 
-test("Save project captures the map after already queued edits", async () => {
+test("Download project captures the map after already queued edits", async () => {
   const pendingEdit = deferred<void>();
   let revision = 0;
   let queue: Promise<unknown> = pendingEdit.promise.then(() => { revision = 1; });

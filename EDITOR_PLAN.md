@@ -63,7 +63,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Save project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
+  Download project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
   M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
@@ -83,7 +83,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
-  right-click on one, open or not, offers **Download .timber file**, **Rename** (in place; a typed name stops at what fits the tile's two
+  right-click on one, open or not, offers **Download .timber**, **Rename** (in place; a typed name stops at what fits the tile's two
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
   desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a

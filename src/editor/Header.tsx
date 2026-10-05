@@ -364,13 +364,13 @@ export function Header(p: HeaderProps) {
           {menu ? (
             <ul class="menu" role="menu" aria-label="File">
               <li role="none">
-                <button type="button" role="menuitem" title="Open a map or project file" onClick={pick(() => file.current?.click())}>
+                <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
                   Open…
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" title="Save the map and its edits as a project" onClick={pick(p.onSaveProject)}>
-                  Save project
+                <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
+                  Download project
                 </button>
               </li>
               {p.canFolder ? (
@@ -397,13 +397,6 @@ export function Header(p: HeaderProps) {
                   </button>
                 </li>
               ) : null}
-              {p.info.kind === "generated" && p.onAnother ? (
-                <li role="none">
-                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
-                    Another like this
-                  </button>
-                </li>
-              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
                   About
@@ -417,7 +410,7 @@ export function Header(p: HeaderProps) {
             class="visually-hidden"
             tabIndex={-1}
             accept=".timber,.json,.gz,application/json"
-            aria-label="Open a map or project file"
+            aria-label="Open a map or a project"
             onChange={(e) => {
               const input = e.target as HTMLInputElement;
               const f = input.files?.[0];

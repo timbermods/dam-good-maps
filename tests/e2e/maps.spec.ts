@@ -43,7 +43,7 @@ test.describe("every investigation map imports, renders and exports unchanged (l
       await openEditor(page, "s=1&z=96&d=n&t=riverValley");
 
       // import (the open map has no edits, so the page opens the file at once)
-      await page.getByLabel("Open a map or project file").setInputFiles(path);
+      await page.getByLabel("Open a map or a project").setInputFiles(path);
       await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
       await waitForEditor(page);
       const info = await page.evaluate(() => window.dgmEditor!.info());
