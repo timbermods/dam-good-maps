@@ -4,7 +4,7 @@
 // the entries (small: the list reads them all) and the project files (read only to open a map).
 // Every call fails quietly and says why (`StoreResult`): no browser storage, or storage full.
 
-import { byEdited, toDrop, withSize, type Removed, type StoreResult, type YourMapEntry, type YourMapsStore } from "../core/library/yourMaps";
+import { byEdited, withSize, type Removed, type StoreResult, type YourMapEntry, type YourMapsStore } from "../core/library/yourMaps";
 
 export const YOUR_MAPS_DB = "dgm-your-maps";
 const ENTRIES = "entries";
@@ -13,6 +13,20 @@ const PROJECTS = "projects";
 function isQuota(e: unknown): boolean {
   const name = (e as { name?: string } | null)?.name ?? "";
   return name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED";
+}
+
+let asked = false;
+/** Once per page load, in Chromium only (`userAgentData` exists only there: Firefox would show a prompt, WebKit has its own
+ *  rules): ask the browser to keep the site's storage. The answer and any error are ignored. */
+function askToKeepStorage(): void {
+  if (asked) return;
+  asked = true;
+  try {
+    const nav = (globalThis as { navigator?: { userAgentData?: unknown; storage?: { persist?: () => Promise<boolean> } } }).navigator;
+    if (nav?.userAgentData && nav.storage?.persist) nav.storage.persist().catch(() => {});
+  } catch {
+    /* ignored */
+  }
 }
 
 function request<T>(r: IDBRequest<T>): Promise<T> {
@@ -121,18 +135,13 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       return write(async (entries, projects) => {
         await request(entries.put({ ...withSize(entry, project), bytes: project.length }));
         await request(projects.put(project, entry.id));
-        const all = (await request(entries.getAll())) as YourMapEntry[];
-        for (const id of toDrop(all, entry.id)) {
-          await request(entries.delete(id));
-          await request(projects.delete(id));
-        }
+      }).then((r) => {
+        if (r.ok) askToKeepStorage();
+        return r;
       });
     },
     rename(id, name) {
       return update(id, (e) => void (e.name = name));
-    },
-    star(id, starred) {
-      return update(id, (e) => void (e.starred = starred));
     },
     markSaved(id, revision) {
       return update(id, (e) => void (e.savedToTimberborn = revision));
@@ -142,7 +151,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
         const e = (await request(entries.get(id))) as YourMapEntry | undefined;
         const p = (await request(projects.get(id))) as Uint8Array | undefined;
         if (!e || !p) return;
-        await request(entries.put({ ...e, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, starred: false, savedToTimberborn: null }));
+        await request(entries.put({ ...e, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, savedToTimberborn: null }));
         await request(projects.put(p, c.id));
       });
     },
