@@ -3,6 +3,8 @@
 use portable as portable_math;
 #[macro_use]
 mod json;
+mod rift;
+mod deposit;
 // Reused from rust-water 2ebeea87, including its validated pointer cache.
 mod water {
     // Exact binary64 port of feature/m9b e292cefe src/core/sim/water.ts.
@@ -160,7 +162,8 @@ mod water {
                 pos: vec![usize::MAX; n],
                 settle_closed: None,
             };
-            s.seep = vec![1; s.emitters.len()];
+            // a seep starts off, as the game's does (rust/water sim.rs)
+            s.seep = s.emitters.iter().map(|e| if e.limit.is_some() { 0 } else { 1 }).collect();
             s.validate_shape();
             for i in 0..n {
                 let x = i % w;
@@ -313,6 +316,27 @@ mod water {
                     continue;
                 }
                 let add = (DT * src.strength * scale) / src.cells.len() as f64;
+                if add < 0.0 {
+                    // a sink (D337), as rust/water sim.rs
+                    for &i in &src.cells {
+                        let d0 = self.d[i];
+                        if !(d0 > 0.0) {
+                            continue;
+                        }
+                        if self.game {
+                            self.old[i] = d0;
+                        }
+                        let d1 = d0 + add;
+                        if d1 > 0.0 {
+                            self.c[i] = clamp((self.c[i] * d0 + src.contamination * add) / d1, 0.0, 1.0);
+                            self.d[i] = d1;
+                        } else {
+                            self.c[i] = 0.0;
+                            self.d[i] = 0.0;
+                        }
+                    }
+                    continue;
+                }
                 if !(add > 0.0) {
                     continue;
                 }
@@ -1697,6 +1721,8 @@ fn write_value(out: &mut Vec<u8>, v: &V) {
     }
 }
 enum Records {
+    Rift(Box<rift::RiftRecords>),
+    Deposit(Box<deposit::DepositRecords>),
     Glaciate(Box<GlacierPlan>),
     Carve(Box<CarveRecords>),
     Footprint {
@@ -1753,6 +1779,8 @@ impl Plan {
     // Cold, complete diagnostic serialization. Never called by forces_plan.
     fn value(&self) -> V {
         let mut out = match &self.records {
+            Records::Rift(r) => r.value(),
+            Records::Deposit(r) => r.value(),
             Records::Glaciate(r) => r.value(),
             Records::Carve(r) => r.value(),
             Records::Footprint { offsets, tiles } => {
@@ -1807,6 +1835,7 @@ pub struct Job {
     baseline: Map,
     live: Option<Map>,
     keep: Vec<u8>,
+    area_depth: Vec<u8>,
     output: Option<Plan>,
     command: Box<[f64; 44]>,
     carve_options: CarveOptions,
@@ -1835,6 +1864,7 @@ pub fn prepare(input: &[u8]) -> Job {
     for key in ["map", "footprints", "keep"] {
         job.as_object_mut().unwrap().shift_remove(key);
     }
+    let area_depth = if job["areaDepth"].is_array() { arr(&job["areaDepth"]).iter().map(|v| num(v) as u8).collect() } else { vec![255; map.w * map.h] };
     let settings = Settings::from(&job["settings"]);
     let intent = Intent::from(&job["intent"]);
     let opcode = match s(&job, "verb") {
@@ -1844,6 +1874,8 @@ pub fn prepare(input: &[u8]) -> Job {
         "quake" => 3.0,
         "carve" => 4.0,
         "glaciate" => 5.0,
+        "rift" => 6.0,
+        "deposit" => 7.0,
         _ => panic!("force not ported"),
     };
     let index =
@@ -1896,6 +1928,9 @@ pub fn prepare(input: &[u8]) -> Job {
         0.0,
     ]);
     command[33] = map.w as f64;
+    if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
+    if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
+    if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
     command[35] = index(
@@ -1913,7 +1948,7 @@ pub fn prepare(input: &[u8]) -> Job {
         path[2 * i] = p.x;
         path[2 * i + 1] = p.y;
     }
-    if opcode >= 4.0 {
+    if opcode == 4.0 || opcode == 5.0 {
         command[20] = job["intent"]["via"].is_array() as u8 as f64;
         command[19] = intent.via.len() as f64;
         for (i, &tile) in intent.via.iter().enumerate() {
@@ -1936,6 +1971,7 @@ pub fn prepare(input: &[u8]) -> Job {
         source_kind: vec![],
         live: Some(map),
         keep,
+        area_depth,
         output: None,
         command,
         carve_options: CarveOptions {
@@ -2001,7 +2037,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 27] = [
+const FORCE_ERRORS: [&str; 35] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -2029,6 +2065,14 @@ const FORCE_ERRORS: [&str; 27] = [
     "a glacier's path is up to 128 tiles on the map",
     "a glacier's path moves on from each of its tiles to the next",
     "No room to rise here",
+    "Invalid Rift settings",
+    "Draw the Rift on the map",
+    "the Floor leaves no ground to drop here",
+    "Invalid Deposit settings",
+    "Draw Deposit on the map",
+    "the working area leaves nothing to take sediment from",
+    "the Floor leaves nothing to take sediment from",
+    "the map leaves no room for sediment here",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -2174,6 +2218,12 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
             }
             0
         }
+        6 | 7 => {
+            let settings_error=if opcode==6{27}else{30}; let path_error=if opcode==6{28}else{31};
+            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],4.0,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) || !whole(c[5],0.0,2.0) {return settings_error;}
+            if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return path_error;}
+            0
+        }
         _ => 11,
     }
 }
@@ -2273,7 +2323,7 @@ pub fn plan(task: &mut Job) {
             .chunks_exact(2)
             .map(|p| Point { x: p[0], y: p[1] })
             .collect(),
-        via: if c[0] >= 4.0 {
+        via: if c[0] == 4.0 || c[0] == 5.0 {
             task.path[..2 * count]
                 .chunks_exact(2)
                 .map(|p| p[1] as usize * m.w + p[0] as usize)
@@ -2284,6 +2334,8 @@ pub fn plan(task: &mut Job) {
     };
     let before = m.clone();
     let mut p = match c[0] as u32 {
+        7 => deposit::plan(&before,m,&settings,&intent,&task.keep,&task.area_depth,c[5] as u32),
+        6 => rift::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth, c[5] as u32),
         1 => crater(&before, m, &settings, &intent, &task.keep),
         2 => eruption(&before, m, &settings, &intent, &task.keep),
         3 => quake(&before, m, &settings, &intent, &task.keep),
@@ -2421,6 +2473,8 @@ fn output_views(task: &mut Job) {
     }
     let g = &mut p.geometry;
     match &p.records {
+        Records::Rift(r) => r.geometry(g),
+        Records::Deposit(r) => r.geometry(g),
         Records::Glaciate(r) => {
             g.extend([
                 50.0,
@@ -2773,6 +2827,7 @@ fn describe(task: &mut Job) {
     pair(d, 3, &m.contamination);
     pair(d, 4, &m.rock);
     pair(d, 5, &task.keep);
+    pair(d, 67, &task.area_depth);
     pair(d, 16, task.command.as_ref());
     pair(d, 17, &task.path);
     pair(d, 62, &task.command_bytes);
@@ -2812,6 +2867,8 @@ fn describe(task: &mut Job) {
         pair(d, 8, &p.literal.rock_tiles);
         pair(d, 9, &p.literal.bits);
         match &p.records {
+            Records::Rift(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
+            Records::Deposit(r) => {pair(d,10,&r.arrival);pair(d,11,&r.channel);pair(d,12,&r.stats);pair(d,25,&r.stages);},
             Records::Glaciate(r) => {
                 pair(d, 10, &r.arrival);
                 pair(d, 11, &r.mask);
@@ -6511,10 +6568,15 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
     let mut path = vec![0u8; n];
     let mut mark = vec![0u32; n];
     let mut stamp = 0;
+    // a seep's water stands no higher than its anchor's floor plus its limit (prefill.ts `flowThrough`);
+    // with no running seep every tile's water stands at its spill level
+    let seeps = m.emitters.iter().any(|e| e.limit.is_some() && e.strength > 0.0);
+    let mut level = if seeps { vec![f64::NEG_INFINITY; n] } else { spill.clone() };
     for e in &m.emitters {
         if !(e.strength > 0.0) {
             continue;
         }
+        let cap = e.limit.map_or(f64::INFINITY, |(a, off, _)| m.floor[a] + off);
         stamp += 1;
         let mut queue = vec![];
         for &i in &e.cells {
@@ -6532,6 +6594,12 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
                 bad[c] += e.strength * e.contamination;
             }
             path[c] = 1;
+            if seeps {
+                let lv = if spill[c] < cap { spill[c] } else { cap };
+                if lv > level[c] {
+                    level[c] = lv;
+                }
+            }
             let x = c % m.w;
             let y = c / m.w;
             for j in [
@@ -6547,13 +6615,19 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
                 if mark[j] == stamp || spill[j] > spill[c] {
                     continue;
                 }
+                if cap != f64::INFINITY {
+                    let d = m.dam.as_ref().map_or(0.0, |dam| if dam[j] >= 0.0 { dam[j] } else { 0.0 });
+                    if m.floor[j] + d >= cap {
+                        continue;
+                    }
+                }
                 mark[j] = stamp;
                 queue.push(j);
             }
         }
     }
     let open: Vec<bool> = (0..n)
-        .map(|i| path[i] != 0 && !(spill[i] > m.floor[i]))
+        .map(|i| path[i] != 0 && !(level[i] > m.floor[i]))
         .collect();
     let mut rx = vec![0usize; n];
     let mut ry = vec![0usize; n];
@@ -6597,8 +6671,8 @@ fn force_prefill(m: &ForceWaterModel, retained: Option<&RetainedWater>) -> (Vec<
         if path[i] == 0 {
             continue;
         }
-        let d = if spill[i] > m.floor[i] {
-            spill[i] - m.floor[i]
+        let d = if level[i] > m.floor[i] {
+            level[i] - m.floor[i]
         } else {
             min(1.0, (0.3 * q[i]) / rx[i].min(ry[i]) as f64)
         };

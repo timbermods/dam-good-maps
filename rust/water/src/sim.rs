@@ -183,7 +183,8 @@ impl Sim {
             let (off, on) = e.limit.map_or((0.0, 0.0), |(_, off, on)| (off, on));
             params.extend_from_slice(&[e.strength, e.contamination, off, on]);
         }
-        let seep_on = vec![1u8; model.emitters.len()];
+        // a seep starts off, as the game's does: it turns on at the first tick only below its restart depth
+        let seep_on = model.emitters.iter().map(|e| if e.limit.is_some() { 0u8 } else { 1u8 }).collect();
         let mut sim = Sim {
             w,
             h,
@@ -537,6 +538,29 @@ impl Sim {
             }
             let src = &self.emitters[e];
             let add = (DT * src.strength * scale) / src.cells.len() as f64;
+            if add < 0.0 {
+                // a sink (negative strength, D337) removes its own kind, floored at dry (the game's
+                // UpdateContaminationFromWaterChange)
+                for &i in &src.cells {
+                    let i = i as usize;
+                    let d0 = self.d[i];
+                    if !(d0 > 0.0) {
+                        continue;
+                    }
+                    if game {
+                        self.dold[i] = d0;
+                    }
+                    let d1 = d0 + add;
+                    if d1 > 0.0 {
+                        self.c[i] = clamp01((self.c[i] * d0 + src.contamination * add) / d1);
+                        self.d[i] = d1;
+                    } else {
+                        self.c[i] = 0.0;
+                        self.d[i] = 0.0;
+                    }
+                }
+                continue;
+            }
             if !(add > 0.0) {
                 continue;
             }

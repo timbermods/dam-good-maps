@@ -22,6 +22,8 @@ export const WALK_LIMIT = 64;
 /** Objects that block walking: a beaver never enters a tile their footprint covers. */
 export const WALK_BLOCKERS = new Set([
   "Thorns", "Blockage", "NaturalDam", "UnstableCore", "GeothermalField", "UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic",
+  // the reserves and the drill fill their tiles, and the drain its own (PLAN §20 D337, D338)
+  "ReservePile", "ReserveWarehouse", "ReserveTank", "AncientAquiferDrill", "BadtideDrain",
 ]);
 
 /** What the walk reads of an object on the map: a map file's object (`MapObject`) or the build's

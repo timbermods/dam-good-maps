@@ -22,7 +22,7 @@ function wait(ms: number): void {
   for (const f of frames.splice(0)) f();
 }
 
-type Verb = ForceMoment["verb"];
+type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift effects belong to the page session.
 
 /** A moment of `verb` at (x, y). */
 function moment(verb: Verb, phase: string, x: number, y: number, progress = 0): ForceMoment {

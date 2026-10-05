@@ -49,6 +49,8 @@ export interface ForceCue {
   erupt?: { vents: Point[]; radius: number; fissure: boolean; line: Point[] };
   /** A quake: its crack as it runs, and whether it slides. */
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
+  rift?: { path: Point[]; width: number };
+  deposit?: { mouth: Point; direction: Point; reach: number; branches: Point[][] };
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
   /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
@@ -59,7 +61,7 @@ export interface ForceCue {
 
 /** A staged force as the worker drives it. */
 export interface StagedRun {
-  readonly verb: "craterize" | "erupt" | "quake" | "glaciate";
+  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;

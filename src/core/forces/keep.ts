@@ -6,6 +6,8 @@
 
 import { areaDepth } from "../features/raster/brush";
 import { carveForceParams } from "./carve/result";
+import type { DepositRun } from "./deposit";
+import type { RiftRun } from "./rift";
 import type { CarveRun } from "./carve/run";
 import type { CraterRun, EruptRun, QuakeRun, StagedRun } from "./runs";
 import type { ForceMap } from "./force";
@@ -26,6 +28,14 @@ export function forceRecordOf(req: ForceRequest, run: StagedRun, W: number): { s
     case "erupt": {
       const r = run as EruptRun;
       return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "fissure" && req.path ? { path: pathRecord(req.path) } : {}) } };
+    }
+    case "deposit": {
+      const r = run as DepositRun;
+      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
+    }
+    case "rift": {
+      const r = run as RiftRun;
+      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
     }
     case "quake": {
       const r = run as QuakeRun;
@@ -85,7 +95,7 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
   }
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
   // tile, never in a cliff along its edge
-  if (request.area) {
+  if (request.area && request.verb !== "rift" && request.verb !== "deposit") { // Rift and Deposit feather their terrain in Rust, before playback.
     params = featherForce(params, before.heights, areaDepth(request.area, before.W, before.H));
     if (!params) return refused("Nothing changed inside the working area");
   }
