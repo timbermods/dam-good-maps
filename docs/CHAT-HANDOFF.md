@@ -20,7 +20,7 @@ them for detail on any decision.
   session that changes `dev`, merges and releases. It
   does everything except the page: the core, the water, the generator, the editor-core items, the Codex adoptions and the
   documents. It orchestrates sub-agents, records Kyler's decisions in `docs/decisions/`, and logs one line per event on the Progress
-  log issue (#57). From 2026-10-05 a new milestone session continues it on another computer (`docs/HANDOFF.md`, "The machine").
+  log issue (#57). From 2026-10-05 it runs on Kyler's PC, in `C:\Users\Kyler\code\DamGoodMaps` (`docs/HANDOFF.md`, "The machine").
 - **The page session** (Claude Code, Opus 5.5, high; D388, D468) does only "The page is the editor" and its design (D384), in its
   own worktree `C:\Users\krams\code\DamGoodMaps-page` and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
   `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
@@ -115,6 +115,23 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 
 `git fetch` the repo (all branches), read `docs/STATUS.md`, the Progress log issue (#57), recent commits and open PRs, and
 view captures with `git show`. Prefer git over the GitHub REST API, which rate-limits quickly from shared addresses.
+
+## Lessons
+
+From the handover to Kyler's PC on 2026-10-05, which the planning chat got wrong.
+
+1. Before writing a prompt that starts a session, sets up a machine or names a folder, ask Kyler which folders exist and
+   which sessions are running, and read the repo's own setup steps (HANDOFF §1). Put those facts in the prompt, never
+   guesses.
+2. Use the repo's folder names. The main clone is `DamGoodMaps`; its worktrees are `DamGoodMaps-<name>` beside it
+   (setup:machine names them after the clone). Never invent a folder name.
+3. A prompt that depends on another session's step (a worktree that setup makes, a merge) says what to do if that step
+   hasn't happened: stop and tell Kyler.
+4. A restarted Claude Code session has no memory. It needs its own complete prompt, never "carry on".
+5. Before setup runs installs or checkouts in a folder, check whether another session is working there.
+6. A layout change that adds room (a third settings row, a bigger panel) is shown to Kyler as a mockup before it's built,
+   with its cost named: how much more of the map it covers. Reviewing captures means judging the whole look, not only the
+   rule asked about: a third row passed an alignment check and still looked awful.
 
 ## Ideas parked for later
 

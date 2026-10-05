@@ -6,9 +6,9 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-05, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DGM`), shared with the renderer
+As of 2026-10-05, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
 session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page's worktree is `DGM-page`, the probe folder `DGM-probe`.
+chat (D117). The page's worktree is `DamGoodMaps-page`, the probe folder `DamGoodMaps-probe`.
 
 ## Released
 
@@ -21,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D476**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `DGM-page`, `feature/page`, PR #163) builds "The page is the
+- **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play (#311). The old renderer session is closed.

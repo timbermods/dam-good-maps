@@ -15,7 +15,7 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 
 ## 1. Starting a session
 
-1. Start in the main clone (`C:\Users\Kyler\code\DGM` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
+1. Start in the main clone (`C:\Users\Kyler\code\DamGoodMaps` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
    machine) at Opus 5.5, high, so `.claude/agents/` load.
 2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
    the plan's worktrees and the probe folder `-probe` beside the clone, installs their dependencies, writes the probe allow
@@ -199,12 +199,19 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 7. The machine
 
-**Kyler's PC (since 2026-10-05):** the milestone session runs in `C:\Users\Kyler\code\DGM` (Ryzen 7 9800X3D, 16 threads,
-RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8, Python 3.13, gh), with `DGM-page` (`feature/page`) and `DGM-probe` beside
-it. The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
-Every other folder under `C:\Users\Kyler\code` and `C:\Users\Kyler\Documents\ChatGPT` belongs to another session or to Codex:
-never touch them. Not here yet: the decompiled game code and the official maps (made only when a task needs them). **Probe
-batches need Kyler's yes in chat on any machine but the dedicated one** (D117; D218 lifts the ask only there).
+**Kyler's PC (since 2026-10-05):** Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
+Python 3.13, gh. Under `C:\Users\Kyler\code`:
+
+- `DamGoodMaps`: the main clone, where the milestone session runs;
+- `DamGoodMaps-page`: the page session's worktree, on `feature/page`;
+- `DamGoodMaps-probe`: the probe folder, detached;
+- `DamGoodMaps-forces-play`: the renderer session's worktree;
+- about 50 older `DamGoodMaps-*` worktrees from released work: leave them alone.
+
+Codex works in `C:\Users\Kyler\Documents\ChatGPT`. Every folder that isn't the milestone session's belongs to another
+session or to Codex: never touch it, and check no session is working in a folder before installing or checking out there.
+The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
+**Probe batches need Kyler's yes in chat, every time** (D117; D218 lifts the ask only on the dedicated machine).
 
 **On any new computer:** clone the repository, run `npm run setup:machine` (it installs the dependencies, makes the page
 worktree, writes the probe allow rules into `.claude/settings.local.json` and checks the tools; restart the session after it
