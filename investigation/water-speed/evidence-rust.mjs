@@ -1,8 +1,31 @@
-- Base: dev `38d4ee6b` includes multi-core water; product files remain unchanged.
-- Water-only plain SIMD flags: native 2,480→2,566 ms; Chromium 2,839→2,871 ms; no standalone gain observed.
-- Group four private neighbours/flows per tile and bound outflow slices: native 2,566→1,993 ms; Chromium 2,871→2,379 ms.
-- Skip wet-list rebuild on unchanged row occupancy: native 1,993→1,214 ms; Chromium 2,379→2,172 ms; this single-thread case does not exercise strip sync.
-- Observed control→final on the fixed 256² settle: native 2.04× (51.0% less time), Chromium 1.31× (23.5% less time).
+// Compact provenance only; generated state and full manifests stay in local/.
+import fs from 'node:fs';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const here=import.meta.dirname, local=path.join(here,'local'), hash=b=>createHash('sha256').update(b).digest('hex');
+const fileHash=f=>hash(fs.readFileSync(f));
+const stages=['control','simd','layout','sync'];
+const rows=stages.map(stage=>{
+ const artifact=path.join(local,'artifacts',stage), r=JSON.parse(fs.readFileSync(path.join(local,'reading-'+stage+'.json')));
+ const bytes=fs.readFileSync(path.join(artifact,'result.native'));
+ const manifest=path.join(local,'proof',stage,'determinism/summary.json');
+ const proof=fs.existsSync(manifest)?JSON.parse(fs.readFileSync(manifest)):null;
+ return {...r,nativeBinarySha256:fileHash(path.join(artifact,'water-speed.exe')),nativeBatchSha256:fileHash(path.join(artifact,'water-batch.exe')),settle:{settled:bytes.readUInt32LE(0)!==0,ticks:bytes.readDoubleLE(4),steadyTicks:bytes.readUInt32LE(12)?bytes.readDoubleLE(16):null},proof:proof?{cases:proof.cases,engines:proof.engines,mismatches:proof.mismatches,baselineCheckpoints:196,logs:Object.fromEntries(fs.readdirSync(path.join(local,'proof',stage)).filter(f=>f.endsWith('.log')).map(f=>[f,fileHash(path.join(local,'proof',stage,f))]))}:null};
+});
+const sources=['rust/water/src/sim.rs','tools/rust/build.ts'];
+const evidence={schema:1,base:'38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e',previousRemoteBranch:'ed6fc4fbe48ac2ba083522a06ac32fab848425d7',case:{theme:'lakeBasin',seed:1,width:256,height:256,inputSha256:fileHash(path.join(local,'settle-256.job'))},rust:execFileSync(path.join(process.env.USERPROFILE,'.cargo/bin/rustc.exe'),['-vV'],{cwd:path.join(local,'candidate'),encoding:'utf8',windowsHide:true}).trim(),wasmFlags:['+simd128','-relaxed-simd'],nativeFlags:['-fma','x86-64-v2'],concurrency:4,readings:rows,sourceSha256:Object.fromEntries(sources.map(f=>[f,{before:fileHash(path.join(local,'control',f)),after:fileHash(path.join(local,'candidate',f))}])),adoptionPatchSha256:fileHash(path.join(here,'adoption.patch')),stripRegressionSha256:fileHash(path.join(here,'strip-sync.rs'))};
+fs.writeFileSync(path.join(here,'EVIDENCE-rust.json'),JSON.stringify(evidence,null,2)+'\n');
+console.log('compact provenance written; full state remains ignored');
+const [control, simd, layout, sync] = rows;
+for (const r of [simd,layout,sync]) if (!r.proof || r.proof.mismatches.length || Object.values(r.proof.engines).some(e=>e.errors.length)) throw Error('unfinished/failing proof for '+r.stage);
+const ms=n=>Math.round(n).toLocaleString('en-US'), gain=(a,b)=>(a/b).toFixed(2), less=(a,b)=>(100*(1-b/a)).toFixed(1);
+const pair=(a,b)=>`native ${ms(a.nativeMs)}→${ms(b.nativeMs)} ms; Chromium ${ms(a.chromiumMs)}→${ms(b.chromiumMs)} ms`;
+const report=`- Base: dev \`38d4ee6b\` includes multi-core water; product files remain unchanged.
+- Water-only plain SIMD flags: ${pair(control,simd)}; no standalone gain observed.
+- Group four private neighbours/flows per tile and bound outflow slices: ${pair(simd,layout)}.
+- Skip wet-list rebuild on unchanged row occupancy: ${pair(layout,sync)}; this single-thread case does not exercise strip sync.
+- Observed control→final on the fixed 256² settle: native ${gain(control.nativeMs,sync.nativeMs)}× (${less(control.nativeMs,sync.nativeMs)}% less time), Chromium ${gain(control.chromiumMs,sync.chromiumMs)}× (${less(control.chromiumMs,sync.chromiumMs)}% less time).
 - Each change: 98 canonical settles at 96/128/256/512, native and four strips; 57 pinned tests; 196 baseline determinism checkpoints; zero differing bytes.
 - Strict IR/assembly/Wasm guards pass: no FMA, relaxed SIMD or changed reduction/source/stop order; final Rust and stacked-water checks pass.
 - Adopt [adoption.patch](adoption.patch) using [INTEGRATION.md](INTEGRATION.md); [EVIDENCE-rust.json](EVIDENCE-rust.json) binds every reading and proof.
@@ -10,24 +33,21 @@
 ## One fixed case, one reading per stage
 
 Lake Basin, seed 1, 256×256, generated and prefilled by unchanged dev. Rust 1.90.0, Node 24.13.0,
-Chromium/installed Chrome 154.0.8037.95, Ryzen 7 9800X3D, Windows; the PC remained shared.
+Chromium/installed Chrome ${sync.chromium}, Ryzen 7 9800X3D, Windows; the PC remained shared.
 The previous stage's one reading is reused as the next change's before value. These are individual observations,
 not medians, guaranteed gains or speed gates. No warmup settle or additional timing case was run.
 
 | Cumulative stage | Native ms | Chromium ms | Full result SHA-256 |
 | --- | ---: | ---: | --- |
-| control | 2480.338 | 2839.100 | `e06e94837d18a74b…` |
-| simd | 2565.702 | 2871.300 | `e06e94837d18a74b…` |
-| layout | 1993.280 | 2378.800 | `e06e94837d18a74b…` |
-| sync | 1214.416 | 2172.100 | `e06e94837d18a74b…` |
+${rows.map(r=>`| ${r.stage} | ${r.nativeMs.toFixed(3)} | ${r.chromiumMs.toFixed(3)} | \`${r.resultSha256.slice(0,16)}…\` |`).join('\n')}
 
 The timed operation is one full canonical settle from prefilled water, including protocol decoding, simulation
 construction and result encoding. Generation/prefill, input file reads/copies, process launch and Wasm compilation
 are outside the reading. Instances start cold; browser tiering and host activity can influence the numbers.
-The output is 3,211,288 bytes, with 1408 ticks; settled=true,
-steadyTicks=none. Its complete hash is
-`e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f`; input hash is
-`ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a`. Every native/Chromium reading matches that exact output.
+The output is ${sync.bytes.toLocaleString('en-US')} bytes, with ${sync.settle.ticks} ticks; settled=${sync.settle.settled},
+steadyTicks=${sync.settle.steadyTicks ?? 'none'}. Its complete hash is
+\`${sync.resultSha256}\`; input hash is
+\`${sync.inputSha256}\`. Every native/Chromium reading matches that exact output.
 
 SIMD alone did not establish a speedup. The final patch retains the water-only flag alongside the layout change;
 the compiler emits packed memory operations, while directional reductions remain scalar and ordered.
@@ -58,7 +78,7 @@ at 128/256 and dry→normal→drought→badtide water at 96/512. Other browsers 
 not run. This corpus plus unchanged arithmetic/order supports adoption; it is not exhaustive enumeration of inputs.
 
 Optimized native and Wasm IR, assembly and unstripped Wasm pass the repository maths guard after each change.
-Native flags remain `-fma,x86-64-v2`; only the water's embedded Wasm gets `+simd128,-relaxed-simd`.
+Native flags remain \`-fma,x86-64-v2\`; only the water's embedded Wasm gets \`+simd128,-relaxed-simd\`.
 The candidate TypeScript typecheck passes, and the adoption patch applies cleanly. No pins or versions are changed.
 
 ## Starting evidence and scope
@@ -71,10 +91,13 @@ records benefits from early exits and validated buffer access in other kernels. 
 no fresh CPU profile or sampling was taken. Timing only the fixed settle avoids claiming a generation or
 whole-editor speedup; adoption uses the same water module for live settles, weather, generation and strips.
 
-Everything committed stays in this folder. The patch is limited to `rust/water` and the water's build flags;
+Everything committed stays in this folder. The patch is limited to \`rust/water\` and the water's build flags;
 public arrays/ABI, product TypeScript and the forces remain as they were. Full binaries, jobs, output bytes and
-manifests stay in ignored `local/` under D195. Regeneration commands and inputs are in INTEGRATION.md;
+manifests stay in ignored \`local/\` under D195. Regeneration commands and inputs are in INTEGRATION.md;
 expect tens of minutes, dominated by correctness checks, with cargo/test workers capped at four and engines serial.
-The authorized remote branch previously pointed at the closed TypeScript investigation, `ed6fc4fb`;
+The authorized remote branch previously pointed at the closed TypeScript investigation, \`ed6fc4fb\`;
 its reports are preserved here. The one branch push uses a lease on that exact old commit. No other branches,
 merges, approvals, auto-merge, tags, releases or game probes are involved.
+`;
+fs.writeFileSync(path.join(here,'REPORT.md'),report);
+console.log('REPORT.md written with an eight-line opening summary');
