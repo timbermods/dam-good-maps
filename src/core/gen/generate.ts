@@ -2346,11 +2346,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   allowLevel = false;
   let pick = chooseStart();
-  // D471: every setting makes a map. A shown land whose settled water cut it into pieces each smaller
-  // than the share of the map the start's ground asks for (wild land under lush rivers: Any 256²,
-  // Verticality and Relief 100, seed 3399078211) asks only for Buildable land's walkable land
-  // (PLAN §5.2; walkable land is a target, D85), never a start levelled after the land was shown
-  if (!pick && landStage?.shown && minFoot > Math.min(1200, reachMin)) {
+  // D471: every setting makes a map. In a rescue round, a shown land whose settled water cut it into
+  // pieces each smaller than the share of the map the start's ground asks for (wild land under lush
+  // rivers: Any 256², Verticality and Relief 100, seed 3399078211) asks only for Buildable land's
+  // walkable land (PLAN §5.2; walkable land is a target, D85), never a start levelled after the land
+  // was shown (only in a rescue round: the attempts before it keep their maps' bytes, D308)
+  if (!pick && ease > 0 && landStage?.shown && minFoot > Math.min(1200, reachMin)) {
     minFoot = Math.min(1200, reachMin);
     pick = chooseStart();
   }
