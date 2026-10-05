@@ -1,7 +1,8 @@
 // Every force's water plays with its land (PLAN §20 D371): while a force is shown, the map's water flows on the
 // land as each frame has it (into a crater or a rift as it opens, along with a Slide's block, a glacier's own
 // water easing in as the ice melts back), and kept, the map's water flows on from exactly the water last shown:
-// nothing jumps at the keep. (Carve's own rules: carveBornAsItCuts.test.ts.)
+// nothing jumps at the keep; a source the force clears stops feeding it at its step, one that rides runs on
+// (D474). (Carve's own rules: carveBornAsItCuts.test.ts, forceClearSources.test.ts.)
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -83,5 +84,36 @@ describe("every force's water plays with its land (D371)", () => {
       ed.undo();
       ed.settleWater();
     }
+  });
+
+  it("a source the force clears stops feeding its water as the force reaches it; one that rides runs on (D474)", async () => {
+    const { river } = await open();
+    // a source of our own on dry ground beside the river, for an impact to land on
+    const b = MapSession.open(decodeProject(ed.project().bytes)).built;
+    let spot: [number, number] | null = null;
+    for (let r = 10; r < 30 && !spot; r++)
+      for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) {
+        const [x, y] = [river[0] + dx, river[1] + dy];
+        if (!spot && x > 8 && y > 8 && x < W - 8 && y < W - 8 && !(b.water[y * W + x] > 0) && !b.entities.some((e) => Math.abs(e.x - x) < 3 && Math.abs(e.y - y) < 3)) spot = [x, y];
+      }
+    expect(spot, "a dry spot").not.toBeNull();
+    const [sx, sy] = spot!;
+    expect(ed.apply({ op: "placeEntity", params: { id: "aaaaaaaa-bbbb-4ccc-8ddd-000000000311", template: "WaterSource", x: sx, y: sy, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 4, CurrentStrength: 4 } } } } as never).errors).toEqual([]);
+    ed.settleWater();
+    const play = (sources: "ride" | "clear") => {
+      expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, size: 12, sources }, origin: spot!, cut: null } as ed.ForceRequest).errors).toEqual([]);
+      let f = ed.forceAdvance(1)!;
+      for (let k = 0; k < 400 && !f.planned; k++) f = ed.forceAdvance(1)!;
+      let total = 0;
+      while (!f.done) {
+        f = ed.forceAdvance(1)!;
+        ed.flowForceWater(40);
+      }
+      const d = ed.flowForceWater(200)!;
+      for (let i = 0; i < N; i++) total += d[i];
+      ed.forceCancel();
+      return total;
+    };
+    expect(play("ride"), "the ridden source feeds the water as it plays").toBeGreaterThan(play("clear") + 1);
   });
 });
