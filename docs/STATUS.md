@@ -44,7 +44,7 @@ as of 2026-10-04 and move.
 | Multi-core water, follow-ups | `fix/multicore-water-followups` | none yet | In flight, not yet on GitHub |
 | Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
-| Carve's aging setting removed (D473) | its own branch | to come | Carve is the Young carve again (its 42 pins unchanged); saved carves with the setting open as recorded; the page removes its control |
+| Carve's aging setting removed (D473) | its own branch | #293 | Carve is the Young carve again (its 42 pins unchanged); saved carves with the setting open as recorded; the page removes its control |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | The second core hunt | `investigation/core-hunt-2` | #280 | Done, `needs-kyler`: three fixes in its PR; Deposit's pillars handed to Codex (below) |
 | Water speed | `feature/water-speed` | #290 | Adopting #288 (Codex): the flow layout and the skipped wet-list rebuild, byte-identical on one thread and on strips; no SIMD (Kyler, 2026-10-04: it gained nothing) |
