@@ -20,7 +20,8 @@ export function useSave(ed: Ed): SaveSlice {
   // ------------------------------------------------------------------------------ export
 
   async function exportProject() {
-    const p = await api.project();
+    // (in the edits' queue, as the .timber download is: a stroke already shown is in it)
+    const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
   }
 

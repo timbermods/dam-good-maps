@@ -187,6 +187,10 @@ export function App() {
   const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
   /** The open map as it was when a new one was asked for: Cancel opens it again, its edits and history with it. */
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean } | null>(null);
+  /** That project while it is still being taken (Cancel waits for it before ending the worker it comes from), and a
+   *  Cancel already under way (a second one does nothing). */
+  const backReady = useRef<Promise<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean }> | null>(null);
+  const cancelling = useRef(false);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
   // the map generator's panel, Real places or Your maps, one at a time
@@ -514,13 +518,15 @@ export function App() {
       // the open map's project, which Cancel opens again: kept in memory, and saved first when Your maps keeps it
       if (over && entry.current && tries === 0) {
         const was = kept.current;
-        const snap = await snapshot();
+        back.current = null;
+        backReady.current = snapshot().then((s) => ({ entry: s.entry, bytes: s.project, kept: was }));
+        const b = await backReady.current;
         if (was) {
-          saver.changed(snap.entry.id, () => snap);
+          saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
           await saver.flush();
         }
         if (id !== runId.current) return null;
-        back.current = { entry: snap.entry, bytes: snap.project, kept: was };
+        back.current = b;
       }
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
@@ -586,26 +592,29 @@ export function App() {
   /** Cancel a map being made: the generator's work stops at once (its worker ends), and the map that was open comes
    *  back exactly as it was, its edits and history with it, the view where it was, in a new worker. */
   async function cancelMaking() {
+    if (cancelling.current) return;
+    cancelling.current = true;
     runId.current++;
     stopBackground();
-    const old = gen;
-    gen = createGeneratorWorker();
-    generator = gen.api;
-    old.stop();
-    setProgress(null);
-    const b = back.current;
-    back.current = null;
-    if (!b) {
-      setBusy(false);
-      return setMaking(null);
-    }
     setMaking("back");
+    setProgress(null);
     try {
+      // (the old worker lives until the open map's project has come from it: ended sooner, the call never answers and
+      // the editor is left on a worker that is gone; investigation/page-hunt)
+      const b = back.current ?? (backReady.current ? await backReady.current : null);
+      const old = gen;
+      gen = createGeneratorWorker();
+      generator = gen.api;
+      old.stop();
+      back.current = null;
+      backReady.current = null;
+      if (!b) return void setMaking(null);
       enterEditor(await generator.openProject(b.bytes), { entry: b.entry, kept: b.kept }, undefined, true);
       setMaking(null);
     } catch (e) {
       setMaking({ failed: words(e) });
     } finally {
+      cancelling.current = false;
       setBusy(false);
     }
   }
