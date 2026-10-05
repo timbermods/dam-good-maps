@@ -1397,8 +1397,9 @@ export interface ForceFrame {
   heat?: Uint8Array;
   /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
    *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
-   *  frame on, even before `entities` (sent a few times a second) drops it; a carve's own water has
-   *  stopped its emitter from that step, so its water drains. */
+   *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
+   *  sources they reach themselves (as any object they take, not listed here). A carve's own water stops
+   *  the emitter of any source that leaves the land shown, so its water drains; a riding one runs on. */
   cleared?: ClearedSource[];
 }
 
@@ -1676,7 +1677,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array; emitters: Map<string, number>; stopped: number } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array; emitters: Map<string, number>; objects: readonly EntitySpec[] } | null = null;
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
@@ -1687,7 +1688,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
   if (!p || p.run.settings.dry) return;
   const m = p.map;
   const model = modelOf(m);
-  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice(), emitters: emittersById(m.W, m.H, m.entities), stopped: 0 };
+  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice(), emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
@@ -1706,8 +1707,9 @@ function endForceWater(): void {
 }
 
 /** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
- *  flows before the cut); its floor brought to the ground shown, and the sources the carve has
- *  cleared by now stopped (D474: their water drains from that step, as the game's would). */
+ *  flows before the cut); its floor brought to the ground shown, and every source or seep gone from
+ *  the land shown stopped (D474: taken by the carve or cleared, its water drains from that step, as
+ *  the game's would; one that rides runs on, on its new ground). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
   const p = w.force.play!;
   if (p.shown === 0) return false;
@@ -1717,11 +1719,14 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
       w.model.floor[i] += h[i] - w.ground[i];
       w.ground[i] = h[i];
     }
-  // (the record is in step order: those up to the step shown)
-  const cleared = p.cleared;
-  while (w.stopped < cleared.length && cleared[w.stopped].step <= p.shown) {
-    const k = w.emitters.get(cleared[w.stopped++].id);
-    if (k !== undefined) w.model.emitters[k].strength = 0;
+  if (p.map.entities !== w.objects) {
+    w.objects = p.map.entities;
+    const here = new Set(p.map.entities.map((e) => e.id));
+    for (const [id, k] of w.emitters)
+      if (!here.has(id)) {
+        w.model.emitters[k].strength = 0;
+        w.emitters.delete(id);
+      }
   }
   return true;
 }

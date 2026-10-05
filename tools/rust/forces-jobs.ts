@@ -20,6 +20,8 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { executeInRust, jobBytes, type RustJob, type RustVerb } from "../../src/core/forces/rust/bridge";
 import { fixture } from "../../tests/contract/forceFixtures";
+import { fluidObject, waterSource } from "../../src/core/format/entities";
+import { plainEntities } from "../../src/core/forces/force";
 
 const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit"];
 
@@ -153,12 +155,32 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
   return j;
 }
 
+/** The job with a water source (every seventh a seep) every five tiles where nothing stands. */
+function sprinkled(j: RustJob): RustJob {
+  const m = j.map;
+  const taken = new Set(m.entities.map((e) => e.y * m.W + e.x));
+  const add = [];
+  for (let y = 3; y < m.H - 3; y += 5)
+    for (let x = 3; x < m.W - 3; x += 5) {
+      const i = y * m.W + x;
+      if (taken.has(i)) continue;
+      const b = { x, y, z: m.heights[i], id: `ride-${x}-${y}`, owner: "test" };
+      add.push(add.length % 7 === 6 ? fluidObject({ ...b, template: "WaterSeep" }) : waterSource({ ...b, strength: 1 }));
+    }
+  return { ...j, map: { ...m, entities: [...m.entities, ...plainEntities(add)] } };
+}
+
 /** Every fixture's job, by name. */
 export function forceJobs(): { name: string; job: RustJob }[] {
   const out: { name: string; job: RustJob }[] = [];
   for (const verb of VERBS) {
     for (let k = 0; k < 4; k++) out.push({ name: `${verb} 64 ${k}`, job: job(verb, 64, k) });
     for (let k = 0; k < 2; k++) out.push({ name: `${verb} 64 odd ${k}`, job: oddJob(verb, 64, k) });
+    // Sources set to Ride (D474): Carve's and Glaciate's plans keep the sources and seeps they reach
+    // (sources and a seep sprinkled every five tiles, so the force reaches some)
+    if (verb === "carve" || verb === "glaciate")
+      for (const [name, j] of [[`${verb} 64 ride 1`, job(verb, 64, 1)], [`${verb} 64 ride 3`, job(verb, 64, 3)], [`${verb} 64 ride odd 0`, oddJob(verb, 64, 0)]] as const)
+        out.push({ name, job: { ...sprinkled(j), settings: { ...j.settings, sources: "ride" } } });
   }
   return out;
 }

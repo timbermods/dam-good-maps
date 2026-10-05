@@ -24,7 +24,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
-import { clearable, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
+import { changedGround, clearable, clears, CLEARABLE, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -89,6 +89,9 @@ export interface StagedRun {
   /** Sources set to Clear (D474): the sources its showing has cleared so far, each with the step
    *  (`shown`) that took it; all of them once shown to its end. */
   readonly cleared: readonly ClearedSource[];
+  /** The working area's depth (D254), or null: what it clears is on the ground its operation keeps
+   *  changed, feathered. */
+  ease: Uint8Array | null;
 }
 
 /** The water model of a force's map (features/build.ts). */
@@ -200,6 +203,9 @@ export abstract class Staged {
   abstract final(): FullForceMap | null;
   /** Sources set to Clear: the sources it clears, once planned (D474). */
   protected clearing: SourceClearing | null = null;
+  /** The working area (D254): how many levels each tile may change, or null for none (`planForce`
+   *  sets it): it clears the sources on the ground its operation keeps changed, feathered. */
+  ease: Uint8Array | null = null;
 
   get cleared(): readonly ClearedSource[] {
     return this.clearing?.record ?? [];
@@ -221,10 +227,15 @@ export abstract class Staged {
       this.settled = true;
       this.clearing = null;
       const after = this.final();
-      if (after && this.settings.sources === "clear") {
+      // (Ride: a source or seep stands on the ground its last touches left, D474)
+      if (after && !clears(this.settings.sources)) {
+        const W = after.W;
+        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+      }
+      if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;
         const standing = new Set(after.entities.map((e) => e.id));
-        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, (i) => after.heights[i] !== ground[i], (id) => !standing.has(id)));
+        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, changedGround(ground, after.heights, this.ease), (id) => !standing.has(id)));
       }
     }
     return this;

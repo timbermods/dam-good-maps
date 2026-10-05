@@ -1,10 +1,11 @@
 // Forces can clear sources (PLAN §20 D474, amending D257's "no force changes shelf objects except by
-// riding the ground" for sources only): every force takes a Sources choice, Ride (a source moves with
-// the ground, as before D474) or Clear (the default for a new force: every water and badwater source
-// on a tile whose ground the force changes goes; a multi-tile one if any of its tiles changes). The
-// sources a force places itself always stay (Carve's river, Glaciate's meltwater, an unleashed source);
-// every other object keeps riding the ground. An operation without the choice replays as Ride, so
-// projects saved before D474 open unchanged (D455).
+// riding the ground" for sources only): every force takes a Sources choice, Ride (its sources move with
+// the ground) or Clear (the default, also for an operation without the choice: every water and badwater
+// source and seep on a tile whose ground the force changes goes; a multi-tile one if any of its tiles
+// changes). The sources a force places itself always stay (Carve's river, Glaciate's meltwater, an
+// unleashed source); every other object keeps riding the ground. Carve and Glaciate take what they
+// reach themselves under Clear (in Rust: `removed`, as their head or ice arrives) and keep it riding
+// under Ride; the other forces' sources ride in Rust and Clear takes them here.
 //
 // No pop: a cleared source goes at the step its showing first changes one of its tiles, never all at
 // the end; the force's operation keeps each one's id and that step (`cleared`).
@@ -16,11 +17,20 @@ import { footprint } from "./objects";
 /** The Sources choice: Ride or Clear. */
 export type SourcesRule = "ride" | "clear";
 export const SOURCES_RULES: readonly SourcesRule[] = ["ride", "clear"];
-/** A new force's choice when its row says none (start.ts `planForce`). An operation without one rode. */
+/** A force's choice when it says none: Clear (start.ts `planForce` writes it into the request). */
 export const SOURCES_DEFAULT: SourcesRule = "clear";
+/** Whether a force with this choice clears its sources (none given: Clear). */
+export const clears = (rule: SourcesRule | undefined): boolean => rule !== "ride";
 
-/** What Clear can take: water and badwater sources (aquifers and seeps stay as they are). */
-const CLEARABLE = new Set(["WaterSource", "BadwaterSource"]);
+/** What Clear takes and Ride keeps: water and badwater sources and seeps (aquifers stay as they are). */
+export const CLEARABLE: ReadonlySet<string> = new Set(["WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep"]);
+
+/** The tiles whose ground a force's result changes, its working area's feather applied (`ease`: how
+ *  many levels each tile may move, D254; null for none), as its operation keeps them (keep.ts
+ *  `featherForce`): the showing and the operation clear from the same tiles. */
+export function changedGround(before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null): (i: number) => boolean {
+  return ease ? (i) => Math.max(before[i] - ease[i], Math.min(before[i] + ease[i], after[i])) !== before[i] : (i) => after[i] !== before[i];
+}
 
 /** A source a force cleared, and the step of its showing that took it: the frame whose `shown` is
  *  `step` is the first without it. */
@@ -69,9 +79,10 @@ export class SourceClearing {
   }
 }
 
-/** Each source's emitter in a water model made from `entities` (features/build.ts `modelOf`, the
- *  same order: one emitter for each object with a tile on the map), by id: a force's own water stops
- *  a cleared source's emitter at its step, so its water drains as the game's would. */
+/** Each source's and seep's emitter in a water model made from `entities` (features/build.ts `modelOf`,
+ *  the same order: one emitter for each object with a tile on the map), by id: a force's own water
+ *  stops a source's emitter at the step it leaves the land shown, so its water drains as the game's
+ *  would; a source that rides keeps running. */
 export function emittersById(W: number, H: number, entities: readonly EntitySpec[]): Map<string, number> {
   const out = new Map<string, number>();
   let k = 0;

@@ -67,7 +67,7 @@ export interface ForceSettingsTable {
 }
 
 /** Every force's settings. Power (0–100), the seed (a whole number, 0–4294967295), the Floor
- *  (floor.ts) and Sources (clear.ts, D474: ride or clear; absent, it rode) are every force's. */
+ *  (floor.ts) and Sources (clear.ts, D474: ride or clear; absent, clear) are every force's. */
 export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
   carve: {
     name: "a carve",

@@ -34,7 +34,7 @@ export interface QuakeIntent {
 
 export interface QuakeSettings {
   mode: "lift" | "slide";
-  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
   sources?: SourcesRule;
   /** 0–100. */
   power: number;

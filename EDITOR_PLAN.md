@@ -207,16 +207,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
-- **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default, removes every water
-  and badwater source on a tile whose ground the force changes (a multi-tile source if any of its tiles changes);
-  **Ride** lets them move with the ground. The sources a force places itself always stay (Carve's river source,
-  Glaciate's meltwater, the source an Unleash starts from); every other object keeps riding the ground. A cleared
-  source goes at the step the force first changes one of its tiles, never at the end, and its water drains from
-  then as the game's would (a carve's live water stops its emitter at that step; the others' water flows on from the
-  final land). The operation keeps the choice and each cleared source with its step (`core/forces/clear.ts`), so
-  undo brings them back; an operation saved without the choice replays as Ride. Carve and Glaciate already take
-  every source on ground they change, so for them the two give the same map. Where the row shows the choice is the
-  page's.
+- **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
+  operation without the choice), removes every water and badwater source and seep on a tile whose ground the force
+  changes (a multi-tile one if any of its tiles changes; in a working area, the feathered ground the force keeps);
+  **Ride** keeps them, moving with the ground, on every force (Carve and Glaciate plan with them, and Glaciate's
+  springs take none of their water). The sources a force places itself always stay (Carve's river source,
+  Glaciate's meltwater, the source an Unleash starts from); every other object keeps riding the ground. A source
+  goes at the step the force first changes one of its tiles, never at the end, and its water drains from then as
+  the game's would (a carve's live water stops a source's emitter the step it leaves the land shown and keeps a
+  riding one running; the others' water flows on from the final land). Under Clear, Carve and Glaciate take what
+  they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
+  (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
+  them back. Where the row shows the choice is the page's.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,

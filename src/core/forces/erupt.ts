@@ -33,7 +33,7 @@ export interface EruptIntent {
 
 export interface EruptSettings {
   mode: "vent" | "fissure";
-  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
   sources?: SourcesRule;
   /** 0–100. */
   power: number;

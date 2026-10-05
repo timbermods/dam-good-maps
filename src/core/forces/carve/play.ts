@@ -17,7 +17,7 @@
 // spreading of that last step).
 
 import type { EntitySpec } from "../../format/entities";
-import { clearable, type ClearedSource } from "../clear";
+import { changedGround, clearable, clears, CLEARABLE, type ClearedSource } from "../clear";
 import { footprint } from "../objects";
 import type { ForceHead, ForceMap } from "../force";
 import type { CarveRun, Station } from "./run";
@@ -38,6 +38,8 @@ export class CarvePlay {
   private removedShown = 0;
   /** Its own sources, or an unleashed one: they follow the ground as it is cut. */
   private readonly riders: boolean;
+  /** Sources set to Ride (D474): the map's sources and seeps ride the cut ground too. */
+  private readonly riding: boolean;
 
   /** Shown from its end (A5): each step's changes, the latest step first, each tile once at its final
    *  level; made once it is worked out. */
@@ -58,7 +60,9 @@ export class CarvePlay {
     // (drawn from its end: its surge gathers there while it is worked out)
     const end = run.intent.end;
     if (fromEnd && end !== undefined) this.first = { ...this.first, x: end % m.W, y: Math.floor(end / m.W), z: m.heights[end], dx: -this.first.dx, dy: -this.first.dy };
-    this.riders = run.group.length > 0 || run.unleashedId !== null;
+    // (and with Sources set to Ride, every source and seep it reaches, D474)
+    this.riding = !clears(run.settings.sources);
+    this.riders = run.group.length > 0 || run.unleashedId !== null || this.riding;
     this.heads = [{ ...run.head }];
   }
 
@@ -121,14 +125,14 @@ export class CarvePlay {
 
   private clearAhead(): void {
     const run = this.run;
-    if (run.settings.sources !== "clear") return;
+    if (!clears(run.settings.sources)) return;
     const was = run.original;
     const ease = run.ease;
     const eased = (i: number, h: number) => (ease ? Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], h)) : h);
-    const final = run.map.heights;
     const standing = new Set(run.map.entities.map((e) => e.id));
     const own = new Set([run.sourceId, ...run.group.map((g) => g.id), ...(run.unleashedId ? [run.unleashedId] : [])]);
-    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, (i) => eased(i, final[i]) !== was[i], (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
+    // (the carve takes what it reaches itself, in Rust: this finds only what it left standing on changed ground)
+    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, changedGround(was, run.map.heights, ease), (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
     if (!sources.length) return;
     // (each tile's first step shown with its level changed)
     const first = new Int32Array(was.length);
@@ -173,7 +177,8 @@ export class CarvePlay {
     if (ease) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) { const i = changes[s][j]; heights[i] = Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], heights[i])); }
     if (this.map.lava) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) this.map.lava[changes[s][j]] &= (1 << heights[changes[s][j]]) - 1;
     this.at = k;
-    // the objects the head has reached go; its own sources and an unleashed one ride the ground
+    // the objects the head has reached go; its own sources and an unleashed one ride the ground (with
+    // Sources set to Ride, every source and seep it reaches)
     const removed = this.run.removedAt;
     const W = this.map.W;
     let gone = 0;
@@ -191,7 +196,7 @@ export class CarvePlay {
         .map((e) => {
           const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
-          if (e === unleashed) return { ...e, z: heights[e.y * W + e.x] };
+          if (e === unleashed || (this.riding && CLEARABLE.has(e.template))) return e.z === heights[e.y * W + e.x] ? e : { ...e, z: heights[e.y * W + e.x] };
           return e;
         });
     }

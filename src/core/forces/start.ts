@@ -318,6 +318,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         const path = tap ? clickFault(base.heights, W, H, req.path[0], req.settings.power, req.settings.seed ?? 0) : req.path;
         const run = new QuakeRun(map, req.settings, { path, side: req.side }, keep);
         run.finalize = feathered(buildTouches(state, base.heights), base.heights, inside);
+        run.ease = inside;
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;
         break;
@@ -326,6 +327,8 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   } catch (e) {
     return refuse(blame(refusal(e)));
   }
+  // (the sources it clears are on the ground its operation keeps changed, the working area feathered: D474)
+  if (staged) staged.ease = inside;
   return { ok: true, request: req, carve, staged, before: map };
 }
 

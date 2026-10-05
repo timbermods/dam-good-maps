@@ -6,7 +6,7 @@
 // the sources it cleared (D474).
 
 import { areaDepth } from "../features/raster/brush";
-import { clearable, type ClearedSource } from "./clear";
+import { clearable, clears, SOURCES_DEFAULT, type ClearedSource } from "./clear";
 import { carveForceParams } from "./carve/result";
 import type { DepositRun } from "./deposit";
 import type { RiftRun } from "./rift";
@@ -116,15 +116,16 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
   return { ok: true, params: withSources(params, before, request.settings.sources, input) };
 }
 
-/** A kept force's Sources choice (D474) in its record, and with Clear the sources it cleared: every
- *  water and badwater source on ground its result changes, save the ones it placed itself (Carve's
- *  river, Glaciate's springs, an unleashed source) and the ones it took itself; carried, it goes
- *  instead. Each with the step its showing took it at (the run's record, `shownCleared` for a carve's
- *  playback), else its last step. Without a choice (a caller from before D474), it is left out: Ride. */
-function withSources(p: ForceResultParams, before: ForceMap, rule: ForceSettingsRecord["sources"], input: KeptForceInput): ForceResultParams {
-  if (!rule) return p;
+/** A kept force's Sources choice (D474) in its record (none given: Clear), and with Clear the sources
+ *  it cleared: every water and badwater source and seep on ground its result changes (feathered in a
+ *  working area, as its showing cleared them), save the ones it placed itself (Carve's river,
+ *  Glaciate's springs, an unleashed source) and the ones it took itself; carried, it goes instead.
+ *  Each with the step its showing took it at (the run's record, `shownCleared` for a carve's
+ *  playback), else its last step. */
+function withSources(p: ForceResultParams, before: ForceMap, given: ForceSettingsRecord["sources"], input: KeptForceInput): ForceResultParams {
+  const rule = given ?? SOURCES_DEFAULT;
   const out: ForceResultParams = { ...p, settings: { ...p.settings, sources: rule } };
-  if (rule !== "clear") return out;
+  if (!clears(rule)) return out;
   const changed = new Uint8Array(before.W * before.H);
   p.tiles.forEach((i, k) => {
     if (p.heights[k] !== before.heights[i]) changed[i] = 1;

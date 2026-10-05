@@ -169,7 +169,7 @@
             "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
             "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
             "banks": { "type": "number", "minimum": 0, "maximum": 10 },
-            "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source on a tile the force changes. Absent: ride (operations from before D474)." }
+            "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source and seep on a tile the force changes. Absent: clear." }
           }
         },
         "where": {

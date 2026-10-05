@@ -12,7 +12,7 @@ import { forceSettingsProblem, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN } from "../s
  *  click Flows, a drag Aims (D258; there is no Mode control). */
 export interface GlaciateSettings {
   mode: "flow" | "aim";
-  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
   sources?: SourcesRule;
   power: number;
   /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */

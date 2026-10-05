@@ -33,7 +33,7 @@ import type { Oxbow } from "./oxbow";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
-  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
   sources?: SourcesRule;
   /** 0 (a creek) to 100 (a catastrophe). */
   power: number;

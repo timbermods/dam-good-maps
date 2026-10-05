@@ -51,7 +51,7 @@ as of 2026-10-05 and move.
 | Multi-core water, follow-ups | `fix/multicore-water-followups` | #284 | Merged |
 | Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
-| Forces can clear sources (D474) | `feature/forces-clear-sources` | PR into dev | Core half: every force's Sources, Ride or Clear (Clear by default), each cleared source going at the step its tile first changes; the page adds the control, the renderer reads the frames' `cleared`. Carve and Glaciate already took every source they reached, so for them Ride and Clear give the same map |
+| Forces can clear sources (D474) | `feature/forces-clear-sources` | #308 | Core half: every force's Sources, Ride or Clear (Clear by default), sources and seeps; Ride keeps them on every force (Carve's and Glaciate's Rust plans too, six new pins); each source goes at the step its tile first changes; the page adds the control, the renderer reads the frames' `cleared` |
 | Carve's aging setting removed | merged | #293 | D473 (Kyler, 2026-10-04): Carve is one carve again; a carve saved with the setting opens as recorded |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | The second core hunt | `investigation/core-hunt-2` | #280 | Merged: three fixes; Deposit's pillars with Codex (#285, back for a round) |
