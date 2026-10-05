@@ -23,6 +23,7 @@
 // the map is the same on every machine).
 
 import * as portable from "../math/portable";
+import { walledRun } from "../analysis/signature";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
@@ -332,6 +333,15 @@ interface LandStage {
   hollows: Omit<Hazards, "heights"> | null;
 }
 
+/** The main river's course within the map, in tiles (0 when `entering` and it rises from a spring). */
+function mainCourse(main: RiverFeature, W: number, H: number, entering: boolean): number {
+  if (entering && !("edge" in main.params.entry)) return 0;
+  const path = main.params.path;
+  const inside = ([x, y]: [number, number]) => x >= 0 && y >= 0 && x < W && y < H;
+  let len = 0;
+  for (let k = 1; k < path.length; k++) if (inside(path[k - 1]) && inside(path[k])) { const dx = path[k][0] - path[k - 1][0]; const dy = path[k][1] - path[k - 1][1]; len += portable.sqrt(dx * dx + dy * dy); }
+  return len;
+}
 /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
  *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
  *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
@@ -1702,7 +1712,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (shown.theme === "canyon" && N <= 128 * 128) {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
         info.planned = { promise: po.promise, water: po.story.readable };
-        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
+        // (and from 128² up the gorge is the main river's: it enters on an edge and crosses the map,
+        // or its own walled stretch is twice the promise's line; a main clipping a corner unwalled
+        // left a creek and a lake to carry the gorge, Canyon 128² seed 27, Kyler's look at #261)
+        const main = hy.rivers.find((r) => r.role === "river/main");
+        const gorged = W < 128 || (!!main && (mainCourse(main, W, H, !g.hydro.noInflows) >= 0.75 * Math.min(W, H) || walledRun(main, W, H, hLand, est).best >= 2 * Math.max(16, 0.16 * 128 * portable.sqrt(Math.min(W, H) / 128))));
+        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H)) && gorged;
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // A rejected Canyon course can be incised on the same shaped field.

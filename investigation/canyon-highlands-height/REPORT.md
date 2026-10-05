@@ -68,9 +68,34 @@ camera, and three maps regressed. The fixes, on the same branch:
   and pitched 55° down, side by side (`capture-pitch.ts`: the second shot sets the view's pitch on the
   page and lets the renderer frame the map again; no camera code changes).
 
+## Kyler's second look: Canyon's gorge and lake
+
+Highlands approved. Canyon, two fixes (judged on the sheets, seeds 1–30 at 128²):
+
+- **Every map's main river runs in a gorge.** Seed 27's main clipped a corner and a creek carried the map; seven
+  maps had no inflow at all (the main a spring's third of the flow, two tiles wide) and four split it between two.
+  Now from 128² one river enters (a Rivers count the player set is kept), the inflow search prefers the mouth with
+  the longest way across (`hydro.ts`, length weight 0.06 for 0.012), and at 128² the land screen draws again a land
+  whose main neither crosses the map (three quarters of its side) nor is walled for twice the promise's line.
+- **No round lake in a round bowl.** From 128² every Canyon lake is a tarn (`field.ts`): valley-shaped (bent, bays,
+  side arms; size at least 14), no central mound, and its rim on one side only, fading out round the rest, so it
+  keeps a level shelf by the water for the start but never closes a ring; Canyon draws no caldera. The full rim's
+  ring and a pond's bowl made the round green bowl (4, 9, 11, 16), a caldera's crater the circle (seed 7 on the way).
+  A map whose first six lands are all drawn again keeps the genome's own lakes after that (3, 9, 21, 24, 25 and 30
+  of seeds 1–30): a tarn leaves fewer places for a start, and without this seeds 18, 43 and 71 ran out of attempts.
+- **Tried and dropped:** tarns with steep walls and a flat or uneven floor (the 4% budget cut the water below the
+  walls: no shore); an uneven floor in the bowl (no level pad by the water); no rim at all (formed, but seed 18 ran
+  to its last attempt, and failed in the page); a main required to cross the map (crossing lands found no start);
+  six more redraws for it; the gorge screen alone, read on the planned water (unwalled mains after the settle).
+- **Cost:** none failing an absolute in seeds 1–90 at 128² and 1–20 at 256² (none before), none needing all 40
+  attempts; attempts 993 for 972 at 128² (seeds 1–90), 78 for 69 at 256² (seeds 1–20). 96² is untouched. Re-pins
+  (D148): `objects` (rises on Canyon 15, River Valley 6 and 2 and Any 10; a second district on Canyon 2 for 4), `smallStarts` (Canyon 128² seed 9 misses an outcome again);
+  `fallOutflow` keeps Canyon 5's edge lip.
+
 ## The outcome
 
-First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 96² round's change) → after.
+First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 96² round's change) → after
+(Canyon's row and the relief figures below predate Kyler's second look; not measured again).
 
 | | 96² | 128² | 256² |
 |---|---|---|---|
@@ -99,8 +124,8 @@ Sheets for Kyler, seeds 1–30 at 128², dev's tip beside this branch, each map 
   Highlands maps whose valley is narrow, less so where a lake fills the lowest bench.
 - **Most land is still bare rock** away from the water (the critique's second cross-theme point): the
   plateau this round raises is a bigger bare plateau. Shared; not touched.
-- **Canyon maps whose inflow search fails** still split the water among springs under the cutting flow
-  (96² seed 18); the shared search is M9b's.
+- **Canyon maps whose inflow search fails** still split the water among springs under the cutting flow at 96²
+  (seed 18); from 128² the land screen draws them again.
 - **Wide-floor intentions on Canyon** (hanging-valleys, farmland-past-gorge) now get a floor of 3: their
   "wide valley floor" reads less on this theme. A judgment call for Kyler.
 - **Highlands' river is not cut deeper** than before: its valley is the lowest bench between tall ones,
@@ -138,5 +163,7 @@ npx tsx tools/look.ts --themes canyon,highlands --seeds 1-30 --size 128 --scale 
 python investigation/canyon-highlands-height/sheet-pairs.py canyon <before dir> <after dir> docs/sheets/canyon-height-3d.jpg "<title>"
 ```
 
-The 3D captures need a headed Chrome and about 6 s a map; `capture-3d.ts` is the theme critique's (PR
+For Kyler's second look the Canyon 3D sheet's before side was cut from the previous sheet (dev's tip is unchanged)
+and its after side captured with `capture-pitch.ts` (its 70° shot); the pitch sheet is `sheet-pitch.py` on the same
+captures. The 3D captures need a headed Chrome and about 6 s a map; `capture-3d.ts` is the theme critique's (PR
 #211), copied into a worktree of each side. The variant switches the experiments used are not in the code.

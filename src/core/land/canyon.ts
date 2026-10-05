@@ -7,11 +7,11 @@
 // item 47), so the main river runs between walls of five to ten blocks for most of its course instead
 // of the two or three the old land left it (the bed never goes under the floor, so on land at 4 the
 // walls were one level whatever the incision). At 96² the plateau fades out: it left no start.
-// The water gathers in few rivers: at most two springs beside the inflow (four at 256²), so the
-// main river carries the cutting flow (1.2) on every map; a small lake (a basin where the genome
-// drew none, no lake over 4% of the map), since the start's shore is the plateau's lake, not the
-// gorge (the 96² round's cause 4); and the floor beside the channel kept within 3, so the walls
-// stand close.
+// The water gathers in few rivers: one inflow, crossing the map, and at most two springs beside it
+// (four at 256²), so the main river carries the cutting flow (1.2) on every map; a small lake (a
+// basin where the genome drew none, no lake over 4% of the map), since the start's shore is the
+// plateau's lake, not the gorge (the 96² round's cause 4), every lake valley-shaped, never a round bowl;
+// and the floor beside the channel kept within 3, so the walls stand close.
 //
 // Below 128² the incision is a level deeper (the 96² round: a short course needs a bigger share of
 // it between walls), and the height round fades out: at 96² the map is the 96² round's.
@@ -35,6 +35,10 @@ export function shapeCanyon(g: Genome, W: number, H: number, seed: number, attem
   const s = 1 - k;
   if (s <= 0) return;
   const big = Math.min(1, Math.max(0, (side - 128) / 128));
+  // (one river enters, so the main river is an inflow with the cutting flow: with none, the water was
+  // springs' of a third of it, two tiles wide, and with two, halves too thin to cut; Kyler's look at
+  // #261, seed 27. A Rivers count the player set is kept)
+  if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = 1;
   g.hydro.incise = Math.max(g.hydro.incise, 7);
   g.hydro.floor = Math.min(g.hydro.floor, 3);
   g.base = Math.max(g.base, 4 + 4 * s - 2 * big);
@@ -45,4 +49,19 @@ export function shapeCanyon(g: Genome, W: number, H: number, seed: number, attem
   // Kyler's look at #261). The spring lake keeps the genome's own chance.
   if (!g.parts.some((p) => p.kind === "basin")) g.parts.push(randomPart(stream(seed, "canyon-lake", attempt), "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
   g.hydro.lakeBudget = Math.min(g.hydro.lakeBudget, 0.04);
+  // (every lake a tarn: valley-shaped, bent, with bays and side arms, its rim on one side only (the
+  // start's shelf) and no mound: a pond's round bowl, or a valley bowl's ring of rim, held the start's
+  // lake as a round lake in a round green bowl, seeds 4, 9, 11 and 16, Kyler's look; and no caldera,
+  // whose crater held it as a circle, seed 7. A map whose first six lands were all drawn again keeps the
+  // genome's own lakes on the lands after: a tarn leaves fewer places for a start, and seeds 18, 43 and
+  // 71 ran out of attempts)
+  if (attempt >= 6) return;
+  g.parts = g.parts.filter((p) => p.kind !== "caldera");
+  for (const p of g.parts)
+    if (p.kind === "basin" && p.shape !== "sea") {
+      p.shape = "tarn";
+      p.size = Math.max(p.size, 14);
+      p.height = Math.min(p.height, -3);
+      p.soft = 0;
+    }
 }

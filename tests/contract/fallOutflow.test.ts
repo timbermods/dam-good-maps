@@ -22,7 +22,8 @@ describe("the flow over a fall's lip, with the settle's outflows", () => {
   // hold one each, Highlands 5's the finding above; dev's Highlands 8 and Delta 4 and 2 hold none.
   // Re-pinned for the height round (investigation/canyon-highlands-height), whose tall terraces and
   // plateau moved every map from 128² up: Highlands 5's edge lip is at (27, 0) (at (37, 127) before the
-  // round's fixes for Kyler's look) and Canyon 2 holds none, Canyon 5 one at (0, 18))
+  // round's fixes for Kyler's look) and Canyon 2 holds none, Canyon 5 one at (0, 18), still the only one
+  // in Canyon's seeds to 20 after Canyon's gorge and lakes for Kyler's second look)
   it.each([
     ["highlands", 5, [27, 0]],
     ["canyon", 5, [0, 18]],

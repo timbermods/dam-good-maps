@@ -101,6 +101,10 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         return;
       }
       const sea = shape === "sea";
+      // (a tarn, Canyon's lakes: a valley lake whose rim stands on one side only, a shelf by the water
+      // for a start, fading out round the rest, so no ring of rim closes a round bowl; Kyler's look at
+      // #261)
+      const tarn = shape === "tarn";
       const r = stream(s, "basin-shape");
       const [ux, uy] = unit(p.turn);
       const drawn = r.float();
@@ -120,6 +124,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const len = sea ? (0.35 + 0.35 * r.float()) * p.size : minor * (1.2 + 1.2 * r.float());
         arms.push({ ax, ay, bx: ax + vx * len, by: ay + vy * len, w: (sea ? 0.14 : 0.3) * (0.8 + 0.4 * r.float()) * (sea ? p.size : minor) });
       }
+      const [rimX, rimY] = tarn ? unit(r.float()) : [0, 0];
       each((x, y, i) => {
         const dx = x - cx;
         const dy = y - cy;
@@ -146,7 +151,9 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // a tile or two to a tenth of the map, broken by narrow headlands, its fall to the sea now a
         // gentle shore, now a cliff)
         const keepRim = sea ? rimKeep(s, x, y, W, H) : 1;
-        U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
+        const r0 = tarn ? portable.sqrt(dx * dx + dy * dy) : 0;
+        const arc = !tarn ? 1 : r0 > 0 ? smoothstep(((dx * rimX + dy * rimY) / r0 + 0.1) / 0.7) : 1;
+        U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : arc * p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });
       return;
