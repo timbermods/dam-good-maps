@@ -1,0 +1,44 @@
+{
+  "start": 4192.544999957085,
+  "stages": {
+    "save": 154.61000001430511,
+    "read": 2.5649999380111694,
+    "worker": 2862.8400000333786
+  },
+  "worker": {
+    "decode": 21.2150000333786,
+    "open": 2795.1699999570847,
+    "bake": 0.004999995231628418,
+    "view": 4.815000057220459
+  },
+  "enter": 7212.649999976158,
+  "setMap": {
+    "ms": 132.68999993801117,
+    "stats": {
+      "ms": 132.6599999666214,
+      "meshMs": 91.45999991893768,
+      "chunks": 64,
+      "terrainQuads": 16350,
+      "waterQuads": 13832,
+      "falls": 127,
+      "instances": 1734
+    }
+  },
+  "ready": 7363.2300000190735,
+  "finish": 7376.975000023842,
+  "info": {
+    "name": "Profile target",
+    "history": 7
+  },
+  "build": {
+    "ms": 132.6599999666214,
+    "meshMs": 91.45999991893768,
+    "chunks": 64,
+    "terrainQuads": 16350,
+    "waterQuads": 13832,
+    "falls": 127,
+    "instances": 1734
+  },
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "browser": "154.0.8037.95"
+}
