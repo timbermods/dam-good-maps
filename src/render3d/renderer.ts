@@ -62,7 +62,7 @@ import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSou
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
@@ -969,6 +969,7 @@ export class MapRenderer {
     this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
+    this.landBefore = heights.slice();
     this.pendingLand = null;
     let lo = 255;
     let hi = 0;
@@ -1304,6 +1305,12 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     const rect = changedRect(m.W, m.H, m.heights, heights);
+    // (the water on the land that changed rides it, whichever came first: `rideLand`)
+    if (rect && this.drawnLand) {
+      this.landBefore ??= this.drawnLand.slice();
+      for (let i = 0; i < heights.length; i++) if (heights[i] !== this.drawnLand[i]) this.landBefore[i] = this.drawnLand[i];
+      rideLand(m.W, m.surface, this.drawnLand, heights, rect);
+    }
     m.heights = heights;
     m.source = { ...m.source, heights };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
@@ -1345,12 +1352,22 @@ export class MapRenderer {
     return chunks.length;
   }
 
+  /** The surface of new water, seated on the land drawn: water worked out on the land just before its
+   *  last change (a force's water a frame behind its land) stands on the land as drawn, its depth kept
+   *  (`rideLand`), so it never shows ahead of the land or behind it. */
+  private seated(water: WaterView): SurfaceWater {
+    const m = this.map!;
+    const surface = surfaceWater(m.W, m.H, water);
+    if (this.landBefore) rideLand(m.W, surface, this.landBefore, m.heights);
+    return surface;
+  }
+
   /** New water: remesh the chunks whose water changed. */
   updateWater(water: WaterView): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const surface = surfaceWater(m.W, m.H, water);
+    const surface = this.seated(water);
     const changed = changedWaterChunks(m.W, m.H, m.surface, surface, m.surface.lower.length, surface.lower.length);
     m.water = water;
     m.surface = surface;
@@ -1408,16 +1425,18 @@ export class MapRenderer {
    *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
    *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
   updateWaterSoon(water: WaterView): number {
-    this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const surface = surfaceWater(m.W, m.H, water);
+    const surface = this.seated(water);
     if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
-    // (what moved since it was drawn: moving water is drawn again where it moved visibly)
-    const changed = waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
+    // (land not drawn yet is drawn now with this water on it: the chunks it changed, in this same frame;
+    // a force's water comes with its land)
+    this.flushTerrain();
+    // (what moved since it was drawn: moving water is drawn again where it moved visibly)
+    const changed = waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     for (const key of changed) this.waterQueue.add(key);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
@@ -1557,6 +1576,13 @@ export class MapRenderer {
     const heights = m.heights;
     const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
     if (!c) return false;
+    // the water on the land that changed rides it in this same frame (its own water follows, worked
+    // out on this land: `rideLand`), and the land it stood on is kept for water still on its way
+    const landBefore = (this.landBefore ??= this.drawnLand.slice());
+    const drawn = this.drawnLand;
+    for (let y = c.rect.y0; y <= c.rect.y1; y++)
+      for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
+    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) this.waterMotion?.waterChanged(heights, m.surface);
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
@@ -1582,6 +1608,8 @@ export class MapRenderer {
   /** A brush's land not drawn yet (updateTerrainRect), and the heights the view draws. */
   private pendingLand: { x0: number; y0: number; x1: number; y1: number } | null = null;
   private drawnLand: Uint8Array | null = null;
+  /** Each tile's land before its last change as drawn (water worked out on it is seated on the land now). */
+  private landBefore: Uint8Array | null = null;
 
   // ------------------------------------------------------------------------------------ the shelf
 

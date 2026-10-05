@@ -377,3 +377,29 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
   return out;
 }
+
+/** Water riding the ground it stands on: where the land under a wet tile changed from `was` to `now`,
+ *  the water there stands on the new ground, its depth kept, as the water's simulation carries it the
+ *  moment it sees that ground (a force's, a stroke's). So the land and its water change in the same
+ *  frame, whichever of them reaches the page first. Only water standing on `was` moves (a file's water on
+ *  something else keeps its own floor); never with caves' lower water. Over the tiles of `rect` (all of
+ *  them when left out); true when any moved. */
+export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
+  if (sw.lower.length) return false;
+  const H = now.length / W;
+  const x0 = Math.max(0, rect?.x0 ?? 0);
+  const y0 = Math.max(0, rect?.y0 ?? 0);
+  const x1 = Math.min(W - 1, rect?.x1 ?? W - 1);
+  const y1 = Math.min(H - 1, rect?.y1 ?? H - 1);
+  let moved = false;
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const a = was[i];
+      const b = now[i];
+      if (a === b || sw.floor[i] !== a) continue;
+      sw.floor[i] = b;
+      sw.surface[i] = b + sw.depth[i];
+      moved = true;
+    }
+  return moved;
+}
