@@ -170,4 +170,26 @@ describe("Carve's river is born as it cuts (D371)", () => {
       ed.settleWater();
     }
   });
+
+  it("its water as shown never strobes: few tiles go wet, dry and wet again (or the reverse) from one frame to the next", async () => {
+    const { origin } = await open();
+    expect(ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null }).errors).toEqual([]);
+    let f = ed.forceAdvance(1)!;
+    for (let k = 0; k < 400 && !f.planned; k++) f = ed.forceAdvance(1)!;
+    // (a frame of Fast's: a step of the carve and six ticks of its water, a hundred and twenty times the game's pace)
+    const shown: Float64Array[] = [];
+    while (!f.done) {
+      f = ed.forceAdvance(1)!;
+      shown.push(Float64Array.from(ed.flowForceWater(6)!));
+    }
+    // (a thin sheet's own waves, crest to crest about twelve ticks, would alternate every frame if shown as they are)
+    const wet = (d: number) => d > 0.05;
+    let blinks = 0;
+    for (let u = 2; u < shown.length; u++) for (let i = 0; i < N; i++) if (wet(shown[u - 2][i]) === wet(shown[u][i]) && wet(shown[u - 1][i]) !== wet(shown[u][i])) blinks++;
+    // (shown as they are, about one a frame on this map; averaged, about one every six)
+    expect(blinks / shown.length, `${blinks} blinks in ${shown.length} frames`).toBeLessThan(0.5);
+    ed.forceStop();
+    ed.undo();
+    ed.settleWater();
+  });
 });

@@ -675,6 +675,45 @@ function kickWater(): void {
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
 
+/** How many ticks the shown water's average spans (a thin sheet's waves, crest to crest, are about twelve). */
+const SEEN_TICKS = 12;
+/** Closer than this to the simulation, the shown water is the simulation's. */
+const SEEN_SNAP = 1e-4;
+
+/** Moving water as it is shown: the simulation's, averaged over the last few ticks of its own time. It
+ *  plays many times faster than the game (a force's at about a hundred and twenty times, the water's
+ *  journey after an edit faster still), so the slow waves of a thin sheet over flat ground (seconds in the
+ *  game) would come round faster than the frames that show them, and the sheet would strobe from frame to
+ *  frame; averaged, it moves as it would to the eye. What a force keeps is what was shown; the settled
+ *  water at a journey's end is the simulation's own. */
+class SeenWater {
+  readonly depth: Float64Array;
+  readonly contamination: Float64Array;
+
+  constructor(D: Float64Array, C: Float64Array) {
+    this.depth = D.slice();
+    this.contamination = C.slice();
+  }
+
+  /** `ticks` more of the simulation, now at `D` and `C`. */
+  see(D: Float64Array, C: Float64Array, ticks: number): void {
+    if (ticks <= 0) return;
+    // (each tick keeps 1 − 1/SEEN_TICKS of the gap: plain arithmetic, the same in every engine, D401)
+    let keep = 1;
+    for (let k = 0; k < ticks; k++) keep *= 1 - 1 / SEEN_TICKS;
+    const a = 1 - keep;
+    const { depth, contamination } = this;
+    // (within a hair of the simulation it is the simulation's: still water stays exactly as it was, and
+    // only the chunks the water really moves in are drawn again)
+    for (let i = 0; i < D.length; i++) {
+      const dd = D[i] - depth[i];
+      depth[i] = Math.abs(dd) < SEEN_SNAP ? D[i] : depth[i] + a * dd;
+      const dc = C[i] - contamination[i];
+      contamination[i] = Math.abs(dc) < SEEN_SNAP ? C[i] : contamination[i] + a * dc;
+    }
+  }
+}
+
 /** The background settle: a slice at a time, the water to the page as it flows, then the settled
  *  water in place (the plants follow it). Stops when a newer edit takes over. */
 /** Ticks between the frames of the water's journey: close together at first, where the water moves
@@ -685,20 +724,25 @@ function frameGap(ticks: number): number {
 
 async function runWater(token: number): Promise<void> {
   let lastTicks = -Infinity;
+  let seen: SeenWater | null = null;
   for (;;) {
     const j = waterJob;
     if (!j || j.token !== token || session !== j.session) return;
     const t0 = performance.now();
     let r: CanonicalWater | null = null;
     while (!r && performance.now() - t0 < WATER_SLICE_MS) {
+      const before = j.job.ticks;
       r = j.job.advance(4);
       if (r || !listener) continue;
+      const sim = j.job.sim;
+      if (seen) seen.see(sim.D, sim.C, j.job.ticks - before);
+      else seen = new SeenWater(sim.D, sim.C);
       // a frame every few ticks: the page plays them at a pace the eye can follow
       const ticks = j.job.ticks;
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
-      listener({ kind: "water", version, water: waterOf(j.session, { depth: j.job.sim.D, contamination: j.job.sim.C, out: j.job.sim.out }), done, ticks });
+      listener({ kind: "water", version, water: waterOf(j.session, { depth: seen.depth, contamination: seen.contamination, out: sim.out }), done, ticks });
     }
     if (r) {
       finishWater(j, r);
@@ -1667,7 +1711,12 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; sent?: Float64Array } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array } | null = null;
+
+/** The shown water catches up with the force's simulation after `ticks` more of them. */
+function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
+  w.seen.see(w.sim.D, w.sim.C, ticks);
+}
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
@@ -1680,9 +1729,27 @@ function startForceWater(f: NonNullable<typeof force>): void {
   const model = modelOf(m);
   const depth = Float64Array.from(m.water.depth);
   const contamination = Float64Array.from(m.water.contamination);
+  const flows = mapFlows(f.session, m.water.depth);
   const front = carveFront(p, model, depth, contamination);
-  forceWater = { force: f, sim: new WaterSim(model, { depth, contamination }), model, ground: m.heights.slice(), front };
+  const sim = new WaterSim(model, { depth, contamination });
+  // the map's water carries on as it flowed (its outflows), so only what the carve does changes it: from
+  // a standstill, every river on the map would start again and ripple everywhere while the carve plays
+  if (flows) {
+    for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
+    sim.out.set(flows);
+  }
+  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C) };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
+}
+
+/** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
+ *  is the water `depth` holds; else null. */
+function mapFlows(s: MapSession, depth: ArrayLike<number>): Float64Array | null {
+  const now = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const w = now?.water;
+  if (!w?.out || w.depth.length !== depth.length) return null;
+  for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;
+  return Float64Array.from(w.out);
 }
 
 /** A carve's cutting front, for its water (D371: the river follows the cut, never leads it). Its source
@@ -1772,13 +1839,15 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
   return { reach, held, base, film, filmBad, origin: Math.max(1, reach[p.run.intent.origin]) };
 }
 
-/** The force's water as shown: the simulation's, with the held tiles' own films as they were. */
+/** The force's water as shown: the simulation's, with the held tiles' own films as they were; a tile
+ *  let go keeps its film until its ground changes or the water there is deeper (the simulation started it
+ *  dry: its film never blinks out as the front passes). */
 function frontWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; contamination: Float64Array } {
-  const depth = w.sim.D.slice();
-  const contamination = w.sim.C.slice();
+  const depth = w.seen.depth.slice();
+  const contamination = w.seen.contamination.slice();
   const { held, film, filmBad } = w.front;
   for (let i = 0; i < held.length; i++)
-    if (held[i]) {
+    if (held[i] || film[i] > depth[i]) {
       depth[i] = film[i];
       contamination[i] = filmBad[i];
     }
@@ -1825,6 +1894,8 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
       if (held[i]) base[i] += h[i] - w.ground[i];
       else w.model.floor[i] += h[i] - w.ground[i];
       w.ground[i] = h[i];
+      // (new ground: the film it had goes with it)
+      w.front.film[i] = 0;
     }
   frontPassed(w, p.shown);
   return p.shown >= w.front.origin;
@@ -1835,7 +1906,10 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
 export function flowForceWater(ticks: number): Float64Array | null {
   const w = forceWater;
   if (!w || force !== w.force) return null;
-  if (forceWaterFlows(w)) w.sim.run(ticks);
+  if (forceWaterFlows(w) && ticks > 0) {
+    w.sim.run(ticks);
+    seeWater(w, ticks);
+  }
   return frontWater(w).depth;
 }
 
@@ -1856,10 +1930,13 @@ async function runForceWater(token: number): Promise<void> {
     owed = Math.min(owed + ((now - at) / 1000) * FORCE_WATER_PACE, FORCE_WATER_PACE / 10);
     at = now;
     if (forceWaterFlows(w)) {
+      let ran = 0;
       while (owed >= 2 && performance.now() - now < WATER_SLICE_MS) {
         w.sim.run(2);
         owed -= 2;
+        ran += 2;
       }
+      seeWater(w, ran);
       if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
         last = performance.now();
         const D = w.sim.D;
