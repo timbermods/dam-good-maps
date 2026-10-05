@@ -20,7 +20,9 @@ export function useSave(ed: Ed): SaveSlice {
   // ------------------------------------------------------------------------------ export
 
   async function exportProject() {
-    // (in the edits' queue, as the .timber download is: a stroke already shown is in it)
+    // (in the edits' queue, as the .timber download is: a stroke already shown is in it; a force at work is kept
+    // first, its land in the file as shown: investigation/page-qa F1)
+    await ed.forcer.current?.stop();
     const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
   }
@@ -34,6 +36,8 @@ export function useSave(ed: Ed): SaveSlice {
     setSaving({ kind, progress: null });
     setMessage(null);
     try {
+      // (a force at work is kept first: its land lives outside the map until then, investigation/page-qa F1)
+      await ed.forcer.current?.stop();
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
       const r = await enqueue(() => api.exportTimber(true, onProgress));
       if (!r.ok) {
