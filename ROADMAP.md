@@ -83,7 +83,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   startup part 1 (D455); Carve's river born as it cuts (D371, built for Carve, #199 and #257; the other forces' water remains); Glaciate in Fast (done, #203, D374); Shift+F resets what F changes; a
   Strength slider for Smooth and Naturalize (built in the page); trees on dried soil (D376); a Sources setting for every
   force, after the forces' Rust port; batch jobs across all threads; startup part 2's service worker with multi-core
-  water (D397); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
+  water (D397; the multi-core water and the service worker's isolation are built, `feature/multicore-water`; its caching remains); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
   session's items on its own PRs: #219 the default view fits the map (done), #240 the High bake worker (done), #225 a
   source's highlight reads under its water (in flight); then renderer R1 from the performance audit (#152).
 - **Open investigations** (the milestone session reads them; Kyler's yes adopts one): River Valley flood sheets (#244,
@@ -172,12 +172,14 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   Vite plugin that rewrites Three.js and the renderer and camera parts (operations record their results, so picking
   maths never reaches a replay). Adopted first (D442 (a)), with no quiet-window timing (D441).
 - **Rust threads** (#168, D402): merged as an investigation and parked. Threaded Rust stays experimental until wasm
-  atomics are stable in Rust; the TypeScript parallel water (#130) remains the multi-core path.
-- **Multi-core water** (#130): approved. Threads only where they help: 256² and up in Chromium and Firefox (Firefox's speed is
+  atomics are stable in Rust (Rust 1.90 still marks `+atomics` unstable); #130's design on the Rust water is the multi-core path.
+- **Multi-core water** (#130; built on `feature/multicore-water`, needs Kyler's feel): #130's strips with halo exchange,
+  on several single-threaded instances of the Rust water's Wasm over a `SharedArrayBuffer` (`src/core/sim/parallel.ts`),
+  byte-identical to one thread. Threads only where they help: 256² and up in Chromium and Firefox (Firefox's speed is
   not re-timed, D440, D441), about 8 threads at 256² and up to 16 at 512²; single-core at 128² and in
-  WebKit. Gate: the remaining native `exp` and `hypot` calls made portable first (`investigation/portable-math`). Costs: one
-  first-visit reload (until hosting sends the headers itself; moving to Cloudflare Workers with Static Assets becomes worth
-  doing then) and about 35 MiB at 512².
+  WebKit. Its gate, the native `exp` and `hypot` calls made portable, is met (D401's guard). Costs: one
+  first-visit reload through the one service worker (`public/sw.js`, D397; until hosting sends the headers itself; moving
+  to Cloudflare Workers with Static Assets becomes worth doing then) and about 35 MiB at 512².
 - **Scaling round 4** (#132): approved. Files about a quarter of round 3's (7 MiB at 256², 20 MiB at 512²), reopening about
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
