@@ -12,15 +12,17 @@ npx vitest run --maxWorkers 1 tests/contract/deposit.test.ts tests/contract/depo
 git diff --check
 ```
 
-Commit the rebuilt `src/core/forces/rust/forcesWasm.ts` with the Rust planner, tests and pins. The generated Wasm is intentionally rebuilt from the pinned Rust 1.90.0 toolchain rather than carried in the adoption patch. The water embed reproduces its existing bytes.
+Commit the rebuilt `src/core/forces/rust/forcesWasm.ts` with the Rust planner, tests and pins. Rebuild with the pinned Rust 1.90.0 toolchain; generated Wasm stays out of the adoption patch. The water embed reproduces its existing bytes.
 
-The patch touches only Deposit's Rust planner, its regression tests, and five of its six pins. The earlier length gate and new error code are completely removed: neither shared error table changes. Every other force's pins remain identical. Existing kept force operations retain their stored literal results.
+The patch touches only Deposit's Rust planner, its regression tests, and five of its six pins. Neither shared error table changes. All 44 other-force pins remain identical. Existing kept force operations retain their stored literal results.
 
-Re-pin reason: retain the old cone targets, lobes, channel geometry, reach and material calculation; move excess pillar material into supported connected receiving ground. Connect all reachable lobes instead of selecting just one. Start from the main body so a minor isolated site cannot discard the rest of the fan. Pay for connecting cells by spreading high columns or peeling removable edges, preserving the original budget. Height caps use actual donor cuts, rather than every potential donor's deepest bed.
+Re-pin reason: remove all inter-lobe connector paths. Start with the original funded cone, reclaim unsupported pillar material and one-tile fragments, and redistribute it into sediment bodies. Separate lobes remain separate; every deposited tile must belong to a filled 2 x 2 receiving patch. Grow complete patches at body edges or add supported relief on existing bodies, preserving the original material budget. The path search, connectivity requirement, largest-component selection and connector-payment logic are gone. Height caps still use actual donor cuts.
 
-Short draws and clicks make small fans at every Power, including zero. No length is refused. Original Floor, kept/layer and working-area restrictions still apply, as do ceiling, exact conservation, reserved wet outlets, source metadata, object riding and burial, three channel stages and 40 playback steps. For the few original effects with less than nine blocks, fill a compact apron using nine real blocks: extend the permitted upstream/shoulder donors only if their old supply is insufficient. This visibility correction is reported separately from preservation of normal fan budgets. It does not change the 20 sheet gestures' budgets.
+Keep round 2's original mouth, direction, reach, width, lobes, curving distributaries, channel masks/stages, 40-step playback and normal volume. Short draws and clicks make small fans at every Power, including zero, with no length gate. The three tiny-budget visibility corrections remain: nine real blocks paid for by allowed upstream/shoulder cuts. Floor, kept/layer and working-area limits, ceiling, conservation, reserved wet outlets, source metadata, object riding and burial remain in force.
 
-The contact sheet is staged under `investigation/deposit-pillars/docs/sheets/deposit-pillars.png` so the investigation-only scope is honored. During adoption copy it to the requested documentation path:
+The acceptance rule now allows disconnected **bodies**, as Kyler requested. A lobe has at least four tiles and includes filled 2 x 2 ground; no deposited tile may be a one-tile receiving line. Thin extremities and stray tiles do not count toward the fan's body extent. Their material is retained in the bodies, rather than connected by wires.
+
+The contact sheet stays under `investigation/deposit-pillars/docs/sheets/deposit-pillars.png` to honor the investigation-only scope. During adoption copy it to the requested documentation path:
 
 ```powershell
 Copy-Item investigation/deposit-pillars/docs/sheets/deposit-pillars.png docs/sheets/deposit-pillars.png

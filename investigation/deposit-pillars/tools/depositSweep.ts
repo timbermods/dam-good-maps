@@ -1,5 +1,6 @@
+import {sediment} from './metrics';
 // Reproduction from core-hunt-2; same worker path, maps and gestures. No timing measurements.
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { makeSpec, THEMES } from '../local/checkout/src/core/spec/mapspec';
 import { runGenerate } from '../local/checkout/src/worker/api';
 import * as ed from '../local/checkout/src/worker/session';
@@ -9,7 +10,7 @@ const phase=process.argv[2]??'before', uses=Number(process.argv[3]??120);
 mkdirSync(`investigation/deposit-pillars/local/${phase}`,{recursive:true});
 const rows:any[]=[];const samples:any[]=[];
 for(const side of [64,128])for(const theme of THEMES){
- let kept=0,refused=0,spiky=0,scattered=0,weak=0,volumeChanges=0,expandedSmallFans=0;const failures:any[]=[];const reasons:Record<string,number>={};
+ let kept=0,refused=0,spiky=0,scattered=0,wires=0,lobed=0,weak=0,volumeChanges=0,expandedSmallFans=0;const failures:any[]=[];const reasons:Record<string,number>={};
  const skipped:number[]=[];let maps=0;
  for(let seed=1;maps<3&&seed<=24;seed++){
   const generated=await runGenerate(makeSpec({seed,theme,size:{x:side,y:side}}));
@@ -31,33 +32,23 @@ for(const side of [64,128])for(const theme of THEMES){
     for(let j=0;j<999;j++){const f=ed.forceAdvance(50);if(!f||f.done)break;}
     if(!ed.forceStop(s.gesture).kept)throw Error('Unexpected keep refusal');
     kept++;h=ed.terrainNow().heights.slice();ed.undo();
-    let changed=0,spikes=0;const raised=new Set<number>();
-    for(let i=0;i<h.length;i++){
-     if(h[i]!==before[i])changed++;
-     if(h[i]>before[i]){raised.add(i);const X=i%side,Y=(i/side)|0;
-      if(X>0&&Y>0&&X+1<side&&Y+1<side&&[i-1,i+1,i-side,i+side].every(j=>h[i]-h[j]>=3))spikes++;
-     }
-    }
-    const components:number[]=[];
-    while(raised.size){const todo=[raised.values().next().value!];raised.delete(todo[0]);let count=0;
-     while(todo.length){const i=todo.pop()!;count++;for(const j of [i%side>0?i-1:-1,i%side+1<side?i+1:-1,i-side,i+side])if(raised.delete(j))todo.push(j);}
-     components.push(count);
-    }
+    const metric=sediment(before,h,side),components=metric.components,spikes=metric.pillars;
+    const changed=h.reduce((s,v,i)=>s+Number(v!==before[i]),0);
     const oldVolume=oldHeights.reduce((s,v,i)=>s+Math.max(0,v-before[i]),0),newVolume=h.reduce((s,v,i)=>s+Math.max(0,v-before[i]),0);
     if(oldVolume<9&&newVolume===9)expandedSmallFans++;
     if(newVolume!==Math.max(9,oldVolume)){volumeChanges++;failures.push({seed,k,path,power,oldVolume,newVolume});}
-    if(changed<9)weak++;if(spikes)spiky++;if(components.length>1)scattered++;
-    if(spikes||components.length>1||changed<9)failures.push({seed,k,path,power,changed,spikes,components});
+    if(changed<9)weak++;if(spikes)spiky++;if(phase==='before'?components.length>1:metric.strays>0)scattered++;if(metric.wires)wires++;if(components.length>1)lobed++;
+    if(spikes||metric.strays||metric.wires||changed<9)failures.push({seed,k,path,power,changed,spikes,components,wires:metric.wires});
    }
    if(side===128&&seed===1&&(k<3||failures.at(-1)?.k===k&&samples.filter(v=>v.theme===theme).length<6))samples.push({theme,side,seed,k,path,power,reason,input:Array.from(before),heights:Array.from(h)});
   }
  }
  if(maps!==3)throw Error(`Only ${maps} maps for ${theme} ${side}`);
- const row={theme,side,maps,skipped,uses:kept+refused,kept,refused,spiky,scattered,weak,volumeChanges,expandedSmallFans,reasons,failures};rows.push(row);
+ const row={theme,side,maps,skipped,uses:kept+refused,kept,refused,spiky,scattered,wires,lobed,weak,volumeChanges,expandedSmallFans,reasons,failures};rows.push(row);
  writeFileSync(`investigation/deposit-pillars/local/${phase}/${theme}-${side}.json`,JSON.stringify(row,null,2));
  console.log(JSON.stringify({...row,failures:failures.length}));
 }
 writeFileSync(`investigation/deposit-pillars/local/${phase}/summary.json`,JSON.stringify(rows.map(({failures,...r})=>r),null,2));
 writeFileSync(`investigation/deposit-pillars/local/${phase}/samples.json`,JSON.stringify(samples));
-if(phase!=='before'&&rows.some(r=>r.spiky||r.scattered||r.weak||r.volumeChanges||r.refused))process.exitCode=1;
+if(phase!=='before'&&rows.some(r=>r.spiky||r.scattered||r.wires||r.weak||r.volumeChanges||r.refused))process.exitCode=1;
 process.exit(process.exitCode ? Number(process.exitCode) : 0);

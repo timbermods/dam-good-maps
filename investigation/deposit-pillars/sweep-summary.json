@@ -9,6 +9,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 57,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -17,7 +19,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 14,
-      "scattered": 83,
+      "disconnected": 83,
       "weak": 0
     }
   },
@@ -31,6 +33,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 56,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -39,7 +43,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 12,
-      "scattered": 82,
+      "disconnected": 82,
       "weak": 0
     }
   },
@@ -55,6 +59,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 63,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -63,7 +69,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 11,
-      "scattered": 88,
+      "disconnected": 88,
       "weak": 0
     }
   },
@@ -77,6 +83,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 54,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -85,7 +93,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 14,
-      "scattered": 86,
+      "disconnected": 86,
       "weak": 0
     }
   },
@@ -99,6 +107,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 50,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 1,
@@ -107,7 +117,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 23,
-      "scattered": 76,
+      "disconnected": 76,
       "weak": 1
     }
   },
@@ -121,6 +131,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 68,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -129,7 +141,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 15,
-      "scattered": 90,
+      "disconnected": 90,
       "weak": 0
     }
   },
@@ -145,6 +157,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 64,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 1,
@@ -153,7 +167,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 10,
-      "scattered": 84,
+      "disconnected": 84,
       "weak": 1
     }
   },
@@ -167,6 +181,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 46,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -175,7 +191,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 8,
-      "scattered": 63,
+      "disconnected": 63,
       "weak": 0
     }
   },
@@ -189,6 +205,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 31,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -197,7 +215,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 8,
-      "scattered": 55,
+      "disconnected": 55,
       "weak": 0
     }
   },
@@ -211,6 +229,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 45,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -219,7 +239,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 4,
-      "scattered": 74,
+      "disconnected": 74,
       "weak": 0
     }
   },
@@ -233,6 +253,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 48,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -241,7 +263,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 10,
-      "scattered": 78,
+      "disconnected": 78,
       "weak": 0
     }
   },
@@ -255,6 +277,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 39,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -263,7 +287,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 15,
-      "scattered": 69,
+      "disconnected": 69,
       "weak": 0
     }
   },
@@ -277,6 +301,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 37,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 1,
@@ -285,7 +311,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 12,
-      "scattered": 66,
+      "disconnected": 66,
       "weak": 1
     }
   },
@@ -299,6 +325,8 @@
     "refused": 0,
     "spiky": 0,
     "scattered": 0,
+    "wires": 0,
+    "lobed": 59,
     "weak": 0,
     "volumeChanges": 0,
     "expandedSmallFans": 0,
@@ -307,7 +335,7 @@
       "kept": 120,
       "refused": 0,
       "spiky": 10,
-      "scattered": 86,
+      "disconnected": 86,
       "weak": 0
     }
   }

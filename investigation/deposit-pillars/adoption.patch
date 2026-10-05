@@ -1,101 +1,69 @@
 diff --git a/rust/forces/src/deposit.rs b/rust/forces/src/deposit.rs
-index af5d93ea..b1363b5d 100644
+index af5d93ea..9469328d 100644
 --- a/rust/forces/src/deposit.rs
 +++ b/rust/forces/src/deposit.rs
-@@ -93,2 +93,92 @@ struct Offer {i:usize,target:u8,rank:f64,u:f64}
+@@ -93,2 +93,60 @@ struct Offer {i:usize,target:u8,rank:f64,u:f64}
  struct Donor {i:usize,target:u8,rank:f64}
-+// Shape the original cone with its original material budget. Connections spend real
-+// sediment; excess column height pays for them, never discarded lobes or volume.
-+fn component(m:&Map,add:&[u8],root:usize)->Vec<bool> {
-+    let mut seen=vec![false;add.len()];let mut queue=vec![root];seen[root]=true;let mut at=0;
-+    while at<queue.len(){let i=queue[at];at+=1;for j in neighbours(m,i).into_iter().flatten(){if add[j]>0&&!seen[j]{seen[j]=true;queue.push(j);}}}seen
-+}
-+fn peel(m:&Map,add:&[u8],i:usize)->bool {
-+    let adjacent:Vec<_>=neighbours(m,i).into_iter().flatten().filter(|&j|add[j]>0).collect();
-+    if adjacent.is_empty(){return false;}let mut queue=vec![adjacent[0]];let mut at=0;
-+    while at<queue.len(){let j=queue[at];at+=1;for k in neighbours(m,j).into_iter().flatten(){
-+        if k!=i&&add[k]>0&&(k%m.w).abs_diff(i%m.w)<=1&&(k/m.w).abs_diff(i/m.w)<=1&&!queue.contains(&k){queue.push(k);}
-+    }}adjacent.iter().all(|j|queue.contains(j))
++// Keep the original funded cone and its separate lobes. Every receiving tile
++// belongs to a two-dimensional body, never a path connecting other lobes.
++fn body(m:&Map,add:&[u8],i:usize)->bool {
++    let x=i%m.w;let y=i/m.w;
++    for oy in 0..=1{for ox in 0..=1{
++        if x<ox||y<oy{continue;}let x0=x-ox;let y0=y-oy;
++        if x0+1<m.w&&y0+1<m.h{let j=y0*m.w+x0;
++            if [j,j+1,j+m.w,j+m.w+1].iter().all(|&k|add[k]>0){return true;}
++        }
++    }}false
 +}
 +fn supported(m:&Map,bed:&[u8],add:&[u8],i:usize,height:u8)->bool {
 +    height<=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2)
 +}
-+fn safe_lower(m:&Map,bed:&[u8],add:&mut[u8],i:usize)->bool {
-+    add[i]-=1;let safe=neighbours(m,i).into_iter().flatten().all(|j|add[j]==0||supported(m,bed,add,j,bed[j]+add[j]));add[i]+=1;safe
-+}
-+fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,mouth:Point,dir:Point)->Vec<u8> {
++fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,mouth:Point)->Vec<u8> {
 +    let n=bed.len();let mut add=vec![0;n];if budget==0{return add;}let mut remaining=budget;let mut target=m.heights.clone();let mut rank=vec![10.0;n];
 +    for o in offers{target[o.i]=o.target;rank[o.i]=o.rank;let amount=remaining.min((o.target-m.heights[o.i]) as usize);add[o.i]=amount as u8;remaining-=amount;}
-+    let mut volume=budget-remaining;
-+    // Only the beds of donors actually cut enter the cap, not every possible cut.
-+    loop{let mut changed=false;for i in 0..n{if add[i]>0&&!supported(m,bed,&add,i,bed[i]+add[i]){
-+        let cap=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2);
-+        let next=cap.saturating_sub(bed[i]).min(add[i]);volume-=(add[i]-next) as usize;add[i]=next;changed=true;
-+    }}if !changed{break;}}
++    // Reclaim unsupported columns and one-tile fragments. Removing a fragment
++    // can expose a neighbour, so settle both constraints together.
++    loop{let mut changed=false;let bodies:Vec<_>=(0..n).map(|i|add[i]>0&&body(m,&add,i)).collect();
++        for i in 0..n{if add[i]==0{continue;}let cap=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2);
++            let next=if bodies[i]{cap.saturating_sub(bed[i]).min(add[i])}else{0};
++            if next!=add[i]{add[i]=next;changed=true;}
++        }if !changed{break;}
++    }
 +    let bounds=offers.iter().fold((m.w,0,m.h,0),|(x0,x1,y0,y1),o|(x0.min(o.i%m.w),x1.max(o.i%m.w),y0.min(o.i/m.w),y1.max(o.i/m.w)));
 +    let legal:Vec<bool>=(0..n).map(|i|room[i]>0&&outlet[i]==0&&bed[i]==m.heights[i]&&(m.heights[i] as f64)<m.ceiling
 +        &&i%m.w>=bounds.0.saturating_sub(8)&&i%m.w<=bounds.1.saturating_add(8)&&i/m.w>=bounds.2.saturating_sub(8)&&i/m.w<=bounds.3.saturating_add(8)).collect();
-+    // Preserve the original footprint's extent, including its separate lobes.
-+    let mut largest=vec![false;n];let mut visited=vec![false;n];let mut largest_count=0;
-+    for i in 0..n{if add[i]==0||visited[i]{continue;}let group=component(m,&add,i);let count=group.iter().filter(|&&v|v).count();
-+        for j in 0..n{visited[j]|=group[j];}if count>largest_count{largest=group;largest_count=count;}
-+    }
-+    let root=offers.iter().find(|o|largest[o.i]).map(|o|o.i).or_else(||(0..n).filter(|&i|legal[i]&&supported(m,bed,&add,i,bed[i]+1))
-+        .min_by(|&a,&b|hypot((a%m.w) as f64-mouth.x,(a/m.w) as f64-mouth.y).total_cmp(&hypot((b%m.w) as f64-mouth.x,(b/m.w) as f64-mouth.y))));
-+    let root=match root{Some(i)=>i,None=>return add};if add[root]==0&&budget>0{add[root]=1;volume+=1;}
-+    if budget<18{
-+        add.fill(0);add[root]=1;volume=1;
-+        while volume<budget.min(9){let best=(0..n).filter(|&i|legal[i]&&add[i]==0&&neighbours(m,i).into_iter().flatten().any(|j|add[j]>0)&&supported(m,bed,&add,i,bed[i]+1))
-+            .min_by(|&a,&b|{let score=|i:usize|hypot((i%m.w) as f64-mouth.x,(i/m.w) as f64-mouth.y)-neighbours(m,i).into_iter().flatten().filter(|&j|add[j]>0).count() as f64*2.0;score(a).total_cmp(&score(b))});
-+            match best{Some(i)=>{add[i]=1;volume+=1;},None=>break}
-+        }
-+        largest=component(m,&add,root);
-+    }
-+    let mut anchors=vec![root];
-+    for axis in 0..3{let extreme=(0..n).filter(|&i|largest[i]).max_by(|&a,&b|{
-+        let score=|i:usize|{let x=(i%m.w) as f64-mouth.x;let y=(i/m.w) as f64-mouth.y;match axis{0=>x*dir.x+y*dir.y,1=>-x*dir.y+y*dir.x,_=>x*dir.y-y*dir.x}};score(a).total_cmp(&score(b))
-+    });if let Some(i)=extreme{anchors.push(i);}}
-+    loop{
-+        let connected=component(m,&add,root);if (0..n).all(|i|add[i]==0||connected[i]){break;}
-+        let mut dist=vec![f64::INFINITY;n];let mut parent=vec![usize::MAX;n];let mut heap=ForceHeap::default();
-+        for i in 0..n{if connected[i]{dist[i]=0.0;parent[i]=i;heap.push(0.0,i);}}
-+        let mut goal=None;
-+        while let Some((key,i))=heap.pop(){if key!=dist[i]{continue;}if add[i]>0&&!connected[i]{goal=Some(i);break;}
-+            for j in neighbours(m,i).into_iter().flatten(){if !legal[j]||!supported(m,bed,&add,j,bed[j]+add[j].max(1)){continue;}
-+                let cost=key+if add[j]>0{0.1}else if target[j]>m.heights[j]{1.0}else{2.0};
-+                if cost<dist[j]{dist[j]=cost;parent[j]=i;heap.push(cost,j);}
-+            }
-+        }
-+        if let Some(mut i)=goal{while !connected[i]{if add[i]==0{add[i]=1;volume+=1;}i=parent[i];}}
-+        else{
-+            // A protected/capped barrier may genuinely divide the working ground.
-+            // Return its sediment to the receiving side, never strand detached tiles.
-+            for i in 0..n{if add[i]>0&&!connected[i]{volume-=add[i] as usize;add[i]=0;}}
-+            break;
-+        }
-+    }
-+    // Connections are paid for by the cone, preserving the original total volume.
-+    while volume>budget{
-+        let mut best=None;let mut score=f64::NEG_INFINITY;
-+        for i in 0..n{if add[i]==0||add[i]==1&&(anchors.contains(&i)||!peel(m,&add,i))||!safe_lower(m,bed,&mut add,i){continue;}
-+            let value=add[i] as f64*100.0+rank[i];if value>score{score=value;best=Some(i);}
-+        }
-+        match best{Some(i)=>{add[i]-=1;volume-=1;},None=>{if anchors.len()>1{anchors.truncate(1);}else{break;}}}
-+    }
++    if budget<18{add.fill(0);}
++    let mut volume:usize=add.iter().map(|&v|v as usize).sum();
 +    while volume<budget{
 +        let mut best=None;let mut score=f64::INFINITY;
-+        for i in 0..n{if !legal[i]||add[i]>=room[i]||bed[i] as f64+add[i] as f64>=m.ceiling
-+            ||!neighbours(m,i).into_iter().flatten().any(|j|add[j]>0)||!supported(m,bed,&add,i,bed[i]+add[i]+1){continue;}
-+            let adjacent=neighbours(m,i).into_iter().flatten().filter(|&j|add[j]>0).count();
-+            let value=if bed[i]+add[i]<target[i]{rank[i]+add[i] as f64*0.25}else{20.0+add[i] as f64*4.0-adjacent as f64};
-+            if value<score{score=value;best=Some(i);}
++        // Relief only grows on existing sediment bodies.
++        for i in 0..n{if add[i]==0||!legal[i]||add[i]>=room[i]||bed[i] as f64+add[i] as f64>=m.ceiling||!supported(m,bed,&add,i,bed[i]+add[i]+1){continue;}
++            let value=if bed[i]+add[i]<target[i]{rank[i]+add[i] as f64*0.25}else{20.0+add[i] as f64*4.0};
++            if value<score{score=value;best=Some(vec![i]);}
 +        }
-+        match best{Some(i)=>{add[i]+=1;volume+=1;},None=>break}
++        // Grow whole patches at lobe edges. There is no inter-lobe path search.
++        // A sparse budget first builds an apron instead of stacking a column.
++        for y in 0..m.h-1{for x in 0..m.w-1{let i=y*m.w+x;let square=[i,i+1,i+m.w,i+m.w+1];
++            if square.iter().any(|&j|!legal[j]){continue;}
++            let missing:Vec<_>=square.iter().copied().filter(|&j|add[j]==0).collect();
++            if missing.is_empty()||missing.len()>budget-volume{continue;}
++            let adjacent=square.iter().any(|&j|add[j]>0||neighbours(m,j).into_iter().flatten().any(|k|add[k]>0));
++            if volume>0&&!adjacent{continue;}
++            for &j in &missing{add[j]=1;}
++            let safe=missing.iter().all(|&j|supported(m,bed,&add,j,bed[j]+1));
++            for &j in &missing{add[j]=0;}
++            if !safe{continue;}
++            let value=if volume==0||budget<18&&volume<9{
++                hypot(x as f64+0.5-mouth.x,y as f64+0.5-mouth.y)-20.0
++            }else{missing.iter().map(|&j|if target[j]>bed[j]{rank[j]+0.25}else{24.0}).sum::<f64>()/missing.len() as f64};
++            if value<score{score=value;best=Some(missing);}
++        }}
++        match best{Some(cells)=>{volume+=cells.len();for i in cells{add[i]+=1;}},None=>break}
 +    }
 +    add
 +}
  pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area:&[u8],channels:u32)->Plan {
-@@ -191,13 +281,29 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
+@@ -191,13 +249,29 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
      }
 +    let available:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
 +    if available<9{let mut candidates:Vec<_>=(0..n).filter(|&i|room_at(i)>0&&!offered[i]&&!used[i]&&outlet[i]==0&&before.heights[i]>floor
@@ -115,7 +83,7 @@ index af5d93ea..b1363b5d 100644
 +    let budget=capacity.max(9).min(supply).min(donor_capacity);
 +    let mut bed=before.heights.clone();let mut remaining=budget;
 +    for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);bed[d.i]-=cut as u8;remaining-=cut;}
-+    let room:Vec<u8>=(0..n).map(room_at).collect();let add=shape(before,&offers,&bed,&room,&outlet,budget,mouth,dir);
++    let room:Vec<u8>=(0..n).map(room_at).collect();let add=shape(before,&offers,&bed,&room,&outlet,budget,mouth);
 +    let deposited:usize=add.iter().map(|&v|v as usize).sum();
 +    let mut progress=vec![f64::NAN;n];for o in &offers{progress[o.i]=o.u;}
 +    let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
@@ -132,29 +100,29 @@ index af5d93ea..b1363b5d 100644
 +    if deposited==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
      map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
 diff --git a/tools/rust/forces-pins.json b/tools/rust/forces-pins.json
-index d051155f..360d03fb 100644
+index d051155f..7629662a 100644
 --- a/tools/rust/forces-pins.json
 +++ b/tools/rust/forces-pins.json
 @@ -37,8 +37,8 @@
    "rift 64 odd 1": "51dd86ec2b7fbea4b2b36a86b24dc5a9c02d887428dda9003ae09eab579c78bf",
 -  "deposit 64 0": "3632fc66df42b021005575722fabe51c992e178b5656c3eed386cd31e032c842",
 -  "deposit 64 1": "acdd93c057f5eb862920802b7e7060bb175bfa9238d8a6ccf05b8e5ff62a02ce",
-+  "deposit 64 0": "94f78e1f3ac8827568fdc696c41155de190cdc6eb2a2c42302cc159848850368",
-+  "deposit 64 1": "108547935dc1ee5feddbcede957f2ef6bc4212d6492670082dc39e039a1c6716",
++  "deposit 64 0": "52be5bb22bbc0a7d271177831007b73bdb55ba5989dcb2c644527a8d5ff2d933",
++  "deposit 64 1": "3f3051515d552748086d631e191624a2347cca239c3fe4671a5ef69c25309e4d",
    "deposit 64 2": "9d0acb76f91ff9ecb1c71c080a080fe08e95acda8c16a1e1268d907c194c8a27",
 -  "deposit 64 3": "aeafeef8a3ce0202a92b6c3505fee36d4866931d96d071b27c1ee12e95413fc9",
 -  "deposit 64 odd 0": "b691724de00ead6b1fe9175a1c647fdd9052762af0e9ec46f6ce231299d0fa5b",
 -  "deposit 64 odd 1": "cf1cd49ea9d522cdec59326899db8419ec7c3fd16bf5289c18ffb20f7b701099",
-+  "deposit 64 3": "9dd14069c7b0d5273d35898b8333ee12a8c070ea71c82b790e96ea80fe364099",
-+  "deposit 64 odd 0": "ff3ac91aeca58207a7f1bd11d02af39124c27d5e2c2fa34a96ee1af3342e17b0",
-+  "deposit 64 odd 1": "c143aa057b3dee525b1716a8ee1fd91cd3652bdb6ec2531f610e6ba6a3f2ee4a",
++  "deposit 64 3": "cf89065bda13d48277441e03119eef7ab8d894fa4581eaf6edfc8d887d05adbf",
++  "deposit 64 odd 0": "06fe697092af07d594a079b8556002aa70413fc575bcf805fe043f3a16ad8ebf",
++  "deposit 64 odd 1": "b8ba268eac1efdbecbcbb5e86f2d82c5411d68102061151a48b7d14c2c38e36b",
    "maturity 64 0": "bdbaae36fdec3998c927bb8e89272dc10cf37c969e368dc567a6737249cb85fc",
 diff --git a/tests/contract/depositFan.test.ts b/tests/contract/depositFan.test.ts
 new file mode 100644
 --- /dev/null
 +++ b/tests/contract/depositFan.test.ts
-@@ -0,0 +1,54 @@
-+// Deposit's connected fan and short-gesture and full-cone contract (D342).
+@@ -0,0 +1,58 @@
++// Deposit lobes are sediment bodies; short gestures remain visible (D342/D356).
 +import {describe,expect,test} from "vitest";
 +import {DepositRun,DEPOSIT_DEFAULTS} from "../../src/core/forces/deposit";
 +import {fixture} from "./forceFixtures";
@@ -162,13 +130,16 @@ new file mode 100644
 + const raised=new Set<number>();
 + const neighbours=(i:number)=>[i%W>0?i-1:-1,i%W+1<W?i+1:-1,i-W,i+W].filter(j=>j>=0&&j<h.length);
 + for(let i=0;i<h.length;i++)if(h[i]>before[i]){raised.add(i);expect(neighbours(i).some(j=>h[i]-h[j]<3)).toBe(true);}
-+ expect(raised.size).toBeGreaterThanOrEqual(9);
-+ const todo=[raised.values().next().value!];raised.delete(todo[0]);
-+ while(todo.length)for(const j of neighbours(todo.pop()!))if(raised.delete(j))todo.push(j);
-+ expect(raised.size).toBe(0);expect(h.reduce((s,v)=>s+v,0)).toBe(before.reduce((s,v)=>s+v,0));
++ expect(raised.size).toBeGreaterThanOrEqual(4);
++ for(const i of raised){const x=i%W,y=(i/W)|0;
++  const squares=[[-1,-1],[-1,0],[0,-1],[0,0]].filter(([dx,dy])=>x+dx>=0&&y+dy>=0&&x+dx+1<W&&(y+dy+1)*W<h.length)
++   .map(([dx,dy])=>(y+dy)*W+x+dx);
++  expect(squares.some(j=>[j,j+1,j+W,j+W+1].every(k=>raised.has(k)))).toBe(true);
++ }
++ expect(h.reduce((s,v)=>s+v,0)).toBe(before.reduce((s,v)=>s+v,0));
 +}
 +describe("Deposit fan shaping",()=>{
-+ test("connecting a split cone retains both lobes, the original volume and extent",()=>{
++ test("a split cone retains separate bodies, original volume and extent without bridging the barrier",()=>{
 +  const m=fixture("plain",64);m.entities=[];
 +  for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<28?12:y>=31&&y<=33?14:7;
 +  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,seed:2},{path:[{x:30,y:30},{x:53,y:30}]}).finishAll();
@@ -177,6 +148,7 @@ new file mode 100644
 +  expect(Math.max(...xs)-Math.min(...xs)+1).toBeGreaterThanOrEqual(24);
 +  expect(Math.max(...ys)-Math.min(...ys)+1).toBeGreaterThanOrEqual(29);
 +  expect(ys.some(y=>y<31)).toBe(true);expect(ys.some(y=>y>33)).toBe(true);
++  expect(raised.some(i=>i%64>=36&&(i/64|0)>=31&&(i/64|0)<=33)).toBe(false);
 + });
 + test("a small material budget covers connected ground before building relief",()=>{
 +  for(const seed of [0,1,2,7,41])for(const power of [0,35,70,100]){
