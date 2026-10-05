@@ -178,6 +178,43 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
 
 /** A map's name in Your maps renamed in place, at the name's own size and font: Enter or clicking away renames it,
  *  Esc cancels; a name refused stays in the field with its reason as its tooltip. */
+/** Whether a name fits the two lines a tile keeps for it, as the tile shows it (in the open map's bold). */
+function fitsTwoLines(field: HTMLElement, name: string): boolean {
+  const line = field.parentElement;
+  if (!line) return true;
+  const probe = document.createElement("span");
+  probe.className = "ym-name";
+  probe.textContent = name;
+  probe.style.cssText = `position: absolute; visibility: hidden; display: block; height: auto; -webkit-line-clamp: none; font-weight: 600; width: ${line.clientWidth}px`;
+  line.appendChild(probe);
+  const fits = probe.scrollHeight <= 2 * parseFloat(getComputedStyle(probe).lineHeight) + 0.5;
+  probe.remove();
+  return fits;
+}
+
+/** A name typed in Rename stops at what fits two lines (Kyler, 2026-10-05): a key past them does nothing, a paste
+ *  keeps what fits. */
+function fitTwoLines(field: HTMLInputElement, was: string): string {
+  const v = field.value;
+  if (fitsTwoLines(field, v)) return v;
+  const at = field.selectionStart ?? v.length;
+  let kept = was;
+  if (v.length !== was.length + 1) {
+    let lo = 0;
+    let hi = v.length;
+    while (lo < hi) {
+      const m = (lo + hi + 1) >> 1;
+      if (fitsTwoLines(field, v.slice(0, m))) lo = m;
+      else hi = m - 1;
+    }
+    kept = v.slice(0, lo);
+  }
+  field.value = kept;
+  const caret = Math.min(kept.length, kept === was ? at - 1 : at);
+  field.setSelectionRange(caret, caret);
+  return kept;
+}
+
 function TileName(p: { name: string; onDone(name: string | null, leaving: boolean): void; problem: string | null }) {
   const [text, setText] = useState(p.name);
   const input = useRef<HTMLInputElement>(null);
@@ -205,7 +242,7 @@ function TileName(p: { name: string; onDone(name: string | null, leaving: boolea
       autoComplete="off"
       aria-label="Map name"
       title={p.problem ?? "Rename"}
-      onInput={(e) => setText((e.target as HTMLInputElement).value)}
+      onInput={(e) => setText(fitTwoLines(e.target as HTMLInputElement, text))}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();

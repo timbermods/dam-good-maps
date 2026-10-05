@@ -764,9 +764,9 @@ tooltip: a short purpose phrase, then its key as a small key cap (D351). Numbers
 **Contracts a restyle never breaks.** Share links, project files, Your maps' storage, saved file names, the worker's
 API, every pinned hash, and every role and accessible name the tests use.
 
-## Open questions (2026-10-05, for Kyler)
+## Kyler's answers (2026-10-05)
 
-- **Rift's and Deposit's keys:** none yet; the number row (1–0, -) is taken and = zooms.
-- **A renamed map's name longer than two lines** ends in "…" in Your maps (every generated name fits): cap names
-  typed in Rename to two lines, or leave it?
-- **Undo after a Generate** ("Undo to get <name> back") doesn't exist; only Cancel during one does. Build it?
+- **Rift and Deposit have no keys** for now: the number row (1–0, -) is taken and = zooms.
+- **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
+  what fits.
+- **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).

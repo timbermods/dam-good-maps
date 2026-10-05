@@ -83,7 +83,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, never cropped), its name and size under it, newest first, the open map marked, a click opening one. A
-  right-click on one, open or not, offers **Download .timber file**, **Rename** (in place) and **Delete** (asked
+  right-click on one, open or not, offers **Download .timber file**, **Rename** (in place; a typed name stops at what fits the tile's two
+  lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
   desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a
   map; a selected tile is tinted with a check at its corner, nothing moving. The heading row holds **Rename** (one
