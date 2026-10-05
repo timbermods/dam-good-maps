@@ -150,6 +150,9 @@ export class CarveRun {
   readonly keep: Uint8Array;
   /** The map just before a cut-off bend's mouths silted shut (its sediment taken out), once the carve
    *  has run to its end: the oxbow lake keeps the water the game settles on it. */
+  /** The working area (D254): how many levels each tile may change, the area's depth there, or null
+   *  for none. Set by `planForce` (start.ts); its showing eases each tile by it, as its keep does. */
+  ease: Uint8Array | null = null;
   closure: ForceMap | null = null;
   /** The lake its sealed oxbow keeps (null: none), once it has run to its end: the water the game
    *  settled on the map just before the mouths closed, on the basin's tiles, with their floors now. */

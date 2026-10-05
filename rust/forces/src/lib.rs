@@ -6963,9 +6963,16 @@ fn glacier_route(m: &Map, s: &GlacierSettings, intent: &Intent, v: &GlacierValle
         }
         return out;
     }
-    let goal = intent.end as usize;
+    // (the search below never steps onto the map's border: an end drawn there is aimed at the
+    // nearest tile inside it, or the route never reaches it and the glacier is its end tile alone)
+    let goal = {
+        let e = intent.end as usize;
+        let x = (e % m.w).clamp(1, m.w.saturating_sub(2).max(1));
+        let y = (e / m.w).clamp(1, m.h.saturating_sub(2).max(1));
+        y * m.w + x
+    };
     let end = pt(goal);
-    let len = point_distance(start, end);
+    let len = max(1.0, point_distance(start, end));
     let dx = (end.x - start.x) / len;
     let dy = (end.y - start.y) / len;
     let mut costs = vec![f64::INFINITY; m.w * m.h];
