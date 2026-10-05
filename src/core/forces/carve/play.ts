@@ -147,12 +147,15 @@ export class CarvePlay {
     for (const [id, s] of removed) if (this.goneAt(s, id) <= k) gone++;
     if (gone !== this.removedShown || this.riders) {
       this.removedShown = gone;
+      const ownById = new Map<string, typeof this.run.group[number]>();
+      for (const g of this.run.group) if (!ownById.has(g.id)) ownById.set(g.id, g);
+      const unleashed = this.unleashedObject();
       this.map.entities = this.objects
         .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k))
         .map((e) => {
-          const own = this.run.group.find((g) => g.id === e.id);
+          const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
-          if (e === this.unleashedObject()) return { ...e, z: heights[e.y * W + e.x] };
+          if (e === unleashed) return { ...e, z: heights[e.y * W + e.x] };
           return e;
         });
     }

@@ -41,7 +41,9 @@ export class RiftRun extends Staged implements StagedRun {
   protected show(stage: number): void {
     const { raw, arrival } = this.plan0;
     const t = stage / this.stages;
-    const out = snapshotMap(this.before);
+    if (stage >= this.stages) { this.map = snapshotMap(raw); return; }
+    // Both object lists are replaced below; do not clone the discarded lists.
+    const out = snapshotMap<FullForceMap>({ ...this.before, entities: [], fallen: [] });
     for (let i = 0; i < arrival.length; i++) if (arrival[i] <= t)
       out.heights[i] = Math.round(this.before.heights[i] + (raw.heights[i] - this.before.heights[i]) * smoothstep((t - arrival[i]) / .14));
     transportRock(this.before, out, this.source, true);
@@ -52,14 +54,16 @@ export class RiftRun extends Staged implements StagedRun {
       const rider=structuredClone(final), i=final.y*raw.W+final.x;
       rider.z += out.heights[i]-raw.heights[i];return [rider];
     });
+    const oldFallen = new Map<string, typeof this.before.fallen[number]>();
+    for (const f of this.before.fallen) if (!oldFallen.has(f.id)) oldFallen.set(f.id, f);
     out.fallen = raw.fallen.map(f => {
-      const old = this.before.fallen.find(g => g.id === f.id);
+      const old = oldFallen.get(f.id);
       const i = Math.floor(f.y) * raw.W + Math.floor(f.x);
       if (old && arrival[i] > t) return structuredClone(old);
       return {...structuredClone(f),z:f.z+out.heights[i]-raw.heights[i]};
     });
     // No water or sources are minted; the ordinary warm simulation continues on the displayed ground.
-    this.map = stage >= this.stages ? snapshotMap(raw) : out;
+    this.map = out;
   }
   cue(): ForceCue {
     const progress = this.stage / this.stages, pts = this.plan0.fault.points;

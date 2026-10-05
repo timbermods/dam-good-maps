@@ -4,6 +4,7 @@ The forces of nature: the shared core and the seven forces, Carve, Craterize, Er
 
 **Rules**
 - The forces are planned in Rust (`rust/forces`, PLAN §20 D381): one call plans a whole force, the same bytes natively and in every engine (CI's `rust` job, `tools/rust/check.ts`). The TypeScript planners it replaced are tag `ts-forces-final`. The rest is TypeScript: the request, nature's choices, Keep, the build's last touches, the record, the operation, the showing (stages, a carve's playback, Slow forces' pace, the cues the effects and sounds read), the editor's previews (an eruption's anatomy for the cursor ring) and the settings' checks.
+- Showing a force copies only what it keeps and computes each plan's invariants once (Carve's lookups, Quake's travel, `pathField`'s segments; Glaciate's unchanged retreat stages and Rift's final stage reuse what is already built; #286, half A): the same bytes as before.
 - Ten steps are one second of the force, whatever the frame rate. Nothing depends on wall time, frames or effects: the same input and the same number of steps give the same land (`force.ts`).
 - The result is stored literally in one operation, `forceResult` (one undo step); a replay assigns it and never runs the force again. A project's `carve` operations, from before D220, become `forceResult` when it opens (`op.ts` `forceOfCarve`, `doc/document.ts`).
 - A force leaves alone only the ground it is told to (`protectedGround`: the land above the layer showing, an imported map's caves); the editor carries the start (D257).

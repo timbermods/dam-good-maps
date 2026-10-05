@@ -20,10 +20,14 @@ export function pathField(path: Point[], W: number, H: number): PathField {
   const n = path.length;
   const segLen: number[] = [];
   const cum: number[] = [0];
+  // (each segment's invariants, computed once with the same arithmetic, outside the tile loops)
+  const segments: { ax: number; ay: number; vx: number; vy: number; l2: number }[] = [];
   for (let i = 0; i + 1 < n; i++) {
     const dx = path[i + 1][0] - path[i][0];
     const dy = path[i + 1][1] - path[i][1];
-    const l = portable.sqrt(dx * dx + dy * dy);
+    const l2 = dx * dx + dy * dy;
+    const l = portable.sqrt(l2);
+    segments.push({ ax: path[i][0], ay: path[i][1], vx: dx, vy: dy, l2 });
     segLen.push(l);
     cum.push(cum[i] + l);
   }
@@ -85,11 +89,7 @@ export function pathField(path: Point[], W: number, H: number): PathField {
             // (a margin for rounding: the box test only skips what is clearly farther)
             if (bx * bx + by * by > best + 1e-6) continue;
             for (let i = c.i0; i < c.i1; i++) {
-              const ax = path[i][0];
-              const ay = path[i][1];
-              const vx = path[i + 1][0] - ax;
-              const vy = path[i + 1][1] - ay;
-              const l2 = vx * vx + vy * vy;
+              const { ax, ay, vx, vy, l2 } = segments[i];
               let t = l2 > 0 ? ((x - ax) * vx + (y - ay) * vy) / l2 : 0;
               if (t < 0) t = 0;
               else if (t > 1) t = 1;
