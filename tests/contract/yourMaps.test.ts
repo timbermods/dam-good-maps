@@ -74,7 +74,7 @@ describe("the store", () => {
     expect(await none.list()).toEqual([]);
     const r = await none.put(entry("a", 1), bytes(1));
     expect(r).toEqual({ ok: false, reason: "unavailable" });
-    expect(storeProblem(r)).toMatch(/isn't keeping Your maps/);
+    expect(storeProblem(r)).toBe("This browser can't keep Your maps. Download the project to keep this one.");
     expect(storeProblem({ ok: false, reason: "full" })).toBe("Browser storage is full. Delete some maps or download this one.");
     expect(storeProblem({ ok: true })).toBe(null);
   });
