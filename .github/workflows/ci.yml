@@ -182,8 +182,9 @@ jobs:
   #
   # Engines: the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node, compared
   # bit for bit (PLAN §2.1, §20 D366; tools/determinism/). The short list: every theme, brush and force
-  # setting, one generation seed, short sequences. The full list runs nightly on the CPU matrix
-  # (nightly.yml). The whole-source guard against engine-dependent maths in the core, the workers and the data
+  # setting, one generation seed, short sequences. Chromium and Firefox run it twice: on the page's thread and in a
+  # worker whose water runs on four threads at every size (the multi-core water, src/core/sim/parallel.ts), the
+  # same bytes. The full list runs nightly on the CPU matrix (nightly.yml). The whole-source guard against engine-dependent maths in the core, the workers and the data
   # tools is in the quick suite (tests/unit/portable.test.ts, tools/portable-guard.ts; D401).
   #
   # Rust (PLAN §20 D381, D401, D442): Rust 1.90 and the wasm32 target, pinned by rust-toolchain.toml.
@@ -191,7 +192,8 @@ jobs:
   # transcendental intrinsics), then rust/portable bit for bit against src/core/math/portable.ts: natively, in
   # Node's WebAssembly and in Chromium, Firefox and WebKit (tools/rust/check.ts). The Rust water, which every
   # job runs (D381): the committed Wasm equals a fresh build; its canonical settle gives the same bytes natively,
-  # in Node's WebAssembly and in each engine; and the native settle gives the app's (tools/rust/water-identity.ts).
+  # in Node's WebAssembly and in each engine; and the native settle gives the app's, on one thread and on four
+  # (tools/rust/water-identity.ts --threads, 512² included).
   # It runs only when the Rust or what wraps it changes (tools/ci-changes.mjs, isRustInput), and on every full run.
   # The Rust forces (D381, #158): their committed Wasm equals a fresh build, and every force's byte fixtures give
   # the same packed results natively, in Node's WebAssembly and in each engine, each as pinned
@@ -233,7 +235,7 @@ jobs:
           browsers: chromium firefox webkit
       - name: The same results in every engine (the short list)
         if: needs.changes.outputs.suites == 'true'
-        run: npx tsx tools/determinism/run.ts --smoke
+        run: npx tsx tools/determinism/run.ts --smoke --engines chromium,firefox,webkit,node,chromium-threads,firefox-threads
       - name: The committed Rust Wasm (water and forces) matches a fresh build; the native batch binaries
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/build.ts --check --native
@@ -245,9 +247,9 @@ jobs:
         run: |
           cd rust && cargo build --release -j 4 -p water --example stack-fixture
           cd .. && npx tsx tools/rust/stack-identity.ts
-      - name: The native Rust settle gives the app's bytes (golden fixtures under both rules, every theme, stored water)
+      - name: The native Rust settle gives the app's bytes, on one thread and on four (golden fixtures under both rules, every theme, stored water, 96² to 512²)
         if: needs.changes.outputs.rust == 'true'
-        run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native
+        run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native --threads 4 --sizes 96,128,256,512
       - name: The Rust maths guard, strict builds, the same bits as portable.ts, the same water and forces in every engine
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/check.ts --engines
