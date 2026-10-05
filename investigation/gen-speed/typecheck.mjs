@@ -1,0 +1,11 @@
+import ts from 'typescript';
+import {readFileSync,existsSync} from 'node:fs';
+import {resolve,relative} from 'node:path';
+const root=resolve('.'),overlay=resolve('investigation/gen-speed/overlay');
+const cfg=ts.readConfigFile('tsconfig.json',ts.sys.readFile),parsed=ts.parseJsonConfigFileContent(cfg.config,ts.sys,root);
+const host=ts.createCompilerHost(parsed.options),read=host.readFile.bind(host);
+host.readFile=p=>{const alt=resolve(overlay,relative(root,p));return existsSync(alt)?readFileSync(alt,'utf8'):read(p);};
+const program=ts.createProgram(parsed.fileNames,parsed.options,host),errors=ts.getPreEmitDiagnostics(program);
+if(errors.length)console.error(ts.formatDiagnosticsWithColorAndContext(errors,{getCanonicalFileName:f=>f,getCurrentDirectory:()=>root,getNewLine:()=> '\n'}));
+else console.log('Overlay typecheck passed');
+process.exitCode=errors.length?1:0;

@@ -1,0 +1,42 @@
+{
+  "base": "38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e",
+  "productFilesChanged": false,
+  "overlayTypecheck": "passed",
+  "firstReuse": {
+    "files": 6,
+    "testsPassed": 111,
+    "filesTested": [
+      "water-speedups",
+      "soilGame",
+      "start",
+      "resources",
+      "features",
+      "firstLand"
+    ]
+  },
+  "finalCache": {
+    "files": 4,
+    "testsPassed": 54,
+    "filesTested": [
+      "start",
+      "resources",
+      "features",
+      "firstLand"
+    ]
+  },
+  "finalExact": {
+    "cases": 8,
+    "droughtFixtures": 13,
+    "mapBytes": true,
+    "rawBuildArrays": true,
+    "waterModelAndSettle": true,
+    "entitiesAndFile": true,
+    "checksAndAnalysis": true,
+    "retryState": true,
+    "shownLand": true,
+    "snapshotAndOutputOwnership": true
+  },
+  "patchApplies": true,
+  "remoteWritten": false,
+  "remoteBlock": "The existing investigation/gen-speed tip is not an ancestor of the requested dev base; replacing it would rewrite earlier history."
+}

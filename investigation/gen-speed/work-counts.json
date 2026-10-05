@@ -1,0 +1,155 @@
+{
+  "droughtFixtures": 13,
+  "cases": [
+    {
+      "case": "any",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 17,
+        "gen/settler.ts:pumpShores": 127,
+        "features/slopes.ts:placeSlopes": 138,
+        "sim/soil.ts:gameSoil": 6,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 7,
+        "sim/prefill.ts:spillLevels": 13,
+        "gen/settler.ts:pumpShores": 6,
+        "features/slopes.ts:placeSlopes": 136,
+        "sim/soil.ts:gameSoil": 5,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "exact": true
+    },
+    {
+      "case": "riverValley",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 18,
+        "gen/settler.ts:pumpShores": 12,
+        "features/slopes.ts:placeSlopes": 40,
+        "sim/soil.ts:gameSoil": 12,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 6,
+        "sim/prefill.ts:spillLevels": 13,
+        "gen/settler.ts:pumpShores": 6,
+        "features/slopes.ts:placeSlopes": 36,
+        "sim/soil.ts:gameSoil": 7,
+        "gen/intentions.ts:finalCtx": 1
+      },
+      "exact": true
+    },
+    {
+      "case": "canyon",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 16,
+        "gen/settler.ts:pumpShores": 8,
+        "features/slopes.ts:placeSlopes": 29,
+        "sim/soil.ts:gameSoil": 10,
+        "gen/intentions.ts:finalCtx": 1
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 6,
+        "sim/prefill.ts:spillLevels": 12,
+        "gen/settler.ts:pumpShores": 6,
+        "features/slopes.ts:placeSlopes": 25,
+        "sim/soil.ts:gameSoil": 4,
+        "gen/intentions.ts:finalCtx": 1
+      },
+      "exact": true
+    },
+    {
+      "case": "highlands",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 17,
+        "gen/settler.ts:pumpShores": 5,
+        "features/slopes.ts:placeSlopes": 37,
+        "sim/soil.ts:gameSoil": 8,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 7,
+        "sim/prefill.ts:spillLevels": 13,
+        "gen/settler.ts:pumpShores": 5,
+        "features/slopes.ts:placeSlopes": 35,
+        "sim/soil.ts:gameSoil": 5,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "exact": true
+    },
+    {
+      "case": "lakeBasin",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 18,
+        "gen/settler.ts:pumpShores": 17,
+        "features/slopes.ts:placeSlopes": 38,
+        "sim/soil.ts:gameSoil": 7,
+        "gen/intentions.ts:finalCtx": 3
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 7,
+        "sim/prefill.ts:spillLevels": 13,
+        "gen/settler.ts:pumpShores": 5,
+        "features/slopes.ts:placeSlopes": 36,
+        "sim/soil.ts:gameSoil": 4,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "exact": true
+    },
+    {
+      "case": "delta",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 18,
+        "gen/settler.ts:pumpShores": 84,
+        "features/slopes.ts:placeSlopes": 141,
+        "sim/soil.ts:gameSoil": 10,
+        "gen/intentions.ts:finalCtx": 3
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 7,
+        "sim/prefill.ts:spillLevels": 13,
+        "gen/settler.ts:pumpShores": 6,
+        "features/slopes.ts:placeSlopes": 137,
+        "sim/soil.ts:gameSoil": 4,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "exact": true
+    },
+    {
+      "case": "islands",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 19,
+        "gen/settler.ts:pumpShores": 16,
+        "features/slopes.ts:placeSlopes": 38,
+        "sim/soil.ts:gameSoil": 7,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 7,
+        "sim/prefill.ts:spillLevels": 15,
+        "gen/settler.ts:pumpShores": 6,
+        "features/slopes.ts:placeSlopes": 36,
+        "sim/soil.ts:gameSoil": 4,
+        "gen/intentions.ts:finalCtx": 2
+      },
+      "exact": true
+    },
+    {
+      "case": "extreme",
+      "baseline": {
+        "sim/prefill.ts:spillLevels": 292,
+        "gen/settler.ts:pumpShores": 242,
+        "features/slopes.ts:placeSlopes": 162,
+        "sim/soil.ts:gameSoil": 48
+      },
+      "candidate": {
+        "sim/drought.ts:prepareDrought": 73,
+        "sim/prefill.ts:spillLevels": 123,
+        "gen/settler.ts:pumpShores": 146,
+        "features/slopes.ts:placeSlopes": 162,
+        "sim/soil.ts:gameSoil": 48
+      },
+      "exact": true
+    }
+  ]
+}

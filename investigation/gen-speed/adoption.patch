@@ -1,0 +1,264 @@
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index ec3c6aab..540660de 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -37,7 +37,7 @@ import { placementOf } from "../format/entities";
+ import type { JsonObject } from "../format/json";
+ import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
+ import type { FieldData } from "../doc/document";
+-import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
++import { buildMap, rebuild as rebuildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
+ import { previewSettle } from "../sim/preview";
+ import type { FieldCache } from "../features/target";
+ import { featureId } from "../features/ids";
+@@ -63,7 +63,7 @@ import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDry
+ import { distanceFrom, N4 } from "../math/grid";
+ import { hash32 } from "../math/hash";
+ import { stream } from "../math/rng";
+-import { droughtStorage } from "../sim/drought";
++import { droughtStorage, prepareDrought } from "../sim/drought";
+ import { waterModel } from "../sim/model";
+ import { moisture } from "../sim/moisture";
+ import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
+@@ -1394,8 +1394,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+     const steps = standingSteps(ramps.steps, h, W, H);
+     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
+   };
++  // Reuse the build pipeline's guarded terrain, slopes, water, soil and resource caches.
++  // Each input owns a field snapshot; speculative builds may also be the previous build.
++  let previousBuild: BuildResult | null = null;
+   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
+-    const b = buildMap({ W, H, seed, features, field: fieldOf() }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
++    const input = { W, H, seed, features, field: fieldOf() };
++    const options = { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) };
++    const b = previousBuild ? rebuildMap(previousBuild, input, options) : buildMap(input, options);
++    // Generation returns a complete map; editor dirty regions are not part of its result.
++    b.dirty = null;
++    previousBuild = b;
+     if (stop === "water") return b;
+     // (a settle counts once: the cache hands the attempts on a land the settles they share)
+     if (!counted.has(b.settle.depth)) {
+@@ -1518,7 +1526,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+   // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
+   // levelling is part of shaping the land; never on a shown land, D348)
+   let allowLevel = true;
+-  let plannedStart: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> } | null = null;
++  type StartData = { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView> | null; prepared: ReturnType<typeof prepareStart> };
++  let plannedStart: StartData | null = null;
++  // One bounded preparation for settled-water retries. Snapshot every array read by
++  // prepareStart/settlerView; inputs and the snapshots must match by value before reuse.
++  // The avoid mask, salt, preference weight, near target and RNG stay per pick.
++  let settledStart: { h: Uint8Array; water: Uint8Array; D: Float64Array; C: Float64Array; M: Float64Array; hydro: string; data: StartData } | null = null;
+   // (D411, D417: a sea's start goes on an island where one has room for a colony, not on the shore
+   // that holds the sea at the map's edge; where none of them has, anywhere, as before. `isles`:
+   // "prefer" tries the islands and then anywhere, "only" the islands alone, "skip" anywhere alone)
+@@ -1535,15 +1548,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+   };
+   const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
+     let data = reusePlanned ? plannedStart : null;
++    const hydroKey = data ? "" : JSON.stringify([hy.lakes, hy.falls, hy.rivers, g.intentions]);
++    if (!data && !reusePlanned && settledStart && settledStart.hydro === hydroKey && sameNumbers(h, settledStart.h) && sameNumbers(hy.water, settledStart.water) && sameNumbers(D, settledStart.D) && sameNumbers(C, settledStart.C) && sameNumbers(M, settledStart.M)) data = settledStart.data;
+     if (!data) {
+-      const model = waterModel(W, H, h, []);
+-      const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
+-      const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
+-      const view = g.intentions.length ? settlerView(h, W, H, hy, D, C, M) : null;
+-      const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, rule, { kept, drought: policy, storage });
++      const snapshot = reusePlanned ? null : { h: h.slice(), water: hy.water.slice(), D: Float64Array.from(D), C: Float64Array.from(C), M: Float64Array.from(M) };
++      const ground = snapshot?.h ?? h;
++      const depth = snapshot?.D ?? D;
++      const contamination = snapshot?.C ?? C;
++      const moist = snapshot?.M ?? M;
++      const model = waterModel(W, H, ground, []);
++      const drought = prepareDrought(model, depth);
++      const kept = drought(FIRST_DROUGHT_DAYS);
++      const storage = { kept: drought(DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
++      const view = g.intentions.length ? settlerView(ground, W, H, hy, depth, contamination, moist) : null;
++      const prepared = prepareStart(ground, W, H, { depth, contamination, moisture: moist }, hy, rule, { kept, drought: policy, storage });
+       data = { kept, storage, view, prepared };
+-      if (reusePlanned) plannedStart = data;
++      if (snapshot) settledStart = { ...snapshot, hydro: hydroKey, data };
+     }
++    if (reusePlanned) plannedStart = data;
+     const { kept, storage, view, prepared } = data;
+     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
+     const rng = stream(seed, "settler2", attempt, salt);
+@@ -2666,6 +2688,13 @@ export function fieldData(f: GeneratedField, W = Math.round(portable.sqrt(f.heig
+   return out;
+ }
+
++/** Conservative value equality for bounded generation snapshots: NaNs force recomputation. */
++function sameNumbers(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
++  if (a.length !== b.length) return false;
++  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] || Object.is(a[i], -0) !== Object.is(b[i], -0)) return false;
++  return true;
++}
++
+ function maxOf(h: Uint8Array): number {
+   let m = 0;
+   for (const v of h) if (v > m) m = v;
+diff --git a/src/core/gen/intentions.ts b/src/core/gen/intentions.ts
+index 0898cf53..07877381 100644
+--- a/src/core/gen/intentions.ts
++++ b/src/core/gen/intentions.ts
+@@ -157,7 +157,9 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hy
+  * `commit` makes it the map. Every absent intention is dropped, never forced (D138).
+  */
+ export function finalChecks(ids: readonly IntentionId[], built: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }, resteer: () => { built: BuildResult; commit: () => void } | null): IntentionResult[] {
+-  let res = ids.map((id) => ({ id, ...checkIntention(id, finalCtx(built, hy)) }));
++  // The intention checks only read the context; build the same drought and walk once.
++  const ctx = ids.length ? finalCtx(built, hy) : null;
++  let res = ids.map((id) => ({ id, ...checkIntention(id, ctx!) }));
+   if (res.some((r) => !r.ok && START_SIDE.has(r.id))) {
+     const alt = resteer();
+     if (alt) {
+diff --git a/src/core/gen/resources.ts b/src/core/gen/resources.ts
+index e6e6f389..7a3edd6d 100644
+--- a/src/core/gen/resources.ts
++++ b/src/core/gen/resources.ts
+@@ -174,8 +174,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
+   // near the start, patches and groves fill more of their ground (the start requirements count
+   // them there), and all of it where the colony's walk holds little moist land
+   const nearFill = { bushes: 0.85, trees: 0.7 };
++  // Both growers finish synchronously and retain only tile lists, not the allowed mask.
++  const growthAllowed = new Uint8Array(N);
+   const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch"): number => {
+-    const allowed = new Uint8Array(N);
++    const allowed = growthAllowed;
+     for (let i = 0; i < N; i++) allowed[i] = free[i] && moist[i] && (!within || within[i]) ? 1 : 0;
+     if (!allowed[seedTile]) return 0;
+     const grown = growPatchAt(ground, vegRng, allowed, seedTile, size, fill);
+@@ -261,7 +263,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
+   const woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
+   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
+   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[]): number => {
+-    const allowed = new Uint8Array(N);
++    const allowed = growthAllowed;
+     for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) ? 1 : 0;
+     if (!allowed[seedTile]) return 0;
+     const grown = growGroveAt(ground, vegRng, allowed, seedTile, size, fill);
+diff --git a/src/core/gen/settler.ts b/src/core/gen/settler.ts
+index ba676420..7b0d84df 100644
+--- a/src/core/gen/settler.ts
++++ b/src/core/gen/settler.ts
+@@ -145,7 +145,7 @@ export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: Arra
+
+ /** From a start at (x, y), over the slopes the build derives for it: moist dry tiles within 20
+  *  tiles' walk, and (with `C`) the walk to the nearest pump shore (the water rule, D153). */
+-export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number): { moist: number; water: number } {
++export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number, shores?: Uint8Array): { moist: number; water: number } {
+   const occ = new Uint8Array(W * H);
+   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
+   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
+@@ -154,7 +154,7 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
+   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
+   let water = Infinity;
+   if (C) {
+-    const shore = pumpShores(h, D, C, W, H);
++    const shore = shores ?? pumpShores(h, D, C, W, H);
+     for (let i = 0; i < W * H; i++) if (shore[i] && d[i] < water) water = d[i];
+   }
+   return { moist: n, water };
+@@ -310,7 +310,10 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
+     for (let y = 0; y < H; y++)
+       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
+   }
+-  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum };
++  // Every candidate reads the same pump shores; compute only if a cross-level pick needs them.
++  let shores: Uint8Array | null = null;
++  const pumpShore = () => shores ??= pumpShores(h, D, water.contamination, W, H);
++  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, pumpShore };
+ }
+
+ export type StartPreparation = ReturnType<typeof prepareStart>;
+@@ -329,7 +332,7 @@ export function pickStart(
+   const avoid = opts.avoid ?? null;
+   const N = W * H;
+   const D = water.depth;
+-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
++  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, pumpShore } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+   const storedNear = (x: number, y: number): number => {
+     if (!storeSum) return 0;
+     const x0 = Math.max(0, x - 40);
+@@ -462,7 +465,7 @@ export function pickStart(
+     if (opts.moistWalk || !c.sameLevel) {
+       if (tested >= 40) break;
+       tested++;
+-      const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule);
++      const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule, c.sameLevel ? undefined : pumpShore());
+       if (opts.moistWalk && sw.moist < opts.moistWalk.min) continue;
+       if (!c.sameLevel) {
+         if (!(sw.water <= waterRule - 2)) continue;
+diff --git a/src/core/sim/drought.ts b/src/core/sim/drought.ts
+index aa42c49d..dca99b95 100644
+--- a/src/core/sim/drought.ts
++++ b/src/core/sim/drought.ts
+@@ -11,6 +11,13 @@ import { SECONDS_PER_DAY, type WaterModel } from "./water";
+
+ /** Depth left per tile after `days` of drought, from the settled `depth`. */
+ export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: number): Float64Array {
++  return prepareDrought(m, depth)(days);
++}
++
++/** Snapshot the spill levels, pools and evaporation once for several drought lengths.
++ *  The returned function owns its inputs and gives each caller a fresh depth array.
++ *  Keep the evaporation sum, division, multiplication and subtraction in their original order. */
++export function prepareDrought(m: WaterModel, depth: ArrayLike<number>): (days: number) => Float64Array {
+   const { W, H } = m;
+   const N = W * H;
+   const spill = spillLevels(m);
+@@ -72,11 +79,14 @@ export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: nu
+     if (label[i] < 0) continue;
+     evap[label[i]] += 1e-4 * evapModifier(sat[i]) * SECONDS_PER_DAY;
+   }
+-  for (let i = 0; i < N; i++) {
+-    if (label[i] < 0) continue;
+-    const drop = (evap[label[i]] / area[label[i]]) * days;
+-    const k = kept[i] - drop;
+-    kept[i] = k > 0 ? k : 0;
+-  }
+-  return kept;
++  return (days) => {
++    const out = kept.slice();
++    for (let i = 0; i < N; i++) {
++      if (label[i] < 0) continue;
++      const drop = (evap[label[i]] / area[label[i]]) * days;
++      const k = out[i] - drop;
++      out[i] = k > 0 ? k : 0;
++    }
++    return out;
++  };
+ }
+diff --git a/src/core/validate/playability.ts b/src/core/validate/playability.ts
+index 48dea788..c5a8b682 100644
+--- a/src/core/validate/playability.ts
++++ b/src/core/validate/playability.ts
+@@ -629,7 +629,9 @@ function checkStart(
+   // shore the start reaches on foot, over the map's own ground and slopes, within the rule's walk;
+   // a pump on that shore reaches the water's surface (0–2 levels below it); and (D302) the water is
+   // fed by a running source or a lake that lasts the rule's drought, never a sealed puddle
+-  const shore = startWaterShore(walk, h, W, H, D, C, model.emitters, droughtStorage(model, D, rules.droughtDays), rules.waterWithin);
++  // Water, plants and storage read the same drought on the unchanged model and depth.
++  const keptDrought = droughtStorage(model, D, rules.droughtDays);
++  const shore = startWaterShore(walk, h, W, H, D, C, model.emitters, keptDrought, rules.waterWithin);
+   const dw = shore.distance;
+   analysis.waterDistance = dw;
+   const walkText = (d: number) => `${(Math.round(d * 10) / 10).toString()} tiles' walk`;
+@@ -870,7 +872,7 @@ function checkStart(
+       message: `${cap(rules.difficulty)} droughts (${rules.droughtDays} days) are shorter than a blueberry bush survives dry`,
+     });
+   } else {
+-    const kept = droughtStorage(model, D, rules.droughtDays);
++    const kept = keptDrought;
+     const Cd = new Float64Array(N);
+     for (let i = 0; i < N; i++) Cd[i] = kept[i] > 0 ? C[i] : 0;
+     const Md = gameSoil(W, H, h, kept, Cd, objects).moisture;
+@@ -902,7 +904,7 @@ function checkStart(
+   // `water.reservoir`; analysis/storage.ts): running clean water at the start's pump shore, and a
+   // dam, natural pools or levees within 40 tiles that could hold the colony through the worst
+   // drought. Information the generator prefers, never a guard (D209, #67).
+-  const kept = droughtStorage(model, D, rules.droughtDays);
++  const kept = keptDrought;
+   let natural = 0;
+   for (let i = 0; i < N; i++) if (sd[i] <= RESERVOIR_RADIUS) natural += kept[i];
+   const surf = new Float64Array(N);

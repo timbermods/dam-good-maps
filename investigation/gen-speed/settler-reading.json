@@ -1,0 +1,17 @@
+{
+  "case": "extreme",
+  "attempts": 27,
+  "passed": false,
+  "mapSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stateSha256": "196761f2cc28156f0d4f7206a4bb9f60d8a98e714a188a63052c52d92c975607",
+  "before": {
+    "wallMs": 62702.462400000004,
+    "cpuMs": 38797
+  },
+  "after": {
+    "wallMs": 57242.3536,
+    "cpuMs": 35969
+  },
+  "cpuReductionPercent": 7.289223393561361,
+  "wallReductionPercent": 8.707965510458171
+}

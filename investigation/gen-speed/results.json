@@ -1,0 +1,78 @@
+{
+  "base": "38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e",
+  "node": "v24.13.0",
+  "cases": [
+    {
+      "case": "any",
+      "attempts": 1,
+      "passed": true,
+      "mapSha256": "0b7251b946f2b781c65475ec89093976d0b5020d3540388aea010762a35970d0",
+      "stateSha256": "a69475aaaa33c47de068aa7274c3821701f06a9d4a6654a57a8f225c81dcb356",
+      "beforeMs": 6943.3673,
+      "afterMs": 16376.7899
+    },
+    {
+      "case": "riverValley",
+      "attempts": 2,
+      "passed": true,
+      "mapSha256": "a95d7d02954bd921e544bcbae265a18c18d4deba69c00ffaa46cba4503308941",
+      "stateSha256": "806616db46d2f5a3bf7efdad1a43cc52557f9a423e3f03ad9ebc1e5f33ce8623",
+      "beforeMs": 13717.7611,
+      "afterMs": 19916.260199999997
+    },
+    {
+      "case": "canyon",
+      "attempts": 3,
+      "passed": true,
+      "mapSha256": "fe7ddfe2565c3f79431152ac09a48d6eede37c7c4defcd34b1991ccf00a90b2f",
+      "stateSha256": "2db64be3dce5fc83aac37067e23bddeca1f62115a75442388d06436f46631fe6",
+      "beforeMs": 9606.3681,
+      "afterMs": 16658.790399999998
+    },
+    {
+      "case": "highlands",
+      "attempts": 1,
+      "passed": true,
+      "mapSha256": "0dfa7bafc57e73cb8bcaa7e35df540d82b2e5e9902268dea710a1ec9645e7255",
+      "stateSha256": "5c3f67b129d0ccdecfac72f330c7422bba6b33886aaa22871c6129d769e9dc74",
+      "beforeMs": 3353.3977000000014,
+      "afterMs": 7740.3658
+    },
+    {
+      "case": "lakeBasin",
+      "attempts": 1,
+      "passed": true,
+      "mapSha256": "81a80927a86819e495a30bf04cc91132dcdf0c86e48919ac4965275c77062f48",
+      "stateSha256": "bc3df5b5c64a17f601594e075fe0b3d3a989d153909d66149f76958d465d4a22",
+      "beforeMs": 4088.6028000000006,
+      "afterMs": 10432.408200000005
+    },
+    {
+      "case": "delta",
+      "attempts": 2,
+      "passed": true,
+      "mapSha256": "d13b0e6c8853e7133a15e3c1845ffacfbf84abda7536a2e2825bc380b8d480a1",
+      "stateSha256": "dcc75321813bfb89346cf22d352478e46e5174ddd21d416821ddb45a764b3430",
+      "beforeMs": 4963.254800000002,
+      "afterMs": 14831.143500000006
+    },
+    {
+      "case": "islands",
+      "attempts": 1,
+      "passed": true,
+      "mapSha256": "11bf36816c0f430a757eb2cada0ed9ada9ca916a11823ced90d93502755c755f",
+      "stateSha256": "21c045c75fdd2ba420d1af21c5a9304d9f09dc589910ec47b53190101bcb3af8",
+      "beforeMs": 8119.949400000005,
+      "afterMs": 18325.704199999993
+    },
+    {
+      "case": "extreme",
+      "attempts": 27,
+      "passed": false,
+      "mapSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stateSha256": "196761f2cc28156f0d4f7206a4bb9f60d8a98e714a188a63052c52d92c975607",
+      "beforeMs": 15986.844400000002,
+      "afterMs": 47014.6713
+    }
+  ]
+}
