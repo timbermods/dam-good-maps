@@ -526,14 +526,13 @@ export class WaterThreads {
 
   /** Runs `ticks` ticks on several threads, the water back in D, C and out; false when it doesn't (too little
    *  water to share, a seep across strips, no helpers ready, or a thread failed), and the caller runs them on
-   *  one. `single` gives the old depth and the seeps' states when the single thread ran last. */
+   *  one. `single` gives the old depth and the seeps' states when the single thread ran last. The caller has
+   *  made sure D, C and out hold the water the threads last held when they ran last (`changed`, water.ts). */
   run(m: RustModel, D: Float64Array, C: Float64Array, out: Float64Array, ticks: number, scale: number, single: () => { dold: Float64Array; seeps: Uint8Array }): boolean {
     if (this.pool.died && !this.pool.broken) this.pool.break();
     if (this.dead || this.freed || this.pool.broken || paused) return false;
     const { W, H, layout: L } = this.info;
     const N = W * H;
-    // Public water edits preserve the established single-thread bookkeeping.
-    if (this.changed(D, C, out)) return false;
     const replan = !this.fresh || this.sinceInit >= REBALANCE_TICKS;
     const strips0 = replan ? this.plan(D) : null;
     if (replan && !strips0) return false;
