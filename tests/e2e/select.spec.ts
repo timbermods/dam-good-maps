@@ -276,7 +276,7 @@ test("Delete sources (D315): removes only the water or badwater source in the se
       for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") n++;
       return n;
     });
-  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const n0 = await sourceCount();
   expect(n0).toBeGreaterThan(1); // more than one, so the map keeps water elsewhere once one is gone
   // one source, away from the others, so removing it doesn't dry the whole map
@@ -339,7 +339,7 @@ test("Delete sources (D315, folded into the Delete menu by D323), the whole map 
       for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource" || e.templates[e.template[k]] === "BadwaterSource") n++;
       return n;
     });
-  await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("status")).toHaveText("Water settled", { timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const n0 = await sourceCount();
   expect(n0).toBeGreaterThan(0);
 

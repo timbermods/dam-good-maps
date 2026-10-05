@@ -38,6 +38,8 @@ export function useTestHook(ed: Ed): TestHookSlice {
       selection: () => selection.current.tiles(),
       // (the water's pace, for tests that wait on it: the page has no Speed control, Kyler, 2026-10-04)
       waterSpeed: (speed) => ed.player.current?.setSpeed(speed),
+      // (the water has played into place: what the header's dot reads as no longer "Settling…")
+      waterSettled: () => (ed.player.current?.progress ?? null) === null,
       gesture: () => {
         const g = gestureRef.current;
         return { stroke: g.forceStroke ? g.forceStroke.length : null, band: g.forceStroke ? strokeRadius.current : null, cursor: g.forceCursor, side: quakeUiRef.current.side, ring: g.forceRing ? g.forceRing.r : null };

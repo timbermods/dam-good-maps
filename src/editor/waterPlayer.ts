@@ -18,8 +18,6 @@ export interface WaterFrame {
   done: number;
   /** The settled water, with what grows on it: shown last, and then the journey is over. */
   final?: () => void;
-  /** A weather run's words ("Drought: day 4 of 9"). */
-  words?: string;
 }
 
 export interface PlayerHost {
@@ -179,11 +177,6 @@ export class WaterPlayer {
   get progress(): number | null {
     if (!this.playing) return null;
     return this.at >= 0 ? this.frames[this.at].done : 0;
-  }
-
-  /** The words of the frame on screen (a weather run's day), if any. */
-  get words(): string | null {
-    return this.at >= 0 ? (this.frames[this.at].words ?? null) : null;
   }
 
   /** Whether there is a journey to end (an edit's water shown or on its way). */

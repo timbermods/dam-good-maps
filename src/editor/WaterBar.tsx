@@ -1,15 +1,13 @@
-// The water row over the map (live editing, PLAN §20 D180 (8)): the water's status (it plays into place after every
-// edit, with no controls: undo and redo show a change again, Kyler, 2026-10-04), then a drought or a badtide held on a
-// day, the day stepped with ◀ ▶ or typed into its box. The camera never moves by itself (D265: no Follow).
+// The water row over the map (live editing, PLAN §20 D180 (8)): a drought or a badtide held on a day, the day stepped
+// with ◀ ▶ or typed into its box. The water plays into place after every edit with no controls (undo and redo show a
+// change again), and the header's dot says "Settling…" while it does (Kyler, 2026-10-04: one status). The camera never moves by itself (D265: no Follow).
 // Built from the shared bar and button styles (D176).
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { WaterPlayer } from "./waterPlayer";
 import type { Hazard } from "../core/sim/weather";
 import { tip } from "../ui/Tooltip";
 
 export interface WaterBarProps {
-  player: WaterPlayer;
   /** The hazard held (a drought, a badtide), or null: pressing it again brings the map's own water back. */
   weather: Hazard | null;
   onWeather(h: Hazard): void;
@@ -27,7 +25,7 @@ export interface WaterBarProps {
 const DAY_MAX = 99;
 
 
-export function WaterBar({ player: p, weather, onWeather, day, target, counting, onStep, onDay }: WaterBarProps) {
+export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay }: WaterBarProps) {
   const shown = target ?? day;
   /** The day being typed into the box (Kyler, 2026-10-04: a double-click on it while a hazard is shown), or null. */
   const [typing, setTypingState] = useState<string | null>(null);
@@ -52,8 +50,6 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
     setTyping(null);
     if (t !== "" && Number.isInteger(n) && n >= 0 && n <= DAY_MAX && n !== shown) onDay(n);
   };
-  const progress = p.progress;
-  const status = p.words ?? (progress !== null ? `Water flowing… ${Math.round(progress * 100)}%` : "Water settled");
   // the view reads the bar's height from --water-bar-h: the legend panel ends one gap above it
   const bar = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -77,10 +73,6 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
   }, []);
   return (
     <div ref={bar} class="map-bar water-bar" role="toolbar" aria-label="Water time">
-      {/* (greyed while a weather day is held: it says how the map's own water stands, not the day shown) */}
-      <span class={`bar-status${weather ? " off" : ""}`} role="status">
-        {status}
-      </span>
       <button type="button" class="icon-button" aria-pressed={weather === "drought"} title={weather === "drought" ? "Back to the map's own water" : "Hold a drought's last day: the sources stop"} onClick={() => onWeather("drought")}>
         <span class="icon-word">Drought</span>
       </button>
@@ -99,7 +91,8 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
         <span
           class={`day-label${weather && counting !== null ? " working" : ""}${typing !== null ? " typing" : ""}`}
           aria-live="polite"
-          {...tip("Type a day", "Double-click")}
+          // (no tooltip while a day is typed: it would open on the field's focus, a box under the day box)
+          {...(typing === null ? tip("Type a day", "Double-click") : {})}
           onDblClick={() => weather && setTyping(shown === null ? "" : String(shown))}
         >
           {weather && counting !== null && typing === null ? <span class="day-fill" style={{ width: `${Math.round(counting * 100)}%` }} aria-hidden="true" /> : null}
@@ -111,7 +104,6 @@ export function WaterBar({ player: p, weather, onWeather, day, target, counting,
               inputMode="numeric"
               maxLength={2}
               aria-label="Day"
-              {...tip("A day from 0 to 99", "Enter", "Esc cancels")}
               value={typing}
               onInput={(e) => setTyping((e.target as HTMLInputElement).value.replace(/\D/g, "").slice(0, 2))}
               onKeyDown={(e) => {

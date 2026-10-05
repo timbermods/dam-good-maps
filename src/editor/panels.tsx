@@ -299,7 +299,7 @@ export function ExportDialog(p: ExportDialogProps) {
         </header>
         {!check && !error ? (
           <p role="status">
-            {progress?.stage === "water" ? "Settling the water…" : "Checking the map…"}
+            {progress?.stage === "water" ? "Settling…" : "Checking the map…"}
             {progress ? <progress max={1} value={progress.done} aria-label="Progress" /> : null}
           </p>
         ) : null}

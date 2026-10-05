@@ -32,7 +32,9 @@ export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: st
   const flags = c.flags?.length ?? 0;
   const count = c.instant.length + flags + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
   if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
-  if (!c.check || c.busy) return { tone: "wait", words: c.flowing !== null ? "Checking, as the water flows" : c.progress?.stage === "water" ? "Settling the water" : "Checking the map", count };
+  // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
+  if (c.flowing !== null || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
+  if (!c.check || c.busy) return { tone: "wait", words: "Checking the map", count };
   if (!count) return { tone: "ok", words: "Ready to play", count };
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
 }

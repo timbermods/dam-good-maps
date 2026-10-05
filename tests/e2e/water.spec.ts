@@ -11,7 +11,7 @@ test("the page settles the water, its checks pass, and no dam site is shown", as
   await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
   // (water storage near the start is information since generator 0.7.0, #67: the map may pass with
   // warnings; and no dam site on the map, D287)
-  await expect(page.getByText("Water settled")).toBeVisible({ timeout: 60_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await expect(page.getByText("Best dam site", { exact: true })).toHaveCount(0);
   const dot = page.getByRole("button", { name: /^Checks:/ });
   await expect(dot).toHaveAccessibleName(/^Checks: Ready to play/, { timeout: 60_000 });

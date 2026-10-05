@@ -728,3 +728,14 @@ for the milestone session's word that #268's adoption is in dev.
   shown: nothing. Tooltip "Type a day" with a Double-click key cap.
 - **Maturity** gone from Carve's settings and prefs; Carve's rows now share every edge (3, 6, 9, 11, 13 cells).
 - Captures: `docs/design/water-row-{held,typing}-{1300x900,1920x1080,2560x1440}.png`, `forces-carve-1920x1080.png`.
+
+## One water status, the typed day in its box, nothing cut off (2026-10-04)
+
+- **"Water settled" gone from the row;** the header's dot says "Settling…" while the water plays into place (and for
+  the checks' own settle), as it says "Checking the map" and "Ready to play". Tests wait on `dgmEditor.waterSettled()`;
+  sittingB's B14 test is renamed to what it checks now (the water's state, no bar words).
+- **The typed day:** the field was always in the box; what Kyler saw was the tooltip, opening on the field's focus as a
+  box under the day box, its pointer the stray arrow. No tooltip while a day is typed.
+- **Nothing cut off:** every setting measured with its longest value and Auto, every tool, at 62 and 76px cells. Carve's
+  Wander gets 3 cells (row 1: Power 2, Size 2, What it leaves 3, Wander 3, Walls 3; row 2 as before), and Select's
+  buttons 4px padding ("Cut down" was 1px short at 62px). `layout.spec.ts` now checks this for every tool.

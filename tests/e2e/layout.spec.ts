@@ -138,6 +138,22 @@ async function onTheCells(page: Page, state: string) {
   });
   expect(r.lefts.length, "the bar's thirteen cells").toBe(13);
   if (!r.settings) return;
+  // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
+  // button its whole word (the values put back as they were afterwards)
+  const cut = await page.evaluate(() => {
+    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "None", Size: "180", Power: "100" };
+    const out: string[] = [];
+    for (const set of document.querySelectorAll(".tool-settings .set")) {
+      const label = set.querySelector(".set-label");
+      const value = set.querySelector(".set-value");
+      const was = value?.textContent ?? null;
+      if (value) value.textContent = LONGEST[label?.textContent ?? ""] ?? "188";
+      for (const e of set.querySelectorAll<HTMLElement>(".set-label, .set-seg button, .set-button, .set-words, .set-head")) if (e.scrollWidth > e.clientWidth + 0.5) out.push(`${label?.textContent ?? ""}: ${e.textContent!.trim().slice(0, 30)}`);
+      if (value) value.textContent = was;
+    }
+    return out;
+  });
+  expect(cut, `cut off (${state})`).toEqual([]);
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
   same(r.settings[2], 120, `the settings' one height (${state})`);

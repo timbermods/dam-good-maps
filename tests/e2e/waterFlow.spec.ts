@@ -49,7 +49,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const bar = page.getByRole("toolbar", { name: "Water time" });
-  await expect(bar.getByRole("status")).toHaveText("Water settled");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const i = await page.evaluate(() => window.dgmEditor!.info());
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -94,10 +94,9 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   // it grows over the frames, not in one step: the page shows at least four different waters on its way
   await expect.poll(async () => new Set(await frames()).size, { timeout: 60_000 }).toBeGreaterThanOrEqual(4);
   expect(Math.max(...(await frames()))).toBeGreaterThan(w0);
-  await expect(bar.getByRole("status")).toContainText(/Water flowing|Water settled/);
 
   // it ends at the map's water: what the worker has, what the export gets
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 60_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await endsAtMapWater(page);
 
   const settled = await wet(page);

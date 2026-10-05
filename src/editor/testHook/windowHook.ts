@@ -56,6 +56,7 @@ declare global {
       selection(): number[];
       /** The water's pace after an edit (tests only: the page always plays it at Normal). */
       waterSpeed(speed: "slower" | "normal" | "faster" | "instant"): void;
+      waterSettled(): boolean;
 
     };
   }

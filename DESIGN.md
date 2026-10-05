@@ -315,9 +315,10 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   its longest line (183px on River Valley 4242), down to 8px above the minimap at most. Its rows are 20px, even,
   at the legend's own type size; content taller than the room scrolls inside it. At 1920×1080 River Valley 4242's 21
   lines need 456px of the 472px there (16px to spare); at 2560×1440 there are 832px.
-- **Top middle:** the water row, centred in the map area: Water settled (plain text), Drought, Badtide and the day
-  box (◀ Day 7 ▶; double-clicked, a field in its place for a typed day), each floating on its own. No controls for
-  the water's journey: it plays into place after every edit; undo and redo show a change again (Kyler, 2026-10-04).
+- **Top middle:** the water row, centred in the map area: Drought, Badtide and the day box (◀ Day 7 ▶; double-clicked,
+  a field in its place for a typed day, no tooltip while typing), each floating on its own. No controls or status for
+  the water's journey: it plays into place after every edit, the header's dot reading "Settling…" meanwhile; undo
+  and redo show a change again (Kyler, 2026-10-04).
 - **Top right:** the camera group (Top-down, Reset view, the compass), then the height slice, Slow forces and the
   sound under them, as a three-column grid 310px wide (the sound under the compass).
 - **Bottom right: the objects,** a menu always shown, with no headings: one object per row, its picture then its

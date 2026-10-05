@@ -149,14 +149,14 @@ export function CarveRow(p: CarveRowProps) {
           key: "power",
           row: 1,
           at: 1,
-          span: 3,
+          span: 2,
           node: <NumberSetting label="Power" title="How hard it cuts" keys={STRENGTH_KEYS} value={u.power} words={String(u.power)} min={0} max={100} step={5} onChange={(power) => set({ power })} />,
         },
         {
           key: "size",
           row: 1,
-          at: 4,
-          span: 3,
+          at: 3,
+          span: 2,
           node: (
             <NumberSetting
               label="Size"
@@ -175,7 +175,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "leaves",
           row: 1,
-          at: 7,
+          at: 5,
           span: 3,
           node: (
             <ChoiceSetting<"river" | "canyon">
@@ -192,15 +192,15 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "wander",
           row: 1,
-          at: 10,
-          span: 2,
+          at: 8,
+          span: 3,
           node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
         },
         {
           key: "walls",
           row: 1,
-          at: 12,
-          span: 2,
+          at: 11,
+          span: 3,
           node: (
             <ChoiceSetting<"steep" | "wide">
               label="Walls"

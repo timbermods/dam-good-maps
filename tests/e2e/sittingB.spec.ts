@@ -299,11 +299,10 @@ test("B13: the forces in the bar in their clusters' order of prominence (D352), 
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 
-test("B14: after an undo, a redo and an edit the water bar reads the worker's real state, never stuck at flowing 0%", async ({ page }) => {
+test("B14: after an undo, a redo and an edit the water's state is the worker's real state, never stuck flowing", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
-  const status = page.getByRole("toolbar", { name: "Water time" }).getByRole("status");
-  await expect(status).toHaveText("Water settled", { timeout: 60_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
@@ -314,19 +313,18 @@ test("B14: after an undo, a redo and an edit the water bar reads the worker's re
   await page.mouse.click(p.x, p.y);
   await idle(page);
   await page.keyboard.press("x");
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // undo: back to water that was settled
   await page.getByRole("button", { name: "Undo (Ctrl+Z)" }).click();
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
-  await expect(status).not.toContainText("0%");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // redo, and a second undo
   await page.getByRole("button", { name: "Redo (Ctrl+Y)" }).click();
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   await page.keyboard.press("z");
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // an edit that leaves the water as it is
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Relic" }).click();
   const q = await client(page, sx + 8, sy);
@@ -334,7 +332,7 @@ test("B14: after an undo, a redo and an edit the water bar reads the worker's re
   await page.mouse.click(q.x, q.y);
   await idle(page);
   await page.keyboard.press("x");
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
 });
 
 test("D360 a: the plain pointer highlights, picks and drags a tree", async ({ page }) => {
