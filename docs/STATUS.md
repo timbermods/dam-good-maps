@@ -24,7 +24,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play (#311). The old renderer session is closed.
+  Carve's smooth play (#311); restarted on #311 on 2026-10-05. The old renderer session is closed.
 - **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
@@ -37,8 +37,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #311 | Every force plays smoothly | renderer (forces play) | `needs-kyler`: merges once green and Kyler has played it |
-| #265 | Badwater line, wave check, wider names (generator 0.8.1) | theme critique session | `needs-kyler`: first of the generator queue; Kyler asked for three facts (the sheets' red marks, badwater's share against the official maps, Delta seed 16's start water); Lake Basin's lake is mostly badwater on 17 of 20 sheet seeds |
+| #311 | Every force plays smoothly | renderer (forces play, restarted) | `needs-kyler`: merges once green and Kyler has played it |
+| #265 | Badwater line, wave check, wider names (generator 0.8.1) | milestone (taken over 2026-10-05) | Rework in progress on Kyler's decisions: Lake Basin as it is; Delta's and River Valley's main river clean on about 85 in 100; River Valley seeds 12, 5 and 11 checked; lakeBasinSibling's red fixed; #310's F3 folded in; the three sheets redone. Ported onto the Rust checks after #321. Then `needs-kyler` for the sheets |
 | #261 | Canyon and Highlands height (generator 0.9.0) | Canyon session | `approved`; adopted in the generator queue's order, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; adopted in the generator queue's order, re-pinned |
 | #163 | The page is the editor | page | `needs-kyler` and `approved`; CI failing; merges once green, reviewed |
@@ -55,7 +55,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    both merged after a green full run, no pin moved. Still to land with other work: #310's F3, folded into the next generator
    re-pin only; #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's after #311 (page part before worker part).
-2. The generator queue, one re-pin at a time, once Kyler approves #265: the badwater line (#265), then Delta arms round 2
+2. The generator queue, one re-pin at a time, once Kyler approves #265's reworked sheets: the badwater line (#265), then Delta arms round 2
    (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 3. Settle with Kyler who owns #275 and #225.
 4. Then, by the roadmap: the Rust checks (#207), custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
