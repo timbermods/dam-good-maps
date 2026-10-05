@@ -91,6 +91,64 @@ fn paint(m:&Map,mask:&mut[u8],p:Point,r:f64) {
 }
 struct Offer {i:usize,target:u8,rank:f64,u:f64}
 struct Donor {i:usize,target:u8,rank:f64}
+// Keep the original funded cone and its separate lobes. Every receiving tile
+// belongs to a two-dimensional body, never a path connecting other lobes.
+fn body(m:&Map,add:&[u8],i:usize)->bool {
+    let x=i%m.w;let y=i/m.w;
+    for oy in 0..=1{for ox in 0..=1{
+        if x<ox||y<oy{continue;}let x0=x-ox;let y0=y-oy;
+        if x0+1<m.w&&y0+1<m.h{let j=y0*m.w+x0;
+            if [j,j+1,j+m.w,j+m.w+1].iter().all(|&k|add[k]>0){return true;}
+        }
+    }}false
+}
+fn supported(m:&Map,bed:&[u8],add:&[u8],i:usize,height:u8)->bool {
+    height<=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2)
+}
+fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,mouth:Point)->Vec<u8> {
+    let n=bed.len();let mut add=vec![0;n];if budget==0{return add;}let mut remaining=budget;let mut target=m.heights.clone();let mut rank=vec![10.0;n];
+    for o in offers{target[o.i]=o.target;rank[o.i]=o.rank;let amount=remaining.min((o.target-m.heights[o.i]) as usize);add[o.i]=amount as u8;remaining-=amount;}
+    // Reclaim unsupported columns and one-tile fragments. Removing a fragment
+    // can expose a neighbour, so settle both constraints together.
+    loop{let mut changed=false;let bodies:Vec<_>=(0..n).map(|i|add[i]>0&&body(m,&add,i)).collect();
+        for i in 0..n{if add[i]==0{continue;}let cap=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2);
+            let next=if bodies[i]{cap.saturating_sub(bed[i]).min(add[i])}else{0};
+            if next!=add[i]{add[i]=next;changed=true;}
+        }if !changed{break;}
+    }
+    let bounds=offers.iter().fold((m.w,0,m.h,0),|(x0,x1,y0,y1),o|(x0.min(o.i%m.w),x1.max(o.i%m.w),y0.min(o.i/m.w),y1.max(o.i/m.w)));
+    let legal:Vec<bool>=(0..n).map(|i|room[i]>0&&outlet[i]==0&&bed[i]==m.heights[i]&&(m.heights[i] as f64)<m.ceiling
+        &&i%m.w>=bounds.0.saturating_sub(8)&&i%m.w<=bounds.1.saturating_add(8)&&i/m.w>=bounds.2.saturating_sub(8)&&i/m.w<=bounds.3.saturating_add(8)).collect();
+    if budget<18{add.fill(0);}
+    let mut volume:usize=add.iter().map(|&v|v as usize).sum();
+    while volume<budget{
+        let mut best=None;let mut score=f64::INFINITY;
+        // Relief only grows on existing sediment bodies.
+        for i in 0..n{if add[i]==0||!legal[i]||add[i]>=room[i]||bed[i] as f64+add[i] as f64>=m.ceiling||!supported(m,bed,&add,i,bed[i]+add[i]+1){continue;}
+            let value=if bed[i]+add[i]<target[i]{rank[i]+add[i] as f64*0.25}else{20.0+add[i] as f64*4.0};
+            if value<score{score=value;best=Some(vec![i]);}
+        }
+        // Grow whole patches at lobe edges. There is no inter-lobe path search.
+        // A sparse budget first builds an apron instead of stacking a column.
+        for y in 0..m.h-1{for x in 0..m.w-1{let i=y*m.w+x;let square=[i,i+1,i+m.w,i+m.w+1];
+            if square.iter().any(|&j|!legal[j]){continue;}
+            let missing:Vec<_>=square.iter().copied().filter(|&j|add[j]==0).collect();
+            if missing.is_empty()||missing.len()>budget-volume{continue;}
+            let adjacent=square.iter().any(|&j|add[j]>0||neighbours(m,j).into_iter().flatten().any(|k|add[k]>0));
+            if volume>0&&!adjacent{continue;}
+            for &j in &missing{add[j]=1;}
+            let safe=missing.iter().all(|&j|supported(m,bed,&add,j,bed[j]+1));
+            for &j in &missing{add[j]=0;}
+            if !safe{continue;}
+            let value=if volume==0||budget<18&&volume<9{
+                hypot(x as f64+0.5-mouth.x,y as f64+0.5-mouth.y)-20.0
+            }else{missing.iter().map(|&j|if target[j]>bed[j]{rank[j]+0.25}else{24.0}).sum::<f64>()/missing.len() as f64};
+            if value<score{score=value;best=Some(missing);}
+        }}
+        match best{Some(cells)=>{volume+=cells.len();for i in cells{add[i]+=1;}},None=>break}
+    }
+    add
+}
 pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area:&[u8],channels:u32)->Plan {
     let n=map.heights.len();let power=max(0.025,s.power/100.0);let floor=s.floor.unwrap_or(1.0) as u8;
     let origin=intent.path[0];let last=*intent.path.last().unwrap();let drawn=intent.path.len()>1&&hypot(last.x-origin.x,last.y-origin.y)>1.0;
@@ -189,17 +247,33 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
         if o.target>=cap||channel[o.i]!=0||outlet[o.i]!=0{continue;}o.target+=1;room+=1;grew=true;if room>=minimum{break;}}
         if !grew{break;}
     }
+    let available:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
+    if available<9{let mut candidates:Vec<_>=(0..n).filter(|&i|room_at(i)>0&&!offered[i]&&!used[i]&&outlet[i]==0&&before.heights[i]>floor
+        &&{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;-(dx*dir.x+dy*dir.y)>2.0||before.heights[i]>mouth_h})
+        .map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)+if before.depth[i]>0.05{48.0}else{0.0})).collect();
+        candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));let mut missing=9-available;
+        for (i,_) in candidates{if missing==0{break;}let cut=(before.heights[i]-floor).min(room_at(i)).min(missing as u8);
+            donors.push(Donor{i,target:before.heights[i]-cut,rank:3.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)/max(48.0,width)});missing-=cut as usize;
+        }
+    }
     offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
     let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
-    let budget=capacity.min(supply).min(donor_capacity);let mut remaining=budget;let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
-    for o in &offers{let add=remaining.min((o.target-before.heights[o.i]) as usize);map.heights[o.i]+=add as u8;remaining-=add;
-        if add>0{let x=(o.i%map.w) as f64-mouth.x;let y=(o.i/map.w) as f64-mouth.y;let side=(-x*dir.y+y*dir.x)/max(1.0,width);
-            arrival[o.i]=clamp(0.08+o.u*0.66+0.16*smooth(side*sin(o.u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(o.i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;}
+    let budget=capacity.max(9).min(supply).min(donor_capacity);
+    let mut bed=before.heights.clone();let mut remaining=budget;
+    for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);bed[d.i]-=cut as u8;remaining-=cut;}
+    let room:Vec<u8>=(0..n).map(room_at).collect();let add=shape(before,&offers,&bed,&room,&outlet,budget,mouth);
+    let deposited:usize=add.iter().map(|&v|v as usize).sum();
+    let mut progress=vec![f64::NAN;n];for o in &offers{progress[o.i]=o.u;}
+    let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
+    for i in 0..n{if add[i]>0{map.heights[i]+=add[i];let x=(i%map.w) as f64-mouth.x;let y=(i/map.w) as f64-mouth.y;let u=if progress[i].is_nan(){(x*dir.x+y*dir.y)/reach}else{progress[i]};let side=(-x*dir.y+y*dir.x)/max(1.0,width);
+        arrival[i]=clamp(0.08+u*0.66+0.16*smooth(side*sin(u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;
+    }}
+    remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;
+        if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}
     }
-    remaining=budget;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}}
     for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
     stats[3]=stats[2]-stats[1];debug_assert_eq!(stats[3],0.0);
-    if budget==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
+    if deposited==0{map.error=if donor_capacity==0{if before.heights.iter().any(|&h|h>floor){32}else{33}}else{34};}
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};

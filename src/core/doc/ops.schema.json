@@ -131,7 +131,7 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
@@ -168,7 +168,8 @@
             "scree": { "type": "boolean" },
             "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
             "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
-            "banks": { "type": "number", "minimum": 0, "maximum": 10 }
+            "banks": { "type": "number", "minimum": 0, "maximum": 10 },
+            "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source and seep on a tile the force changes. Absent: clear." }
           }
         },
         "where": {
@@ -197,6 +198,13 @@
           }
         },
         "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
+        "cleared": {
+          "description": "Sources set to clear (D474): each source it cleared and the step of its showing that took it.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 65536,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "step"], "properties": { "id": { "$ref": "#/$defs/guid" }, "step": { "type": "integer", "minimum": 0 } } }
+        },
         "moved": {
           "type": "array",
           "maxItems": 65536,

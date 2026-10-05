@@ -5,6 +5,7 @@
 // could give is refused with a one-line reason, never clamped. ops.schema.json's `forceResult.settings`
 // holds the union of these ranges (a test keeps it containing every force's own).
 
+import { SOURCES_RULES } from "./clear";
 import { floorProblem } from "./floor";
 import type { Verb } from "./op";
 
@@ -65,8 +66,8 @@ export interface ForceSettingsTable {
   details?: readonly SettingDetail[];
 }
 
-/** Every force's settings. Power (0–100), the seed (a whole number, 0–4294967295) and the Floor
- *  (floor.ts) are every force's. */
+/** Every force's settings. Power (0–100), the seed (a whole number, 0–4294967295), the Floor
+ *  (floor.ts) and Sources (clear.ts, D474: ride or clear; absent, clear) are every force's. */
 export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
   carve: {
     name: "a carve",
@@ -126,6 +127,7 @@ export function forceSettingsProblem(verb: Verb, s: Record<string, unknown>): st
   if (!(Number.isInteger(seed) && seed >= 0 && seed <= SEED_MAX)) return `${t.name}'s seed is a whole number from 0 to ${SEED_MAX}`;
   const floor = floorProblem(s.floor);
   if (floor) return floor;
+  if (s.sources !== undefined && !SOURCES_RULES.includes(s.sources as never)) return `${t.name}'s sources are ride or clear`;
   for (const r of t.ranges) {
     const v = s[r.key] as number;
     if ((v === null && r.empty !== "required") || (v === undefined && r.empty === "nullish")) continue;

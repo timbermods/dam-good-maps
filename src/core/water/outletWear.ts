@@ -376,7 +376,9 @@ export function openSquare(mask: Uint8Array, W: number, H: number): Uint8Array {
   return out;
 }
 
-export function cutShape(cut: readonly number[], path: readonly number[], W: number, H: number, reach = Infinity): CutShape {
+/** A worn cut's shape (D360 (3)). `distance` is the distance field it measures `reach` with: M9b's
+ *  descriptive rows pass the TypeScript one (math/grid.ts `distanceFromInTs`, D391). */
+export function cutShape(cut: readonly number[], path: readonly number[], W: number, H: number, reach = Infinity, distance = distanceFrom): CutShape {
   const N = W * H;
   const inCut = new Uint8Array(N);
   for (const i of cut) inCut[i] = 1;
@@ -418,7 +420,7 @@ export function cutShape(cut: readonly number[], path: readonly number[], W: num
   }
   let offPath = 0;
   if (path.length && Number.isFinite(reach)) {
-    const d = distanceFrom(onPath, W, H);
+    const d = distance(onPath, W, H);
     for (const i of cut) if (d[i] > reach) offPath++;
   }
   const open = openSquare(inCut, W, H);

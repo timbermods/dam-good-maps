@@ -3,6 +3,7 @@
 // order, so both implementations number regions alike.
 
 import { N4 } from "../math/grid";
+import { analyze } from "./rust/bridge";
 
 /** Land walkable on foot: 4-neighbour moves between tiles of the same level, plus slope links
  *  (low tile ↔ high tile). `blocked` tiles (Thorns, Blockage, relics, ...) are never entered. */
@@ -61,39 +62,15 @@ export function walkRegions(h: Uint8Array, W: number, H: number, blocked: Uint8A
 
 /** Land a colony reaches without crossing water or climbing a cliff (item 47's reachable mine
  *  sites): dry tiles 4-connected by steps of at most one level (the map's slopes, or one flight of
- *  player stairs). Labels −1 on wet tiles. */
+ *  player stairs). Labels −1 on wet tiles. In Rust (analysis/rust/bridge.ts, D391). */
 export function landRegions(h: ArrayLike<number>, W: number, H: number, wet: ArrayLike<number>): Int32Array {
-  const N = W * H;
-  const labels = new Int32Array(N).fill(-1);
-  const queue = new Int32Array(N);
-  let lab = 0;
-  for (let s = 0; s < N; s++) {
-    if (labels[s] >= 0 || wet[s]) continue;
-    labels[s] = lab;
-    let head = 0;
-    let tail = 0;
-    queue[tail++] = s;
-    while (head < tail) {
-      const c = queue[head++];
-      const x = c % W;
-      const y = (c - x) / W;
-      for (let k = 0; k < 4; k++) {
-        const n = k === 0 ? (y + 1 < H ? c + W : -1) : k === 1 ? (y > 0 ? c - W : -1) : k === 2 ? (x + 1 < W ? c + 1 : -1) : x > 0 ? c - 1 : -1;
-        if (n >= 0 && labels[n] < 0 && !wet[n] && Math.abs(h[n] - h[c]) <= 1) {
-          labels[n] = lab;
-          queue[tail++] = n;
-        }
-      }
-    }
-    lab++;
-  }
-  return labels;
+  return Int32Array.from(analyze("landRegions", W, H, [], [h, wet]));
 }
 
 /** Connected set tiles (4- or 8-connected). Labels −1 on unset tiles; sizes per label, numbered in
  *  index order of each one's first tile; `order`, every set tile as the flood reached it, one
  *  component after another (4-connected: neighbours in `N4`'s order). The one flood of a mask's
- *  components: the bodies of water (`walk.ts` `startWaterShore`, `storage.ts` `runningFlow`) and
+ *  components: the bodies of water (`walk.ts` `startWaterShore`; the checks' running flow is the same flood in rust/checks) and
  *  the wet systems (`story.ts` `wetSystems`) are this flood. */
 export function components(mask: ArrayLike<number>, W: number, H: number, eight = false): { labels: Int32Array; sizes: number[]; order: Int32Array } {
   const N = W * H;

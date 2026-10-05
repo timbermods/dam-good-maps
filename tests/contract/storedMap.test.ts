@@ -65,6 +65,41 @@ function tampered(bytes: Uint8Array): { bytes: Uint8Array; heights: Uint8Array }
   return { bytes: encodeProject({ ...doc, stored: { ...st, blobs } }), heights };
 }
 
+describe("a cacheless editor open defers water only", () => {
+  it("the canonical map and project match the synchronous open, and an intervening edit is kept", () => {
+    const { s } = edited();
+    const bytes = withoutStored(s.project(6));
+    const exact = MapSession.open(decodeProject(bytes));
+    const quick = MapSession.open(decodeProject(bytes), { deferWater: true });
+    expect(quick.waterPending).toBe(true);
+    expect(decodeProject(quick.project(6)).stored).toBeUndefined();
+    expect(quick.features).toEqual(exact.features);
+    expect(quick.history()).toEqual(exact.history());
+    quick.settleCanonical();
+    expect(timber(quick)).toBe(timber(exact));
+    expect(sha(quick.project(6))).toBe(sha(exact.project(6)));
+    const mid = MapSession.open(decodeProject(bytes), { deferWater: true });
+    mid.setWaterMode("defer");
+    const op = { op: "sculpt" as const, params: { mode: "raise" as const, cells: box(24, 24, 27, 27), amount: 1 } };
+    expect(mid.apply(op).ok).toBe(true);
+    expect(exact.apply(op).ok).toBe(true);
+    mid.settleCanonical();
+    expect(timber(mid)).toBe(timber(exact));
+    expect(mid.undo()).toBe(true);
+    expect(timber(mid)).toBe(timber(quick));
+  });
+
+  it("a stored map still opens exactly and keeps D455's comparison", () => {
+    const { s } = edited();
+    const { bytes, heights } = tampered(s.project());
+    const quick = MapSession.open(decodeProject(bytes), { deferWater: true });
+    expect(quick.openedFromStored).toBe(true);
+    expect(quick.built.heights).toEqual(heights);
+    expect(quick.undo()).toBe(false);
+    expect(quick.canUndo).toBe(false);
+  });
+});
+
 describe("a saved project opens from its stored map (D367)", () => {
   it("the reopened project's map equals what was saved, byte for byte, with its stored map (no rebuild) and without it (rebuilt)", () => {
     const { s, exports } = edited();

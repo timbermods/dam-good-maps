@@ -16,6 +16,15 @@
 //     byte fixtures (tools/rust/forces-jobs.ts) give the same packed result natively (forces-batch), in Node's
 //     WebAssembly and with --engines in each engine, and each matches its pin (tools/rust/forces-pins.json,
 //     pinned when the TypeScript forces, tag `ts-forces-final`, gave the same).
+//  6. The Rust analysis (rust/analysis; src/core/analysis/rust/analysisWasm.ts, the committed module): each
+//     kernel's byte fixtures (tools/rust/analysis-jobs.ts) give the same result natively (analysis-batch),
+//     in Node's WebAssembly and with --engines in each engine, and each matches its pin
+//     (tools/rust/analysis-pins.json, pinned when the TypeScript kernels, tag `ts-analysis-final`, gave the
+//     same).
+//  7. The Rust checks (rust/checks; src/core/validate/checksWasm.ts, the committed module): each validation's
+//     byte fixtures (tools/rust/checks-jobs.ts) give the same report and analysis natively (checks-batch), in
+//     Node's WebAssembly and with --engines in each engine, and each matches its pin
+//     (tools/rust/checks-pins.json, pinned when the TypeScript checks, tag `ts-checks-final`, gave the same).
 //
 //   npx tsx tools/rust/check.ts [--engines] [--jobs N]
 //
@@ -34,6 +43,12 @@ import { WATER_WASM } from "../../src/core/sim/waterWasm";
 import { executeInRust } from "../../src/core/forces/rust/bridge";
 import { FORCES_WASM } from "../../src/core/forces/rust/forcesWasm";
 import { forceFixtures, sha256 } from "./forces-jobs";
+import { executeInRust as analyzeInRust } from "../../src/core/analysis/rust/bridge";
+import { ANALYSIS_WASM } from "../../src/core/analysis/rust/analysisWasm";
+import { analysisFixtures, sha256 as sha256Of } from "./analysis-jobs";
+import { CHECKS_WASM } from "../../src/core/validate/checksWasm";
+import { runChecks } from "../../src/core/validate/rust";
+import { checksFixtures, dumpInputs, packOutputs, readOutputs, sha256 as sha256OfChecks } from "./checks-jobs";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { assertClean } from "./guard.mjs";
 
@@ -49,6 +64,8 @@ const CRATES = [
   { pkg: "portable-check", lib: "portable_check" },
   { pkg: "water", lib: "water" },
   { pkg: "forces", lib: "forces" },
+  { pkg: "analysis", lib: "analysis" },
+  { pkg: "checks", lib: "checks" },
 ];
 
 /** The functions in portable_eval's order (rust/portable-check/src/lib.rs). */
@@ -312,20 +329,133 @@ const FORCES_IN_PAGE = `async ({ wasm, jobs }) => {
   const out = [];
   for (const j of jobs) {
     const job = decode(j);
-    const ptr = x.water_alloc(job.length);
+    const ptr = x.forces_alloc(job.length);
     new Uint8Array(x.memory.buffer, ptr, job.length).set(job);
-    const lenPtr = x.water_alloc(4);
+    const lenPtr = x.forces_alloc(4);
     const res = x.forces_execute(ptr, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const b = new Uint8Array(x.memory.buffer, res, len);
     let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
-    x.water_dealloc(res, len);
-    x.water_dealloc(lenPtr, 4);
-    x.water_dealloc(ptr, job.length);
+    x.forces_dealloc(res, len);
+    x.forces_dealloc(lenPtr, 4);
+    x.forces_dealloc(ptr, job.length);
   }
   return out;
 }`;
 const forcesPayload = { wasm: FORCES_WASM, jobs: forceJobs.map((j) => Buffer.from(j.job).toString("base64")) };
+
+// 6. the Rust analysis: its byte fixtures, the same results on every target, as pinned
+const analysisPins = JSON.parse(readFileSync(join(ROOT, "tools/rust/analysis-pins.json"), "utf8")) as Record<string, string>;
+const analysisJobs = analysisFixtures();
+if (analysisJobs.length !== Object.keys(analysisPins).length) throw new Error(`the analysis' fixtures (${analysisJobs.length}) and their pins (${Object.keys(analysisPins).length}) differ: tools/rust/analysis-jobs.ts`);
+const frameBytes = (v: Float64Array) => Buffer.from(v.buffer, v.byteOffset, v.byteLength);
+const nodeAnalysis = analysisJobs.map((j) => {
+  const out = analyzeInRust(j.frame);
+  if (sha256Of(out) !== analysisPins[j.name]) throw new Error(`the Rust analysis' ${j.name} differs from its pin (tools/rust/analysis-pins.json): a kernel changed`);
+  return frameBytes(out);
+});
+const analysisBin = join(RUST, "target/release", process.platform === "win32" ? "analysis-batch.exe" : "analysis-batch");
+if (!existsSync(analysisBin)) cargo(["build", "--release", "-j", JOBS, "-p", "analysis", "--bin", "analysis-batch"]);
+{
+  const framed = Buffer.concat(analysisJobs.flatMap((j) => [Buffer.from(new Uint32Array([j.frame.byteLength]).buffer), frameBytes(j.frame)]));
+  const out = execFileSync(analysisBin, [], { input: framed, maxBuffer: 1 << 30, windowsHide: true });
+  let at = 0;
+  analysisJobs.forEach((j, k) => {
+    const len = out.readUInt32LE(at);
+    const got = out.subarray(at + 4, at + 4 + len);
+    at += 4 + len;
+    if (!got.equals(nodeAnalysis[k])) throw new Error(`the Rust analysis differs natively and in Node's Wasm: ${j.name}`);
+  });
+}
+console.log(`the Rust analysis: ${analysisJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
+
+/** Runs in each page, as plain source: each frame's result (base64 binary64) in the analysis' Wasm
+ *  (base64). */
+const ANALYSIS_IN_PAGE = `async ({ wasm, jobs }) => {
+  const decode = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const { instance } = await WebAssembly.instantiate(decode(wasm));
+  const x = instance.exports;
+  const out = [];
+  for (const j of jobs) {
+    const bytes = decode(j);
+    const n = bytes.length / 8;
+    const ptr = x.analysis_alloc(n);
+    new Uint8Array(x.memory.buffer, ptr, bytes.length).set(bytes);
+    const lenPtr = x.analysis_alloc(1);
+    const res = x.analysis_execute(ptr, n, lenPtr);
+    const len = new Uint32Array(x.memory.buffer, lenPtr, 1)[0];
+    const b = new Uint8Array(x.memory.buffer, res, len * 8);
+    let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
+    x.analysis_free(res, len);
+    x.analysis_free(lenPtr, 1);
+    x.analysis_free(ptr, n);
+  }
+  return out;
+}`;
+const analysisPayload = { wasm: ANALYSIS_WASM, jobs: analysisJobs.map((j) => frameBytes(j.frame).toString("base64")) };
+
+// 7. the Rust checks: their byte fixtures, the same reports and analysis on every target, as pinned
+const checksPins = JSON.parse(readFileSync(join(ROOT, "tools/rust/checks-pins.json"), "utf8")) as Record<string, string>;
+const checksJobs = checksFixtures();
+if (checksJobs.length !== Object.keys(checksPins).length) throw new Error(`the checks' fixtures (${checksJobs.length}) and their pins (${Object.keys(checksPins).length}) differ: tools/rust/checks-jobs.ts`);
+const nodeChecks = checksJobs.map((j) => {
+  const out = packOutputs(runChecks(j.inputs));
+  if (sha256OfChecks(out) !== checksPins[j.name]) throw new Error(`the Rust checks' ${j.name} differs from its pin (tools/rust/checks-pins.json): a check changed`);
+  return Buffer.from(out);
+});
+const checksBin = join(RUST, "target/release", process.platform === "win32" ? "checks-batch.exe" : "checks-batch");
+if (!existsSync(checksBin)) cargo(["build", "--release", "-j", JOBS, "-p", "checks", "--bin", "checks-batch"]);
+{
+  const framed = Buffer.concat(checksJobs.flatMap((j) => {
+    const job = dumpInputs(j.inputs);
+    return [Buffer.from(new Uint32Array([job.length]).buffer), Buffer.from(job)];
+  }));
+  const out = execFileSync(checksBin, [], { input: framed, maxBuffer: 1 << 30, windowsHide: true });
+  let at = 0;
+  checksJobs.forEach((j, k) => {
+    const len = out.readUInt32LE(at);
+    const got = packOutputs(readOutputs(out.subarray(at + 4, at + 4 + len)));
+    at += 4 + len;
+    if (!Buffer.from(got).equals(nodeChecks[k])) throw new Error(`the Rust checks differ natively and in Node's Wasm: ${j.name}`);
+  });
+}
+console.log(`the Rust checks: ${checksJobs.length} fixtures, the same bytes natively and in Node's Wasm, each as pinned`);
+
+/** Runs in each page, as plain source: each job's packed outputs (the status, then each output's u32 length
+ *  and bytes; base64) in the checks' Wasm (base64). */
+const CHECKS_IN_PAGE = `async ({ wasm, jobs }) => {
+  const decode = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const { instance } = await WebAssembly.instantiate(decode(wasm));
+  const x = instance.exports;
+  const out = [];
+  for (const j of jobs) {
+    const inputs = j.map(decode);
+    for (let k = 0; k < inputs.length; k++) {
+      const p = x.checks_input(k, inputs[k].length);
+      new Uint8Array(x.memory.buffer, p, inputs[k].length).set(inputs[k]);
+    }
+    const status = x.checks_run();
+    const parts = [];
+    let total = 4;
+    for (let k = 0; k < 8; k++) {
+      const n = x.checks_output_len(k);
+      parts.push(n ? new Uint8Array(x.memory.buffer, x.checks_output(k), n).slice() : new Uint8Array(0));
+      total += 4 + n;
+    }
+    const b = new Uint8Array(total);
+    const dv = new DataView(b.buffer);
+    dv.setUint32(0, status, true);
+    let at = 4;
+    for (const p of parts) {
+      dv.setUint32(at, p.length, true);
+      b.set(p, at + 4);
+      at += 4 + p.length;
+    }
+    let str = ''; for (const v of b) str += String.fromCharCode(v); out.push(btoa(str));
+  }
+  return out;
+}`;
+const checksPayload = { wasm: CHECKS_WASM, jobs: checksJobs.map((j) => j.inputs.map((b) => Buffer.from(b).toString("base64"))) };
 
 if (ENGINES) {
   const playwright = await import("@playwright/test");
@@ -355,6 +485,16 @@ if (ENGINES) {
         if (!Buffer.from(h, "base64").equals(nodeForces[k])) throw new Error(`the Rust forces differ in ${name}: ${forceJobs[k].name}`);
       });
       console.log(`${name}: the Rust forces' ${forceJobs.length} fixtures, the same bytes`);
+      const analysisResults = (await page.evaluate(`(${ANALYSIS_IN_PAGE})(${JSON.stringify(analysisPayload)})`)) as string[];
+      analysisResults.forEach((r, k) => {
+        if (!Buffer.from(r, "base64").equals(nodeAnalysis[k])) throw new Error(`the Rust analysis differs in ${name}: ${analysisJobs[k].name}`);
+      });
+      console.log(`${name}: the Rust analysis' ${analysisJobs.length} fixtures, the same bytes`);
+      const checksResults = (await page.evaluate(`(${CHECKS_IN_PAGE})(${JSON.stringify(checksPayload)})`)) as string[];
+      checksResults.forEach((r, k) => {
+        if (!Buffer.from(r, "base64").equals(nodeChecks[k])) throw new Error(`the Rust checks differ in ${name}: ${checksJobs[k].name}`);
+      });
+      console.log(`${name}: the Rust checks' ${checksJobs.length} fixtures, the same bytes`);
     } finally {
       await browser.close();
     }

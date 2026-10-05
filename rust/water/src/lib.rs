@@ -14,7 +14,7 @@ pub mod sim;
 use sim::Sim;
 
 /// Allocates `len` bytes in this module's memory for the caller to fill (freed by `water_dealloc`).
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn water_alloc(len: usize) -> *mut u8 {
     Box::into_raw(vec![0u8; len].into_boxed_slice()) as *mut u8
 }
@@ -23,7 +23,7 @@ pub extern "C" fn water_alloc(len: usize) -> *mut u8 {
 ///
 /// # Safety
 /// `ptr` and `len` must come from `water_alloc(len)`.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_dealloc(ptr: *mut u8, len: usize) {
     drop(Box::from_raw(core::ptr::slice_from_raw_parts_mut(ptr, len)));
 }
@@ -32,7 +32,7 @@ pub unsafe extern "C" fn water_dealloc(ptr: *mut u8, len: usize) {
 ///
 /// # Safety
 /// `ptr..ptr+len` must be readable.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_new(ptr: *const u8, len: usize) -> *mut Sim {
     let bytes = core::slice::from_raw_parts(ptr, len);
     Box::into_raw(Box::new(protocol::decode_sim(bytes)))
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn water_new(ptr: *const u8, len: usize) -> *mut Sim {
 ///
 /// # Safety
 /// `ptr..ptr+len` must be readable.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_strip(ptr: *const u8, len: usize) -> *mut Sim {
     let bytes = core::slice::from_raw_parts(ptr, len);
     Box::into_raw(Box::new(protocol::decode_strip(bytes)))
@@ -53,7 +53,7 @@ pub unsafe extern "C" fn water_strip(ptr: *const u8, len: usize) -> *mut Sim {
 ///
 /// # Safety
 /// `s` must come from `water_new` or `water_strip`; `lo <= hi <=` its rows.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_sync(s: *mut Sim, lo: u32, hi: u32) {
     let s = &mut *s;
     assert!(lo <= hi && hi as usize <= s.h, "rows off the simulation");
@@ -65,7 +65,7 @@ pub unsafe extern "C" fn water_sync(s: *mut Sim, lo: u32, hi: u32) {
 ///
 /// # Safety
 /// `s` must come from `water_new` or `water_strip`; `k` must be one of its emitters.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_seep(s: *mut Sim, k: u32, set: u32) -> u32 {
     let s = &mut *s;
     if set <= 1 {
@@ -76,7 +76,7 @@ pub unsafe extern "C" fn water_seep(s: *mut Sim, k: u32, set: u32) -> u32 {
 
 /// # Safety
 /// `s` must come from `water_new` and not be used afterwards.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_free(s: *mut Sim) {
     drop(Box::from_raw(s));
 }
@@ -88,7 +88,7 @@ pub unsafe extern "C" fn water_free(s: *mut Sim) {
 ///
 /// # Safety
 /// `s` must come from `water_new`.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_ptr(s: *mut Sim, which: u32) -> *mut f64 {
     let s = &mut *s;
     match which {
@@ -106,7 +106,7 @@ pub unsafe extern "C" fn water_ptr(s: *mut Sim, which: u32) -> *mut f64 {
 ///
 /// # Safety
 /// `s` must come from `water_new`.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_run(s: *mut Sim, ticks: u32, scale: f64) {
     let s = &mut *s;
     s.read_params();
@@ -117,7 +117,7 @@ pub unsafe extern "C" fn water_run(s: *mut Sim, ticks: u32, scale: f64) {
 ///
 /// # Safety
 /// `s` must come from `water_new`; `p` must have room for one byte per tile.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_saturation(s: *mut Sim, p: *mut u8) {
     let s = &mut *s;
     let sat = s.saturation();
@@ -129,7 +129,7 @@ pub unsafe extern "C" fn water_saturation(s: *mut Sim, p: *mut u8) {
 ///
 /// # Safety
 /// `s` must come from `water_new`.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_books(s: *mut Sim) -> f64 {
     (*s).books_check() as f64
 }
@@ -139,7 +139,7 @@ pub unsafe extern "C" fn water_books(s: *mut Sim) -> f64 {
 ///
 /// # Safety
 /// `ptr..ptr+len` must be readable; `out_len` writable.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn water_canonical(ptr: *const u8, len: usize, out_len: *mut usize) -> *mut u8 {
     let bytes = core::slice::from_raw_parts(ptr, len);
     let out = protocol::canonical_job(bytes).into_boxed_slice();

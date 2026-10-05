@@ -1,0 +1,8 @@
+- LS1 (milestone): checks Wasm +29.81 MiB (23.94→53.75; last growth 52.31 min); backgroundCheck's unused canonicalRun owns a WaterSim across the real settle, then Rust awaits GC; repro 36→0 unused runs and 114→53.81 MiB with the [minimal patch](adoption/milestone.patch).
+- The hour establishes avoidable allocation pressure; no new indefinitely retained job was demonstrated. Known F5/F6 are excluded; [cause and evidence](FINDINGS.md).
+- Page JS heap stayed within 17.75–55.26 MiB (26.22→46.59); final ten-minute collection floor 23.00 MiB, without a continuing upward floor.
+- Other Wasm plateaued: editor water 59.13 MiB, forces 16.56 MiB, helpers 16.44/24.38 MiB; water-mesh/bake workers instantiate no Wasm.
+- Live workers stayed at six, briefly seven for optional jobs; no accumulating mesh queue. GPU: 64–169 geometries, 371–776 buffers, fixed 16 Three/20 WebGL textures; programs warmed to 24, briefly 25.
+- Completed 60.00 min on headed Chrome 154/NVIDIA RTX 4080 SUPER: 50 saved-map switches (96²/128²/256²), 20 Generates, fourteen strokes per brush, every force, 82 undo/redo pairs and 34 weather-day steps.
+- Tested feature/page f2c6c34b; requested dev merge conflicted and was aborted. Two same-page harness recoveries and three missing worker samples are disclosed in [DETAILS](DETAILS.md); no reload or forced GC inside the hour.
+- [Playwright session](session.mjs), [finding repro](repro-check-allocation.mjs), [page/GPU sheet](measurements.csv), [worker sheet](worker-memory.csv), [owner integration](INTEGRATION.md), [end capture](end.png); large raw results stay local (D195).

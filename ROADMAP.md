@@ -43,7 +43,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **Merged since:** every setting makes a map (#277, #283, #287), multi-core water and its follow-ups (#281, #284), water speed (#290), forces speed half A (#289), the second core hunt (#280), Deposit's pillars investigation (#285), parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274). Carve's aging setting is removed (D473, #293). Generation speed round 2 (#291) is closed unadopted.
 - **The generator queue's adoptions, waiting their turn** (milestone session, one re-pin at a time after #265): Delta arms round 2 (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), each merged as an investigation and not yet adopted.
 - **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152), scaling (#132) and the parked drafts (#95, #79, #73, #71, #35); STATUS has each one's state.
-- **Next, after the generator queue** (which waits on #265): the merge review's fixes, the Rust checks (#207), the forces' shared water kernel, custom map sizes, the dam sketch.
+- **Next, after the generator queue** (which waits on #265): the merge review's fixes, the forces' shared water kernel, custom map sizes, the dam sketch.
 
 **1. Released, and the coherence cleanup**
 
@@ -61,8 +61,9 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   computation in `rust/water`, no wiring yet).
 - **The Rust forces** (done, #254; #158, D400, D453): the planners are Rust (`rust/forces`), byte-identical to the TypeScript
   computation they replaced (tag `ts-forces-final`, then deleted); their byte fixtures run in CI's `rust` job. Rift and Deposit
-  (#273) are adopted directly in Rust. Next: the analysis (#157) and the checks (#207), the
-  cleanup's groups 5 and 6 being in; Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
+  (#273) are adopted directly in Rust. The analysis' six kernels are Rust too (#157, D391), and the checks (done; #207,
+  D465): `rust/checks`, byte-identical to the TypeScript they replaced (tag `ts-checks-final`, then deleted), their byte
+  fixtures in CI's `rust` job. Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
 
 **3. The generator queue**, one re-pin at a time (D148, D308)
 
@@ -166,9 +167,11 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   (Chromium, Firefox and WebKit) at every size, with no corrected comparison against TypeScript; its TypeScript is tagged
   and deleted. Firefox's speed is not investigated and the Codex round on it is dropped (D440). Rust 1.90, the wasm32
   target and the Rust build join CI and the setup command first (item 3a).
-- **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
-  after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
-  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
+- **The Rust analysis** (done; #157, D391, D453): adopted (D442 (d)) with its fixed six-kernel policy in every engine,
+  Firefox included: `distanceFrom`, `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` run in Rust
+  (`rust/analysis`), byte-identical to the TypeScript they replaced (tag `ts-analysis-final`, then deleted); their byte
+  fixtures run in CI's `rust` job. The outcomes and M9b's descriptive rows stay on TypeScript (a TypeScript
+  `distanceFrom` kept for them).
 - **The Rust forces** (done, #254; #158, D400, D453): adopted (D442 (c)): the planners are Rust (`rust/forces`); the core keeps the
   request, Keep, the build's last touches, the record and the showing; the TypeScript computation is tag `ts-forces-final`
   and deleted. New forces (Erode first) are built directly in Rust on it, never in TypeScript first (D438). Round 1's lesson
@@ -190,14 +193,23 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Speed rounds (Codex, Kyler's PC; adoption patches, no PRs yet):** water speed (`investigation/water-speed`, byte-identical:
-simd128 and the kernel's inner loops, on multi-core water), generation speed (`investigation/gen-speed`, the shared stages at
-256², byte-identical, the themes' shaping and `rust/water` left alone) and forces speed (`investigation/forces-speed`, at
-256², byte-identical, `deposit.rs` and `rust/water` left alone). The milestone session adopts each in turn.
+**Speed rounds (done):** water speed (#290, the flow layout and the skipped wet-list rebuild, no SIMD) and forces speed half A
+(#289) are merged; generation speed (#291) was closed unadopted: generation gets faster with the generator's Rust port after
+the theme queue. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
+merged. The dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279) is parked (see its
+section below).
 
-**Still with Codex:** Deposit's pillars (`investigation/deposit-pillars`, the second core hunt's finding 4; #280 has the
-other three fixes), and the dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279)
-is parked (see its section below).
+**Verdicts to adopt (Kyler, 2026-10-05; the reports are merged as records):**
+- **Page QA (#310):** F1 adopted, by the page session: saving and Download wait for a running force to finish and be kept.
+  F2 not adopted: Your maps keeps every edited map, and there is no undo across maps. F3 adopted, but only folded into the
+  next generator re-pin (the badwater rework's), never on its own.
+- **Force playback (#312):** all three parts adopted once #311 merges: renderer.patch and worker.patch to the renderer session
+  (forces play), page.patch to the page session; the page part lands before the worker part.
+- **Custom sizes (#313):** a record. Its fieldData width fix (src/core/gen/generate.ts) is adopted (done, #319).
+  Parked for when D357 starts: "every side from 4" conflicts with "absolutes never relax" (a 4-wide map can't hold a 5×5 mine
+  site; a 4×4 map can't reach 178 logs). Kyler decides it then.
+- **Long session (#315):** LS1 adopted (done, #319): backgroundCheck's unused canonical run is dropped
+  (src/worker/session.ts).
 
 ## Parity core (done, #269; D337–D339)
 
@@ -235,7 +247,7 @@ before its TypeScript is deleted: (1) the water settle (above), and the stacked-
 `ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift and Deposit
 adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
-its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
+its own contract tests (D444); (4b) the checks (done; #207, D465: `rust/checks`, tag `ts-checks-final`; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 

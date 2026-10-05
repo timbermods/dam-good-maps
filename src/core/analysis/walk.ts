@@ -6,14 +6,14 @@
 // walk takes them, and never a flight of stairs the player would have to build.
 //
 // Port of the workshop study's `walkDistance` (investigation/workshop/lib/measures.ts), bounded at
-// `WALK_LIMIT` tiles. prototype/analysis.py `walk_distance` is the same rule; Dijkstra's result
-// does not depend on the order ties pop, so both give the same distances bit for bit (the sums of
-// 1 and √2 along the shortest path).
+// `WALK_LIMIT` tiles, now computed in Rust (rust/analysis, D391). prototype/analysis.py
+// `walk_distance` is the same rule; Dijkstra's result does not depend on the order ties pop, so both
+// give the same distances bit for bit (the sums of 1 and √2 along the shortest path).
 
 import { entityTiles } from "../features/edits";
 import { slopeHighSide, type Orientation } from "../format/footprints";
 import type { JsonObject } from "../format/json";
-import { MinHeap, N8 } from "../math/grid";
+import { analyze } from "./rust/bridge";
 import { components } from "./regions";
 
 /** Farther than this is "not within walking distance" (every threshold is 40 or less). */
@@ -71,10 +71,9 @@ export function walkWorld(objects: readonly WalkObject[], W: number, H: number, 
   return { blocked, links: slopeLinks(slopes, W, H) };
 }
 
-const S2 = Math.SQRT2;
-
 /** Walking distance from the start's 3×3 (distance 0 on each of its tiles), Infinity beyond
- *  `limit` or where the walk cannot go. `links` are slope links (low tile, high tile). */
+ *  `limit` or where the walk cannot go. `links` are slope links (low tile, high tile). In Rust
+ *  (analysis/rust/bridge.ts, D391). */
 export function walkDistance(
   h: ArrayLike<number>,
   W: number,
@@ -84,61 +83,12 @@ export function walkDistance(
   start: { x: number; y: number },
   limit = WALK_LIMIT,
 ): Float64Array {
-  const N = W * H;
-  // slope links as a CSR adjacency list, in insertion order
-  const count = new Int32Array(N + 1);
-  for (const [a, b] of links) {
-    count[a + 1]++;
-    count[b + 1]++;
+  const pairs = new Float64Array(2 * links.length);
+  for (let k = 0; k < links.length; k++) {
+    pairs[2 * k] = links[k][0];
+    pairs[2 * k + 1] = links[k][1];
   }
-  for (let i = 0; i < N; i++) count[i + 1] += count[i];
-  const fill = count.slice(0, N);
-  const adj = new Int32Array(count[N]);
-  for (const [a, b] of links) {
-    adj[fill[a]++] = b;
-    adj[fill[b]++] = a;
-  }
-  const d = new Float64Array(N).fill(Infinity);
-  const heap = new MinHeap();
-  for (let y = start.y - 1; y <= start.y + 1; y++)
-    for (let x = start.x - 1; x <= start.x + 1; x++) {
-      if (x < 0 || y < 0 || x >= W || y >= H) continue;
-      const i = y * W + x;
-      d[i] = 0;
-      heap.push(0, i);
-    }
-  const free = (i: number, lv: number) => !(blocked && blocked[i]) && h[i] === lv;
-  while (heap.size) {
-    const c = heap.pop();
-    const k = heap.lastKey;
-    if (k > d[c]) continue;
-    const x = c % W;
-    const y = (c - x) / W;
-    const lv = h[c];
-    for (const [dx, dy] of N8) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-      const n = yy * W + xx;
-      if (!free(n, lv)) continue;
-      if (dx && dy && !(free(y * W + xx, lv) && free(yy * W + x, lv))) continue;
-      const nd = k + (dx && dy ? S2 : 1);
-      if (nd < d[n] && nd <= limit) {
-        d[n] = nd;
-        heap.push(nd, n);
-      }
-    }
-    for (let q = count[c]; q < count[c + 1]; q++) {
-      const n = adj[q];
-      if (blocked && blocked[n]) continue;
-      const nd = k + 1;
-      if (nd < d[n] && nd <= limit) {
-        d[n] = nd;
-        heap.push(nd, n);
-      }
-    }
-  }
-  return d;
+  return analyze("walkDistance", W, H, [start.x, start.y, limit], [h, blocked ?? new Uint8Array(W * H), pairs]);
 }
 
 /** How far a beaver walks to reach tile i: to the tile itself, or to a 4-neighbour and one more
@@ -186,7 +136,7 @@ export function pumpShoreDistance(
   return { distance: best, tile };
 }
 
-/** Water deeper than this joins a body of water (`runningFlow`'s bodies, 4-connected). */
+/** Water deeper than this joins a body of water (4-connected; the checks' running flow, rust/checks, reads the same bodies). */
 export const WATER_BODY = 0.001;
 
 /** A tile's shortest walk to a shore from which a pump reaches its water at `d` deep (Infinity when
@@ -207,8 +157,8 @@ export function tileShoreWalk(walk: Float64Array, h: ArrayLike<number>, W: numbe
 
 /**
  * The water rule with Kyler's D302 (amending D153): `pumpShoreDistance` over the water a start may
- * count, never a sealed puddle. Water counts when its body of water (4-connected, over 0.001 deep, as
- * `runningFlow` finds it) is fed by a running source (an emitter of strength over 0 with a cell in the
+ * count, never a sealed puddle. Water counts when its body of water (4-connected, over 0.001 deep,
+ * `WATER_BODY`) is fed by a running source (an emitter of strength over 0 with a cell in the
  * body), or is a lake that lasts the rule's drought: one of its tiles a pump reaches from a shore within
  * `within` tiles' walk now is still one after the drought (`after`: `droughtStorage` for the rule's
  * days, the sources off). Returns the distance and tile of the nearest water that counts, and the walk
