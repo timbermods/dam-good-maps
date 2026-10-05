@@ -38,6 +38,42 @@ pub unsafe extern "C" fn water_new(ptr: *const u8, len: usize) -> *mut Sim {
     Box::into_raw(Box::new(protocol::decode_sim(bytes)))
 }
 
+/// A strip of a larger map for the multi-core water (`protocol::decode_strip`), used as `water_new`'s.
+///
+/// # Safety
+/// `ptr..ptr+len` must be readable.
+#[no_mangle]
+pub unsafe extern "C" fn water_strip(ptr: *const u8, len: usize) -> *mut Sim {
+    let bytes = core::slice::from_raw_parts(ptr, len);
+    Box::into_raw(Box::new(protocol::decode_strip(bytes)))
+}
+
+/// Brings the bookkeeping up to date with water written over rows `lo..hi` from outside the run
+/// (`Sim::sync_rows`).
+///
+/// # Safety
+/// `s` must come from `water_new` or `water_strip`; `lo <= hi <=` its rows.
+#[no_mangle]
+pub unsafe extern "C" fn water_sync(s: *mut Sim, lo: u32, hi: u32) {
+    let s = &mut *s;
+    assert!(lo <= hi && hi as usize <= s.h, "rows off the simulation");
+    s.sync_rows(lo as usize, hi as usize);
+}
+
+/// Emitter `k`'s seep state: `set` 0 or 1 switches it off or on, any other value only reads it; returns whether
+/// it is on.
+///
+/// # Safety
+/// `s` must come from `water_new` or `water_strip`; `k` must be one of its emitters.
+#[no_mangle]
+pub unsafe extern "C" fn water_seep(s: *mut Sim, k: u32, set: u32) -> u32 {
+    let s = &mut *s;
+    if set <= 1 {
+        s.set_seep_on(k as usize, set == 1);
+    }
+    s.seep_on(k as usize) as u32
+}
+
 /// # Safety
 /// `s` must come from `water_new` and not be used afterwards.
 #[no_mangle]

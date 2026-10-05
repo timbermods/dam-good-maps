@@ -13,6 +13,7 @@ import type { SavedView } from "../core/doc/document";
 import { viewBuffers } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
   return [r.heights, r.water, r.contamination, r.moisture, r.soilContamination, r.reach, r.timber, r.project].map((a) => a.buffer) as Transferable[];
@@ -119,6 +120,15 @@ const api = {
       check: (v, onProgress) => c.check(v, onProgress ? proxy(onProgress) : undefined),
     });
   },
+  /** The water's helper threads (src/core/sim/parallel.ts), started by the page (platform/index.ts) so they start
+   *  while this worker is busy: its water runs on several threads where that helps. More are started from here
+   *  for bigger maps. The page sends them before anything else; the background search's worker gets none. */
+  waterHelpers(ports: MessagePort[]) {
+    installParallelWater({
+      helpers: ports.map(portHelper),
+      spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
+    });
+  },
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
@@ -184,4 +194,6 @@ const api = {
 };
 
 export type GeneratorApi = typeof api;
+// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran
+Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks }) });
 expose(api);

@@ -66,7 +66,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, type MapSpec } from "../spec/mapspec";
+import { AVAILABLE_THEMES, EDITOR_LEVEL, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -90,7 +90,7 @@ import { ruinColumns } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { dryStart, padFloods, pickStart, prepareStart, type DroughtPolicy, type StartPick } from "./settler";
+import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPolicy, type StartPick } from "./settler";
 
 export type { IntentionResult };
 
@@ -118,6 +118,8 @@ const SETTLE_BUDGET = 5;
 export const FIRST_DROUGHT_DAYS = 3;
 /** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85). */
 const MOIST_WALK = 160;
+/** Grown logs an oak gives, its saplings counted out (resources: an oak 8 logs, a third young). */
+const OAK_LOGS = 5;
 
 export interface GenerationInfo {
   /** Genomes drawn; the accepted map's genome. */
@@ -223,6 +225,16 @@ export interface GenerateOptions {
   /** The land-stage screen on the planned water's outcomes (`landScreen`); false turns it off (for
    *  the measures). */
   screen?: boolean;
+  /** The rescue round (D471, set by `generate` itself): from 1 the start's groves may lean to the
+   *  wood each species gives, a shown land's start asks only for Buildable land's walkable land, a
+   *  Water without stairs rule under 7 is held to itself, the start's walk asks for moist land
+   *  enough for the wood and berries asked, and the badwater distance no more than the map allows;
+   *  from 2 the start's ground asks for half the land it otherwise joins (`minFoot`, a target, D85),
+   *  a plan's start may be levelled from further (by a bank too) and needs no second place; from 3
+   *  a land holding fewer rivers on its edge than the Rivers count is kept and a small map's start
+   *  may stand nearer its edge; from 4 the land is drawn nearer the theme's own settings, and from 8
+   *  it is gentle (`easedSettings`). */
+  ease?: number;
 }
 
 /** The species mix the settings panel starts from: a map that keeps it takes the woods its genome
@@ -361,16 +373,80 @@ const SEA_SHELF_MOST = 10000;
 /** The most tiles a worn way out may take (Kyler, D360: about 200). */
 export const WEAR_MOST = 200;
 
+/** The rounds of fresh lands after a round's attempts are spent without a map (D471: every setting the
+ *  panel allows makes a map), each drawing its genomes afresh, without the land-stage screens or the
+ *  drawn intentions (a candidate's ambition lowered, the settings kept), each easing more (`ease`). */
+export function rescueRounds(W: number, H: number): number {
+  // (more on small maps, whose rounds are quick and whose land most often has no room: about the
+  // same time as six at 192² and up)
+  return Math.max(6, Math.min(24, Math.round((12 * 128 * 128) / (W * H))));
+}
+/** Genomes a round may draw before the next round's begin (a round draws a few dozen at most). */
+const ROUND_GENOMES = 1000;
+
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
   assertSpec(specIn);
   if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
   const t0 = performance.now();
+  const record: RoundRecord = { failures: [], failedAt: [], before: 0 };
+  let r = attemptRound(specIn, opts, t0, 0, record);
+  // D471: a round whose attempts are spent without a map is followed by rounds on fresh lands, until
+  // one makes a map (a caller that caps the attempts gets its cap: the measures, the tests)
+  for (let k = 1, n = rescueRounds(specIn.size.x, specIn.size.y); !r.report.passed && opts.maxAttempts === undefined && k <= n; k++) {
+    record.before = r.attempts;
+    r = attemptRound(specIn, { ...opts, screen: false, intentions: opts.intentions ?? [], ease: k }, t0, k, record);
+  }
+  return r;
+}
+
+/** The settings a rescue round's land is drawn with (D471): the player's until the fourth round; from
+ *  it, the terrain and water a third of the way nearer the theme's own settings each round, all the
+ *  way by the sixth (a candidate's ambition lowered where the settings fight on the map's size). The
+ *  map's spec, its checks and its start rules stay the player's. */
+/** The gentle land a late rescue round draws (D471). */
+const GENTLE = { relief: 25, terracing: 20, verticality: 10, variety: 40 };
+
+export function easedSettings(s: Settings, theme: ThemeId, ease: number): Settings {
+  if (ease < 4) return s;
+  const k = Math.min(1, (ease - 3) / 3);
+  const p = THEME_PRESETS[theme];
+  const to = (v: number, d: number) => Math.round(v + (d - v) * k);
+  const out: Settings = JSON.parse(JSON.stringify(s));
+  const t = out.terrain;
+  t.relief = to(t.relief, p.relief);
+  t.terracing = to(t.terracing, p.terracing);
+  t.verticality = to(t.verticality, VT_DEFAULT[theme]);
+  t.variety = to(t.variety, VARIETY_DEFAULT);
+  if (t.verticality < VT_TALL) t.highestTerrain = Math.min(t.highestTerrain, EDITOR_LEVEL);
+  const w = out.water;
+  w.rivers = to(w.rivers, p.rivers);
+  if (k >= 2 / 3) Object.assign(w, { riverStyle: p.riverStyle, riverFlow: p.riverFlow, lakes: p.lakes, waterfalls: p.waterfalls });
+  // (from the eighth, gentle land: a small map whose theme's own land leaves its start no room)
+  if (ease >= 8) {
+    t.relief = Math.min(t.relief, GENTLE.relief);
+    t.terracing = Math.min(t.terracing, GENTLE.terracing);
+    t.verticality = Math.min(t.verticality, GENTLE.verticality);
+    t.variety = Math.min(t.variety, GENTLE.variety);
+    t.highestTerrain = Math.min(t.highestTerrain, EDITOR_LEVEL);
+  }
+  return out;
+}
+
+/** The record the rounds share: each failed attempt and when it ended, and the attempts before the
+ *  round's. */
+interface RoundRecord {
+  failures: GenerateResult["failures"];
+  failedAt: number[];
+  before: number;
+}
+
+function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round: number, record: RoundRecord): GenerateResult {
   const W = specIn.size.x;
   const H = specIn.size.y;
   const seed = specIn.seed;
-  const failures: GenerateResult["failures"] = [];
-  const failedAt: number[] = [];
+  const failures = record.failures;
+  const failedAt = record.failedAt;
   let max = opts.maxAttempts ?? MAX_ATTEMPTS;
   let free = 0;
   let last: Attempt | null = null;
@@ -385,8 +461,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   // matters starts a background search for a version that meets all three (gen/versions.ts), never
   // held before the map is shown. Water storage near the start stays a preference of the settler.
   // D348/D373: prepared land stays private until the actual settled start reaches its mine pair.
-  // Once shown (the first look, editable land), it is the map and is never replaced. Later water,
-  // start and object fixes retain that land under the existing retry rules.
+  // Once shown (the first look, editable land), it is the map and is never replaced (but by a rescue
+  // round, D471). Later water, start and object fixes retain that land under the existing retry rules.
   let committed: LandStage | null = null;
   let lands = 0;
   // (lands drawn again before one is shown because their planned water misses an outcome)
@@ -412,11 +488,14 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       opts.onProgress?.({ attempt, stage: "land" });
       // (Variety is a setting since M9b; Another like this draws a sibling, keeping its intentions)
       const keep = opts.intentions !== undefined ? opts.intentions : specIn.intentions?.length ? (specIn.intentions.filter((id) => (ACTIVE as readonly string[]).includes(id)) as IntentionId[]) : undefined;
-      const g = drawGenome(specIn.theme, seed, W, H, genomes, { vt: specIn.settings.terrain.verticality, intentions: keep, variety: opts.variety ?? specIn.settings.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
-      leanGenome(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
+      const drawn = round * ROUND_GENOMES + genomes;
+      // (a late rescue round draws its land nearer the theme's settings, D471)
+      const asked = easedSettings(specIn.settings, specIn.theme, opts.ease ?? 0);
+      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
+      leanGenome(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
       // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)
-      if (specIn.theme === "lakeBasin") shapeLakeBasin(g, specIn.settings, W, H, seed, genomes, specIn.designedFor);
+      if (specIn.theme === "lakeBasin") shapeLakeBasin(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
       genomes++;
@@ -426,7 +505,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       const F = makeField(g, seed, W, H);
       // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
       // way with it; everything after is found on the turned land
-      const o = orientationOf(seed, genomes - 1, W, H);
+      const o = orientationOf(seed, drawn, W, H);
       g.orientation = o;
       g.flowDir = orientDir(g.flowDir, o);
       const E = orientField(F.E, W, H, o);
@@ -455,7 +534,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     settles += a.result.info.settles;
     a.result.info.genomes = genomes;
     a.result.info.settles = settles;
-    a.result.attempts = attempt + 1;
+    a.result.attempts = record.before + attempt + 1;
     a.result.failures = failures;
     a.result.timings.failed = failedAt;
     a.result.info.lands = lands;
@@ -482,7 +561,7 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
       return a.result;
     }
-    failures.push({ attempt, failed: failedIds(a.result) });
+    failures.push({ attempt: record.before + attempt, failed: failedIds(a.result) });
     failedAt.push(Math.round(performance.now() - t0));
     // (the next attempt on a shown land keeps off the start that failed, TRIED_RADIUS round it)
     // (only on a shown land: a land drawn again before it was shown builds nothing for its record)
@@ -1356,6 +1435,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const N = W * H;
   const seed = spec.seed;
   const rule = spec.settings.start.rules.waterWithin;
+  // (a rescue round's easing, D471)
+  const ease = opts.ease ?? 0;
+  // the walk the start's settled water is held to: the rule less a margin (`waterAim`); in a rescue
+  // round, a rule under 7 is held to itself, as the check reads it (the margin leaves a start at 4
+  // or 5 a tile or two to its shore)
+  const aim = ease >= 1 && rule < 7 ? rule : waterAim(rule);
+  // the moist land the start's walk asks for: in a rescue round, room for the wood and berries the
+  // start rules ask (a tree or bush a tile, the wood by oak's yield, with room between)
+  const startRules = spec.settings.start.rules;
+  const moistWant = ease >= 1 ? Math.max(MOIST_WALK, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : MOIST_WALK;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
@@ -1502,7 +1591,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1 && drownedHeads(h, W, H, hy.rivers).length) return fail("a river's head under a lake", null, true);
     // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
     // (not on the last attempt, whose map is kept when none passes)
-    if (g.hydro.exactInflows && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
+    if (g.hydro.exactInflows && ease < 3 && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
     // D171: every source starts a river; a hydrology that puts one inside a flow is planned again
     if (springsInFlow(hy, W)) return fail("source in a flow", null, true);
   }
@@ -1512,7 +1601,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the start's ground joins at least Buildable land's walkable land (PLAN §5.2), and more is
   // preferred up to twice it
   const reachMin = REACH_MIN[spec.settings.terrain.buildableLand];
-  const minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N));
+  let minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N) * (ease >= 2 ? 0.5 : 1));
   const footWant = 2 * reachMin;
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
@@ -1558,7 +1647,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const { kept, storage, view, prepared } = data;
     const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: MOIST_WALK }, room, bench, storage, near, level: allowLevel });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -1594,7 +1683,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
-    distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
+    // (a target, D85; a rescue round, D471, asks no more than the map's size allows)
+    distance: Math.min(Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin), ease >= 1 ? Math.max(8, Math.round(0.3 * Math.max(W, H))) : Infinity),
     keepOff: (weir ? pool : null) as Uint8Array | null,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
@@ -1745,10 +1835,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const off = avoidOf(null);
         markTried(off, guess, W, H);
         second = settlerOn(held, zero, heldMoist, 5, off, 1, null, true);
-        if (!second) return fail("one place for a start", null, true);
+        // (not in a rescue round's later lands, D471: a small or rugged land may hold only one)
+        if (!second && ease < 2) return fail("one place for a start", null, true);
         // (and the places after it, apart from each other: every start a shown land may fall back
         // on has its pad ready, levelled now if it needs it, D373 (3))
-        markTried(off, second, W, H);
+        if (second) markTried(off, second, W, H);
         for (let k = 0; k < PREPARED_MORE; k++) {
           const more = settlerOn(held, zero, heldMoist, 9 + k, off, 1, null, true);
           if (!more) break;
@@ -2306,6 +2397,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   allowLevel = false;
   let pick = chooseStart();
+  // D471: every setting makes a map. In a rescue round, a shown land whose settled water cut it into
+  // pieces each smaller than the share of the map the start's ground asks for (wild land under lush
+  // rivers: Any 256², Verticality and Relief 100, seed 3399078211) asks only for Buildable land's
+  // walkable land (PLAN §5.2; walkable land is a target, D85), never a start levelled after the land
+  // was shown (only in a rescue round: the attempts before it keep their maps' bytes, D308)
+  if (!pick && ease > 0 && landStage?.shown && minFoot > Math.min(1200, reachMin)) {
+    minFoot = Math.min(1200, reachMin);
+    pick = chooseStart();
+  }
   // (no start on the settled water or the plan: the shown land has no place left for one, D348)
   if (!pick) return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
   // (a start that fails here, its ground under the settled water or its water gone, gives way to
@@ -2365,11 +2465,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     let why: string | null = null;
     // (the settled water covers the start's ground)
     if (wetRing(b, cur)) why = "start water moved";
-    else if (!(startWaterServed(b, rule, droughtDays) <= rule - 2)) {
+    else if (!(startWaterServed(b, rule, droughtDays) <= aim)) {
       // the water beside the start only a sealed puddle (D302), or the water moved away. The land is
       // shown (D348): a spring by the start (D330's fix) gives it water, the first place and strength
       // that serves it and leaves no source in another's flow
-      const sealed = startWaterWalk(b) <= rule - 2;
+      const sealed = startWaterWalk(b) <= aim;
       const at = cur;
       const lay = layout;
       const spring = springByStart(b, rule, seed, attempt + 1000 * tryN, (f) => {
@@ -2382,13 +2482,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
           const pf = prefill(model);
           const guessB = { ...bw, water: pf.depth, contamination: pf.contamination, waterModel: model } as BuildResult;
-          if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= rule - 2)) {
+          if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= aim)) {
             contains.delete(f.id);
             return false;
           }
         }
         const bs = build([...lay, f], "resources");
-        const ok = bs.settle.settled && !wetRing(bs, at) && startWaterServed(bs, rule, droughtDays) <= rule - 2 && !sourcesInFlow(bs.waterModel, mapObjects({ entities: bs.entities.map(entityJson) }), bs.water).inFlow.length;
+        const ok = bs.settle.settled && !wetRing(bs, at) && startWaterServed(bs, rule, droughtDays) <= aim && !sourcesInFlow(bs.waterModel, mapObjects({ entities: bs.entities.map(entityJson) }), bs.water).inFlow.length;
         if (ok) b = bs;
         else contains.delete(f.id);
         return ok;
@@ -2564,7 +2664,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
   }
   opts.onProgress?.({ attempt, stage: "resources" });
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced }, sites)];
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, base, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -2578,14 +2678,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!p3 || p3.levelled || (p3.x === pick!.x && p3.y === pick!.y)) return null;
       const lay3 = [...layout.filter((f) => f.kind !== "start"), startOf(p3)];
       const b3 = build(lay3, "resources");
-      if (!(startWaterServed(b3, rule, droughtDays) <= rule - 2) || wetRing(b3, p3)) return null;
+      if (!(startWaterServed(b3, rule, droughtDays) <= aim) || wetRing(b3, p3)) return null;
       // the second district keeps its distance and its walk from the start, the rise its stairs
       for (const st of sites) {
         const d = portable.sqrt((st.x - p3.x) * (st.x - p3.x) + (st.y - p3.y) * (st.y - p3.y));
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, scrapPlaced }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, b3, 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1 }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);

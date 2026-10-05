@@ -94,10 +94,9 @@ describe("generated maps: every new object passes the placement emulation (ROADM
     expect(["SmallRelic", "MediumRelic", "LargeRelic"].some((t) => templates.has(t))).toBe(true);
   };
   it.each(themes.filter((t) => t !== "canyon"))("%s, every map object on, 96²", (theme) => everyObject(theme));
-  // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): with every object on and
-  // three mine sites, M9b's Canyon 96² seed 3 finds no start on its shown land (one map of 60 such);
-  // M9b's work on starts that run out on a shown land. When it passes, `fails` comes off.
-  it.fails("canyon, every map object on, 96²: no start on the shown land with three mine sites", () => everyObject("canyon"));
+  // (Canyon 96² seed 3 with every object on and three mine sites found no start on its shown land, an
+  // expected failure from 2026-10-02 until D471's rescue rounds made it a map)
+  it("canyon, every map object on, 96²: a start with three mine sites", () => everyObject("canyon"));
 });
 
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */

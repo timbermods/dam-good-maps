@@ -1,7 +1,8 @@
 name: Nightly
 
-# The heaviest checks, too slow for every push: the long property runs and the settings batch
-# (vitest's "heavy" project, vitest.config.ts), the full Python oracle, the full cross-engine
+# The heaviest checks, too slow for every push: the long property runs, the settings batch and the
+# settings panel's extremes, each of which must make a map (D471; vitest's "heavy" project,
+# vitest.config.ts, tests/contract/everySetting.ts), the full Python oracle, the full cross-engine
 # determinism list on each CPU and OS of the matrix, and the 100-seed pass-rate
 # batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
 # rate is information, against its 60% target). Runs every night on dev's tip, by hand
@@ -49,7 +50,7 @@ jobs:
           cache-dependency-path: prototype/requirements.txt
       - run: npm ci
       - run: pip install -r prototype/requirements.txt
-      - name: Long property runs and the settings batch
+      - name: Long property runs, the settings batch and every setting's extremes (D471)
         run: npm run test:heavy
 
   oracle:
