@@ -2,7 +2,9 @@
 // a steady state cannot show report their water and start checks as approximate, with the reason,
 // in both validators. A cause (caves on 5%+ of tiles, sources that turn on later or aquifers
 // carrying a quarter of the clean water, seeps half of the running water, a start under a roof)
-// counts only with evidence that the settle disagrees with the map's own water.
+// counts only with evidence that the settle disagrees with the map's own water. The rule's parts are
+// tested where they run, in Rust (rust/checks/src/mechanics.rs, `cargo test -p checks`, D465); here,
+// through validateMap.
 //
 // On the official maps (local only): Hollows, Pressure, Oasis and Nomads are approximate; every
 // other map has no approximate check. The oracle (npm run oracle) checks the Python validator agrees.
@@ -10,61 +12,67 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { approximateId, approximateReason, mechanicsOf } from "../../src/core/analysis/mechanics";
-import { readTimber } from "../../src/core/format/timber";
-import type { MapObject } from "../../src/core/sim/model";
+import { entityJson, startingLocation, waterSource } from "../../src/core/format/entities";
+import { mapMetadata, readTimber, type TimberFile } from "../../src/core/format/timber";
+import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
+import { mapObjects, waterModel } from "../../src/core/sim/model";
+import type { CanonicalWater } from "../../src/core/sim/prefill";
 import { validateMap } from "../../src/core/validate/checks";
+
+/** The checks a steady state's water cannot answer for: the water checks and the start's. */
+const approximateId = (id: string) => id.startsWith("water.") || /^start\.(dry|water|badwater|reach|food|wood|ruins_clear)$/.test(id);
 
 const W = 20;
 const H = 20;
 const N = W * H;
 
-function source(strength: number, delayed = false, template = "WaterSource"): MapObject {
-  return { template, x: 2, y: 2, z: 3, orientation: "Cw0", flipped: false, components: { WaterSource: { SpecifiedStrength: strength }, ...(delayed ? { TimeActivatedComponent: { IsEnabled: true } } : {}) } as MapObject["components"] };
+/** Level 3 ground, a start whose middle is (10, 10), a running source and one that turns on later
+ *  carrying 75% of the clean water. */
+function file(): TimberFile {
+  const heights = new Uint8Array(N).fill(3);
+  const entities = [
+    startingLocation({ id: "00000000-0000-4000-8000-000000000001", owner: "test", x: 9, y: 9, z: 3, orientation: "Cw0" }),
+    waterSource({ id: "00000000-0000-4000-8000-000000000002", owner: "test", x: 2, y: 2, z: 3, strength: 1 }),
+    waterSource({ id: "00000000-0000-4000-8000-000000000003", owner: "test", x: 3, y: 2, z: 3, strength: 3, timed: { enabled: true, cycles: 1, days: 2 } }),
+  ];
+  return {
+    metadata: mapMetadata(W, H, "mechanics test"),
+    thumbnail: null,
+    versionTxt: GAME_VERSION + "\r\n",
+    world: { gameVersion: GAME_VERSION, timestamp: "2026-10-05 00:00:00", sizeX: W, sizeY: H, layers: LAYERS, voxels: voxelsFromHeights(heights, W, H), singletons: emptySimulationSingletons(W, H), entities: entities.map(entityJson) },
+    extraFiles: [],
+  };
 }
-const start: MapObject = { template: "StartingLocation", x: 9, y: 9, z: 3, orientation: "Cw0", flipped: false, components: {} };
+
+function approximate(depth: Float64Array, storedWet: Uint8Array) {
+  const f = file();
+  const model = waterModel(W, H, new Uint8Array(N).fill(3), mapObjects(f.world));
+  const settled = { settled: true, ticks: 100, depth, contamination: new Float64Array(N), sat: new Uint8Array(N) } as CanonicalWater;
+  const v = validateMap(f, { profile: "import", designedFor: "normal", storedWet, water: { model, settled } });
+  return { reasons: v.mechanics!.reasons, approx: v.report.checks.filter((c) => c.approximate) };
+}
 
 describe("the approximate-water rule (D98)", () => {
-  const floors = new Uint8Array(N).fill(1);
-  const surface = new Uint8Array(N).fill(3);
-  const ring: number[] = [];
-  for (let y = 8; y <= 12; y++) for (let x = 8; x <= 12; x++) ring.push(y * W + x);
-
-  it("names each cause, and needs none on a plain map", () => {
-    expect(mechanicsOf([source(2), start], floors, surface, W, H).reasons).toEqual([]);
-    expect(mechanicsOf([source(1), source(3, true), start], floors, surface, W, H).reasons.join(" ")).toMatch(/turn on later carry 75%/);
-    expect(mechanicsOf([source(1), source(1, false, "Aquifer"), start], floors, surface, W, H).reasons.join(" ")).toMatch(/aquifers.*50%/);
-    expect(mechanicsOf([source(1), source(1, false, "WaterSeep"), start], floors, surface, W, H).reasons.join(" ")).toMatch(/seeps.*50%/);
-    const caves = floors.slice();
-    for (let i = 0; i < 0.05 * N; i++) caves[i] = 2;
-    expect(mechanicsOf([source(2), start], caves, surface, W, H).reasons.join(" ")).toMatch(/caves or overhangs cover 5%/);
-    const roofed = surface.slice();
-    roofed[10 * W + 10] = 7; // the start's middle is under a roof: its top surface is higher
-    expect(mechanicsOf([source(2), start], floors, roofed, W, H).startUnderRoof).toBe(true);
-  });
-
   it("a cause counts only with evidence: the settle floods the start, or differs on 10% of the map", () => {
-    const m = mechanicsOf([source(1), source(3, true), start], floors, surface, W, H);
     const dry = new Float64Array(N);
     const stored = new Uint8Array(N);
-    // the settle agrees with the map's own water: not approximate
-    expect(approximateReason(m, dry, stored, ring)).toBeNull();
+    // the settle agrees with the map's own water: a cause, but not approximate
+    const agree = approximate(dry, stored);
+    expect(agree.reasons.join(" ")).toMatch(/turn on later carry 75%/);
+    expect(agree.approx).toEqual([]);
     // the settle floods the start, which the map's water keeps dry
     const flooded = dry.slice();
     flooded[10 * W + 10] = 1;
-    expect(approximateReason(m, flooded, stored, ring)).toMatch(/turn on later.*floods the start/);
+    const f = approximate(flooded, stored);
+    expect(f.approx.length).toBeGreaterThan(0);
+    for (const c of f.approx) {
+      expect(approximateId(c.id), c.id).toBe(true);
+      expect(c.approximate).toMatch(/turn on later.*floods the start/);
+    }
     // the settle is wet on 10% of the map where the map's water is dry
     const wide = dry.slice();
     for (let i = 0; i < 0.1 * N; i++) wide[i] = 1;
-    expect(approximateReason(m, wide, stored, ring)).toMatch(/differs from the map's own water on 10%/);
-    expect(approximateReason({ ...m, reasons: [] }, wide, stored, ring)).toBeNull();
-    // a start under a roof is approximate on its own
-    expect(approximateReason({ ...m, startUnderRoof: true, reasons: ["the start is under a roof"] }, dry, stored, ring)).toBe("the start is under a roof");
-  });
-
-  it("marks only the water checks and the start's playability checks", () => {
-    for (const id of ["water.settles", "water.storage_possible", "start.dry", "start.water", "start.wood", "start.food", "start.badwater", "start.reach", "start.ruins_clear"]) expect(approximateId(id), id).toBe(true);
-    for (const id of ["start.flat", "start.entrance", "start.count", "start.clear", "plants.survive", "resources.trees", "entities.placement"]) expect(approximateId(id), id).toBe(false);
+    expect(approximate(wide, stored).approx[0].approximate).toMatch(/differs from the map's own water on 10%/);
   });
 });
 

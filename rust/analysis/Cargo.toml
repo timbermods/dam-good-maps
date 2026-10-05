@@ -13,3 +13,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "analysis-batch"
 path = "src/main.rs"
+
+[features]
+# The Wasm exports (analysis_alloc, analysis_free, analysis_execute). The checks crate links this crate without
+# them, so its own module carries only its own exports, and with `kernels`, the kernels as Rust functions.
+default = ["exports"]
+exports = []
+kernels = []

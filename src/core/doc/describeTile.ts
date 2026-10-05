@@ -64,7 +64,8 @@ export interface TileDescription {
 /** Scrap metal in one ruin column per level of its height (a field's target is 15 per level a column). */
 export const SCRAP_PER_LEVEL = 15;
 
-const NAMES: Record<string, string> = {
+/** The game's names of the objects that have their own (the checks' messages read them too: rust/checks, tools/rust/checks-tables.ts). */
+export const NAMES: Record<string, string> = {
   Pine: "Pine",
   Birch: "Birch",
   Oak: "Oak",

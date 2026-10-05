@@ -11,8 +11,11 @@ import { sourcesInFlow } from "../../src/core/analysis/sources";
 import type { Orientation } from "../../src/core/format/footprints";
 import { waterModel, type MapObject } from "../../src/core/sim/model";
 import { canonicalSettle } from "../../src/core/sim/prefill";
-import { rulesFor, checkPlayability } from "../../src/core/validate/playability";
-import { Collector } from "../../src/core/validate/report";
+import { validateMap } from "../../src/core/validate/checks";
+import type { Profile } from "../../src/core/validate/report";
+import { mapMetadata, type TimberFile } from "../../src/core/format/timber";
+import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
+import type { JsonObject } from "../../src/core/format/json";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -108,16 +111,26 @@ describe("water sources start rivers (D171)", () => {
     const objects = [...mouth(h), source(30, 11, h[11 * W + 30], 1)];
     const model = waterModel(W, H, h, objects);
     const water = canonicalSettle(model);
-    const editor = new Collector("export");
-    checkPlayability({ W, H, surface: h, objects, model, water, rules: rulesFor(null, "normal"), features: null }, editor);
-    const e = editor.checks.find((x) => x.id === "water.source_in_flow")!;
+    // the map as a file: its ground and these objects, its water the settle above
+    const entities: JsonObject[] = objects.map((o, k) => ({
+      Id: `00000000-0000-4000-8000-${String(k).padStart(12, "0")}`,
+      Template: o.template,
+      Components: { BlockObject: { Coordinates: { X: o.x, Y: o.y, Z: o.z }, Orientation: o.orientation }, ...o.components },
+    }));
+    const file: TimberFile = {
+      metadata: mapMetadata(W, H, "sources test"),
+      thumbnail: null,
+      versionTxt: GAME_VERSION + "\r\n",
+      world: { gameVersion: GAME_VERSION, timestamp: "2026-10-05 00:00:00", sizeX: W, sizeY: H, layers: LAYERS, voxels: voxelsFromHeights(h, W, H), singletons: emptySimulationSingletons(W, H), entities },
+      extraFiles: [],
+    };
+    const checksIn = (profile: Profile) => validateMap(file, { profile, designedFor: "normal", features: null, water: { model, settled: water } }).report.checks;
+    const e = checksIn("export").find((x) => x.id === "water.source_in_flow")!;
     expect(e.ok).toBe(true);
     expect(e.applicable).toBe(false);
     expect(e.severity).toBe("info");
     for (const [profile, severity] of [["generate", "error"], ["import", "info"]] as const) {
-      const c = new Collector(profile);
-      checkPlayability({ W, H, surface: h, objects, model, water, rules: rulesFor(null, "normal"), features: null }, c);
-      const r = c.checks.find((x) => x.id === "water.source_in_flow")!;
+      const r = checksIn(profile).find((x) => x.id === "water.source_in_flow")!;
       expect(r.ok).toBe(false);
       expect(r.class).toBe("design");
       expect(r.severity).toBe(severity);
