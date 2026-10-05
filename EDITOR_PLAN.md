@@ -205,9 +205,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   objects) and the cut surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's
   level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on
   the visible land, never on hidden terrain above the cursor. Esc never resets the slice.
-- **The water bar's status is the worker's real state** (D345, B14): every update the worker answers with carries
-  `waterSettled`; the page begins a water journey only when it is false, and reads "Water settled" at once when it
-  is true, so an undo, a redo or an edit that leaves the water as it is never leaves "Water flowing… 0%" waiting
+- **The water's state is the worker's real state** (D345, B14): every update the worker answers with carries
+  `waterSettled`; the page begins a water journey only when it is false, and ends it at once when it is true, so an
+  undo, a redo or an edit that leaves the water as it is never leaves the dot at "Settling…"
   (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water row is at the top middle, centred in the
   map area, each piece floating on its own: Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
   default length). The water plays into place after every edit with no controls, always at one pace; undo and redo
@@ -991,7 +991,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
   - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
-    settle's days (`PREVIEW_JOB_DAYS`), so "Water settled" means it. Speed belongs to the day strip alone (D268; §5).
+    settle's days (`PREVIEW_JOB_DAYS`), so the dot leaving "Settling…" means it. Speed belongs to the day strip alone (D268; §5).
   - **While a stroke is painted** (D197): the page sends the stroke's ground to the worker every frame it changes,
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
     soon as it has answered; the renderer's water worker meshes the chunks a stroke's water changed, nearest the

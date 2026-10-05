@@ -355,7 +355,6 @@ Where it doesn't fit, and what the mockups do:
 - **Select has no close button:** the selection closes with Esc or X only (its tooltip held those keys).
 - **Your maps at 1920×1080:** with five maps the panel scrolls by 178px, so the third row of pictures starts below
   the fold. At 2560×1440 nothing scrolls. A 128² map's stored picture is 128px, shown slightly enlarged in its box.
-- **"Water settled"** is plain text over the map's sky, with a dark text shadow so it reads.
 - **The minimap** sits 38px higher than on dev (86px from the bottom, not 48) to make room for the coordinates' line
   between it and the readout; the coordinates take the readout's plate.
 - **The camera:** opening or closing the panel widens or narrows the map area, and the bar and the water row
@@ -464,9 +463,8 @@ refinements and what the mockups left open:
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
-  water after an edit always plays at Normal's pace. The row's words ("Water settled", "Water flowing… 40%") take one
-  width, right-aligned, so nothing beside them moves, and are greyed while a weather day is held (they describe the
-  map's own water).
+  water after an edit always plays at Normal's pace. The row has no words of its own: the header's dot says
+  "Settling…" (Kyler, 2026-10-04).
 - **The band at any size** (Kyler, 2026-10-04: nothing overlaps at any size; `src/editor/view/useBandLayout.ts`): the
   water row sits centred when it fits between the Show row and Legend (a 16px gap each side), else as near the
   centre as they allow, else on a second line under the band (at 1400px wide), the panels and the open legend then
@@ -746,7 +744,7 @@ these colours for something else.
 | An open settings section | its chevron turned down, its name in cream, its fields under it; `aria-expanded` |
 | A pinned legend line | the cream bar under its name; `aria-pressed` |
 | What is on this map | the legend: picture, count and name for each kind |
-| The water's state | words: "Water flowing… n%", "Water settled" (the worker's real state, D345 B14) |
+| The water's state | the header's dot: "Settling…" while the water plays into place (the worker's real state, D345 B14) |
 | A refusal | one plain line of words by the pointer or in the row, never only a disabled control |
 | Starred, saved to Timberborn (Your maps) | a filled star; the words "saved to Timberborn" |
 
