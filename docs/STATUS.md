@@ -44,15 +44,15 @@ as of 2026-10-04 and move.
 | Multi-core water, follow-ups | `fix/multicore-water-followups` | none yet | In flight, not yet on GitHub |
 | Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
-| Carve's Maturity in Rust, the core half | `feature/carve-maturity` | #278 | Merged (Young by default, every old pin unchanged; Mature and Auto); the page adds the setting to Carve's More |
+| Carve's Maturity | `fix/remove-maturity` | see PR | Removed (Kyler, 2026-10-04, D473): Carve is the Young carve again; saved Mature carves open as recorded; the page removes the control |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
-| The second core hunt | `investigation/core-hunt-2` | #280 | Done, `needs-kyler`: three fixes in its PR; Deposit's pillars handed to Codex (below) |
-| Water speed | `feature/water-speed` | #290 | Adopting #288 (Codex): the flow layout and the skipped wet-list rebuild, byte-identical on one thread and on strips; no SIMD (Kyler, 2026-10-04: it gained nothing) |
-| Generation speed | `investigation/gen-speed` | none yet | Codex, Kyler's PC; adoption patch: the shared stages faster at 256², byte-identical; leaves the themes' shaping and `rust/water` alone; prompted by an extreme seed taking 37 attempts |
-| Forces speed, half A | `feature/forces-speed` | see PR | Adopting #286's half A (invariant hoists, playback reuse), TypeScript only, byte-identical (every forces pin, force determinism smoke the same as `dev`); half B left out (Kyler: slower in Chromium) |
-| Deposit's pillars | `investigation/deposit-pillars` | none yet | Codex, Kyler's PC (branch not yet pushed): Deposit's lone pillars and scattered tiles (the second core hunt's finding 4); not in the milestone session's queue |
+| The second core hunt | `investigation/core-hunt-2` | #280 | Merged: three fixes; Deposit's pillars with Codex (#285, back for a round) |
+| Water speed | `feature/water-speed` | #290 | Merged: the flow layout and the skipped wet-list rebuild, byte-identical; no SIMD |
+| Generation speed | `investigation/gen-speed-2` | #291 | Closed, not adopted (Kyler, 2026-10-04: 7% on one case, no overall gain, built on old dev); no more rounds: generation gets faster with the generator's Rust port after the theme queue |
+| Forces speed, half A | `feature/forces-speed` | #289 | Merged: invariant hoists and playback reuse, TypeScript only, every forces pin unchanged; half B left out |
+| Deposit's pillars | `investigation/deposit-pillars` | #285 | Back to Codex for one round (it refuses every short draw; some fans shrank); adopted when its next push is approved |
 | Dam sketch round 3 | `investigation/dam-sketch-3` | #279 | Parked until its adoption after the Weather view; the engine on the Rust water (446c641a). Two doubts to settle then: "two stacked dams" holds exactly what one dam holds (18.207 m³, the same dry-out day), and every wall change restarts the worker instead of cancelling inside it. Its `rust/water` patch needs reconciling with multi-core and water speed |
-| Islands round 4 | `investigation/islands-round-3` | #235 | `hold`; Kyler judges the sheets and the 256² trade |
+| Islands round 6 | `investigation/islands-round-3` | #235 | `approved`; adopted in the generator queue's order, re-pinned; no more Islands rounds |
 | Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
 | Theme critique | `investigation/theme-critique` | #211 | The report; its badwater PR is #265 |
 | Islands round 2 | `investigation/islands-round-2` | #210 | The work continues in #235 |
