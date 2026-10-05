@@ -196,7 +196,7 @@ export class CarvePlay {
         .map((e) => {
           const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
-          if (e === unleashed || (this.riding && CLEARABLE.has(e.template))) return e.z === heights[e.y * W + e.x] ? e : { ...e, z: heights[e.y * W + e.x] };
+          if ((e === unleashed || (this.riding && CLEARABLE.has(e.template))) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < this.map.H) return e.z === heights[e.y * W + e.x] ? e : { ...e, z: heights[e.y * W + e.x] };
           return e;
         });
     }

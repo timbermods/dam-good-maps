@@ -215,30 +215,45 @@ describe("forces clear sources (D474)", () => {
     expect(open().built.entities.some((e) => e.id === src.id)).toBe(true);
   }, 120000);
 
-  test("a carve set to Ride keeps the source it cuts under: it feeds the carve's water as it plays, and the map's water flows on from where play ended", async () => {
+  test("a carve's water: a source it keeps (Ride) feeds it as it plays, one it takes (Clear) stops; the map's water flows on from where play ended", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;
-    const src = b.entities.find((e) => e.template === "WaterSource" && e.x > 20 && e.x < 76 && e.y > 20 && e.y < 76)!;
-    const request = { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 90, width: 8, dry: false, defyGravity: true, seed: 1, sources: "ride" }, origin: [src.x - 14, src.y], end: [src.x + 14, src.y], cut: null } as ForceRequest;
-    expect(ed.forceStart(request).errors).toEqual([]);
-    for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++) ed.flowForceWater(4);
-    const depth = ed.flowForceWater(40)!;
-    expect(depth).not.toBeNull();
+    // a source of our own on dry ground, with dry ground round it, for the carve to cut under
+    const dry = (x: number, y: number) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (b.water[(y + dy) * 96 + x + dx] > 0) return false; return true; };
+    let spot: [number, number] | null = null;
+    for (let y = 30; y < 66 && !spot; y++) for (let x = 30; x < 66 && !spot; x++) if (dry(x, y) && !b.entities.some((e) => Math.abs(e.x - x) < 3 && Math.abs(e.y - y) < 3)) spot = [x, y];
+    expect(spot, "a dry spot").not.toBeNull();
+    const [sx, sy] = spot!;
+    const id = "aaaaaaaa-bbbb-4ccc-8ddd-000000000474";
+    expect(ed.apply({ op: "placeEntity", params: { id, template: "WaterSource", x: sx, y: sy, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 4, CurrentStrength: 4 } } } } as never).errors).toEqual([]);
+    const i = sy * 96 + sx;
+    const near = (d: Float64Array) => { let v = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) v += d[(sy + dy) * 96 + sx + dx]; return v; };
+    const play = (sources: "ride" | "clear") => {
+      const request = { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 90, width: 8, dry: false, defyGravity: true, seed: 1, sources }, origin: [sx - 14, sy], end: [sx + 14, sy], cut: null } as ForceRequest;
+      expect(ed.forceStart(request).errors).toEqual([]);
+      for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++) ed.flowForceWater(4);
+      return ed.flowForceWater(80)!;
+    };
+    // Clear: the carve takes the source as it reaches it, and its emitter stops then
+    const cleared = play("clear");
+    ed.forceCancel();
+    // Ride: the source rides the cut and keeps running in the carve's water
+    const ridden = play("ride");
+    expect(ridden[i], "its water runs on its new ground").toBeGreaterThan(0);
+    expect(near(ridden), "the kept source feeds the carve's water").toBeGreaterThan(near(cleared) + 1);
     const stop = ed.forceStop();
     expect(stop.errors).toEqual([]);
     const after = open().built;
-    const i = src.y * 96 + src.x;
     expect(after.heights[i], "the carve cut under the source").not.toBe(b.heights[i]);
-    const kept = after.entities.find((e) => e.id === src.id);
+    const kept = after.entities.find((e) => e.id === id);
     expect(kept, "the source rides").toBeDefined();
     expect(kept!.z).toBe(after.heights[i]);
-    // (its water ran on its new ground while the carve played)
-    expect(depth[i]).toBeGreaterThan(0);
     // the map's water starts from the water play ended on
     const view = stop.view.water;
     expect(view).toBeDefined();
-    for (let k = 0; k < view!.count; k++) expect(view!.depth[k]).toBeCloseTo(depth[view!.tile[k]], 4);
-  }, 120000);
+    expect(view!.count).toBeGreaterThan(0);
+    for (let k = 0; k < view!.count; k++) expect(view!.depth[k]).toBeCloseTo(ridden[view!.tile[k]], 4);
+  }, 180000);
 });
