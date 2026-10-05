@@ -30,8 +30,11 @@ const MIN_ROWS = 12;
 const WET_PER_THREAD = 1024;
 /** Ticks between looks at whether the strips still share the water evenly. */
 const REBALANCE_TICKS = 256;
-/** How long a thread waits for the others at a tick before the run is given up and run on one thread. */
+/** How long a thread waits for the others at a tick before the run is given up and run on one thread (a
+ *  helper that hangs without an error; one that fails is noticed within a slice, below). */
 const WAIT_MS = 20_000;
+/** Waits are cut into slices this long, to look for a helper that died between them. */
+const SLICE_MS = 100;
 const SPIN = 256;
 /** The most threads, the coordinator's own included (#130: up to 16 at 512²). */
 const MAX_THREADS = 16;
@@ -72,8 +75,9 @@ const GEN = 0;
 const COUNT = 1;
 const ERR = 2;
 
-/** Waits until all `parties` threads arrive; false when one of them failed (the run is then given up). */
-function barrier(ctl: Int32Array, parties: number): boolean {
+/** Waits until all `parties` threads arrive; false when one of them failed (the run is then given up) or a
+ *  helper died (`dead`: the pool's flags, whose DEAD entry a dying helper sets). */
+function barrier(ctl: Int32Array, parties: number, dead: Int32Array | null): boolean {
   if (Atomics.load(ctl, ERR)) return false;
   const gen = Atomics.load(ctl, GEN);
   if (Atomics.add(ctl, COUNT, 1) === parties - 1) {
@@ -83,8 +87,11 @@ function barrier(ctl: Int32Array, parties: number): boolean {
     return !Atomics.load(ctl, ERR);
   }
   for (let s = 0; s < SPIN; s++) if (Atomics.load(ctl, GEN) !== gen) return !Atomics.load(ctl, ERR);
+  let waited = 0;
   while (Atomics.load(ctl, GEN) === gen) {
-    if (Atomics.wait(ctl, GEN, gen, WAIT_MS) === "timed-out" && Atomics.load(ctl, GEN) === gen) {
+    if (Atomics.wait(ctl, GEN, gen, SLICE_MS) !== "timed-out" || Atomics.load(ctl, GEN) !== gen) continue;
+    waited += SLICE_MS;
+    if ((dead && Atomics.load(dead, DEAD)) || waited >= WAIT_MS) {
       fail(ctl);
       return false;
     }
@@ -211,7 +218,7 @@ class StripRunner {
 
   /** Runs `ticks` ticks with the others, then writes its own rows back; false when a thread failed (nothing is
    *  written then, so the shared state is still the run's start). */
-  run(ctl: Int32Array, ticks: number, scale: number): boolean {
+  run(ctl: Int32Array, dead: Int32Array | null, ticks: number, scale: number): boolean {
     const { info, f, lo, y0, y1, index } = this;
     const { W, layout: L } = info;
     const T = this.strips.length;
@@ -250,13 +257,13 @@ class StripRunner {
       s.run(1, scale);
       if (index > 0) put(slot(index, 0, parity), y0);
       if (index < T - 1) put(slot(index, 1, parity), y1 - HALO);
-      if (!barrier(ctl, T)) return false;
+      if (!barrier(ctl, T, dead)) return false;
       if (index > 0) take(slot(index - 1, 1, parity), y0 - HALO);
       if (index < T - 1) take(slot(index + 1, 0, parity), y1);
       parity ^= 1;
     }
     // every thread ran every tick: only now is the shared state overwritten
-    if (!barrier(ctl, T)) return false;
+    if (!barrier(ctl, T, dead)) return false;
     const k0 = (y0 - lo) * W;
     const k1 = (y1 - lo) * W;
     f.set(d.subarray(k0, k1), L.d + y0 * W);
@@ -264,7 +271,7 @@ class StripRunner {
     f.set(dold.subarray(k0, k1), L.dold + y0 * W);
     f.set(out.subarray(4 * k0, 4 * k1), L.out + 4 * y0 * W);
     for (const m of this.writes) f[L.seeps + this.local[m]] = s.seep(m);
-    return barrier(ctl, T);
+    return barrier(ctl, T, dead);
   }
 
   free(): void {
@@ -282,14 +289,16 @@ type Message =
   | { kind: "stop" };
 
 /** A helper thread's message handler (src/worker/waterStrip.worker.ts in the browser; the identity check's
- *  worker_threads in Node): it holds a strip of each job it is given and runs it when asked. */
-export function stripHelper(): (message: Message) => void {
+ *  worker_threads in Node): it holds a strip of each job it is given and runs it when asked. Its `died` is for
+ *  the thread's uncaught errors: the pool is told at once, so no thread waits for it. */
+export function stripHelper(): ((message: Message) => void) & { died(): void } {
   const jobs = new Map<number, { runner: StripRunner | null; ctl: Int32Array }>();
-  return (msg) => {
+  let flags: Int32Array | null = null;
+  const handle = (msg: Message) => {
     if (msg.kind === "hello") {
       rustWater();
-      const ctl = new Int32Array(msg.ctl);
-      Atomics.store(ctl, msg.index, 1);
+      flags = new Int32Array(msg.ctl);
+      Atomics.store(flags, msg.index, 1);
       return;
     }
     if (msg.kind === "init") {
@@ -313,19 +322,27 @@ export function stripHelper(): (message: Message) => void {
     }
     if (!job) return;
     try {
-      if (!job.runner || !job.runner.run(job.ctl, msg.ticks, msg.scale)) fail(job.ctl);
+      if (!job.runner || !job.runner.run(job.ctl, flags, msg.ticks, msg.scale)) fail(job.ctl);
     } catch {
       fail(job.ctl);
     }
   };
+  return Object.assign(handle, {
+    died() {
+      if (flags) Atomics.store(flags, DEAD, 1);
+      for (const job of jobs.values()) fail(job.ctl);
+    },
+  });
 }
 
 // --------------------------------------------------------------------------------------- the coordinator
 
+/** The pool's flags: helper i sets entry i once it can run strips; a dying helper sets DEAD. */
+const DEAD = MAX_THREADS;
+
 class Pool {
   readonly helpers: HelperPort[] = [];
-  /** Helper i sets entry i once it can run strips. */
-  readonly ready = new Int32Array(new SharedArrayBuffer(4 * MAX_THREADS));
+  readonly ready = new Int32Array(new SharedArrayBuffer(4 * (MAX_THREADS + 1)));
   broken = false;
   readonly cap: number;
 
@@ -338,10 +355,21 @@ class Pool {
     this.cap = forced ?? Math.max(1, Math.min(MAX_THREADS, cores - 1));
   }
 
-  /** Starts helpers until there are `count` (never more than the cap allows). */
+  /** Starts helpers until there are `count` (never more than the cap allows); when a helper can't be started,
+   *  the water uses those it has (one thread when none). */
   grow(count: number): void {
     const want = Math.min(count, this.cap - 1);
-    while (this.helpers.length < want) this.add(this.spawn());
+    try {
+      while (!this.noSpawn && this.helpers.length < want) this.add(this.spawn());
+    } catch {
+      this.noSpawn = true;
+    }
+  }
+  private noSpawn = false;
+
+  /** A helper died (its uncaught error): the water runs on one thread from now on. */
+  get died(): boolean {
+    return Atomics.load(this.ready, DEAD) !== 0;
   }
 
   add(h: HelperPort): void {
@@ -430,7 +458,8 @@ export function waterThreads(owner: object, info: { W: number; H: number; dam: F
 export class WaterThreads {
   private readonly id = ++jobIds;
   private readonly info: JobInfo;
-  private readonly f: Float64Array;
+  /** The shared state, made at the first run that uses the threads (until then a map runs on one thread). */
+  private shared: Float64Array | null = null;
   private readonly ctl = new Int32Array(new SharedArrayBuffer(16));
   private strips: Strip[] | null = null;
   private seepWriter: number[] = [];
@@ -451,7 +480,11 @@ export class WaterThreads {
     const emitters = model.emitters.map((e) => ({ cells: e.cells.slice(), ...(e.depthLimit ? { depthLimit: { ...e.depthLimit } } : {}) }));
     const layout = layoutOf(model.W, model.H, !!model.dam, emitters.length, most);
     this.info = { W: model.W, H: model.H, hasDam: !!model.dam, rules, emitters, layout };
-    this.f = new Float64Array(new SharedArrayBuffer(8 * layout.length));
+  }
+
+  private get f(): Float64Array {
+    this.shared ??= new Float64Array(new SharedArrayBuffer(8 * this.info.layout.length));
+    return this.shared;
   }
 
   /** The single thread ran last: the next run here starts from its water. */
@@ -470,13 +503,17 @@ export class WaterThreads {
    *  water to share, a seep across strips, no helpers ready, or a thread failed), and the caller runs them on
    *  one. `single` gives the old depth and the seeps' states when the single thread ran last. */
   run(m: RustModel, D: Float64Array, C: Float64Array, out: Float64Array, ticks: number, scale: number, single: () => { dold: Float64Array; seeps: Uint8Array }): boolean {
+    if (this.pool.died && !this.pool.broken) this.pool.break();
     if (this.dead || this.freed || this.pool.broken || paused) return false;
     const { W, H, layout: L } = this.info;
     const N = W * H;
+    const replan = !this.fresh || this.sinceInit >= REBALANCE_TICKS;
+    const strips0 = replan ? this.plan(D) : null;
+    if (replan && !strips0) return false;
+    // (the shared state is made here, once the threads are really used)
     const f = this.f;
-    if (!this.fresh || this.sinceInit >= REBALANCE_TICKS) {
-      const strips = this.plan(D);
-      if (!strips) return false;
+    if (strips0) {
+      const strips = strips0;
       if (!this.fresh) {
         const s = single();
         f.set(D, L.d);
@@ -502,7 +539,7 @@ export class WaterThreads {
     for (let j = 1; j < strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "run", job: this.id, ticks, scale } satisfies Message);
     let ok = false;
     try {
-      ok = this.own!.run(this.ctl, ticks, scale);
+      ok = this.own!.run(this.ctl, this.pool.ready, ticks, scale);
     } catch {
       ok = false;
     }

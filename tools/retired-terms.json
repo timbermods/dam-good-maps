@@ -42,7 +42,8 @@
     { "term": "Refine this map", "retired": "D330", "instead": "the page opens every generated map in the editor at once; there is no step between making a map and shaping it" },
     { "term": "Back to settings", "retired": "D330", "instead": "the map stays in the editor: New map in the header opens the drawer with the settings beside it" },
     { "term": "poisoned soil", "retired": "D334", "instead": "contaminated ground: the game's orange-red veins, in every look (the High look's dark stain and its switch are retired)" },
-    { "term": "Limits for this size", "retired": "Kyler, 2026-10-04", "instead": "the map generator shows every setting at once; each setting's guard (a drought reserve too big for the size is greyed) says what a size can hold" }
+    { "term": "Limits for this size", "retired": "Kyler, 2026-10-04", "instead": "the map generator shows every setting at once; each setting's guard (a drought reserve too big for the size is greyed) says what a size can hold" },
+    { "term": "Maturity", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends; a carve saved with the setting opens as recorded" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [
@@ -116,7 +117,8 @@
     { "pattern": "aria-label=\"edges\"|>\\s*ramped\\s*<", "retired": "D322", "instead": "Flatten has hard edges as the game's editor; a walkable edge is the shelf's Slope", "example": "<select aria-label=\"Edges\"><option value=\"ramped\">Ramped</option></select>" },
     { "pattern": "label=\"clear sources\"", "retired": "D322", "instead": "each brush's Sources choice: Ride, Keep or Clear (item 31)", "example": "<Toggle label=\"Clear sources\" />" },
     { "pattern": "\\bpick source\\b", "retired": "D212", "instead": "the shelf's Water source and Badwater source", "example": "Add water: pick Source, then click where the water starts." },
-    { "pattern": "\\blooking for a better one\\b", "retired": "D329", "instead": "the first map that passes is shown at once and stays; a version that meets every outcome is looked for in the background", "example": "Found a map. Looking for a better one (2 of 4): checking the map…" }
+    { "pattern": "\\blooking for a better one\\b", "retired": "D329", "instead": "the first map that passes is shown at once and stays; a version that meets every outcome is looked for in the background", "example": "Found a map. Looking for a better one (2 of 4): checking the map…" },
+    { "pattern": "\\byoung,? (?:or |and )?mature\\b", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends", "example": "Young, Mature or Auto" }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],
   "code": { "dirs": ["src"], "files": ["index.html"], "extensions": [".ts", ".tsx", ".css"] },

@@ -8,8 +8,6 @@
 //   npx tsx tools/rust/check.ts                    checks them (CI's rust job)
 //   npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json    pins the current Rust (a deliberate change)
 
-import { readFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { decode } from "../../src/core/forces/rust/protocol";
 import { pathToFileURL } from "node:url";
@@ -22,6 +20,8 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { executeInRust, jobBytes, type RustJob, type RustVerb } from "../../src/core/forces/rust/bridge";
 import { fixture } from "../../tests/contract/forceFixtures";
+import { fluidObject, waterSource } from "../../src/core/format/entities";
+import { plainEntities } from "../../src/core/forces/force";
 
 const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit"];
 
@@ -155,23 +155,33 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
   return j;
 }
 
+/** The job with a water source (every seventh a seep) every five tiles where nothing stands. */
+function sprinkled(j: RustJob): RustJob {
+  const m = j.map;
+  const taken = new Set(m.entities.map((e) => e.y * m.W + e.x));
+  const add = [];
+  for (let y = 3; y < m.H - 3; y += 5)
+    for (let x = 3; x < m.W - 3; x += 5) {
+      const i = y * m.W + x;
+      if (taken.has(i)) continue;
+      const b = { x, y, z: m.heights[i], id: `ride-${x}-${y}`, owner: "test" };
+      add.push(add.length % 7 === 6 ? fluidObject({ ...b, template: "WaterSeep" }) : waterSource({ ...b, strength: 1 }));
+    }
+  return { ...j, map: { ...m, entities: [...m.entities, ...plainEntities(add)] } };
+}
+
 /** Every fixture's job, by name. */
 export function forceJobs(): { name: string; job: RustJob }[] {
   const out: { name: string; job: RustJob }[] = [];
   for (const verb of VERBS) {
     for (let k = 0; k < 4; k++) out.push({ name: `${verb} 64 ${k}`, job: job(verb, 64, k) });
     for (let k = 0; k < 2; k++) out.push({ name: `${verb} 64 odd ${k}`, job: oddJob(verb, 64, k) });
+    // Sources set to Ride (D474): Carve's and Glaciate's plans keep the sources and seeps they reach
+    // (sources and a seep sprinkled every five tiles, so the force reaches some)
+    if (verb === "carve" || verb === "glaciate")
+      for (const [name, j] of [[`${verb} 64 ride 1`, job(verb, 64, 1)], [`${verb} 64 ride 3`, job(verb, 64, 3)], [`${verb} 64 ride odd 0`, oddJob(verb, 64, 0)]] as const)
+        out.push({ name, job: { ...sprinkled(j), settings: { ...j.settings, sources: "ride" } } });
   }
-  for (let k=0;k<6;k++) {
-    const j=job("carve",64,k);j.settings={...j.settings,maturity:k===5?null:"mature",power:k===1?0:k===2?55:100,width:k===2?2:k===4?24:null,floor:1};
-    if(k%2||k===2){j.map=fixture("river",64);j.intent={origin:20*64+35,end:52*64+35,via:[24*64+35,36*64+35,48*64+35]};j.settings={...j.settings,mode:"aim",defyGravity:true};}
-    if(k===3)j.map.water.contamination.fill(.7);
-    out.push({name:`maturity 64 ${k}`,job:j});
-  }
-  const j=JSON.parse(gunzipSync(readFileSync(new URL("../../investigation/meander/maps/long.json.gz",import.meta.url))).toString());
-  const heights=Uint8Array.from(j.heights);const map={...j,heights,lava:new Uint32Array(heights.length),fallen:j.fallen??[],water:{depth:Float64Array.from(j.water.depth),contamination:Float64Array.from(j.water.contamination)}};
-  const gestures=[{"origin":973,"end":5241,"via":[1100,1356,1612,1868,2124,2380,2636,2892,3148,3276,3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346,5475,5732,5861,5989,6246,6374,6504,6505,6507,6380,6253,5998,5870,5614,5358,5231,5104,4978,4979,4981,5110,5239]},{"origin":3276,"end":5475,"via":[3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346]}];
-  gestures.forEach((intent,k)=>out.push({name:`maturity oxbow 128 ${k}`,job:{verb:"carve",map,settings:{...job("carve",64,0).settings,maturity:"mature",power:100,seed:4,mode:"aim",defyGravity:true,width:null,floor:1},intent,keep:null}}));
   return out;
 }
 
@@ -186,7 +196,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const pins: Record<string, string> = {};
   for (const f of forceFixtures()) {
     const output = executeInRust(f.job);
-    if (/^(rift|deposit|maturity) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
+    if (/^(rift|deposit) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
     pins[f.name] = sha256(output);
   }
   console.log(JSON.stringify(pins, null, 2));

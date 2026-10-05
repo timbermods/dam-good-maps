@@ -1,0 +1,420 @@
+diff --git a/src/core/sim/parallel.ts b/src/core/sim/parallel.ts
+index f526b196..e82430c5 100644
+--- a/src/core/sim/parallel.ts
++++ b/src/core/sim/parallel.ts
+@@ -216,8 +216,8 @@ class StripRunner {
+     for (let m = 0; m < this.local.length; m++) this.strip.seep(m, this.f[L.seeps + this.local[m]] ? 1 : 0);
+   }
+ 
+-  /** Runs `ticks` ticks with the others, then writes its own rows back; false when a thread failed (nothing is
+-   *  written then, so the shared state is still the run's start). */
++  /** Runs ticks with the others, then writes its own rows back. A failure during the final
++   *  commit can leave partial rows written; the coordinator keeps a separate private carry for retry. */
+   run(ctl: Int32Array, dead: Int32Array | null, ticks: number, scale: number): boolean {
+     const { info, f, lo, y0, y1, index } = this;
+     const { W, layout: L } = info;
+@@ -373,7 +373,12 @@ class Pool {
+   }
+ 
+   add(h: HelperPort): void {
+-    h.postMessage({ kind: "hello", ctl: this.ready.buffer, index: this.helpers.length } satisfies Message);
++    try {
++      h.postMessage({ kind: "hello", ctl: this.ready.buffer, index: this.helpers.length } satisfies Message);
++    } catch (error) {
++      try { h.terminate(); } catch { /* a failed port may already be closed */ }
++      throw error;
++    }
+     this.helpers.push(h);
+   }
+ 
+@@ -387,7 +392,9 @@ class Pool {
+   /** A helper failed or stopped answering: the water runs on one thread from now on. */
+   break(): void {
+     this.broken = true;
+-    for (const h of this.helpers) h.terminate();
++    for (const h of this.helpers) {
++      try { h.terminate(); } catch { /* continue releasing the rest of a failed pool */ }
++    }
+     this.helpers.length = 0;
+   }
+ }
+@@ -403,9 +410,15 @@ export function installParallelWater(opts: ParallelOptions): boolean {
+   if (forced === null && !parallelWaterSupported()) return false;
+   if (forced !== null && forced < 2) return false;
+   pool = new Pool(opts.spawn, forced);
+-  for (const h of opts.helpers ?? []) {
+-    if (pool.helpers.length < pool.cap - 1) pool.add(h);
+-    else h.terminate();
++  try {
++    for (const h of opts.helpers ?? []) {
++      if (pool.helpers.length < pool.cap - 1) pool.add(h);
++      else h.terminate();
++    }
++  } catch {
++    pool.break();
++    for (const h of opts.helpers ?? []) { try { h.terminate(); } catch { /* already closed */ } }
++    return false;
+   }
+   pool.grow(opts.eager ?? (forced ?? threadsFor(256 * 256)) - 1);
+   return true;
+@@ -469,6 +482,7 @@ export class WaterThreads {
+   private sinceInit = 0;
+   private dead = false;
+   private freed = false;
++  private failedCarry: { dold: Float64Array; seeps: Uint8Array } | null = null;
+ 
+   constructor(
+     private readonly pool: Pool,
+@@ -494,9 +508,18 @@ export class WaterThreads {
+ 
+   /** The state only the simulation itself holds (the old depth and the seeps), from the last run here, for the
+    *  single thread to take over. */
+-  carry(): { dold: Float64Array; seeps: Uint8Array } {
++  carry(D: Float64Array, C: Float64Array, out: Float64Array): { dold: Float64Array; seeps: Uint8Array; water?: { depth: Float64Array; contamination: Float64Array; out: Float64Array } } {
++    if (this.failedCarry) return this.failedCarry;
+     const { layout: L, W, H, emitters } = this.info;
+-    return { dold: this.f.slice(L.dold, L.dold + W * H), seeps: Uint8Array.from(this.f.subarray(L.seeps, L.seeps + emitters.length)) };
++    const f = this.f, n = W * H;
++    const water = this.changed(D, C, out) ? { depth: f.subarray(L.d, L.d + n), contamination: f.subarray(L.c, L.c + n), out: f.subarray(L.out, L.out + 4 * n) } : undefined;
++    return { dold: f.slice(L.dold, L.dold + n), seeps: Uint8Array.from(f.subarray(L.seeps, L.seeps + emitters.length)), water };
++  }
++
++  changed(D: Float64Array, C: Float64Array, out: Float64Array): boolean {
++    if (!this.fresh || !this.shared) return false;
++    const f = this.shared, L = this.info.layout;
++    return D.some((v, i) => !Object.is(v, f[L.d + i])) || C.some((v, i) => !Object.is(v, f[L.c + i])) || out.some((v, i) => !Object.is(v, f[L.out + i]));
+   }
+ 
+   /** Runs `ticks` ticks on several threads, the water back in D, C and out; false when it doesn't (too little
+@@ -507,45 +530,51 @@ export class WaterThreads {
+     if (this.dead || this.freed || this.pool.broken || paused) return false;
+     const { W, H, layout: L } = this.info;
+     const N = W * H;
++    // Public water edits preserve the established single-thread bookkeeping.
++    if (this.changed(D, C, out)) return false;
+     const replan = !this.fresh || this.sinceInit >= REBALANCE_TICKS;
+     const strips0 = replan ? this.plan(D) : null;
+     if (replan && !strips0) return false;
+     // (the shared state is made here, once the threads are really used)
+     const f = this.f;
+-    if (strips0) {
+-      const strips = strips0;
+-      if (!this.fresh) {
+-        const s = single();
+-        f.set(D, L.d);
+-        f.set(C, L.c);
+-        f.set(out, L.out);
+-        f.set(s.dold, L.dold);
+-        for (let k = 0; k < s.seeps.length; k++) f[L.seeps + k] = s.seeps[k];
+-      }
+-      if (!this.fresh || !sameStrips(strips, this.strips)) this.init(strips);
+-      this.sinceInit = 0;
+-    }
+-    const strips = this.strips!;
+-    f.set(m.floor, L.floor);
+-    if (m.dam) f.set(m.dam, L.dam);
+-    for (let k = 0; k < m.emitters.length; k++) {
+-      const e = m.emitters[k];
+-      const at = L.params + 4 * k;
+-      f[at] = e.strength;
+-      f[at + 1] = e.contamination;
+-      f[at + 2] = e.depthLimit ? e.depthLimit.off : 0;
+-      f[at + 3] = e.depthLimit ? e.depthLimit.on : 0;
+-    }
+-    for (let j = 1; j < strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "run", job: this.id, ticks, scale } satisfies Message);
++    // A helper can fail after another strip wrote its final rows. Public water has not been
++    // overwritten yet; preserve the private carry too, so a single-thread retry starts exactly.
++    const checkpoint = f.slice(L.dold, L.seeps + this.info.emitters.length);
+     let ok = false;
+     try {
++      if (strips0) {
++        const strips = strips0;
++        if (!this.fresh) {
++          const s = single();
++          f.set(D, L.d);
++          f.set(C, L.c);
++          f.set(out, L.out);
++          f.set(s.dold, L.dold);
++          for (let k = 0; k < s.seeps.length; k++) f[L.seeps + k] = s.seeps[k];
++        }
++        if (!this.fresh || !sameStrips(strips, this.strips)) this.init(strips);
++        this.sinceInit = 0;
++      }
++      const strips = this.strips!;
++      f.set(m.floor, L.floor);
++      if (m.dam) f.set(m.dam, L.dam);
++      for (let k = 0; k < m.emitters.length; k++) {
++        const e = m.emitters[k];
++        const at = L.params + 4 * k;
++        f[at] = e.strength;
++        f[at + 1] = e.contamination;
++        f[at + 2] = e.depthLimit ? e.depthLimit.off : 0;
++        f[at + 3] = e.depthLimit ? e.depthLimit.on : 0;
++      }
++      for (let j = 1; j < strips.length; j++) this.pool.helpers[j - 1].postMessage({ kind: "run", job: this.id, ticks, scale } satisfies Message);
+       ok = this.own!.run(this.ctl, this.pool.ready, ticks, scale);
+     } catch {
+       ok = false;
+     }
+     if (!ok) {
+-      // a thread failed or stopped answering: the shared state is still the run's start, and the water runs
+-      // on one thread from now on
++      // Keep private carry outside shared memory: another strip may still be exiting its failed run.
++      this.failedCarry = { dold: checkpoint.slice(0, N), seeps: Uint8Array.from(checkpoint.subarray(N + 4 * this.info.emitters.length)) };
++      // The public water still holds the run's start; retry all ticks on one thread.
+       fail(this.ctl);
+       this.dead = true;
+       this.pool.break();
+@@ -639,7 +668,11 @@ export class WaterThreads {
+     this.own?.free();
+     this.own = null;
+     const used = this.strips?.length ?? 1;
+-    if (!this.pool.broken) for (let j = 1; j < used; j++) this.pool.helpers[j - 1]?.postMessage({ kind: "free", job: this.id } satisfies Message);
++    if (!this.pool.broken) {
++      try {
++        for (let j = 1; j < used; j++) this.pool.helpers[j - 1]?.postMessage({ kind: "free", job: this.id } satisfies Message);
++      } catch { this.pool.break(); }
++    }
+   }
+ }
+ 
+diff --git a/src/core/sim/rustWater.ts b/src/core/sim/rustWater.ts
+index 15c77da8..7df8133e 100644
+--- a/src/core/sim/rustWater.ts
++++ b/src/core/sim/rustWater.ts
+@@ -155,6 +155,7 @@ const finalizer = new FinalizationRegistry<number>((handle) => rustWater().water
+ export class RustSim {
+   private readonly handle: number;
+   private freed = false;
++  private adoptedPending = false;
+   private readonly n: number;
+   private readonly hasDam: boolean;
+   private readonly ptrs: { d: number; dold: number; c: number; out: number; floor: number; dam: number; params: number };
+@@ -194,8 +195,22 @@ export class RustSim {
+     return new Float64Array(rustWater().memory.buffer, ptr, len);
+   }
+ 
++  /** Whether public water changed since this simulation last held it (use the single-thread
++   *  slice for such edits; reconstructing occupancy first would change its established bytes). */
++  waterChanged(D: Float64Array, C: Float64Array, out: Float64Array, depthOnly = false): boolean {
++    const { n, ptrs } = this;
++    const d = this.f64(ptrs.d, n), c = this.f64(ptrs.c, n), o = this.f64(ptrs.out, 4 * n);
++    return D.some((v, i) => !Object.is(v, d[i])) || (!depthOnly && (C.some((v, i) => !Object.is(v, c[i])) || out.some((v, i) => !Object.is(v, o[i]))));
++  }
++
+   /** Copies the caller's water and model into the simulation. */
+   private copyIn(m: RustModel, D: Float64Array, C: Float64Array, out: Float64Array): void {
++    // An adopted state has dirty evaporation modifiers. Flush them against committed depth
++    // before copying a public edit; an ordinary run computes them itself, with unchanged bytes.
++    if (this.adoptedPending && this.waterChanged(D, C, out)) {
++      rustWater().water_books(this.handle);
++      this.adoptedPending = false;
++    }
+     const { n, ptrs } = this;
+     this.f64(ptrs.floor, n).set(m.floor);
+     if (this.hasDam && m.dam) this.f64(ptrs.dam, n).set(m.dam);
+@@ -224,6 +239,7 @@ export class RustSim {
+       left -= step;
+     }
+     const { n, ptrs } = this;
++    this.adoptedPending = false;
+     D.set(this.f64(ptrs.d, n));
+     C.set(this.f64(ptrs.c, n));
+     out.set(this.f64(ptrs.out, 4 * n));
+@@ -274,6 +290,7 @@ export class RustSim {
+     const x = rustWater();
+     for (let k = 0; k < seeps.length; k++) x.water_seep(this.handle, k, seeps[k] ? 1 : 0);
+     x.water_sync(this.handle, 0, m.H);
++    this.adoptedPending = true;
+   }
+ }
+ 
+diff --git a/src/core/sim/water.ts b/src/core/sim/water.ts
+index cd18e670..7447c98a 100644
+--- a/src/core/sim/water.ts
++++ b/src/core/sim/water.ts
+@@ -197,6 +197,8 @@ export class WaterSim {
+   private threads: WaterThreads | null = null;
+   /** The Rust simulation above holds the water as it stands (false once the threads ran last). */
+   private singleFresh = true;
++  /** Direct state edits preserve the established single-thread bookkeeping for this instance. */
++  private editedSingle = false;
+ 
+   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
+     this.rules = opts.rules ?? DEFAULT_WATER_RULES;
+@@ -247,6 +249,11 @@ export class WaterSim {
+ 
+   /** The run on several threads, when this thread has a pool and they take it (parallel.ts); the same water. */
+   private runThreaded(n: number, scale: number): boolean {
++    if (this.editedSingle) return false;
++    if ((this.singleFresh && this.rust.waterChanged(this.D, this.C, this.out, this.ticks === 0)) || this.threads?.changed(this.D, this.C, this.out)) {
++      this.editedSingle = true;
++      return false;
++    }
+     this.threads ??= waterThreads(this, this.model, { game: this.rules === "game", edgeSpill: this.edgeSpill });
+     if (!this.threads) return false;
+     const ok = this.threads.run(this.model, this.D, this.C, this.out, n, scale, () => {
+@@ -260,8 +267,10 @@ export class WaterSim {
+   /** The Rust simulation takes over the water the threads ran last. */
+   private freshSingle(): void {
+     if (this.singleFresh || !this.threads) return;
+-    const { dold, seeps } = this.threads.carry();
+-    this.rust.adopt(this.model, this.D, this.C, this.out, dold, seeps);
++    const { dold, seeps, water } = this.threads.carry(this.D, this.C, this.out);
++    if (water) this.editedSingle = true;
++    // First restore bookkeeping from committed water; run/saturation then copies any public edit.
++    this.rust.adopt(this.model, water?.depth ?? this.D, water?.contamination ?? this.C, water?.out ?? this.out, dold, seeps);
+     this.singleFresh = true;
+   }
+ 
+diff --git a/src/platform/index.ts b/src/platform/index.ts
+index 541ddc6b..b555c014 100644
+--- a/src/platform/index.ts
++++ b/src/platform/index.ts
+@@ -34,11 +34,19 @@ function waterHelpers(): MessagePort[] {
+   const count = Math.min(threadsFor(256 * 256), (navigator.hardwareConcurrency || 4) - 1) - 1;
+   if (count < 2) return [];
+   const ports: MessagePort[] = [];
+-  for (let k = 0; k < count; k++) {
+-    const helper = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
+-    const ch = new MessageChannel();
+-    helper.postMessage({ waterPort: ch.port1 }, [ch.port1]);
+-    ports.push(ch.port2);
++  const helpers: Worker[] = [];
++  try {
++    for (let k = 0; k < count; k++) {
++      const helper = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
++      helpers.push(helper);
++      const ch = new MessageChannel();
++      ports.push(ch.port2);
++      helper.postMessage({ waterPort: ch.port1 }, [ch.port1]);
++    }
++  } catch {
++    for (const helper of helpers) helper.terminate();
++    for (const port of ports) port.close();
++    return []; // helper creation is optional: keep the one-thread generator working
+   }
+   return ports;
+ }
+diff --git a/src/worker/session.ts b/src/worker/session.ts
+index 35aafb7b..b4f8517a 100644
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -750,39 +750,45 @@ export function startWeather(hazard: Hazard): void {
+   const send = (phase: "drought" | "badtide" | "return" | "end", water: WaterView, day: number, soil?: SoilView) => listener?.({ kind: "weather", version: v, water, phase, day, days, ...(soil ? { soil } : {}) });
+   const soilNow = (depth: Float64Array, contamination: Float64Array) => soilView(moisture(s.built.heights, depth, contamination, W, H, null), soilContamination(s.built.heights, depth, contamination, W, H, null));
+   void (async () => {
+-    let nextSoil = TICKS_PER_DAY;
+-    for (let t = 0; t < total; ) {
+-      if (token !== weatherToken || session !== s) return;
+-      const t0 = performance.now();
+-      while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
+-        // closer frames the first day, while the rivers drain or the badwater surges
+-        const gap = t < TICKS_PER_DAY ? 12 : 96;
+-        run.step(gap);
+-        t += gap;
+-        const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
+-        if (soil) nextSoil += TICKS_PER_DAY;
+-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
++    let back: PreviewJob | null = null;
++    try {
++      let nextSoil = TICKS_PER_DAY;
++      for (let t = 0; t < total; ) {
++        if (token !== weatherToken || session !== s) return;
++        const t0 = performance.now();
++        while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
++          // closer frames the first day, while the rivers drain or the badwater surges
++          const gap = t < TICKS_PER_DAY ? 12 : 96;
++          run.step(gap);
++          t += gap;
++          const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
++          if (soil) nextSoil += TICKS_PER_DAY;
++          send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
++        }
++        await breathe();
+       }
+-      await breathe();
+-    }
+-    // then the sources run as the map has them, and the water comes back to the settled water
+-    const back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
+-    let last = 0;
+-    for (;;) {
+-      if (token !== weatherToken || session !== s) return;
+-      const t0 = performance.now();
+-      let r: CanonicalWater | null = null;
+-      while (!r && performance.now() - t0 < WATER_SLICE_MS) {
+-        r = back.advance(4);
+-        if (!r && back.ticks - last >= frameGap(back.ticks)) {
+-          last = back.ticks;
+-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
++      // then the sources run as the map has them, and the water comes back to the settled water
++      back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
++      let last = 0;
++      for (;;) {
++        if (token !== weatherToken || session !== s) return;
++        const t0 = performance.now();
++        let r: CanonicalWater | null = null;
++        while (!r && performance.now() - t0 < WATER_SLICE_MS) {
++          r = back.advance(4);
++          if (!r && back.ticks - last >= frameGap(back.ticks)) {
++            last = back.ticks;
++            send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
++          }
+         }
++        if (r) break;
++        await breathe();
+       }
+-      if (r) break;
+-      await breathe();
++      if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
++    } finally {
++      sim.dispose();
++      back?.dispose();
+     }
+-    if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
+   })();
+ }
+ 
+@@ -833,13 +839,28 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
+ 
+ // ------------------------------------------------------------------------------------ opening
+ 
++/** Dropping a map drops every job that still owns its water and force state. */
++function discardSessionWork(): void {
++  stopWater();
++  draft?.job.dispose();
++  draft = null;
++  draftToken++;
++  handoff = null;
++  endForceWater();
++  weatherToken++;
++  force = null;
++  series = null;
++  lastKept = null;
++  takenBack.clear();
++}
++
+ function opened(s: MapSession): SessionOpen {
+   // an edit never waits on the water (live editing): it shows the last settled water on the new
+   // ground at once, the water settles again in the background and flows into the new shape
+   // (`kickWater`), and the canonical settle follows, always before an export (EDITOR_PLAN §6)
+   // (edits never wait on the water: the page's flow)
+   s.setWaterMode("defer");
+-  stopWater();
++  discardSessionWork();
+   session = s;
+   sent = null;
+   originalFull = null;
+@@ -872,11 +893,7 @@ export function openProject(bytes: Uint8Array): SessionOpen {
+ }
+ 
+ export function closeSession(): void {
+-  stopWater();
+-  force = null;
+-  series = null;
+-  lastKept = null;
+-  takenBack.clear();
++  discardSessionWork();
+   session = null;
+   sent = null;
+   originalFull = null;

@@ -24,6 +24,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
+import { changedGround, clearable, clears, CLEARABLE, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -85,6 +86,12 @@ export interface StagedRun {
   finishAll(): void;
   /** The build's last touches on the planned map. */
   finalize: Finalize | null;
+  /** Sources set to Clear (D474): the sources its showing has cleared so far, each with the step
+   *  (`shown`) that took it; all of them once shown to its end. */
+  readonly cleared: readonly ClearedSource[];
+  /** The working area's depth (D254), or null: what it clears is on the ground its operation keeps
+   *  changed, feathered. */
+  ease: Uint8Array | null;
 }
 
 /** The water model of a force's map (features/build.ts). */
@@ -186,14 +193,50 @@ export abstract class Staged {
     }
     this.stage++;
     this.show(this.stage);
+    this.clearShown();
     if (this.stage >= this.stages) this.ended = true;
   }
 
-  /** Its last touches, if not made yet (tests, Claude's step). */
+  /** Its settings (each force's own): Sources among them (D474). */
+  abstract readonly settings: { sources?: SourcesRule };
+  /** The planned result (null until planned). */
+  abstract final(): FullForceMap | null;
+  /** Sources set to Clear: the sources it clears, once planned (D474). */
+  protected clearing: SourceClearing | null = null;
+  /** The working area (D254): how many levels each tile may change, or null for none (`planForce`
+   *  sets it): it clears the sources on the ground its operation keeps changed, feathered. */
+  ease: Uint8Array | null = null;
+
+  get cleared(): readonly ClearedSource[] {
+    return this.clearing?.record ?? [];
+  }
+
+  /** The frame just shown without the sources it has cleared: each goes at the first step its land
+   *  differs at one of the source's tiles (D474: no pop), the last at the latest. */
+  protected clearShown(): void {
+    const c = this.clearing;
+    if (!c) return;
+    this.map.entities = c.show(this.map.heights, this.map.entities, this.shown, this.shown >= this.total);
+  }
+
+  /** Its last touches, if not made yet (tests, Claude's step); with Sources set to Clear, the sources
+   *  its planned land takes (those on ground it changed that it neither took nor carried away itself). */
   planAll(): this {
     if (!this.settled) {
       this.settle();
       this.settled = true;
+      this.clearing = null;
+      const after = this.final();
+      // (Ride: a source or seep stands on the ground its last touches left, D474)
+      if (after && !clears(this.settings.sources)) {
+        const W = after.W;
+        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+      }
+      if (after && clears(this.settings.sources)) {
+        const ground = this.before.heights;
+        const standing = new Set(after.entities.map((e) => e.id));
+        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, changedGround(ground, after.heights, this.ease), (id) => !standing.has(id)));
+      }
     }
     return this;
   }
@@ -309,7 +352,7 @@ export class EruptRun extends Staged implements StagedRun {
       this.map = snapshotMap(this.plan0.map);
       return;
     }
-    const m = stageMap(this.before, this.plan0.map, t);
+    const m = stageMap(this.before, this.plan0.map, t, this.before.water);
     // an object changes (falls, goes, rides the rock) only once the eruption reaches it: the heat's
     // arrival, from the vent outward (or along a fissure); the water waits for the final land
     const heat = this.heat()!;
@@ -324,7 +367,6 @@ export class EruptRun extends Staged implements StagedRun {
     const had = new Set(this.before.fallen.map((f) => f.id));
     const ids = new Set(m.entities.map((e) => e.id));
     m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
-    m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
   }
 
@@ -401,6 +443,7 @@ export class QuakeRun extends Staged implements StagedRun {
     m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
     this.map = m;
     this.stage = this.stages;
+    this.clearShown();
   }
 
   /** The painted fault is let go: the quake is done. */
@@ -437,7 +480,8 @@ export class QuakeRun extends Staged implements StagedRun {
       m = snapshotMap(p.map);
       src.set(p.source);
     } else {
-      m = snapshotMap(this.before);
+      // The riders below replace every object: avoid a discarded JSON round trip.
+      m = snapshotMap({ ...this.before, entities: [] });
       this.shift(f, m.heights, m.lava, src);
       // (what the fault does besides moving the block, its rivers joined again across it and its
       // tear, D368 (9): each part shown as the slide passes it, never all at the end)
@@ -473,6 +517,9 @@ export class QuakeRun extends Staged implements StagedRun {
     this.map = m;
   }
 
+  /** Each tile's travel for the current plan (computed once per plan; a repaint replaces the plan). */
+  private travel0: { plan: QuakePlan; values: Float64Array } | null = null;
+
   /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
    *  from (of `this.before`). */
   private shift(f: number, heights: Uint8Array, lava: Uint32Array | null, src: Uint32Array | null): void {
@@ -488,6 +535,8 @@ export class QuakeRun extends Staged implements StagedRun {
       if (lava) lava[j] = this.before.lava[s];
       if (src) src[j] = s;
     }
+    if (this.travel0?.plan !== p) this.travel0 = { plan: p, values: Float64Array.from(p.dx, (dx, i) => portable.hypot(dx, p.dy[i])) };
+    const travelValues = this.travel0.values;
     const priority = new Float32Array(N).fill(-1);
     for (let i = 0; i < N; i++) {
       if (!p.dx[i] && !p.dy[i]) continue;
@@ -495,7 +544,7 @@ export class QuakeRun extends Staged implements StagedRun {
       const y = Math.floor(i / W) + off(p.dy[i]);
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const j = y * W + x;
-      const travel = portable.hypot(p.dx[i], p.dy[i]);
+      const travel = travelValues[i];
       if (travel < priority[j]) continue;
       priority[j] = travel;
       heights[j] = this.before.heights[i];

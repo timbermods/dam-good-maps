@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "base": "38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e",
+  "previousRemoteBranch": "ed6fc4fbe48ac2ba083522a06ac32fab848425d7",
+  "case": {
+    "theme": "lakeBasin",
+    "seed": 1,
+    "width": 256,
+    "height": 256,
+    "inputSha256": "ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a"
+  },
+  "rust": "rustc 1.90.0 (1159e78c4 2025-09-14)\nbinary: rustc\ncommit-hash: 1159e78c4747b02ef996e55082b704c09b970588\ncommit-date: 2025-09-14\nhost: x86_64-pc-windows-gnu\nrelease: 1.90.0\nLLVM version: 20.1.8",
+  "wasmFlags": [
+    "+simd128",
+    "-relaxed-simd"
+  ],
+  "nativeFlags": [
+    "-fma",
+    "x86-64-v2"
+  ],
+  "concurrency": 4,
+  "readings": [
+    {
+      "stage": "control",
+      "inputSha256": "ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a",
+      "nativeMs": 2480.338,
+      "chromiumMs": 2839.100000023842,
+      "chromium": "154.0.8037.95",
+      "resultSha256": "e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f",
+      "wasmSha256": "5626f0ae14a4d94f7e7ba27f9d9422201f84aabd70eb02a081271bf51717cab9",
+      "bytes": 3211288,
+      "method": "one cold-instance canonical settle; compilation/input copy excluded; decode/encode included; shared PC",
+      "nativeBinarySha256": "91c7bfa545fda5645d8ca61de6b03a7afb3db7de1e6ed4b888a881730968e805",
+      "nativeBatchSha256": "86bdbc2aa9f67de81b76d0d08f355eb81a7d842d63acab8fad587b3d30abebf4",
+      "settle": {
+        "settled": true,
+        "ticks": 1408,
+        "steadyTicks": null
+      },
+      "proof": {
+        "cases": 6,
+        "engines": {
+          "node": {
+            "version": "v24.13.0",
+            "userAgent": "Node v24.13.0",
+            "checkpoints": 196,
+            "errors": []
+          }
+        },
+        "mismatches": [],
+        "baselineCheckpoints": 196,
+        "logs": {}
+      }
+    },
+    {
+      "stage": "simd",
+      "inputSha256": "ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a",
+      "nativeMs": 2565.7021000000004,
+      "chromiumMs": 2871.2999999523163,
+      "chromium": "154.0.8037.95",
+      "resultSha256": "e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f",
+      "wasmSha256": "b38b1ac075be7280122985bb0156958fa2e60c6689c309795090848ab3a93bb8",
+      "bytes": 3211288,
+      "method": "one cold-instance canonical settle; compilation/input copy excluded; decode/encode included; shared PC",
+      "nativeBinarySha256": "105496875ecd6c34feca5559ff66e17e84d84613ca2dab48de249edc44d034dc",
+      "nativeBatchSha256": "195a0f3e10a10816c50c5779be674a00d83ce279b6c5f9e7b5eee1775d691a41",
+      "settle": {
+        "settled": true,
+        "ticks": 1408,
+        "steadyTicks": null
+      },
+      "proof": {
+        "cases": 6,
+        "engines": {
+          "node": {
+            "version": "v24.13.0",
+            "userAgent": "Node v24.13.0",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium-threads": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          }
+        },
+        "mismatches": [],
+        "baselineCheckpoints": 196,
+        "logs": {
+          "baseline-identity.log": "a928d5218019ce27eccd4cc4b55d881a51561810ba0bfa74d439105591d46d88",
+          "determinism.log": "b91bc7b4d82718313416d450efe9efa2a72b661d5d22d9f934773f53f4dc8a66",
+          "rust-tests.log": "a5ac72c75f74bafb283671ef8a0c9235afdf3d7d0ca7343f8f9ed2adec9d1fc8",
+          "stack-identity.log": "12ba237fe5af1e785a8daf09b99e7f0d9ef9b8ee37eab557a3b79167cd2ef34b",
+          "water-identity.log": "9310181023987d4ccdfe153fb3e46d62230da354e04c9f89906ed968398a63dc",
+          "water-tests.log": "78eda27cc6cdafe4f3d7275ee82b68ff010edea770a18f3a9e2f11979b521c5a"
+        }
+      }
+    },
+    {
+      "stage": "layout",
+      "inputSha256": "ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a",
+      "nativeMs": 1993.2796,
+      "chromiumMs": 2378.7999999523163,
+      "chromium": "154.0.8037.95",
+      "resultSha256": "e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f",
+      "wasmSha256": "a0a3bf99609c1f27ec4718ebc1847925a1a6590241a2a2033660630dd999c2a6",
+      "bytes": 3211288,
+      "method": "one cold-instance canonical settle; compilation/input copy excluded; decode/encode included; shared PC",
+      "nativeBinarySha256": "5946f179475b073d434b29ad27d5afb5a9fe22a1c0f9a4bd691aba4c89128dfd",
+      "nativeBatchSha256": "27112595b3ee3808f24b7e1b20cc0c93aa010e1ff30a8984b98b2077ec08c03b",
+      "settle": {
+        "settled": true,
+        "ticks": 1408,
+        "steadyTicks": null
+      },
+      "proof": {
+        "cases": 6,
+        "engines": {
+          "node": {
+            "version": "v24.13.0",
+            "userAgent": "Node v24.13.0",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium-threads": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          }
+        },
+        "mismatches": [],
+        "baselineCheckpoints": 196,
+        "logs": {
+          "baseline-identity.log": "a928d5218019ce27eccd4cc4b55d881a51561810ba0bfa74d439105591d46d88",
+          "determinism.log": "b91bc7b4d82718313416d450efe9efa2a72b661d5d22d9f934773f53f4dc8a66",
+          "rust-tests.log": "2b23641e48ea1329ddd6c8163758f510512d66cbbb93bcf7a8c2315d718168ec",
+          "stack-identity.log": "12ba237fe5af1e785a8daf09b99e7f0d9ef9b8ee37eab557a3b79167cd2ef34b",
+          "water-tests.log": "6271fab67b45f117227354ef300b6ba53725a39a206bf18035893d1d1aad53a8"
+        }
+      }
+    },
+    {
+      "stage": "sync",
+      "inputSha256": "ed6d33e54389371ac7a6672a8b0ef37303f1795e7d26fcf4f113aca15eb72f6a",
+      "nativeMs": 1214.4157,
+      "chromiumMs": 2172.100000023842,
+      "chromium": "154.0.8037.95",
+      "resultSha256": "e06e94837d18a74b99411258c9b2bdc7c4e5106c197abc4fcfbe85c07f36378f",
+      "wasmSha256": "56b7ca8a1c7ba28ba8010507b960b211321454d57c6a8cac6fcf774bca619a35",
+      "bytes": 3211288,
+      "method": "one cold-instance canonical settle; compilation/input copy excluded; decode/encode included; shared PC",
+      "nativeBinarySha256": "dfcff7ea2921c8a042c0d66665b9613cd3f6f19158bc66013a21dae6b7dcb0d3",
+      "nativeBatchSha256": "ac5302aa80de677bf84e5514cd9304a50cbcbf5c34006f3af625cd2150b668fa",
+      "settle": {
+        "settled": true,
+        "ticks": 1408,
+        "steadyTicks": null
+      },
+      "proof": {
+        "cases": 6,
+        "engines": {
+          "node": {
+            "version": "v24.13.0",
+            "userAgent": "Node v24.13.0",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          },
+          "chromium-threads": {
+            "version": "154.0.8037.95",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+            "checkpoints": 196,
+            "errors": []
+          }
+        },
+        "mismatches": [],
+        "baselineCheckpoints": 196,
+        "logs": {
+          "baseline-identity.log": "a928d5218019ce27eccd4cc4b55d881a51561810ba0bfa74d439105591d46d88",
+          "determinism.log": "b91bc7b4d82718313416d450efe9efa2a72b661d5d22d9f934773f53f4dc8a66",
+          "rust-tests.log": "4cfc0edc77b61346437079e7e099715125cf71f6fb9ebae2bd28911561021b7d",
+          "stack-identity.log": "12ba237fe5af1e785a8daf09b99e7f0d9ef9b8ee37eab557a3b79167cd2ef34b",
+          "water-tests.log": "4756f6121ea2948bc5f2db11fdbde55fbfba1268fc4a38136f82ff0c9dbac6f0"
+        }
+      }
+    }
+  ],
+  "sourceSha256": {
+    "rust/water/src/sim.rs": {
+      "before": "5ae36844f75a210d2bbe2ad7139ca5f7b12db8326ad8158e0ab672a72b35ee82",
+      "after": "ca7a465d50d2d5f385ea588734b50cd6d0fce7361af7b995ec81c6d4f138686b"
+    },
+    "tools/rust/build.ts": {
+      "before": "acdf11bb7fd8a287879846178c0a23e0a2fa3d584ede95fc2e2e986bbbcdb002",
+      "after": "32c92541b7928585bad878bbdbd035787fbf9416bebf1593d816548ea6ea92aa"
+    }
+  },
+  "adoptionPatchSha256": "c019b6b829b767b1dbef9bb2c909c955eac36562013d9e193b61d3945caeb299",
+  "stripRegressionSha256": "2b96ae8e54231209c2a43f126351850e41f906928797dc07b5a160de3764e183"
+}

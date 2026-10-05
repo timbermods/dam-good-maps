@@ -35,7 +35,7 @@ The shared terms of Dam Good Maps, each defined once, with the decision that set
 
 **Checks dot.** The small quiet dot that reports the map's checks. It sits beside Save to Timberborn and offers the one-click fixes. ([D184](decisions/editor.md), [D330](decisions/editor.md))
 
-**Your maps.** The player's recent and starred edited maps, kept in the browser (the last 30; stars are kept for good). Each reopens as it was left. It lives in the side panel; replacing an edited map saves it there first. ([D234](decisions/README.md), [D330](decisions/editor.md))
+**Your maps.** The player's edited maps, kept in the browser until the player deletes them. Each reopens as it was left. It lives in the side panel; replacing an edited map saves it there first. ([D234](decisions/README.md), [D330](decisions/editor.md))
 
 **Sources: Placed · None.** A water setting carried in share links. None generates as usual, then removes every water and badwater source and its water, keeping the dry valleys, basins and pits; on a real place it also removes the water floor's spring. The checks dot says "No water source" as information. ([D330](decisions/editor.md), [D331](decisions/README.md))
 

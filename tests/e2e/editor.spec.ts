@@ -5,7 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor } from "./open";
-import { toolInHand } from "./helpers";
+import { toolInHand, toolPutAway } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), from);
@@ -50,6 +50,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
   // a spring on dry, empty ground beside the river, its water running straight in: away from the
   // start and from the relics, mine sites and geothermal fields, which must stay off water
   const spring = await page.evaluate(
@@ -65,6 +66,13 @@ test("open → edit → Generate replaces the map without asking and Your maps k
           let wet = false;
           for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
           if (!wet) continue;
+          // clear of the bars over the map by a margin: the water bar's width follows its status (the nearest
+          // tile to it sat 14 px off its edge), and a press on a bar is no press on the map
+          const c = window.dgmEditor!.tileToClient(x2, y);
+          const box = window.dgm3d!.renderer.canvas;
+          let bare = true;
+          for (const ox of [-70, 0, 70]) for (const oy of [-70, 0, 70]) if (document.elementFromPoint(c.x + ox, c.y + oy) !== box) bare = false;
+          if (!bare) continue;
           let empty = true;
           for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) empty = false;
           if (empty && m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1) return [x2, y] as [number, number];
@@ -82,6 +90,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.evaluate(() => window.dgmEditor!.idle());
   // (Esc puts the water source back on the shelf)
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
   i = await info(page);
   expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source"]);
   const springs = () => page.evaluate(async ([a, b]) => (await window.dgmEditor!.worker.entitiesAt(a, b)).filter((e) => e.template === "WaterSource").length, spring!);
