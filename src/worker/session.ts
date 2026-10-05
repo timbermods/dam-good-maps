@@ -87,6 +87,8 @@ export interface SessionInfo {
   forceAgain: Verb | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
+  /** True until the canonical water can be carried in a saved project (D367). */
+  waterPending?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -193,6 +195,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     views: s.views,
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
+    waterPending: s.waterPending,
     version,
   };
 }
@@ -982,13 +985,33 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
 
 // ------------------------------------------------------------------------------------ opening
 
+/** Dropping a map drops every job that still owns its water and force state. */
+function discardSessionWork(): void {
+  stopWater();
+  draft?.job.dispose();
+  draft = null;
+  draftToken++;
+  handoff = null;
+  endForceWater();
+  // (each hazard's held days go with the map, their simulations freed)
+  prepToken++;
+  for (const h of ["drought", "badtide"] as const) {
+    weatherRuns[h]?.sim.dispose();
+    delete weatherRuns[h];
+  }
+  force = null;
+  series = null;
+  lastKept = null;
+  takenBack.clear();
+}
+
 function opened(s: MapSession): SessionOpen {
   // an edit never waits on the water (live editing): it shows the last settled water on the new
   // ground at once, the water settles again in the background and flows into the new shape
   // (`kickWater`), and the canonical settle follows, always before an export (EDITOR_PLAN §6)
   // (edits never wait on the water: the page's flow)
   s.setWaterMode("defer");
-  stopWater();
+  discardSessionWork();
   session = s;
   sent = null;
   originalFull = null;
@@ -1014,18 +1037,16 @@ export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
 
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
-  const s = MapSession.open(decodeProject(bytes));
+  // (a project saved before its water settled shows its saved base water while the checks replica builds
+  // the canonical water)
+  const s = MapSession.open(decodeProject(bytes), { deferWater: true });
   // landforms drawn with the old tools become terrain, the land exactly as it was (D182)
   bakeLandforms(s);
   return opened(s);
 }
 
 export function closeSession(): void {
-  stopWater();
-  force = null;
-  series = null;
-  lastKept = null;
-  takenBack.clear();
+  discardSessionWork();
   session = null;
   sent = null;
   originalFull = null;
@@ -1853,7 +1874,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
   // a standstill, every river on the map would start again and ripple everywhere while the carve plays
   if (flows) {
     for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
-    sim.out.set(flows);
+    sim.setOut(flows);
   }
   forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);

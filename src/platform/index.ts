@@ -49,11 +49,19 @@ function waterHelpers(): { worker: Worker; port: MessagePort }[] {
   const count = Math.min(threadsFor(256 * 256), (navigator.hardwareConcurrency || 4) - 1) - 1;
   if (count < 2) return [];
   const helpers: { worker: Worker; port: MessagePort }[] = [];
-  for (let k = 0; k < count; k++) {
-    const worker = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
-    const ch = new MessageChannel();
-    worker.postMessage({ waterPort: ch.port1 }, [ch.port1]);
-    helpers.push({ worker, port: ch.port2 });
+  try {
+    for (let k = 0; k < count; k++) {
+      const worker = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
+      const ch = new MessageChannel();
+      helpers.push({ worker, port: ch.port2 });
+      worker.postMessage({ waterPort: ch.port1 }, [ch.port1]);
+    }
+  } catch {
+    for (const h of helpers) {
+      h.worker.terminate();
+      h.port.close();
+    }
+    return []; // helper creation is optional: keep the one-thread generator working
   }
   return helpers;
 }

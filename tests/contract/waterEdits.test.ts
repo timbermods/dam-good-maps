@@ -24,7 +24,7 @@ function session(theme: "lakeBasin" | "riverValley", seed: number): MapSession {
 function gameDays(s: MapSession, days: number): Float64Array {
   const b = s.built;
   const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
-  if (b.settle.out) sim.out.set(b.settle.out);
+  if (b.settle.out) sim.setOut(b.settle.out);
   sim.run(days * TICKS_PER_DAY);
   return sim.D;
 }
@@ -221,7 +221,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     let days = 0;
     const b = s.built;
     const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
-    if (b.settle.out) sim.out.set(b.settle.out);
+    if (b.settle.out) sim.setOut(b.settle.out);
     const vol = () => lake.tiles.reduce((t, i) => t + sim.D[i], 0);
     let last = vol();
     while (vol() > 0 && days < 40) {
