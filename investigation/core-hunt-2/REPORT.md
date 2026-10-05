@@ -1,7 +1,7 @@
 # The second core hunt
 
-The bugs Kyler would hit using the editor, hunted on 2026-10-04 on `dev` at a91efc45 (after #274), with the
-water and the forces in Rust. Driven the editor's way: the worker session the page talks to
+The bugs Kyler would hit using the editor, hunted on 2026-10-04 on `dev` at a91efc45 (after #274), then
+da106b9e (Carve's Maturity, #278), with the water and the forces in Rust. Driven the editor's way: the worker session the page talks to
 (`src/worker/session.ts`), so forces start, play, keep, skip, Esc and Try another as on the page.
 
 ## Findings
@@ -20,12 +20,12 @@ water and the forces in Rust. Driven the editor's way: the worker session the pa
    working area, blamed the Floor. A Quake beside the area said only "Nothing changed". Breaks D342.
    `tests/contract/forceRefusals.test.ts`.
 4. **Handed over: Deposit leaves lone pillars and scattered tiles.** About one use in eight on every theme
-   raises a tile 3 or more levels above all four neighbours. On a short line it may refuse for one seed and
-   keep for the next, a few lone tiles instead of a fan. Rust Deposit's shaping; to the milestone (#236).
+   raises a tile 3 or more levels above all four neighbours (81 of 640 uses at 64²). On a short line it may
+   refuse for one seed and keep for the next, a few lone tiles instead of a fan. Rust Deposit's shaping; to the milestone (#236).
 
 ## Covered and clean
 
-- **Sequences:** 25 runs of 30 to 50 steps (forces, brushes, Select's actions, the shelf, Remove, Clear-sources
+- **Sequences:** 108 runs of 30 to 50 steps at 64² and 96², on six themes, live, frozen and imported (forces, brushes, Select's actions, the shelf, Remove, Clear-sources
   strokes, the first hunt's random operations, undo, redo, jumps). No empty or broken step. Undo then redo
   always gave the same map. Every save reopened to its stored map, the replay byte for byte.
 - **Races:** Esc before a start, Esc while playing, Esc after the keep, Try another after an undo, an
@@ -39,7 +39,8 @@ water and the forces in Rust. Driven the editor's way: the worker session the pa
 - **The Rust boundary:** NaN, out-of-range, unknown and missing settings and fields, sent to every force's
   start and as a kept operation. All refused with one line or applied and reopened exactly, apart from
   finding 3.
-- **Not built yet:** Carve's Maturity (D355 places it Later).
+- **Carve's Maturity:** Mature and Auto, clicked and drawn, 93 kept on three themes, some in a working
+  area. No pop, no invisible carve, no added object; replays match, Try another keeps Mature, undo exact.
 
 ## Worth knowing
 
@@ -60,6 +61,7 @@ sh investigation/core-hunt-2/tools/batch.sh <round> <steps> <seeds...>   # three
 npx tsx investigation/core-hunt-2/tools/boundary.ts                        # odd starts, every force
 npx tsx investigation/core-hunt-2/tools/opMutations.ts                     # mutated forceResult operations
 npx tsx investigation/core-hunt-2/tools/depositSweep.ts <theme> [side] [uses]
+npx tsx investigation/core-hunt-2/tools/maturity.ts <theme> [side] [uses]
 ```
 
 `hunt.ts` prints one line per problem and writes its step log to `local/`; a seed and its step log
