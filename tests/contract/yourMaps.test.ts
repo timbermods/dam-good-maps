@@ -20,8 +20,8 @@ const bytes = (n: number) => new Uint8Array([n, n + 1, n + 2]);
 describe("the store", () => {
   it("keeps a map and its project file, newest edit first", async () => {
     const s = openYourMaps(new IDBFactory());
-    expect(await s.put(entry("a", 1), bytes(1))).toEqual({ ok: true });
-    expect(await s.put(entry("b", 2), bytes(2))).toEqual({ ok: true });
+    expect(await s.put(entry("a", 1), bytes(1))).toMatchObject({ ok: true });
+    expect(await s.put(entry("b", 2), bytes(2))).toMatchObject({ ok: true });
     expect((await s.list()).map((e) => e.id)).toEqual(["b", "a"]);
     expect(await s.project("a")).toEqual(bytes(1));
     expect((await s.list())[1].bytes).toBe(3);
@@ -252,6 +252,31 @@ describe("saving safely", () => {
       await saver.flush();
     }
     expect(await s.project("a")).toEqual(bytes(3));
+  });
+
+  it("one tab saves, renames, marks saved and saves again with no conflict; a second tab's stale save is still refused", async () => {
+    const factory = new IDBFactory();
+    const s = openYourMaps(factory);
+    const results: string[] = [];
+    const saver = new YourMapsSaver(s, { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
+    // the page's entry for a new map, never told a token: the store knows what this tab wrote
+    const page = (rev: number) => ({ entry: entry("a", rev, { revision: rev }), project: bytes(rev) });
+    saver.changed("a", () => page(1));
+    await saver.flush();
+    const [seen] = await openYourMaps(factory).list();
+    expect((await s.rename("a", "Willow Bend")).ok).toBe(true);
+    const marked = await s.markSaved("a", 1);
+    expect(marked).toMatchObject({ ok: true, storageVersion: expect.any(String) });
+    saver.changed("a", () => page(2));
+    await saver.flush();
+    expect(results).toEqual(["ok", "ok"]);
+    expect(await s.project("a")).toEqual(bytes(2));
+    // the second tab read the map after its first save: everything since is this tab's
+    const other = new YourMapsSaver(openYourMaps(factory), { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
+    other.changed("a", () => ({ entry: { ...seen, revision: 9 }, project: bytes(9) }));
+    await other.flush();
+    expect(results).toEqual(["ok", "ok", "conflict"]);
+    expect(await s.project("a")).toEqual(bytes(2));
   });
 
   it("flush waits for a save queued behind a write already in storage", async () => {

@@ -68,7 +68,7 @@ export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMa
 
 /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage
  *  at all (a private window, blocked site data). */
-export type StoreResult = { ok: true; storageVersion?: string } | { ok: false; reason: "full" | "unavailable" | "conflict" };
+export type StoreResult = { ok: true; /** the map's new commit token, after a write */ storageVersion?: string } | { ok: false; reason: "full" | "unavailable" | "conflict" };
 
 /** A removed map, held so the removal can be undone. */
 export interface Removed {
@@ -96,7 +96,10 @@ export interface YourMapsStore {
   list(): Promise<YourMapEntry[]>;
   /** A map's project file, or null. */
   project(id: string): Promise<Uint8Array | null>;
-  /** Keep a map (a new one, or a new version of one); with `expected`, only over that storage version (null: a new map), else a conflict. */
+  /** Keep a map (a new one, or a new version of one); with `expected`, only over that storage version (null: a new
+   *  map, or one saved before tokens), else a conflict (another tab changed or deleted it). A token this tab replaced
+   *  itself (its own save, rename, mark or restore since) still counts as the map's. Every write gives the map a new
+   *  token, in the result (`storageVersion`). */
   put(entry: YourMapEntry, project: Uint8Array, expected?: string | null): Promise<StoreResult>;
   rename(id: string, name: string): Promise<StoreResult>;
   /** The latest version was saved to Timberborn. */
