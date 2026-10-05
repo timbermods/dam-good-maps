@@ -36,9 +36,6 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #317 | Saving review, milestone half (#296) | milestone | Merging on green (the three storage messages set to Kyler's short text) |
-| #314 | The Rust analysis (#157, D391) | analysis session | Merging after a green full run; its session asks on #236 for the TypeScript to be tagged before it's deleted |
-| #310, #312, #313, #315 | Codex reports: page QA, force playback, custom sizes, long session | Codex | Merging as records; Kyler's verdicts are in ROADMAP's "Codex adoptions" |
 | #311 | Every force plays smoothly | renderer (forces play) | `needs-kyler`: merges once green and Kyler has played it |
 | #304 | The forces share rust/water's kernel | milestone | Conflicts: reconcile with D474's re-pins (#308) and Deposit (#301), rebuild forcesWasm.ts, every pin unchanged |
 | #265 | Badwater line, wave check, wider names (generator 0.8.1) | theme critique session | `needs-kyler`: first of the generator queue; Kyler asked for three facts (the sheets' red marks, badwater's share against the official maps, Delta seed 16's start water); Lake Basin's lake is mostly badwater on 17 of 20 sheet seeds |
@@ -54,7 +51,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 ## Left for the next milestone session, in order
 
-1. Merge what's still running above (#317, #314, the four Codex reports) if the chain didn't finish.
+1. Merged at the handover: #317 (saving review), #314 (the Rust analysis, after a green full run) and the four Codex reports
+   (#310, #312, #313, #315). Check #236 for the analysis session's request to tag the TypeScript analysis before it's deleted.
 2. The adoptions Kyler decided (ROADMAP, "Codex adoptions"): #313's fieldData width fix (src/core/gen/generate.ts); #315's
    LS1 (drop backgroundCheck's unused canonical run, src/worker/session.ts); #310's F3 folded into the next generator re-pin
    only. #310's F1 and #312's page.patch go to the page session; #312's renderer.patch and worker.patch to the renderer
