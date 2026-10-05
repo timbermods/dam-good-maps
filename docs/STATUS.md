@@ -35,7 +35,7 @@ as of 2026-10-04 and move.
 | Work | Branch | PR | State |
 |---|---|---|---|
 | The page | `feature/page` | #163 | Ready, labelled `approved` (Kyler to confirm); 5 CI checks failing; review and merge once green; then Rift and Deposit's controls and Carve's Maturity setting |
-| Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
+| Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, re-pinned on dev); its fixes are in; waits on Kyler's look |
 | Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | `needs-kyler`; Highlands approved; a new Canyon session (Opus 5.5) does one Canyon-only round (seed 27's gorge, the round's start lakes); generator 0.9.0, renumbers if it merges second |
 | Every setting makes a map (D471) | `fix/every-setting-makes-a-map` | #277 | Open, with a byte fix; the milestone session's current item. Next: the three open every-setting combinations and the extreme seed's speed (it took 37 attempts) |
 | Forces end when their land is final | `fix/force-feedback` | #275 | `approved`; renderer session: two `forcesSitting` failures left to fix |

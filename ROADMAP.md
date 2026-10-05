@@ -34,7 +34,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **Merged since:** parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274) and Carve's Maturity (#278).
 - **The second core hunt** (#280, `investigation/core-hunt-2`): done, three fixes in its PR; Deposit's pillars and scattered tiles (finding 4) went to Codex.
 - **Forces end the moment their land is final** (#275, `fix/force-feedback`; renderer session): `approved`; two `forcesSitting` failures to fix.
-- **The badwater line** (#265, `fix/badwater-line-names`; theme critique session): generator 0.8.1, one re-pin, `needs-kyler`; its fixes first, then Kyler's look.
+- **The badwater line** (#265, `fix/badwater-line-names`; badwater session): generator 0.8.1, re-pinned on dev, `needs-kyler` for Kyler's look.
 - **Canyon and Highlands height** (#261, `investigation/canyon-highlands-height`): Highlands is approved; a new Canyon session (Opus 5.5) does one Canyon-only round (seed 27's gorge, the round's start lakes), generator 0.9.0.
 - **Islands round 4** (#235, `investigation/islands-round-3`; Islands session): on hold, for Kyler's look at the sheets and the 256² trade.
 - **A source's highlight reads under its water** (#225, `fix/basin-highlight`; renderer session): fails the palette test (a hard-coded colour); the renderer session fixes it. Its other PRs (#219, #240) are merged.
@@ -210,7 +210,8 @@ byte-identical in every engine, with their own contract tests. The page adds the
 ## Badwater line, wave check, wider names (#265, D469)
 
 The badwater line follows the land and joins rivers and lakes, a straightness check and wider names: generator 0.8.1, the
-first re-pin of the generator queue. Waits on its session's fixes and Kyler's look.
+first re-pin of the generator queue. Its fixes are in and dev is merged; it waits on Kyler's look (the before | after
+sheets on River Valley, Delta and Lake Basin).
 
 ## Canyon and Highlands height (#261)
 
