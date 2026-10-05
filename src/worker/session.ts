@@ -87,6 +87,8 @@ export interface SessionInfo {
   forceAgain: Verb | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
+  /** True until the canonical water can be carried in a saved project (D367). */
+  waterPending?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -193,6 +195,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     views: s.views,
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
+    waterPending: s.waterPending,
     version,
   };
 }
@@ -931,7 +934,9 @@ export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
 
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
-  const s = MapSession.open(decodeProject(bytes));
+  // (a project saved before its water settled shows its saved base water while the checks replica builds
+  // the canonical water)
+  const s = MapSession.open(decodeProject(bytes), { deferWater: true });
   // landforms drawn with the old tools become terrain, the land exactly as it was (D182)
   bakeLandforms(s);
   return opened(s);

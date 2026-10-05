@@ -155,6 +155,27 @@ describe("saving in the background", () => {
     expect(saver.busy()).toBe(false);
   });
 
+  it("flush waits for an in-flight outgoing snapshot and write with no pending timer", async () => {
+    let take!: (value: { entry: YourMapEntry; project: Uint8Array }) => void;
+    let write!: (value: { ok: true }) => void;
+    const c = clock();
+    const saver = new YourMapsSaver({ put: () => new Promise((r) => { write = r; }) }, c);
+    saver.changed("a", () => new Promise((r) => { take = r; }));
+    void saver.flush("a");
+    await settle();
+    let done = false;
+    const barrier = saver.flush().then(() => { done = true; });
+    await settle();
+    expect(done).toBe(false);
+    take({ entry: entry("a", 1), project: bytes(1) });
+    await settle();
+    expect(done).toBe(false);
+    write({ ok: true });
+    await barrier;
+    expect(done).toBe(true);
+    expect(saver.busy()).toBe(false);
+  });
+
   it("reports a failed save so the page can say so", async () => {
     const results: string[] = [];
     const saver = new YourMapsSaver({ put: async () => ({ ok: false, reason: "full" }) }, { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });

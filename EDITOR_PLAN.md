@@ -799,8 +799,11 @@ adapter (`PLAN.md` §19.9; IndexedDB), guarded against storage failures, recover
 (D44); `.timber` export through the `export` validation profile. Re-importing a `.timber` file bakes everything into
 a new imported map. The project carries the map as it was saved (`src/core/doc/stored.ts`, D367): the built map with
 what an incremental rebuild reuses, saved whenever the water is the canonical settle, so a saved map opens from it at
-once, without rebuilding. A project saved while its water was still pending, or by another version of the app, opens by
-rebuilding, as every project did before.
+once, without rebuilding. A project saved while its water was still pending opens by rebuilding its land with the
+saved base water shown as a preview: the checks replica
+builds the canonical water and the editor adopts it, and `SessionInfo.waterPending` turning false tells the page it
+can save the map again, now with its stored map. A
+project saved by another version of the app opens by rebuilding.
 
 **Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
 history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
