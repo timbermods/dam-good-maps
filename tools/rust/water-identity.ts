@@ -12,7 +12,11 @@
 // generated maps of every theme (96², 128², 256²), and each generated map again with a stored lake and
 // drained tiles, so the sealed settle, the stored lakes' water and the unfed water's removal run too.
 //
-//   npx tsx tools/rust/water-identity.ts [--seeds 1-2] [--require-native]
+// With --threads N, the app's settle runs twice: on one thread and on N (the multi-core water, src/core/sim/
+// parallel.ts, here on Node's worker_threads at every size), and both must give the same bytes as the others;
+// --sizes adds 512² (a 256² map tiled two by two: no generated map is bigger).
+//
+//   npx tsx tools/rust/water-identity.ts [--seeds 1-2] [--require-native] [--threads 4] [--sizes 96,128,256,512]
 
 import { readFileSync } from "node:fs";
 import { gunzipSync, strFromU8 } from "fflate";
@@ -22,12 +26,20 @@ import { canonicalInWasm, encodeCanonicalJob } from "../../src/core/sim/rustWate
 import type { Emitter, RetainedWater, WaterModel, WaterSimOptions } from "../../src/core/sim/water";
 import { AVAILABLE_THEMES, makeSpec } from "../../src/core/spec/mapspec";
 import { nativeCanonical, nativeWaterBinary } from "./native-water";
+import { parallelWaterStats, withoutParallelWater } from "../../src/core/sim/parallel";
+import { installNodeThreads, nodeThreadsReady, uninstallParallelWater } from "./water-threads";
 
 const arg = (name: string, fallback: string) => {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 };
 const [s0, s1] = arg("seeds", "1-2").split("-").map(Number);
+const threads = Number(arg("threads", "0"));
+const sizes = arg("sizes", "96,128,256").split(",").map(Number);
+if (threads) {
+  installNodeThreads(threads);
+  await nodeThreadsReady(threads);
+}
 const exe = nativeWaterBinary();
 if (!exe && process.argv.includes("--require-native")) throw new Error("the native water isn't built: npx tsx tools/rust/build.ts --native");
 
@@ -46,13 +58,19 @@ function same(a: CanonicalWater, b: CanonicalWater): string | null {
 let cases = 0;
 const failures: string[] = [];
 function check(name: string, m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
-  const app = canonicalSettle(m, opts);
+  const app = withoutParallelWater(() => canonicalSettle(m, opts));
   const game = (opts.rules ?? "game") === "game";
   const start = prefill(m);
   const job = encodeCanonicalJob(m, start.depth, start.contamination, { game, edgeSpill: game });
   const wasm = canonicalInWasm(job, m.W * m.H) as CanonicalWater;
   const diffs = [["Rust settle in Wasm", same(app, wasm)]];
   if (exe) diffs.push(["native", same(app, nativeCanonical(exe, m, start, opts))]);
+  if (threads) {
+    const before = parallelWaterStats.ticks;
+    diffs.push([`the app on ${threads} threads`, same(app, canonicalSettle(m, opts))]);
+    // (a seep may keep a small map on one thread: its depth would be read off a strip)
+    if (parallelWaterStats.ticks === before && !m.emitters.some((e) => e.depthLimit)) failures.push(`${name}: the threads never ran`);
+  }
   for (const [path, diff] of diffs) if (diff) failures.push(`${name}, ${path}: ${diff}`);
   cases++;
   return app;
@@ -88,18 +106,40 @@ for (const f of golden.fixtures)
   for (const rules of ["game", "port"] as const)
     check(`golden ${f.name} (${rules} rules)`, { W: f.W, H: f.H, floor: Float64Array.from(f.floor), dam: f.dam ? Float64Array.from(f.dam) : null, emitters: f.emitters }, { rules });
 
+/** A model tiled two by two (its emitters on each copy): a bigger map than the generator makes. */
+function tiled(m: WaterModel): WaterModel {
+  const W = 2 * m.W;
+  const H = 2 * m.H;
+  const floor = new Float64Array(W * H);
+  const dam = m.dam ? new Float64Array(W * H) : null;
+  const at = (i: number, tx: number, ty: number) => (ty * m.H + Math.floor(i / m.W)) * W + tx * m.W + (i % m.W);
+  const emitters: Emitter[] = [];
+  for (let ty = 0; ty < 2; ty++)
+    for (let tx = 0; tx < 2; tx++) {
+      for (let i = 0; i < m.W * m.H; i++) {
+        floor[at(i, tx, ty)] = m.floor[i];
+        if (dam) dam[at(i, tx, ty)] = m.dam![i];
+      }
+      for (const e of m.emitters)
+        emitters.push({ ...e, cells: e.cells.map((i) => at(i, tx, ty)), ...(e.depthLimit ? { depthLimit: { ...e.depthLimit, anchor: at(e.depthLimit.anchor, tx, ty) } } : {}) });
+    }
+  return { W, H, floor, dam, emitters };
+}
+
 // 2. generated maps, and each again with stored water
-for (const size of [96, 128, 256])
+for (const size of sizes)
   for (const theme of AVAILABLE_THEMES)
-    for (let seed = s0; seed <= (size === 256 ? s0 : s1); seed++) {
-      const m = generate(makeSpec({ seed, size: { x: size, y: size }, theme })).built.waterModel;
+    for (let seed = s0; seed <= (size >= 256 ? s0 : s1); seed++) {
+      if (size === 512 && theme !== AVAILABLE_THEMES[0]) continue;
+      const m = size === 512 ? tiled(generate(makeSpec({ seed, size: { x: 256, y: 256 }, theme })).built.waterModel) : generate(makeSpec({ seed, size: { x: size, y: size }, theme })).built.waterModel;
       const name = `${theme} ${size}² seed ${seed}`;
       const settled = check(name, m);
       const stored = withStoredWater(m, settled);
       if (stored) check(`${name} with a stored lake and drained tiles`, stored);
     }
 
-console.log(`${cases} canonical settles${exe ? ", natively too" : " (native not built)"}: ${failures.length ? `${failures.length} differ` : "the same bytes every way"}`);
+if (threads) uninstallParallelWater();
+console.log(`${cases} canonical settles${exe ? ", natively too" : " (native not built)"}${threads ? `, on ${threads} threads too (${parallelWaterStats.ticks} ticks)` : ""}: ${failures.length ? `${failures.length} differ` : "the same bytes every way"}`);
 if (failures.length) {
   for (const f of failures.slice(0, 20)) console.error(f);
   process.exit(1);

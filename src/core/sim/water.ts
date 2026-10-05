@@ -34,7 +34,13 @@
 // warm start) and may set `out` before running; the floor may change between runs (a carve); a model's
 // emitters keep their tiles. The settle and its stopping test below stay TypeScript; the native batch runs
 // the Rust port of them (tools/rust/native-water.ts).
+//
+// Multi-core (parallel.ts): in a worker with a pool of helper threads (the editor's, on a cross-origin isolated
+// page in Chromium and Firefox), a big map's runs go to several threads, each running the same Rust on a strip
+// of the map, with the same bytes; the single simulation and the threads hand the water over between runs at
+// any time. Nothing about WaterSim changes for its callers.
 
+import { waterThreads, type WaterThreads } from "./parallel";
 import { RustSim } from "./rustWater";
 
 export const DT = 0.3; // seconds per substep; 2 substeps per 0.6 s tick
@@ -187,6 +193,10 @@ export class WaterSim {
   /** The simulation itself, in Rust (rustWater.ts). */
   private readonly rust: RustSim;
   private readonly model: WaterModel;
+  /** The runs on several threads (parallel.ts), once this thread has a pool and the map is big enough. */
+  private threads: WaterThreads | null = null;
+  /** The Rust simulation above holds the water as it stands (false once the threads ran last). */
+  private singleFresh = true;
 
   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
     this.rules = opts.rules ?? DEFAULT_WATER_RULES;
@@ -212,33 +222,61 @@ export class WaterSim {
 
   /** The depth before the last substep, per tile (a copy). */
   get Dold(): Float64Array {
+    this.freshSingle();
     return this.rust.dold();
   }
 
   /** Cluster saturation per wet tile (0 elsewhere): WN = 1 + wet 8-neighbours,
    *  sat = min(8, max(WN, max over 4-neighbours of WN − 1)). */
   saturation(): Uint8Array {
+    this.freshSingle();
     return this.rust.saturation(this.model, this.D, this.C, this.out);
   }
 
   /** Run `ticks` ticks (2 substeps each). `strengthScale` scales every source (0 = drought). */
   run(ticks: number, strengthScale = 1): this {
     const n = ticks > 0 ? Math.ceil(ticks) : 0;
-    if (n > 0) this.rust.run(this.model, this.D, this.C, this.out, n, strengthScale);
+    if (n > 0 && !this.runThreaded(n, strengthScale)) {
+      this.freshSingle();
+      this.rust.run(this.model, this.D, this.C, this.out, n, strengthScale);
+      this.threads?.invalidate();
+    }
     this.ticks += n;
     return this;
+  }
+
+  /** The run on several threads, when this thread has a pool and they take it (parallel.ts); the same water. */
+  private runThreaded(n: number, scale: number): boolean {
+    this.threads ??= waterThreads(this, this.model, { game: this.rules === "game", edgeSpill: this.edgeSpill });
+    if (!this.threads) return false;
+    const ok = this.threads.run(this.model, this.D, this.C, this.out, n, scale, () => {
+      if (!this.singleFresh) throw new Error("the multi-core water lost track of which thread ran last");
+      return { dold: this.rust.dold(), seeps: this.rust.seeps(this.emitters.length) };
+    });
+    if (ok) this.singleFresh = false;
+    return ok;
+  }
+
+  /** The Rust simulation takes over the water the threads ran last. */
+  private freshSingle(): void {
+    if (this.singleFresh || !this.threads) return;
+    const { dold, seeps } = this.threads.carry();
+    this.rust.adopt(this.model, this.D, this.C, this.out, dold, seeps);
+    this.singleFresh = true;
   }
 
   /** Frees the Rust simulation now (Wasm memory never shrinks, so code that makes and drops many simulations
    *  calls it when done); again is a no-op. Its arrays (D, C, out) stay readable; running it, its saturation
    *  and Dold throw afterwards. Without it the simulation is freed when this object is collected. */
   dispose(): void {
+    this.threads?.free();
     this.rust.free();
   }
 
   /** The simulation's kept-up bookkeeping (D359) against the same rebuilt from its water: null when they
    *  agree, else what differs (tests/unit/water-speedups.test.ts). */
   booksError(): string | null {
+    this.freshSingle();
     return this.rust.booksError(this.model, this.D, this.C, this.out);
   }
 

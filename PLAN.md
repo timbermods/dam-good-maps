@@ -71,8 +71,11 @@ DOM access, so it runs identically in the Web Worker, in Node (tests, batch runs
 Canvas 2D (an `ImageData` buffer); the 3D preview is three.js in a lazy-loaded chunk. The zip is fflate `zipSync` with a
 fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker (0.4.4, vendored, D20), because canvas
 `toBlob` encoders differ between browsers; both keep files byte-reproducible. Hosting is GitHub Pages from GitHub
-Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers (no COOP/COEP), so `SharedArrayBuffer`
-threads are unavailable and parallel work runs as independent workers. A second build target, a single-file build for a
+Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
+(`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
+cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
+`SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
+workers. A second build target, a single-file build for a
 Claude artifact (deferred with Claude, D277), swaps the platform adapters (§19.9): data is bundled, workers can be
 inlined, and libraries come from npm. The visual design is the org's Impeccable site flow and the timbermods design
 system (walnut lodge palette, `DESIGN.md`), done as its own step.

@@ -46,7 +46,8 @@ as of 2026-10-04 and move.
 | Islands round 2 | `investigation/islands-round-2` | #210 | The work continues in #235 |
 | Performance audit | `investigation/perf-audit` | #152 | Approved; guides the speed work |
 | Scaling | `investigation/scaling` | #132 | Draft; round 4 approved for adoption |
-| Parallel water | `investigation/parallel-water` | #130 | Draft; approved; the multi-core path |
+| Multi-core water | `feature/multicore-water` | PR to come | `needs-kyler` (his feel): #130's strips on the Rust water, byte-identical; the service worker's isolation (D397, caching still to come); /preview/ shows it once the page session merges it into `feature/page` |
+| Parallel water | `investigation/parallel-water` | #130 | Approved; built by `feature/multicore-water` |
 | Parity with the game's editor | `feature/parity` | #95 | Draft; superseded by #269 |
 | Drought and Badtide, day by day | `feature/weather-days` | #73 | Draft; parked for Kyler's sitting, after the page |
 | 3D terrain, step 1 | `feature/terrain3d-a` | #71 | Draft; parked as the reference; its stacked engine is in `rust/water` (#260, D448) |
