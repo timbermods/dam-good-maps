@@ -273,7 +273,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
-  has, D222). Fresh volcanic rock (Erupt's) is hard for it.
+  has, D222). Fresh volcanic rock (Erupt's) is hard for it. **Maturity** (D199, D355; built in Rust, #276,
+  `rust/forces/src/maturity.rs`): **Young** (the default, today's Carve; a carve saved without the setting reads as
+  Young), **Mature** (carves the river, then ages it: bends migrate, point bars balance every cut with a fill, a
+  floodplain forms between the bluffs and cut-off necks leave wet oxbows; along an existing source-to-edge river it ages
+  that course directly, adding no objects; Power sets the rounds of aging, Keep, the Floor and high bluffs limit it) or
+  **Auto** (resolved once from the ground and the seed: open ground leans Mature, rugged ground Young; the operation
+  keeps the resolved setting). Try another keeps it as set. The core half is in; the page adds it to Carve's More.
 
 - **Unleash, on a source** (D239; U): select a placed water or badwater source and a small **Unleash** action with
   a quick **Power** sits beside it; the source's own water carves its course downhill with Carve's engine (where it
