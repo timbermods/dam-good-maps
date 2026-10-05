@@ -650,7 +650,7 @@ where the land's own processes make them. The builder's limits still fix what a 
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
   water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
   (D469; `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
-  badwater, so only stored water stays clean; the map card says so when the drought reserve is Scarce.
+  badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge
 

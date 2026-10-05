@@ -9,9 +9,6 @@ import { highestMax, reserveGuard } from "../../src/ui/settingsModel";
 export interface SettingCase {
   name: string;
   spec: MapSpec;
-  /** A combination that still makes no map: D471's open shortfall, an expected failure until the
-   *  generator meets it (vitest then says it passed, and `gap` comes off). */
-  gap?: string;
 }
 
 type Shape = (s: Settings) => void;
@@ -97,15 +94,6 @@ export function settingCases(): SettingCase[] {
     out.push(caseOf("flat, dry, water at 4", THEMES[(k + 2) % THEMES.length], "easy", size, seed, flatDry));
     out.push(caseOf("starved start", THEMES[(k + 4) % THEMES.length], "hard", size, seed, starvedStart));
   });
-  // (D471's open shortfalls, 2026-10-04: no start on 48² land with every setting at its maximum; and
-  // the start's water within 4 tiles beside Minimum starting wood 800 of birch and 200 bushes, at 48²
-  // and 96²: the settled water floods or leaves the start's pad)
-  const gaps: Record<string, string> = {
-    "all maximums, any 48×48 easy seed 101": "48² land with every setting at its maximum has no start",
-    "starved start, highlands 48×48 hard seed 101": "water at 4 with the most wood and berries asked",
-    "starved start, delta 96×96 hard seed 102": "water at 4 with the most wood and berries asked",
-  };
-  for (const c of out) if (gaps[c.name]) c.gap = gaps[c.name];
   out.push(caseOf("all minimums", "any", "hard", { x: 256, y: 48 }, 111, allMin));
   out.push(caseOf("all maximums", "any", "easy", { x: 48, y: 256 }, 112, allMax));
   return out;
@@ -113,7 +101,7 @@ export function settingCases(): SettingCase[] {
 
 /** The case as a test: its map passes every check that isn't advisory. */
 export function settingTest(c: SettingCase): void {
-  (c.gap ? it.fails : it)(c.gap ? `${c.name} (open: ${c.gap})` : c.name, () => {
+  it(c.name, () => {
     const r = generate(c.spec);
     const failed = r.report.checks.filter((x) => !x.ok && !x.advisory).map((x) => `${x.id}: ${x.message}`);
     expect(r.report.passed, `${c.name}: no map after ${r.attempts} attempts (${failed.join("; ")})`).toBe(true);
