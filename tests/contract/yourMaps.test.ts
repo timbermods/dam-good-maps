@@ -5,7 +5,7 @@
 // list itself is exercised in tests/e2e/page-parts.spec.ts.
 
 import "fake-indexeddb/auto";
-import { IDBFactory } from "fake-indexeddb";
+import { IDBFactory, IDBTransaction } from "fake-indexeddb";
 import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { YourMapsSaver } from "../../src/core/library/saver";
@@ -20,8 +20,8 @@ const bytes = (n: number) => new Uint8Array([n, n + 1, n + 2]);
 describe("the store", () => {
   it("keeps a map and its project file, newest edit first", async () => {
     const s = openYourMaps(new IDBFactory());
-    expect(await s.put(entry("a", 1), bytes(1))).toEqual({ ok: true });
-    expect(await s.put(entry("b", 2), bytes(2))).toEqual({ ok: true });
+    expect(await s.put(entry("a", 1), bytes(1))).toMatchObject({ ok: true });
+    expect(await s.put(entry("b", 2), bytes(2))).toMatchObject({ ok: true });
     expect((await s.list()).map((e) => e.id)).toEqual(["b", "a"]);
     expect(await s.project("a")).toEqual(bytes(1));
     expect((await s.list())[1].bytes).toBe(3);
@@ -74,8 +74,8 @@ describe("the store", () => {
     expect(await none.list()).toEqual([]);
     const r = await none.put(entry("a", 1), bytes(1));
     expect(r).toEqual({ ok: false, reason: "unavailable" });
-    expect(storeProblem(r)).toMatch(/isn't keeping Your maps/);
-    expect(storeProblem({ ok: false, reason: "full" })).toMatch(/^Browser storage is full/);
+    expect(storeProblem(r)).toBe("This browser can't keep Your maps. Download the project to keep this one.");
+    expect(storeProblem({ ok: false, reason: "full" })).toBe("Browser storage is full. Delete some maps or download this one.");
     expect(storeProblem({ ok: true })).toBe(null);
   });
 });
@@ -192,6 +192,156 @@ describe("saving in the background", () => {
     failing.changed("a", () => ({ entry: entry("a", 1), project: bytes(1) }));
     await failing.flush();
     expect(results).toEqual(["full", "unavailable"]);
+  });
+});
+
+// From the saving review (investigation/saving-review, F2, F4 and its quota control): two tabs on one
+// database, a save queued behind a write, a deleted map's queued save, and a write that fails half way.
+describe("saving safely", () => {
+  it("a second tab's stale save can't overwrite the first tab's saved edit", async () => {
+    const factory = new IDBFactory();
+    const a = openYourMaps(factory);
+    const b = openYourMaps(factory);
+    await a.put(entry("a", 1), bytes(1));
+    const [oldA] = await a.list();
+    const [oldB] = await b.list();
+    const results: string[] = [];
+    const sa = new YourMapsSaver(a);
+    const sb = new YourMapsSaver(b, { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
+    sa.changed("a", () => ({ entry: { ...oldA, revision: 2 }, project: bytes(2) }));
+    sb.changed("a", () => ({ entry: { ...oldB, revision: 2 }, project: bytes(3) }));
+    await sa.flush();
+    await sb.flush();
+    expect(await a.project("a")).toEqual(bytes(2));
+    expect(results).toEqual(["conflict"]);
+    expect(storeProblem({ ok: false, reason: "conflict" })).toBe("Changed in another tab. Download the project to keep your edits.");
+  });
+
+  it("a second tab's stale save can't bring back a deleted map", async () => {
+    const factory = new IDBFactory();
+    const a = openYourMaps(factory);
+    const b = openYourMaps(factory);
+    await a.put(entry("a", 1), bytes(1));
+    const [old] = await b.list();
+    const saver = new YourMapsSaver(b);
+    saver.changed("a", () => ({ entry: { ...old, revision: 2 }, project: bytes(2) }));
+    await a.remove("a");
+    await saver.flush();
+    expect(await a.project("a")).toBeNull();
+  });
+
+  it("a pending save can't undo another tab's rename", async () => {
+    const factory = new IDBFactory();
+    const a = openYourMaps(factory);
+    const b = openYourMaps(factory);
+    await a.put(entry("a", 1), bytes(1));
+    const [old] = await b.list();
+    const saver = new YourMapsSaver(b);
+    saver.changed("a", () => ({ entry: old, project: bytes(2) }));
+    await a.rename("a", "Renamed");
+    await saver.flush();
+    expect((await a.list())[0].name).toBe("Renamed");
+  });
+
+  it("the same tab saves one map again and again, each save over the last", async () => {
+    const s = openYourMaps(new IDBFactory());
+    let e = entry("a", 1);
+    const saver = new YourMapsSaver(s, { onResult: (r) => expect(r.ok).toBe(true) });
+    for (let rev = 1; rev <= 3; rev++) {
+      saver.changed("a", () => ((e = { ...e, revision: rev }), { entry: e, project: bytes(rev) }));
+      await saver.flush();
+    }
+    expect(await s.project("a")).toEqual(bytes(3));
+  });
+
+  it("one tab saves, renames, marks saved and saves again with no conflict; a second tab's stale save is still refused", async () => {
+    const factory = new IDBFactory();
+    const s = openYourMaps(factory);
+    const results: string[] = [];
+    const saver = new YourMapsSaver(s, { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
+    // the page's entry for a new map, never told a token: the store knows what this tab wrote
+    const page = (rev: number) => ({ entry: entry("a", rev, { revision: rev }), project: bytes(rev) });
+    saver.changed("a", () => page(1));
+    await saver.flush();
+    const [seen] = await openYourMaps(factory).list();
+    expect((await s.rename("a", "Willow Bend")).ok).toBe(true);
+    const marked = await s.markSaved("a", 1);
+    expect(marked).toMatchObject({ ok: true, storageVersion: expect.any(String) });
+    saver.changed("a", () => page(2));
+    await saver.flush();
+    expect(results).toEqual(["ok", "ok"]);
+    expect(await s.project("a")).toEqual(bytes(2));
+    // the second tab read the map after its first save: everything since is this tab's
+    const other = new YourMapsSaver(openYourMaps(factory), { onResult: (r) => results.push(r.ok ? "ok" : r.reason) });
+    other.changed("a", () => ({ entry: { ...seen, revision: 9 }, project: bytes(9) }));
+    await other.flush();
+    expect(results).toEqual(["ok", "ok", "conflict"]);
+    expect(await s.project("a")).toEqual(bytes(2));
+  });
+
+  it("flush waits for a save queued behind a write already in storage", async () => {
+    const order: number[] = [];
+    let release!: () => void;
+    const hold = new Promise<void>((r) => (release = r));
+    let first = true;
+    const saver = new YourMapsSaver({
+      put: async (e) => {
+        if (first) (first = false), await hold;
+        order.push(e.revision);
+        return { ok: true };
+      },
+    });
+    saver.changed("a", () => ({ entry: entry("a", 1, { revision: 1 }), project: bytes(1) }));
+    void saver.flush();
+    await settle();
+    saver.changed("a", () => ({ entry: entry("a", 2, { revision: 2 }), project: bytes(2) }));
+    void saver.flush("a");
+    await settle();
+    let done = false;
+    const barrier = saver.flush().then(() => (done = true));
+    await settle();
+    expect(done).toBe(false);
+    release();
+    await barrier;
+    expect(order).toEqual([1, 2]);
+  });
+
+  it("discarding a deleted map drops its queued save", async () => {
+    const puts: number[] = [];
+    const c = clock();
+    const saver = new YourMapsSaver({ put: async (e) => (puts.push(e.revision), { ok: true }) }, c);
+    saver.changed("a", () => ({ entry: entry("a", 1, { revision: 7 }), project: bytes(1) }));
+    await saver.discard("a");
+    c.advance(10_000);
+    await saver.flush();
+    expect(puts).toEqual([]);
+    expect(saver.busy()).toBe(false);
+  });
+
+  it("a write that fails half way keeps the map as it was", async () => {
+    const s = openYourMaps(new IDBFactory());
+    await s.put(entry("q", 1, { name: "before" }), new Uint8Array([1]));
+    // fake-indexeddb's own request, abort and rollback, with the project's write failing after the entry's succeeded
+    const proto = IDBTransaction.prototype as unknown as { _execRequestAsync: (args: { source?: { name?: string }; operation: { name: string } }) => unknown };
+    const original = proto._execRequestAsync;
+    let injected = false;
+    proto._execRequestAsync = function (args) {
+      if (!injected && args.source?.name === "projects" && args.operation.name.includes("storeRecord")) {
+        injected = true;
+        args = { ...args, operation: Object.defineProperty(() => { throw new DOMException("Injected full storage", "QuotaExceededError"); }, "name", { value: "injected" }) };
+      }
+      return original.call(this, args);
+    };
+    let r: Awaited<ReturnType<typeof s.put>>;
+    try {
+      r = await s.put(entry("q", 2, { name: "after", revision: 2 }), new Uint8Array([2]));
+    } finally {
+      proto._execRequestAsync = original;
+    }
+    expect(injected).toBe(true);
+    expect(r).toEqual({ ok: false, reason: "full" });
+    expect((await s.list())[0]).toMatchObject({ name: "before", revision: 1 });
+    expect(await s.project("q")).toEqual(new Uint8Array([1]));
   });
 });
 

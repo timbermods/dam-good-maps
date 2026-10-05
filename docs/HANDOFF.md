@@ -15,7 +15,8 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 
 ## 1. Starting a session
 
-1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`) at Opus 5.5, high, so `.claude/agents/` load.
+1. Start in the main clone (`C:\Users\Kyler\code\DamGoodMaps` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
+   machine) at Opus 5.5, high, so `.claude/agents/` load.
 2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
    the plan's worktrees and the probe folder `-probe` beside the clone, installs their dependencies, writes the probe allow
    rules into `.claude/settings.local.json`, checks the tools and Timberborn's folders, and prints what's ready and what's
@@ -29,28 +30,23 @@ backup before the first batch; and the local-only data: the decompiled game code
 official maps (`investigation/extract_builtin_maps.py`), Real places' land cache, and each investigation's gitignored
 `local/` folder (its report says how).
 
-## 2. The three sessions (D388, D398)
+## 2. The sessions (D388, D398, D468, D470)
 
-- **This session** (Opus 5.5, high) does everything except "The page is the editor" and its design: the core, the water,
-  the generator, the editor-core items (D387), the Codex adoptions, the Rust order (D381) and the documents. It owns the
-  decisions' numbering, STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`, started fresh from `dev`, D395) does only
-  the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own `DESIGN.md` and
-  `docs/progress/page.md`; this session folds them into PLAN when its work merges.
-- **The renderer session** (a separate machine; branch `feature/moving-water`, D398) builds post-release items 1 and 2 on
-  its own PR (merged when CI is green, D453) and item 3: moving
-  water and the Flow view, then renderer R1. This session doesn't build them; it merges #165 once the renderer has merged dev into it and CI is green (D453).
-  `tools/smooth/` (from `investigation/performance`, #107) stays as a tool, run only when something feels slow. It runs on Kyler's PC (Opus 5.5, high) and never edits
-  PLAN.md, STATUS.md or HANDOFF.md: when its PR merges, this session folds its decisions into `docs/decisions/`, EDITOR_PLAN's view
-  section and STATUS. Its plan (Kyler's yes, 2026-10-02) changes `src/worker/session.ts` (WaterView gains an optional
-  per-wet-tile current; the Flow view's lanes are built in the worker after a settle) and `src/editor/waterPlayer.ts` /
-  `waterJourney.ts`: keep this session's changes there small, and tell Kyler before large ones. The water's bytes, when
-  it settles and the pinned digests don't change; High's surface-gradient flow estimate (pending #111) is replaced by the
-  simulation's current; the Rust water must keep exposing `out`.
-- **Codex on Kyler's PC** works in its own clone there, never in the renderer session's (a Codex task switched the
-  renderer's checkout at 00:33 on 2026-10-03).
-- **Neither touches the other's files.** An item that needs an interface control agrees its place through Kyler
-  ([his message](archive/feedback/2026-10-02-two-sessions.md)).
+- **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
+  water, the generator, the Rust order (D381), the Codex adoptions and the documents. It reviews every PR, merges, releases,
+  and owns the decisions' numbering, STATUS and HANDOFF.
+- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`, PR #163) does only the page and its
+  design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
+  `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
+- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
+  Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played them. The old
+  renderer session is closed; its #275 and #225 have no owner until Kyler says (STATUS).
+- **Codex** runs on both machines, each task in its own clone, never in a session's worktree. It delivers investigations
+  with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
+- **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
+  `dev`; this session reviews and merges them.
+- **No session touches another's files.** Sessions talk on the Coordination issue (#236); what needs Kyler carries
+  `needs-kyler` (D470).
 
 ## 3. Models and agent definitions (D301, amended by D389)
 
@@ -202,6 +198,25 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version.
 
 ## 7. The machine
+
+**Kyler's PC (since 2026-10-05):** Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
+Python 3.13, gh. Under `C:\Users\Kyler\code`:
+
+- `DamGoodMaps`: the main clone, where the milestone session runs;
+- `DamGoodMaps-page`: the page session's worktree, on `feature/page`;
+- `DamGoodMaps-probe`: the probe folder, detached;
+- `DamGoodMaps-forces-play`: the renderer session's worktree;
+- about 50 older `DamGoodMaps-*` worktrees from released work: leave them alone.
+
+Codex works in `C:\Users\Kyler\Documents\ChatGPT`. Every folder that isn't the milestone session's belongs to another
+session or to Codex: never touch it, and check no session is working in a folder before installing or checking out there.
+The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
+**Probe batches need Kyler's yes in chat, every time** (D117; D218 lifts the ask only on the dedicated machine).
+
+**On any new computer:** clone the repository, run `npm run setup:machine` (it installs the dependencies, makes the page
+worktree, writes the probe allow rules into `.claude/settings.local.json` and checks the tools; restart the session after it
+adds allow rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`. The section below
+describes the dedicated machine.
 
 The computer kept for this work (D218): always on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; the repository and its worktrees (one per branch, each with its own
 `node_modules`: run `npm ci` in one only if its `package-lock.json` changed) are under `C:\Users\krams\code\`.

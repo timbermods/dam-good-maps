@@ -30,49 +30,21 @@
 // level), it is stored levelled into its hollow; other water the walk left in the basin goes
 // (`keepSealed`).
 
+import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
 import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
- *  not outlets. A partial obstacle (NaturalDam) raises its tile's level by its height. */
+ *  not outlets. A partial obstacle (NaturalDam) raises its tile's level by its height. In Rust
+ *  (analysis/rust/bridge.ts, D391). */
 export function spillLevels(m: WaterModel): Float64Array {
   const { W, H } = m;
   const N = W * H;
-  const level = new Float64Array(N);
-  for (let i = 0; i < N; i++) level[i] = m.floor[i] + (m.dam && m.dam[i] >= 0 ? m.dam[i] : 0);
   const emitting = new Uint8Array(N);
   for (const e of m.emitters) for (const i of e.cells) emitting[i] = 1;
-  const filled = level.slice();
-  const seen = new Uint8Array(N);
-  const heap = new MinHeap();
-  for (let i = 0; i < N; i++) {
-    const x = i % W;
-    const y = (i - x) / W;
-    if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !emitting[i]) {
-      seen[i] = 1;
-      heap.push(filled[i], i);
-    }
-  }
-  while (heap.size > 0) {
-    const c = heap.pop();
-    const lv = heap.lastKey;
-    const x = c % W;
-    const y = (c - x) / W;
-    for (let k = 0; k < 4; k++) {
-      let n: number;
-      if (k === 0) n = y > 0 ? c - W : -1;
-      else if (k === 1) n = x > 0 ? c - 1 : -1;
-      else if (k === 2) n = y < H - 1 ? c + W : -1;
-      else n = x < W - 1 ? c + 1 : -1;
-      if (n < 0 || seen[n]) continue;
-      seen[n] = 1;
-      if (filled[n] < lv) filled[n] = lv;
-      heap.push(filled[n], n);
-    }
-  }
-  return filled;
+  return analyze("spillLevels", W, H, [], [m.floor, m.dam ?? new Float64Array(N).fill(-1), emitting]);
 }
 
 /** The flow through each tile (`q`, blocks a second: the strength of every running emitter whose

@@ -15,6 +15,7 @@ Measures a finished map: reachability, walking distance, water storage, wood, re
 - `vertical.ts` `reachWalk` (walking distance over the whole map, for the intentions), `fallsOf` (surface drops between wet tiles).
 - `straight.ts` `straightness`, `tooStraight`: ruler-straight channels (D209), a generator stage only: no check measures it, so imported and edited maps are never held to it.
 - `edges.ts` (edge walls, D151), `ridge.ts` `damWalls` (D111), `sources.ts` `sourcesInFlow` (D171), `mechanics.ts` (maps a steady-state settle cannot show).
+- `rust/bridge.ts`: the six kernels that run in Rust (`rust/analysis`, D391): `distanceFrom`, `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap`, each export keeping its signature. A change to one is a change to `rust/analysis/src/lib.rs` and a re-pin of `tools/rust/analysis-pins.json`.
 - `storage.ts` (water storage near the start). How the start's planting is spread (D252) is measured by `tools/lib/startPlanting.ts`.
 
 **Tests**: `tests/contract/` (edges, mechanics, sources, start, narrows, resources, settings; `startPlanting` runs `tools/lib/startPlanting.ts`) and `tests/unit/` (straight, wood, startWater, colonyReach). Run `npx vitest run tests/unit/straight.test.ts`, or `npm run test:quick` for all.

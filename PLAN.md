@@ -113,6 +113,10 @@ Node:
     it replaced (tag `ts-forces-final`); their byte fixtures give the same results natively, in Node and in
     each engine (CI's `rust` job). The request, Keep, the build's last touches, the record and the showing stay
     in TypeScript (`src/core/forces/README.md`).
+  - Six analysis kernels run in Rust (`rust/analysis`, D391): `distanceFrom`, `walkDistance`, `landRegions`,
+    `spillLevels`, `damSites` and `roomMap`, byte for byte the TypeScript they replaced (tag
+    `ts-analysis-final`), with byte fixtures in CI's `rust` job like the forces'. The outcomes and M9b's
+    descriptive rows keep a TypeScript `distanceFrom`.
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.
