@@ -11,6 +11,7 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { integrityAt } from "../features/raster/terrain";
 import { forceMapOf } from "./carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "./carve/run";
+import { SOURCES_DEFAULT } from "./clear";
 import { edgeAim } from "./carve/edge";
 import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
 import { DepositRun, type DepositSettings } from "./deposit";
@@ -188,6 +189,8 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   // (a fault needs a point to start from, before nature reads it)
   if (req.verb === "quake" && !req.path?.length) return refuse("Draw a fault on the land");
   if (req.natural) req = natureOf(req, base);
+  // a new force clears the sources on the ground it changes unless its row says Ride (D474)
+  if (req.settings.sources === undefined) req = { ...req, settings: { ...req.settings, sources: SOURCES_DEFAULT } } as ForceRequest;
   // a Carve clicked where its water would run straight off the map carves inward (D360 (1a))
   if (req.natural && req.verb === "carve" && req.settings.mode === "unleash" && !req.source && !req.end) {
     const aim = edgeAim(base.heights, base.W, base.H, Math.round(req.origin[1]) * base.W + Math.round(req.origin[0]), req.settings.power);

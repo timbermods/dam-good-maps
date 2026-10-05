@@ -1,4 +1,5 @@
 // Rift presentation only. All geometry, terrain, rock and riders are planned in Rust (D438).
+import type { SourcesRule } from "./clear";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { Staged, type StagedRun, type ForceCue } from "./runs";
@@ -7,7 +8,7 @@ import { forceSettingsProblem } from "./settings";
 import type { Point } from "./quake";
 import { smoothstep } from "../math/clamp";
 import { transportRock } from "./rock";
-export interface RiftSettings { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; floor: number; seed: number }
+export interface RiftSettings { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; floor: number; seed: number; sources?: SourcesRule }
 export interface RiftIntent { path: Point[] }
 export const RIFT_DEFAULTS: RiftSettings = { mode: "drop", power: 70, size: null, walls: "auto", floor: 1, seed: 1 };
 export function validateRift(s: RiftSettings): void { const why = forceSettingsProblem("rift", s as unknown as Record<string, unknown>); if (why) throw new Error(why); }

@@ -207,6 +207,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
   never depend on the pace.
+- **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default, removes every water
+  and badwater source on a tile whose ground the force changes (a multi-tile source if any of its tiles changes);
+  **Ride** lets them move with the ground. The sources a force places itself always stay (Carve's river source,
+  Glaciate's meltwater, the source an Unleash starts from); every other object keeps riding the ground. A cleared
+  source goes at the step the force first changes one of its tiles, never at the end, and its water drains from
+  then as the game's would (a carve's live water stops its emitter at that step; the others' water flows on from the
+  final land). The operation keeps the choice and each cleared source with its step (`core/forces/clear.ts`), so
+  undo brings them back; an operation saved without the choice replays as Ride. Carve and Glaciate already take
+  every source on ground they change, so for them the two give the same map. Where the row shows the choice is the
+  page's.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -331,7 +341,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 - **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
   dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
-  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
+  a drag draws the fault.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.

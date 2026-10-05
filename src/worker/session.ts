@@ -53,6 +53,7 @@ import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams } from "../core/forces/keep";
+import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
@@ -1394,6 +1395,11 @@ export interface ForceFrame {
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
+   *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
+   *  frame on, even before `entities` (sent a few times a second) drops it; a carve's own water has
+   *  stopped its emitter from that step, so its water drains. */
+  cleared?: ClearedSource[];
 }
 
 export interface ForceStarted {
@@ -1616,6 +1622,9 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     head = { x: cue.x, y: cue.y, z: cue.z, dx: 1, dy: 0, width: Math.min(24, cue.size), event: "surge", cut: 0 };
     out = { verb: f.verb, steps: r.steps, done: r.done, reason: r.reason, planned: r.planned, total: r.planned ? r.total : 0, shown: r.shown, head, trail, cue };
   }
+  // the sources it has cleared by this frame (D474): gone from it, whether or not its objects are sent
+  const cleared = (f.play ? f.play.cleared : f.staged!.cleared).filter((c) => c.step <= out.shown);
+  if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     f.shown = map.heights.slice();
@@ -1667,7 +1676,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; sent?: Float64Array; emitters: Map<string, number>; stopped: number } | null = null;
 let forceWaterToken = 0;
 
 function startForceWater(f: NonNullable<typeof force>): void {
@@ -1678,7 +1687,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
   if (!p || p.run.settings.dry) return;
   const m = p.map;
   const model = modelOf(m);
-  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice() };
+  forceWater = { force: f, sim: new WaterSim(model, { depth: Float64Array.from(m.water.depth), contamination: Float64Array.from(m.water.contamination) }), model, ground: m.heights.slice(), emitters: emittersById(m.W, m.H, m.entities), stopped: 0 };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
@@ -1697,7 +1706,8 @@ function endForceWater(): void {
 }
 
 /** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
- *  flows before the cut); its floor brought to the ground shown. */
+ *  flows before the cut); its floor brought to the ground shown, and the sources the carve has
+ *  cleared by now stopped (D474: their water drains from that step, as the game's would). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
   const p = w.force.play!;
   if (p.shown === 0) return false;
@@ -1707,6 +1717,12 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
       w.model.floor[i] += h[i] - w.ground[i];
       w.ground[i] = h[i];
     }
+  // (the record is in step order: those up to the step shown)
+  const cleared = p.cleared;
+  while (w.stopped < cleared.length && cleared[w.stopped].step <= p.shown) {
+    const k = w.emitters.get(cleared[w.stopped++].id);
+    if (k !== undefined) w.model.emitters[k].strength = 0;
+  }
   return true;
 }
 
@@ -1841,7 +1857,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   if (f.carve) f.play?.plan();
   else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (its operation assembled in the core, forces/keep.ts)
-  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)) });
+  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
   if (!kept.ok) return refused([kept.error]);
   const params = kept.params;
   const water: WarmState = f.carve ? (flowed ?? f.carve.liveWater()) : f.staged!.liveWater();

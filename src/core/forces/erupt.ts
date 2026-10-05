@@ -11,6 +11,7 @@
 // cursor ring reads it as the pointer moves (`eruptAnatomy`). The TypeScript planner it replaced is tag
 // `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import { snapshotMap, type FullForceMap } from "./force";
 import { clamp, hash } from "./random";
@@ -32,6 +33,8 @@ export interface EruptIntent {
 
 export interface EruptSettings {
   mode: "vent" | "fissure";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   shape: "steep" | "broad";

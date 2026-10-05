@@ -20,6 +20,7 @@
 // TypeScript planner it replaced is tag `ts-forces-final`. The result is stored literally (force.ts), so
 // replay never runs it.
 
+import type { SourcesRule } from "../clear";
 import { modelOf } from "../../features/build";
 import type { EntitySpec } from "../../format/entities";
 import { warmState, type WarmState } from "../../sim/preview";
@@ -32,6 +33,8 @@ import type { Oxbow } from "./oxbow";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  sources?: SourcesRule;
   /** 0 (a creek) to 100 (a catastrophe). */
   power: number;
   /** 0 (straight) to 100 (winding). */

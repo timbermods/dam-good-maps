@@ -17,6 +17,8 @@
 // spreading of that last step).
 
 import type { EntitySpec } from "../../format/entities";
+import { clearable, type ClearedSource } from "../clear";
+import { footprint } from "../objects";
 import type { ForceHead, ForceMap } from "../force";
 import type { CarveRun, Station } from "./run";
 
@@ -106,8 +108,42 @@ export class CarvePlay {
       this.heads = r.heads;
       this.lengths = r.lengths;
       this.goneSpread = new Map(r.goneSpread);
+      this.clearAhead();
     }
     return this.run.done;
+  }
+
+  /** Sources set to Clear (D474): the sources the carve clears, each with the step of its showing
+   *  that first changes one of its tiles (as shown: from the end too, eased in a working area), once
+   *  it is worked out; its own sources and an unleashed one stay. */
+  readonly cleared: ClearedSource[] = [];
+  private readonly clearedAt = new Map<string, number>();
+
+  private clearAhead(): void {
+    const run = this.run;
+    if (run.settings.sources !== "clear") return;
+    const was = run.original;
+    const ease = run.ease;
+    const eased = (i: number, h: number) => (ease ? Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], h)) : h);
+    const final = run.map.heights;
+    const standing = new Set(run.map.entities.map((e) => e.id));
+    const own = new Set([run.sourceId, ...run.group.map((g) => g.id), ...(run.unleashedId ? [run.unleashedId] : [])]);
+    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, (i) => eased(i, final[i]) !== was[i], (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
+    if (!sources.length) return;
+    // (each tile's first step shown with its level changed)
+    const first = new Int32Array(was.length);
+    const changes = this.fromEnd ? this.backwardChanges() : this.changes;
+    for (let s = 1; s < changes.length; s++) {
+      const c = changes[s];
+      for (let j = 0; j < c.length; j += 2) if (!first[c[j]] && eased(c[j], c[j + 1]) !== was[c[j]]) first[c[j]] = s;
+    }
+    for (const e of sources) {
+      let at = this.total;
+      for (const i of footprint(this.map, e)) if (first[i] && first[i] < at) at = first[i];
+      this.cleared.push({ id: e.id, step: at });
+      this.clearedAt.set(e.id, at);
+    }
+    this.cleared.sort((a, b) => a.step - b.step);
   }
 
   /** Steps to show in all (once planned), and shown so far. */
@@ -142,13 +178,16 @@ export class CarvePlay {
     const W = this.map.W;
     let gone = 0;
     for (const [id, s] of removed) if (this.goneAt(s, id) <= k) gone++;
+    // (and the sources it clears, D474: each at its step as shown)
+    const cleared = this.clearedAt;
+    for (const c of this.cleared) if (c.step <= k) gone++;
     if (gone !== this.removedShown || this.riders) {
       this.removedShown = gone;
       const ownById = new Map<string, typeof this.run.group[number]>();
       for (const g of this.run.group) if (!ownById.has(g.id)) ownById.set(g.id, g);
       const unleashed = this.unleashedObject();
       this.map.entities = this.objects
-        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k))
+        .filter((e) => !(removed.has(e.id) && this.goneAt(removed.get(e.id)!, e.id) <= k) && !((cleared.get(e.id) ?? Infinity) <= k))
         .map((e) => {
           const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };

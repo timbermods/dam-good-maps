@@ -5,12 +5,15 @@
 // gives Try another somewhere else to go. Planned in Rust (rust/forces, D381; run.ts); the TypeScript
 // planner it replaced is tag `ts-forces-final`.
 
+import type { SourcesRule } from "../clear";
 import { forceSettingsProblem, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN } from "../settings";
 
 /** What the row sets (D289: Power, Size, Meltwater; Try another's seed), and the gesture's mode: a
  *  click Flows, a drag Aims (D258; there is no Mode control). */
 export interface GlaciateSettings {
   mode: "flow" | "aim";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, they ride. */
+  sources?: SourcesRule;
   power: number;
   /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */
   size: number | null;
