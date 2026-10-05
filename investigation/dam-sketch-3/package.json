@@ -1,0 +1,5 @@
+{
+ "name":"dam-sketch-3","private":true,"type":"module","license":"AGPL-3.0-or-later",
+ "scripts":{"prepare:kernel":"node prepare.mjs","test":"node --test --test-concurrency=4 engine.test.ts","typecheck":"tsc --noEmit -p tsconfig.json","predictions":"node predictions.ts"},
+ "devDependencies":{"@types/node":"24.19.0","typescript":"5.9.3"},"engines":{"node":">=24"}
+}

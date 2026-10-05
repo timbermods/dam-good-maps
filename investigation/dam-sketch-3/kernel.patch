@@ -1,0 +1,74 @@
+diff --git a/rust/water/src/columns.rs b/rust/water/src/columns.rs
+index f6b734b8..b124dfb6 100644
+--- a/rust/water/src/columns.rs
++++ b/rust/water/src/columns.rs
+@@ -26,6 +26,7 @@ impl Columns {
+ }
+ /// Typed object codes: 0 inert, 1 blockage, 2 dam, 3/4/5 overhang 2/3/4,
+ /// 6 drain, 7 clean source, 8 bad source, 9 clean seep, 10 bad seep, 11 aquifer.
++/// 12 finished player dam, 13 finished floodgate (strength is selected height, 0..3).
+ /// Inert objects are deliberately classified by the caller; unknown codes refuse.
+ #[derive(Clone, Debug)]
+ pub struct Object {
+@@ -66,10 +67,13 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+     let n = dimensions(w, h, mask)?;
+     if objects
+         .iter()
+-        .any(|o| o.kind > 11 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
++        .any(|o| o.kind > 13 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
+     {
+         return Err("Water object is unknown or malformed.");
+     }
++    if objects.iter().any(|o| o.kind == 13 && (o.strength > 3.0 || o.z as f64 + o.strength > OPEN as f64)) {
++        return Err("Floodgate height is invalid.");
++    }
+     let mut gaps: Vec<Vec<(i16, i16)>> = mask
+         .iter()
+         .map(|&m| {
+@@ -95,10 +99,12 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+     let mut dir_limit = BTreeMap::new();
+     let mut horizontal = BTreeMap::new();
+     for o in objects {
+-        if [1, 3, 4, 5, 6].contains(&o.kind) {
++        // Selected gate levels use the same full-obstacle path as a levee.
++        let full = if o.kind == 13 { o.strength.floor() as i16 } else if [1, 3, 4, 5, 6].contains(&o.kind) { 1 } else { 0 };
++        for dz in 0..full {
+             if let Some(i) = o.tile(0, 0, w, h) {
+                 let c = &mut gaps[i];
+-                let z = o.z;
++                let z = o.z + dz;
+                 // Match #71: an obstacle already inside a solid cell is inert.
+                 if let Some(k) = c.iter().position(|&(f, t)| f <= z && z < t) {
+                     let (f, t) = c[k];
+@@ -117,14 +123,16 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+                 }
+             }
+         }
+-        if o.kind == 2 {
++        if o.kind == 2 || o.kind == 12 || (o.kind == 13 && o.strength.fract() > 0.0) {
+             if let Some(i) = o.tile(0, 0, w, h) {
+-                height_limit.insert(o.z as usize * n + i, 0.65);
++                let (z, height) = if o.kind == 13 { (o.z + o.strength.floor() as i16, o.strength.fract()) } else { (o.z, 0.65) };
++                height_limit.insert(z as usize * n + i, height);
+             }
+         }
+         let planes: Vec<(i32, i16)> = match o.kind {
+             3..=5 => (0..o.kind as i32 - 1).map(|y| (y, o.z + 1)).collect(),
+             6 => vec![(1, o.z), (1, o.z + 1)],
++            12 | 13 => vec![(0, o.z)],
+             _ => vec![],
+         };
+         for (y, z) in planes {
+diff --git a/rust/water/src/stack_memory.rs b/rust/water/src/stack_memory.rs
+index 6241ec89..feb1fac5 100644
+--- a/rust/water/src/stack_memory.rs
++++ b/rust/water/src/stack_memory.rs
+@@ -68,7 +68,7 @@ impl Session {
+         }
+         let mut objects = Vec::new();
+         for p in self.objects.chunks_exact(8) {
+-            if !integer(p[0], 0.0, 11.0)
++            if !integer(p[0], 0.0, 13.0)
+                 || !integer(p[1], -1_048_576.0, 1_048_576.0)
+                 || !integer(p[2], -1_048_576.0, 1_048_576.0)
+                 || !integer(p[3], 0.0, 33.0)
