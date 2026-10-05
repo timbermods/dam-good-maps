@@ -37,6 +37,7 @@ as of 2026-10-04 and move.
 | Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | Back for another round (Canyon 27's gorge, Highlands 2 and 23 bare, a camera-pitch sheet); generator 0.9.0, renumbers if it merges second |
 | Parity core (D337–D339) | `feature/parity-core` | #269 | `approved` (#270: all four game-fidelity changes, the seep cap with its seep_pit re-pin); merging |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Adopted from #268's patch, reviewed; merged with parity core; the page adds the controls and effects after |
+| Carve's Maturity in Rust, the core half | `feature/carve-maturity` | to come | Adopted from #276's patch onto dev (Young by default, every old pin unchanged; Mature and Auto); the page adds the setting to Carve's More after |
 | Three core fixes | `fix/core-findings` | none yet | In progress: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
 | Islands round 5 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
