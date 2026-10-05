@@ -169,7 +169,7 @@ The editor's parts as they are now; their placement and styling are the design p
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate; Erode and Deposit when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
@@ -328,6 +328,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
+- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
+  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
+  unchanged. A click makes a short rupture there (at least a set length, even at the edge); a drag draws the fault.
+  **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
+  More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
+  `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
+- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
+  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
+  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
+  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
+  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
@@ -744,7 +757,10 @@ nothing replaces a document's generation under its log, at any size or setting, 
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
 away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
-leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385). Its slopes, trees
+and bushes stand exactly as stored, whatever today's rules would make, except where the edits changed a tile (its
+ground, or its water or soil against the stored map's): there a slope whose step went is gone for good, and a tree or
+bush is judged again, dead or alive, as a live map's is (D368 (10), D404).
 
 After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
@@ -811,8 +827,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
-  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
-  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
+  generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
+  stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
+  ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's

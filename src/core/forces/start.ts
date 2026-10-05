@@ -13,6 +13,8 @@ import { forceMapOf } from "./carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "./carve/run";
 import { edgeAim } from "./carve/edge";
 import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
+import { DepositRun, type DepositSettings } from "./deposit";
+import { RiftRun, type RiftSettings } from "./rift";
 import type { CraterSettings } from "./craterize";
 import { fissureBreadth, type EruptSettings, type Point } from "./erupt";
 import { plainEntities, type FullForceMap } from "./force";
@@ -32,6 +34,8 @@ import { CraterRun, EruptRun, QuakeRun, type Finalize, type StagedRun } from "./
  *  A5: only its showing; its operation and its land are the same). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
+  | { verb: "deposit"; settings: DepositSettings; path: Point[]; cut: number | null }
+  | { verb: "rift"; settings: RiftSettings; path: Point[]; cut: number | null }
   | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
   | { verb: "craterize"; settings: CraterSettings; origin: [number, number]; end?: [number, number]; cut: number | null }
   | { verb: "erupt"; settings: EruptSettings; origin: [number, number]; path?: Point[]; cut: number | null }
@@ -50,7 +54,7 @@ export type ForceRequest = (
   gesture?: number;
 };
 
-export type AnyForceSettings = CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
+export type AnyForceSettings = DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands
@@ -186,7 +190,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
-  const points = req.verb === "quake" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
+  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
@@ -256,6 +260,19 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         while (stops.length && aimed && stops.at(-1)![0] === aimed[0] && stops.at(-1)![1] === aimed[1]) stops.pop();
         const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(stops.length ? { via: stops.map(at) } : {}) }, keep);
         run.finalize = buildTouches(state, base.heights, () => run.footprint());
+        staged = run;
+        break;
+      }
+      case "deposit": {
+        map = stagedForceMap(base);
+        // Rust budgets material after Keep/Floor/area feathering; never weather or feather its result independently.
+        staged = new DepositRun(map, req.settings, { path: req.path }, keep, inside);
+        break;
+      }
+      case "rift": {
+        map = stagedForceMap(base);
+        const run = new RiftRun(map, req.settings, { path: req.path }, keep, inside);
+        run.finalize = buildTouches(state, base.heights);
         staged = run;
         break;
       }

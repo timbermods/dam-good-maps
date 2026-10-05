@@ -18,6 +18,8 @@ import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS, clickFault } from "../../src/core/forces/quake";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
+import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
+import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { keptForceParams } from "../../src/core/forces/keep";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { VERBS } from "../../src/core/forces/op";
@@ -131,7 +133,7 @@ function brush(n: number, tool: string, strength: number, size: number, k: numbe
   return { tool, strength, size, seed: 927 + k, ...(!target ? { level: 9 } : {}), dabs, ...(k % 2 ? { shape: "square" } : {}), ...(target ? { target: tool === "lower" ? 3 : 15 } : {}) } as any;
 }
 
-const verbs = ["carve", "craterize", "erupt", "quake", "glaciate"];
+const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
 
 function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
   const n = m.W;
@@ -147,6 +149,7 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
   let run: StagedRun & { planAll(): unknown };
   let settings: any;
   let intent: any;
+  const areaDepth = (verb === "rift" || verb === "deposit") && mode ? new Uint8Array(n*n).fill(2) : null;
   if (verb === "carve") {
     settings = nature.carveNature({ ...CARVE, mode: mode ? "aim" : "unleash", power, width: size === null ? null : Math.min(24, size / 4), seed, dry: mode === 2 } as any, ground);
     intent = { origin, ...(mode ? { end } : {}) };
@@ -166,6 +169,14 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     settings = nature.eruptNature({ ...ERUPT_DEFAULTS, mode: mode ? "fissure" : "vent", power, size, seed } as any, ground);
     intent = { origin, ...(mode ? { path } : {}) };
     run = new EruptRun(m, settings, intent);
+  } else if (verb === "deposit") {
+    settings = { ...DEPOSIT_DEFAULTS, power, size, seed };
+    intent = { path: mode ? path : [{ x, y }] };
+    run = new DepositRun(m, settings, intent, null, areaDepth);
+  } else if (verb === "rift") {
+    settings = { ...RIFT_DEFAULTS, power, size, seed };
+    intent = { path: mode ? path : [{ x, y }] };
+    run = new RiftRun(m, settings, intent, null, areaDepth);
   } else if (verb === "quake") {
     settings = nature.quakeNature({ ...QUAKE_DEFAULTS, mode: mode ? "slide" : "lift", power, seed } as any, ground);
     intent = { path, side: seed % 2 ? 1 : -1 };
@@ -176,14 +187,18 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     run = new GlaciateRun(m, settings, intent) as any;
   }
   run.planAll();
+  const frames: { stage: number; map: FullForceMap }[] = [];
+  if (verb === "rift" || verb === "deposit") {
+    while (!run.done) { run.step(); if ([1, Math.floor(run.total/2), run.total].includes(run.shown)) frames.push({ stage: run.shown, map: snapshotMap(run.map) }); }
+  }
   // (its record as the editor keeps it, from the request it would have sent: forces/keep.ts)
   const request = (
-    verb === "quake"
-      ? { verb, settings, path, side: intent.side, cut: null }
+    (verb === "quake" || verb === "rift" || verb === "deposit")
+      ? { verb, settings, path: intent.path, ...(verb === "quake" ? {side: intent.side} : {}), cut: null }
       : { verb, settings, origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path } : {}), cut: null }
   ) as ForceRequest;
   const kept = keptForceParams({ before: m, request, carve: null, staged: run });
-  return { map: run.final(), record: kept.ok ? kept.params : null };
+  return { map: run.final(), record: kept.ok ? kept.params : null, frames };
 }
 
 function water(m: any, ticks = 24) {
@@ -203,7 +218,7 @@ export function cases(smoke = false): Case[] {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
     if (grid) for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
-    for (const verb of verbs)
+    for (const verb of verbs.filter(v => v !== "rift" && v !== "deposit"))
       for (const power of grid ? [10, 55, 100] : [55])
         for (const size of grid ? [null, 12, 48] : [null]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
     out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? (n === 128 ? 12 : 6) : 120 });
@@ -218,6 +233,7 @@ export function cases(smoke = false): Case[] {
     out.push({ id: `scheduling/${n}`, kind: "scheduling", n });
     for (const reserve of ["scarce", "plenty"]) if (grid) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
   }
+  for (const verb of ["rift", "deposit"]) for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/${verb}/${power}/${mode}`, kind: "force", n: 64, verb, power, size: 22, mode });
   return out;
 }
 
@@ -314,6 +330,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
           const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2);
           m = f.map;
           record = f.record;
+          if ("frames" in f && f.frames) for (const frame of f.frames) await add(`${c.id}/${k}/playback/${frame.stage}`, frame.map, record);
         } catch (e) {
           if (c.kind !== "mixed" || !String((e as Error).message).includes("uphill")) throw e;
           record = { rejected: (e as Error).message, seed: 701 + k };

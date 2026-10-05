@@ -876,7 +876,7 @@ operation, D158, D342).
 
 Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
-The Rift, Carve's Maturity and Deposit are adopted directly in Rust, after the forces' port (D381).
+The Rift and Deposit's core half is adopted in Rust (#268: `rust/forces`, `core/forces/rift.ts` and `deposit.ts`, operations and checks); the page adds their controls and effects next. Carve's Maturity is adopted directly in Rust later (D381).
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

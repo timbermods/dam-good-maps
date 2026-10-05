@@ -139,6 +139,10 @@ export function glaciateNature(s: GlaciateDraft, g: ForceGround): GlaciateSettin
  *  sends no pins, and the base a pinned subset is applied over. */
 export function autoDetailsOf(verb: Verb): Record<string, null> {
   switch (verb) {
+    case "rift":
+      return { walls: null };
+    case "deposit":
+      return { channels: null };
     case "carve":
       return AUTO_CARVE_DETAILS;
     case "craterize":
@@ -161,6 +165,10 @@ export function natureOf(req: ForceRequest, base: { W: number; H: number; height
   const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
   const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
   switch (req.verb) {
+    case "rift":
+      return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };
+    case "deposit":
+      return { ...req, settings: { ...req.settings, channels: req.settings.channels ?? "auto" } };
     case "carve":
       return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
     case "craterize":

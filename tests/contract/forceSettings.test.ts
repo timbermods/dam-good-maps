@@ -10,6 +10,8 @@ import { ERUPT_DEFAULTS, validateErupt } from "../../src/core/forces/erupt";
 import type { ForceMap } from "../../src/core/forces/force";
 import { GLACIATE_DEFAULTS, glaciateProblem } from "../../src/core/forces/glaciate/model";
 import { forceSettingsProblems, VERBS, type Verb } from "../../src/core/forces/op";
+import { DEPOSIT_DEFAULTS, validateDeposit } from "../../src/core/forces/deposit";
+import { RIFT_DEFAULTS, validateRift } from "../../src/core/forces/rift";
 import { QUAKE_DEFAULTS, validateQuake } from "../../src/core/forces/quake";
 import { FORCE_SETTINGS, POWER_MAX, POWER_MIN, SEED_MAX } from "../../src/core/forces/settings";
 
@@ -22,6 +24,8 @@ const DEFAULTS: Record<Verb, Record<string, unknown>> = {
   erupt: { ...ERUPT_DEFAULTS },
   quake: { ...QUAKE_DEFAULTS },
   glaciate: { ...GLACIATE_DEFAULTS },
+  rift: { ...RIFT_DEFAULTS },
+  deposit: { ...DEPOSIT_DEFAULTS },
 };
 
 const W = 16;
@@ -39,6 +43,10 @@ function atStart(verb: Verb, s: Record<string, unknown>): string | null {
     }
   };
   switch (verb) {
+    case "deposit":
+      return thrown(() => validateDeposit(s as never));
+    case "rift":
+      return thrown(() => validateRift(s as never));
     case "carve":
       return thrown(() => new CarveRun(map, s as never, { origin: 5 * W + 5 }));
     case "craterize":

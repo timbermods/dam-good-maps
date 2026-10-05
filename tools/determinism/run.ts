@@ -27,6 +27,7 @@ function arg(name: string): string | null {
 }
 const smoke = process.argv.includes("--smoke");
 const serial = process.argv.includes("--serial");
+const noTimings = process.argv.includes("--no-timings");
 // --only: case ids containing any of these comma-separated texts (plain text, never a pattern)
 const only = arg("only") ? arg("only")!.split(",").filter(Boolean) : null;
 const outName = arg("out") ?? (smoke ? "smoke" : "full");
@@ -105,10 +106,10 @@ try {
   let list = caseList(smoke);
   if (only) list = list.filter((c) => only.some((t) => c.id.includes(t)));
   const mismatches: { case: string; label: string; engines: string[]; components: string[] }[] = [];
-  const t0 = performance.now();
+  const t0 = noTimings ? 0 : performance.now();
   const slowest: { case: string; seconds: number }[] = [];
   for (const [index, c] of list.entries()) {
-    const tc = performance.now();
+    const tc = noTimings ? 0 : performance.now();
     const responses = await runEngines(
       Object.entries(engines).map(([name, e]) => async () => {
         try {
@@ -123,7 +124,7 @@ try {
         }
       }),
     );
-    slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
+    if (!noTimings) slowest.push({ case: c.id, seconds: Math.round((performance.now() - tc) / 100) / 10 });
     const reference = responses[0];
     for (const other of responses.slice(1)) {
       if (!other.rows || !reference.rows) continue;
@@ -141,7 +142,7 @@ try {
     if (index % 20 === 0 || bad)
       console.log(`${index + 1}/${list.length} ${c.id}: ${responses.map((r) => (r.rows ? `${r.name} ${r.rows.length}` : `${r.name} ERROR ${r.error?.message}`)).join(", ")}; mismatches ${mismatches.length}`);
   }
-  const seconds = Math.round((performance.now() - t0) / 1000);
+  const seconds = noTimings ? null : Math.round((performance.now() - t0) / 1000);
   const summary = {
     schema: 1,
     smoke,
@@ -159,7 +160,7 @@ try {
   const errors = Object.values(engines).flatMap((e) => e.errors);
   for (const m of mismatches.slice(0, 40)) console.error(`MISMATCH ${m.case} ${m.label} (${m.engines.join(" vs ")}): ${m.components.join(", ")}`);
   for (const e of errors.slice(0, 40)) console.error(`ERROR ${e.case}: ${e.message}`);
-  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors, ${seconds} s`);
+  console.log(`${list.length} cases, ${Object.entries(engines).map(([n, e]) => `${n} ${e.version}: ${e.rows.length} checkpoints`).join("; ")}; ${mismatches.length} mismatches, ${errors.length} errors${noTimings ? "" : `, ${seconds} s`}`);
   failed = mismatches.length > 0 || errors.length > 0;
 } finally {
   await Promise.all(browsers.map((b) => b.close()));

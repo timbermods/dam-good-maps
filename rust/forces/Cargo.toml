@@ -1,6 +1,6 @@
 [package]
 name = "forces"
-description = "The forces of nature (Carve, Craterize, Erupt, Quake, Glaciate), the same bytes as the TypeScript they replaced"
+description = "The forces of nature: portable typed Rust computation and playback records"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

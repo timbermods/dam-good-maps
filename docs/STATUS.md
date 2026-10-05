@@ -36,7 +36,7 @@ as of 2026-10-04 and move.
 | Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
 | Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | Back for another round (Canyon 27's gorge, Highlands 2 and 23 bare, a camera-pitch sheet); generator 0.9.0, renumbers if it merges second |
 | Parity core (D337–D339) | `feature/parity-core` | #269 | `approved` (#270: all four game-fidelity changes, the seep cap with its seep_pit re-pin); merging |
-| Rift and Deposit in Rust | `feature/rift-deposit` | none yet | Being adopted from #268's patch; the page adds the controls after |
+| Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Adopted from #268's patch, reviewed; merged with parity core; the page adds the controls and effects after |
 | Three core fixes | `fix/core-findings` | none yet | In progress: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
 | Islands round 5 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
@@ -55,7 +55,7 @@ as of 2026-10-04 and move.
 ## Queued
 
 1. The Rust order: the water (#212) and the forces (#254) are merged (`ts-water-final`, `ts-forces-final` tagged), and so is
-   the stacked water crate (#260, no wiring yet). Next: Rift and Deposit (#268, being adopted on `feature/rift-deposit`), then
+   the stacked water crate (#260, no wiring yet). Next: Rift and Deposit (#268, adopted in #273), then
    parity core's adoption (#269, waiting on Kyler, #270). The forces crate keeps its own copy of the water kernel, to be shared.
 2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
    (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
