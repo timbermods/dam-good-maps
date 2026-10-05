@@ -8,6 +8,8 @@ import { gunzipSync, strFromU8 } from "fflate";
 
 export interface YourMapEntry {
   id: string;
+  /** Storage commit token, independent of the worker revision (two tabs may share a revision). */
+  storageVersion?: string;
   name: string;
   /** Where the map came from (a generated map, a real place, an imported .timber). */
   kind: "generated" | "place" | "import";
@@ -66,7 +68,7 @@ export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMa
 
 /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage
  *  at all (a private window, blocked site data). */
-export type StoreResult = { ok: true } | { ok: false; reason: "full" | "unavailable" };
+export type StoreResult = { ok: true; /** the map's new commit token, after a write */ storageVersion?: string } | { ok: false; reason: "full" | "unavailable" | "conflict" };
 
 /** A removed map, held so the removal can be undone. */
 export interface Removed {
@@ -77,9 +79,10 @@ export interface Removed {
 /** The words for a save that failed (D234 (5)). */
 export function storeProblem(r: StoreResult): string | null {
   if (r.ok) return null;
+  if (r.reason === "conflict") return "Changed in another tab. Download the project to keep your edits.";
   return r.reason === "full"
-    ? "Browser storage is full, so Your maps can't keep this map. Delete some maps, or download them as project files."
-    : "This browser isn't keeping Your maps (private window or blocked site data). Download the project file to keep a map.";
+    ? "Browser storage is full. Delete some maps or download this one."
+    : "This browser can't keep Your maps. Download the project to keep this one.";
 }
 
 /** The list's order: newest edit first. */
@@ -93,8 +96,11 @@ export interface YourMapsStore {
   list(): Promise<YourMapEntry[]>;
   /** A map's project file, or null. */
   project(id: string): Promise<Uint8Array | null>;
-  /** Keep a map (a new one, or a new version of one). */
-  put(entry: YourMapEntry, project: Uint8Array): Promise<StoreResult>;
+  /** Keep a map (a new one, or a new version of one); with `expected`, only over that storage version (null: a new
+   *  map, or one saved before tokens), else a conflict (another tab changed or deleted it). A token this tab replaced
+   *  itself (its own save, rename, mark or restore since) still counts as the map's. Every write gives the map a new
+   *  token, in the result (`storageVersion`). */
+  put(entry: YourMapEntry, project: Uint8Array, expected?: string | null): Promise<StoreResult>;
   rename(id: string, name: string): Promise<StoreResult>;
   /** The latest version was saved to Timberborn. */
   markSaved(id: string, revision: number): Promise<StoreResult>;

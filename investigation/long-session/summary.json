@@ -1,0 +1,325 @@
+{
+  "environment": {
+    "kind": "environment",
+    "at": "2026-10-05T08:44:30.069Z",
+    "elapsedMs": 2973,
+    "phase": "opening",
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "browser": "154.0.8037.95",
+    "hardwareConcurrency": 4,
+    "duration": 3600000,
+    "rounds": 50
+  },
+  "complete": true,
+  "samples": 160,
+  "missingWorkerSamples": 3,
+  "elapsedMs": 3600018,
+  "counts": {
+    "switches": 50,
+    "generates": 20,
+    "brushes": {
+      "Raise": 14,
+      "Lower": 14,
+      "Flatten": 14,
+      "Smooth": 14,
+      "Naturalize": 14
+    },
+    "forces": {
+      "Carve": 8,
+      "Craterize": 1,
+      "Erupt": 1,
+      "Rift": 1,
+      "Quake": 1,
+      "Glaciate": 1,
+      "Deposit": 1
+    },
+    "undo": 82,
+    "redo": 82,
+    "weatherSteps": 34
+  },
+  "heapMiB": {
+    "first": 26.224,
+    "last": 46.59,
+    "min": 17.745,
+    "max": 55.257
+  },
+  "liveWorkers": {
+    "first": 6,
+    "last": 6,
+    "min": 6,
+    "max": 7
+  },
+  "gpu": {
+    "geometries": {
+      "first": 152,
+      "last": 166,
+      "min": 64,
+      "max": 169
+    },
+    "textures": {
+      "first": 16,
+      "last": 16,
+      "min": 16,
+      "max": 16
+    },
+    "programs": {
+      "first": 16,
+      "last": 24,
+      "min": 16,
+      "max": 25
+    },
+    "buffers": {
+      "first": 682,
+      "last": 742,
+      "min": 371,
+      "max": 776
+    }
+  },
+  "wasm": {
+    "1:waterStrip:water": {
+      "first": 9.5,
+      "last": 16.438,
+      "min": 9.5,
+      "max": 16.438,
+      "lastGrowthSeconds": 1035.965
+    },
+    "2:generator:water": {
+      "first": 47.813,
+      "last": 59.125,
+      "min": 47.813,
+      "max": 59.125,
+      "lastGrowthSeconds": 2028.062
+    },
+    "3:checks:water": {
+      "first": 23.938,
+      "last": 53.75,
+      "min": 23.938,
+      "max": 53.75,
+      "lastGrowthSeconds": 3138.335
+    },
+    "4:waterStrip:water": {
+      "first": 13.25,
+      "last": 24.375,
+      "min": 13.25,
+      "max": 24.375,
+      "lastGrowthSeconds": 601.359
+    },
+    "2:generator:forces": {
+      "first": 8.875,
+      "last": 16.563,
+      "min": 8.875,
+      "max": 16.563,
+      "lastGrowthSeconds": 514.827
+    },
+    "14:generator:water": {
+      "first": 14.938,
+      "last": 14.938,
+      "min": 14.938,
+      "max": 14.938,
+      "lastGrowthSeconds": 0
+    }
+  },
+  "windows": [
+    {
+      "startSeconds": 0,
+      "endSeconds": 600,
+      "samples": 27,
+      "heapMiB": {
+        "first": 26.224,
+        "last": 20.251,
+        "min": 17.745,
+        "max": 53.202
+      },
+      "geometries": {
+        "first": 152,
+        "last": 95,
+        "min": 64,
+        "max": 164
+      },
+      "buffers": {
+        "first": 682,
+        "last": 499,
+        "min": 371,
+        "max": 776
+      },
+      "liveWorkers": {
+        "first": 6,
+        "last": 6,
+        "min": 6,
+        "max": 7
+      }
+    },
+    {
+      "startSeconds": 600,
+      "endSeconds": 1200,
+      "samples": 29,
+      "heapMiB": {
+        "first": 21.696,
+        "last": 39.086,
+        "min": 19.983,
+        "max": 54.124
+      },
+      "geometries": {
+        "first": 148,
+        "last": 92,
+        "min": 74,
+        "max": 169
+      },
+      "buffers": {
+        "first": 656,
+        "last": 468,
+        "min": 406,
+        "max": 763
+      },
+      "liveWorkers": {
+        "first": 7,
+        "last": 6,
+        "min": 6,
+        "max": 7
+      }
+    },
+    {
+      "startSeconds": 1200,
+      "endSeconds": 1800,
+      "samples": 18,
+      "heapMiB": {
+        "first": 40.819,
+        "last": 28.112,
+        "min": 24.536,
+        "max": 47.32
+      },
+      "geometries": {
+        "first": 92,
+        "last": 125,
+        "min": 87,
+        "max": 167
+      },
+      "buffers": {
+        "first": 468,
+        "last": 753,
+        "min": 457,
+        "max": 770
+      },
+      "liveWorkers": {
+        "first": 6,
+        "last": 6,
+        "min": 6,
+        "max": 6
+      }
+    },
+    {
+      "startSeconds": 1800,
+      "endSeconds": 2400,
+      "samples": 29,
+      "heapMiB": {
+        "first": 23.769,
+        "last": 24.534,
+        "min": 23.602,
+        "max": 49.09
+      },
+      "geometries": {
+        "first": 167,
+        "last": 132,
+        "min": 117,
+        "max": 168
+      },
+      "buffers": {
+        "first": 745,
+        "last": 758,
+        "min": 446,
+        "max": 758
+      },
+      "liveWorkers": {
+        "first": 6,
+        "last": 6,
+        "min": 6,
+        "max": 7
+      }
+    },
+    {
+      "startSeconds": 2400,
+      "endSeconds": 3000,
+      "samples": 28,
+      "heapMiB": {
+        "first": 26.517,
+        "last": 33.855,
+        "min": 23.922,
+        "max": 43.156
+      },
+      "geometries": {
+        "first": 132,
+        "last": 119,
+        "min": 91,
+        "max": 167
+      },
+      "buffers": {
+        "first": 758,
+        "last": 697,
+        "min": 473,
+        "max": 758
+      },
+      "liveWorkers": {
+        "first": 6,
+        "last": 6,
+        "min": 6,
+        "max": 7
+      }
+    },
+    {
+      "startSeconds": 3000,
+      "endSeconds": 3600,
+      "samples": 28,
+      "heapMiB": {
+        "first": 36.801,
+        "last": 43.587,
+        "min": 23.001,
+        "max": 55.257
+      },
+      "geometries": {
+        "first": 119,
+        "last": 166,
+        "min": 77,
+        "max": 168
+      },
+      "buffers": {
+        "first": 697,
+        "last": 742,
+        "min": 424,
+        "max": 746
+      },
+      "liveWorkers": {
+        "first": 6,
+        "last": 6,
+        "min": 6,
+        "max": 7
+      }
+    }
+  ],
+  "errors": [
+    {
+      "kind": "fatal",
+      "at": "2026-10-05T09:06:41.698Z",
+      "elapsedMs": 1317268,
+      "error": "TimeoutError: locator.click: Timeout 90000ms exceeded."
+    },
+    {
+      "kind": "fatal",
+      "at": "2026-10-05T09:11:36.745Z",
+      "elapsedMs": 1612315,
+      "error": "TimeoutError: page.waitForFunction: Timeout 90000ms exceeded."
+    }
+  ],
+  "recoveries": [
+    {
+      "at": "2026-10-05T09:09:46.557Z",
+      "elapsedMs": 1502127,
+      "reason": "Dismissed a background-generation offer that intercepted a brush click; same page, browser and original clock"
+    },
+    {
+      "at": "2026-10-05T09:13:32.408Z",
+      "elapsedMs": 1727978,
+      "reason": "Accepted the completed no-op Naturalize stroke; same page, browser and original clock"
+    }
+  ],
+  "warnings": []
+}

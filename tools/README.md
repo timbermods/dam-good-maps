@@ -64,3 +64,8 @@ and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixt
 natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
 the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
 `npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.
+
+The Rust analysis (D391): the same for its six kernels: the committed Wasm `src/core/analysis/rust/analysisWasm.ts`,
+`analysis-batch`, and byte fixtures (`tools/rust/analysis-jobs.ts`) against `tools/rust/analysis-pins.json`, taken
+when the TypeScript kernels (tag `ts-analysis-final`) gave the same. A deliberate change to a kernel re-pins them:
+`npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`.
