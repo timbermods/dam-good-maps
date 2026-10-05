@@ -757,7 +757,10 @@ nothing replaces a document's generation under its log, at any size or setting, 
 generator that keeps the edits. Generate makes a new map beside the edited one, which stays saved and one step
 away; an older map opens exactly as it was saved, edits included: a project made with an older generator opens on
 its stored map, and a generated feature the player changed (a moved start, a deleted river, a forest's density)
-leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385).
+leaves the stored map and is built as it now says; it stays editable like any other (D336 (2), D385). Its slopes, trees
+and bushes stand exactly as stored, whatever today's rules would make, except where the edits changed a tile (its
+ground, or its water or soil against the stored map's): there a slope whose step went is gone for good, and a tree or
+bush is judged again, dead or alive, as a live map's is (D368 (10), D404).
 
 After a reopen one undo takes back a whole step: the project saves where each step begins, with its label, as an optional field per logged operation (D456); old projects open one operation per step. An imported map's own water is kept in the live water and the export alike, an unfed pond included (D457); generated maps and Real places keep D420.
 
@@ -824,8 +827,9 @@ opened, are listed but never blamed on the player's edits and do not block its e
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
-  generated spring's row of sources is placed on the ground as generated (`GeneratedField.heights`), so it keeps its
-  sources whatever an edit does to the ground under them; each stands on the ground as it is now (D447). What
+  generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
+  stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
+  ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
   holds ground can move on, so nothing is kept from standing by what merely stands there now: the objects a force
   carries leave their ground together and land where it put them, one it put down on the start or on a slope the
   build keeps is listed as lost (`forces/result.ts` `literalOf`), and moving the start removes the generation's
