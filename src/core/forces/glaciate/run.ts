@@ -152,9 +152,11 @@ export class GlaciateRun extends Staged implements StagedRun {
       this.map = snapshotMap(p.map);
       return;
     }
+    // After the first retreat stage only the cue changes, until the final water arrives.
+    if (stage > ADVANCE_STEPS + 1) return;
     const b = this.before;
     const f = p.map;
-    const m = snapshotMap(b);
+    const m = snapshotMap<FullForceMap>({ ...b, fallen: [] });
     const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
     const retreating = stage > ADVANCE_STEPS;
     for (let i = 0; i < m.heights.length; i++) {

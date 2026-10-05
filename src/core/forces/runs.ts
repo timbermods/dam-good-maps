@@ -309,7 +309,7 @@ export class EruptRun extends Staged implements StagedRun {
       this.map = snapshotMap(this.plan0.map);
       return;
     }
-    const m = stageMap(this.before, this.plan0.map, t);
+    const m = stageMap(this.before, this.plan0.map, t, this.before.water);
     // an object changes (falls, goes, rides the rock) only once the eruption reaches it: the heat's
     // arrival, from the vent outward (or along a fissure); the water waits for the final land
     const heat = this.heat()!;
@@ -324,7 +324,6 @@ export class EruptRun extends Staged implements StagedRun {
     const had = new Set(this.before.fallen.map((f) => f.id));
     const ids = new Set(m.entities.map((e) => e.id));
     m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
-    m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
   }
 
@@ -437,7 +436,8 @@ export class QuakeRun extends Staged implements StagedRun {
       m = snapshotMap(p.map);
       src.set(p.source);
     } else {
-      m = snapshotMap(this.before);
+      // The riders below replace every object: avoid a discarded JSON round trip.
+      m = snapshotMap({ ...this.before, entities: [] });
       this.shift(f, m.heights, m.lava, src);
       // (what the fault does besides moving the block, its rivers joined again across it and its
       // tear, D368 (9): each part shown as the slide passes it, never all at the end)
@@ -473,6 +473,9 @@ export class QuakeRun extends Staged implements StagedRun {
     this.map = m;
   }
 
+  /** Each tile's travel for the current plan (computed once per plan; a repaint replaces the plan). */
+  private travel0: { plan: QuakePlan; values: Float64Array } | null = null;
+
   /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
    *  from (of `this.before`). */
   private shift(f: number, heights: Uint8Array, lava: Uint32Array | null, src: Uint32Array | null): void {
@@ -488,6 +491,8 @@ export class QuakeRun extends Staged implements StagedRun {
       if (lava) lava[j] = this.before.lava[s];
       if (src) src[j] = s;
     }
+    if (this.travel0?.plan !== p) this.travel0 = { plan: p, values: Float64Array.from(p.dx, (dx, i) => portable.hypot(dx, p.dy[i])) };
+    const travelValues = this.travel0.values;
     const priority = new Float32Array(N).fill(-1);
     for (let i = 0; i < N; i++) {
       if (!p.dx[i] && !p.dy[i]) continue;
@@ -495,7 +500,7 @@ export class QuakeRun extends Staged implements StagedRun {
       const y = Math.floor(i / W) + off(p.dy[i]);
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const j = y * W + x;
-      const travel = portable.hypot(p.dx[i], p.dy[i]);
+      const travel = travelValues[i];
       if (travel < priority[j]) continue;
       priority[j] = travel;
       heights[j] = this.before.heights[i];
