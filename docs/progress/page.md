@@ -3,6 +3,16 @@
 "The page is the editor" with the design pass (D330, D384, D388), on `feature/page`. Design decisions are in
 [DESIGN.md](../../DESIGN.md); this file is the work. The milestone session folds both into PLAN when the page merges.
 
+## Now (2026-10-05, the page session on Kyler's PC, worktree `C:\Users\Kyler\code\DamGoodMaps-page`)
+
+Done and on /preview/: every tool's settings back on two rows (120px; Try another one row at cells 12–13, Sources at
+10–11); the open legend clear of the corner's second row; CI's test updates (Select at rest, only edited maps kept,
+seven forces, the Real places panel) and a reopened map kept at its opening version; #310 F1 (saving waits for a force
+at work); the saving review's page half (#317) with the conflict line in the store's words, messages above the bar;
+Kyler's three answers (no keys for Rift and Deposit, Rename stops at two lines, no undo after Generate). Next: #312's
+page.patch once #311 merges into dev. The local dev server for this worktree runs on port 5180 (the app's preview tool
+serves the main clone). Below: the previous session's handoff, its queue now done but for #312.
+
 ## Handoff (2026-10-05, the page session that built Rift, Deposit, Sources and Your maps; read this first)
 
 Branch `feature/page`, PR #163 (labels `approved`, `needs-kyler`), last push 3c9402d6. Worktree
