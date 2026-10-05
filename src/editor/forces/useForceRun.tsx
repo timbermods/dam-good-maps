@@ -9,7 +9,7 @@ import { plain } from "../panels";
 import { ForceDriver, paceOf } from "../forceDriver";
 import { carveDetails, carveSettingsOf, DEFAULT_CARVE } from "../CarveRow";
 import { craterDetails, craterSettingsOf, eruptDetails, eruptSettingsOf, quakeDetails } from "../ForceRows";
-import { depositDetails, glaciateDetails, glaciateSettingsOf, riftDetails } from "../ForceRows";
+import { depositDetails, glaciateDetails, glaciateSettingsOf, riftDetails, type ForceSources } from "../ForceRows";
 import { depositWidth } from "../../core/forces/deposit";
 import { riftWidth } from "../../core/forces/rift";
 import { sizeOf as glacierSize } from "../../core/forces/glaciate/model";
@@ -188,8 +188,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
                         : verb === "deposit"
                           ? depositDetails(depositUiRef.current)
                           : undefined;
-          // (and the row's Power and Size as they are now, D361 (1): Try another answers them)
-          const now = verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {};
+          // (and the row's Power, Size and Sources as they are now, D361 (1), D474: Try another answers them)
+          const now = { ...(verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {}), ...(verb ? { sources: forceSourcesOf(verb) } : {}) };
           return api.forceAgain(pins && { ...pins, ...now, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
         }
         return api.forceStart({ ...q, gesture });
@@ -558,6 +558,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     else if (verb === "rift") setRiftUi({ ...riftUiRef.current, size });
     else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, size });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, size }));
+  }
+  /** A force's Sources as its row has it (D474). */
+  function forceSourcesOf(verb: Verb): ForceSources {
+    return (verb === "carve" ? carveUiRef : verb === "craterize" ? craterUiRef : verb === "erupt" ? eruptUiRef : verb === "quake" ? quakeUiRef : verb === "rift" ? riftUiRef : verb === "deposit" ? depositUiRef : glaciateUiRef).current.sources;
   }
   function forcePowerOf(verb: Verb): number {
     return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : glaciateUiRef.current.power;

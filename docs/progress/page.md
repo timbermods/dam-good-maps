@@ -751,3 +751,15 @@ for the milestone session's word that #268's adoption is in dev.
   "Delete N maps?". The confirm dialog now sets its focus itself (autoFocus worked once a page) and Esc cancels it.
 - **Delete key:** decided by what is under the pointer when it's pressed, or a tile focused with Tab.
 - "Undo to get <name> back" after a Generate doesn't exist in the page; only Cancel does.
+
+## Three settings rows and the forces' Sources (2026-10-05)
+
+- Kyler chose a third row for every tool (one height kept): 175px, rows of 53px (a plate's name, gap and control
+  exactly; 54 left the map generator a pixel short at 1920×1080). Every force's Try another at cells 10–13 across rows 2
+  and 3; the brushes two settings a row (Brush alone on the third row without Flatten's Steps); Select's actions over
+  rows 2 and 3. Sources (Ride, Clear; Clear by default) in every force, remembered per force, sent as
+  `settings.sources` (D474), Try another sending the row's choice. Checked in Chrome: Clear removes a struck source,
+  Ride keeps it.
+- The readout over the minimap is kept left of the settings (it wraps instead; it reached under them at 1920 with a
+  long readout); the panels reserve two readout lines where it is narrow; their room is measured against the dock's
+  pieces, not its whole width (the first run's hints sit centred, not under the panels).

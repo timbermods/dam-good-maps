@@ -105,8 +105,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
   minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
   (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
-  120px, for every tool; two rows on one grid, the bar's own 13 cells, every group spanning whole cells, so each edge
-  in one row lines up with the other and with the bar; no empty cells, a tool with fewer settings giving each more
+  175px, for every tool; three rows of 53px on one grid (Kyler, 2026-10-05: the third for the forces' Sources), the
+  bar's own 13 cells, every group spanning whole cells, so each edge in one row lines up with the others and with the
+  bar; every force's Try another at cells 10–13 across rows 2 and 3; no empty cells, a tool with fewer settings giving each more
   room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
   bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
   toggle is Off and On); **Auto**, one small word in the same place on every control that has it, is lit while the
@@ -260,6 +261,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
+- **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
+  ground) or **Clear** (the default: the force removes the sources and seeps on ground it changes), in the brushes'
+  Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
+  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
   mode: a click unleashes a carve, strikes, vents or flows; a drag draws a line freehand (below). Everything else

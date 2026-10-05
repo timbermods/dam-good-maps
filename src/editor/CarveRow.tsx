@@ -68,6 +68,7 @@ export function carveSettingsOf(u: CarveUi, aimed = false): CarveSettings {
     banks: u.banks,
     seed: 0,
     walls: u.walls,
+    sources: u.sources,
     defyGravity: aimed,
     dry: u.dry,
     layers: true,

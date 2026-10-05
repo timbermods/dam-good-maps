@@ -133,15 +133,15 @@ export const depositDetails = (u: DepositUi): Record<string, unknown> => ({ chan
  *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
  *  makes one since D368 (7); the engine keeps it for the operations already saved); `fissure` a
  *  painted fissure. */
-export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ mode: aimed ? "aim" : "strike", power: u.power, size: u.size, walls: u.walls, centre: u.centre, debris: u.debris, rays: u.rays, seed: CRATER_DEFAULTS.seed }) as CraterSettings;
-export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges, seed: ERUPT_DEFAULTS.seed }) as EruptSettings;
-export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed }) as QuakeSettings;
+export const craterSettingsOf = (u: CraterUi, aimed = false): CraterSettings => ({ mode: aimed ? "aim" : "strike", power: u.power, size: u.size, walls: u.walls, centre: u.centre, debris: u.debris, rays: u.rays, seed: CRATER_DEFAULTS.seed, sources: u.sources }) as CraterSettings;
+export const eruptSettingsOf = (u: EruptUi, fissure = false): EruptSettings => ({ mode: fissure ? "fissure" : "vent", power: u.power, size: u.size, shape: u.shape, summit: u.summit, flows: u.flows, ridges: u.ridges, seed: ERUPT_DEFAULTS.seed, sources: u.sources }) as EruptSettings;
+export const quakeSettingsOf = (u: QuakeUi): QuakeSettings => ({ mode: u.mode, power: u.power, scarp: u.scarp, seed: QUAKE_DEFAULTS.seed, sources: u.sources }) as QuakeSettings;
 /** (A glacier's mode is its gesture's: the worker sets it, D258; its details as the row has them, D309.) */
-export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed }) as GlaciateSettings;
+export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: "flow", power: u.power, size: u.size, meltwater: u.meltwater, benches: u.benches, steps: u.steps, tarn: u.tarn, scree: u.scree, seed: GLACIATE_DEFAULTS.seed, sources: u.sources }) as GlaciateSettings;
 
 /** A rift's and a deposit's settings (their gesture's line is the worker's; Auto is the land's: "auto"). */
-export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, power: u.power, size: u.size, walls: u.walls ?? "auto" });
-export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto" });
+export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, power: u.power, size: u.size, walls: u.walls ?? "auto", sources: u.sources });
+export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto", sources: u.sources });
 
 /** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
  *  Lift still drawn: Esc cancels it), and Revert. */
