@@ -6,3 +6,4 @@ import { stripHelper } from "../../src/core/sim/parallel";
 
 const handle = stripHelper();
 parentPort!.on("message", handle);
+process.on("uncaughtException", () => handle.died());
