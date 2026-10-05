@@ -3,6 +3,72 @@
 "The page is the editor" with the design pass (D330, D384, D388), on `feature/page`. Design decisions are in
 [DESIGN.md](../../DESIGN.md); this file is the work. The milestone session folds both into PLAN when the page merges.
 
+## Handoff (2026-10-05, the page session that built Rift, Deposit, Sources and Your maps; read this first)
+
+Branch `feature/page`, PR #163 (labels `approved`, `needs-kyler`), last push 3c9402d6. Worktree
+`C:\Users\krams\code\DamGoodMaps-page` on the old machine. /preview/ is the page's: run
+`gh workflow run deploy.yml --ref main -f preview_ref=feature/page` after each push. Read CLAUDE.md, AGENTS.md,
+DESIGN.md and EDITOR_PLAN.md, then the Coordination issue #236 ("To page" notes).
+
+### The queue, in order
+
+1. **The saving review's page half,** once the milestone merges #317 (fix/saving-review, its half of
+   investigation/saving-review). The patch is `investigation/saving-review/page.patch` at 60686490, written against
+   32e07fe9: port it by hand into `src/ui/App.tsx` as it is now. Since then: only edited maps are kept (`kept`,
+   `openedVersion` replace `unsaved`; no 4-second new-map save, so fit F1's flush to saves the page actually starts);
+   `deleteMaps` (several ids) replaces `deleteMap` (use `saver.discard` for each, as the patch does for one);
+   `snapshot` already waits for queued edits and keeps its map (map switch, below), so take only the patch's token
+   and `p.name`/`p.version` parts; `run` and `cancelMaking` carry the page hunt's `backReady` (keep it; fold the
+   patch's "a newly failed save blocks Generate" into `run`). Then: the leave warning (`beforeunload`, only while an
+   edit isn't saved or a save failed) and a save on `visibilitychange` hidden; the two-tab conflict: Kyler wants a
+   short line ("Changed in another tab: this version stays here") with a **Download** button for the project, not the
+   long store wording. Port its regression tests (`investigation/saving-review/saving.test.ts`) into tests/unit.
+   Capture the conflict line at 1920×1080. needs-kyler on #163 with that push.
+2. **Codex's page QA (#310, investigation/page-qa, 1cece05f) F1, adopted by Kyler 2026-10-05:** Save project, Save to
+   Timberborn and Download .timber wait for a running force to finish and be kept. Its page patch, ported to the
+   current page (`src/editor/save/useSave.ts` already queues Save project behind edits: the page hunt). **F2 is not
+   adopted** (no undo across maps).
+3. **Codex's force playback (#312, investigation/force-playback, 34a34bdf) page.patch, adopted:** apply after #311
+   (fix/forces-smooth, the renderer's) merges into dev and before the worker part (the milestone's).
+
+### Waiting on Kyler (his eye on /preview/)
+
+- Every tool's settings rows sharing their edges (three rows, one height for every tool; Try another at cells 10–13
+  over rows 2–3); the brushes' Brush alone on the third row without Flatten's Steps.
+- Your maps' names in full (two lines kept, the size under them, every tile 206px); selection, Rename and Delete.
+- The water row (Drought, Badtide and the day box; "Settling…" in the header's dot; a typed day on double-click).
+- The map switch (no edit lost when another map is clicked at once).
+- The forces' Sources (Ride, Clear), Rift and Deposit.
+
+### What /preview/ shows (3c9402d6)
+
+Everything above, on dev as of b61cc0f2 (multi-core water, Rift and Deposit with Sources, D474, map switch speed's
+core half, the merge review). Rift and Deposit draw no effects on the land yet (the renderer's).
+
+### CI on #163 is red, and why (last finished run: 96f36792)
+
+Most failures are tests meeting the page's newer behaviour, not page bugs; each needs its test updated to the
+decision it tests (CLAUDE.md: update, never weaken):
+- `tests/e2e/helpers.ts` `toolPutAway` (from dev) expects `renderer.tool === null` after Esc, but Select is always in
+  hand on the page: clearSources, editor (open → edit → Generate). Fix the helper for the page.
+- Edits by clicking the map now land under the taller settings (three rows): editor "a click picks no generated
+  feature", generate-new-map, start-edit, select "Delete sources" (its Delete button moved to row 3). Move the clicks
+  or use the test hooks.
+- Only edited maps are kept (D330): legend.spec "the replaced one kept in Your maps" expects the unedited one listed.
+- viewAndHeader: the bookmarks check expects no views after a reload, but the reopened map still had them: find
+  why (the map may be kept by an earlier edit in that test).
+- sittingB B13 still lists five forces: add Rift and Deposit.
+- layout.spec at 1300×900 and 1280×800: the open legend overlaps the level control. Its room (`--legend-max`,
+  `useBandLayout.ts`) must also keep clear of the corner's second row.
+- tests/contract/places.test.ts "real places stay out of the generator": a third file imports the places code; find
+  it and either move the import or update the list if it's meant.
+- look-high.spec:363 (the basin highlight) is dev's, named to the milestone; the renderer's #225 fixes it.
+
+### Open questions for Kyler
+
+In DESIGN.md, "Open questions (2026-10-05)": Rift's and Deposit's keys; a renamed map name longer than two lines
+(cap typed names?); Undo after a Generate ("Undo to get <name> back") doesn't exist; the Brush row alone.
+
 ## Handoff to the page session that builds (written 2026-10-03, the prototype session's last act)
 
 What the next session needs to build. History is in the log below and in DESIGN.md.
