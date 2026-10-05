@@ -21,8 +21,9 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
 - `forces/`: the forces' planning, Carve, Craterize, Erupt, Quake and Glaciate (#158, D381; their TypeScript planners
   are tag `ts-forces-final`). Its Wasm is committed in `src/core/forces/rust/forcesWasm.ts` and bound by
   `src/core/forces/rust/bridge.ts` (one call plans a force); `forces-batch` is the native binary the identity check
-  runs. It keeps its own copy of the water kernel for the water a force plans with (a carve's oxbow lake, a
-  glacier's floor), the same arithmetic as `water/`.
+  runs. The water a force plans with (a carve's oxbow lake, a glacier's floor) is `water/`'s simulation and settle
+  (`Sim`, `SettleRun`), linked without `water/`'s Wasm exports (its default `exports` feature), so the forces get the
+  water's speed work. It runs on one thread inside the plan; the multi-core strips stay the editor water's.
 
 **Setup.** Rust 1.90.0 and the `wasm32-unknown-unknown` target, pinned by `rust-toolchain.toml`: install rustup for your
 user from https://rustup.rs (on Windows without Visual Studio's C++ tools, pick the host `x86_64-pc-windows-gnu`), then

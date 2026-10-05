@@ -71,7 +71,7 @@ as of 2026-10-04 and move.
    are the stacked water crate (#260, no wiring yet), Rift and Deposit (#273), parity core (#269) and
    multi-core water (#281). Next: #277, then the three open every-setting combinations and the extreme seed's speed. Then
    Codex's speed adoptions (water, generation, forces), and the dam sketch's (#279) after the Weather view, reconciled with
-   multi-core and water speed. The forces crate keeps its own copy of the water kernel, to be shared.
+   multi-core and water speed. The forces crate now runs the water crate's kernel and settle (`feature/forces-water-kernel`).
 2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
    (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
    Highlands height (#261) is back for another round; Islands round 4 (#235) is held for Kyler.
