@@ -134,6 +134,10 @@ export class CarvePlay {
       const c = changes[s];
       for (let j = 0; j < c.length; j += 2) heights[c[j]] = c[j + 1];
     }
+    // (inside a working area, each tile eased to the locked land as the keep eases it: D254, D368 (9))
+    const ease = this.run.ease;
+    const was = this.run.original;
+    if (ease) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) { const i = changes[s][j]; heights[i] = Math.max(was[i] - ease[i], Math.min(was[i] + ease[i], heights[i])); }
     if (this.map.lava) for (let s = this.at + 1; s <= k; s++) for (let j = 0; j < changes[s].length; j += 2) this.map.lava[changes[s][j]] &= (1 << heights[changes[s][j]]) - 1;
     this.at = k;
     // the objects the head has reached go; its own sources and an unleashed one ride the ground

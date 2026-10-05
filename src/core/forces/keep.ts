@@ -88,7 +88,8 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
     if (!after) return refused("Nothing changed");
     // (its steps are the stages that show it, whatever the machine's speed: D366)
     params = stagedParamsOf(before, r, { verb: request.verb, ...forceRecordOf(request, r, before.W), cut: request.cut, ...(input.replaces !== undefined ? { replaces: input.replaces } : {}) });
-    if (!params) return refused("Nothing changed");
+    // (inside a working area, the land outside it is why: a fault drawn beside it, say)
+    if (!params) return refused(request.area ? "Nothing changed inside the working area" : "Nothing changed");
     // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
     // its whole ground, the levels it left as they were included (the build keeps its banks whole)
     if (r instanceof GlaciateRun && r.plan) params = { ...withOwned(params, after.heights, r.footprint()), ...glacierSprings(before, after, r.plan.retained) };
