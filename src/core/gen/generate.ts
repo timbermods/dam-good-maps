@@ -1051,7 +1051,7 @@ function fallingWater(b: BuildResult): Uint8Array | null {
   const N = W * H;
   const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
   // (with the settle's momentum, so nothing moves only because the flows restart)
-  if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
+  if (b.settle.out && b.settle.out.length === sim.out.length) sim.setOut(b.settle.out);
   const before = sim.D.slice();
   sim.run(256);
   sim.dispose();
@@ -1088,7 +1088,7 @@ function risingWater(b: BuildResult): { tiles: number[]; level: number } | null 
   const { W, H } = b;
   const N = W * H;
   const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
-  if (b.settle.out && b.settle.out.length === sim.out.length) sim.out.set(b.settle.out);
+  if (b.settle.out && b.settle.out.length === sim.out.length) sim.setOut(b.settle.out);
   const before = sim.D.slice();
   sim.run(256);
   sim.dispose();

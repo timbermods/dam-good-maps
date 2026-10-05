@@ -951,6 +951,7 @@ pub fn prepare(input: &[u8]) -> Job {
     if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
+    command[22] = (s(&job["settings"], "sources") == "ride") as u8 as f64;
     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
     command[35] = index(
         job["settings"]["benches"].as_str().unwrap_or("some"),
@@ -1375,6 +1376,7 @@ pub fn plan(task: &mut Job) {
                 floor: if c[4].is_nan() { 1.0 } else { c[4] },
                 river_depth: if c[28].is_nan() { None } else { Some(c[28]) },
                 banks: c[27],
+                ride: c[22] != 0.0,
             },
             &intent,
             &task.keep,
@@ -1417,6 +1419,7 @@ pub fn plan(task: &mut Job) {
                 tarn: c[37] != 0.0,
                 scree: c[38] != 0.0,
                 floor: if c[4].is_nan() { 1.0 } else { c[4] },
+                ride: c[22] != 0.0,
             },
             &intent,
             &task.keep,
@@ -2733,6 +2736,8 @@ struct CarveSettings {
     floor: f64,
     river_depth: Option<f64>,
     banks: f64,
+    /// Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground instead of going.
+    ride: bool,
 }
 impl CarveSettings {
     fn from(v: &V) -> Self {
@@ -2750,6 +2755,7 @@ impl CarveSettings {
             floor: v["floor"].as_f64().unwrap_or(1.0),
             river_depth: v["riverDepth"].as_f64(),
             banks: v["banks"].as_f64().unwrap_or(0.0),
+            ride: s(v, "sources") == "ride",
         }
     }
     fn natural_width(&self) -> f64 {
@@ -3830,6 +3836,15 @@ impl CarveState {
         for e in &r.map.entities {
             if r.options.unleashed.as_deref() == Some(e.id.as_ref()) {
                 r.unleashed_key = Some(e.id_key);
+            }
+        }
+        // Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground, as its own do
+        if r.settings.ride {
+            let (w, h) = (r.map.w, r.map.h);
+            for e in &r.map.entities {
+                if ride_source(e.template.as_ref()) && r.rider_tiles[e.id_key] == usize::MAX && r.unleashed_key != Some(e.id_key) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
+                    r.rider_tiles[e.id_key] = e.y as usize * w + e.x as usize;
+                }
             }
         }
         r
@@ -5735,6 +5750,8 @@ struct GlacierSettings {
     tarn: bool,
     scree: bool,
     floor: f64,
+    /// Sources set to Ride (D474): the water sources and seeps in its path ride its ground, never swept into its springs.
+    ride: bool,
 }
 fn glacier_noise(seed: u32, i: u32) -> f64 {
     let mut v = (seed ^ i).wrapping_mul(0x45d9f3b);
@@ -6656,12 +6673,13 @@ fn glacier_enough(c: usize, p: &GlacierPlan, before: &Map) -> bool {
 fn glacier_absorb(
     p: &GlacierPlan,
     before: &Map,
+    ride: bool,
     swept: &mut [bool],
     clean: &mut f64,
     bad: &mut f64,
 ) {
     for e in &before.entities {
-        if !matches!(
+        if (ride && ride_source(e.template.as_ref())) || !matches!(
             e.template.as_ref(),
             "WaterSource"
                 | "BadwaterSource"
@@ -6691,6 +6709,10 @@ fn glacier_absorb(
             }
         }
     }
+}
+/// What Sources set to Ride (D474) keeps riding the ground: water and badwater sources and seeps.
+fn ride_source(template: &str) -> bool {
+    matches!(template, "WaterSource" | "BadwaterSource" | "WaterSeep" | "BadwaterSeep")
 }
 fn glacier_lift_floors(before: &Map, path: &mut [GlacierStation], power: f64) {
     let t = clamp(power, 0.0, 100.0) / 100.0;
@@ -7076,7 +7098,7 @@ fn glacier_once(
     let mut clean = 0.0;
     let mut bad = 0.0;
     let mut swept = vec![false; before.next_id.get()];
-    glacier_absorb(&out, before, &mut swept, &mut clean, &mut bad);
+    glacier_absorb(&out, before, s.ride, &mut swept, &mut clean, &mut bad);
     let mut surviving_map = before.clone();
     surviving_map.entities.retain(|e| !swept[e.id_key]);
     let (surviving, _) = force_prefill(&force_water_model(&surviving_map), None);
@@ -7994,12 +8016,12 @@ fn glacier_finish_morphology(
             out.map.heights[i] = max(out.map.heights[i] as f64, min(top, bank)) as u8;
         }
     }
-    glacier_absorb(out, before, swept, clean, bad);
+    glacier_absorb(out, before, s.ride, swept, clean, bad);
     let mut trees = 0.0;
     let mut objects = 0.0;
     let mut entities = std::mem::take(&mut out.map.entities);
     entities.retain(|e| {
-        if e.template.as_ref() == "StartingLocation" {
+        if e.template.as_ref() == "StartingLocation" || (s.ride && ride_source(e.template.as_ref())) {
             return true;
         }
         if out.map.footprint(e, 0).iter().any(|&i| {
@@ -8015,6 +8037,14 @@ fn glacier_finish_morphology(
             true
         }
     });
+    // (Sources set to Ride, D474: a source or seep it kept stands on its new ground)
+    if s.ride {
+        for e in &mut entities {
+            if ride_source(e.template.as_ref()) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
+                e.z = out.map.heights[e.y as usize * w + e.x as usize] as f64;
+            }
+        }
+    }
     out.map.entities = entities;
     let mut alive = vec![false; out.map.next_id.get()];
     for e in &out.map.entities {

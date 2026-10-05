@@ -53,6 +53,7 @@ import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams } from "../core/forces/keep";
+import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
@@ -86,6 +87,8 @@ export interface SessionInfo {
   forceAgain: Verb | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
+  /** True until the canonical water can be carried in a saved project (D367). */
+  waterPending?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -192,6 +195,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     views: s.views,
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
+    waterPending: s.waterPending,
     version,
   };
 }
@@ -794,39 +798,45 @@ export function startWeather(hazard: Hazard): void {
   const send = (phase: "drought" | "badtide" | "return" | "end", water: WaterView, day: number, soil?: SoilView) => listener?.({ kind: "weather", version: v, water, phase, day, days, ...(soil ? { soil } : {}) });
   const soilNow = (depth: Float64Array, contamination: Float64Array) => soilView(moisture(s.built.heights, depth, contamination, W, H, null), soilContamination(s.built.heights, depth, contamination, W, H, null));
   void (async () => {
-    let nextSoil = TICKS_PER_DAY;
-    for (let t = 0; t < total; ) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
-        // closer frames the first day, while the rivers drain or the badwater surges
-        const gap = t < TICKS_PER_DAY ? 12 : 96;
-        run.step(gap);
-        t += gap;
-        const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
-        if (soil) nextSoil += TICKS_PER_DAY;
-        send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
-      }
-      await breathe();
-    }
-    // then the sources run as the map has them, and the water comes back to the settled water
-    const back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
-    let last = 0;
-    for (;;) {
-      if (token !== weatherToken || session !== s) return;
-      const t0 = performance.now();
-      let r: CanonicalWater | null = null;
-      while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-        r = back.advance(4);
-        if (!r && back.ticks - last >= frameGap(back.ticks)) {
-          last = back.ticks;
-          send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
+    let back: PreviewJob | null = null;
+    try {
+      let nextSoil = TICKS_PER_DAY;
+      for (let t = 0; t < total; ) {
+        if (token !== weatherToken || session !== s) return;
+        const t0 = performance.now();
+        while (t < total && performance.now() - t0 < WATER_SLICE_MS) {
+          // closer frames the first day, while the rivers drain or the badwater surges
+          const gap = t < TICKS_PER_DAY ? 12 : 96;
+          run.step(gap);
+          t += gap;
+          const soil = t >= nextSoil ? soilNow(sim.D, sim.C) : undefined;
+          if (soil) nextSoil += TICKS_PER_DAY;
+          send(hazard, waterOf(s, { depth: sim.D, contamination: sim.C, out: sim.out }), Math.min(days, t / TICKS_PER_DAY), soil);
         }
+        await breathe();
       }
-      if (r) break;
-      await breathe();
+      // then the sources run as the map has them, and the water comes back to the settled water
+      back = new PreviewJob({ model: base, water: { settled: false, ticks: 0, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } }, base);
+      let last = 0;
+      for (;;) {
+        if (token !== weatherToken || session !== s) return;
+        const t0 = performance.now();
+        let r: CanonicalWater | null = null;
+        while (!r && performance.now() - t0 < WATER_SLICE_MS) {
+          r = back.advance(4);
+          if (!r && back.ticks - last >= frameGap(back.ticks)) {
+            last = back.ticks;
+            send("return", waterOf(s, { depth: back.sim.D, contamination: back.sim.C, out: back.sim.out }), days);
+          }
+        }
+        if (r) break;
+        await breathe();
+      }
+      if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
+    } finally {
+      sim.dispose();
+      back?.dispose();
     }
-    if (token === weatherToken && session === s) send("end", waterOf(s), days, soilOf(s));
   })();
 }
 
@@ -877,13 +887,28 @@ export function instantCheck(s: MapSession = need()): InstantCheck {
 
 // ------------------------------------------------------------------------------------ opening
 
+/** Dropping a map drops every job that still owns its water and force state. */
+function discardSessionWork(): void {
+  stopWater();
+  draft?.job.dispose();
+  draft = null;
+  draftToken++;
+  handoff = null;
+  endForceWater();
+  weatherToken++;
+  force = null;
+  series = null;
+  lastKept = null;
+  takenBack.clear();
+}
+
 function opened(s: MapSession): SessionOpen {
   // an edit never waits on the water (live editing): it shows the last settled water on the new
   // ground at once, the water settles again in the background and flows into the new shape
   // (`kickWater`), and the canonical settle follows, always before an export (EDITOR_PLAN §6)
   // (edits never wait on the water: the page's flow)
   s.setWaterMode("defer");
-  stopWater();
+  discardSessionWork();
   session = s;
   sent = null;
   originalFull = null;
@@ -909,18 +934,16 @@ export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
 
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
-  const s = MapSession.open(decodeProject(bytes));
+  // (a project saved before its water settled shows its saved base water while the checks replica builds
+  // the canonical water)
+  const s = MapSession.open(decodeProject(bytes), { deferWater: true });
   // landforms drawn with the old tools become terrain, the land exactly as it was (D182)
   bakeLandforms(s);
   return opened(s);
 }
 
 export function closeSession(): void {
-  stopWater();
-  force = null;
-  series = null;
-  lastKept = null;
-  takenBack.clear();
+  discardSessionWork();
   session = null;
   sent = null;
   originalFull = null;
@@ -1438,6 +1461,12 @@ export interface ForceFrame {
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
+   *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
+   *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
+   *  sources they reach themselves (as any object they take, not listed here). A carve's own water stops
+   *  the emitter of any source that leaves the land shown, so its water drains; a riding one runs on. */
+  cleared?: ClearedSource[];
 }
 
 export interface ForceStarted {
@@ -1660,6 +1689,9 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     head = { x: cue.x, y: cue.y, z: cue.z, dx: 1, dy: 0, width: Math.min(24, cue.size), event: "surge", cut: 0 };
     out = { verb: f.verb, steps: r.steps, done: r.done, reason: r.reason, planned: r.planned, total: r.planned ? r.total : 0, shown: r.shown, head, trail, cue };
   }
+  // the sources it has cleared by this frame (D474): gone from it, whether or not its objects are sent
+  const cleared = (f.play ? f.play.cleared : f.staged!.cleared).filter((c) => c.step <= out.shown);
+  if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     f.shown = map.heights.slice();
@@ -1711,7 +1743,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array; emitters: Map<string, number>; objects: readonly EntitySpec[] } | null = null;
 
 /** The shown water catches up with the force's simulation after `ticks` more of them. */
 function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
@@ -1736,9 +1768,9 @@ function startForceWater(f: NonNullable<typeof force>): void {
   // a standstill, every river on the map would start again and ripple everywhere while the carve plays
   if (flows) {
     for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
-    sim.out.set(flows);
+    sim.setOut(flows);
   }
-  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C) };
+  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
@@ -1883,7 +1915,9 @@ function endForceWater(): void {
 
 /** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
  *  flows before the cut reaches its source); its floor brought to the ground shown, the tiles the
- *  front has reached let go (`carveFront`). */
+ *  front has reached let go (`carveFront`), and every source or seep gone from the land shown stopped
+ *  (D474: taken by the carve or cleared, its water drains from that step, as the game's would; one that
+ *  rides runs on, on its new ground). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
   const p = w.force.play!;
   if (p.shown === 0) return false;
@@ -1897,6 +1931,15 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
       // (new ground: the film it had goes with it)
       w.front.film[i] = 0;
     }
+  if (p.map.entities !== w.objects) {
+    w.objects = p.map.entities;
+    const here = new Set(p.map.entities.map((e) => e.id));
+    for (const [id, k] of w.emitters)
+      if (!here.has(id)) {
+        w.model.emitters[k].strength = 0;
+        w.emitters.delete(id);
+      }
+  }
   frontPassed(w, p.shown);
   return p.shown >= w.front.origin;
 }
@@ -2038,7 +2081,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   if (f.carve) f.play?.plan();
   else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (its operation assembled in the core, forces/keep.ts)
-  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)) });
+  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
   if (!kept.ok) return refused([kept.error]);
   const params = kept.params;
   const water: WarmState = f.carve ? (flowed ?? f.carve.liveWater()) : f.staged!.liveWater();

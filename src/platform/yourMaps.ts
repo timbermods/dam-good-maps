@@ -66,30 +66,63 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
         t.onerror = () => reject(t.error);
         t.onabort = () => reject(t.error ?? new Error("storage aborted"));
       });
-      const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
-      await done;
-      return out;
+      try {
+        const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
+        await done;
+        return out;
+      } catch (e) {
+        try { t.abort(); } catch { /* already aborted or committed */ }
+        await done.catch(() => undefined);
+        throw e;
+      }
     } finally {
       db.close();
     }
   }
 
-  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<void>): Promise<StoreResult> {
+  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<StoreResult | void>): Promise<StoreResult> {
     try {
-      await tx("readwrite", fn);
-      return { ok: true };
+      return (await tx("readwrite", fn)) ?? { ok: true };
     } catch (e) {
       // a full disk aborts the transaction with a QuotaExceededError
       return { ok: false, reason: isQuota(e) ? "full" : "unavailable" };
     }
   }
 
+  // The commit tokens this tab replaced, each with the one it wrote over it (keyed by map and token; a map with
+  // no token yet, a new one, keys as ""): a save here that still names a token this tab replaced (the page's
+  // entry from before its own rename, mark or save) is not a conflict. Another tab's change is.
+  const successor = new Map<string, string>();
+  const key = (id: string, token: string | null) => `${id}
+${token ?? ""}`;
+  function latest(id: string, token: string | null): string | null {
+    for (let n = successor.get(key(id, token)); n !== undefined; n = successor.get(key(id, token))) token = n;
+    return token;
+  }
+
+  /** A write that gives map `id` a new token over `from` (the token it had), recorded once it is kept. */
+  async function commit(id: string, fn: (entries: IDBObjectStore, projects: IDBObjectStore, token: string) => Promise<{ from: string | null } | StoreResult | void>): Promise<StoreResult> {
+    const token = crypto.randomUUID();
+    let from: string | null | undefined;
+    const r = await write(async (entries, projects) => {
+      const out = await fn(entries, projects, token);
+      if (out && "from" in out) from = out.from;
+      else return out;
+    });
+    if (!r.ok || from === undefined) return r;
+    successor.set(key(id, from), token);
+    return { ok: true, storageVersion: token };
+  }
+
   async function update(id: string, change: (e: YourMapEntry) => void): Promise<StoreResult> {
-    return write(async (entries) => {
+    return commit(id, async (entries, _, token) => {
       const e = (await request(entries.get(id))) as YourMapEntry | undefined;
       if (!e) return;
+      const from = e.storageVersion ?? null;
       change(e);
+      e.storageVersion = token;
       await request(entries.put(e));
+      return { from };
     });
   }
 
@@ -131,10 +164,14 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       }
     },
     project: readProject,
-    put(entry, project) {
-      return write(async (entries, projects) => {
-        await request(entries.put({ ...withSize(entry, project), bytes: project.length }));
+    put(entry, project, expected) {
+      return commit(entry.id, async (entries, projects, storageVersion) => {
+        const current = (await request(entries.get(entry.id))) as YourMapEntry | undefined;
+        const from = current?.storageVersion ?? null;
+        if (expected !== undefined && from !== latest(entry.id, expected)) return { ok: false, reason: "conflict" };
+        await request(entries.put({ ...withSize(entry, project), bytes: project.length, storageVersion }));
         await request(projects.put(project, entry.id));
+        return { from };
       }).then((r) => {
         if (r.ok) askToKeepStorage();
         return r;
@@ -147,12 +184,13 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       return update(id, (e) => void (e.savedToTimberborn = revision));
     },
     copy(id, c) {
-      return write(async (entries, projects) => {
+      return commit(c.id, async (entries, projects, storageVersion) => {
         const e = (await request(entries.get(id))) as YourMapEntry | undefined;
         const p = (await request(projects.get(id))) as Uint8Array | undefined;
         if (!e || !p) return;
-        await request(entries.put({ ...e, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, savedToTimberborn: null }));
+        await request(entries.put({ ...e, storageVersion, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, savedToTimberborn: null }));
         await request(projects.put(p, c.id));
+        return { from: null };
       });
     },
     async remove(id) {
@@ -170,9 +208,10 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       }
     },
     restore(r) {
-      return write(async (entries, projects) => {
-        await request(entries.put(r.entry));
+      return commit(r.entry.id, async (entries, projects, storageVersion) => {
+        await request(entries.put({ ...r.entry, storageVersion }));
         await request(projects.put(r.project, r.entry.id));
+        return { from: r.entry.storageVersion ?? null };
       });
     },
   };
