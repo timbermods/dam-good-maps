@@ -8,7 +8,10 @@
 //   npx tsx tools/rust/check.ts                    checks them (CI's rust job)
 //   npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json    pins the current Rust (a deliberate change)
 
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
+import { decode } from "../../src/core/forces/rust/protocol";
 import { pathToFileURL } from "node:url";
 import { FOOTPRINTS } from "../../src/core/format/footprints";
 import { F } from "../../src/core/format/json";
@@ -20,7 +23,7 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { executeInRust, jobBytes, type RustJob, type RustVerb } from "../../src/core/forces/rust/bridge";
 import { fixture } from "../../tests/contract/forceFixtures";
 
-const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate"];
+const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit"];
 
 /** A plain job: verb, a W × W study, variant k. */
 function job(verb: RustVerb, n: number, k: number): RustJob {
@@ -31,6 +34,10 @@ function job(verb: RustVerb, n: number, k: number): RustJob {
   const keep = new Uint8Array(n * n);
   const power = k % 3 === 0 ? 100 : k % 3 === 1 ? 0 : 55;
   switch (verb) {
+    case "deposit":
+      return { verb, map, keep, settings: { mode: "fan", power, size: k === 2 ? 4 : k % 2 ? 64 : null, channels: ["auto", "few", "many"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
+    case "rift":
+      return { verb, map, keep, settings: { mode: "drop", power, size: k === 2 ? 4 : k % 2 ? 64 : null, walls: ["auto", "sheer", "stepped"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
     case "carve":
       return { verb, map, keep, settings: { ...CARVE_DEFAULTS, power: 100, seed: k, mode: k % 2 ? "aim" : "unleash", defyGravity: true }, intent: k % 2 ? { origin, end } : { origin } };
     case "erupt":
@@ -108,6 +115,14 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
     j.settings = { ...s, power, seed, size: pick([null, 6, 140, 6 + u() * 134]), shape: pick(["steep", "broad"]), summit: pick(["auto", "peak", "crater", "caldera"]), flows: pick(["light", "heavy"]), ridges: u() < 0.5, mode: pick(["vent", "fissure"]), floor: 1 + Math.floor(u() * 22) };
     j.intent = { origin, path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: 2 + u() * (n - 5), y: 2 + u() * (n - 5) })) };
   }
+  if (verb === "deposit") {
+    j.settings = { mode: "fan", power, seed, size: pick([null, 4, 64]), channels: pick(["auto", "few", "many"]), floor: 1 };
+    j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
+  }
+  if (verb === "rift") {
+    j.settings = { mode: "drop", power, seed, size: pick([null, 4, 64]), walls: pick(["auto", "sheer", "stepped"]), floor: 1 };
+    j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
+  }
   if (verb === "quake") {
     j.settings = { ...s, power, seed, scarp: pick(["sheer", "stepped"]), mode: pick(["lift", "slide"]), floor: 1 + Math.floor(u() * 22) };
     j.intent = { side: pick([-1, 1]), path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
@@ -136,6 +151,7 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
     j.settings = { ...s, power, seed, size: pick([null, 4, 64, 4 + u() * 60]), mode: aimed ? "aim" : "flow", meltwater: u() < 0.5, benches: pick(["none", "some", "many"]), steps: pick(["few", "some", "many"]), tarn: u() < 0.5, scree: u() < 0.5, floor: 1 + Math.floor(u() * 22) };
     j.intent = aimed ? { origin, end: end === origin ? (end + 1) % (n * n) : end, ...(via ? { via } : {}) } : { origin };
   }
+  if ((verb === "rift" || verb === "deposit") && k === 1) j.areaDepth = new Uint8Array(n*n).fill(2);
   return j;
 }
 
@@ -146,6 +162,16 @@ export function forceJobs(): { name: string; job: RustJob }[] {
     for (let k = 0; k < 4; k++) out.push({ name: `${verb} 64 ${k}`, job: job(verb, 64, k) });
     for (let k = 0; k < 2; k++) out.push({ name: `${verb} 64 odd ${k}`, job: oddJob(verb, 64, k) });
   }
+  for (let k=0;k<6;k++) {
+    const j=job("carve",64,k);j.settings={...j.settings,maturity:k===5?null:"mature",power:k===1?0:k===2?55:100,width:k===2?2:k===4?24:null,floor:1};
+    if(k%2||k===2){j.map=fixture("river",64);j.intent={origin:20*64+35,end:52*64+35,via:[24*64+35,36*64+35,48*64+35]};j.settings={...j.settings,mode:"aim",defyGravity:true};}
+    if(k===3)j.map.water.contamination.fill(.7);
+    out.push({name:`maturity 64 ${k}`,job:j});
+  }
+  const j=JSON.parse(gunzipSync(readFileSync(new URL("../../investigation/meander/maps/long.json.gz",import.meta.url))).toString());
+  const heights=Uint8Array.from(j.heights);const map={...j,heights,lava:new Uint32Array(heights.length),fallen:j.fallen??[],water:{depth:Float64Array.from(j.water.depth),contamination:Float64Array.from(j.water.contamination)}};
+  const gestures=[{"origin":973,"end":5241,"via":[1100,1356,1612,1868,2124,2380,2636,2892,3148,3276,3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346,5475,5732,5861,5989,6246,6374,6504,6505,6507,6380,6253,5998,5870,5614,5358,5231,5104,4978,4979,4981,5110,5239]},{"origin":3276,"end":5475,"via":[3533,3789,3917,4174,4303,4304,4434,4436,4438,4440,4442,4443,4445,4574,4703,4832,4961,5218,5346]}];
+  gestures.forEach((intent,k)=>out.push({name:`maturity oxbow 128 ${k}`,job:{verb:"carve",map,settings:{...job("carve",64,0).settings,maturity:"mature",power:100,seed:4,mode:"aim",defyGravity:true,width:null,floor:1},intent,keep:null}}));
   return out;
 }
 
@@ -158,6 +184,10 @@ export const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const pins: Record<string, string> = {};
-  for (const f of forceFixtures()) pins[f.name] = sha256(executeInRust(f.job));
+  for (const f of forceFixtures()) {
+    const output = executeInRust(f.job);
+    if (/^(rift|deposit|maturity) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
+    pins[f.name] = sha256(output);
+  }
   console.log(JSON.stringify(pins, null, 2));
 }

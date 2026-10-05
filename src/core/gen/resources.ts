@@ -48,6 +48,9 @@ export interface ResourceConstraints {
   protect: Uint8Array | null;
   /** Scrap already planned (the obstacle's ruins on a plateau): it counts toward the map's budget. */
   scrapPlaced?: number;
+  /** A rescue round (D471, `generate`'s `ease`): the start's own groves may lean to the wood each
+   *  species gives where the mix can't give Minimum starting wood. */
+  woodLean?: boolean;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -258,7 +261,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   let groveLogs = 0;
   // every grove planted, for the starting wood's and the starting-logs floor's counts (D224, D227)
   const planted: PlantedGrove[] = [];
-  const woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
+  let woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[]): number => {
     const allowed = new Uint8Array(N);
@@ -373,9 +376,19 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       const need = 1.25 * (shortBushes + shortWood / perTree);
       // (the groves and patches' own gaps take ground too: fill them there)
       dense = room < need / 0.75;
+      // D471: in a rescue round, a mix whose trees can't give Minimum starting wood on all of the
+      // walk's dry ground, a tree a tile (birch alone, a log a tree, at 800 logs), leans the start's
+      // own groves to the wood each species gives, whatever the mix: the requirement holds, the mix
+      // leans the rest of the map
+      const r = spec.settings.start.rules;
+      let ground = 0;
+      for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && !wet[i]) ground++;
+      if (constraints?.woodLean && ground * perTree < r.woodWithin20 - gotWood) {
+        woodW = [TREE_LOGS.Pine, TREE_LOGS.Birch, TREE_LOGS.Oak, 0];
+        tight = true;
+      }
       if (room < need) {
         tight = true;
-        const r = spec.settings.start.rules;
         nearBushes = Math.max(Math.ceil(1.1 * r.bushesWithin20), gotBushes + Math.floor((shortBushes * room) / need));
         nearWood = Math.max(Math.ceil(1.2 * r.woodWithin20), gotWood + Math.floor((shortWood * room) / need));
       }
@@ -492,6 +505,51 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       }
     }
 
+    // D471: in a rescue round, what the start rules ask that the planting above left short is filled
+    // in on the colony's walk, densely, berries on its moist ground and groves on what is left (dead
+    // on dry ground, which keeps its logs): a start asked for 800 logs and 200 bushes at 48² gets them
+    if (constraints?.woodLean && nearWalk) {
+      const rules = spec.settings.start.rules;
+      let bushesNow = 0;
+      for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i] && moist[i]) bushesNow++;
+      const bushesWant = Math.ceil(1.1 * rules.bushesWithin20);
+      const woodWant = Math.ceil(1.15 * rules.woodWithin20);
+      for (const within of [plantWalk!, nearWalk]) {
+        for (let k = 0; k < 12 && bushesNow < bushesWant; k++) {
+          const w = new Float64Array(N);
+          for (let i = 0; i < N; i++) if (within[i] && free[i] && moist[i]) w[i] = 1;
+          const seeds = pickSeeds(vegRng, w, W, 4, 2);
+          if (!seeds.length) break;
+          let grew = 0;
+          for (const s of seeds) {
+            if (bushesNow >= bushesWant) break;
+            const n = patch(s, Math.max(4, bushesWant - bushesNow), 1, within, 1, "berryPatch/start");
+            bushesNow += n;
+            grew += n;
+          }
+          if (!grew) break;
+        }
+        for (const living of [true, false]) {
+          for (let k = 0; k < 12 && got < woodWant; k++) {
+            const w = new Float64Array(N);
+            for (let i = 0; i < N; i++) if (within[i] && free[i] && !wet[i] && (living ? moist[i] : !moist[i])) w[i] = 1;
+            const seeds = pickSeeds(vegRng, w, W, 4, 2);
+            if (!seeds.length) break;
+            let grew = false;
+            for (const s of seeds) {
+              if (got >= woodWant) break;
+              const n = Math.max(6, Math.ceil((woodWant - got) / (TREE_LOGS.Oak * 0.6)));
+              if (growGrove(s, n, living, within, 1, true, living ? "forest/start" : "forest/start/dead")) {
+                got += groveLogs;
+                grew = true;
+              }
+            }
+            if (!grew) break;
+          }
+        }
+      }
+    }
+    woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
     // the rest of the map's bushes and trees: what the start's planting did not use of the budget
     basePatches(budget.bushes - bushCount);
     baseGroves(0);

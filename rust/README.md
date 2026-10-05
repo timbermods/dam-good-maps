@@ -8,7 +8,10 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
 - `water/`: the water simulation (the game's rules and the port's, the faster settle's bookkeeping), its settle,
   fed water and the canonical settle after the pre-fill (#156, ported from `src/core/sim/water.ts` at
   `ts-water-final`). Its Wasm is committed in `src/core/sim/waterWasm.ts` and bound by `src/core/sim/rustWater.ts`;
-  `WaterSim` runs it in every engine and in Node. `water-batch` is the native binary batch jobs run. The same crate
+  `WaterSim` runs it in every engine and in Node; the multi-core water (`src/core/sim/parallel.ts`) runs several
+  instances of the same module, one per thread, each on a strip of the map (`water_strip`, `water_sync`, `water_seep`;
+  `Sim::new_strip`, `Sim::sync_rows`). Each tile's four neighbours and flows sit together (`[u32; 4]`, `[f64; 4]`) and
+  `sync_rows` skips the wet-list rebuild when no halo tile turned wet or dry (#288; no SIMD). `water-batch` is the native binary batch jobs run. The same crate
   holds the stacked-column water for terrain above terrain (D448; `columns`, `stack`, `stack_prefill`, `stack_engine`,
   `stack_memory`), ported from #71's reference, whose one-column path is today's water unchanged. It is computation
   only, not wired into the app yet (Foundations does that): `stack_*` exports take Rust-owned typed arrays, one call
@@ -37,6 +40,11 @@ WebAssembly and, with `--engines`, in Chromium, Firefox and WebKit, the Rust wat
 bytes natively, in Node's WebAssembly and in each engine, and the forces' byte fixtures (`tools/rust/forces-jobs.ts`)
 the same packed results on each, as pinned in `tools/rust/forces-pins.json`. A deliberate change to a force re-pins
 them (`npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`) and says so in its PR. Cargo runs with `-j 4` (`--jobs N` changes it).
+
+**Threads.** Each Wasm stays single-threaded, built with no extra target features: Rust 1.90 still marks wasm32's
+`+atomics` unstable (a warning, and a shared-memory `std` needs nightly's `-Zbuild-std`), so threaded Rust stays parked
+(D402, #168). Multi-core work runs several instances of a module in workers, sharing data through a `SharedArrayBuffer`
+from JavaScript (the water's strips, `src/core/sim/parallel.ts`).
 
 **Rules for a port.** Use `portable::` for anything beyond + − × ÷, comparisons, `floor`, `abs` and integer maths; never
 `f64::sin` and the like, `mul_add`, or `%` on floats (use `portable::rem`). Native builds keep `rust/.cargo/config.toml`'s

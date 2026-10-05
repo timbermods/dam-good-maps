@@ -6,6 +6,8 @@
 
 import { areaDepth } from "../features/raster/brush";
 import { carveForceParams } from "./carve/result";
+import type { DepositRun } from "./deposit";
+import type { RiftRun } from "./rift";
 import type { CarveRun } from "./carve/run";
 import type { CraterRun, EruptRun, QuakeRun, StagedRun } from "./runs";
 import type { ForceMap } from "./force";
@@ -26,6 +28,14 @@ export function forceRecordOf(req: ForceRequest, run: StagedRun, W: number): { s
     case "erupt": {
       const r = run as EruptRun;
       return { settings: { ...r.settings }, where: { origin: req.origin, ...(r.settings.mode === "fissure" && req.path ? { path: pathRecord(req.path) } : {}) } };
+    }
+    case "deposit": {
+      const r = run as DepositRun;
+      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
+    }
+    case "rift": {
+      const r = run as RiftRun;
+      return { settings: { ...r.settings }, where: { path: pathRecord(r.intent.path) } };
     }
     case "quake": {
       const r = run as QuakeRun;
@@ -78,14 +88,15 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
     if (!after) return refused("Nothing changed");
     // (its steps are the stages that show it, whatever the machine's speed: D366)
     params = stagedParamsOf(before, r, { verb: request.verb, ...forceRecordOf(request, r, before.W), cut: request.cut, ...(input.replaces !== undefined ? { replaces: input.replaces } : {}) });
-    if (!params) return refused("Nothing changed");
+    // (inside a working area, the land outside it is why: a fault drawn beside it, say)
+    if (!params) return refused(request.area ? "Nothing changed inside the working area" : "Nothing changed");
     // a glacier's springs (its cirque head's, its hanging valleys') and its tarn's water (D246), and
     // its whole ground, the levels it left as they were included (the build keeps its banks whole)
     if (r instanceof GlaciateRun && r.plan) params = { ...withOwned(params, after.heights, r.footprint()), ...glacierSprings(before, after, r.plan.retained) };
   }
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
   // tile, never in a cliff along its edge
-  if (request.area) {
+  if (request.area && request.verb !== "rift" && request.verb !== "deposit") { // Rift and Deposit feather their terrain in Rust, before playback.
     params = featherForce(params, before.heights, areaDepth(request.area, before.W, before.H));
     if (!params) return refused("Nothing changed inside the working area");
   }

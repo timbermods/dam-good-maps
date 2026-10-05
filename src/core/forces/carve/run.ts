@@ -26,12 +26,15 @@ import { warmState, type WarmState } from "../../sim/preview";
 import { WaterSim, type RetainedWater, type WaterModel } from "../../sim/water";
 import { protectedGround, type ForceHead, type ForceMap, type FullForceMap, type Lane } from "../force";
 import type { CarveRecords } from "../rust/bridge";
+import { carveMaturity } from "../nature";
 import { planInRust } from "../rust/bridge";
 import { BANKS_MAX, DEPTH_MAX, DEPTH_MIN, forceSettingsProblem } from "../settings";
 import type { Oxbow } from "./oxbow";
 
 export interface CarveSettings {
   mode: "unleash" | "aim";
+  /** Absent is legacy Young; null/auto is resolved by nature, never by playback. */
+  maturity?: "young" | "mature" | "auto" | null;
   /** 0 (a creek) to 100 (a catastrophe). */
   power: number;
   /** 0 (straight) to 100 (winding). */
@@ -150,6 +153,9 @@ export class CarveRun {
   readonly keep: Uint8Array;
   /** The map just before a cut-off bend's mouths silted shut (its sediment taken out), once the carve
    *  has run to its end: the oxbow lake keeps the water the game settles on it. */
+  /** The working area (D254): how many levels each tile may change, the area's depth there, or null
+   *  for none. Set by `planForce` (start.ts); its showing eases each tile by it, as its keep does. */
+  ease: Uint8Array | null = null;
   closure: ForceMap | null = null;
   /** The lake its sealed oxbow keeps (null: none), once it has run to its end: the water the game
    *  settled on the map just before the mouths closed, on the basin's tiles, with their floors now. */
@@ -193,6 +199,7 @@ export class CarveRun {
     if (why) throw new Error(why);
     if (settings.mode === "aim" && (!Number.isInteger(intent.end) || intent.end! < 0 || intent.end! >= N || intent.end === intent.origin)) throw new Error("Choose a different end point");
     if (intent.via && (settings.mode !== "aim" || intent.via.length > MAX_PATH_POINTS || !intent.via.every((v) => Number.isInteger(v) && v >= 0 && v < N))) throw new Error("A drawn path needs an aimed carve, on the map");
+    if (settings.maturity === null || settings.maturity === "auto") settings.maturity = carveMaturity({W:input.W,H:input.H,heights:input.heights,at:intent.origin}, settings.seed ?? 0);
     this.keep = protectedGround(input, options.keep ?? null);
     if (this.keep[intent.origin] || (settings.mode === "aim" && this.keep[intent.end!]) || intent.via?.some((v) => this.keep[v])) throw new Error("Choose a point on the land showing");
     this.intent = { ...intent };
@@ -230,7 +237,7 @@ export class CarveRun {
    *  carve is kept (D321, item 30: it updates once the land is final, as for any edit). */
   liveWater(): WarmState {
     const model = { ...this.model, floor: Float64Array.from(this.map.heights) };
-    const sim = new WaterSim(model, { depth: this.initialWater, contamination: this.initialContamination });
+    const sim = new WaterSim(model, this.records.maturity ? this.records.map.water : { depth: this.initialWater, contamination: this.initialContamination });
     const state = warmState(model, sim);
     // (its arrays are copied: the Rust simulation is done)
     sim.dispose();
@@ -280,6 +287,7 @@ export class CarveRun {
       m.heights.set(r.map.heights);
       if (m.lava) m.lava.set(r.map.lava);
       m.entities = r.map.entities;
+      if (r.maturity) { m.water = {depth:r.map.water.depth.slice(),contamination:r.map.water.contamination.slice()}; m.fallen = r.map.fallen; }
       Object.assign(this.metrics, r.metrics);
       this.closure = r.closure;
       this.retained = r.retained;
