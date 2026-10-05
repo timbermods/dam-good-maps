@@ -218,6 +218,10 @@ export function App() {
   const openedVersion = useRef(0);
   /** Set while the open map is being replaced: the editor's last changes then belong to the map leaving. */
   const switching = useRef(false);
+  /** While the open map is captured and replaced, its editor takes no new edit (investigation/map-switch-speed); the
+   *  editor's queue of edits already made, which the capture waits for. */
+  const [replacingMap, setReplacingMap] = useState(false);
+  const pendingEdits = useRef<(() => Promise<void>) | null>(null);
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
   const keeping = useRef(true);
 
@@ -285,21 +289,31 @@ export function App() {
 
   /** The open map, as Your maps keeps it: its project file now. */
   async function snapshot() {
-    const p = await generator.project(6);
+    // (the map it is taken of, fixed before anything waits: a capture queued as the map changes stays its map's; its
+    // edits already made go in first, and its version is the worker's)
+    const of = entry.current!;
+    await pendingEdits.current?.();
+    const mapName = nameRef.current || of.name;
     const pic = picture.current?.();
-    const e = { ...entry.current!, name: nameRef.current || entry.current!.name, revision: infoRef.current?.version ?? entry.current!.revision, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail: (pic && thumbnailUrl(pic)) ?? entry.current!.thumbnail };
-    entry.current = e;
+    const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
+    const p = await generator.project(6);
+    const e = { ...of, name: mapName, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    if (entry.current?.id === of.id) entry.current = e;
     return { entry: e, project: p.bytes };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
   async function replacing<T>(load: () => Promise<T>): Promise<T> {
-    switching.current = true;
+    setReplacingMap(true);
     try {
+      // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
+      await pendingEdits.current?.();
       await saver.flush();
+      switching.current = true;
       return await load();
     } finally {
       switching.current = false;
+      setReplacingMap(false);
     }
   }
 
@@ -312,7 +326,7 @@ export function App() {
     entry.current = e;
     nameRef.current = e.name;
     infoRef.current = data.info;
-    lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}`;
+    lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
     setSession(data.info);
     setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
@@ -329,8 +343,9 @@ export function App() {
     if (switching.current || !entry.current) return;
     infoRef.current = info;
     setSession(info);
-    // (a change of the map, or of the editor's camera bookmarks, which the project keeps)
-    const key = `${info.version}|${JSON.stringify(info.views ?? [])}`;
+    // (a change of the map, of the editor's camera bookmarks, which the project keeps, or its canonical water arriving,
+    // which a project saved before it is refreshed with: the next opening takes the stored map)
+    const key = `${info.version}|${JSON.stringify(info.views ?? [])}|${!!info.waterPending}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
     // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
@@ -897,6 +912,8 @@ export function App() {
         api={generator}
         opened={opened.data}
         onChange={onEditorChange}
+        replacing={replacingMap}
+        onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
         saveState={saveState}
         name={name}

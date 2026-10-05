@@ -43,7 +43,7 @@ export interface PaintSlice {
 export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   const {
     api, info, mirror, renderer, setTool, setShelf, setTurn, setPainted, setBusy, setMessage, setCheck, check,
-    setProgress, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
+    setProgress, setInfo, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
     setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, queue, infoRef, enqueue, run,
     draftWater, showWater, showSoil, applyUpdate
   } = ed;
@@ -228,6 +228,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
           journey.current?.check(r);
           if (!live || r.check.version !== infoRef.current.version) return;
+          // Canonical water changes the saved project even without a new edit version.
+          // Tell Your maps so a save made during the preview is refreshed with its stored map.
+          infoRef.current = { ...infoRef.current, waterPending: r.info.waterPending };
+          setInfo(infoRef.current);
+          props.onChange(infoRef.current);
           setCheck(r.check);
           setProgress(null);
         })

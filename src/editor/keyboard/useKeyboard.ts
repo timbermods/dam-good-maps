@@ -22,6 +22,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
+      if (document.querySelector<HTMLElement>(".editor")?.inert) return;
       const target = ev.target as HTMLElement | null;
       // typing in a field or choosing from a list keeps its keys; a toggle just clicked does not
       const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);

@@ -32,7 +32,7 @@ export function editorView(ed: Ed, props: EditorProps) {
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}`} aria-busy={busy > 0}>
+    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}`} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
         {drawerOpen ? <GeneratorPanel model={props.drawer} info={info} icon={(t) => icons[t] ?? null} trees={livingTrees(mirror.current.entities)} /> : null}

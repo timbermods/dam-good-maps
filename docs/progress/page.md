@@ -773,3 +773,7 @@ for the milestone session's word that #268's adoption is in dev.
   its own line; all 365 names the generator can make fit at 1920 and 2560, every tile 206px tall. A renamed name longer
   than two lines ends in an ellipsis.
 - The delete dialog's Enter already deleted (checked with the Your maps push).
+- **Map switch speed, page half** (investigation/map-switch-speed, #316 on dev): edits already made finish before the
+  outgoing map is captured; its editor takes no new edit while it is replaced (`inert`); the capture keeps its map
+  and the worker's version; the canonical water arriving re-saves a kept map. Checked: two edits queued, then another
+  map clicked at once: the first reopens with both.

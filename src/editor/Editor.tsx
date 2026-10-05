@@ -55,6 +55,10 @@ export interface EditorProps {
   opened: SessionOpen;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
+  /** Finish queued edits before the page snapshots the outgoing worker session. */
+  onPendingEdits?(wait: () => Promise<void>): void;
+  /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */
+  replacing?: boolean;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
   /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
@@ -105,6 +109,7 @@ export default function Editor(props: EditorProps) {
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);
+  useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
   // Your maps' picture: the land and water as the view shows them
   useEffect(() => {
     props.onPicture?.(() => {
