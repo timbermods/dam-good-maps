@@ -1,15 +1,31 @@
 // The top bar: the brushes, the forces, Select and the row beneath them.
 
 import { FirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
+import type { EditorProps } from "../Editor";
 import { TopBar } from "../TopBar";
 import { sizeMax } from "../brushes";
 import type { Ed } from "../ed";
 
-export function topBar(ed: Ed) {
+export function topBar(ed: Ed, props: EditorProps) {
   const {
     brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
-    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef
+    setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef,
+    message, setMessage
   } = ed;
+  const notes =
+    message || props.notice ? (
+      <>
+        {props.notice ?? null}
+        {message ? (
+          <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
+            {message.text}
+            <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
+              ×
+            </button>
+          </div>
+        ) : null}
+      </>
+    ) : null;
 
   return (
     <TopBar
@@ -18,6 +34,7 @@ export function topBar(ed: Ed) {
       forceAtWork={!!forcer.current?.running}
       forceRow={forceRow()}
       row={unleashRow()}
+      notes={notes}
       hints={
         <FirstRun
           done={firstRun}

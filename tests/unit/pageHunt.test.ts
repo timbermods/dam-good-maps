@@ -49,6 +49,7 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     stopBackground() {}, setBusy() {}, setError() {}, setProgress() {}, setSeedText() {},
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
+    keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
   });
   runInContext(compile(functions("src/ui/App.tsx", ["run", "cancelMaking"])), env);
   const run = env.run({ seed: 4242 });
@@ -85,6 +86,7 @@ test("Save project captures the map after already queued edits", async () => {
   const save = module.exports.useSave({
     api: { project: async () => ({ bytes: new Uint8Array([revision]), fileName: "map.json.gz" }) },
     info: {}, enqueue: (fn: () => Promise<unknown>) => { queue = queue.then(fn); return queue; },
+    forcer: { current: null },
   });
   const exporting = save.exportProject();
   await Promise.resolve();

@@ -224,6 +224,8 @@ export function App() {
   const pendingEdits = useRef<(() => Promise<void>) | null>(null);
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
   const keeping = useRef(true);
+  /** The player chose to close a map Your maps isn't keeping ("Close it"): the next replacement goes ahead. */
+  const discardAllowed = useRef(false);
 
   const refresh = () => void yourMaps.list().then(setMaps, () => setMaps([]));
   // (its last save took this version and was written, and nothing waits to be saved)
@@ -231,7 +233,9 @@ export function App() {
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {
-        onResult: (r) => {
+        onResult: (r, id) => {
+          // (the open map's entry takes its new storage token: its next save is over this one, investigation/saving-review)
+          if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
           keeping.current = r.ok;
           const problem = storeProblem(r);
           setSaveState(problem ? (r.ok === false && r.reason === "full" ? "Not saved: browser storage is full" : "Not saved in this browser") : "");
@@ -293,11 +297,10 @@ export function App() {
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
-    const mapName = nameRef.current || of.name;
     const pic = picture.current?.();
     const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
     const p = await generator.project(6);
-    const e = { ...of, name: mapName, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
     if (entry.current?.id === of.id) entry.current = e;
     return { entry: e, project: p.bytes };
   }
@@ -309,10 +312,12 @@ export function App() {
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
       await saver.flush();
+      if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before replacing it.");
       switching.current = true;
       return await load();
     } finally {
       switching.current = false;
+      discardAllowed.current = false;
       setReplacingMap(false);
     }
   }
@@ -325,6 +330,8 @@ export function App() {
     // (a reopened map's versions count again from its opening: kept as it stands at that version)
     const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : { ...origin.entry, revision: data.info.version };
     entry.current = e;
+    keeping.current = true;
+    setSaveState("");
     nameRef.current = e.name;
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
@@ -375,7 +382,10 @@ export function App() {
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
   function guard(action: () => void, what: string) {
     if (!keeping.current && session && session.edits > 0) {
-      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: action, offerProject: true });
+      setConfirm({ text: `${what} closes ${nameRef.current}, and this browser isn't keeping Your maps. Save its project file first if you want to keep its edits.`, yes: "Close it", onYes: () => {
+          discardAllowed.current = true;
+          action();
+        }, offerProject: true });
     } else action();
   }
 
@@ -440,13 +450,19 @@ export function App() {
           const here = gone.some((m) => m.id === entry.current?.id);
           const at = maps.findIndex((m) => m.id === entry.current?.id);
           if (here) {
-            // (nothing of it is saved again)
+            // (nothing of it is saved again, and a save of it that failed no longer counts)
+            switching.current = true;
             kept.current = false;
+            keeping.current = true;
+            setSaveState("");
             entry.current = null;
           }
-          // (anything of them waiting to be saved is written first, so nothing brings them back after)
-          await saver.flush();
-          for (const m of gone) await yourMaps.remove(m.id).catch(() => null);
+          // (its saves waiting are dropped and one being written finishes first, so nothing brings them back after)
+          for (const m of gone) {
+            await saver.discard(m.id);
+            await yourMaps.remove(m.id).catch(() => null);
+          }
+          if (here) switching.current = false;
           const left = await yourMaps.list().catch(() => maps.filter((m) => !ids.includes(m.id)));
           setMaps(left);
           if (!here) return;
@@ -477,6 +493,28 @@ export function App() {
       setBusy(false);
     }
   }
+
+  // Leaving the page (investigation/saving-review): the browser asks first while an edit of a kept map isn't saved yet
+  // or its save failed (a write can't be waited for as the page closes); hidden, the page saves what is waiting.
+  useEffect(() => {
+    const leaving = (e: BeforeUnloadEvent) => {
+      if (!kept.current || (!saver.busy() && keeping.current)) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const flush = () => void saver.flush();
+    const hidden = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", leaving);
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("beforeunload", leaving);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
 
   // ------------------------------------------------------------------------------ generating
 
@@ -540,6 +578,7 @@ export function App() {
         if (was) {
           saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
           await saver.flush();
+          if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download its project file before generating another.");
         }
         if (id !== runId.current) return null;
         back.current = b;
@@ -599,6 +638,7 @@ export function App() {
       return null;
     } finally {
       if (id === runId.current) {
+        discardAllowed.current = false;
         setBusy(false);
         setProgress(null);
       }
@@ -625,7 +665,10 @@ export function App() {
       back.current = null;
       backReady.current = null;
       if (!b) return void setMaking(null);
+      const [wasKeeping, wasState] = [keeping.current, saveState];
       enterEditor(await generator.openProject(b.bytes), { entry: b.entry, kept: b.kept }, undefined, true);
+      keeping.current = wasKeeping;
+      setSaveState(wasState);
       setMaking(null);
     } catch (e) {
       setMaking({ failed: words(e) });
@@ -705,7 +748,13 @@ export function App() {
           try {
             const data = await generator.openProject(saved.bytes);
             enterEditor(data, { kind: data.info.kind === "generated" ? "generated" : "import" });
-            return void storage.clear();
+            // (kept in Your maps, and the old copy cleared only once it is)
+            const id = entry.current!.id;
+            kept.current = true;
+            saver.changed(id, snapshot);
+            await saver.flush(id);
+            if (keeping.current) await storage.clear();
+            return;
           } catch {
             // (an autosave that can't be read: a new map instead)
           }
@@ -929,8 +978,8 @@ export function App() {
         placesOpen={panel === "places"}
         onPlaces={(o) => setPanel(o ? "places" : null)}
         keepView={opened.keepView}
+        notice={message}
       />
-      {message}
       {confirmDialog}
       {makingDialog}
     </>

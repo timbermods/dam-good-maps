@@ -12,6 +12,7 @@
 // The code is in feature folders, one hook per feature (src/editor/README.md); this file only builds the bag
 // and calls them in order.
 
+import type { ComponentChildren } from "preact";
 import type { Remote } from "comlink";
 import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
@@ -65,6 +66,8 @@ export interface EditorProps {
   onAnother?(info: SessionInfo): void;
   /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
+  /** The page's own line (a save that failed, a version found), shown with the editor's notes above the bar. */
+  notice?: ComponentChildren;
   /** The map's name as the page keeps it (renamed in the header's title through the core, D443). */
   name: string;
   /** Rename the map: null when the core stored it, else the core's reason (a blank name). */

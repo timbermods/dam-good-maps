@@ -1161,6 +1161,27 @@
   font-size: 0.85rem;
 }
 
+/* the messages (the editor's and the page's: a save that failed, a file saved) sit centred above the hints and the
+   bar's settings, one gap apart: never over the bar or the map's other controls */
+.tool-dock > .dock-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.dock-notes > * {
+  pointer-events: auto;
+}
+
+.dock-notes > .error.floating,
+.dock-notes > .editor-message {
+  position: static;
+  transform: none;
+  max-width: 100%;
+}
+
 /* the first steps' hints sit above the bar's settings */
 .tool-dock > .first-run {
   align-self: center;

@@ -20,9 +20,10 @@ DESIGN.md and EDITOR_PLAN.md, then the Coordination issue #236 ("To page" notes)
    `snapshot` already waits for queued edits and keeps its map (map switch, below), so take only the patch's token
    and `p.name`/`p.version` parts; `run` and `cancelMaking` carry the page hunt's `backReady` (keep it; fold the
    patch's "a newly failed save blocks Generate" into `run`). Then: the leave warning (`beforeunload`, only while an
-   edit isn't saved or a save failed) and a save on `visibilitychange` hidden; the two-tab conflict: Kyler wants a
-   short line ("Changed in another tab: this version stays here") with a **Download** button for the project, not the
-   long store wording. Port its regression tests (`investigation/saving-review/saving.test.ts`) into tests/unit.
+   edit isn't saved or a save failed) and a save on `visibilitychange` hidden; the two-tab conflict shows the store's
+   message exactly as merged ("Changed in another tab. Download the project to keep your edits."), text only, no
+   extra button (Kyler's choice; an earlier note here of a different line with a Download button was wrong). Port
+   its regression tests (`investigation/saving-review/saving.test.ts`) into tests/unit.
    Capture the conflict line at 1920×1080. needs-kyler on #163 with that push.
 2. **Codex's page QA (#310, investigation/page-qa, 1cece05f) F1, adopted by Kyler 2026-10-05:** Save project, Save to
    Timberborn and Download .timber wait for a running force to finish and be kept. Its page patch, ported to the

@@ -503,6 +503,10 @@ refinements and what the mockups left open:
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks stay left-aligned.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+- **Messages sit above the bar** (2026-10-05): the editor's (a file saved, a save that failed) and the page's (Your
+  maps couldn't keep the map, a version found) are centred above the first steps' hints and the bar's settings, one
+  gap apart, never over the bar or another control. A save that another tab overtook says the store's words, text
+  only: "Changed in another tab. Download the project to keep your edits." (`docs/design/conflict-1920x1080.png`).
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
   clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,

@@ -208,6 +208,8 @@ export interface TopBarProps {
   row?: { label: string; groups: Group[] } | null;
   /** The first run's hints, above the panel. */
   hints?: ComponentChildren;
+  /** The messages (the editor's and the page's), centred above the hints and the settings: never over the bar. */
+  notes?: ComponentChildren;
 }
 
 /** The forces' Floor (D321, item 40): one level every force that digs keeps to, set in any force's settings and
@@ -383,6 +385,7 @@ export function TopBar(p: TopBarProps) {
   );
   return (
     <div class="tool-dock">
+      {p.notes ? <div class="dock-notes">{p.notes}</div> : null}
       {p.hints ?? null}
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}
       {grid ? <div class="map-bar tool-settings">{grid}</div> : null}

@@ -26,7 +26,7 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick,
-    shapeNote, startDrag, needs, startReach, message, setMessage, showHistory, setShowHistory, run, api
+    shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
   } = ed;
   const drawerOpen = props.drawerOpen;
 
@@ -65,7 +65,7 @@ export function editorView(ed: Ed, props: EditorProps) {
             >
               {sourceMarkers()}
               {startHintTag()}
-              {topBar(ed)}
+              {topBar(ed, props)}
               {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
@@ -98,14 +98,6 @@ export function editorView(ed: Ed, props: EditorProps) {
                 </div>
               ) : null}
             </View3D>
-            {message ? (
-              <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
-                {message.text}
-                <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
-                  ×
-                </button>
-              </div>
-            ) : null}
           </div>
         </section>
         {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
