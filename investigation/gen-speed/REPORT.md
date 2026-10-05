@@ -7,4 +7,4 @@
 - The first reuse group's eight after readings were slower; their settings/load differ, so no overall generation speedup is established.
 - Exactness and targeted tests: see [verification](INTEGRATION.md#verification); hashes, complete build arrays, checks, retry state and shown land are compared.
 - This dev predates D471: the extreme case fails after 27 attempts; its behavior is preserved. Highest terrain assumed 22; the prompt ended at “The pinned”.
-- Remote `investigation/gen-speed` already diverges from dev at `dc68651c`; no overwrite, other branch, PR, merge, approval, tag or release was made. [Adoption patch](adoption.patch).
+- Publication branch: `investigation/gen-speed-2` into `dev`; the old branch is preserved and its report was not read. [Adoption patch](adoption.patch).

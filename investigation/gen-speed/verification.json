@@ -37,6 +37,10 @@
     "snapshotAndOutputOwnership": true
   },
   "patchApplies": true,
-  "remoteWritten": false,
-  "remoteBlock": "The existing investigation/gen-speed tip is not an ancestor of the requested dev base; replacing it would rewrite earlier history."
+  "publication": {
+    "branch": "investigation/gen-speed-2",
+    "base": "dev",
+    "previousBranchPreserved": true,
+    "earlierReportRead": false
+  }
 }

@@ -5,8 +5,10 @@ No theme shaping, Islands/Canyon/Highlands shaping, generator policy, random dra
 
 ## Base and publishing
 
-The requested clone is `C:\Users\Kyler\Documents\ChatGPT\dam-good-maps-gen-speed`, created from dev at `38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e`, on `investigation/gen-speed`, with `npm ci` completed. No other checkout was accessed.
-The old remote branch tip is `dc68651cc763fb973b2dddc8f6e638d523d87f8b`, not an ancestor of this dev base. Updating it would require rewriting its previous investigation history. The reasonable default under the shared-PC/one-branch rules is to keep this round local. No GitHub PR was read or reviewed, and no remote was written.
+The requested clone is `C:\Users\Kyler\Documents\ChatGPT\dam-good-maps-gen-speed`, created from dev at `38d4ee6b9ef2e0c516a244be42dbfd0f5e576e7e`, now on `investigation/gen-speed-2`, with `npm ci` completed. No other checkout was accessed.
+The old remote branch tip is `dc68651cc763fb973b2dddc8f6e638d523d87f8b`. It is preserved; the user authorized publication of this round on the new `investigation/gen-speed-2` branch, with one PR into `dev`. No GitHub PR was read or reviewed.
+
+The earlier branch's report and implementation were not read. This round reuses APIs already present on the pinned dev base: guarded incremental builds and planned-water start preparation. New work is the six-file shared-stage reuse patch described below, including the bounded settled-water start cache, plus this round's profiles and exactness evidence.
 
 D471's `fix/every-setting-makes-a-map` is absent from this base. The extreme case returns a failed result after 27 attempts, not the stated successful 37-attempt map. Port onto the base containing D471 and compare against that same base before adoption; do not change generation behavior or re-pin to make this patch pass. The missing remainder of the prompt is interpreted as keeping every existing pin unchanged.
 
