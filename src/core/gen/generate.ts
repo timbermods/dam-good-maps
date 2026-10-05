@@ -226,7 +226,7 @@ export interface GenerateOptions {
    *  the measures). */
   screen?: boolean;
   /** The rescue round (D471, set by `generate` itself): from 1 the start's groves may lean to the
-   *  wood each species gives, a shown land's start asks only for Buildable land's walkable land, a
+   *  wood each species gives and what the start rules ask is filled in on its walk, a shown land's start asks only for Buildable land's walkable land, a
    *  Water without stairs rule under 7 is held to itself, the start's walk asks for moist land
    *  enough for the wood and berries asked, and the badwater distance no more than the map allows;
    *  from 2 the start's ground asks for half the land it otherwise joins (`minFoot`, a target, D85),
@@ -437,6 +437,10 @@ interface RoundRecord {
   failures: GenerateResult["failures"];
   failedAt: number[];
   before: number;
+  /** A shown land the round gave up on because its start failed the same way again (D471): the next
+   *  round goes on with it, easing, before it draws fresh land (once). */
+  carry?: { land: Land; committed: LandStage } | null;
+  carried?: boolean;
 }
 
 function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round: number, record: RoundRecord): GenerateResult {
@@ -463,6 +467,16 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
   // round, D471). Later water, start and object fixes retain that land under the existing retry rules.
   let committed: LandStage | null = null;
   let lands = 0;
+  // (D471: a shown land the last round gave up on, its start failing the same way on each attempt, is
+  // where this one goes on, easing, so the land shown stays the map)
+  if (record.carry) {
+    land = record.carry.land;
+    committed = record.carry.committed;
+    record.carry = null;
+    record.carried = true;
+  }
+  // (shown-land attempts in a row whose start found no place: the same settled water each time)
+  let noStart = 0;
   // (lands drawn again before one is shown because their planned water misses an outcome)
   const screened = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
@@ -470,6 +484,14 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, committed, screened);
       const r = attemptDone(a, attempt);
       if (r) return r;
+      // D471: a shown land whose start finds no place twice in a row finds none again (its water,
+      // plan and hollows stay; only the attempt's number changes): the round gives up on it, and the
+      // next goes on with it, easing (a caller that caps the attempts keeps the old way)
+      noStart = committed.shown && a.result.info.stage === "no start" ? noStart + 1 : 0;
+      if (noStart >= 2 && opts.maxAttempts === undefined && !record.carried && round < rescueRounds(W, H)) {
+        record.carry = { land, committed };
+        break;
+      }
       // Until the actual start reaches its mine pair, this land is still hidden.
       // Its exhausted starts or an unrepairable water plan may therefore draw another land.
       // Once onLand fired, the original D348 retry rules apply unchanged.
@@ -513,6 +535,7 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
     if (a.stage) {
       committed = a.stage;
     }
+    noStart = committed?.shown && a.result.info.stage === "no start" ? 1 : 0;
     const r = attemptDone(a, attempt);
     if (r) return r;
     if (a.stuck) break;
