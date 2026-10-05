@@ -1,5 +1,5 @@
 diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
-index ec3c6aab..dd2b4492 100644
+index 6e702a24..6a439697 100644
 --- a/src/core/gen/generate.ts
 +++ b/src/core/gen/generate.ts
 @@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
@@ -11,7 +11,7 @@ index ec3c6aab..dd2b4492 100644
  import { unit } from "../land/num";
  import { entityJson } from "../format/entities";
  import { mapObjects, type MapObject } from "../sim/model";
-@@ -158,7 +158,7 @@ export interface GenerationInfo {
+@@ -160,7 +160,7 @@ export interface GenerationInfo {
    preWet?: number;
    /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
     *  a readable water story), before its water settled: what the land-stage screen judged. */
@@ -20,7 +20,7 @@ index ec3c6aab..dd2b4492 100644
    /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
    hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
    start: StartPick | null;
-@@ -319,6 +319,8 @@ interface LandStage {
+@@ -331,6 +331,8 @@ interface LandStage {
    hollows: Omit<Hazards, "heights"> | null;
  }
  
@@ -29,7 +29,7 @@ index ec3c6aab..dd2b4492 100644
  /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
   *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
   *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
-@@ -429,6 +431,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
+@@ -508,6 +510,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
        g.flowDir = orientDir(g.flowDir, o);
        const E = orientField(F.E, W, H, o);
        land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
@@ -38,7 +38,7 @@ index ec3c6aab..dd2b4492 100644
      } else replans++;
      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
      if (a.stage) {
-@@ -1231,6 +1235,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1310,6 +1314,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
    // takes days to settle; the channel is as wide as the map's flow needs
    const channels = new Uint8Array(N);
    for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
@@ -53,7 +53,7 @@ index ec3c6aab..dd2b4492 100644
    carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
    // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
    // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
-@@ -1257,7 +1269,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1336,7 +1348,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
    }
    // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
@@ -62,7 +62,7 @@ index ec3c6aab..dd2b4492 100644
    if (g.seaLayout) {
      const isles = g.parts.filter((p) => p.isle).map((p) => {
        const o = (g.orientation ?? 0) as LandOrientation;
-@@ -1271,8 +1283,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1350,8 +1362,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      });
      const keepI = new Uint8Array(N);
      for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
@@ -72,7 +72,7 @@ index ec3c6aab..dd2b4492 100644
    }
    // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
    // shallower there)
-@@ -1703,6 +1714,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+@@ -1793,6 +1804,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
            screened.count++;
            return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
          }
