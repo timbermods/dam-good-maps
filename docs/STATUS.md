@@ -47,7 +47,7 @@ as of 2026-10-04 and move.
 | Carve's Maturity in Rust, the core half | `feature/carve-maturity` | #278 | Merged (Young by default, every old pin unchanged; Mature and Auto); the page adds the setting to Carve's More |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | The second core hunt | `investigation/core-hunt-2` | #280 | Done, `needs-kyler`: three fixes in its PR; Deposit's pillars handed to Codex (below) |
-| Water speed | `investigation/water-speed` | none yet | Codex, Kyler's PC; adoption patch: the Rust water faster per core, byte-identical (simd128, the kernel's inner loops); builds on multi-core water (#281) |
+| Water speed | `feature/water-speed` | #290 | Adopting #288 (Codex): the flow layout and the skipped wet-list rebuild, byte-identical on one thread and on strips; no SIMD (Kyler, 2026-10-04: it gained nothing) |
 | Generation speed | `investigation/gen-speed` | none yet | Codex, Kyler's PC; adoption patch: the shared stages faster at 256², byte-identical; leaves the themes' shaping and `rust/water` alone; prompted by an extreme seed taking 37 attempts |
 | Forces speed, half A | `feature/forces-speed` | see PR | Adopting #286's half A (invariant hoists, playback reuse), TypeScript only, byte-identical (every forces pin, force determinism smoke the same as `dev`); half B left out (Kyler: slower in Chromium) |
 | Deposit's pillars | `investigation/deposit-pillars` | none yet | Codex, Kyler's PC (branch not yet pushed): Deposit's lone pillars and scattered tiles (the second core hunt's finding 4); not in the milestone session's queue |
