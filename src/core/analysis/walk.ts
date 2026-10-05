@@ -136,7 +136,7 @@ export function pumpShoreDistance(
   return { distance: best, tile };
 }
 
-/** Water deeper than this joins a body of water (`runningFlow`'s bodies, 4-connected). */
+/** Water deeper than this joins a body of water (4-connected; the checks' running flow, rust/checks, reads the same bodies). */
 export const WATER_BODY = 0.001;
 
 /** A tile's shortest walk to a shore from which a pump reaches its water at `d` deep (Infinity when
@@ -157,8 +157,8 @@ export function tileShoreWalk(walk: Float64Array, h: ArrayLike<number>, W: numbe
 
 /**
  * The water rule with Kyler's D302 (amending D153): `pumpShoreDistance` over the water a start may
- * count, never a sealed puddle. Water counts when its body of water (4-connected, over 0.001 deep, as
- * `runningFlow` finds it) is fed by a running source (an emitter of strength over 0 with a cell in the
+ * count, never a sealed puddle. Water counts when its body of water (4-connected, over 0.001 deep,
+ * `WATER_BODY`) is fed by a running source (an emitter of strength over 0 with a cell in the
  * body), or is a lake that lasts the rule's drought: one of its tiles a pump reaches from a shore within
  * `within` tiles' walk now is still one after the drought (`after`: `droughtStorage` for the rule's
  * days, the sources off). Returns the distance and tile of the nearest water that counts, and the walk

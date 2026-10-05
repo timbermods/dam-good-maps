@@ -744,6 +744,116 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         _ => unreachable!(),
     }
 }
+
+/// The kernels as Rust functions, for the other ports (rust/checks; the `kernels` feature, so this crate's
+/// own Wasm stays as it is): the computations `execute` runs, and the two floods the checks share with
+/// analysis/regions.ts (`walkRegions`, `components`). Grids are binary64, one value per tile, row by row; a
+/// mask is set where its value is not 0.
+#[cfg(feature = "kernels")]
+pub mod kernels {
+    use super::*;
+
+    /// `distanceFrom` (math/grid.ts): the chamfer (1, √2) distance from the set tiles of `mask`.
+    pub fn distance_from(mask: &[f64], w: usize, h: usize) -> Vec<f64> {
+        distance(mask, w, h)
+    }
+    /// `walkDistance` (analysis/walk.ts): the walk from the 3×3 around (`sx`, `sy`), at most `limit`; `links` are
+    /// slope links as (low tile, high tile) pairs of tiles on the map.
+    #[allow(clippy::too_many_arguments)]
+    pub fn walk_distance(ht: &[f64], blocked: &[f64], links: &[f64], sx: f64, sy: f64, limit: f64, w: usize, h: usize) -> Vec<f64> {
+        walk(&[ht, blocked, links], &[sx, sy, limit], w, h)
+    }
+    /// `landRegions` (analysis/regions.ts).
+    pub fn land_regions_of(ht: &[f64], wet: &[f64], w: usize, h: usize) -> Vec<f64> {
+        land_regions(ht, wet, w, h)
+    }
+    /// `spillLevels` (sim/prefill.ts): `dam` is −1 where there is none.
+    pub fn spill_levels(floor: &[f64], dam: &[f64], emitting: &[f64], w: usize, h: usize) -> Vec<f64> {
+        spill(&[floor, dam, emitting], w, h)
+    }
+    /// `damSites` (analysis/damsites.ts), its result packed as `execute` returns it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn dam_sites(ht: &[f64], channel: &[f64], surface: &[f64], start_distance: &[f64], heights: &[f64], p: [f64; 4], w: usize, h: usize) -> Vec<f64> {
+        dams(&[ht, channel, surface, start_distance, heights], &p, w, h)
+    }
+    /// `walkRegions` (analysis/regions.ts): land walkable on foot, 4-neighbour moves between tiles of the same
+    /// level and the slope `links` (pairs of tiles); `blocked` tiles are never entered. Labels in index order of
+    /// each region's first tile, −1 on blocked tiles.
+    pub fn walk_regions(ht: &[f64], blocked: &[f64], links: &[f64], w: usize, h: usize) -> Vec<f64> {
+        let n = w * h;
+        let adj = adjacency(n, links);
+        let mut labels = vec![-1.0; n];
+        let mut queue = Vec::with_capacity(n);
+        let mut lab = 0.0;
+        for s in 0..n {
+            if labels[s] >= 0.0 || blocked[s] != 0.0 {
+                continue;
+            }
+            labels[s] = lab;
+            queue.clear();
+            queue.push(s);
+            let mut head = 0;
+            while head < queue.len() {
+                let c = queue[head];
+                head += 1;
+                for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                    if let Some(v) = neighbor(c, dx, dy, w, h) {
+                        if labels[v] < 0.0 && ht[v] == ht[c] && blocked[v] == 0.0 {
+                            labels[v] = lab;
+                            queue.push(v);
+                        }
+                    }
+                }
+                for &v in &adj[c] {
+                    if labels[v] < 0.0 && blocked[v] == 0.0 {
+                        labels[v] = lab;
+                        queue.push(v);
+                    }
+                }
+            }
+            lab += 1.0;
+        }
+        labels
+    }
+    /// `components` (analysis/regions.ts): the connected set tiles of `mask`, 4- or 8-connected. Returns the
+    /// labels (−1 on unset tiles, numbered in index order of each one's first tile) and each label's size.
+    pub fn components(mask: &[f64], eight: bool, w: usize, h: usize) -> (Vec<f64>, Vec<f64>) {
+        let n = w * h;
+        let mut labels = vec![-1.0; n];
+        let mut sizes = vec![];
+        let mut queue = Vec::with_capacity(n);
+        for s in 0..n {
+            if mask[s] == 0.0 || labels[s] >= 0.0 {
+                continue;
+            }
+            let lab = sizes.len() as f64;
+            labels[s] = lab;
+            queue.clear();
+            queue.push(s);
+            let mut head = 0;
+            while head < queue.len() {
+                let c = queue[head];
+                head += 1;
+                for dy in -1..=1isize {
+                    for dx in -1..=1isize {
+                        if (dx == 0 && dy == 0) || (!eight && dx != 0 && dy != 0) {
+                            continue;
+                        }
+                        if let Some(v) = neighbor(c, dx, dy, w, h) {
+                            if mask[v] != 0.0 && labels[v] < 0.0 {
+                                labels[v] = lab;
+                                queue.push(v);
+                            }
+                        }
+                    }
+                }
+            }
+            sizes.push(queue.len() as f64);
+        }
+        (labels, sizes)
+    }
+}
+
 #[cfg(test)]
 mod guards {
     use super::*;
@@ -785,21 +895,21 @@ mod guards {
         assert_eq!(mine_distance(10, 10, 20, 20), 7.0 + (S2 - 1.0) * 7.0);
     }
 }
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub extern "C" fn analysis_alloc(n: usize) -> *mut f64 {
     let b = vec![0.0; n].into_boxed_slice();
     Box::into_raw(b) as *mut f64
 }
 /// # Safety
 /// `p` and `n` come from `analysis_alloc` (or `analysis_execute`'s result and its length), freed once.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn analysis_free(p: *mut f64, n: usize) {
     drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(p, n)));
 }
 /// # Safety
 /// `p` holds `n` values (from `analysis_alloc`); `out_len` is writable. The result is freed with
 /// `analysis_free(result, *out_len)`.
-#[no_mangle]
+#[cfg_attr(feature = "exports", no_mangle)]
 pub unsafe extern "C" fn analysis_execute(p: *const f64, n: usize, out_len: *mut usize) -> *mut f64 {
     let out = execute(std::slice::from_raw_parts(p, n)).into_boxed_slice();
     *out_len = out.len();

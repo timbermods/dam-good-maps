@@ -117,6 +117,12 @@ Node:
     `spillLevels`, `damSites` and `roomMap`, byte for byte the TypeScript they replaced (tag
     `ts-analysis-final`), with byte fixtures in CI's `rust` job like the forces'. The outcomes and M9b's
     descriptive rows keep a TypeScript `distanceFrom`.
+  - The checks run in Rust (`rust/checks`, D465): one call validates a map, the report and what the checks
+    measured byte for byte the TypeScript they replaced (tag `ts-checks-final`), with byte fixtures in CI's
+    `rust` job like the forces'. A map the checks cannot read as the map it claims to be (a broken character,
+    a position off the tile grid, a setting of the wrong kind, unreadable stored water) is refused with a
+    one-line reason. `rulesFor`, the colony's reach and the extras' bands stay in TypeScript for the
+    generator and the editor (`src/core/validate/README.md`).
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.

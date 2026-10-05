@@ -69,3 +69,11 @@ The Rust analysis (D391): the same for its six kernels: the committed Wasm `src/
 `analysis-batch`, and byte fixtures (`tools/rust/analysis-jobs.ts`) against `tools/rust/analysis-pins.json`, taken
 when the TypeScript kernels (tag `ts-analysis-final`) gave the same. A deliberate change to a kernel re-pins them:
 `npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`.
+
+The Rust checks (D465): the same for the map checks: the committed Wasm `src/core/validate/checksWasm.ts`,
+`checks-batch`, and byte fixtures (`tools/rust/checks-jobs.ts`, validations of the forces' studies) against
+`tools/rust/checks-pins.json`, taken when the TypeScript checks (tag `ts-checks-final`) gave the same. A deliberate
+change to a check re-pins them: `npx tsx tools/rust/checks-jobs.ts > tools/rust/checks-pins.json`. The data the
+checks share with the TypeScript (footprints, calibrated targets, names…) is generated into
+`rust/checks/src/tables.rs` by `npx tsx tools/rust/checks-tables.ts` (`tests/unit/checksTables.test.ts` fails when it
+is stale).
