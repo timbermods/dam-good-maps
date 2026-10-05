@@ -29,7 +29,6 @@ const PARKED = [
   ["weather", "feature/weather-days"],
   ["3d", "feature/terrain3d-a"],
   ["places", "feature/real-places-2"],
-  ["groups", "feature/source-groups"],
 ];
 /** The dedicated probe folder: detached, checked out to the branch being probed before each batch. */
 const PROBE = "probe";
