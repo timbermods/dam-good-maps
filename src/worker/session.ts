@@ -53,6 +53,7 @@ import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams } from "../core/forces/keep";
+import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
 import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
@@ -1438,6 +1439,12 @@ export interface ForceFrame {
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
+   *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
+   *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
+   *  sources they reach themselves (as any object they take, not listed here). A carve's own water stops
+   *  the emitter of any source that leaves the land shown, so its water drains; a riding one runs on. */
+  cleared?: ClearedSource[];
 }
 
 export interface ForceStarted {
@@ -1660,6 +1667,9 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
     head = { x: cue.x, y: cue.y, z: cue.z, dx: 1, dy: 0, width: Math.min(24, cue.size), event: "surge", cut: 0 };
     out = { verb: f.verb, steps: r.steps, done: r.done, reason: r.reason, planned: r.planned, total: r.planned ? r.total : 0, shown: r.shown, head, trail, cue };
   }
+  // the sources it has cleared by this frame (D474): gone from it, whether or not its objects are sent
+  const cleared = (f.play ? f.play.cleared : f.staged!.cleared).filter((c) => c.step <= out.shown);
+  if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     f.shown = map.heights.slice();
@@ -1711,7 +1721,7 @@ export function forceAdvance(steps: number): ForceFrame | null {
  *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
  *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
  *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array } | null = null;
+let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array; emitters: Map<string, number>; objects: readonly EntitySpec[] } | null = null;
 
 /** The shown water catches up with the force's simulation after `ticks` more of them. */
 function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
@@ -1738,7 +1748,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
     for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
     sim.out.set(flows);
   }
-  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C) };
+  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
@@ -1883,7 +1893,9 @@ function endForceWater(): void {
 
 /** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
  *  flows before the cut reaches its source); its floor brought to the ground shown, the tiles the
- *  front has reached let go (`carveFront`). */
+ *  front has reached let go (`carveFront`), and every source or seep gone from the land shown stopped
+ *  (D474: taken by the carve or cleared, its water drains from that step, as the game's would; one that
+ *  rides runs on, on its new ground). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
   const p = w.force.play!;
   if (p.shown === 0) return false;
@@ -1897,6 +1909,15 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
       // (new ground: the film it had goes with it)
       w.front.film[i] = 0;
     }
+  if (p.map.entities !== w.objects) {
+    w.objects = p.map.entities;
+    const here = new Set(p.map.entities.map((e) => e.id));
+    for (const [id, k] of w.emitters)
+      if (!here.has(id)) {
+        w.model.emitters[k].strength = 0;
+        w.emitters.delete(id);
+      }
+  }
   frontPassed(w, p.shown);
   return p.shown >= w.front.origin;
 }
@@ -2038,7 +2059,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   if (f.carve) f.play?.plan();
   else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (its operation assembled in the core, forces/keep.ts)
-  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)) });
+  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
   if (!kept.ok) return refused([kept.error]);
   const params = kept.params;
   const water: WarmState = f.carve ? (flowed ?? f.carve.liveWater()) : f.staged!.liveWater();

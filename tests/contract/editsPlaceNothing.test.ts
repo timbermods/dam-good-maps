@@ -176,7 +176,8 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
       expect(springs(before).length, "the river's head has a spring").toBeGreaterThan(0);
       // (the fault between the head's rows: above it, below it)
       for (const fy of [31.5, 32.5]) {
-        run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: 2, y: fy }, { x: S / 2, y: fy }, { x: S - 3, y: fy }], side: 1, cut: null });
+        // (Ride, D474: the row rides the lifted ground, and what is checked is that its ids follow it)
+        run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: fy }, { x: S / 2, y: fy }, { x: S - 3, y: fy }], side: 1, cut: null });
         const now = entities();
         expect(added(before, now).map((e) => `${e.template}@${e.x},${e.y}`), `flow ${flow}, the fault at y ${fy}`).toEqual([]);
         expect(springs(now).length, "the head keeps a spring").toBeGreaterThan(0);
@@ -210,7 +211,8 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
     const before = row(entities());
     expect(before.map((s) => s.split("@")[1])).toEqual(["14,44", "15,44"]);
     for (const side of [1, -1] as const) {
-      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60 }, path: [{ x: 2, y: 44.5 }, { x: 48, y: 44.5 }, { x: 93, y: 44.5 }], side, cut: null, natural: true });
+      // (Ride, D474: the row rides the ground; Clear would take it)
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 44.5 }, { x: 48, y: 44.5 }, { x: 93, y: 44.5 }], side, cut: null, natural: true });
       expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
       ed.undo();
     }

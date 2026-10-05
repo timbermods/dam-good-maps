@@ -16,7 +16,7 @@ label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-
 ## The sessions (D388, D398, D468, D470)
 
 - **The milestone session** (Opus 5.5, high; the dedicated machine) does everything except the page, merges, releases and
-  hands out decision numbers (next free: D476; D474 is #308's). It owns STATUS and HANDOFF.
+  hands out decision numbers (next free: D476). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high; `C:UserskramscodeDamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
   the editor", then adds Rift and Deposit's controls. The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
   ready PR labelled `approved`, and the milestone session reviews it before it merges.
@@ -51,6 +51,7 @@ as of 2026-10-05 and move.
 | Multi-core water, follow-ups | `fix/multicore-water-followups` | #284 | Merged |
 | Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
+| Forces can clear sources (D474) | `feature/forces-clear-sources` | #308 | Core half: every force's Sources, Ride or Clear (Clear by default), sources and seeps; Ride keeps them on every force (Carve's and Glaciate's Rust plans too, six new pins); each source goes at the step its tile first changes; the page adds the control, the renderer reads the frames' `cleared` |
 | Carve's aging setting removed | merged | #293 | D473 (Kyler, 2026-10-04): Carve is one carve again; a carve saved with the setting opens as recorded |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | The second core hunt | `investigation/core-hunt-2` | #280 | Merged: three fixes; Deposit's pillars with Codex (#285, back for a round) |
