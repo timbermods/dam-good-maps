@@ -57,7 +57,7 @@ as of 2026-10-05 and move.
 | Water speed | `feature/water-speed` | #290 | Merged: the flow layout and the skipped wet-list rebuild, byte-identical; no SIMD |
 | Generation speed | `investigation/gen-speed-2` | #291 | Closed, not adopted (Kyler, 2026-10-04: 7% on one case, no overall gain, built on old dev); no more rounds: generation gets faster with the generator's Rust port after the theme queue |
 | Forces speed, half A | `feature/forces-speed` | #289 | Merged: invariant hoists and playback reuse, TypeScript only, every forces pin unchanged; half B left out |
-| Deposit's pillars | `feature/deposit-pillars` | #285 (investigation, merged) | Approved by Kyler on the sheet; the adoption is in progress, no PR seen yet |
+| Deposit's pillars | `feature/deposit-pillars` | #301 | Round 3 (#285) approved on the sheet; adoption re-pins Deposit's five changed pins, every other pin unchanged; merging |
 | Dam sketch round 3 | `investigation/dam-sketch-3` | #279 | Parked until its adoption after the Weather view; the engine on the Rust water (446c641a). Two doubts to settle then: "two stacked dams" holds exactly what one dam holds (18.207 m³, the same dry-out day), and every wall change restarts the worker instead of cancelling inside it. Its `rust/water` patch needs reconciling with multi-core and water speed |
 | Islands round 6 | `investigation/islands-round-3` | #235 | `approved`; adopted in the generator queue's order, re-pinned; no more Islands rounds |
 | Codex investigations | `merge-review`, `map-switch-speed`, `rust-props`, `page-hunt`, `force-playback` | none yet | Running (the first three on Kyler's PC, the last two on the dedicated machine; `saving-review` is above); each delivers an adoption patch split by owner and an eight-line report |

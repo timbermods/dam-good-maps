@@ -342,7 +342,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
   sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
   another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
-  none added. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
+  none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
+  lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
   page's row and its sediment-and-water effects are to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
