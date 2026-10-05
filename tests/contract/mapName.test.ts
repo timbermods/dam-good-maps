@@ -49,7 +49,7 @@ describe("renaming a map (D443)", () => {
     s.setName("Beaver Bend");
     const put: YourMapEntry[] = [];
     const saver = new YourMapsSaver({ put: async (e) => (put.push(e), { ok: true }) }, { setTimer: () => 0, clearTimer: () => {} });
-    const entry: YourMapEntry = { id: "a", name: "Old", kind: "generated", createdAt: "x", editedAt: "x", starred: false, thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0 };
+    const entry: YourMapEntry = { id: "a", name: "Old", kind: "generated", createdAt: "x", editedAt: "x", thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0 };
     saver.changed("a", () => ({ entry, project: s.project() }));
     await saver.flush();
     expect(put[0].name).toBe("Beaver Bend");
