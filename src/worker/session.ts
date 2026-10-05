@@ -1753,7 +1753,7 @@ function startForceWater(f: NonNullable<typeof force>): void {
   // a standstill, every river on the map would start again and ripple everywhere while the carve plays
   if (flows) {
     for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
-    sim.out.set(flows);
+    sim.setOut(flows);
   }
   forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C) };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
