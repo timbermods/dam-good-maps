@@ -1,4 +1,4 @@
-// Deposit's connected fan and predictable short-line contract (D342).
+// Deposit's connected fan and short-gesture and full-cone contract (D342).
 import {describe,expect,test} from "vitest";
 import {DepositRun,DEPOSIT_DEFAULTS} from "../../src/core/forces/deposit";
 import {fixture} from "./forceFixtures";
@@ -12,6 +12,16 @@ function fan(before:Uint8Array,h:Uint8Array,W:number){
  expect(raised.size).toBe(0);expect(h.reduce((s,v)=>s+v,0)).toBe(before.reduce((s,v)=>s+v,0));
 }
 describe("Deposit fan shaping",()=>{
+ test("connecting a split cone retains both lobes, the original volume and extent",()=>{
+  const m=fixture("plain",64);m.entities=[];
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<28?12:y>=31&&y<=33?14:7;
+  const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,seed:2},{path:[{x:30,y:30},{x:53,y:30}]}).finishAll();
+  fan(m.heights,r.map.heights,64);expect(r.plan0.stats.deposited).toBe(1685);expect(r.plan0.reach).toBe(23);
+  const raised=Array.from(r.map.heights).flatMap((h,i)=>h>m.heights[i]?[i]:[]),xs=raised.map(i=>i%64),ys=raised.map(i=>(i/64)|0);
+  expect(Math.max(...xs)-Math.min(...xs)+1).toBeGreaterThanOrEqual(24);
+  expect(Math.max(...ys)-Math.min(...ys)+1).toBeGreaterThanOrEqual(29);
+  expect(ys.some(y=>y<31)).toBe(true);expect(ys.some(y=>y>33)).toBe(true);
+ });
  test("a small material budget covers connected ground before building relief",()=>{
   for(const seed of [0,1,2,7,41])for(const power of [0,35,70,100]){
    const m=fixture("plain",64);m.entities=[];m.heights.fill(1);
@@ -28,18 +38,17 @@ describe("Deposit fan shaping",()=>{
    fan(m.heights,r.map.heights,64);
   }
  });
- test("every seed refuses a short line with the same actionable line and preserves input",()=>{
-  for(const seed of [0,1,2,7,41,0xffffffff])for(const power of [0,35,70,100]){
+ test("short draws and clicks make visible connected fans at every sampled Power and seed",()=>{
+  for(const seed of [0,1,2,7,41,0xffffffff])for(const power of [0,35,70,100])for(const path of [[{x:30,y:30}],[{x:30,y:30},{x:35,y:30}]]){
    const m=fixture("plain",64),before=m.heights.slice();
-   expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power,seed},{path:[{x:30,y:30},{x:35,y:30}]})).toThrow("Draw a longer line for a fan (at least 8 tiles)");
-   expect(m.heights).toEqual(before);
+   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power,seed},{path}).finishAll();
+   fan(before,r.map.heights,64);expect(r.plan0.stats.changed).toBeGreaterThanOrEqual(9);expect(m.heights).toEqual(before);
   }
  });
- test("a working area too small for a fan refuses atomically",()=>{
+ test("a real working-area restriction refuses atomically",()=>{
   const m=fixture("plain",64),before=m.heights.slice(),area=new Uint8Array(4096);
-  for(let x=18;x<30;x++)area[30*64+x]=2;
-  for(let x=30;x<35;x++)area[30*64+x]=2;
-  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[{x:30,y:30},{x:42,y:30}]},null,area)).toThrow("the map leaves no room for sediment here");
+  expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[{x:30,y:30},{x:35,y:30}]},null,area)).toThrow("the working area leaves nothing to take sediment from");
   expect(m.heights).toEqual(before);
  });
+
 });

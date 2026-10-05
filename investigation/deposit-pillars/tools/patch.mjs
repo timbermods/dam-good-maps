@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-const root='investigation/deposit-pillars', files=['rust/forces/src/deposit.rs','rust/forces/src/lib.rs','src/core/forces/rust/bridge.ts','tools/rust/forces-pins.json','tests/contract/depositFan.test.ts'];
+const root='investigation/deposit-pillars', files=['rust/forces/src/deposit.rs','tools/rust/forces-pins.json','tests/contract/depositFan.test.ts'];
 import {spawnSync} from 'node:child_process';
 let patch='';
 for(const file of files){
- const before=`${root}/local/patch-before`,after=`${root}/${file==='rust/forces/src/lib.rs'||file==='src/core/forces/rust/bridge.ts'?'local/checkout':'overlay'}/${file}`;
+ const before=`${root}/local/patch-before`,after=`${root}/overlay/${file}`;
  const existed=file!=='tests/contract/depositFan.test.ts';
  writeFileSync(before,existed?readFileSync(file,'utf8').replaceAll('\r\n','\n'):'');
  // Normalize snapshots so the adoption patch has no platform line-ending noise.

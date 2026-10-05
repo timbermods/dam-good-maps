@@ -1,10 +1,10 @@
 # Procedural scientific heightmap panels; no external assets. Read only generated local arrays.
-import json, math
+import json, math, sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 b=Path('investigation/deposit-pillars')
 before=json.loads((b/'local/before/samples.json').read_text())
-after=json.loads((b/'local/after/samples.json').read_text())
+after=json.loads((b/f'local/{sys.argv[1] if len(sys.argv)>1 else "final"}/samples.json').read_text())
 lookup={(s['theme'],s['seed'],s['k']):s for s in after}
 cases=[s for s in before if s['k']<3 and (s['theme'],s['seed'],s['k']) in lookup][:20]
 assert len(cases)==20
@@ -12,9 +12,9 @@ font_path='C:/Windows/Fonts/segoeui.ttf'
 font=ImageFont.truetype(font_path,16); small=ImageFont.truetype(font_path,12); title=ImageFont.truetype(font_path,24)
 panel=204; cellw=448; cellh=285
 sheet=Image.new('RGB',(cellw*4,120+cellh*5),(245,244,238));draw=ImageDraw.Draw(sheet)
-draw.text((20,12),'Deposit | old shaping before / connected layers after',font=title,fill=(32,45,40))
+draw.text((20,12),'Deposit | old shaping before / connected full fan after',font=title,fill=(32,45,40))
 draw.text((20,48),'20 identical gestures on 128 x 128 generated maps | height + hillshade | orange = deposited, blue = donor cuts',font=font,fill=(48,59,51))
-draw.text((20,74),'Each pair shares its height scale and crop. A refused fan shows the input ground; the reason is printed below.',font=font,fill=(48,59,51))
+draw.text((20,74),'Each pair shares its height scale and crop. Same 20 gestures, including all seven Power 0 short draws; each keeps its original sediment volume.',font=font,fill=(48,59,51))
 manifest=[]
 def render(s,crop):
  n=128;h=s['heights'];inp=s['input'];x0,y0,size=crop
@@ -47,7 +47,6 @@ for k,old in enumerate(cases):
  sheet.paste(render(old,crop),(x,y+40));sheet.paste(render(new,crop),(x+216,y+40))
  reason=new.get('reason')
  caption=reason or 'Kept: one connected fan; zero lone pillars'
- if reason=='Draw a longer line for a fan (at least 8 tiles)':caption='Refused: draw at least 8 tiles for a fan'
  if reason=='the map leaves no room for sediment here':caption='Refused: no room for a connected fan here'
  draw.text((x,y+249),caption,font=small,fill=(50,59,54))
  manifest.append({key:old[key] for key in ['theme','side','seed','k','path','power']}|{'afterReason':reason,'crop':crop})

@@ -2,6 +2,6 @@
   "unchangedOtherForcePins": 44,
   "repinnedDeposit": 5,
   "nativeWasmMatches": 50,
-  "shortLineRefusals": 96,
-  "shortLineReason": "Draw a longer line for a fan (at least 8 tiles)"
+  "shortLineFans": 96,
+  "depositGeometryAndBudgetMatches": 6
 }

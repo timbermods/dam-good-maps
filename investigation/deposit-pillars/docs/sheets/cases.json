@@ -15,7 +15,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       82,
@@ -84,7 +84,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       86,
@@ -110,7 +110,7 @@
     "afterReason": null,
     "crop": [
       27,
-      19,
+      17,
       93
     ]
   },
@@ -153,7 +153,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       4,
       96,
@@ -222,7 +222,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       91,
@@ -291,7 +291,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       82,
@@ -360,7 +360,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       76,
@@ -429,7 +429,7 @@
       }
     ],
     "power": 0,
-    "afterReason": "Draw a longer line for a fan (at least 8 tiles)",
+    "afterReason": null,
     "crop": [
       0,
       82,

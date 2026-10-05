@@ -5,15 +5,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 102,
-    "refused": 18,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 3
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -28,15 +27,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 102,
-    "refused": 18,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 3
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -53,15 +51,14 @@
       2
     ],
     "uses": 120,
-    "kept": 97,
-    "refused": 23,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 8
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -76,15 +73,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 94,
-    "refused": 26,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 11
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -99,15 +95,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 100,
-    "refused": 20,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 5
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 1,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -122,15 +117,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 100,
-    "refused": 20,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 15,
-      "the map leaves no room for sediment here": 5
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -147,15 +141,14 @@
       3
     ],
     "uses": 120,
-    "kept": 96,
-    "refused": 24,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 12,
-      "the map leaves no room for sediment here": 12
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 1,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -170,15 +163,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 97,
-    "refused": 23,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 9
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -193,15 +185,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 103,
-    "refused": 17,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 3
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -216,15 +207,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 99,
-    "refused": 21,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 7
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -239,15 +229,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 101,
-    "refused": 19,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 5
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -262,15 +251,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 102,
-    "refused": 18,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 4
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -285,15 +273,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 97,
-    "refused": 23,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 9
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 1,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
@@ -308,15 +295,14 @@
     "maps": 3,
     "skipped": [],
     "uses": 120,
-    "kept": 103,
-    "refused": 17,
+    "kept": 120,
+    "refused": 0,
     "spiky": 0,
     "scattered": 0,
     "weak": 0,
-    "reasons": {
-      "Draw a longer line for a fan (at least 8 tiles)": 14,
-      "the map leaves no room for sediment here": 3
-    },
+    "volumeChanges": 0,
+    "expandedSmallFans": 0,
+    "reasons": {},
     "before": {
       "kept": 120,
       "refused": 0,
