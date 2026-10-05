@@ -543,11 +543,13 @@ D278); the named premises that became intentions are in design version 2 §6 (`d
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
 draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea is most of the map
-and runs to the edges on two or three sides, held there by a lip of land a few tiles wide; the mainland stands on one
-side or two, its coast lobed in bays and points; an inland sea in a ring of land on about one sea map in eleven (D423,
-D427). Islands' lake budget is its water cap (D369), so the sea is never cut to fit half the map. Islands grow with the
-map and vary: a large one with arms and a long coast, smaller ones down from it, some long and thin, their straits kept
-in tiles, and one a strait off the shore, the game's reach (D429); its start may stand on an island that holds what it
+and runs to the map's edge on two or three sides, held there by a lip a tile or two wide at the very edge, a level over
+a shallow shelf (no edge wall, D151; Any's sea maps keep a lip of 6–10 tiles); a river that meets the sea ends there,
+never crossing the lip. The mainland stands on one side or two, its coast warped into bays and points at every scale;
+an inland sea in a ring of land on about one sea map in eleven (D423, D427). The sea is never cut to fit the lake
+budget (D432). Islands grow with the map and vary: a large one with arms and a long coast, smaller ones down from it in
+sizes drawn from a broad range, some long and thin, every outline lobed and coved, never an ellipse, their straits kept
+in tiles, and one a strait off the mainland, the game's reach (D429); its start may stand on an island that holds what it
 needs (D410, D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as

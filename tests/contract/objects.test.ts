@@ -115,8 +115,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // maps, for batch 5's, for D333's, whose check walks round the objects that block the way, and
     // for D348–D360's, and for M9b's small starts and speed rounds, which left canyon 3 without a site;
     // Islands 3 for 2 since Islands' second shape round, D417, D429, left seed 2 without one; Islands 1 for 3
-    // since Islands round 4 left seed 3 without one, D148)
-    for (const [theme, seed] of [["islands", 1], ["riverValley", 3], ["canyon", 4], ["riverValley", 4]] as [ThemeId, number][]) {
+    // since Islands round 4 left seed 3 without one; Islands 16 for 1 since Islands round 6 left 1–8 and 10–15
+    // without one and 9's 56 tiles out, D148)
+    for (const [theme, seed] of [["islands", 16], ["riverValley", 3], ["canyon", 4], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");

@@ -1,11 +1,88 @@
-# Islands, rounds 3 to 5: the coast, and islands that read as islands
+# Islands, rounds 3 to 6: the coast, and islands that read as islands
 
-Rounds 2 to 5 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148).
+Rounds 2 to 6 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148).
 [islands.patch](islands.patch) is the whole change against dev's tip, Islands' own shaping only: `land/genome.ts`
-`addSea` and Islands' lake budget, the sea and isle cases and `rimKeep` in `land/field.ts`, the Islands-gated blocks
-of `gen/generate.ts`, `land/islands.ts`. Every map is shaped before the first land is shown (D348, D370).
+`addSea`, `rimKeep` and Islands' lake budget, the sea and isle cases in `land/field.ts`, the sea's rivers in
+`land/hydro.ts` and `land/courses.ts`, the Islands-gated blocks of `gen/generate.ts`, `land/islands.ts`. Every map is
+shaped before the first land is shown (D348, D370).
 
-## Round 5: what changed, and the fault each answers
+## Round 6: what changed, and the fault each answers
+
+1. **The sea was a box** (a 6–10 tile lip, straight coasts, square corners). The sea now runs to the map's edge on
+   its open sides, behind a lip of two tiles at the very edge, one level over a shelf tile under the water. Round 5
+   widened the lip because a narrow one drained the sea. There were three causes, each fixed where it was:
+   - **Rivers.** A spring's river was traced through the sea and on across the lip to the edge, and its bed was
+     cut there. A river now ends where it meets the sea (its exit is the sea, `{ basin }`), and the course check
+     reads a sea's exit as wherever the sea's water leaves. No outlet channel is cut through the lip. A later
+     spring still joins a river on the land (D273 (1)): counted as a join, ending in the sea made every spring
+     a river of its own, and at 256² they cut the mainland into strips with no room for a start.
+   - **Erosion.** Diffusion wore a ridge one or two tiles wide down into a sea a dozen levels deep. The lip keeps
+     its uplift after erosion.
+   - **The edge's relaxing** (D151, no edge walls) caps the two edge rows at the slope just inside them, which
+     flattened a lip standing straight over the sea's floor. `holdSeaLip` gives the lip one level along the sea's
+     sides, the low tenth of its tops, with a shelf tile a level under it. The relaxing then keeps it, and the edge
+     rows stand only a level over the land inside, so D151's edge-wall check passes.
+   - The sea is never cut to fit the lake budget either (D432); a setting's lean had drained one that way.
+   - The mainland stands an eighth of the sea's depth over its floor, not a quarter: with round 5's low lip gone it
+     met the sea in a cliff, and some lands had no field land by the water for a start.
+   - Any's sea maps share `addSea` but keep round 5's 6–10 tile lip and quarter lift: on the thin lip their starts
+     found no place (Any 96² seeds 4 and 5 ran out of attempts). The rest of round 6 applies to them.
+2. **Straight coasts where the sea meets the mainland.** Most of round 5's seams were the lip itself, now at the
+   map's edge. The mainland's coast is read at a point warped by a third of the deepest lobe's reach, its front
+   wanders by a third of its own reach, plus finer coves. Lobes are level across a third of their width, not half.
+   The mainland is sized before the islands are placed, its lobes grown together in proportion until the open sea
+   is under three fifths of the map. Grown each to a cap, they all reached it and drew one straight front; grown
+   after the islands, the islands held them back and the mainland was a sliver. They give way to an island to
+   three fifths of their reach at most, the strait pass parting what still meets them. On an open sea the tilt's
+   linear part is gone (its level contours ran straight across the sea's floor), and theme landforms (a mesa, an
+   escarpment) whose middle lies in the open sea are dropped: they stood as flat shoals with straight sides.
+3. **Ellipses and rows of like dots.** Every island's outline is lobed by two waves round it (2–3 and 5–7 round,
+   inward only, so the straits stay) and cut by coves of a third of its size and of a few tiles. A 4-round wave
+   drew rounded squares, hence 5–7. Smaller islands take sizes from a broad range round each step, two in five
+   long and thin, and the chain's islands each their own size, shape and turn. The offshore island stands off
+   the mainland's real coast (read from `rimKeep`, placed after the lobes settle), never off the lip.
+
+**Why the 0.70 budget didn't move the wet share:** the sea's size is drawn by `addSea`, which grew the mainland
+until its reading left 45% to the sea; the budget only decides whether the hydrology cuts a sea larger than it.
+
+## The counts, round 5 → round 6
+
+Kyler's measure ([reach.ts](reach.ts): an island of 150+ tiles apart from the start's land, clear of the map's
+edges, reached across at most 8 tiles of water at a time). Islands, seeds 1–30.
+
+| Size | No island to expand to | Attempts, mean | Wet share, median | Ring maps |
+|---|---|---|---|---|
+| 96² | 8 → 10 | 5.8 → 4.9 | 0.44 → 0.59 | 1 → 0 |
+| 128² | 1 → 0 | 3.3 → 2.6 | 0.46 → 0.59 | 2 → 1 |
+| 256² | 0 → 1 (18) | 3.0 → 2.2 | 0.49 → 0.58 | 2 → 1 |
+
+M9b's measure (`investigation/m9b/measures.ts`):
+
+| Size | All three outcomes | Promise missed | Water story missed | Not passed | Settle over 4 days (a reading) |
+|---|---|---|---|---|---|
+| 96² | 29 → 30 | 1 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| 128² | 30 → 26 | 0 → 1 | 0 → 3 | 0 → 0 | 2 → 0 |
+| 256² | 28 → 30 | 0 → 0 | 2 → 0 | 0 → 0 | 10 → 4 |
+
+No map at any size is without a start. Sheets, round 5 left and round 6 right, north up, start marked: 128²
+[1–10](../../docs/sheets/islands-round-6-128-1.png), [11–20](../../docs/sheets/islands-round-6-128-2.png),
+[21–30](../../docs/sheets/islands-round-6-128-3.png); 256² scaled to 256 px
+[1–10](../../docs/sheets/islands-round-6-256-1.png), [11–20](../../docs/sheets/islands-round-6-256-2.png),
+[21–30](../../docs/sheets/islands-round-6-256-3.png).
+
+## Round 6, still short by seed
+
+- **Still a smooth oval or two:** 128² 17; 256² 17, 22, 29.
+- **No island to expand to:** 96² 7, 8, 9, 13, 14, 19, 22, 24, 28, 30 (D433's shortfall, 8 → 10); 256² 18.
+- **M9b's water story missed at 128²:** 2, 12, 22, a river holding water on only 43–67% of its course; its promise
+  missed on 18, a ring map.
+- **Ring maps:** 128² 18, 256² 7 (a ring's own lip is round 5's band of land).
+- **Pale shallows round a few islands** where the strait pass parted them from the mainland, as in round 5.
+- **Any's sea maps** keep round 5's lip; the sea to the edge there is Kyler's call.
+- **Found, not fixed:** Islands 128² seed 9's second district site stands 56 tiles from the start; the rule says
+  60–120. The objects test now uses seed 16 (D148).
+
+## Round 5: what changed, and the fault each answers (kept, but for the lip)
 
 1. **A sea cut out of a band of land framing all four sides** (the ring D427 rejected). On open maps the sea runs to
    the map's edges on two or three sides, held there by a lip of land 6–10 tiles wide at any size, and the mainland
@@ -133,8 +210,13 @@ dev's tip before round 2, for reference: no island at 96/128/256² on 23, 12 and
 
 - **The lake budget is clamped to half the map** (`genome.ts`, `leanGenome`). Round 5 gives Islands its own, its
   water cap (0.70), as Kyler asked; every other theme keeps the clamp.
-- **A lake over its budget is cut to its floor** (`hydro.ts`, `hollow`): a flat-floored sea over budget drains
-  whole, not to a smaller sea. Round 2's shared causes stand (the outlet cut below its sill, the outlet carving
+- **A lake over its budget is cut to its floor** (`hydro.ts`, `hollow`): a flat-floored lake over budget drains
+  whole, not to a smaller lake. Round 6 exempts an island sea; other lakes keep the cut.
+- **The edge's relaxing** (`levels.ts`, `relaxEdges`, D151) caps any one- or two-tile ridge at the map's edge that
+  stands over a drop; Islands' lip is shaped to pass it (`holdSeaLip`), the rule itself unchanged.
+- **A shown land with no place for a start ends the run with no map** (`generate.ts`, the D348 retry rules: a
+  stuck attempt breaks the loop). Round 6 met it on 256² seeds 4, 5, 29 and 96² seed 20 before their causes were
+  fixed; #277 (D471) would draw again instead. Round 2's shared causes stand (the outlet cut below its sill, the outlet carving
   under a sea's shelf, a shown land kept though its start fails).
 - **The page's Flatten disagrees with its operation over deep water**: found on round 4's land (2fd5de44, Islands
   96² seed 5, stroke 7 of the brush test, four sea tiles a level apart). Round 5's lands no longer reproduce it, so

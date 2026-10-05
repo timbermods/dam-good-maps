@@ -1,5 +1,5 @@
 diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
-index ec3c6aab..1410941c 100644
+index ec3c6aab..dd2b4492 100644
 --- a/src/core/gen/generate.ts
 +++ b/src/core/gen/generate.ts
 @@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
@@ -7,7 +7,7 @@ index ec3c6aab..1410941c 100644
  import { WaterSim } from "../sim/water";
  import { prefill, spillLevels } from "../sim/prefill";
 -import { seaLevel, standIslandsClear } from "../land/islands";
-+import { islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
++import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
  import { unit } from "../land/num";
  import { entityJson } from "../format/entities";
  import { mapObjects, type MapObject } from "../sim/model";
@@ -23,13 +23,37 @@ index ec3c6aab..1410941c 100644
 @@ -319,6 +319,8 @@ interface LandStage {
    hollows: Omit<Hazards, "heights"> | null;
  }
-
+ 
 +/** An island to expand to (D429): the dry tiles it needs at 128², by area (`islandToExpandTo`). */
 +const EXPAND_TILES = 150;
  /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
   *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
   *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
-@@ -1257,7 +1259,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -429,6 +431,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
+       g.flowDir = orientDir(g.flowDir, o);
+       const E = orientField(F.E, W, H, o);
+       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
++      // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
++      if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
+     } else replans++;
+     const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+     if (a.stage) {
+@@ -1231,6 +1235,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+   // takes days to settle; the channel is as wide as the map's flow needs
+   const channels = new Uint8Array(N);
+   for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
++  // (round 6: never through an island sea's lip, the two rows at the map's edge: the sea spills over
++  // the lip to the edge, and a channel cut through it drained the sea a level and notched the lip)
++  if (g.seaLayout && g.theme === "islands")
++    for (let i = 0; i < N; i++) {
++      const x = i % W;
++      const y = (i - x) / W;
++      if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
++    }
+   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
+   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
+   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
+@@ -1257,7 +1269,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
    }
    // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
@@ -38,7 +62,7 @@ index ec3c6aab..1410941c 100644
    if (g.seaLayout) {
      const isles = g.parts.filter((p) => p.isle).map((p) => {
        const o = (g.orientation ?? 0) as LandOrientation;
-@@ -1271,8 +1273,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1271,8 +1283,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      });
      const keepI = new Uint8Array(N);
      for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
@@ -48,7 +72,7 @@ index ec3c6aab..1410941c 100644
    }
    // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
    // shallower there)
-@@ -1703,6 +1704,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+@@ -1703,6 +1714,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
            screened.count++;
            return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
          }
@@ -68,8 +92,38 @@ index ec3c6aab..1410941c 100644
        }
      }
      let second: StartPick | null = null;
+diff --git a/src/core/land/courses.ts b/src/core/land/courses.ts
+index 9699868c..6fb5759b 100644
+--- a/src/core/land/courses.ts
++++ b/src/core/land/courses.ts
+@@ -159,6 +159,13 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
+       seen.add(r.id);
+       return exitsOf(to, seen);
+     }
++    // (round 6: a river that ends in a basin, an island sea, leaves the map where that basin's water
++    // does)
++    if ("basin" in e) {
++      const x = Math.min(W - 1, Math.max(0, Math.round(e.basin[0])));
++      const y = Math.min(H - 1, Math.max(0, Math.round(e.basin[1])));
++      return out[y * W + x] >= 0 ? [out[y * W + x]] : [];
++    }
+     const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
+     if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
+     return tiles;
+@@ -245,6 +252,11 @@ export function closeSideEdges(h: Uint8Array, W: number, H: number, rivers: read
+       seen.add(r.id);
+       return exitsOf(to, seen);
+     }
++    if ("basin" in e) {
++      const x = Math.min(W - 1, Math.max(0, Math.round(e.basin[0])));
++      const y = Math.min(H - 1, Math.max(0, Math.round(e.basin[1])));
++      return out[y * W + x] >= 0 ? [out[y * W + x]] : [];
++    }
+     const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
+     if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
+     return tiles;
 diff --git a/src/core/land/field.ts b/src/core/land/field.ts
-index ebe1ee1f..0fbf8188 100644
+index ebe1ee1f..72875e95 100644
 --- a/src/core/land/field.ts
 +++ b/src/core/land/field.ts
 @@ -21,7 +21,7 @@ import { bump, DIRS8, dist, unit } from "./num";
@@ -77,8 +131,8 @@ index ebe1ee1f..0fbf8188 100644
  import { clamp, smoothstep } from "../math/clamp";
  import { sinDet, TWO_PI } from "../math/detmath";
 -import type { Genome, Part } from "./genome";
-+import { rimLobe, type Genome, type Part, type RimLobe } from "./genome";
-
++import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
+ 
  /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
  export function landSeed(seed: number, variation: number): number {
 @@ -146,7 +146,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
@@ -86,11 +140,11 @@ index ebe1ee1f..0fbf8188 100644
          // a tile or two to a tenth of the map, broken by narrow headlands, its fall to the sea now a
          // gentle shore, now a cliff)
 -        const keepRim = sea ? rimKeep(s, x, y, W, H) : 1;
-+        const keepRim = sea ? rimKeep(s, x, y, W, H, p.lobes) : 1;
++        const keepRim = sea ? rimKeep(p.coast ?? s, x, y, W, H, p.lobes, p.thinLip) : 1;
          U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
          if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
        });
-@@ -243,20 +243,31 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
+@@ -243,20 +243,49 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
        const major = p.size * portable.sqrt(aspect);
        const minor = p.size / portable.sqrt(aspect);
        const cell = Math.max(6, p.size * 0.55);
@@ -100,6 +154,19 @@ index ebe1ee1f..0fbf8188 100644
 +      // (an island a strait off the shore (`calm`) keeps a calmer coast, a fifth the wobble, so its
 +      // strait stays one: at the full wobble it was fused or out of reach as often as not)
 +      const wob = Math.min(p.size, 14) * (p.calm ? 0.2 : 1);
++      // (round 6: never an ellipse, at any size. Its outline is lobed by two waves round it, deep bays
++      // between broad points, and cut by coves of a third of its size and of a few tiles, all only
++      // inward, so the straits its neighbours and the shore keep stay; drawn 8% larger, its
++      // points reach a little past the ellipse. Round 5's wobble, capped at a 14-tile island's for the
++      // straits, left a 256² island an ellipse with a rough edge.)
++      const ir = stream(s, "isle-outline");
++      const k1 = 2 + Math.floor(2 * ir.float());
++      // (the second wave 5–7 round: 4 round, on the island's own axes, drew a rounded square)
++      const k2 = 5 + Math.floor(3 * ir.float());
++      const p1 = ir.float();
++      const p2 = ir.float();
++      const a1 = 0.14 + 0.16 * ir.float();
++      const a2 = 0.07 + 0.09 * ir.float();
        each((x, y, i) => {
 -        const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
 -        const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
@@ -111,7 +178,12 @@ index ebe1ee1f..0fbf8188 100644
          const b = (-dx * uy + dy * ux) / minor;
 -        const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
 -        if (d >= 1.15) return;
-+        const d = portable.sqrt(a * a + b * b) / (1 + ((0.22 * wob) / p.size) * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
++        const r0 = portable.sqrt(a * a + b * b);
++        if (r0 >= 1.4) return;
++        const t0 = pseudoAngle(a, b);
++        const lobed = 1 - a1 * (0.5 + 0.5 * sinDet(TWO_PI * (k1 * t0 + p1))) - a2 * (0.5 + 0.5 * sinDet(TWO_PI * (k2 * t0 + p2)));
++        const coves = (1 - 0.28 * Math.max(0, fbm(s + 7, x, y, Math.max(5, p.size * 0.33), 2))) * (1 - 0.12 * Math.max(0, fbm(s + 9, x, y, 4, 2)));
++        const d = r0 / (1.08 * lobed * coves * (1 + ((0.22 * wob) / p.size) * fbm(s, x, y, Math.max(5, p.size * 0.35), 3)));
 +        if (d >= 1.05) return;
          let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
          n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
@@ -128,70 +200,80 @@ index ebe1ee1f..0fbf8188 100644
        });
        return;
      }
-@@ -304,21 +315,49 @@ export interface Field {
+@@ -303,24 +332,6 @@ export interface Field {
+   hard: Float64Array;
  }
-
- /** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
+ 
+-/** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
 - *  tile, so the sea keeps a rim of land) to 1 inside the rim (D417): the rim's inner line is a
 - *  rounded square (no square corners), its distance from the edge wandering from 1% of the side to
 - *  8%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
 - *  the side. */
 -function rimKeep(s: number, x: number, y: number, W: number, H: number): number {
-+ *  tile, so the sea keeps a rim of land; below 0 on a lobe, lifted) to 1 inside it: a lip of land 6–10
-+ *  tiles wide at any size (round 5), falling to the sea over 2–4 tiles, and broad lobes of mainland
-+ *  where addSea drew them (round 4). */
-+function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[]): number {
-   const side = Math.min(W, H);
-   const ex = Math.min(x, W - 1 - x);
-   const ey = Math.min(y, H - 1 - y);
+-  const side = Math.min(W, H);
+-  const ex = Math.min(x, W - 1 - x);
+-  const ey = Math.min(y, H - 1 - y);
 -  const rc = 0.2 * side;
-+  const rc = 6;
-   const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
-   const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-   const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
+-  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
+-  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
+-  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
 -  const inner = side * (0.01 + 0.07 * t + 0.03 * head);
 -  const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
 -  return smoothstep((e - inner) / fall);
-+  // (round 5, D427: where the sea meets an edge, the land between is a lip, 6–10 tiles at any size,
-+  // just enough to hold the water, so the sea reads as running on to the edge; the mainland is the
-+  // lobes'. Round 4's 2.5–7.5% of the side, with lobes on every side, framed the sea on all four: the
-+  // ring D427 rejected. Narrower, 2–6 tiles, a river's way out across it cut its bed to the sea's
-+  // floor beside it and the sea drained on a third of the lands.)
-+  const base = 6 + 2 * t + 2 * head;
-+  const fall = 2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
-+  let k = smoothstep((e - base) / fall);
-+  if (!lobes || !lobes.length) return k;
-+  // (round 4, D417: and the rim's broad lobes of mainland, which addSea placed clear of the islands,
-+  // each its edge's own band reaching in, the rim's land the union of the four edges' bands, so no
-+  // seam runs down a corner's diagonal; their flanks wander along the edge and their reach by ±30%
-+  // with the noise, 6 tiles at most (the detail per tile as at 128², and an island a strait off the
-+  // coast stays a strait off it), so a lobe's coast bends in bays and points, never its profile's
-+  // straight flank or front)
-+  const wob = 0.09 * fbm(s + 53, x, y, 0.1 * side, 3);
-+  const swing = fbm(s + 59, x, y, 0.08 * side, 2);
-+  const fx = x / (W - 1);
-+  const fy = y / (H - 1);
-+  let lift = 0;
-+  for (const [d, u] of [[y, fx], [W - 1 - x, 1 + fy], [H - 1 - y, 2 + (1 - fx)], [x, 3 + (1 - fy)]]) {
-+    const lobe = rimLobe(lobes, (u + wob + 4) % 4);
-+    if (lobe <= 0) continue;
-+    const kE = smoothstep((d - base - side * lobe - Math.min(0.3 * side * lobe, 6) * swing) / fall);
-+    k = Math.min(k, kE);
-+    lift = Math.max(lift, (1 - kE) * Math.min(1, lobe / 0.08));
-+  }
-+  // (a lobe's land is lifted by up to a quarter of the sea's depth, ground over the water that ends in a
-+  // fall to it. Round 4 lifted it 0.7 against the radial tilt, which sank a lobe reaching in below the
-+  // spill; round 5's open sea lies level (addSea), and lifted 0.7 an island near the coast was joined to
-+  // it by ground too high for the strait pass to part.)
-+  return k - 0.25 * lift;
- }
-
+-}
+-
  /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
+ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
+   const ls = landSeed(seed, g.variation);
+@@ -342,7 +353,9 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
+       else {
+         const du = x / (W - 1) - g.focus[0];
+         const dv = y / (H - 1) - g.focus[1];
+-        h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
++        // (round 6: not on an open island sea, whose floor lies level: its levels' contours ran
++        // ruler-straight across the sea, seams in the water)
++        h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - (g.seaLayout && !g.seaRing ? 0 : 0.3 * g.tilt * proj);
+       }
+       // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
+       // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
+@@ -468,5 +481,16 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field
+   let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion);
+   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
+   if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
++  // (round 6: an island sea's lip, a tile or two at the map's edge between it and a fall of a dozen
++  // levels, keeps its uplift: the erosion's diffusion wore a ridge that thin down into the sea, and
++  // the sea drained over it. The mainland's lobes keep their erosion.)
++  const sea = g.parts.find((p) => p.shape === "sea" && p.coast !== undefined && p.thinLip);
++  if (sea)
++    for (let y = 0; y < H; y++)
++      for (let x = 0; x < W; x++) {
++        const i = y * W + x;
++        const lip = lipKeep(sea.coast!, x, y, W, H, true);
++        if (lip < 1 && rimKeep(sea.coast!, x, y, W, H, sea.lobes, true) >= lip && E[i] < U[i]) E[i] = U[i];
++      }
+   return { E, hard };
+ }
 diff --git a/src/core/land/genome.ts b/src/core/land/genome.ts
-index 00e51bc2..234323bd 100644
+index 00e51bc2..5b61ae73 100644
 --- a/src/core/land/genome.ts
 +++ b/src/core/land/genome.ts
-@@ -48,6 +48,32 @@ export interface Part {
+@@ -19,12 +19,14 @@
+ 
+ import * as portable from "../math/portable";
+ import { stream, type Rng } from "../math/rng";
++import { hash32 } from "../math/hash";
+ import { RESERVE, reservoirNeeded } from "../gen/calibrated";
+ import { EDITOR_LEVEL, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
+ import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
+ import { unit } from "./num";
+-import { clamp } from "../math/clamp";
++import { clamp, smoothstep } from "../math/clamp";
+ import { TWO_PI } from "../math/detmath";
++import { fbm } from "../math/noise";
+ 
+ export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
+ 
+@@ -48,6 +50,109 @@ export interface Part {
    shape?: "round" | "valley" | "sea";
    /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
    isle?: boolean;
@@ -199,6 +281,12 @@ index 00e51bc2..234323bd 100644
 +  lobes?: RimLobe[];
 +  /** An island a strait off the shore: a calmer coast, a fifth the wobble (round 5). */
 +  calm?: boolean;
++  /** An island sea only: the seed its coast's noise draws from (`rimKeep`), so the genome places
++   *  islands against the coast the field will draw (round 6). */
++  coast?: number;
++  /** An island sea only: Islands' lip, a tile or two at the map's edge (round 6); else round 5's, 6–10
++   *  tiles (`rimKeep`). */
++  thinLip?: boolean;
 +}
 +
 +/** A lobe of the rim of land round an island sea (round 4, D417): its middle, as a place round the
@@ -216,15 +304,86 @@ index 00e51bc2..234323bd 100644
 +  for (const [lu, lw, ld] of lobes) {
 +    const du = Math.min(Math.abs(u - lu), 4 - Math.abs(u - lu));
 +    if (du < lw) {
-+      const q = Math.min(1, (2 * (lw - du)) / lw);
++      // (round 6: level across a third of its width, not half, and its front warped (rimKeep): level
++      // across half, its coast ran parallel to the edge, a straight seam)
++      const q = Math.min(1, (1.5 * (lw - du)) / lw);
 +      d = Math.max(d, ld * q * q * (3 - 2 * q));
 +    }
 +  }
 +  return d;
++}
++
++/** How much of a sea's depth a tile takes: 0 on the land at the map's edge (D350: the game drains
++ *  every edge tile, so the sea keeps a lip of land; below 0 on a lobe, lifted) to 1 in the sea. The
++ *  lip is 1–2 tiles at the very edge, falling to the sea in a tile or two (round 6), and the mainland
++ *  is the broad lobes addSea drew, their coast warped so it bends at every scale. `s` is the sea's
++ *  `coast` seed: the field draws the land with it and addSea reads it to place islands. */
++/** The lip alone (`rimKeep` without the mainland): 0 on the land at the map's edge, 1 past its fall
++ *  to the sea. Islands' (`thin`) is 1–2 tiles falling in a tile or two (round 6); Any's sea maps keep
++ *  round 5's, 6–10 tiles with rounded corners, falling over 2–4. */
++export function lipKeep(s: number, x: number, y: number, W: number, H: number, thin = false): number {
++  const side = Math.min(W, H);
++  if (thin) {
++    const e = Math.min(x, W - 1 - x, y, H - 1 - y);
++    const base = 1 + 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
++    const fall = 1.5 + 0.5 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1);
++    return smoothstep((e - base) / fall);
++  }
++  const ex = Math.min(x, W - 1 - x);
++  const ey = Math.min(y, H - 1 - y);
++  const rc = 6;
++  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
++  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
++  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
++  return smoothstep((e - (6 + 2 * t + 2 * head)) / (2 + (fbm(s + 41, x, y, 0.2 * side, 2) + 1)));
++}
++
++export function rimKeep(s: number, x: number, y: number, W: number, H: number, lobes?: readonly RimLobe[], thin = false): number {
++  const side = Math.min(W, H);
++  const e = Math.min(x, W - 1 - x, y, H - 1 - y);
++  // (round 6, Kyler: the sea runs to the map's edge, a lip of 1–2 tiles there so it reads as the sea
++  // going on past the map. Round 5's 6–10 tiles boxed the sea in with ruler-straight coasts and
++  // square corners; it was widened because a narrow lip drained the sea, and the cause was the
++  // rivers: one traced through the sea ran on across the lip and cut its bed there. A river now ends
++  // where it meets the sea, hydro.ts.)
++  let k = lipKeep(s, x, y, W, H, thin);
++  if (!lobes || !lobes.length) return k;
++  // (round 4, D417: the rim's broad lobes of mainland, which addSea placed clear of the islands, each
++  // its edge's own band reaching in, the land the union of the four edges' bands, so no seam runs
++  // down a corner's diagonal)
++  // (round 6: the coast bends at every scale, never a ruler-straight seam: the bands are read at a
++  // point warped by a third of the deepest lobe's reach, so a lobe's front curls into bays and
++  // headlands, and its front wanders by a third of its own reach and a tile and a half more in
++  // finer coves; round 5's ±6 tiles on a front level across half the lobe ran straight for 20–40)
++  let deep = 0;
++  for (const l of lobes) deep = Math.max(deep, l[2]);
++  const A = 0.34 * side * deep;
++  const cw = 0.16 * side;
++  const xw = x + A * fbm(s + 61, x, y, cw, 3);
++  const yw = y + A * fbm(s + 67, x, y, cw, 3);
++  const wob = 0.06 * fbm(s + 53, x, y, 0.1 * side, 3);
++  const swing = fbm(s + 59, xw, yw, 0.07 * side, 3);
++  const fine = 1.5 * fbm(s + 71, x, y, 6, 2);
++  const fx = clamp(xw / (W - 1), 0, 1);
++  const fy = clamp(yw / (H - 1), 0, 1);
++  let lift = 0;
++  for (const [d, u] of [[yw, fx], [W - 1 - xw, 1 + fy], [H - 1 - yw, 2 + (1 - fx)], [xw, 3 + (1 - fy)]]) {
++    const lobe = rimLobe(lobes, (u + wob + 4) % 4);
++    if (lobe <= 0) continue;
++    const kE = smoothstep((d - (thin ? 2 : 8) - side * lobe * (1 + 0.33 * swing) - fine) / (thin ? 2 : 3));
++    k = Math.min(k, kE);
++    lift = Math.max(lift, (1 - kE) * Math.min(1, lobe / 0.08));
++  }
++  // (a lobe's land is lifted by an eighth of the sea's depth on Islands, a quarter on Any's sea maps, ground over the water that ends in a fall to
++  // it: lifted 0.7, an island near the coast was joined to it by ground too high for the strait pass to
++  // part, round 5. Islands' an eighth: lifted a quarter, with round 5's low lip gone, its mainland met
++  // the sea in a cliff and some lands had no field land by the water for a start, round 6; Any's sea
++  // maps a quarter, whose lower lands an eighth left under sheets of water)
++  return k - (thin ? 0.125 : 0.25) * lift;
  }
-
+ 
  /** The six themes the generator knows, without "Any". */
-@@ -161,8 +187,8 @@ export interface Genome {
+@@ -161,8 +266,8 @@ export interface Genome {
     *  a sea off one edge, a scatter of islands, an island chain, an atoll, or two large islands parted
     *  by a strait; null without a sea. */
    seaLayout?: SeaLayout | null;
@@ -235,15 +394,40 @@ index 00e51bc2..234323bd 100644
    seaRing?: boolean;
    /** Falls on the rivers (the Waterfalls setting): 0 spreads every drop along the course (no
     *  falls), 1 lets the land decide, 2 gathers more of them. */
-@@ -631,9 +657,16 @@ const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
+@@ -607,7 +712,9 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
+   // a radial slope falls toward the first bowl when there is one
+   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
+   if (g.tiltKind === "radial" && bowl) g.focus = [bowl.at[0], bowl.at[1]];
++  const seaFrom = g.parts.length;
+   if (sea) addSea(g, stream(seed, "sea-layout", theme, attempt), W, H, attempt, areaK, tallK);
++  const seaTo = g.parts.length;
+   const knolls = Math.round(d(p.knollsPer128) * areaK);
+   if (knolls > 0) g.parts.push({ kind: "knolls", at: [0.5, 0.5], size: 0, height: 1.5 + rng.float(), turn: 0, extra: knolls, soft: 0 });
+   // (M9b, D275 (1): the recipes are folded into intentions, one concept checked by outcome: the
+@@ -619,6 +726,14 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
+   // intentions: outcomes the processes are steered toward, never built (D138)
+   g.intentions = o.intentions === undefined || o.intentions === null ? drawIntentions(theme, vt, rng, { W, H }, !!g.seaLayout) : o.intentions.filter((id) => !tooSmallFor(id, W, H));
+   for (const id of g.intentions) nudgeFor(id)(g, rng, W, H);
++  // (round 6: on an open island sea, the landforms whose middle lies in the open sea are dropped, the
++  // mainland's kept: a mesa or an escarpment there stood as a flat shoal with straight sides under the
++  // water, Islands 128² seed 5)
++  const seaPart = sea ? g.parts[seaFrom] : undefined;
++  if (seaPart?.lobes && seaPart.coast !== undefined) {
++    const { coast, lobes, thinLip } = seaPart;
++    g.parts = g.parts.filter((q, k) => (k >= seaFrom && k < seaTo) || q.kind === "knolls" || rimKeep(coast, q.at[0] * (W - 1), q.at[1] * (H - 1), W, H, lobes, thinLip) < 0.5);
++  }
+   return g;
+ }
+ 
+@@ -631,9 +746,16 @@ const SEA_WEIGHTS = [0.1, 0.22, 0.24, 0.16, 0.13, 0.15];
  /** How much deeper the basins the Lakes setting adds are (D333 (6)). */
  const LAKES_DEEPER = 1.6;
-
+ 
 -/** And the sea (a quarter of the map or more, the promise's line). */
 +/** And the sea's basin, beyond its layout's radius (round 4: an open map's sea is drawn past the rim,
 + *  its coast drawn by the islands and the rim's lobes; a ring map's within the ring, addSea). */
  const SEA_GROW = 1.12;
-
+ 
 +/** Islands' lake budget, its water cap (D369: its sea may be most of the map); every other theme's,
 + *  Any's sea maps too, is held to half the map (round 5). */
 +const ISLANDS_LAKE_MOST = 0.7;
@@ -253,7 +437,7 @@ index 00e51bc2..234323bd 100644
  /**
   * Islands in a sea (Kyler, 2026-09-25; M9b: in many layouts, D209, D294; D408, D410: from the
   * field's own processes, no template): a broad body of water held in a bowl so the land rises from it
-@@ -647,19 +680,36 @@ const SEA_GROW = 1.12;
+@@ -647,31 +769,56 @@ const SEA_GROW = 1.12;
   * the rest of the genome keeps its draws.
   */
  function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
@@ -294,10 +478,17 @@ index 00e51bc2..234323bd 100644
 +  // outside it stands a level over the sea's spill: an open map's basin is drawn one and a half sides
 +  // across, so no flat of that land is left inside the lip to join the islands to the shore)
 +  const open = () => side * (g.seaRing ? 0.28 + 0.04 * rng.float() : 1.5);
++  // (round 6: the coast's own seed, so the islands below are placed against the coast the field draws;
++  // a variation's land its own, D143)
++  const coast = hash32(rng.int(0, 0x7fffffff), "coast", g.variation);
++  // (Islands' lip a tile or two, round 6; Any's sea maps keep round 5's 6–10 tiles: on the thin one's
++  // lands their starts found no place)
++  const thin = g.theme === "islands";
    const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
      seaDepth = depth;
-     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
-@@ -667,11 +717,13 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+-    g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea" });
++    g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea", coast, thinLip: thin });
+   };
    // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
    // floor, a spine along it and a peak or two off its middle, so the erosion cuts valleys down its
    // flanks and the terraces step it, never a flat table with a bump
@@ -314,7 +505,7 @@ index 00e51bc2..234323bd 100644
      // a spine along it, and a peak off its middle, sometimes two
      g.parts.push({ kind: "ridge", at, size: r * (1 + 0.5 * rng.float()), height: rise * (0.2 + 0.15 * rng.float()) * tallK, turn: turn + 0.25 * (rng.float() < 0.5 ? 1 : 0), extra: r * (0.25 + 0.12 * rng.float()), soft: 0 });
      const peaks = 1 + Math.floor(2 * rng.float());
-@@ -679,163 +731,411 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+@@ -679,163 +826,451 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
        const off = r * (0.15 + 0.35 * rng.float()) * (k ? -1 : 1);
        g.parts.push({ kind: "isle", at: [at[0] + (ax * off) / W, at[1] + (ay * off) / H], size: r * (0.3 + 0.2 * rng.float()), height: rise * (0.15 + 0.2 * rng.float()) * tallK, turn: rng.float(), extra: 1 + rng.float(), soft: 0 });
      }
@@ -341,8 +532,8 @@ index 00e51bc2..234323bd 100644
 +    // (one group: the island and its arms move as one piece)
 +    groups.splice(groups.length - 1 - arms, arms + 1, { from, to: g.parts.length });
 +  };
-+  // (a size's shape: one in three long and thin, 1.9–2.7 long; the rest 1–1.5)
-+  const shape = () => (rng.float() < 0.35 ? 1.9 + 0.8 * rng.float() : 1 + 0.5 * rng.float());
++  // (a size's shape: two in five long and thin, 1.9–2.7 long; the rest 1–1.6)
++  const shape = () => (rng.float() < 0.4 ? 1.9 + 0.8 * rng.float() : 1 + 0.6 * rng.float());
 +  // (round 4: neighbours keep a strait of 4–7 tiles, the game's reach (D429: 8), between the coasts
 +  // the field's island draws, about its radius, its warp and aspect turning it a little further or
 +  // nearer; where they meet, the strait pass parts them across the low ground)
@@ -369,19 +560,39 @@ index 00e51bc2..234323bd 100644
 +    for (const s of main) {
 +      const m = 3 + Math.floor(2 * rng.float());
 +      for (let k = 0; k < m; k++) {
-+        const deep = layout === "edge" ? 0.2 + 0.18 * rng.float() : 0.1 + 0.2 * rng.float();
++        const deep = layout === "edge" ? 0.22 + 0.18 * rng.float() : 0.13 + 0.2 * rng.float();
 +        lobes.push([(s + (k + 0.5) / m + 0.12 * (rng.float() - 0.5) + 4) % 4, 0.38 / m + 0.04 + 0.06 * rng.float(), deep]);
 +      }
 +    }
 +    // (two sides side by side meet in their corner, broad land)
 +    if (main.length === 2) lobes.push([main[1] % 4, 0.22 + 0.1 * rng.float(), 0.16 + 0.12 * rng.float()]);
++    // (round 6: the mainland reaches in until the sea, before its islands, is under three fifths of the
++    // map, read on a coarse grid by the coast the field draws (rimKeep); the islands are then placed in
++    // that sea. Grown after them, held back wherever a lobe faced an island (every lobe at 256²), the
++    // mainland was a sliver; at two thirds, the water crossed Islands' cap (D369's 0.70) on many lands
++    // and some found no place for a start)
++    const G = 32;
++    const openSea = () => {
++      let n = 0;
++      for (let gy = 0; gy < G; gy++)
++        for (let gx = 0; gx < G; gx++) if (rimKeep(coast, ((gx + 0.5) / G) * (W - 1), ((gy + 0.5) / G) * (H - 1), W, H, lobes, thin) >= 0.5) n++;
++      return n / (G * G);
++    };
++    // (all together, in proportion, so they keep their different reaches; each grown to a cap of its own
++    // ran them all to it, one straight front)
++    // (D432, round 3's rule: under 128² a land drawn again has a smaller sea, so the shore keeps room
++    // for a start; the basin no longer sets the sea's size, so the open sea's share shrinks with it)
++    // (Any's sea maps keep under half, their lobes reaching further: their water cap is 0.55, Islands' 0.70)
++    const openMost = (thin ? 0.58 : 0.46) * shrink;
++    const lobeMost = g.theme === "islands" ? 0.5 : 0.6;
++    for (let k = 0; k < 14 && openSea() > openMost && Math.max(...lobes.map((l) => l[2])) * 1.1 <= lobeMost; k++) for (const l of lobes) l[2] *= 1.1;
 +  }
-+  // (the land along an edge, from it: the lip (6–10 tiles), its lobe, and as far as its noise mostly
-+  // carries it)
++  // (the land along an edge, from it: the lip (1–2 tiles) and its fall, its lobe, and as far as its
++  // warp and noise mostly carry it (rimKeep))
 +  // (the margins in tiles shrink with the map under 128², whose sea and islands are smaller and whose
 +  // room they took: at full size, 96² drew lands without islands enough twice as often)
 +  const tight = Math.min(1, side / 128);
-+  const rimAt = (u: number) => 10 * tight + side * rimLobe(lobes, u) + Math.min(0.3 * side * rimLobe(lobes, u), 6 * tight);
++  const rimAt = (u: number) => (thin ? 4 : 10) * tight + side * rimLobe(lobes, u) * 1.35 + (rimLobe(lobes, u) > 0 ? 0.12 * side * Math.max(0, ...lobes.map((l) => l[2])) : 0);
 +  // (an island's centre keeps the land along each edge and its own foot from the map's edges, so it
 +  // stands in the sea; one rooted in that land was the shore's own, joined to it by high ground)
 +  const room = (x: number, y: number, r: number) => {
@@ -402,17 +613,19 @@ index 00e51bc2..234323bd 100644
 +    }
 +    return null;
 +  };
-+  // (smaller islands, coming down in size from `from` by about a sixth each to 7 tiles at 128², some
-+  // long and thin: smaller and lower, they stood out of the sea as pebbles of a few tiles, or not at
-+  // all, and the promise's three islands were missing on a third of the lands)
++  // (smaller islands, coming down in size from `from` by about a fifth each to about 7 tiles at 128²,
++  // some long and thin: smaller and lower, they stood out of the sea as pebbles of a few tiles, or not
++  // at all, and the promise's three islands were missing on a third of the lands)
++  // (round 6: each drawn from a broad range round its step, the least ones too, so no run of
++  // islands of one size: at 256² the later ones all stood at the least, rows of like dots)
 +  const scatter = (count: number, from: number, least: number, depth: number, x0 = 0.08, x1 = 0.92, y0 = 0.08, y1 = 0.92) => {
 +    let size = from;
 +    for (let k = 0; k < count; k++) {
-+      const s = Math.max(least, size * (0.9 + 0.2 * rng.float()));
++      const s = Math.max(least * (0.85 + 0.45 * rng.float()), size * (0.8 + 0.4 * rng.float()));
 +      const asp = shape();
 +      const at = somewhere(s, asp, x0, x1, y0, y1);
 +      if (at) put(at[0], at[1], s, 3.5 + 0.3 * s * rng.float(), depth, asp);
-+      size *= 0.8 + 0.08 * rng.float();
++      size *= 0.72 + 0.12 * rng.float();
 +    }
    };
    let tilt = 3 + rng.float();
@@ -539,11 +752,12 @@ index 00e51bc2..234323bd 100644
 -        const size = 6 + 11 * Math.max(0, mid) * (0.7 + 0.3 * rng.float());
 -        island([(ccx + ux * Math.abs(bend)) / W, (ccy + uy * Math.abs(bend)) / H], size, 3 + 5 * Math.max(0.2, mid) + 2 * rng.float(), depth);
 +        const mid = 1 - Math.abs(t) * 0.9;
-+        // (long along the arc, 1.4–2.2, a strait of 4–7 tiles between neighbours at any size: the
-+        // middle one largest, the ends smaller)
-+        const asp = 1.4 + 0.8 * rng.float();
-+        const size = (((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid)) / isleK;
-+        put(ccx + ux * Math.abs(bend), ccy + uy * Math.abs(bend), size, 3 + 5 * mid + 2 * rng.float(), depth, asp, base + t * span + 0.25);
++        // (long along the arc, 1–2.2, a strait of 4–7 tiles between neighbours at any size: the
++        // middle one largest, the ends smaller; round 6: each its own size and turn, never a row of
++        // like ovals)
++        const asp = 1 + 1.2 * rng.float();
++        const size = (((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid) * (0.7 + 0.3 * rng.float())) / isleK;
++        put(ccx + ux * Math.abs(bend), ccy + uy * Math.abs(bend), size, 3 + 5 * mid + 2 * rng.float(), depth, asp, base + t * span + 0.25 + 0.16 * (rng.float() - 0.5));
        }
 +      scatter(1 + Math.floor(2 * rng.float()), 7, 7, depth);
        break;
@@ -637,69 +851,7 @@ index 00e51bc2..234323bd 100644
 -    const [ox, oy] = unit(rng.float());
 -    const sh = 0.08 + 0.06 * rng.float();
 -    for (const q of g.parts) if (q.shape === "sea") q.at = [clamp(q.at[0] + ox * sh, 0.2, 0.8), clamp(q.at[1] + oy * sh, 0.2, 0.8)];
-+  // (round 5: one island a strait off the shore, the mainland's or the lip's, so the start's land has
-+  // one within the game's reach (D429) however much of the map the sea takes; with the sea most of the
-+  // map, the nearest island stood out of reach on half the lands)
-+  // (where none stands clear of the layout's islands, the clearest place found: one it meets is joined
-+  // to it, and that island is in reach in its turn)
-+  // (it stands where it was put, off the coast: the pull-in and the lobes' giving way below pass it by)
 +  const offshore: { from: number; to: number }[] = [];
-+  if (main.length) {
-+    // (two on a larger map, one 3 tiles off and one 7, so one of them stands in the strait the coast's
-+    // noise leaves; one 5 tiles off on a smaller map)
-+    const gaps = side > 160 ? [3, 7] : [5];
-+    for (const off of gaps) {
-+      let best: { gap: number; x: number; y: number; size: number; asp: number; s: number } | null = null;
-+      for (let draw = 0; draw < 60; draw++) {
-+        // (off any side: the mainland's coast or the lip, whose land is the mainland's too)
-+        const s = Math.floor(4 * rng.float());
-+        const f = 0.2 + 0.6 * rng.float();
-+        const u = s + f;
-+        const size = 10 + 3 * rng.float();
-+        const asp = 1.4 + 0.6 * rng.float();
-+        // (long along the coast: its reach toward the coast is its short axis; `off` tiles off the lobe's
-+        // middle reach, the coast's noise moving the strait 3 either way: read where the lobe's noise
-+        // carries it furthest (rimAt), it stood 10 tiles out at 256², past the game's reach)
-+        const r = (size * isleK) / portable.sqrt(asp);
-+        const d = 8 + side * rimLobe(lobes, u % 4) + r + off;
-+        const [x, y] = s === 0 ? [f * (W - 1), d] : s === 1 ? [W - 1 - d, f * (H - 1)] : s === 2 ? [(1 - f) * (W - 1), H - 1 - d] : [d, (1 - f) * (H - 1)];
-+        const rr = reachOf(size, asp);
-+        const gap = Math.min(...placed.map(([px, py, pr]) => portable.hypot(px - x, py - y) - pr - rr), Infinity);
-+        if (!best || gap > best.gap) best = { gap, x, y, size, asp, s };
-+        if (gap >= 6) break;
-+      }
-+      if (best) {
-+        put(best.x, best.y, best.size, 3 + 3 * rng.float(), seaDepth, best.asp, best.s % 2 ? 0.25 : 0);
-+        const grp = groups[groups.length - 1];
-+        g.parts[grp.from].calm = true;
-+        offshore.push(grp);
-+      }
-+    }
-+  } else if (g.seaRing) {
-+    // (inside a ring of land, a stepping stone out toward the ring's shore, the clearest of a few)
-+    const sea = g.parts[first];
-+    let best: { gap: number; x: number; y: number } | null = null;
-+    for (let draw = 0; draw < 24; draw++) {
-+      const [vx, vy] = unit(rng.float());
-+      const x = sea.at[0] * W + vx * sea.size * 0.62;
-+      const y = sea.at[1] * H + vy * sea.size * 0.62;
-+      const gap = Math.min(...placed.map(([px, py, pr]) => portable.hypot(px - x, py - y) - pr - 9 * isleK), Infinity);
-+      if (!best || gap > best.gap) best = { gap, x, y };
-+      if (gap >= 6) break;
-+    }
-+    if (best) put(best.x, best.y, 9 + 2 * rng.float(), 3 + 3 * rng.float(), seaDepth);
-   }
--  // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
--  // it, their high ground an island's, so the shore is land and channels, never a frame)
--  if (!g.seaRing) {
--    const heads = 3 + Math.floor(2 * rng.float());
--    const a0 = rng.float();
--    for (let k = 0; k < heads; k++) {
--      const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
--      // (from the map's middle out to near its edge, along this bearing)
--      const reach = 0.5 - (0.1 + 0.06 * rng.float());
--      const scale = Math.max(Math.abs(vx), Math.abs(vy));
--      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
 +  // (the isle parts of each island, the parts the field raises out of the sea: its dome and arms)
 +  const islesOf = (grp: { from: number; to: number }) => g.parts.slice(grp.from, grp.to).filter((q) => q.kind === "isle" && q.isle);
 +  // (an island's reach across and along the map, each part's ellipse's, a tenth more for its warp)
@@ -733,8 +885,9 @@ index 00e51bc2..234323bd 100644
 +      const sx = sea.at[0] * (W - 1);
 +      const sy = sea.at[1] * (H - 1);
 +      let t = 1;
-+      // (its reach, 4 tiles beyond its coast, 22 tiles from the map's edge: the lip, its fall, a strait)
-+      const m = 22 * tight;
++      // (its reach, 4 tiles beyond its coast, 14 tiles from the map's edge: the lip, its fall, a strait
++      // and open sea past it, so it stands clear of the edge)
++      const m = (thin ? 14 : 22) * tight;
 +      if (b.x0 < m && cx < sx) t = Math.min(t, (sx - (cx - b.x0) - m) / (sx - cx));
 +      if (b.x1 > W - 1 - m && cx > sx) t = Math.min(t, (W - 1 - m - (b.x1 - cx) - sx) / (cx - sx));
 +      if (b.y0 < m && cy < sy) t = Math.min(t, (sy - (cy - b.y0) - m) / (sy - cy));
@@ -745,7 +898,18 @@ index 00e51bc2..234323bd 100644
 +      const ddy = ((sy + (cy - sy) * t) - cy) / (H - 1);
 +      for (let k = grp.from; k < grp.to; k++) g.parts[k].at = [g.parts[k].at[0] + ddx, g.parts[k].at[1] + ddy];
 +    }
-+  }
+   }
+-  // (D417: where the ring breaks, three or four broad headlands reach into the sea from the land round
+-  // it, their high ground an island's, so the shore is land and channels, never a frame)
+-  if (!g.seaRing) {
+-    const heads = 3 + Math.floor(2 * rng.float());
+-    const a0 = rng.float();
+-    for (let k = 0; k < heads; k++) {
+-      const [vx, vy] = unit(a0 + (k + 0.3 * rng.float()) / heads);
+-      // (from the map's middle out to near its edge, along this bearing)
+-      const reach = 0.5 - (0.1 + 0.06 * rng.float());
+-      const scale = Math.max(Math.abs(vx), Math.abs(vy));
+-      island([0.5 + (vx / scale) * reach, 0.5 + (vy / scale) * reach], 13 + 6 * rng.float(), 4 + 3 * rng.float(), seaDepth);
 +  // (the mainland's lobes give way to the islands: a lobe reaching over one joined it to the shore,
 +  // so it draws back until each keeps a strait from it; only the lobes the island faces)
 +  const rimClashes = () => {
@@ -761,19 +925,22 @@ index 00e51bc2..234323bd 100644
 +    }
 +    return at;
 +  };
++  // (round 6: to three fifths of its reach at most, the strait pass parting what still meets it: a
++  // chain across the map drew every lobe back to a sliver of mainland, and the start found no place)
++  const reach0 = lobes.map((l) => l[2]);
 +  for (let k = 0; k < 12; k++) {
 +    const at = rimClashes();
 +    if (!at.length) break;
-+    for (const l of lobes) if (at.some((u) => Math.min(Math.abs(u - l[0]), 4 - Math.abs(u - l[0])) < l[1])) l[2] *= 0.85;
++    lobes.forEach((l, i) => {
++      if (at.some((u) => Math.min(Math.abs(u - l[0]), 4 - Math.abs(u - l[0])) < l[1])) l[2] = Math.max(0.6 * reach0[i], l[2] * 0.85);
++    });
 +  }
-+  // (the sea's bowl kept within the lake budget the hydrology holds a lake to (leanGenome): over it,
-+  // the sea's sill is cut until it fits, and a flat sea drains whole. Islands' own budget is its water
-+  // cap (D369: 0.70) and its sea may be most of the map; Any's sea maps keep the half map every other
-+  // theme has. The land the islands and the mainland will raise is read on a coarse grid (each island
-+  // part an ellipse to 0.9 of its radius, where its coast lies), and the mainland's lobes reach further
-+  // in while the islands keep their straits, until the reading leaves 45% of the map to the sea on
-+  // Islands (half to 55% planned, the reading short of the water the land holds; read at 52–60%, the
-+  // bowl crossed 0.70 on a quarter of the lands and the sea drained whole), 44% on Any.)
++  // (the sea kept under Islands' water cap (D369: 0.70; over it the shown land fails water.no_flood)
++  // and Any's sea maps' half map. The land the islands and the mainland will raise is read on a coarse
++  // grid (the coast as the field draws it, rimKeep; each island part an ellipse to 0.78 of its radius,
++  // where its lobed and coved coast mostly lies), and the mainland's lobes reach further in while the
++  // islands keep their straits, until the reading leaves 45% of the map to the sea on Islands (the
++  // reading short of the water the land holds), 44% on Any.)
 +  if (!g.seaRing && lobes.length) {
 +    const most = g.theme === "islands" ? 0.45 : 0.44;
 +    const isles = groups.flatMap(islesOf);
@@ -784,17 +951,16 @@ index 00e51bc2..234323bd 100644
 +        for (let gx = 0; gx < G; gx++) {
 +          const x = ((gx + 0.5) / G) * (W - 1);
 +          const y = ((gy + 0.5) / G) * (H - 1);
-+          const fx = x / (W - 1);
-+          const fy = y / (H - 1);
-+          // (the land along the edges: the lip, and any edge's lobes, as rimKeep draws them)
-+          if ([[y, fx], [W - 1 - x, 1 + fy], [H - 1 - y, 3 - fx], [x, 4 - fy]].some(([d, u]) => d < 9 + side * rimLobe(lobes, u % 4))) continue;
++          // (the land along the edges: the lip, and the mainland's lobes, as the field draws them)
++          if (rimKeep(coast, x, y, W, H, lobes, thin) < 0.5) continue;
 +          const inIsle = isles.some((q) => {
 +            const [ux, uy] = unit(q.turn);
 +            const dx = x - q.at[0] * (W - 1);
 +            const dy = y - q.at[1] * (H - 1);
 +            const a = (dx * ux + dy * uy) / (q.size * portable.sqrt(q.extra));
 +            const b = (-dx * uy + dy * ux) / (q.size / portable.sqrt(q.extra));
-+            return a * a + b * b < 0.81;
++            // (round 6: to 0.78 of its radius, its lobes and coves taking about a fifth of its ellipse)
++            return a * a + b * b < 0.61;
 +          });
 +          if (!inIsle) n++;
 +        }
@@ -802,13 +968,78 @@ index 00e51bc2..234323bd 100644
 +    };
 +    for (let k = 0; k < 16 && wet() > most; k++) {
 +      const before = lobes.map((l) => l[2]);
-+      for (const l of lobes) l[2] = Math.min(0.4, l[2] * 1.12);
++      if (Math.max(...lobes.map((l) => l[2])) * 1.12 > (g.theme === "islands" ? 0.5 : 0.6)) break;
++      for (const l of lobes) l[2] *= 1.12;
 +      const at = rimClashes();
 +      lobes.forEach((l, i) => {
 +        if (at.some((u) => Math.min(Math.abs(u - l[0]), 4 - Math.abs(u - l[0])) < l[1])) l[2] = before[i];
 +      });
 +      if (lobes.every((l, i) => l[2] === before[i])) break;
++    }
++  }
++  // (round 5: one island a strait off the mainland, so the start's land has one within the game's
++  // reach (D429) however much of the map the sea takes; with the sea most of the map, the nearest
++  // island stood out of reach on half the lands)
++  // (round 6: placed last, against the coast the field will draw (rimKeep, the lobes as they now
++  // reach), off the mainland's sides only: the lip is a tile or two at the map's edge, no shore; its
++  // whole outline `off` tiles out from its coast stands in the sea, else another place is drawn; where
++  // none is clear, the clearest found, an island it meets joined to it and in reach in its turn)
++  // (it stands where it was put: the pull-in and the lobes' giving way above have passed)
++  if (main.length) {
++    // (two on a larger map, one 3 tiles off and one 7, so one of them stands in the strait the coast's
++    // noise leaves; one 5 tiles off on a smaller map)
++    const gaps = side > 160 ? [3, 7] : [5];
++    for (const off of gaps) {
++      let best: { score: number; x: number; y: number; size: number; asp: number; s: number } | null = null;
++      for (let draw = 0; draw < 60; draw++) {
++        const s = main[Math.floor(main.length * rng.float())];
++        const f = 0.15 + 0.7 * rng.float();
++        const size = 10 + 3 * rng.float();
++        const asp = 1.4 + 0.6 * rng.float();
++        // (long along the coast: its reach toward the coast is its short axis)
++        const a = size * isleK * portable.sqrt(asp);
++        const b = (size * isleK) / portable.sqrt(asp);
++        const at = (d: number): [number, number] => (s === 0 ? [f * (W - 1), d] : s === 1 ? [W - 1 - d, f * (H - 1)] : s === 2 ? [(1 - f) * (W - 1), H - 1 - d] : [d, (1 - f) * (H - 1)]);
++        // (the coast: where the sea begins, walking in from the edge)
++        let dc = 0;
++        while (dc < side / 2 && rimKeep(coast, ...at(dc), W, H, lobes, thin) < 0.5) dc++;
++        if (dc >= side / 2) continue;
++        const [x, y] = at(dc + b + off);
++        // (its outline, `off` less a tile out from its coast, all sea)
++        const [ux, uy] = s % 2 ? [0, 1] : [1, 0];
++        let land = 0;
++        for (let q = 0; q < 24; q++) {
++          const [cx, cy] = unit(q / 24);
++          const px = x + ux * cx * (a + off - 1) - uy * cy * (b + off - 1);
++          const py = y + uy * cx * (a + off - 1) + ux * cy * (b + off - 1);
++          if (px < 0 || py < 0 || px > W - 1 || py > H - 1 || rimKeep(coast, px, py, W, H, lobes, thin) < 0.5) land++;
++        }
++        const rr = reachOf(size, asp);
++        const gap = Math.min(...placed.map(([px, py, pr]) => portable.hypot(px - x, py - y) - pr - rr), Infinity);
++        const score = Math.min(gap, 6) - 3 * land;
++        if (!best || score > best.score) best = { score, x, y, size, asp, s };
++        if (gap >= 6 && land === 0) break;
++      }
++      if (best) {
++        put(best.x, best.y, best.size, 3 + 3 * rng.float(), seaDepth, best.asp, best.s % 2 ? 0.25 : 0);
++        const grp = groups[groups.length - 1];
++        g.parts[grp.from].calm = true;
++        offshore.push(grp);
++      }
++    }
++  } else if (g.seaRing) {
++    // (inside a ring of land, a stepping stone out toward the ring's shore, the clearest of a few)
++    const sea = g.parts[first];
++    let best: { gap: number; x: number; y: number } | null = null;
++    for (let draw = 0; draw < 24; draw++) {
++      const [vx, vy] = unit(rng.float());
++      const x = sea.at[0] * W + vx * sea.size * 0.62;
++      const y = sea.at[1] * H + vy * sea.size * 0.62;
++      const gap = Math.min(...placed.map(([px, py, pr]) => portable.hypot(px - x, py - y) - pr - 9 * isleK), Infinity);
++      if (!best || gap > best.gap) best = { gap, x, y };
++      if (gap >= 6) break;
      }
++    if (best) put(best.x, best.y, 9 + 2 * rng.float(), 3 + 3 * rng.float(), seaDepth);
    }
 -  g.hydro.lakeBudget = Math.max(g.hydro.lakeBudget, 0.42 + 0.1 * rng.float());
 +  if (lobes.length) g.parts[first].lobes = lobes;
@@ -826,7 +1057,7 @@ index 00e51bc2..234323bd 100644
    // the sea is fed from the heights round it: springs, whose rivers pour down into it (a river from
    // an edge enters low on the bowl's rim, and no sea stands above where its water comes in)
    g.hydro.inflows = 0;
-@@ -843,7 +1143,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
+@@ -843,7 +1278,12 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
    // the land rises from the sea toward the edges: a bowl, quiet noise, levels spread by height
    // rather than equal area, so the sea keeps a broad floor below its shores
    // (D410: a low bowl, its rim a shore, not a frame of high land; the islands keep the noise's relief)
@@ -834,11 +1065,13 @@ index 00e51bc2..234323bd 100644
 +  // (round 5: an open sea runs to the map's edges, so its floor lies level: the radial tilt raised it
 +  // toward the edges to the lip's own height, the outlet set the sea a level below that, and the floor's
 +  // outer reaches stood dry, flats that joined the islands to the shore or drained the sea)
-+  g.tilt = g.seaRing ? tilt : 0.5 + 0.5 * rng.float();
++  // (round 6: a quarter to a half of a level: at a half to one, the edges, where the lip now holds the
++  // sea, stood a level over the middle, and the low tops of islands there stood under the water)
++  g.tilt = g.seaRing ? tilt : 0.25 + 0.25 * rng.float();
    g.regional.amp *= 0.4;
    g.noise.amp *= 0.5;
    g.hyps.eq = 0.1 + 0.1 * rng.float();
-@@ -966,7 +1269,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
+@@ -966,7 +1406,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
    // colony's need times the reserve, PLAN §5.3, §11.4) against the theme's own, as room for lakes
    // and as basins more or fewer (the settler then prefers a start near the water they keep)
    const storeRatio = (reservoirNeeded(designedFor) * RESERVE[s.water.droughtReserve]) / (reservoirNeeded("normal") * RESERVE[p.droughtReserve]);
@@ -847,7 +1080,7 @@ index 00e51bc2..234323bd 100644
    const moreBasins = storeRatio > 1 ? Math.round(1.3 * portable.log2(storeRatio)) : s.water.droughtReserve === "scarce" && p.droughtReserve !== "scarce" ? -1 : 0;
    for (let k = 0; k < moreBasins; k++) g.parts.push(randomPart(rng, "basin", W, H, g.variety, 1 + (0.6 * g.vt) / 100));
    for (let k = 0; k < -moreBasins; k++) {
-@@ -1001,7 +1304,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
+@@ -1001,7 +1441,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
      // more of the land's hollows hold water, smaller ones too (dry ones are filled)
      g.lakeSpringMax = 4 + 3 * dl;
      g.lakeSpringMin = Math.max(50, 100 - 20 * dl);
@@ -856,14 +1089,120 @@ index 00e51bc2..234323bd 100644
    } else if (dl < 0) {
      for (let k = 0; k < -2 * dl; k++) {
        const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
+diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
+index a5ccca04..30ead81c 100644
+--- a/src/core/land/hydro.ts
++++ b/src/core/land/hydro.ts
+@@ -340,6 +340,39 @@ interface Head {
+   flow: number;
+ }
+ 
++/** The sea of an island sea's map: the largest hollow of the land's levels (4-connected tiles a level
++ *  or more under their spill), when it is a tenth of the map or more; null otherwise. */
++function seaOf(h: Uint8Array, W: number, H: number): Uint8Array | null {
++  const N = W * H;
++  const filled = drainage(h, W, H, { eight: false }).filled;
++  const seen = new Uint8Array(N);
++  let best: number[] = [];
++  for (let s0 = 0; s0 < N; s0++) {
++    if (seen[s0] || !(filled[s0] - h[s0] >= 1)) continue;
++    const q = [s0];
++    seen[s0] = 1;
++    for (let k = 0; k < q.length; k++) {
++      const i = q[k];
++      const x = i % W;
++      const y = (i - x) / W;
++      for (const [dx, dy] of N4) {
++        const xx = x + dx;
++        const yy = y + dy;
++        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
++        const j = yy * W + xx;
++        if (seen[j] || !(filled[j] - h[j] >= 1)) continue;
++        seen[j] = 1;
++        q.push(j);
++      }
++    }
++    if (q.length > best.length) best = q;
++  }
++  if (best.length < 0.1 * N) return null;
++  const sea = new Uint8Array(N);
++  for (const i of best) sea[i] = 1;
++  return sea;
++}
++
+ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
+   const N = W * H;
+   // River Valley has one default trunk; an explicit Rivers count stays the player's, 0 too (its main
+@@ -387,7 +420,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+   // count the player set may enter as a river of its own when no inflow can join. A few heads, never
+   // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
+   const owner = new Int32Array(N).fill(-1);
+-  const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
++  const traced: { k: number; head: Head; cells: number[]; joins: number; toSea?: boolean }[] = [];
++  // (round 6, Islands: a river that meets the sea ends there, and none is ever routed on through the
++  // sea and across its lip to the map's edge: its bed cut there drained the sea through the lip, the
++  // cause round 5 widened the lip for. A later head still joins a river on the land (D273 (1)): one
++  // let end in the sea as a join made every spring a river of its own, and at 256² they cut the
++  // mainland into strips with no room for a start. The sea: the largest hollow of the land's levels,
++  // a tenth of the map or more.)
++  const seaAt = g.seaLayout ? seaOf(h, W, H) : null;
+   const areaK = N / (128 * 128);
+   // A few fed tributaries read better than many shallow fragments at large sizes.
+   // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
+@@ -411,8 +451,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+     let c = hd.cell;
+     let joins = -1;
+     const guard = new Set<number>();
++    let toSea = false;
+     while (c >= 0 && !guard.has(c)) {
+       guard.add(c);
++      if (seaAt && seaAt[c]) {
++        cells.push(c);
++        toSea = true;
++        break;
++      }
+       if (owner[c] >= 0) {
+         joins = owner[c];
+         cells.push(c);
+@@ -437,7 +483,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+     heads.push(hd);
+     for (const i of cells) if (owner[i] < 0) owner[i] = k;
+-    traced.push({ k, head: hd, cells, joins });
++    traced.push({ k, head: hd, cells, joins, toSea });
+     return true;
+   };
+   // edge inflows: low points of the upstream edges with long paths inland. When the player set the
+@@ -865,7 +911,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+     let tiles = flood(seedCell, sill);
+     // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
+     // river begins (`maxSill`)
+-    while ((tiles.length > budget || sill > maxSill) && sill > 1) {
++    // (round 6, D432: an island sea is the map's water, not a lake of the budget: cut to it, a sea a
++    // setting's lean had put over the budget drained to its floor)
++    const sea = !!seaAt?.[seedCell];
++    while (((tiles.length > budget && !sea) || sill > maxSill) && sill > 1) {
+       sill--;
+       const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
+       if (h[lowest] >= sill) return null;
+@@ -1206,7 +1255,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+     }
+     exits.set(rid, { path, prof, L, n, width, half });
+     const entry = hd.kind === "edge" ? { edge: hd.edge! } : { spring: [hx, hy] as Point };
+-    const exit = tr.joins >= 0 ? { river: featureId(seed, "river", roleOf(tr.joins)) } : { edge: exitEdge ?? ("east" as Edge) };
++    // (round 6: a river that ends in the sea fills it, its water leaving where the sea's does)
++    const exit = tr.joins >= 0 ? { river: featureId(seed, "river", roleOf(tr.joins)) } : tr.toSea && !exitEdge ? { basin: path[path.length - 1] } : { edge: exitEdge ?? ("east" as Edge) };
+     rivers.push({
+       id: rid,
+       kind: "river",
 diff --git a/src/core/land/islands.ts b/src/core/land/islands.ts
-index 4d64c40e..61a1de1f 100644
+index 4d64c40e..a9d03fa8 100644
 --- a/src/core/land/islands.ts
 +++ b/src/core/land/islands.ts
 @@ -11,12 +11,12 @@ import { edgeSpill } from "./drainage";
  import * as portable from "../math/portable";
  import { N4 } from "../math/grid";
-
+ 
 -/** Dry land (over `S`), labelled by 4-connected mass; the label of the largest. */
 -function masses(h: Uint8Array, W: number, H: number, S: number): { lab: Int32Array; main: number } {
 +/** Dry land (over `S`), labelled by 4-connected mass, and which masses touch the map's edge (the
@@ -897,12 +1236,12 @@ index 4d64c40e..61a1de1f 100644
 -  return { lab, main };
 +  return { lab, shore };
  }
-
+ 
  /** The sea's level: the spill level of the largest basin below it (the priority flood from the map's
-@@ -80,58 +77,158 @@ export function seaLevel(h: Uint8Array, W: number, H: number): number {
+@@ -80,58 +77,204 @@ export function seaLevel(h: Uint8Array, W: number, H: number): number {
    return S < 0 || best < 0.05 * N ? -1 : S;
  }
-
+ 
 -/** Each island (centre and radius, tiles) joined to the largest land mass by low ground is parted
 - *  from it by a strait, when a cut of that ground does it. `keep` is left as it is. Returns how many
 - *  were parted. */
@@ -1099,4 +1438,50 @@ index 4d64c40e..61a1de1f 100644
 +  let best = 0;
 +  for (let m = 0; m < size.length; m++) if (!edge[m] && reached[m] && size[m] > best) best = size[m];
 +  return best;
++}
++
++/** The sea's lip (round 6, Kyler: the sea runs to the map's edge, a lip of a tile or two there, so it
++ *  reads as the sea going on past the map; edges are sinks, D350). Along each edge where the sea lies
++ *  just inside (the land three to five tiles in stands three levels or more under the edge), the two
++ *  edge rows take one level, the sea's lip (the low tenth of those rows' tops there: the sea stands
++ *  where the lowest of them held it; at their median it stood over the islands' low ground), and the row inside
++ *  them a level under it at least, a shelf under the water. No edge wall (D151: the edge rows stand a
++ *  level over the land just inside), and the edge's relaxing, which caps the edge rows at the slope
++ *  inside, keeps them: a lip of a tile or two straight over the sea's floor was capped to it, the sea
++ *  drained, and round 5 had widened the lip to 6–10 tiles for that. Returns the tiles changed. */
++export function holdSeaLip(h: Uint8Array, W: number, H: number): number {
++  const at = (e: number, p: number, d: number) => (e === 0 ? d * W + p : e === 1 ? (H - 1 - d) * W + p : e === 2 ? p * W + d : p * W + (W - 1 - d));
++  const sea: [number, number][] = [];
++  const tops: number[] = [];
++  for (let e = 0; e < 4; e++) {
++    const L = e < 2 ? W : H;
++    for (let p = 0; p < L; p++) {
++      const M = Math.max(h[at(e, p, 0)], h[at(e, p, 1)]);
++      let lo = Infinity;
++      for (let d = 2; d <= 5; d++) lo = Math.min(lo, h[at(e, p, d)]);
++      if (M - lo < 3) continue;
++      sea.push([e, p]);
++      tops.push(M);
++    }
++  }
++  if (!sea.length) return 0;
++  tops.sort((a, b) => a - b);
++  const lip = tops[Math.floor(0.1 * (tops.length - 1))];
++  let n = 0;
++  const set = (i: number, v: number) => {
++    if (h[i] !== v) {
++      h[i] = v;
++      n++;
++    }
++  };
++  for (const [e, p] of sea) {
++    set(at(e, p, 0), lip);
++    set(at(e, p, 1), lip);
++    // (the shelf a level under the lip, and the row past it two under, so the relaxing keeps the lip)
++    const s = at(e, p, 2);
++    if (h[s] < lip) set(s, lip - 1);
++    const t = at(e, p, 3);
++    if (h[t] < lip && h[t] > lip - 2) set(t, lip - 2);
++  }
++  return n;
 +}

@@ -232,3 +232,49 @@ export function islandToExpandTo(h: Uint8Array, D: ArrayLike<number>, W: number,
   for (let m = 0; m < size.length; m++) if (!edge[m] && reached[m] && size[m] > best) best = size[m];
   return best;
 }
+
+/** The sea's lip (round 6, Kyler: the sea runs to the map's edge, a lip of a tile or two there, so it
+ *  reads as the sea going on past the map; edges are sinks, D350). Along each edge where the sea lies
+ *  just inside (the land three to five tiles in stands three levels or more under the edge), the two
+ *  edge rows take one level, the sea's lip (the low tenth of those rows' tops there: the sea stands
+ *  where the lowest of them held it; at their median it stood over the islands' low ground), and the row inside
+ *  them a level under it at least, a shelf under the water. No edge wall (D151: the edge rows stand a
+ *  level over the land just inside), and the edge's relaxing, which caps the edge rows at the slope
+ *  inside, keeps them: a lip of a tile or two straight over the sea's floor was capped to it, the sea
+ *  drained, and round 5 had widened the lip to 6–10 tiles for that. Returns the tiles changed. */
+export function holdSeaLip(h: Uint8Array, W: number, H: number): number {
+  const at = (e: number, p: number, d: number) => (e === 0 ? d * W + p : e === 1 ? (H - 1 - d) * W + p : e === 2 ? p * W + d : p * W + (W - 1 - d));
+  const sea: [number, number][] = [];
+  const tops: number[] = [];
+  for (let e = 0; e < 4; e++) {
+    const L = e < 2 ? W : H;
+    for (let p = 0; p < L; p++) {
+      const M = Math.max(h[at(e, p, 0)], h[at(e, p, 1)]);
+      let lo = Infinity;
+      for (let d = 2; d <= 5; d++) lo = Math.min(lo, h[at(e, p, d)]);
+      if (M - lo < 3) continue;
+      sea.push([e, p]);
+      tops.push(M);
+    }
+  }
+  if (!sea.length) return 0;
+  tops.sort((a, b) => a - b);
+  const lip = tops[Math.floor(0.1 * (tops.length - 1))];
+  let n = 0;
+  const set = (i: number, v: number) => {
+    if (h[i] !== v) {
+      h[i] = v;
+      n++;
+    }
+  };
+  for (const [e, p] of sea) {
+    set(at(e, p, 0), lip);
+    set(at(e, p, 1), lip);
+    // (the shelf a level under the lip, and the row past it two under, so the relaxing keeps the lip)
+    const s = at(e, p, 2);
+    if (h[s] < lip) set(s, lip - 1);
+    const t = at(e, p, 3);
+    if (h[t] < lip && h[t] > lip - 2) set(t, lip - 2);
+  }
+  return n;
+}

@@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
-import { islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
+import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -431,6 +431,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
       g.flowDir = orientDir(g.flowDir, o);
       const E = orientField(F.E, W, H, o);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
+      // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
+      if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
     const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
     if (a.stage) {
@@ -1233,6 +1235,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // takes days to settle; the channel is as wide as the map's flow needs
   const channels = new Uint8Array(N);
   for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
+  // (round 6: never through an island sea's lip, the two rows at the map's edge: the sea spills over
+  // the lip to the edge, and a channel cut through it drained the sea a level and notched the lip)
+  if (g.seaLayout && g.theme === "islands")
+    for (let i = 0; i < N; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
+    }
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
