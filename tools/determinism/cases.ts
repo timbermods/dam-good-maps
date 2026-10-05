@@ -11,8 +11,6 @@ import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
 import { snapshotMap, type ForceMap, type FullForceMap } from "../../src/core/forces/force";
 import { geology } from "../../src/core/forces/random";
-import { fixture as forceFixture } from "../../tests/contract/forceFixtures";
-import { CarvePlay } from "../../src/core/forces/carve/play";
 import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
 import { CraterRun, EruptRun, QuakeRun, modelOf, type StagedRun } from "../../src/core/forces/runs";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
@@ -137,7 +135,7 @@ function brush(n: number, tool: string, strength: number, size: number, k: numbe
 
 const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
 
-function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number, maturity = false) {
+function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
   const n = m.W;
   const x = Math.floor(n * 0.48);
   const y = Math.floor(n * 0.38);
@@ -155,16 +153,13 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
   if (verb === "carve") {
     settings = nature.carveNature({ ...CARVE, mode: mode ? "aim" : "unleash", power, width: size === null ? null : Math.min(24, size / 4), seed, dry: mode === 2 } as any, ground);
     intent = { origin, ...(mode ? { end } : {}) };
-    if (maturity) {settings={...settings,maturity:"mature"};if(mode)intent={origin:20*n+35,end:52*n+35,via:[24*n+35,36*n+35,48*n+35]};}
-    const play = maturity ? new CarvePlay(new CarveRun(m, settings, intent, {sourceId:`carve-source-${seed}`})) : null;
-    const carve = play?.run ?? new CarveRun(m, settings, intent, { sourceId: `carve-source-${seed}` });
+    const carve = new CarveRun(m, settings, intent, { sourceId: `carve-source-${seed}` });
     for (let i = 0; !carve.done && i < 3000; i++) carve.step();
     if (!carve.done) throw Error("carve exceeded 3000 steps");
     // (its record as the editor keeps it: forces/keep.ts)
-    const request = { verb: "carve", settings, origin: maturity ? [intent.origin%n, Math.floor(intent.origin/n)] : [x,y], ...(mode ? { end: maturity ? [intent.end%n,Math.floor(intent.end/n)] : [end % n, Math.floor(end / n)] } : {}), ...(maturity && intent.via ? {via:intent.via.map((v:number)=>[v%n,Math.floor(v/n)])} : {}), cut: null } as ForceRequest;
+    const request = { verb: "carve", settings, origin: [x, y], ...(mode ? { end: [end % n, Math.floor(end / n)] } : {}), cut: null } as ForceRequest;
     const kept = keptForceParams({ before: m, request, carve, staged: null });
-    const frames: {stage:number;map:FullForceMap}[]=[];if(play){play.plan();for(const stage of [1,Math.floor(play.total/2),play.total]){play.showTo(stage);frames.push({stage,map:fullMap(snapshotMap(play.map))});}}
-    return { map: fullMap(carve.map as any), record: kept.ok ? kept.params : null, frames };
+    return { map: fullMap(carve.map as any), record: kept.ok ? kept.params : null };
   }
   if (verb === "craterize") {
     settings = nature.craterNature({ ...CRATER_DEFAULTS, mode: mode ? "aim" : "strike", power, size, seed, rays: true } as any, ground);
@@ -266,7 +261,6 @@ export function cases(smoke = false): Case[] {
   // the water alone at the sizes the rest doesn't reach (the multi-core water's strips at 96² and 512²)
   for (const n of [96, 512]) out.push({ id: `water/${n}`, kind: "water", n });
   for (const verb of ["rift", "deposit"]) for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/${verb}/${power}/${mode}`, kind: "force", n: 64, verb, power, size: 22, mode });
-  for (const power of [0,100]) for (const mode of [0,1]) out.push({id:`force/maturity/64/${power}/${mode}`,kind:"force",n:64,verb:"carve",power,size:24,mode});
   return out;
 }
 
@@ -372,7 +366,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
     await add(`${c.id}/reopen`, opened.built, null, { project: await sha(enc.encode(json(s.document))) });
     if ((await digest(s.built)).hash !== (await digest(opened.built)).hash) throw Error("the session reopens differently");
   } else {
-    let m: any = c.id.includes("/maturity/") ? forceFixture(c.mode?"river":"plain",c.n) : fixture(c.n);
+    let m: any = fixture(c.n);
     const steps = c.kind === "mixed" ? c.count : 1;
     for (let k = 0; k < steps; k++) {
       let record: any;
@@ -381,7 +375,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
         applyBrush(record, m.heights, c.n, c.n);
       } else {
         try {
-          const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2, c.id.includes("/maturity/"));
+          const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2);
           m = f.map;
           record = f.record;
           if ("frames" in f && f.frames) for (const frame of f.frames) await add(`${c.id}/${k}/playback/${frame.stage}`, frame.map, record);

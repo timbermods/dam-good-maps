@@ -62,8 +62,7 @@ export class CarvePlay {
 
   /** The forward step shown at step `k` from the end (k from 1 to total). */
   private forward(k: number): number {
-    const young = this.run.records.maturity?.youngSteps ?? this.total;
-    return k <= young ? young - k + 1 : k;
+    return this.total - k + 1;
   }
 
   /** The changes shown from the end: step k shows the forward step total - k + 1's tiles, each tile once,
@@ -73,8 +72,7 @@ export class CarvePlay {
     const total = this.total;
     const seen = new Uint8Array(this.map.heights.length);
     const out: Int32Array[] = [new Int32Array(0)];
-    const young = this.run.records.maturity?.youngSteps ?? total;
-    for (let s = young; s >= 1; s--) {
+    for (let s = total; s >= 1; s--) {
       const c = this.changes[s];
       const keep: number[] = [];
       for (let j = 0; j < c.length; j += 2)
@@ -84,7 +82,6 @@ export class CarvePlay {
         }
       out.push(Int32Array.from(keep));
     }
-    for (let s = young+1; s <= total; s++) out.push(this.changes[s]);
     return (this.backward = out);
   }
 
@@ -102,7 +99,7 @@ export class CarvePlay {
   /** Work it out: the run goes to its end, its steps as shown taken from its plan (made when the carve
    *  started). True once it is. */
   plan(): boolean {
-    if (!this.run.done || this.run.records.maturity && this.changes.length === 1) {
+    if (!this.run.done) {
       this.run.finish();
       const r = this.run.records;
       this.changes = r.changes;
@@ -159,18 +156,6 @@ export class CarvePlay {
           return e;
         });
     }
-    if (this.run.records.maturity) {
-      const records=this.run.records, moves=new Map<string,typeof records.stepObjectChanges[number]>();
-      // Native changes are absolute poses; age stages must never run backwards with the drawn carve.
-      for (const move of records.stepObjectChanges) if (this.goneAt(move.step)<=k) moves.set(move.id,move);
-      this.map.entities=this.objects.filter(e=>!removed.has(e.id)||this.goneAt(removed.get(e.id)!,e.id)>k).map(e=>{
-        const pose=moves.get(e.id);return pose?{...e,x:pose.x,y:pose.y,z:pose.z}:e;
-      });
-      this.map.fallen=(this.run.records.raw.fallen??[]).flatMap(f=>{
-        if (removed.has(f.id)&&this.goneAt(removed.get(f.id)!,f.id)<=k)return [];
-        const i=Math.floor(f.y)*W+Math.floor(f.x);return [{...f,z:f.z+heights[i]-records.map.heights[i]}];
-      });
-    }
   }
 
   private unleashedObject(): EntitySpec | undefined {
@@ -182,7 +167,7 @@ export class CarvePlay {
    *  end, heading back up its course). */
   get head(): ForceHead {
     if (this.at === 0) return this.first;
-    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) return this.heads[this.at];
+    if (!this.fromEnd) return this.heads[this.at];
     const h = this.heads[this.forward(this.at)];
     return { ...h, dx: -h.dx, dy: -h.dy };
   }
@@ -190,7 +175,7 @@ export class CarvePlay {
   /** The last stretch of the course shown (the effects' muddy surge): behind the head, the way it
    *  goes. */
   trail(): Station[] {
-    if (!this.fromEnd || this.at > (this.run.records.maturity?.youngSteps ?? this.total)) {
+    if (!this.fromEnd) {
       const n = this.lengths[this.at];
       return this.run.path.slice(Math.max(0, n - 28), n);
     }

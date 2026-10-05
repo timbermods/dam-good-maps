@@ -87,7 +87,6 @@ const FORCE_ERRORS = [
   "the working area leaves nothing to take sediment from",
   "the Floor leaves nothing to take sediment from",
   "the map leaves no room for sediment here",
-  "the Floor or kept ground leaves no room to age this river",
 ];
 
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit";
@@ -181,7 +180,6 @@ export interface GlaciateRecords {
  *  steps as shown (the last step's spread behind the head, D368 (9)), `goneSpread` when what stood there
  *  goes as shown. */
 export interface CarveRecords {
-  maturity?: { youngSteps:number; rounds:number; eroded:number; deposited:number; oxbows:number; bluffLimited:number; existingRiver:boolean; changed:number; original: {x:number;y:number}[] };
   raw: RustMap;
   map: RustMap;
   total: number;
@@ -620,7 +618,6 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
         stepMetrics,
         stepObjectChanges,
         initialEntities: entityRows(view(45, Float64Array)),
-        ...(view(31,Float64Array).length ? {maturity:(() => {const a=view(31,Float64Array);return {...named(a,["youngSteps","rounds","eroded","deposited","oxbows","bluffLimited","existingRiver","changed"]),existingRiver:!!a[6],original:Array.from({length:(a.length-8)/2},(_,k)=>({x:a[8+2*k],y:a[9+2*k]}))} as CarveRecords["maturity"];})()} : {}),
         knobs: Array.from({ length: view(63, Float64Array).length / 3 }, (_, i) => {
           const k = view(63, Float64Array);
           return { x: k[i * 3], y: k[i * 3 + 1], radius: k[i * 3 + 2] };
