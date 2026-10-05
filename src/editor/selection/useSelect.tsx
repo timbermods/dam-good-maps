@@ -397,12 +397,11 @@ export function useSelect(ed: Ed): SelectSlice {
     // actions, Delete, Max water depth and Apply, greyed until there is a selection (Max water depth and Apply until it
     // holds water deeper than 1); selecting changes only what is enabled
     const deep = deepest >= 1;
-    // (on the edges the rows share: cells 3, 6, 9 and 11)
-    const act = (key: string, row: 2 | 3, at: number, span: number, label: string, title: ReturnType<typeof tip>, what: "raise" | "lower" | "flatten" | "cut" | "fill", run: () => void): Group => ({
+    const act = (key: string, at: number, label: string, title: ReturnType<typeof tip>, what: "raise" | "lower" | "flatten" | "cut" | "fill", run: () => void): Group => ({
       key,
-      row,
+      row: 2,
       at,
-      span,
+      span: 1,
       node: (
         <div class="set">
           <button type="button" class="set-button" disabled={!z} {...title} {...way(what)} onClick={run}>
@@ -421,27 +420,27 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "level",
         row: 2,
         at: 1,
-        span: 3,
+        span: 2,
         node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
-      act("up", 2, 4, 3, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
-      act("down", 2, 7, 3, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
-      act("flatten", 2, 10, 2, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
-      act("cut", 2, 12, 2, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
-      act("fill", 3, 1, 3, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
+      act("up", 3, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
+      act("down", 4, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
+      act("flatten", 5, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
+      act("cut", 6, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
+      act("fill", 7, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),
       {
         key: "depth",
-        row: 3,
-        at: 7,
-        span: 5,
+        row: 2,
+        at: 9,
+        span: 3,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 3, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
-        row: 3,
-        at: 4,
-        span: 3,
+        row: 2,
+        at: 8,
+        span: 1,
         node: (
           <div class="set">
 

@@ -44,12 +44,15 @@ export function useBandLayout(ready: boolean): void {
       let top = TOP;
       let legendLeft: number;
       let panelLeft: number;
-      if (S + GAP + w + GAP + L + GAP <= C) {
+      // (the furthest right Legend's centre goes: the button one gap clear of Top-down, and the button and its open
+      // legend 8px clear of the corner, whose second row hangs under the band beside the legend)
+      const most = Math.min(C - GAP - L / 2, C - 8 - Math.max(L, LEGEND_W) / 2);
+      if (S + GAP + w + GAP + L / 2 <= most) {
         // in the band: centred on the window, else as near the centre as the Show row and Legend allow; Legend centred
         // between the water row and Top-down, its open legend centred under it (clear of a panel open at the left, the
         // button clear of Top-down)
-        left = Math.min(Math.max(v.width / 2 - w / 2, S + GAP), C - GAP - L - GAP - w);
-        const centre = Math.min(Math.max((left + w + C) / 2, TOP + PANEL_W + GAP + LEGEND_W / 2), C - 8 - L / 2);
+        left = Math.min(Math.max(v.width / 2 - w / 2, S + GAP), most - L / 2 - GAP - w);
+        const centre = Math.min(Math.max((left + w + C) / 2, TOP + PANEL_W + GAP + LEGEND_W / 2), most);
         legendLeft = centre - L / 2;
         panelLeft = centre - LEGEND_W / 2;
       } else {
@@ -62,7 +65,11 @@ export function useBandLayout(ready: boolean): void {
       }
       left = Math.round(left);
       // (one line: whole pixels; on the Show row it keeps the toggles' own spacing exactly)
-      if (top === TOP) legendLeft = Math.round(legendLeft);
+      // (the open legend centred under the button where it now is, whatever its words' width)
+      if (top === TOP) {
+        legendLeft = Math.round(legendLeft);
+        panelLeft = legendLeft + L / 2 - LEGEND_W / 2;
+      }
       panelLeft = Math.round(panelLeft);
       const below = top + BAND;
       // the controls under a panel or the legend: as tall as the room above the first of them it would meet

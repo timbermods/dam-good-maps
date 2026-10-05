@@ -104,7 +104,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 1,
             span: 9,
-            rows: 3,
+            rows: 2,
             centre: true,
             node: <Words status>{st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}</Words>,
           },
@@ -113,7 +113,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 10,
             span: 2,
-            rows: 3,
+            rows: 2,
             centre: true,
             node: (
               <button type="button" class="set-button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
@@ -126,7 +126,7 @@ export function CarveRow(p: CarveRowProps) {
             row: 1,
             at: 12,
             span: 2,
-            rows: 3,
+            rows: 2,
             centre: true,
             node: (
               <button type="button" class="set-button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
@@ -160,7 +160,7 @@ export function CarveRow(p: CarveRowProps) {
           key: "size",
           row: 1,
           at: 4,
-          span: 3,
+          span: 2,
           node: (
             <NumberSetting
               label="Size"
@@ -179,8 +179,8 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "leaves",
           row: 1,
-          at: 7,
-          span: 3,
+          at: 6,
+          span: 2,
           node: (
             <ChoiceSetting<"river" | "canyon">
               label="What it leaves"
@@ -194,17 +194,10 @@ export function CarveRow(p: CarveRowProps) {
           ),
         },
         {
-          key: "wander",
-          row: 1,
-          at: 10,
-          span: 4,
-          node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
-        },
-        {
           key: "walls",
-          row: 2,
-          at: 1,
-          span: 3,
+          row: 1,
+          at: 8,
+          span: 2,
           node: (
             <ChoiceSetting<"steep" | "wide">
               label="Walls"
@@ -219,9 +212,16 @@ export function CarveRow(p: CarveRowProps) {
           ),
         },
         {
+          key: "wander",
+          row: 1,
+          at: 10,
+          span: 4,
+          node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
+        },
+        {
           key: "depth",
           row: 2,
-          at: 4,
+          at: 1,
           span: 3,
           node: (
             <NumberSetting
@@ -239,8 +239,8 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "river",
           row: 2,
-          at: 7,
-          span: 3,
+          at: 4,
+          span: 2,
           node: (
             <NumberSetting
               label="River depth"
@@ -256,14 +256,14 @@ export function CarveRow(p: CarveRowProps) {
         },
         {
           key: "banks",
-          row: 3,
-          at: 1,
-          span: 3,
+          row: 2,
+          at: 6,
+          span: 2,
           node: <NumberSetting label="Banks" title="Flat land beside the water" value={banks} words={banks ? String(banks) : "None"} min={0} max={BANKS_MAX} step={1} onChange={(v) => set({ banks: v })} auto={{ on: u.banks === null, onAuto: (on) => set({ banks: on ? null : banks }) }} />,
         },
-        { key: "sources", row: 3, at: 4, span: 3, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "floor", row: 3, at: 7, span: 3, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 10, span: 4, rows: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
+        { key: "floor", row: 2, at: 8, span: 2, node: <FloorSetting /> },
+        { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "again", row: 2, at: 12, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
       ]}
     />
   );

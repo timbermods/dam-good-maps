@@ -865,16 +865,15 @@
 .tool-dock > .tool-settings {
   display: block;
   box-sizing: border-box;
-  /* (three rows of 53px, a plate's name, gap and control exactly, 4px apart, and the plate's padding: Kyler,
-     2026-10-05; the map generator's 692px still fits above it at 1920×1080) */
-  height: 175px;
+  /* (two rows of 54px, 4px apart, and the plate's padding: never a third, Kyler, 2026-10-05) */
+  height: 120px;
   padding: 4px;
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: var(--cells);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 4px 2px;
   height: 100%;
 }

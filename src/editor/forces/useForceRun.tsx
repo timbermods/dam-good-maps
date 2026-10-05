@@ -325,13 +325,13 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     return {
       label: "Unleash at work",
       groups: [
-        { key: "status", row: 1, at: 1, span: 9, rows: 3, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
+        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
         {
           key: "pause",
           row: 1,
           at: 10,
           span: 2,
-          rows: 3,
+          rows: 2,
           centre: true,
           node: (
             <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
@@ -344,7 +344,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           row: 1,
           at: 12,
           span: 2,
-          rows: 3,
+          rows: 2,
           centre: true,
           node: (
             <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>

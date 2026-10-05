@@ -105,10 +105,11 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
   minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
   (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
-  175px, for every tool; three rows of 53px on one grid (Kyler, 2026-10-05: the third for the forces' Sources), the
-  bar's own 13 cells, every group spanning whole cells, so each edge in one row lines up with the others and with the
-  bar (every gap between plates continues through the other rows, or a plate there spans it; `layout.spec.ts`); every force's Try another at cells 10–13 across rows 2 and 3; no empty cells, a tool with fewer settings giving each more
-  room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
+  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 13 cells,
+  every group spanning whole cells, so each edge in one row lines up with the other and with the bar (every gap
+  between plates continues through the other row, or a plate there spans it; `layout.spec.ts`); every force's Try
+  another one row tall at cells 12–13 of row 2, its Sources at 10–11 beside it; no empty cells, a tool with fewer
+  settings giving each more room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
   bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
   toggle is Off and On); **Auto**, one small word in the same place on every control that has it, is lit while the
   land (or Power, for a force's Size; the ground, for a brush's Level) decides, and Auto's pick is outlined (a

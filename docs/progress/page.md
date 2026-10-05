@@ -33,8 +33,9 @@ DESIGN.md and EDITOR_PLAN.md, then the Coordination issue #236 ("To page" notes)
 
 ### Waiting on Kyler (his eye on /preview/)
 
-- Every tool's settings rows sharing their edges (three rows, one height for every tool; Try another at cells 10–13
-  over rows 2–3); the brushes' Brush alone on the third row without Flatten's Steps.
+- Every tool's settings back on two rows (Kyler, 2026-10-05: the third looked awful), 120px for every tool, rows
+  sharing their edges; Try another one row tall at cells 12–13, Sources beside it at 10–11 (step 1 of the new page
+  session; captures `docs/design/forces-*` and `settings-b-raise-*`).
 - Your maps' names in full (two lines kept, the size under them, every tile 206px); selection, Rename and Delete.
 - The water row (Drought, Badtide and the day box; "Settling…" in the header's dot; a typed day on double-click).
 - The map switch (no edit lost when another map is clicked at once).
