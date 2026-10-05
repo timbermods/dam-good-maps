@@ -159,6 +159,46 @@
   .drawer .kv { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 3px 10px; font-size: .85rem; }
   .drawer .kv span:nth-child(odd) { color: var(--muted); }
   .dec { font-size: .82rem; margin: 6px 0; } .dec b { font-weight: 600; }
+  /* Phones in portrait: one column, two rows of tabs, 44px targets. Nothing above 700px wide changes. */
+  @media (max-width: 700px) {
+    header { grid-template-columns: minmax(0, 1fr); grid-template-areas: "name" "side" "tabs"; padding: 0 12px; row-gap: 4px; }
+    header h1 { grid-area: name; padding: 10px 0 0; white-space: normal; }
+    .side { grid-area: side; height: auto; flex-wrap: wrap; gap: 6px; }
+    .meta { min-width: 0; text-align: left; margin-right: auto; }
+    .btn { min-height: 44px; }
+    #token, #theme { width: 6.25rem; padding: 0 6px; }
+    .tabs { grid-area: tabs; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 4px; }
+    .tabs button { height: 44px; padding: 0 4px; white-space: normal; line-height: 1.15; }
+    .tokenbox { left: 0; right: 0; top: calc(100% + 4px); flex-wrap: wrap; }
+    .tokenbox input { flex: 1 1 100%; width: auto; height: 44px; font-size: 16px; }
+    .tokenbox .btn { flex: 1 1 0; }
+    .notes { padding: 0 12px; }
+    main { padding: 12px 12px 24px; }
+    .panel { padding: 12px; }
+    .cut { white-space: normal; overflow-wrap: anywhere; }
+    .need { grid-template-columns: 40px minmax(0, 1fr) 34px; row-gap: 2px; }
+    .need > :nth-child(2) { grid-column: 2; grid-row: 1; }
+    .need > :nth-child(3) { grid-column: 2; grid-row: 2; }
+    .need > :nth-child(4) { grid-column: 3; grid-row: 1; }
+    .pr { grid-template-columns: 40px minmax(0, 1fr) 34px; row-gap: 2px; }
+    .pr > :nth-child(2) { grid-column: 2; grid-row: 1; }
+    .pr > :nth-child(3) { grid-column: 2; grid-row: 2; }
+    .pr > :nth-child(4) { grid-column: 3; grid-row: 2; text-align: right; }
+    .pr > :nth-child(5) { grid-column: 3; grid-row: 1; }
+    .merged { grid-template-columns: 40px minmax(0, 1fr) 34px; }
+    .msg { grid-template-columns: minmax(0, 1fr) 34px; }
+    .board { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+    .cardlink, a.chip { min-height: 44px; white-space: normal; text-align: left; }
+    .rel { grid-template-columns: 52px minmax(0, 1fr); }
+    .maptools { flex-wrap: wrap; }
+    .legend { margin-left: 0; flex-basis: 100%; }
+    .mapwrap { height: 70vh; min-height: 320px; }
+    .mapwrap svg { touch-action: none; }
+    .frame.with-drawer { grid-template-columns: minmax(0, 1fr); }
+    .frame.with-drawer main { display: none; }
+    .drawer { border-left: 0; padding: 12px 12px 28px; }
+    .drawer .kv { grid-template-columns: 84px minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -483,9 +523,23 @@ const CONFIG = {
     return { byNumber, label: `${CONFIG.paths.plan} §${(heading.match(/^(\d+)/) || [])[1] || ''}`, file: CONFIG.paths.plan, anchor: anchorFor(heading) };
   }
 
+  // Every request gives up after 20 seconds, and all of a refresh's requests stop when the refresh itself runs past a
+  // minute, so one request that never answers can't hold the page on old data.
+  let runSignal = null;
+  async function fetchT(url, opts = {}) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 20e3);
+    const stop = () => ctl.abort();
+    const run = runSignal;
+    if (run) { if (run.aborted) ctl.abort(); else run.addEventListener('abort', stop); }
+    try { return await fetch(url, { ...opts, signal: ctl.signal }); }
+    catch (e) { throw ctl.signal.aborted ? new Error(`no answer from ${new URL(url).host}`) : e; }
+    finally { clearTimeout(timer); run?.removeEventListener('abort', stop); }
+  }
+
   async function readText(path, quiet) {
     try {
-      const r = await fetch(RAW + path, { cache: 'no-cache' });
+      const r = await fetchT(RAW + path, { cache: 'no-cache' });
       if (!r.ok) return { ok: false, status: r.status };
       return { ok: true, text: (await r.text()).replace(/\r\n/g, '\n') };
     } catch (e) { return { ok: false, status: 0, quiet }; }
@@ -528,16 +582,18 @@ const CONFIG = {
   class RateLimited extends Error {}
   const RESERVE = 8; // requests left for the other machine and a reload
   async function api(path) {
-    if (rate.remaining !== null && rate.remaining <= RESERVE && Date.now() < rate.reset) throw new RateLimited();
+    if (!path.startsWith('/search') && rate.remaining !== null && rate.remaining <= RESERVE && Date.now() < rate.reset) throw new RateLimited();
     const withToken = useToken();
     const headers = { Accept: 'application/vnd.github+json' };
     if (withToken) headers.Authorization = `Bearer ${token}`;
-    const r = await fetch(API + path, { headers, cache: withToken ? 'no-cache' : 'default' });
+    const r = await fetchT((path.startsWith('/search') ? 'https://api.github.com' : API) + path, { headers, cache: withToken ? 'no-cache' : 'default' });
     if (withToken && r.status === 401) { tokenRejected = true; rate.remaining = null; return api(path); }
+    // Search has an allowance of its own; only the core allowance paces the page.
+    const search = (r.headers.get('x-ratelimit-resource') || (path.startsWith('/search') ? 'search' : 'core')) === 'search';
     const rem = r.headers.get('x-ratelimit-remaining'), reset = r.headers.get('x-ratelimit-reset');
-    if (rem !== null) rate.remaining = +rem;
-    if (reset !== null) rate.reset = +reset * 1000;
-    if ((r.status === 403 || r.status === 429) && rate.remaining === 0) throw new RateLimited();
+    if (!search && rem !== null) rate.remaining = +rem;
+    if (!search && reset !== null) rate.reset = +reset * 1000;
+    if ((r.status === 403 || r.status === 429) && rem === '0') throw new RateLimited();
     if (!r.ok) throw new Error(`GitHub answered ${r.status} for ${path.split('?')[0]}`);
     return r.json();
   }
@@ -550,7 +606,29 @@ const CONFIG = {
 
   async function syncGitHub(gh) {
     const now = Date.now();
-    if (!gh.syncedAt || now - gh.syncedAt > 20 * HOUR) {
+    // What needs Kyler, from GitHub's search every time (its own allowance, read even when the core one is used up), so
+    // Needs you matches GitHub within one refresh whatever happened to the reads below.
+    const q = encodeURIComponent(`repo:${CONFIG.repo} is:open label:"${CONFIG.labels.needs}"`);
+    let found = null, failed = null;
+    try { found = (await api(`/search/issues?q=${q}&per_page=100`)).items || []; } catch (e) { failed = e; }
+    try { await syncItems(gh, now); } catch (e) { failed ||= e; }
+    gh.items ||= {};
+    if (found) {
+      // An item search no longer lists loses the label here, unless it changed in the last two minutes (search lags).
+      const listed = new Set(found.map((i) => i.number));
+      for (const i of found) { const old = gh.items[i.number]; if (!old || new Date(i.updated_at) >= new Date(old.updated)) gh.items[i.number] = slim(i); }
+      for (const i of Object.values(gh.items)) {
+        if (!listed.has(i.n) && i.labels.includes(CONFIG.labels.needs) && now - new Date(i.updated).getTime() > 2 * 60e3) i.labels = i.labels.filter((l) => l !== CONFIG.labels.needs);
+      }
+    }
+    if (failed) throw failed;
+    await syncDetails(gh, now);
+  }
+
+  async function syncItems(gh, now) {
+    // Everything is read again every hour; in between, only what changed since the newest change already seen (GitHub's
+    // own clock, so a device's clock that runs ahead can't skip changes).
+    if (!gh.syncedAt || now - gh.syncedAt > HOUR) {
       const items = {};
       for (let page = 1; page <= 3; page++) {
         const open = await api(`/issues?state=open&per_page=100&page=${page}`);
@@ -561,13 +639,17 @@ const CONFIG = {
       for (const i of closed) items[i.number] = slim(i);
       gh.items = items;
     } else {
-      const upd = await api(`/issues?state=all&sort=updated&direction=desc&per_page=100&since=${new Date(gh.syncedAt - 5 * 60e3).toISOString()}`);
+      const seen = Math.max(0, ...Object.values(gh.items || {}).map((i) => new Date(i.updated).getTime() || 0));
+      const since = Math.min(gh.syncedAt, seen || gh.syncedAt) - 5 * 60e3;
+      const upd = await api(`/issues?state=all&sort=updated&direction=desc&per_page=100&since=${new Date(since).toISOString()}`);
       for (const i of upd) gh.items[i.number] = slim(i);
       if (upd.length === 100) { gh.syncedAt = 0; return; } // too much changed: read everything next time
     }
     gh.syncedAt = now;
     for (const [n, i] of Object.entries(gh.items)) if (i.state === 'closed' && now - new Date(i.closed).getTime() > DAY) delete gh.items[n];
+  }
 
+  async function syncDetails(gh, now) {
     // Head branches never change, so each is read once.
     gh.heads ||= {};
     const missing = Object.values(gh.items).filter((i) => i.pr && i.state === 'open' && !gh.heads[i.n]);
@@ -879,7 +961,7 @@ const CONFIG = {
     const W = +svg.dataset.w, H = +svg.dataset.h;
     const size = () => { const r = svg.parentElement.getBoundingClientRect(); svg.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`); return r; };
     const apply = () => vp.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`);
-    const fit = () => { const r = size(); const k = Math.min((r.width - 16) / W, (r.height - 16) / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 8 }; apply(); };
+    const fit = () => { const r = size(); if (r.width < 40) return; const k = Math.min((r.width - 16) / W, (r.height - 16) / H, 1); mapView = { k, x: (r.width - W * k) / 2, y: 8 }; apply(); };
     size();
     if (!mapView) fit(); else apply();
     let drag = null;
@@ -972,6 +1054,9 @@ const CONFIG = {
   async function refresh() {
     if (busy) return;
     busy = true; lastRun = Date.now();
+    const run = new AbortController();
+    runSignal = run.signal;
+    const watchdog = setTimeout(() => run.abort(), 60e3);
     try {
       rawDocs = await readDocs(rawDocs);
       docsState = parseDocs(rawDocs);
@@ -988,7 +1073,7 @@ const CONFIG = {
       if (tokenRejected !== wasRejected) tokenLabel();
       store.set('rc-github-v1', ghState);
       readAt = Date.now();
-    } finally { busy = false; }
+    } finally { busy = false; clearTimeout(watchdog); runSignal = null; }
     render(); meta();
   }
   // Every few minutes while the page is visible; slower when GitHub's allowance runs low.
@@ -998,6 +1083,9 @@ const CONFIG = {
   }
   setInterval(() => { if (document.visibilityState === 'visible' && due()) refresh(); }, 30e3);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && due()) refresh(); });
+  // A page the browser kept in memory and shows again (a phone's tab, back and forward) reads again at once.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) refresh(); });
+  window.addEventListener('online', () => refresh());
 
   // ================================================================ events
   document.addEventListener('click', (e) => {

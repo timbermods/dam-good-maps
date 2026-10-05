@@ -1,7 +1,7 @@
 // The start's helpers (EDITOR_PLAN §4): where the district center may stand, and the operations that
 // move it, clear the generation's objects under it, carry it off ground a force or an edit broke
 // (D257) and put it back for a Try another. The forces, Select, the shelf's start and the checks'
-// fixes share them.
+// fixes share them; Select's step with its carry is here too (`applySelection`).
 
 import * as portable from "../math/portable";
 import type { BuildResult } from "../features/build";
@@ -11,7 +11,7 @@ import { startEntranceTile, startMiddleTile, type Orientation } from "../format/
 import type { StartFeature } from "../features/schema";
 import { clone } from "../spec/mergepatch";
 import type { EditOp } from "./ops";
-import type { MapSession } from "./session";
+import type { ApplyResult, MapSession } from "./session";
 import type { ForceResultParams } from "../forces/op";
 
 /** Whether the start's district center can stand with its middle at (x, y) facing `o`: its 3×3 and
@@ -226,4 +226,26 @@ export function startCarry(s: MapSession, params: ForceResultParams, limits: { i
       }
   const tiles = [...own.keys()].sort((p, q) => p - q);
   return { params: { ...params, removed, tiles, heights: tiles.map((i) => own.get(i)!) }, ops: ops.filter((o) => o.op !== "deleteEntities") };
+}
+
+/** A Select action (D259, D264) applied as one step on the session, exact: what its operations change
+ *  stays as they left it, a lone tile too. Objects and sources on the changed ground ride it (the build
+ *  stands them on their ground); the start, only if its own ground (`tiles` changed) can no longer hold
+ *  it, is carried to the nearest level ground in the same step (D257's rule): the step is taken back and
+ *  applied again with the carry, or without it when that fails. The first application's result. */
+export function applySelection(s: MapSession, ops: EditOp[], label: string, tiles: readonly number[]): ApplyResult {
+  // (Select's actions are exact: what they change stays as they left it, a lone tile too; D259, D264)
+  ops = ops.map((o) => (o.op === "sculpt" && !o.params.exact ? { ...o, params: { ...o.params, exact: true } } : o));
+  const r = s.applyAll(ops, "user", label);
+  if (!r.ok) return r;
+  if (startBrokenBy(s, new Set(tiles))) {
+    const at = startMiddle(s);
+    const carry = at ? moveStartNear(s, at[0], at[1], true) : null;
+    if (carry) {
+      s.undo();
+      const again = s.applyAll([...ops, ...carry], "user", label);
+      if (!again.ok) s.applyAll(ops, "user", label);
+    }
+  }
+  return r;
 }

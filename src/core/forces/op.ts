@@ -19,8 +19,8 @@ import { forceSettingsProblems } from "./settings";
 
 export { forceSettingsProblems };
 
-export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate";
-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate"];
+export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
+export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
 
 /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
@@ -36,7 +36,9 @@ export interface ForceWhere {
 
 /** A force's settings, as each force's options row sets them (the seed is its personality). */
 export type ForceSettingsRecord =
-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
+  | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
+  | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
+  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number; maturity?: "young" | "mature" | "auto" | null }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
@@ -159,11 +161,13 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   const mode = p.settings.mode;
   if (w.origin && !inMap(w.origin[0], w.origin[1])) return ["the force's point is off the map"];
   if (w.end && !inMap(w.end[0], w.end[1])) return ["the force's end point is off the map"];
-  if (w.path && !(w.path.length >= 2 && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return ["a painted line needs 2 to 512 points on the map"];
+  if (w.path && !(w.path.length >= ((p.verb === "rift" || p.verb === "deposit") ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [p.verb === "rift" || p.verb === "deposit" ? "a rift's or deposit's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
+  if (p.verb === "deposit" && !w.path?.length) return ["a deposit needs its origin"];
+  if (p.verb === "rift" && !w.path?.length) return ["a rift needs its fault"];
   if (p.verb === "quake") {
     if (!w.path) return ["a quake needs its fault"];
     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
-  } else if (!w.origin) return ["a force needs the point it started from"];
+  } else if (p.verb !== "rift" && p.verb !== "deposit" && !w.origin) return ["a force needs the point it started from"];
   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
   if ((p.verb === "carve" || p.verb === "craterize" || p.verb === "glaciate") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
   if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
@@ -237,10 +241,14 @@ export function forceLabel(p: ForceResultParams): string {
     case "craterize":
       return "Craterize";
     case "erupt":
-      return p.settings.mode === "fissure" ? "Erupt a fissure" : "Erupt";
+      return (p.settings as { mode?: string }).mode === "fissure" ? "Erupt a fissure" : "Erupt";
     case "quake":
-      return p.settings.mode === "slide" ? "Quake: slide" : "Quake: lift";
+      return (p.settings as { mode?: string }).mode === "slide" ? "Quake: slide" : "Quake: lift";
     case "glaciate":
       return "Glaciate";
+    case "rift":
+      return "Rift";
+    case "deposit":
+      return "Deposit";
   }
 }

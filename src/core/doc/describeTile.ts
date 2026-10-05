@@ -8,10 +8,12 @@
 
 import { isDead, isSapling } from "../analysis/wood";
 import { entityTiles } from "../features/edits";
-import { isObject, JsonFloat, num, type JsonObject } from "../format/json";
+import { isObject, JsonFloat, num, plainJson } from "../format/json";
+import type { Orientation } from "../format/footprints";
 import type { EntitySpec } from "../format/entities";
-import { placementOf } from "../format/entities";
+import { componentsOf, placementOf } from "../format/entities";
 import type { MapSession } from "./session";
+import { kindName } from "./tools";
 
 /** An object standing on a tile, as far as its description goes. */
 export interface TileObject {
@@ -179,7 +181,7 @@ const numeric = (v: unknown): number | undefined => (typeof v === "number" ? v :
 
 /** An entity as a `TileObject`. */
 export function objectOf(e: EntitySpec): TileObject {
-  const comps = (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as JsonObject;
+  const comps = componentsOf(e);
   const out: TileObject = { template: e.template };
   if (isDead(comps)) out.dead = true;
   else if (isSapling(comps)) out.young = true;
@@ -230,4 +232,36 @@ function storedDepth(s: MapSession): ArrayLike<number> {
 /** What is on tile (x, y) of a session's map. */
 export function describeTileOf(s: MapSession, x: number, y: number): TileDescription | null {
   return describeTile(tileFactsOf(s), x, y);
+}
+
+// ------------------------------------------------------------------- the entities on a tile
+
+/** An entity as advanced mode's inspector and the source rows show it. */
+export interface EntityInfo {
+  id: string;
+  template: string;
+  x: number;
+  y: number;
+  z: number;
+  orientation: Orientation;
+  flipped: boolean;
+  /** What placed it: a feature's plain name, "placed by hand", "slopes" or "the imported map". */
+  from: string;
+  /** Its components other than BlockObject, as plain JSON. */
+  components: Record<string, unknown>;
+}
+
+/** The entities whose footprint covers tile (x, y) of a session's map, topmost last. */
+export function entitiesAtTile(s: MapSession, x: number, y: number): EntityInfo[] {
+  const names = new Map(s.features.map((f) => [f.id, kindName(f)]));
+  const out: EntityInfo[] = [];
+  for (const e of s.built.entities) {
+    if (e.raw && !placementOf(e.raw)) continue;
+    if (!entityTiles(e).some(([tx, ty]) => tx === x && ty === y)) continue;
+    const comps = componentsOf(e) as Record<string, unknown>;
+    const { BlockObject: _bo, ...rest } = comps;
+    const from = names.get(e.owner) ?? (e.owner === "placed" ? "placed by hand" : e.owner.startsWith("derived:") || e.owner.startsWith("pinned:") ? "slopes" : "the imported map");
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped, from, components: plainJson(rest) as Record<string, unknown> });
+  }
+  return out;
 }

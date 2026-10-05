@@ -7,6 +7,8 @@ import { entityTiles } from "../features/edits";
 import { isPickable } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
+import { FLUIDS } from "../data/parity";
+import { placeComponents } from "./objectOps";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
 import type { MapSession } from "./session";
@@ -15,7 +17,7 @@ const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: fa
 
 /** Resource features make room for what is placed by hand (they are placed after it, build step
  *  11): their entities do not count as taking a tile. */
-function resourceOwners(s: MapSession): Set<string> {
+export function resourceOwners(s: MapSession): Set<string> {
   return new Set(s.features.filter((f) => f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField").map((f) => f.id));
 }
 
@@ -56,6 +58,9 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   }
   const level = !!opts.level;
   const pool = level && p.template === "BadwaterSource";
+  // the drill stands on an aquifer (its `UnderstructureConstraintSpec`), at the aquifer's own coordinates
+  const understructure = FLUIDS[p.template]?.on;
+  if (understructure && !b.entities.some((e) => e.id !== ignore && understructure.includes(e.template) && e.x === p.x && e.y === p.y)) return "a drill needs an aquifer under it";
   for (const blk of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z, orientation: p.orientation, flipped: !!p.flipped })) {
     if (blk.x < 0 || blk.y < 0 || blk.x >= W || blk.y >= H || blk.z >= 33) return "it does not fit on the map";
     const i = blk.y * W + blk.x;
@@ -66,6 +71,8 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
       if (other === "StartingLocation") return "the district center stands there";
       continue;
     }
+    // (an aquifer under a drill is what the drill needs, not what is in its way)
+    if (understructure && other && understructure.includes(other)) continue;
     if (!level) {
       if (blk.z < top) return "the ground under it is not level";
       if ((blk.below === "ground" || blk.below === "groundOrStackable") && blk.z > top) return "the ground under it is not level";
@@ -86,7 +93,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
 export function levelProblem(s: MapSession, p: { template?: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, extra: readonly number[] = []): string | null {
   const template = p.template ?? "BadwaterSource";
   const fp = FOOTPRINTS[template];
-  if (!fp || template === "BadwaterSource" || template === "WaterSource") return null;
+  if (!fp || FLUIDS[template]?.tiles) return null;
   const { x: W, y: H } = s.size;
   const tiles = new Set<number>(extra.filter((i) => i >= 0 && i < W * H));
   for (const blk of worldBlocks(fp, { template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped })) if (blk.x >= 0 && blk.y >= 0 && blk.x < W && blk.y < H) tiles.add(blk.y * W + blk.x);
@@ -111,6 +118,7 @@ export interface EntityRequest {
 /** Plan an entity placed from the shelf: the loader's rules first; where its ground isn't level it
  *  levels its own footprint (D290 cuts, D328 fills where dry), in the same step. */
 export function planEntity(s: MapSession, req: EntityRequest, id: string): PlannedOps {
+  if (!req.components) req = { ...req, components: placeComponents(req.template) };
   if (!FOOTPRINTS[req.template]) return fail(`${req.template} can't be placed`);
   const why = entityProblem(s, req, null, { level: true });
   if (why) return fail(why);
@@ -173,7 +181,8 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   let low = Infinity;
   for (const i of list) low = Math.min(low, b.heights[i]);
   const ops: EditOp[] = [];
-  const isSource = template === "BadwaterSource" || template === "WaterSource";
+  // (the water objects are cut-only, so no water is dammed: the sources, the seeps, an aquifer, the drain)
+  const isSource = template === "BadwaterSource" || template === "WaterSource" || !!FLUIDS[template]?.tiles;
   if (template === "BadwaterSource") {
     const skip = resourceOwners(s);
     const gone = new Set<string>();
@@ -245,6 +254,56 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
 }
 
 export { distanceFrom, runsToTiles };
+
+/** A badwater source placed or moved in a group of edits (a clean source switched to bad: the old
+ *  one removed, the new one placed; a source dragged) cuts its own spring pool where its ground
+ *  isn't level (D290), in the same step, before it. The worker's group of edits (`applyAll`) adds it;
+ *  a single edit, the shelf, Select and a stroke do not. */
+export function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
+  const bad = (op: EditOp) =>
+    op.op === "placeEntity" ? op.params.template === "BadwaterSource" : op.op === "moveEntity" ? s.built.entities.some((e) => e.id === op.params.id && e.template === "BadwaterSource") : false;
+  if (!ops.some(bad)) return ops;
+  const out: EditOp[] = [];
+  const removed = new Set<string>();
+  for (const op of ops) {
+    if (op.op === "deleteEntities") for (const id of op.params.entities) removed.add(id);
+    if (op.op === "placeEntity" && bad(op)) out.push(...levelFootprint(s, { ...op.params, template: "BadwaterSource" }, removed));
+    if (op.op === "moveEntity" && bad(op)) {
+      const e = s.built.entities.find((g) => g.id === op.params.id)!;
+      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
+    }
+    out.push(op);
+  }
+  return out;
+}
+
+// --------------------------------------------------------------------------------- planting
+
+/** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
+ *  it can stand (on the map's ground, dry, no object there), as one step; `newId` names each. The
+ *  operations, their label and the tiles planted, or why nothing can grow there. */
+export function planPlant(s: MapSession, template: string, tiles: readonly number[], newId: () => string): { ok: true; ops: EditOp[]; label: string; planted: number[] } | { ok: false; errors: string[] } {
+  const { x: W } = s.size;
+  const b = s.built;
+  const taken = new Uint8Array(W * s.size.y);
+  for (const e of b.entities) for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < s.size.y) taken[ty * W + tx] = 1;
+  const ops: EditOp[] = [];
+  const planted: number[] = [];
+  for (const i of new Set(tiles)) {
+    if (i < 0 || i >= taken.length || taken[i] || b.water[i] > 0.05) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const p = { template, x, y, orientation: "Cw0" as Orientation };
+    if (entityProblem(s, p)) continue;
+    taken[i] = 1;
+    planted.push(i);
+    ops.push({ op: "placeEntity", params: { id: newId(), ...p } });
+  }
+  if (!ops.length) return fail("nothing can grow there: it needs dry ground with nothing on it");
+  const name = template === "BlueberryBush" ? "blueberry bush" : template.toLowerCase();
+  const label = ops.length === 1 ? `Plant a ${name}` : `Plant ${ops.length} ${name === "blueberry bush" ? "blueberry bushes" : `${name}s`}`;
+  return { ok: true, ops, label, planted };
+}
 
 // ------------------------------------------------------------------------------ hover preview
 

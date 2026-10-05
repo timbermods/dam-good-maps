@@ -17,7 +17,7 @@ import type { QuakeSettings } from "./quake";
 import type { GlaciateSettings } from "./glaciate/model";
 import type { Verb } from "./op";
 import type { ForceRequest } from "./start";
-import { clamp } from "./random";
+import { clamp, hash } from "./random";
 
 /** The ground a force acts on: the map's heights and the tile it acts round. */
 export interface ForceGround {
@@ -56,10 +56,15 @@ function draws(verb: string, seed: number, g: ForceGround) {
 type Draft<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] | null };
 
 /** Carve's details, before nature draws the ones still on Auto (D309). */
-export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth" | "banks">;
+export type CarveDraft = Draft<CarveSettings, "wander" | "walls" | "depth" | "banks" | "maturity">;
 /** Every one of Carve's details, reset to Auto: the default for Try another when the caller sends no
- *  pins (Unleash, and callers outside the row), and what a pinned subset is applied over. */
+ *  pins (Unleash, and callers outside the row), and what a pinned subset is applied over. Maturity is
+ *  not among them: it stays as the row sets it (Young unless Mature or Auto is chosen in More). */
 export const AUTO_CARVE_DETAILS = { wander: null, walls: null, depth: null, banks: null } as const;
+
+/** Carve's Maturity on Auto: open ground leans Mature (80% of seeds), rugged ground Young (15% at eight
+ *  levels of relief). Its own hash leaves the other Auto draws untouched. */
+export function carveMaturity(g: ForceGround, seed: number): "young" | "mature" { return hash(seed,6709) < .8 - .65*ruggedness(g) ? "mature" : "young"; }
 
 /** Carve: its wander (open ground meanders, rugged ground runs straighter), its walls (rugged
  *  ground a gorge, open ground broad terraces) and its banks (D321 item 18: open ground leaves wide
@@ -71,7 +76,8 @@ export function carveNature(s: CarveDraft, g: ForceGround): CarveSettings {
   const wander = s.wander ?? Math.round(clamp(55 - 30 * rough + rng.range(-15, 15), 5, 90) / 5) * 5;
   const walls = s.walls ?? (chance(rng, 0.3 + 0.55 * rough) ? "steep" : "wide");
   const banks = s.banks === null ? Math.round(clamp(6 - 4 * rough + rng.range(-1.5, 1.5), 1, 8)) : s.banks;
-  return { ...s, wander, walls, ...(banks !== undefined ? { banks } : {}) } as CarveSettings;
+  const maturity = s.maturity === null || s.maturity === "auto" ? carveMaturity(g,s.seed ?? 0) : s.maturity;
+  return { ...s, wander, walls, ...(banks !== undefined ? { banks } : {}), ...(maturity !== undefined ? { maturity } : {}) } as CarveSettings;
 }
 
 /** Craterize's details, before nature draws the ones still on Auto (D309). */
@@ -139,6 +145,10 @@ export function glaciateNature(s: GlaciateDraft, g: ForceGround): GlaciateSettin
  *  sends no pins, and the base a pinned subset is applied over. */
 export function autoDetailsOf(verb: Verb): Record<string, null> {
   switch (verb) {
+    case "rift":
+      return { walls: null };
+    case "deposit":
+      return { channels: null };
     case "carve":
       return AUTO_CARVE_DETAILS;
     case "craterize":
@@ -161,6 +171,10 @@ export function natureOf(req: ForceRequest, base: { W: number; H: number; height
   const mid = (path: readonly Point[]) => path[Math.floor(path.length / 2)];
   const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
   switch (req.verb) {
+    case "rift":
+      return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };
+    case "deposit":
+      return { ...req, settings: { ...req.settings, channels: req.settings.channels ?? "auto" } };
     case "carve":
       return { ...req, settings: carveNature(req.settings, ground(clampTile(req.origin[0], req.origin[1]))) };
     case "craterize":

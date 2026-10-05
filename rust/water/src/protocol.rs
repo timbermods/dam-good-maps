@@ -7,6 +7,10 @@
 //! Rules: `game u32, edgeSpill u32` (water.ts `WaterSimOptions`, resolved).
 //!
 //! - A simulation (`water_new`): `"DGMS" u32, model, rules, hasStart u32, depth f64[n], contamination f64[n]`.
+//! - A strip of a larger map (`water_strip`, the multi-core water): `"DGMT" u32, model, rules, depth f64[n],
+//!   contamination f64[n], y0 u32, mapHeight u32, count u32[emitters]`: the model holds the strip's rows only
+//!   (`n` its tiles), the map's rows `y0..` of `mapHeight`, and each emitter its cells on them, `count` being the
+//!   whole emitter's tile count; a seep's anchor is a tile of the strip.
 //! - A canonical settle job (`water_canonical`, the native batch binary): `"DGMC" u32, model, rules, lakes u32`, per
 //!   lake `tiles u32, tile u32[tiles]`, then `drained u32, tile u32[drained], depth f64[n],
 //!   contamination f64[n]` (the pre-fill's water). Its result: `settled u32, ticks f64, hasSteady u32,
@@ -17,6 +21,7 @@ use crate::sim::{Emitter, Model, Rules, Sim};
 
 pub const SIM_MAGIC: u32 = 0x534d_4744; // "DGMS"
 pub const CANONICAL_MAGIC: u32 = 0x434d_4744; // "DGMC"
+pub const STRIP_MAGIC: u32 = 0x544d_4744; // "DGMT"
 
 pub struct Reader<'a> {
     b: &'a [u8],
@@ -91,6 +96,24 @@ pub fn decode_sim(bytes: &[u8]) -> Sim {
     let (depth, contamination) = if has_start { (Some(r.f64s(n)), Some(r.f64s(n))) } else { (None, None) };
     assert!(r.done(), "trailing bytes");
     Sim::new(model, depth.as_deref(), contamination.as_deref(), rules)
+}
+
+/// A strip of a larger map (`water_strip`).
+pub fn decode_strip(bytes: &[u8]) -> Sim {
+    let mut r = Reader::new(bytes);
+    assert_eq!(r.u32(), STRIP_MAGIC, "not a strip");
+    let model = read_model(&mut r);
+    let rules = read_rules(&mut r);
+    let n = model.w * model.h;
+    let depth = r.f64s(n);
+    let contamination = r.f64s(n);
+    let y0 = r.u32() as usize;
+    let gh = r.u32() as usize;
+    assert!(y0 + model.h <= gh, "a strip off the map");
+    let counts: Vec<usize> = (0..model.emitters.len()).map(|_| r.u32() as usize).collect();
+    assert!(model.emitters.iter().zip(&counts).all(|(e, &c)| e.cells.len() <= c), "an emitter with more cells than its count");
+    assert!(r.done(), "trailing bytes");
+    Sim::new_strip(model, &depth, &contamination, rules, y0, gh, &counts)
 }
 
 /// A canonical settle job, run to the end, and its encoded result.

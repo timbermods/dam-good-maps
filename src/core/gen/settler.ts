@@ -162,6 +162,14 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
 
 const S2 = Math.SQRT2;
 
+/** The pumpable water `shoreWalkFrom` looks for: deeper, cleaner and nearer the shore's level than
+ *  the water rule's (analysis/walk.ts `PUMP_DEPTH` 0.3, `PUMP_CLEAN` 0.05, `PUMP_REACH` 2, which
+ *  `pumpShores` and the check read), a margin over the rule. They differ; making them one moves
+ *  starts (a re-pin). */
+const SHORE_DEPTH = 0.35;
+const SHORE_CLEAN = 0.03;
+const SHORE_REACH = 1.9;
+
 /** Walking distance on each level from that level's shores of pumpable water (no slopes). */
 export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): Float64Array {
   const N = W * H;
@@ -177,7 +185,7 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
       const s = h[j] + D[j];
-      if (D[j] >= 0.35 && C[j] < 0.03 && s >= L - 1.9 && s <= L - 0.05) {
+      if (D[j] >= SHORE_DEPTH && C[j] < SHORE_CLEAN && s >= L - SHORE_REACH && s <= L - 0.05) {
         d[i] = 0;
         heap.push(0, i);
         break;

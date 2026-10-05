@@ -94,6 +94,9 @@ pub struct Sim {
     turned: Vec<u32>,
     source_cells: Vec<u32>,
     seep_on: Vec<u8>,
+    /// Each emitter's tile count as a float, what its strength is spread over: its own cells' count, or on a
+    /// strip of a larger map (`new_strip`) the whole emitter's.
+    shares: Vec<f64>,
 }
 
 fn clamp01(v: f64) -> f64 {
@@ -120,6 +123,22 @@ impl Sim {
     /// `new WaterSim(model, initial, opts)`: the starting depth and contamination (zero when absent) decide
     /// the first wet list.
     pub fn new(model: Model, depth: Option<&[f64]>, contamination: Option<&[f64]>, rules: Rules) -> Sim {
+        let h = model.h;
+        let counts: Vec<usize> = model.emitters.iter().map(|e| e.cells.len()).collect();
+        Sim::with_rows(model, depth, contamination, rules, 0, h, &counts)
+    }
+
+    /// A strip of a larger map for the multi-core water (src/core/sim/parallel.ts): `model` holds the strip's
+    /// rows only, the map's rows `y0..y0 + model.h` of `gh`, and each emitter only its cells on them, with
+    /// `counts` its whole tile count (what its strength is spread over). Its map edges are the map's: the
+    /// strip's own first and last rows are open (their neighbours are another strip's), and the water near
+    /// them is replaced by that strip's after every tick (`sync_rows`), so the rows a few away from them are
+    /// exactly the whole map's.
+    pub fn new_strip(model: Model, depth: &[f64], contamination: &[f64], rules: Rules, y0: usize, gh: usize, counts: &[usize]) -> Sim {
+        Sim::with_rows(model, Some(depth), Some(contamination), rules, y0, gh, counts)
+    }
+
+    fn with_rows(model: Model, depth: Option<&[f64]>, contamination: Option<&[f64]>, rules: Rules, y0: usize, gh: usize, counts: &[usize]) -> Sim {
         let (w, h) = (model.w, model.h);
         let n = w * h;
         let mut d = vec![0.0; n];
@@ -160,13 +179,13 @@ impl Sim {
                 let i = i as usize;
                 let x = i % w;
                 let y = (i - x) / w;
-                if y == 0 {
+                if y0 + y == 0 {
                     wall[i] |= 1;
                 }
                 if x == 0 {
                     wall[i] |= 2;
                 }
-                if y == h - 1 {
+                if y0 + y == gh - 1 {
                     wall[i] |= 4;
                 }
                 if x == w - 1 {
@@ -183,7 +202,8 @@ impl Sim {
             let (off, on) = e.limit.map_or((0.0, 0.0), |(_, off, on)| (off, on));
             params.extend_from_slice(&[e.strength, e.contamination, off, on]);
         }
-        let seep_on = vec![1u8; model.emitters.len()];
+        // a seep starts off, as the game's does: it turns on at the first tick only below its restart depth
+        let seep_on = model.emitters.iter().map(|e| if e.limit.is_some() { 0u8 } else { 1u8 }).collect();
         let mut sim = Sim {
             w,
             h,
@@ -220,6 +240,7 @@ impl Sim {
             turned: vec![0; n],
             source_cells: cells,
             seep_on,
+            shares: counts.iter().map(|&c| c as f64).collect(),
         };
         // the starting water: its wet tiles, their neighbour counts, the active list and the modifiers to
         // compute at the first tick
@@ -536,7 +557,30 @@ impl Sim {
                 continue;
             }
             let src = &self.emitters[e];
-            let add = (DT * src.strength * scale) / src.cells.len() as f64;
+            let add = (DT * src.strength * scale) / self.shares[e];
+            if add < 0.0 {
+                // a sink (negative strength, D337) removes its own kind, floored at dry (the game's
+                // UpdateContaminationFromWaterChange)
+                for &i in &src.cells {
+                    let i = i as usize;
+                    let d0 = self.d[i];
+                    if !(d0 > 0.0) {
+                        continue;
+                    }
+                    if game {
+                        self.dold[i] = d0;
+                    }
+                    let d1 = d0 + add;
+                    if d1 > 0.0 {
+                        self.c[i] = clamp01((self.c[i] * d0 + src.contamination * add) / d1);
+                        self.d[i] = d1;
+                    } else {
+                        self.c[i] = 0.0;
+                        self.d[i] = 0.0;
+                    }
+                }
+                continue;
+            }
             if !(add > 0.0) {
                 continue;
             }
@@ -578,6 +622,57 @@ impl Sim {
             let delta = if self.wet_mask[c] == 1 { 1 } else { -1 };
             self.mark_active(c, delta);
         }
+    }
+
+    /// Brings the bookkeeping up to date with water written over rows `lo..hi` from outside the run (the
+    /// multi-core water's neighbouring strip, or the whole map when a simulation takes over another's water):
+    /// a tile that turned wet or dry there updates the wet-neighbour counts, the modifiers round it (at the next
+    /// tick) and the active list, and a tile that turned dry drops its flows, as the run's own turns do; then
+    /// the wet list is rebuilt. Its order changes no result (every per-tile step reads only the substep's start).
+    pub fn sync_rows(&mut self, lo: usize, hi: usize) {
+        let mut n_turned = 0;
+        for c in lo * self.w..hi * self.w {
+            let wet = if self.d[c] > 0.0 { 1 } else { 0 };
+            if wet == self.wet_mask[c] {
+                continue;
+            }
+            self.wet_mask[c] = wet;
+            self.count_wet(c, if wet == 1 { 1 } else { -1 });
+            self.mark_dirty(c);
+            if wet == 0 {
+                let b = 4 * c;
+                self.f[b] = 0.0;
+                self.f[b + 1] = 0.0;
+                self.f[b + 2] = 0.0;
+                self.f[b + 3] = 0.0;
+            }
+            self.turned[n_turned] = c as u32;
+            n_turned += 1;
+        }
+        for k in 0..n_turned {
+            let c = self.turned[k] as usize;
+            let delta = if self.wet_mask[c] == 1 { 1 } else { -1 };
+            self.mark_active(c, delta);
+        }
+        let mut n = 0;
+        for a in 0..self.active_count {
+            let c = self.active[a] as usize;
+            if self.d[c] > 0.0 {
+                self.wet[n] = c as u32;
+                n += 1;
+            }
+        }
+        self.wet_count = n;
+    }
+
+    /// Whether emitter `k` is on (only a seep is ever off: its depth limit).
+    pub fn seep_on(&self, k: usize) -> bool {
+        self.seep_on[k] != 0
+    }
+
+    /// Switches emitter `k` on or off, as a simulation that takes over another's water carries its seeps on.
+    pub fn set_seep_on(&mut self, k: usize, on: bool) {
+        self.seep_on[k] = on as u8;
     }
 
     fn update_seeps(&mut self) {

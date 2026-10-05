@@ -8,7 +8,8 @@
 // edits whose targets only exist then (a tree of a forest). An edit whose target exists in neither
 // pass is orphaned (PLAN §19.4): kept in the document and reported, never dropped.
 
-import { bush, entityJson, ruin, slope, tree, waterSource, type EntitySpec } from "../format/entities";
+import { bush, entityJson, fluidObject, reserve, ruin, slope, tree, unstableCore, waterSource, type EntitySpec } from "../format/entities";
+import { CORE, defaultStock, FLUIDS, isReserve } from "../data/parity";
 import { F, isObject, JsonFloat, type JsonObject, type JsonValue } from "../format/json";
 import { FOOTPRINTS, footprintTiles, type Orientation } from "../format/footprints";
 import { entityId } from "./ids";
@@ -47,13 +48,17 @@ export const PINNED_SLOPES = "pinned:slopes";
 
 // ---------------------------------------------------------------------------------- JSON values
 
-/** Plain JSON as game JSON: whole numbers stay integers, others become floats. */
-export function toGameJson(v: unknown): JsonValue {
-  if (typeof v === "number") return Number.isInteger(v) ? v : F(v);
-  if (Array.isArray(v)) return v.map(toGameJson);
+/** The properties the game stores as floats, so a whole number under one is written `1.0`, as the game's own
+ *  files have it (a strength, a countdown, a growth or a stock modifier). */
+const FLOAT_KEYS = new Set(["SpecifiedStrength", "CurrentStrength", "DaysUntilActivation", "DaysPassed", "CurrentModifier", "GrowthProgress"]);
+
+/** Plain JSON as game JSON: whole numbers stay integers (but under a float property of the game's), others become floats. */
+export function toGameJson(v: unknown, key?: string): JsonValue {
+  if (typeof v === "number") return Number.isInteger(v) && !(key && FLOAT_KEYS.has(key)) ? v : F(v);
+  if (Array.isArray(v)) return v.map((x) => toGameJson(x));
   if (v !== null && typeof v === "object") {
     const out: JsonObject = {};
-    for (const k of Object.keys(v)) out[k] = toGameJson((v as Record<string, unknown>)[k]);
+    for (const k of Object.keys(v)) out[k] = toGameJson((v as Record<string, unknown>)[k], k);
     return out;
   }
   return v as JsonValue;
@@ -131,6 +136,10 @@ function defaultEntity(p: PlaceEntityParams, z: number): EntitySpec | null {
   if (m) return ruin({ ...b, height: Number(m[1]), variant: "A", orientation: p.orientation });
   if (t === "WaterSource") return waterSource({ ...b, strength: 1 });
   if (t === "BadwaterSource") return waterSource({ ...b, strength: 1, bad: true });
+  // the game's other water objects, at its defaults (data/parity.ts)
+  if (t in FLUIDS) return fluidObject({ ...b, template: t, orientation: p.orientation, flipped: p.flipped });
+  if (t === "UnstableCore") return unstableCore({ ...b, orientation: p.orientation, radius: CORE.defaultRadius, cycles: CORE.cycles, flipped: p.flipped });
+  if (isReserve(t)) return reserve({ ...b, template: t, ...defaultStock(t), orientation: p.orientation, flipped: p.flipped });
   if (t === "Slope") return slope({ ...b, orientation: p.orientation });
   const blockOnly = ["Blockage", "NaturalDam", "Thorns", "SmallRelic", "MediumRelic", "LargeRelic", "GeothermalField", "UndergroundRuins", "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1"];
   if (blockOnly.includes(t)) return { ...b, template: t, orientation: "Cw0", flipped: false, components: {} };
@@ -145,7 +154,8 @@ export function placedEntity(p: PlaceEntityParams, z: number): EntitySpec {
     const comps = toGameJson(p.components) as JsonObject;
     const before: JsonObject = {};
     const rest: JsonObject = {};
-    for (const k in comps) (k === "WaterSource" ? before : rest)[k] = comps[k];
+    // (the WaterSource precedes BlockObject in the game's files, except an aquifer's: FORMAT.md §5)
+    for (const k in comps) (k === "WaterSource" && p.template !== "Aquifer" ? before : rest)[k] = comps[k];
     return {
       id: p.id,
       owner: PLACED,

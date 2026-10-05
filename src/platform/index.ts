@@ -1,8 +1,11 @@
 // Platform adapters (PLAN §19.9): the only code that differs between the website and the future
 // Claude artifact edition. The core never touches the DOM or a platform API.
 
+// (first: on a first visit the page reloads once, cross-origin isolated, before anything else runs)
+import "./isolation";
 import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
+import { parallelWaterSupported, threadsFor } from "../core/sim/parallelPolicy";
 
 /** workers: module URLs on the website (the artifact build will inline them as blobs). The
  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
@@ -17,6 +20,10 @@ export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): vo
   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
   const api = wrap<GeneratorApi>(worker);
   let checks: Worker | null = null;
+  // the water's helper threads (src/core/sim/parallel.ts), started here so they are ready by the first big map
+  const helpers = waterHelpers();
+  const ports = helpers.map((h) => h.port);
+  if (ports.length) void api.waterHelpers(transfer(ports, ports));
   try {
     checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
     const ch = new MessageChannel();
@@ -30,14 +37,32 @@ export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): vo
     stop: () => {
       worker.terminate();
       checks?.terminate();
+      for (const h of helpers) h.worker.terminate();
     },
   };
+}
+
+/** The multi-core water's helpers for the editor's worker, each reached through a port (none where it doesn't
+ *  run: a page not cross-origin isolated, WebKit, fewer than four cores). The worker starts more for bigger maps. */
+function waterHelpers(): { worker: Worker; port: MessagePort }[] {
+  if (!parallelWaterSupported(true)) return [];
+  const count = Math.min(threadsFor(256 * 256), (navigator.hardwareConcurrency || 4) - 1) - 1;
+  if (count < 2) return [];
+  const helpers: { worker: Worker; port: MessagePort }[] = [];
+  for (let k = 0; k < count; k++) {
+    const worker = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
+    const ch = new MessageChannel();
+    worker.postMessage({ waterPort: ch.port1 }, [ch.port1]);
+    helpers.push({ worker, port: ch.port2 });
+  }
+  return helpers;
 }
 
 /** D329's background search: a generator worker of its own (no checks worker), so the editor's
  *  never waits on it; `stop` ends it at once (a new map was asked for). */
 export function createBackground(): { api: Remote<GeneratorApi>; stop(): void } {
-  const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
+  // ("background": its water stays on one thread, generator.worker.ts)
+  const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module", name: "background" });
   return { api: wrap<GeneratorApi>(worker), stop: () => worker.terminate() };
 }
 

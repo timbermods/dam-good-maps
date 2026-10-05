@@ -1060,6 +1060,41 @@ const FLAT_EXTRAS = new Set(["mineSite", "relicSmall", "relicMedium", "relicLarg
 /** No water tile within this many tiles (Chebyshev) of such an object: it stays out of flood reach. */
 export const FLOOD_MARGIN = 2;
 
+/** The tiles within `margin` (a square round each, Chebyshev) of the water: deeper than `WET`. The
+ *  objects keep `FLOOD_MARGIN + 1` (gen/extras.ts `objectKeepOff`), the mine pads more
+ *  (land/minePads.ts), and `extras.placement` checks `FLOOD_MARGIN`. */
+export function nearWater(wet: ArrayLike<number>, W: number, H: number, margin: number): Uint8Array {
+  const N = W * H;
+  const out = new Uint8Array(N);
+  // (a square dilation, rows then columns)
+  const rows = new Uint8Array(N);
+  for (let y = 0; y < H; y++) {
+    let last = -Infinity;
+    for (let x = 0; x < W; x++) {
+      if (wet[y * W + x] > WET) last = x;
+      if (x - last <= margin) rows[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let x = W - 1; x >= 0; x--) {
+      if (wet[y * W + x] > WET) last = x;
+      if (last - x <= margin) rows[y * W + x] = 1;
+    }
+  }
+  for (let x = 0; x < W; x++) {
+    let last = -Infinity;
+    for (let y = 0; y < H; y++) {
+      if (rows[y * W + x]) last = y;
+      if (y - last <= margin) out[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let y = H - 1; y >= 0; y--) {
+      if (rows[y * W + x]) last = y;
+      if (last - y <= margin) out[y * W + x] = 1;
+    }
+  }
+  return out;
+}
+
 /** `extras.placement` (PLAN §11.4): relics, geothermal fields and mine sites sit on flat ground, with
  *  no water within two tiles and outside every planned reservoir, and the generated ones in their
  *  distance band from the start; generated thorn belts keep 20 tiles and unstable cores 40 from the
@@ -1078,18 +1113,7 @@ function checkExtras(inp: PlayabilityInput, c: Collector, sd: Float64Array): voi
   const N = W * H;
   const D = water.depth;
   // tiles within the flood margin of water, and the planned reservoirs
-  const flood = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    if (!(D[i] > WET)) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    for (let dy = -FLOOD_MARGIN; dy <= FLOOD_MARGIN; dy++)
-      for (let dx = -FLOOD_MARGIN; dx <= FLOOD_MARGIN; dx++) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < W && yy < H) flood[yy * W + xx] = 1;
-      }
-  }
+  const flood = nearWater(D, W, H, FLOOD_MARGIN);
   for (const f of features) {
     if (f.kind !== "lake" || !f.params.planned) continue;
     const m = polygonMask(f.params.outline, W, H);

@@ -1,6 +1,6 @@
 // Editing helpers (EDITOR_PLAN §4): moving a feature (the start, by the shelf and the start's
-// handle), what an edit that reshapes the ground does to the objects standing there, and the plain
-// names of features. The tools that drew rivers, lakes, landforms and set pieces are gone (EDITOR_PLAN
+// handle), moving, turning or placing the start (`planStart`), what an edit that reshapes the ground
+// does to the objects standing there, and the plain names of features. The tools that drew rivers, lakes, landforms and set pieces are gone (EDITOR_PLAN
 // §10); the build still replays the features old projects hold (D158).
 
 import { polygonMask } from "../features/geometry";
@@ -12,7 +12,9 @@ import { patchFeature, type EditOp, type OpParams } from "./ops";
 import { entityTiles } from "../features/edits";
 import { isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import type { MapSession } from "./session";
-import { startClears } from "./start";
+import { levelFootprint, levelProblem } from "./placing";
+import { cornerFor, startClears, startMiddle } from "./start";
+import { startEntranceTile, type Orientation } from "../format/footprints";
 
 // (the editor imports the start's corner from here)
 export { cornerFor } from "./start";
@@ -30,6 +32,7 @@ const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: fa
 const GROUND_OBJECTS = new Set([
   "UndergroundRuins", "SmallRelic", "MediumRelic", "LargeRelic", "GeothermalField", "UnstableCore", "Thorns", "NaturalDam", "Blockage",
   "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "ReservePile", "ReserveTank", "ReserveWarehouse", "AncientAquiferDrill",
+  "WaterSeep", "BadwaterSeep", "Aquifer", "BadtideDrain",
 ]);
 
 /** What an edit that reshapes the ground (a set piece, a lake, a landform, a river) does to the map
@@ -209,6 +212,59 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
   // (the start takes its clear ground: the generation's trees and bushes there go, D368 (10))
   const clears = moved.kind === "start" ? startClears(s, moved.params.position[0], moved.params.position[1], moved.params.orientation) : [];
   return { ok: true, ops: [...clears, { op: "updateFeature", params: { id, patch } }], feature: moved, report: [], label, tiles: [] };
+}
+
+/** Move the map's start so its middle is at (x, y), turned to `orientation` when given: the start
+ *  feature of a generated map, or an imported map's own StartingLocation, its footprint and door
+ *  levelled as a placement's (D328). With no start (it was deleted, D323 item 44) it places one, as the
+ *  shelf's Start does: a generated map a start feature with its small bench, an opened map an entity
+ *  on its own ground; `newId` names it. The step's operations and label, or why not. */
+export function planStart(s: MapSession, x: number, y: number, orientation: Orientation | undefined, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
+  const f = s.features.find((g) => g.kind === "start");
+  if (f && f.kind === "start") {
+    const at = startMiddle(s)!;
+    const moves = x !== at[0] || y !== at[1];
+    if (!orientation || orientation === f.params.orientation) {
+      const r = moveEdit(s, f.id, x - at[0], y - at[1]);
+      return r.ok ? { ok: true, ops: r.ops, label: r.label } : fail(...r.errors);
+    }
+    // turned too (the shelf's R): one step
+    const moved = moves ? moveEdit(s, f.id, x - at[0], y - at[1]) : null;
+    if (moved && !moved.ok) return fail(...moved.errors);
+    const ops: EditOp[] = [...(moved && moved.ok ? moved.ops : []), { op: "updateFeature", params: { id: f.id, patch: { params: { orientation } } } }];
+    return { ok: true, ops, label: moves ? "Move and turn the start" : "Turn the start" };
+  }
+  const e = s.built.entities.find((g) => g.template === "StartingLocation");
+  if (!e) return planNewStart(s, x, y, orientation ?? "Cw0", newId);
+  const o = orientation ?? e.orientation;
+  const [cx, cy] = cornerFor(x, y, o);
+  // an opened map's start stands on the ground as it is: where that isn't level, its footprint and
+  // its door are cut down to the lowest tile, in the same step (D328)
+  const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return fail(wet);
+  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
+  const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
+  return { ok: true, ops: [...level, move], label: o !== e.orientation ? "Move and turn the start" : "Move start" };
+}
+
+/** The Start from the shelf on a map that has none (D323 item 44): a generated map gets a start
+ *  feature with its small bench, an opened map an entity on its own ground, its footprint and door
+ *  levelled as for a move (D328); one step. */
+function planNewStart(s: MapSession, x: number, y: number, o: Orientation, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
+  if (s.mode !== "import") {
+    const z = s.built.heights[y * s.size.x + x];
+    const feature = { id: newId(), kind: "start", origin: "user", role: "start/main", locked: false, params: { position: [x, y], orientation: o, benchRadius: 2, benchLevel: z, player: 0 } } as unknown as Feature;
+    // (the generation's objects under it go in the same step, D368 (10))
+    return { ok: true, ops: [...startClears(s, x, y, o), { op: "addFeature", params: { feature } }], label: "Place the start" };
+  }
+  const [cx, cy] = cornerFor(x, y, o);
+  const door = startEntranceTile(cx, cy, o);
+  const wet = levelProblem(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, [door[1] * s.size.x + door[0]]);
+  if (wet) return fail(wet);
+  const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set(), [door[1] * s.size.x + door[0]]);
+  const place: EditOp = { op: "placeEntity", params: { id: newId(), template: "StartingLocation", x: cx, y: cy, orientation: o, components: {} } };
+  return { ok: true, ops: [...level, place], label: "Place the start" };
 }
 
 /** A feature's name, as the player sees it. */

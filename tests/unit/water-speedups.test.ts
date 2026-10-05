@@ -49,7 +49,9 @@ const FIXTURES: Record<string, string> = {
   weir: "e138b185a660f100",
   // (D358: the two fixtures whose water never settles run their canonical settle to the new 6-day
   // limit; their 975 ticks are as they were, re-pinned 2026-10-01)
-  seep_pit: "6db5c1595e91b09f",
+  // (D337, re-pinned 2026-10-04 with Kyler's yes, #270: a pit fed only by a seep starts filled to the seep's
+  // anchor floor + 0.8, where the game stops it, not to its rim; probe parity-20260930; golden data from Python)
+  seep_pit: "7516a41dc2e2a570",
   terraces: "6b332df084085727",
   confluence: "88f18f70071953e4",
   evaporation: "f0be98676869fc36",
@@ -79,7 +81,8 @@ const GAME_FIXTURES: Record<string, string> = {
   badwater_mix: "1e83108f76337c5c",
   weir: "84da01e759d67044",
   // (D358, as above)
-  seep_pit: "90f0cbe04aaba0fe",
+  // (D337, the same seep cap under the game's rules, as above)
+  seep_pit: "25102cab6dbe2546",
   terraces: "9185cae3652d6a14",
   confluence: "3dee22750da62ea7",
   evaporation: "201c1efea94586f5",

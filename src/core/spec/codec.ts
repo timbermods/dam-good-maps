@@ -13,6 +13,7 @@
 // Decoding never throws. A value it cannot use is reported in `problems` and the preset's value
 // stays, so a mistyped link still opens a map.
 
+import { B64_URL, fromBase64, toBase64 } from "../format/base64";
 import { hash32 } from "../math/hash";
 import { jsonEqual } from "./mergepatch";
 import { validateSpec } from "./schema";
@@ -121,36 +122,16 @@ function setAt(s: Settings, path: Path, v: unknown): void {
 
 // ------------------------------------------------------------------------------------ base64url
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
+/** Bytes as base64url, unpadded (format/base64.ts's packing with base64url's alphabet). */
 export function toBase64Url(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    const n = (a << 16) | (b << 8) | c;
-    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63];
-    if (i + 1 < bytes.length) out += B64[(n >> 6) & 63];
-    if (i + 2 < bytes.length) out += B64[n & 63];
-  }
-  return out;
+  return toBase64(bytes, B64_URL, false);
 }
 
+/** Unpadded base64url as bytes, or null when it isn't (a character outside the alphabet, or a
+ *  length no bytes give). */
 export function fromBase64Url(text: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null;
-  const out: number[] = [];
-  let acc = 0;
-  let bits = 0;
-  for (const ch of text) {
-    acc = (acc << 6) | B64.indexOf(ch);
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      out.push((acc >> bits) & 255);
-    }
-  }
-  return new Uint8Array(out);
+  return fromBase64(text, B64_URL);
 }
 
 // ------------------------------------------------------------------------------------ encoding

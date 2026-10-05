@@ -1,12 +1,12 @@
 // The fall gallery (PLAN §20 D201): a small map of our own for the waterfall captures
 // (tools/capture-waterfalls.ts), its water settled by the game's water rules (the canonical
-// settle): a tall fall, a stepped cascade, a strong wide fall beside a thin weak one, a badwater
-// fall, and (D215) a fall over an L-shaped lip and one over a staircase lip, each fed by its own
-// source and facing south (or south-east), toward the view's default camera.
+// settle) and its soil by the game's rules (sim/soil.ts): a tall fall, a stepped cascade, a strong
+// wide fall beside a thin weak one, a badwater fall, and (D215) a fall over an L-shaped lip and one
+// over a staircase lip, each fed by its own source and facing south (or south-east), toward the
+// view's default camera.
 
-import { soilContamination } from "../src/core/sim/contamination";
-import { moisture } from "../src/core/sim/moisture";
 import { canonicalSettle } from "../src/core/sim/prefill";
+import { gameSoil } from "../src/core/sim/soil";
 import type { Emitter } from "../src/core/sim/water";
 
 export interface Gallery {
@@ -88,8 +88,8 @@ export function galleryMap(): { W: number; H: number; heights: Uint8Array; emitt
 export function gallery(): Gallery {
   const { W, H, heights, emitters } = galleryMap();
   const settled = canonicalSettle({ W, H, floor: Float64Array.from(heights), dam: null, emitters });
-  const m = moisture(heights, settled.depth, settled.contamination, W, H);
-  const s = soilContamination(heights, settled.depth, settled.contamination, W, H);
+  // the soil on it by the game's rules, as the generator's build takes it (D298)
+  const { moisture: m, contamination: s } = gameSoil(W, H, heights, settled.depth, settled.contamination, [], settled.sat);
   console.log(`the gallery's water: ${settled.settled ? "settled" : "not settled"} after ${settled.ticks} ticks`);
   return { W, H, heights: [...heights], depth: [...settled.depth], contamination: [...settled.contamination], moisture: [...m], soil: [...s] };
 }

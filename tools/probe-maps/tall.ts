@@ -1,7 +1,7 @@
 // The DGM Probe's tall maps (PLAN §20 D172): test maps for the probe batch that confirms maps above 16 load and keep
 // their terrain, water and objects. Our own maps only: generated maps and one real place, changed deterministically and
-// built with the steps the generator and Real places use (assemble.ts: the canonical water settle, soil moisture and
-// contamination on it, the settled singletons, metadata and thumbnail).
+// built with the steps the generator and Real places use (assemble.ts on places/place.ts `buildFileFromHeights`: the
+// canonical water settle, the game's soil on it, the settled singletons with their outflows, metadata and thumbnail).
 //
 // The runner writes these itself before it plans `--group "Tall maps"` (tools/probe-maps/group.ts);
 // `tools/probe-tall.ts` runs the same writer by hand, with the Python validator's load checks too. The manifest,

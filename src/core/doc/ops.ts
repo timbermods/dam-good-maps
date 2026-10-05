@@ -19,6 +19,10 @@ import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { optionProblems } from "./objectOps";
+import { paintParamProblems, type PaintParams } from "./paintParams";
+import { plainOf, type JsonValue } from "../format/json";
+import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
 import type { Feature, FeatureKind } from "../features/schema";
 import type { Runs } from "../math/grid";
@@ -67,6 +71,8 @@ export interface OpParams {
   /** Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source, stored
    *  as a sealed oxbow lake's water is (D216; doc/waterEdits.ts `planFill`). */
   fillHollow: FillHollowParams;
+  /** Explicit player placement; the log stores literal placed objects, never replans. */
+  paintObjects: PaintParams;
 }
 
 export interface RemoveUnfedWaterParams {
@@ -430,6 +436,8 @@ export interface OpContext {
   heights?: ArrayLike<number>;
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
+  templateOf?: (id: string) => string | undefined;
+  componentsOf?: (id: string) => Record<string, unknown> | undefined;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -441,7 +449,7 @@ function componentProblem(components: Record<string, unknown>): string | null {
     if (!c || typeof c !== "object") return `${key} must be an object`;
     for (const field of ["SpecifiedStrength", "CurrentStrength"]) {
       const v = (c as Record<string, unknown>)[field];
-      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v) && v >= 0)) return `${key}.${field} must be a number, 0 or more`;
+      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v))) return `${key}.${field} must be a finite number`;
     }
   }
   return null;
@@ -456,6 +464,7 @@ export const PLACEABLE = new Set([
   "NaturalDam", "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "Slope", "Thorns", "UnstableCore",
   "RuinColumnH1", "RuinColumnH2", "RuinColumnH3", "RuinColumnH4", "RuinColumnH5", "RuinColumnH6", "RuinColumnH7", "RuinColumnH8",
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
+  "Aquifer", "AncientAquiferDrill", "BadtideDrain", "ReservePile", "ReserveWarehouse", "ReserveTank",
 ]);
 
 /** The highest level a force may leave: the editor's one ceiling (D244). */
@@ -644,6 +653,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if ("BlockObject" in p.components) return ["BlockObject comes from the operation's position"];
         const bad = componentProblem(p.components);
         if (bad) return [bad];
+        const options = optionProblems(p.template, p.components);
+        if (options.length) return options;
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
@@ -667,12 +678,25 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if ("BlockObject" in op.params.components) return ["BlockObject changes through moveEntity"];
       const bad = componentProblem(op.params.components);
-      return bad ? [bad] : [];
+      if (bad) return [bad];
+      const template = ctx.templateOf?.(op.params.id);
+      if (!template) return [];
+      const current = ctx.componentsOf?.(op.params.id);
+      const components = current ? plainOf(mergeGame(current as JsonValue, op.params.components)) as Record<string, unknown> : op.params.components;
+      if (current) {
+        const missing = (REQUIRED[template] ?? []).filter((k) => !(k in components));
+        if (missing.length) return [`${template} needs the components ${missing.join(", ")}`];
+      }
+      return optionProblems(template, components);
     }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
+    case "paintObjects": {
+      const errors = runsProblems(op.params.area, W, H, "the stroke's area");
+      return errors.length ? errors : paintParamProblems(op.params);
+    }
     case "removeUnfedWater": {
       const p = op.params;
       const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");

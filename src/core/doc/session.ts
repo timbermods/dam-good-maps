@@ -19,11 +19,11 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type LockedLayer } from "../features/build";
+import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
-import { entityTiles } from "../features/edits";
+import { placedEntity, entityTiles } from "../features/edits";
 import { limitRuns, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -50,6 +50,8 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
+import { FLUIDS } from "../data/parity";
+import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
@@ -159,6 +161,7 @@ export class MapSession {
   private cutCache: { key: BaseMap; cut: ReadonlySet<number> } | null = null;
   private slopesCache: { key: BaseMap; slopes: { x: number; y: number; orientation: Orientation }[] } | null = null;
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
+  private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
   /** Things the player should know about how the document was opened. */
@@ -588,6 +591,8 @@ export class MapSession {
     return out.sort((a, b) => a.seq - b.seq);
   }
 
+  get nextSeq(): number { return this.seqNext; }
+
   /** The steps undo can take back and redo bring back (the steps below the save point, once the
    *  replay differed, are not listed: the map as saved is the earliest state, D455). */
   history(): HistoryItem[] {
@@ -631,6 +636,11 @@ export class MapSession {
       }
     }
     const errors = validateOp(op, {
+      templateOf: (id) => this.cur.entities.find((e) => e.id === id)?.template,
+      componentsOf: (id) => {
+        const e = this.cur.entities.find((e) => e.id === id);
+        return e ? (e.raw ? e.raw.Components : { ...(e.before ?? {}), ...e.components }) as Record<string, unknown> : undefined;
+      },
       state: this.st,
       W,
       H,
@@ -656,6 +666,7 @@ export class MapSession {
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+    if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
@@ -681,7 +692,7 @@ export class MapSession {
     const now = this.cur.heights;
     const rects: [number, number, number, number][] = [];
     for (const e of this.cur.entities) {
-      if (e.template !== "WaterSource" && e.template !== "BadwaterSource") continue;
+      if (!FLUIDS[e.template]?.tiles) continue;
       const cells = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
       const tiles = cells.map(([x, y]) => y * W + x);
       if (tiles.length < 2 || tiles.every((i) => now[i] === now[tiles[0]])) continue;
@@ -708,14 +719,15 @@ export class MapSession {
   }
 
   /** Apply several operations as one step (a fix, or an accepted proposal): all or none, and
-   *  one undo takes them all back. */
+   *  one undo takes them all back. An empty group is refused: it would be a step that changes nothing. */
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = this.check(op);
+      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
@@ -734,6 +746,35 @@ export class MapSession {
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
+    return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+  }
+
+  /** A player's scatter placement: validate all literal placements, then one rebuild and one undo step. */
+  applyBatch(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
+    const fail = (reason: string): ApplyResult => ({ ok: false, errors: [reason], applied: [], dirty: null });
+    if (!ops.length) return fail("there are no objects to place");
+    const { x: W, y: H } = this.size;
+    const ids = new Set<string>();
+    const taken = new Set<number>();
+    for (const e of this.cur.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) taken.add(y * W + x);
+    for (const op of ops) {
+      if (op.op !== "placeEntity") return fail("a placement batch only takes placeEntity operations");
+      const errors = this.check(op);
+      if (errors.length) return { ok: false, errors, applied: [], dirty: null };
+      if (ids.has(op.params.id)) return fail("two objects in the placement have the same id");
+      ids.add(op.params.id);
+      const p = op.params;
+      const e = placedEntity(p, this.cur.heights[p.y * W + p.x]);
+      for (const [x, y] of entityTiles(e)) {
+        const i = y * W + x;
+        if (taken.has(i)) return fail("another object stands in the placement's footprint");
+        taken.add(i);
+      }
+    }
+    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    this.cur = this.rebuilt();
+    this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
+    this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
@@ -878,7 +919,10 @@ export class MapSession {
    *  edits included): the stored map is the ground and holds every generated feature, except the
    *  ones the log changed, deleted or reordered. Those leave the stored map, their objects with
    *  them, and are built as they now say, as they were when the edit was made; the rest stay as the
-   *  generator that made them built them. */
+   *  generator that made them built them. Their slopes, trees and bushes stand exactly as stored,
+   *  except where the edits changed a tile (its ground, or its water or soil against the stored
+   *  map's): a slope whose step an edit took away is gone for good, a tree or bush there is judged
+   *  again, dead or alive, by the build's rule (D368 (10), D404; build.ts, `BaseLayer.soil`). */
   private frozenLayer(): BaseLayer {
     const layer = this.baseStuff().layer;
     const ids = new Set(this.gen.baseFeatures.map((f) => f.id));
@@ -891,7 +935,7 @@ export class MapSession {
     const c = this.frozenCache;
     if (c && c.key === layer && c.touched === key) return c.layer;
     for (const id of touched) ids.delete(id);
-    const frozen: BaseLayer = { ...layer, frozen: ids, entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
+    const frozen: BaseLayer = { ...layer, frozen: ids, soil: this.storedSoil(), entities: touched.size ? layer.entities.filter((e) => !touched.has(e.owner)) : layer.entities };
     this.frozenCache = { key: layer, touched: key, layer: frozen };
     return frozen;
   }
@@ -916,7 +960,13 @@ export class MapSession {
     const base = live ? null : mode === "frozen" ? this.frozenLayer() : this.baseStuff().layer;
     // (a frozen generation takes the field too: the features read back from it, so one the player
     // changed is not carved again unless its shape changed, and a tall map's top)
-    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, live && !this.derivesSlopes() ? this.generatedSlopes() : null, live ? this.generatedResources() : null);
+    return this.inputFor(this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0, this.st, base, this.keptLayer(), mode !== "import" ? this.fieldOf(this.gen.field) : null, this.keepsSlopes() ? this.generatedSlopes() : null, mode !== "import" ? this.generatedResources() : null, mode !== "import" ? this.generatedSprings() : null);
+  }
+
+  /** Whether the build keeps the generation's slopes (`generatedSlopes`), live or frozen: a
+   *  generated map whose strokes never ask for slopes to be derived. */
+  private keepsSlopes(): boolean {
+    return this.mode !== "import" && !this.derivesSlopes();
   }
 
   /** A stroke saved before D247 or D270 asks the slope planner for slopes along its steps (a walkable
@@ -974,6 +1024,35 @@ export class MapSession {
     return tiles;
   }
 
+  /** Where the generation placed each spring's row of sources (a river's head, a lake's spring),
+   *  with their ids, from the map it stored: an edited map keeps that row, its count and its ids,
+   *  whatever an edit does round it (a Quake carrying the start off ground its row could grow onto;
+   *  D368 (10), D314: no edit or force adds a source). Only for the features the player has not
+   *  changed; null for a document that stored no owners. */
+  generatedSprings(): ReadonlyMap<string, readonly KeptSource[]> | null {
+    const c = this.springsCache;
+    if (c && c.key === this.gen.base && sameItems(c.features, this.st.features)) return c.rows;
+    let all = c && c.key === this.gen.base ? c.all : null;
+    if (!all && this.gen.base.owners) {
+      all = new Map();
+      for (const f of this.gen.baseFeatures) if ((f.kind === "river" && "spring" in f.params.entry) || (f.kind === "lake" && "spring" in f.params.inflow)) all.set(f.id, []);
+      const W = this.gen.base.sizeX;
+      for (const e of this.baseStuff().layer.entities) if (e.template === "WaterSource") all.get(e.owner)?.push({ tile: e.y * W + e.x, id: e.id });
+    }
+    let rows: Map<string, KeptSource[]> | null = null;
+    if (all) {
+      const base = new Map(this.gen.baseFeatures.map((f) => [f.id, f]));
+      rows = new Map();
+      for (const f of this.st.features) {
+        const kept = all.get(f.id);
+        const b = base.get(f.id);
+        if (kept?.length && b && (b === f || JSON.stringify(b.params) === JSON.stringify(f.params))) rows.set(f.id, kept);
+      }
+    }
+    this.springsCache = { key: this.gen.base, features: [...this.st.features], all, rows };
+    return rows;
+  }
+
   /** The generation's field as the build takes it, decoded once (the same object across rebuilds,
    *  so incremental rebuilds see it unchanged). A feature read back from the field that the player
    *  has since changed is the field's no longer: it is built as the feature says. */
@@ -996,8 +1075,8 @@ export class MapSession {
     return field;
   }
 
-  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null): BuildInput {
-    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
+  private inputFor(W: number, H: number, seed: number, st: DocState, base: BaseLayer | null, locked: LockedLayer | null, field: GeneratedField | null = null, generatedSlopes: BuildInput["generatedSlopes"] = null, generatedResources: BuildInput["generatedResources"] = null, generatedSprings: BuildInput["generatedSprings"] = null): BuildInput {
+    return { W, H, seed, features: st.features, base, ...(field ? { field } : {}), ...(generatedSlopes ? { generatedSlopes } : {}), ...(generatedResources ? { generatedResources } : {}), ...(generatedSprings ? { generatedSprings } : {}), sculpts: st.sculpts, ...(st.waterEdits.length ? { waterEdits: st.waterEdits } : {}), slopeEdits: st.slopeEdits, entityEdits: st.entityEdits, locked };
   }
 
   /** The terrain the map would have with these features instead of its own (a shape tool's live
@@ -1122,11 +1201,12 @@ export class MapSession {
 
   /** Validate the map as it would be exported: the `export` profile for generated maps, `import`
    *  for imported ones (PLAN §19.5), or the profile given. `loadOnly` runs the load and design
-   *  classes only (no water settle). */
+   *  classes only (no water settle, and a blank thumbnail: they read only its size); the editor's
+   *  instant checks are these (`checkItems.ts` `instantChecks`). */
   validate(profile?: Profile, opts: { loadOnly?: boolean; water?: { model: WaterModel; settled: CanonicalWater } } = {}): Validation {
     const live = this.mode === "live";
     if (!opts.loadOnly && !opts.water) this.settleCanonical();
-    return validateMap(this.exportFile(), {
+    return validateMap(this.exportFile(this.cur, opts.loadOnly ? { thumbnail: false } : {}), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
       // (the map is being edited: an edge wall warns, D323)
