@@ -1,5 +1,5 @@
 // Your maps (PLAN §20 D234, D330; docs/UI-BRIEF.md §3, §6): every edited map kept in this browser,
-// the last 30 unstarred and every starred one; rename, star, copy, undoable delete, the Timberborn
+// no map dropped on its own; rename, copy, undoable delete, the Timberborn
 // mark; a full disk said plainly; saving in the background after edits settle, never waited on.
 // The core's model and saver directly (D342 (5)), and the IndexedDB adapter over fake-indexeddb. The
 // list itself is exercised in tests/e2e/page-parts.spec.ts.
@@ -10,11 +10,11 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { YourMapsSaver } from "../../src/core/library/saver";
 import { whenText } from "../../src/core/library/when";
-import { KEEP, storeProblem, toDrop, type YourMapEntry, type YourMapsStore } from "../../src/core/library/yourMaps";
+import { storeProblem, type YourMapEntry, type YourMapsStore } from "../../src/core/library/yourMaps";
 import { openYourMaps } from "../../src/platform/yourMaps";
 
 const at = (min: number) => new Date(Date.UTC(2026, 8, 29, 12, 0) + min * 60_000).toISOString();
-const entry = (id: string, min: number, over: Partial<YourMapEntry> = {}): YourMapEntry => ({ id, name: `Map ${id}`, kind: "generated", createdAt: at(min), editedAt: at(min), starred: false, thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0, ...over });
+const entry = (id: string, min: number, over: Partial<YourMapEntry> = {}): YourMapEntry => ({ id, name: `Map ${id}`, kind: "generated", createdAt: at(min), editedAt: at(min), thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0, ...over });
 const bytes = (n: number) => new Uint8Array([n, n + 1, n + 2]);
 
 describe("the store", () => {
@@ -35,37 +35,25 @@ describe("the store", () => {
     expect(await s.project("nope")).toBe(null);
   });
 
-  it("keeps the last 30 unstarred maps and every starred one", async () => {
+  it("never drops a map on its own", async () => {
     const s = openYourMaps(new IDBFactory());
-    await s.put(entry("old-star", 0, { starred: true }), bytes(0));
-    for (let k = 1; k <= KEEP + 2; k++) await s.put(entry(`m${k}`, k), bytes(k));
+    for (let k = 1; k <= 40; k++) await s.put(entry(`m${k}`, k), bytes(k));
     const ids = (await s.list()).map((e) => e.id);
-    expect(ids.length).toBe(KEEP + 1);
-    expect(ids).toContain("old-star");
-    expect(ids).not.toContain("m1");
-    expect(ids).not.toContain("m2");
-    expect(ids).toContain(`m${KEEP + 2}`);
-    expect(await s.project("m1")).toBe(null);
+    expect(ids.length).toBe(40);
+    expect(ids).toContain("m1");
+    expect(await s.project("m1")).toEqual(bytes(1));
   });
 
-  it("never drops the map just saved, even an old one", () => {
-    const all = Array.from({ length: KEEP + 1 }, (_, k) => entry(`m${k}`, k + 10));
-    all.push(entry("late", 0));
-    expect(toDrop(all, "late")).not.toContain("late");
-    expect(toDrop(all, "late").length).toBe(2);
-  });
-
-  it("renames, stars, copies and marks a map saved to Timberborn", async () => {
+  it("renames, copies and marks a map saved to Timberborn", async () => {
     const s = openYourMaps(new IDBFactory());
     await s.put(entry("a", 1, { revision: 4 }), bytes(1));
     await s.rename("a", "Willow Bend");
-    await s.star("a", true);
     await s.markSaved("a", 4);
     await s.copy("a", { id: "c", name: "Willow Bend (copy)", at: at(5) });
     const [c, a] = await s.list();
-    expect(a).toMatchObject({ id: "a", name: "Willow Bend", starred: true, savedToTimberborn: 4 });
-    // a copy is a map of its own: not starred, not saved to Timberborn yet
-    expect(c).toMatchObject({ id: "c", name: "Willow Bend (copy)", starred: false, savedToTimberborn: null, editedAt: at(5) });
+    expect(a).toMatchObject({ id: "a", name: "Willow Bend", savedToTimberborn: 4 });
+    // a copy is a map of its own: not saved to Timberborn yet
+    expect(c).toMatchObject({ id: "c", name: "Willow Bend (copy)", savedToTimberborn: null, editedAt: at(5) });
     expect(await s.project("c")).toEqual(bytes(1));
   });
 

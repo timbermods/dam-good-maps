@@ -1,0 +1,2 @@
+# Unified patches require a space prefix on otherwise empty context lines; product diffs were checked separately.
+*.patch -text whitespace=-blank-at-eol

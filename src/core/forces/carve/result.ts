@@ -58,7 +58,6 @@ export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveReco
       walls: set.walls,
       defyGravity: set.defyGravity,
       dry: set.dry,
-      ...(run.settings.maturity === "mature" ? { maturity: "mature" as const } : {}),
       ...(set.depth != null ? { depth: set.depth } : {}),
       ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
       ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
