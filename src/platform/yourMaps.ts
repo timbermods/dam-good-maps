@@ -66,18 +66,23 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
         t.onerror = () => reject(t.error);
         t.onabort = () => reject(t.error ?? new Error("storage aborted"));
       });
-      const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
-      await done;
-      return out;
+      try {
+        const out = await fn(t.objectStore(ENTRIES), t.objectStore(PROJECTS));
+        await done;
+        return out;
+      } catch (e) {
+        try { t.abort(); } catch { /* already aborted or committed */ }
+        await done.catch(() => undefined);
+        throw e;
+      }
     } finally {
       db.close();
     }
   }
 
-  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<void>): Promise<StoreResult> {
+  async function write(fn: (entries: IDBObjectStore, projects: IDBObjectStore) => Promise<StoreResult | void>): Promise<StoreResult> {
     try {
-      await tx("readwrite", fn);
-      return { ok: true };
+      return (await tx("readwrite", fn)) ?? { ok: true };
     } catch (e) {
       // a full disk aborts the transaction with a QuotaExceededError
       return { ok: false, reason: isQuota(e) ? "full" : "unavailable" };
@@ -89,6 +94,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       const e = (await request(entries.get(id))) as YourMapEntry | undefined;
       if (!e) return;
       change(e);
+      e.storageVersion = crypto.randomUUID();
       await request(entries.put(e));
     });
   }
@@ -131,10 +137,14 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
       }
     },
     project: readProject,
-    put(entry, project) {
+    put(entry, project, expected) {
       return write(async (entries, projects) => {
-        await request(entries.put({ ...withSize(entry, project), bytes: project.length }));
+        const current = (await request(entries.get(entry.id))) as YourMapEntry | undefined;
+        if (expected !== undefined && (current?.storageVersion ?? null) !== expected) return { ok: false, reason: "conflict" };
+        const storageVersion = crypto.randomUUID();
+        await request(entries.put({ ...withSize(entry, project), bytes: project.length, storageVersion }));
         await request(projects.put(project, entry.id));
+        return expected === undefined ? { ok: true as const } : { ok: true as const, storageVersion };
       }).then((r) => {
         if (r.ok) askToKeepStorage();
         return r;
@@ -151,7 +161,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
         const e = (await request(entries.get(id))) as YourMapEntry | undefined;
         const p = (await request(projects.get(id))) as Uint8Array | undefined;
         if (!e || !p) return;
-        await request(entries.put({ ...e, id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, savedToTimberborn: null }));
+        await request(entries.put({ ...e, storageVersion: crypto.randomUUID(), id: c.id, name: c.name, createdAt: c.at, editedAt: c.at, savedToTimberborn: null }));
         await request(projects.put(p, c.id));
       });
     },
@@ -171,7 +181,7 @@ export function openYourMaps(factory: IDBFactory | null = (globalThis as { index
     },
     restore(r) {
       return write(async (entries, projects) => {
-        await request(entries.put(r.entry));
+        await request(entries.put({ ...r.entry, storageVersion: crypto.randomUUID() }));
         await request(projects.put(r.project, r.entry.id));
       });
     },
