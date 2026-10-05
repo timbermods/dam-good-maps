@@ -22,15 +22,12 @@ const INSTALL = !args.has("--no-install");
 
 /** The worktrees the plan uses: folder suffix, branch. Update this list when a branch starts or is released. */
 const WORKTREES = [
-  ["m9b", "feature/m9b"],
-  ["high", "feature/high-look"],
-  ["parity", "feature/parity"],
   ["page", "feature/page"],
-  ["weather", "feature/weather-days"],
-  ["3d", "feature/terrain3d-a"],
 ];
 /** Parked or held: made only with --all. */
 const PARKED = [
+  ["weather", "feature/weather-days"],
+  ["3d", "feature/terrain3d-a"],
   ["places", "feature/real-places-2"],
   ["groups", "feature/source-groups"],
 ];
