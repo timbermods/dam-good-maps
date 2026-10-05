@@ -263,7 +263,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   keeps what was drawn, so projects replay exactly. **A small More button** at the row's end (outlined in the accent
   colour with a chevron, D309, D361; closed by default, remembering how it was left) opens those details; every
   detail starts on **Auto**, nature's own pick; setting one pins it, with a small way back to Auto beside it. Once
-  a force runs, a detail on Auto shows the value it just took, one click from being pinned. Try another re-rolls
+  a force runs, a detail on Auto shows the value it just took, one click from being pinned; before one runs, the
+  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power) or the usual one;
+  a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),

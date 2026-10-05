@@ -11,8 +11,8 @@
 // hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
 // and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
 
-import { CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
+import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
+import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
@@ -170,7 +170,9 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
   const sz = u.size ?? craterSize(u.power);
   const drawn = p.drawn;
   const walls = u.walls ?? drawn?.walls ?? "steep";
-  const centre = u.centre ?? drawn?.centre ?? "auto";
+  // (a centre left to the crater's size, "auto", shows the one its size gives: core/forces/craterize.ts)
+  const drawnCentre = u.centre ?? drawn?.centre ?? "auto";
+  const centre = drawnCentre === "auto" ? autoCentre(Math.round(sz / 2) * 2) : drawnCentre;
   const debris = u.debris ?? drawn?.debris ?? "light";
   const rays = u.rays ?? drawn?.rays ?? false;
   return (
@@ -205,7 +207,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
           node: (
             <ChoiceSetting<string>
               label="Centre"
-              value={centre === "auto" ? null : centre}
+              value={centre}
               options={[
                 ["bowl", "Bowl", "A bowl in the middle"],
                 ["peak", "Peak", "A peak in the middle"],
@@ -248,7 +250,9 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   const set = (patch: Partial<EruptUi>) => p.onUi({ ...u, ...patch });
   const drawn = p.drawn;
   const shape = u.shape ?? drawn?.shape ?? "steep";
-  const summit = u.summit ?? drawn?.summit ?? "auto";
+  // (a summit left to Power, "auto", shows the one Power gives: core/forces/erupt.ts)
+  const drawnSummit = u.summit ?? drawn?.summit ?? "auto";
+  const summit = drawnSummit === "auto" ? autoSummit(drawn && u.summit === null ? drawn.power : u.power) : drawnSummit;
   const flows = u.flows ?? drawn?.flows ?? "heavy";
   const ridges = u.ridges ?? drawn?.ridges ?? true;
   // (the preview breadth needs a concrete shape and summit, same as before D289: naturalBreadth branches on them, D226)
@@ -285,7 +289,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
           node: (
             <ChoiceSetting<string>
               label="Summit"
-              value={summit === "auto" ? null : summit}
+              value={summit}
               options={[
                 ["peak", "Peak", "A peak at its top"],
                 ["crater", "Crater", "A crater at its top"],
@@ -461,8 +465,9 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
   const u = p.ui;
   const set = (patch: Partial<RiftUi>) => p.onUi({ ...u, ...patch });
   const sz = u.size ?? Math.round(riftWidth(u.power) / 2) * 2;
+  // (Auto's pick: the last rift's, or sheer, as most ground is, until one runs)
   const drawn = p.drawn?.walls;
-  const walls = u.walls ?? (drawn === "sheer" || drawn === "stepped" ? drawn : null);
+  const walls = u.walls ?? (drawn === "sheer" || drawn === "stepped" ? drawn : "sheer");
   return (
     <SettingsGrid
       label="Rift options"
@@ -483,7 +488,7 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
                 ["stepped", "Stepped", "Ledges stepping down"],
               ]}
               onChange={(v) => set({ walls: v })}
-              auto={{ on: u.walls === null, onAuto: (on) => set({ walls: on ? null : (walls ?? "sheer") }) }}
+              auto={{ on: u.walls === null, onAuto: (on) => set({ walls: on ? null : walls }) }}
             />
           ),
         },
@@ -499,8 +504,9 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
   const u = p.ui;
   const set = (patch: Partial<DepositUi>) => p.onUi({ ...u, ...patch });
   const sz = u.size ?? Math.round(depositWidth(u.power) / 2) * 2;
+  // (Auto's pick: the last fan's, or what its breadth gives until one runs: more than 38 tiles, Many)
   const drawn = p.drawn?.channels;
-  const channels = u.channels ?? (drawn === "few" || drawn === "many" ? drawn : null);
+  const channels = u.channels ?? (drawn === "few" || drawn === "many" ? drawn : sz > 38 ? "many" : "few");
   return (
     <SettingsGrid
       label="Deposit options"
@@ -521,7 +527,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
                 ["many", "Many", "Many channels across the fan"],
               ]}
               onChange={(v) => set({ channels: v })}
-              auto={{ on: u.channels === null, onAuto: (on) => set({ channels: on ? null : (channels ?? "few") }) }}
+              auto={{ on: u.channels === null, onAuto: (on) => set({ channels: on ? null : channels }) }}
             />
           ),
         },

@@ -295,6 +295,18 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   return { ok: true, request: req, carve, staged, before: map };
 }
 
+/** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail
+ *  shows its pick): a rift's walls, sheer or stepped by which most of them are (Auto steps them where the rock is
+ *  hard); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
+export function autoPicked(staged: StagedRun | null): Record<string, string> {
+  if (staged instanceof RiftRun) {
+    const { stepped, sheer } = staged.plan0.stats;
+    return staged.settings.walls === "auto" ? { walls: stepped > sheer ? "stepped" : "sheer" } : {};
+  }
+  if (staged instanceof DepositRun) return staged.settings.channels === "auto" ? { channels: staged.plan0.stats.channels >= 4 ? "many" : "few" } : {};
+  return {};
+}
+
 /** The seed after `seed` in a force's series (Try another): Glaciate's own series, the others'. */
 export function nextForceSeed(verb: Verb, seed: number): number {
   return verb === "glaciate" ? glaciateNextSeed(seed) : nextSeed(seed);

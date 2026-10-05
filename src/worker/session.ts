@@ -51,7 +51,7 @@ import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, Verb } from "../core/forces/op";
 import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
-import { againRequest, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
+import { againRequest, autoPicked, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams } from "../core/forces/keep";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
@@ -1671,7 +1671,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     viewAt: -Infinity,
   };
   startForceWater(force);
-  return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb, gesture };
+  // (the settings it ran with, and what its Auto picked in the run, for the row to show: D309)
+  return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings, ...autoPicked(plan.staged) } as AnyForceSettings, verb: req.verb, gesture };
 }
 
 /** Start a force on the map as it stands: a new series, at its seed. */

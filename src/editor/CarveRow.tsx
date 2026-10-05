@@ -143,8 +143,8 @@ export function CarveRow(p: CarveRowProps) {
   const walls = u.walls ?? drawn?.walls ?? "steep";
   const depth = u.depth ?? drawn?.depth ?? naturalDepth(u.power, width);
   const banks = u.banks ?? drawn?.banks ?? 0;
-  // (on Auto: the Maturity the last carve resolved, outlined, until it runs again)
-  const maturity = u.maturity ?? (drawn?.maturity === "young" || drawn?.maturity === "mature" ? drawn.maturity : null);
+  // (on Auto: the Maturity the last carve resolved, or Young until one runs)
+  const maturity = u.maturity ?? (drawn?.maturity === "mature" ? "mature" : "young");
   const OFF = CEILING + 1;
   return (
     <SettingsGrid
@@ -208,7 +208,7 @@ export function CarveRow(p: CarveRowProps) {
                 ["mature", "Mature", "An old river: wide bends, a floodplain, oxbow lakes"],
               ]}
               onChange={(v) => set({ maturity: v })}
-              auto={{ on: u.maturity === null, onAuto: (on) => set({ maturity: on ? null : (maturity ?? "young") }) }}
+              auto={{ on: u.maturity === null, onAuto: (on) => set({ maturity: on ? null : maturity }) }}
             />
           ),
         },
