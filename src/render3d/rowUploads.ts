@@ -1,11 +1,13 @@
-// A data texture's changed rectangles to the GPU by their rows (R1, the performance audit): a brush
-// changes a few dozen tiles' data each frame, and uploading a whole 512² map's textures every frame
-// for them (the tile data 1 MB, the shadow map 4 MB) cost the page's thread more than the change
-// itself. Rectangles touched between two frames are joined; at the next frame only their rows go up,
-// unless the texture has never been on the GPU whole, a whole upload is already waiting, or the
-// rectangle is most of the texture. The texture's bytes on the GPU are the same either way.
+// A data texture's changed rectangle to the GPU on its own (R1, the performance audit): a brush
+// changes a few dozen tiles' data each frame, and uploading a whole 256² map's textures every frame
+// for them (the tile data 256 KB, the shadow map 1 MB) cost the page's thread more than the change
+// itself. Rectangles touched between two frames are joined; at the next frame only that rectangle goes
+// up, copied into a small array of its own and sent in one call, unless the texture has never been on
+// the GPU whole, a whole upload is already waiting, or the rectangle is most of the texture. The
+// texture's bytes on the GPU are the same either way. (One call, not a call a row out of the whole
+// texture's array: Firefox spent 110-200 ms on the hundreds of rows at a stroke's end.)
 
-import type { DataTexture, WebGLRenderer } from "three";
+import { DataTexture, RGBAFormat, UnsignedByteType, Vector2, type WebGLRenderer } from "three";
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -39,9 +41,16 @@ export class RowUploads {
     const width = d.x1 - d.x0 + 1;
     const rows = d.y1 - d.y0 + 1;
     const onGpu = (this.gl.properties.get(t) as { __version?: number }).__version === t.version;
-    if (onGpu && width * rows * 4 < w * t.image.height) for (let y = d.y0; y <= d.y1; y++) t.addUpdateRange((y * w + d.x0) * 4, width * 4);
-    else t.clearUpdateRanges();
-    t.needsUpdate = true;
+    if (!onGpu || width * rows * 4 >= w * t.image.height) {
+      t.needsUpdate = true;
+      return;
+    }
+    const src = t.image.data as Uint8Array;
+    const patch = new Uint8Array(width * rows * 4);
+    for (let y = 0; y < rows; y++) patch.set(src.subarray(((d.y0 + y) * w + d.x0) * 4, ((d.y0 + y) * w + d.x1 + 1) * 4), y * width * 4);
+    const p = new DataTexture(patch, width, rows, RGBAFormat, UnsignedByteType);
+    this.gl.copyTextureToTexture(p, t, null, new Vector2(d.x0, d.y0));
+    p.dispose();
   }
 
   /** A new map (its textures are new): nothing waits. */
