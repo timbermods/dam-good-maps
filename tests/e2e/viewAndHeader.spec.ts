@@ -47,6 +47,32 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.keyboard.press("Escape");
 
+  // the minimap: always shown, at the bottom left (Layout 2); a click there moves the camera
+  const minimap = page.getByRole("img", { name: /^Minimap/ });
+  await expect(minimap).toBeVisible();
+  await expect(page.getByRole("button", { name: "Minimap" })).toHaveCount(0);
+  const box = (await minimap.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.25);
+  const t = (await view(page)).target;
+  // (a quarter across from the west, a quarter down from the north)
+  expect(t[0]).toBeGreaterThan(96 * 0.15);
+  expect(t[0]).toBeLessThan(96 * 0.35);
+  expect(-t[2]).toBeGreaterThan(96 * 0.65);
+  expect(-t[2]).toBeLessThan(96 * 0.85);
+
+  // camera bookmarks: Ctrl+Shift+2 keeps this view, Shift+2 glides back to it
+  await page.keyboard.press("Control+Shift+Digit2");
+  await expect.poll(async () => (await info(page)).views.map((v) => v.slot)).toEqual([2]);
+  await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [70, 5, -20], yaw: 1.2, distance: 60 }));
+  await page.keyboard.press("Shift+Digit2");
+  await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
+  expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
+  // bookmarks alone don't keep a map (D330, Kyler, 2026-10-05): a reload makes the address's map again, without them
+  // (before any edit: the first run's Pine below is one)
+  await page.reload();
+  await waitForEditor(page);
+  expect((await info(page)).views).toEqual([]);
+
   // the first run: three hints; placing a thing takes its line away, the × all of them, for good
   const hints = page.getByRole("status", { name: "First steps" });
   await expect(hints.getByRole("listitem")).toHaveCount(3);
@@ -73,35 +99,10 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(hints).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // the minimap: always shown, at the bottom left (Layout 2); a click there moves the camera
-  const minimap = page.getByRole("img", { name: /^Minimap/ });
-  await expect(minimap).toBeVisible();
-  await expect(page.getByRole("button", { name: "Minimap" })).toHaveCount(0);
-  const box = (await minimap.boundingBox())!;
-  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.25);
-  const t = (await view(page)).target;
-  // (a quarter across from the west, a quarter down from the north)
-  expect(t[0]).toBeGreaterThan(96 * 0.15);
-  expect(t[0]).toBeLessThan(96 * 0.35);
-  expect(-t[2]).toBeGreaterThan(96 * 0.65);
-  expect(-t[2]).toBeLessThan(96 * 0.85);
-
-  // camera bookmarks: Ctrl+Shift+2 keeps this view, Shift+2 glides back to it
+  // once an edit keeps it (the Pine above), they are kept with its project, and a reload brings the open map back
+  // with them
   await page.keyboard.press("Control+Shift+Digit2");
   await expect.poll(async () => (await info(page)).views.map((v) => v.slot)).toEqual([2]);
-  await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [70, 5, -20], yaw: 1.2, distance: 60 }));
-  await page.keyboard.press("Shift+Digit2");
-  await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
-  expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
-  // bookmarks alone don't keep a map (D330, Kyler, 2026-10-05): a reload makes the address's map again, without them
-  await page.reload();
-  await waitForEditor(page);
-  expect((await info(page)).views).toEqual([]);
-  // once an edit keeps it, they are kept with its project, and a reload brings the open map back with them
-  await page.keyboard.press("Control+Shift+Digit2");
-  await expect.poll(async () => (await info(page)).views.map((v) => v.slot)).toEqual([2]);
-  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15 } } as never, "Raise a tile"));
-  await expect.poll(async () => (await info(page)).edits).toBe(1);
   await page.waitForFunction((v) => window.dgm!.kept!(v), (await info(page)).version, { timeout: 60_000, polling: 200 });
   await page.reload();
   await waitForEditor(page);

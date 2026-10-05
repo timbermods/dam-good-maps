@@ -290,12 +290,12 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Rift, Quake, Glaciate, Deposit; the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
   // (Layout 2's bar has one cell per force, the clusters' order kept, with no gap between clusters)
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Glaciate", "Deposit"]);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 

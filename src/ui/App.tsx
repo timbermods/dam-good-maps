@@ -322,7 +322,8 @@ export function App() {
   function enterEditor(data: SessionOpen, origin: Origin, place?: string, keepView = false) {
     const now = new Date().toISOString();
     const isNew = !("entry" in origin);
-    const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : origin.entry;
+    // (a reopened map's versions count again from its opening: kept as it stands at that version)
+    const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : { ...origin.entry, revision: data.info.version };
     entry.current = e;
     nameRef.current = e.name;
     infoRef.current = data.info;

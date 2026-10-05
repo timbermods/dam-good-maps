@@ -2,7 +2,8 @@
 // panel over the map, closed to start with and remembered in this browser; it lists only what is on the map
 // shown; a click on a line points to those things on the map until the next click or Esc; opening or closing
 // it moves nothing else; Height colours and Markers are view-bar toggles, not part of it. The header names the
-// open map, and another map open in the editor shows there, with the replaced one kept in Your maps.
+// open map, and another map open in the editor shows there, with the replaced one kept in Your maps once edited (only
+// edited maps are kept, D330).
 
 import { expect, test, type Page } from "@playwright/test";
 import { generate } from "../../src/core/gen/generate";
@@ -109,7 +110,7 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   expect(errors).toEqual([]);
 });
 
-test("the header names the open map: a generated map, then an opened file, the replaced one kept in Your maps", async ({ page }) => {
+test("the header names the open map: a generated map, then an opened file, the replaced one kept in Your maps once edited", async ({ page }) => {
   // a map of our own, opened in the editor as a file (96², D148: at 48² item 47's must-haves, two mine sites the
   // colony reaches among them, seldom fit, and a map that fails its checks has no file)
   const g = generate(makeSpec({ seed: 7, size: { x: 96, y: 96 } }));
@@ -119,15 +120,19 @@ test("the header names the open map: a generated map, then an opened file, the r
   await expect(page.locator(".editor-title h1")).toHaveText(name);
   await expect(page.locator(".editor-title .muted")).toHaveText("Seed 4242 · 96×96");
   expect(new URL(page.url()).hash).toMatch(/^#(v=[^&]+&)?s=4242&/);
+  // (an edit keeps it in Your maps: an unedited map never is, D330)
+  const edit = () => page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 40]], level: 15 } } as never, "Raise a tile"));
+  await edit();
 
   await page.getByLabel("Open a map or project file").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
   await expect(page.locator(".editor-title h1")).toHaveText("My island", { timeout: 60_000 });
   await expect(page.locator(".editor-title .muted")).toHaveText("96×96");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe("");
+  await edit();
 
   const yours = await openYourMaps(page);
-  await expect(yours.getByRole("button")).toHaveCount(2, { timeout: 30_000 });
+  await expect(yours.locator("button.ym-tile")).toHaveCount(2, { timeout: 30_000 });
   await expect(yours.locator("button[aria-current=true]")).toContainText("My island");
   await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await expect(page.locator(".editor-title h1")).toHaveText(name, { timeout: 60_000 });
