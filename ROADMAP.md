@@ -28,10 +28,10 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 
 **0. In flight now** (2026-10-04; each line is a PR or branch and the session that owns it)
 
-- **The page** (#163, `feature/page`; the page session): ready, `approved`; CI red on the browser shards, then the milestone session's review and the queue. Next it adds Rift and Deposit's controls and Carve's Maturity setting.
+- **The page** (#163, `feature/page`; the page session): ready, `approved`; CI red on the browser shards, then the milestone session's review and the queue. Next it adds Rift and Deposit's controls.
 - **Every setting makes a map** (#277, `fix/every-setting-makes-a-map`, D471; milestone session): open, with a byte fix. Next after it: the three open every-setting combinations and the extreme seed's speed.
 - **Multi-core water** (done, #281, merged 38d4ee6b): its follow-ups are in flight on `fix/multicore-water-followups` (no PR yet).
-- **Merged since:** parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274) and Carve's Maturity (#278).
+- **Merged since:** parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274). Carve's aging setting (#278) is removed again (D473): Banks and Wander give Carve its flat land and bends.
 - **The second core hunt** (#280, `investigation/core-hunt-2`): done, three fixes in its PR; Deposit's pillars and scattered tiles (finding 4) went to Codex.
 - **Forces end the moment their land is final** (#275, `fix/force-feedback`; renderer session): `approved`; two `forcesSitting` failures to fix.
 - **The badwater line** (#265, `fix/badwater-line-names`; theme critique session): generator 0.8.1, one re-pin, `needs-kyler`; its fixes first, then Kyler's look.
@@ -59,7 +59,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   computation in `rust/water`, no wiring yet).
 - **The Rust forces** (done, #254; #158, D400, D453): the planners are Rust (`rust/forces`), byte-identical to the TypeScript
   computation they replaced (tag `ts-forces-final`, then deleted); their byte fixtures run in CI's `rust` job. Rift and Deposit
-  (#273) and Carve's Maturity (#278) are adopted directly in Rust. Next: the analysis (#157) and the checks (#207), the
+  (#273) are adopted directly in Rust. Next: the analysis (#157) and the checks (#207), the
   cleanup's groups 5 and 6 being in; Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
 
 **3. The generator queue**, one re-pin at a time (D148, D308)
@@ -230,8 +230,8 @@ session fixes it. The renderer session also fixes #275's two `forcesSitting` fai
 
 The exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI, no timing gates, D441, D453), each port byte-identical and tagged
 before its TypeScript is deleted: (1) the water settle (above), and the stacked-column engine for terrain above terrain in the same crate (D448; adopted as computation only, wired in by Foundations); (2) the five released forces (their TypeScript tagged
-`ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
-Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
+`ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift and Deposit
+adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
 its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
@@ -884,13 +884,11 @@ operation, D158, D342).
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
-**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
-
 **A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
 
 Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
-The Rift and Deposit's core half is adopted in Rust (#268, #273: `rust/forces`, `core/forces/rift.ts` and `deposit.ts`, operations and checks); the page adds their controls and effects next. Carve's Maturity's core half is adopted in Rust too (#276, #278); the page adds its setting to Carve's More.
+The Rift and Deposit's core half is adopted in Rust (#268, #273: `rust/forces`, `core/forces/rift.ts` and `deposit.ts`, operations and checks); the page adds their controls and effects next.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

@@ -16,9 +16,9 @@ label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-
 ## The sessions (D388, D398, D468, D470)
 
 - **The milestone session** (Opus 5.5, high; the dedicated machine) does everything except the page, merges, releases and
-  hands out decision numbers (next free: D473). It owns STATUS and HANDOFF.
+  hands out decision numbers (next free: D474). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high; `C:UserskramscodeDamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
-  the editor", then adds Rift and Deposit's controls and Carve's Maturity setting. The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
+  the editor", then adds Rift and Deposit's controls. The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
   ready PR labelled `approved`, and the milestone session reviews it before it merges.
 - **The renderer session** (Kyler's PC; its own branches) builds the High look's and the renderer's fixes; its PRs merge on
   green CI (D453).
@@ -34,7 +34,7 @@ as of 2026-10-04 and move.
 
 | Work | Branch | PR | State |
 |---|---|---|---|
-| The page | `feature/page` | #163 | Ready, labelled `approved` (Kyler to confirm); 5 CI checks failing; review and merge once green; then Rift and Deposit's controls and Carve's Maturity setting |
+| The page | `feature/page` | #163 | Ready, labelled `approved` (Kyler to confirm); 5 CI checks failing; review and merge once green; then Rift and Deposit's controls; it removes Carve's aging control before it merges (D473) |
 | Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
 | Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | `needs-kyler`; Highlands approved; a new Canyon session (Opus 5.5) does one Canyon-only round (seed 27's gorge, the round's start lakes); generator 0.9.0, renumbers if it merges second |
 | Every setting makes a map (D471) | `fix/every-setting-makes-a-map` | #277 | Open, with a byte fix; the milestone session's current item. Next: the three open every-setting combinations and the extreme seed's speed (it took 37 attempts) |
@@ -44,7 +44,7 @@ as of 2026-10-04 and move.
 | Multi-core water, follow-ups | `fix/multicore-water-followups` | none yet | In flight, not yet on GitHub |
 | Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
 | Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
-| Carve's Maturity in Rust, the core half | `feature/carve-maturity` | #278 | Merged (Young by default, every old pin unchanged; Mature and Auto); the page adds the setting to Carve's More |
+| Carve's aging setting removed (D473) | its own branch | to come | Carve is the Young carve again (its 42 pins unchanged); saved carves with the setting open as recorded; the page removes its control |
 | Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
 | The second core hunt | `investigation/core-hunt-2` | #280 | Done, `needs-kyler`: three fixes in its PR; Deposit's pillars handed to Codex (below) |
 | Water speed | `feature/water-speed` | #290 | Adopting #288 (Codex): the flow layout and the skipped wet-list rebuild, byte-identical on one thread and on strips; no SIMD (Kyler, 2026-10-04: it gained nothing) |
@@ -68,14 +68,14 @@ as of 2026-10-04 and move.
 ## Queued
 
 1. The Rust order: the water (#212) and the forces (#254) are merged (`ts-water-final`, `ts-forces-final` tagged), and so
-   are the stacked water crate (#260, no wiring yet), Rift and Deposit (#273), Carve's Maturity (#278), parity core (#269) and
+   are the stacked water crate (#260, no wiring yet), Rift and Deposit (#273), parity core (#269) and
    multi-core water (#281). Next: #277, then the three open every-setting combinations and the extreme seed's speed. Then
    Codex's speed adoptions (water, generation, forces), and the dam sketch's (#279) after the Weather view, reconciled with
    multi-core and water speed. The forces crate keeps its own copy of the water kernel, to be shared.
 2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
    (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
    Highlands height (#261) is back for another round; Islands round 4 (#235) is held for Kyler.
-3. The page (#163), then Rift and Deposit's controls, Carve's Maturity setting, the area brush's toggle (the brush, #227, is merged) and the page's startup half: a project
+3. The page (#163), then Rift and Deposit's controls, the area brush's toggle (the brush, #227, is merged) and the page's startup half: a project
    autosaved while its water is pending carries no stored map, so the page should autosave again once the water settles
    (the "settled" event; D367, D455).
 4. The CI merge queue: the workflow side is merged (#238); the ruleset is Kyler's to create (none exists yet).

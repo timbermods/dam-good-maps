@@ -38,7 +38,7 @@ export interface ForceWhere {
 export type ForceSettingsRecord =
   | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
   | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
-  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number; maturity?: "young" | "mature" | "auto" | null }
+  | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
   | { mode: "strike" | "aim"; power: number; size: number | null; walls: "steep" | "terraced"; centre: "auto" | "bowl" | "peak" | "ring" | "flat"; debris: "light" | "heavy"; rays: boolean; seed: number; floor?: number }
   | { mode: "vent" | "fissure"; power: number; shape: "steep" | "broad"; summit: "auto" | "peak" | "crater" | "caldera"; flows: "light" | "heavy"; ridges: boolean; seed: number; size?: number | null; floor?: number }
   | { mode: "lift" | "slide"; power: number; scarp: "sheer" | "stepped"; seed: number; floor?: number }
