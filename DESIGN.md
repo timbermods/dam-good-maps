@@ -468,18 +468,23 @@ refinements and what the mockups left open:
 - **The band at any size** (Kyler, 2026-10-04: nothing overlaps at any size; `src/editor/view/useBandLayout.ts`): the
   water row sits centred when it fits between the Show row and Legend (a 16px gap each side), else as near the
   centre as they allow, else on a second line under the band (at 1400px wide), the panels and the open legend then
-  starting under it. Legend centres in the gap after the water row (or the Show row), kept clear of a panel open at
-  the left and of Top-down. The panels and the open legend are as tall as the room above the controls under them
+  starting under it. Legend centres in the gap after the water row, kept clear of a panel open at the left and of
+  Top-down; with the water row on the second line, Legend is the Show row's last toggle, one toggle gap (4px) after
+  Badwater, and its open legend hangs under the second line from Legend's left edge, clear of a panel open at the
+  left (Kyler, 2026-10-04). The panels and the open legend are as tall as the room above the controls under them
   and scroll inside only in a window too short for them (never at 1920×1080 or 2560×1440).
 - **Weather days held** (Kyler, 2026-10-04): Drought or Badtide, clicked, shows the hazard's last day (its length for
   the map's difficulty) and holds it until clicked again (the map's own water back); the other one's button switches
   straight to it. After Badtide, ◀ Day 7 ▶: ◀ steps a day back to Day 0 (the map's own water, still in the view), ▶ a
   day on, past the default length without a cap; ← and → do the same while a view is on (in the arrows' tooltips).
   With neither on, the stepper stays, greyed, "Day –"; its label is two digits wide, so the row never changes shape.
-  The first click simulates the days first, the map as it is and the label counting ("Day 3…"), then lands on the
-  last day; nothing plays. Each hazard's days are kept until the map changes, so switching back is instant; and once
-  the water has settled and Kyler has been idle 1.5 s, both are worked out in the background, a few milliseconds at a
-  time, stopped by any press or key, so the first click is instant too. An edit while a day is held keeps the view: once its water has settled the hazard runs
+  From the click the day box reads the day asked for ("Day 9", or the day ◀ ▶ asked for) and never counts; until
+  that day is ready a quiet fill runs inside the box (its size and place unchanged), then the water shows that day
+  at once. Each hazard's days are kept until the map changes, so switching back is instant; from the moment the
+  water settles, both are worked out in the background (Drought's days, then Badtide's), a few milliseconds at a
+  time, stopped by any press or key and picked up again when the press ends with the water settled. Only each day's
+  water is kept; the ground's moisture and contamination are worked out for the day shown. The water is exactly the
+  simulation's (D173): only when days are computed and what is kept changed. An edit while a day is held keeps the view: once its water has settled the hazard runs
   again from it, the label counting, and the same day shows with the edit's effect. The readout reports the day
   shown (its water and soil). Speed, Skip and Replay are greyed while a view is on; a held hazard's button is lit in
   the mint. A held badtide never ends, so its sources stay at full strength after their opening curve. The row's

@@ -299,7 +299,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           // a held weather day (Kyler, 2026-10-04): the days before it counted while they are simulated, the map as it
           // is meanwhile; then the day itself, its water and soil, and the readout reads it
           if (e.hazard !== weatherRef.current) return;
-          if (e.phase === "computing") return void ed.setWeatherCounting(e.day);
+          // (the day box's fill: how far the day asked for is worked out)
+          if (e.phase === "computing") return void ed.setWeatherCounting(Math.min(1, e.day / Math.max(1, e.days)));
           const want = ed.heldDay.current ?? e.days;
           if (e.day !== want || !e.water) return;
           ed.setWeatherCounting(null);

@@ -19,7 +19,7 @@ import { loadFirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
 import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
-import type { Hazard } from "../../core/sim/weather";
+import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
 import { type Mirror, mirrorOf } from "./mirror";
@@ -123,11 +123,12 @@ export interface SessionSlice {
   weather: Hazard | null;
   weatherRef: { current: Hazard | null };
   setWeather: (on: Hazard | null) => void;
-  /** The weather day shown (0 the map's own water), its hazard's default length, and the day being simulated now
-   *  ("Day 3…"), or null. */
+  /** The weather day shown (0 the map's own water), its hazard's default length, how far the day asked for is worked
+   *  out (0 to 1, the day box's fill), or null once it shows, and the day asked for (the day box reads it at once). */
   weatherDay: number | null;
   weatherDays: number | null;
   weatherCounting: number | null;
+  weatherTarget: number | null;
   setWeatherDay: (day: number | null) => void;
   setWeatherDays: (days: number | null) => void;
   setWeatherCounting: (day: number | null) => void;
@@ -303,25 +304,26 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
   const [weatherCounting, setWeatherCounting] = useState<number | null>(null);
+  const [weatherTarget, setWeatherTarget] = useState<number | null>(null);
   const heldDay = useRef<number | null>(null);
-  // the weather's days worked out in the background (Kyler, 2026-10-04): only while Kyler is idle, the water settled;
-  // any press or key stops it at once and waits for the next quiet moment
-  const prepTimer = useRef(0);
-  const idlePrep = () => {
-    clearTimeout(prepTimer.current);
-    prepTimer.current = window.setTimeout(() => void api.prepareWeather(), 1500);
-  };
+  // the weather's days worked out in the background (Kyler, 2026-10-04): from the moment the water settles, Drought's
+  // days then Badtide's; any press or key stops it at once, and it picks up again when the press ends with the water
+  // settled (an edit's water settling picks it up too)
+  const idlePrep = () => void api.prepareWeather();
   useEffect(() => {
-    const stop = () => {
-      void api.stopWeatherPrep();
-      idlePrep();
+    const stop = () => void api.stopWeatherPrep();
+    const resume = () => {
+      if (player.current?.progress === null) idlePrep();
     };
     window.addEventListener("pointerdown", stop, true);
     window.addEventListener("keydown", stop, true);
+    window.addEventListener("pointerup", resume, true);
+    window.addEventListener("keyup", resume, true);
     return () => {
-      clearTimeout(prepTimer.current);
       window.removeEventListener("pointerdown", stop, true);
       window.removeEventListener("keydown", stop, true);
+      window.removeEventListener("pointerup", resume, true);
+      window.removeEventListener("keyup", resume, true);
     };
   }, []);
   player.current ??= new WaterPlayer({
@@ -499,13 +501,17 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeather(hazard);
       heldDay.current = null;
       setWeatherDay(null);
-      setWeatherCounting(null);
+      // (working from the click until the day shows: the box's fill starts empty)
+      setWeatherCounting(0);
+      // (the day box reads the day at once, the hazard's length for the map's difficulty, Kyler, 2026-10-04)
+      setWeatherTarget(hazardDays(infoRef.current.spec?.designedFor ?? "normal", hazard));
       void api.showWeatherDay(hazard, null);
     } else {
       setWeather(null);
       heldDay.current = null;
       setWeatherDay(null);
       setWeatherCounting(null);
+      setWeatherTarget(null);
       mirror.current.daySoil = null;
       void api.stopWeather().then((v) => {
         player.current?.clear();
@@ -519,10 +525,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function stepWeather(delta: -1 | 1) {
     const h = weatherRef.current;
     if (!h) return;
-    const from = heldDay.current ?? weatherDay ?? 0;
+    const from = heldDay.current ?? weatherTarget ?? weatherDay ?? 0;
     const day = Math.max(0, from + delta);
     if (day === from && heldDay.current !== null) return;
     heldDay.current = day;
+    setWeatherTarget(day);
+    setWeatherCounting(0);
     void api.showWeatherDay(h, day);
   }
   function requestHeldDay() {
@@ -613,7 +621,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, setWeatherDay, setWeatherDays,
+    feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
     setWeatherCounting, heldDay, stepWeather, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,

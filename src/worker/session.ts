@@ -773,8 +773,9 @@ interface WeatherRun {
   days: number;
   sim: WaterSim;
   clean: WaterModel["emitters"];
-  /** Each day's water and soil, from day 0 (the map's own) on. */
-  kept: { water: WaterView; soil: SoilView }[];
+  /** Each day's water as the simulation leaves it, from day 1 on (day 0 is the map's own): only the water is kept;
+   *  the ground's moisture and contamination are worked out for the day shown (Kyler, 2026-10-04). */
+  kept: (WaterDay | null)[];
   /** How far the run simulates: the day to show, or the default last day for the background's work. */
   want: number;
   /** The day the page asked to see, while it waits for it, or null. */
@@ -782,6 +783,12 @@ interface WeatherRun {
   /** The background work this run does now (its token), or null. */
   prep: number | null;
   running: boolean;
+}
+/** A day's water, exactly as the simulation left it. */
+interface WaterDay {
+  depth: Float64Array;
+  contamination: Float64Array;
+  out: Float64Array;
 }
 /** Each hazard's run, kept until the map changes (Kyler, 2026-10-04: switching back is instant). */
 const weatherRuns: Partial<Record<Hazard, WeatherRun>> = {};
@@ -804,7 +811,7 @@ function runFor(hazard: Hazard): WeatherRun {
   // the sources' own copies: a badtide changes what the clean ones give
   const model: WaterModel = { ...base, emitters: base.emitters.map((e) => ({ ...e })) };
   const sim = new WaterSim(model, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) });
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), sim, clean: model.emitters.filter((e) => e.contamination === 0), kept: [{ water: waterOf(s), soil: soilOf(s) }], want: 0, show: null, prep: null, running: false };
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), sim, clean: model.emitters.filter((e) => e.contamination === 0), kept: [null], want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -846,10 +853,15 @@ export function stopWeatherPrep(): void {
   prepToken++;
 }
 
-/** The page is told the day it asked for: its water and soil, exactly as kept. */
+/** The page is told the day it asked for: its water exactly as kept, and the ground's moisture and contamination
+ *  worked out for it now (day 0: the map's own water and soil). */
 function sendWeatherDay(run: WeatherRun, day: number): void {
+  const s = run.session;
   const k = run.kept[day];
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: structuredClone(k.water), soil: k.soil });
+  if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
+  const { x: W, y: H } = s.size;
+  const soil = soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil });
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -857,9 +869,8 @@ function sendWeatherDay(run: WeatherRun, day: number): void {
  *  wanted; one drive per run at a time. */
 async function driveWeather(run: WeatherRun): Promise<void> {
   if (run.running) return;
-  const s = run.session;
-  const { x: W, y: H } = s.size;
   const wanted = () => currentRun(run) && (run.show !== null || (run.prep !== null && run.prep === prepToken));
+  let lastNews = 0;
   run.running = true;
   try {
     while (run.kept.length - 1 < run.want) {
@@ -875,16 +886,17 @@ async function driveWeather(run: WeatherRun): Promise<void> {
           run.sim.run(gap, run.hazard === "drought" ? 0 : 1);
           t += gap;
         }
+        // (how far the day the page waits for is, for the fill in its day box: a few times a second)
+        if (run.show !== null && performance.now() - lastNews > 120) {
+          lastNews = performance.now();
+          listener?.({ kind: "weather", version: run.version, phase: "computing", hazard: run.hazard, day: day - 1 + t / TICKS_PER_DAY, days: run.show });
+        }
         await breathe();
       }
       if (!currentRun(run)) return;
       const { D, C, out } = run.sim;
-      run.kept.push({
-        water: waterOf(s, { depth: D.slice(), contamination: C.slice(), out: out.slice() }),
-        soil: soilView(moisture(s.built.heights, D, C, W, H, null), soilContamination(s.built.heights, D, C, W, H, null)),
-      });
+      run.kept.push({ depth: D.slice(), contamination: C.slice(), out: out.slice() });
       if (run.show !== null) {
-        listener?.({ kind: "weather", version: run.version, phase: "computing", hazard: run.hazard, day, days: run.days });
         if (day >= run.show) {
           const shown = run.show;
           run.show = null;

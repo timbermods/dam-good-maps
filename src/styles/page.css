@@ -1891,12 +1891,22 @@
   transform: none;
 }
 
+/* Legend and its open legend where the layout puts them: centred between the water row and Top-down, or, with the
+   water row on a second line, the Show row's last toggle */
 .legend-stack {
-  left: var(--legend-centre, calc((50% + var(--water-bar-w, 600px) / 2 + 100% - 10px - 310px) / 2));
+  left: 0;
+  right: 0;
+  width: auto;
+  align-items: flex-start;
+}
+
+.legend-stack > .legend-row {
+  margin-left: var(--legend-left, calc(100% - 10px - 310px - 8px - 82px));
 }
 
 .legend-stack > .legend-panel,
 .legend-stack > .show-key {
+  margin-left: var(--legend-panel-left, calc(100% - 10px - 310px - 8px - 190px));
   margin-top: var(--legend-drop, 0px);
   max-height: var(--legend-max, none);
   overflow-y: auto;
@@ -1911,4 +1921,30 @@
 .maps-panel,
 .places-panel {
   height: min(692px, var(--panel-max, 692px));
+}
+
+/* the day box's quiet fill while the day asked for is worked out (Kyler, 2026-10-04): inside the box, its size and
+   place unchanged; the words over it */
+.day-stepper .day-label {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.day-stepper .day-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: width 120ms linear;
+}
+
+.day-stepper .day-words {
+  position: relative;
 }

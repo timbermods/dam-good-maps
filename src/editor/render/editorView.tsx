@@ -66,7 +66,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               {sourceMarkers()}
               {startHintTag()}
               {topBar(ed)}
-              {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} day={ed.weatherDay} counting={ed.weatherCounting} onStep={ed.stepWeather} /> : null}
+              {player.current ? <WaterBar player={player.current} weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />

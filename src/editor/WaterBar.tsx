@@ -13,14 +13,17 @@ export interface WaterBarProps {
   /** The hazard held (a drought, a badtide), or null: pressing it again brings the map's own water back. */
   weather: Hazard | null;
   onWeather(h: Hazard): void;
-  /** The day held (0: the map's own water), and the day being simulated now, or null. */
+  /** The day shown (0: the map's own water), the day asked for (the box reads it at once), and how far that day is
+   *  worked out (0 to 1, the box's quiet fill), or null once it shows. */
   day: number | null;
+  target: number | null;
   counting: number | null;
   onStep(delta: -1 | 1): void;
 }
 
 
-export function WaterBar({ player: p, weather, onWeather, day, counting, onStep }: WaterBarProps) {
+export function WaterBar({ player: p, weather, onWeather, day, target, counting, onStep }: WaterBarProps) {
+  const shown = target ?? day;
   const progress = p.progress;
   const status = p.words ?? (progress !== null ? `Water flowing… ${Math.round(progress * 100)}%` : "Water settled");
   // the view reads the bar's height from --water-bar-h: the legend panel ends one gap above it
@@ -70,11 +73,13 @@ export function WaterBar({ player: p, weather, onWeather, day, counting, onStep 
       {/* the day held (Kyler, 2026-10-04): ◀ back to Day 0 (the map's own water), ▶ on past the default length;
           greyed and "Day –" with neither on; the label two digits wide, so the row never changes shape */}
       <span class="bar-group day-stepper" role="group" aria-label="Weather day">
-        <button type="button" class="day-step" aria-label="Day back" disabled={!weather || (counting === null && day === 0)} {...tip("A day back", "←")} onClick={() => onStep(-1)}>
+        <button type="button" class="day-step" aria-label="Day back" disabled={!weather || shown === 0} {...tip("A day back", "←")} onClick={() => onStep(-1)}>
           ◀
         </button>
-        <span class="day-label" aria-live="polite">
-          {!weather ? "Day –" : counting !== null ? `Day ${counting}…` : day !== null ? `Day ${day}` : "Day …"}
+        {/* the day asked for, at once (Kyler, 2026-10-04: never counting); a quiet fill inside the box until it shows */}
+        <span class={`day-label${weather && counting !== null ? " working" : ""}`} aria-live="polite">
+          {weather && counting !== null ? <span class="day-fill" style={{ width: `${Math.round(counting * 100)}%` }} aria-hidden="true" /> : null}
+          <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
         </span>
         <button type="button" class="day-step" aria-label="Day on" disabled={!weather} {...tip("A day on", "→")} onClick={() => onStep(1)}>
           ▶

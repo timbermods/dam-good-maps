@@ -691,3 +691,13 @@ for the milestone session's word that #268's adoption is in dev.
    panels and the legend size to their room. `layout.spec.ts` checks nothing overlaps at 1400×900, 1366×768 and
    1280×800 too; `waterFlow.spec.ts` is back at 1400×900.
 5. **The water row's status** greyed while a day is held.
+
+## Legend at narrow widths, and the weather straight to its day (2026-10-04)
+
+1. With the water row on the second line (1300 and 1400 wide), Legend is the Show row's last toggle, 4px after
+   Badwater; its open legend hangs under the second line, clear of a panel open at the left. 1920 and 2560 unchanged.
+   `layout.spec.ts` checks 1300×900 too; `legend.spec.ts` runs at 1920×1080 (its centring check is for that band).
+2. The day box reads the day asked for at once, with a quiet fill until it shows; the background starts the moment
+   the water settles (Drought, then Badtide), stops on any press and resumes when the press ends with the water
+   settled; only each day's water is kept, the ground worked out for the day shown. On a fresh 256² map both
+   hazards are ready in about 0.1 s of the click, even straight after it opens.

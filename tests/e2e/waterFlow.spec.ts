@@ -121,7 +121,9 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const day = bar.locator(".day-label");
   await expect(day).toHaveText("Day –");
   await bar.getByRole("button", { name: "Drought" }).click();
-  await expect(day).toHaveText(/^Day \d+$/, { timeout: 120_000 });
+  // (the box reads the day at once; its quiet fill runs until the day shows)
+  await expect(day).toHaveText(/^Day \d+$/);
+  await expect(day).not.toHaveClass(/working/, { timeout: 120_000 });
   const last = Number((await day.textContent())!.replace(/\D/g, ""));
   expect(last).toBeGreaterThan(1);
   expect(await wet(page)).toBeLessThan(settled / 2);
@@ -130,10 +132,12 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await page.waitForTimeout(1500);
   await expect(day).toHaveText(`Day ${last}`);
   await bar.getByRole("button", { name: "Day on" }).click();
-  await expect(day).toHaveText(`Day ${last + 1}`, { timeout: 60_000 });
+  await expect(day).toHaveText(`Day ${last + 1}`);
+  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
   await bar.getByRole("button", { name: "Day back" }).click();
   await bar.getByRole("button", { name: "Day back" }).click();
-  await expect(day).toHaveText(`Day ${last - 1}`, { timeout: 60_000 });
+  await expect(day).toHaveText(`Day ${last - 1}`);
+  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
   await expect(day).toHaveText("Day –");
@@ -149,7 +153,8 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
     });
   const bad0 = await bad();
   await bar.getByRole("button", { name: "Badtide" }).click();
-  await expect(day).toHaveText(/^Day \d+$/, { timeout: 180_000 });
+  await expect(day).toHaveText(/^Day \d+$/);
+  await expect(day).not.toHaveClass(/working/, { timeout: 180_000 });
   expect(await bad()).toBeGreaterThan(bad0 + 50);
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");

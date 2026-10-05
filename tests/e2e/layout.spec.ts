@@ -357,7 +357,7 @@ test("the fullest legend fits at 1920×1080 under Legend, without scrolling", as
 // Nothing overlaps at any size (Kyler, 2026-10-04: the layout adjusts itself): at sizes the page isn't drawn for, the
 // band lays itself out (the water row on a second line when it can't fit), and the panels and the legend take the
 // room they have, scrolling inside only when it's short.
-for (const [w, h] of [[1400, 900], [1366, 768], [1280, 800]] as [number, number][]) {
+for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [number, number][]) {
   test(`at ${w}×${h}: nothing overlaps, panels and the legend open or closed`, async ({ page }) => {
     test.setTimeout(300_000);
     await page.setViewportSize({ width: w, height: h });

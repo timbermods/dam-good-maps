@@ -31,7 +31,8 @@ const places = (page: Page) =>
 test("Legend, ticked, shows a panel under it, which lists what is on it with the objects' own pictures and points to it; nothing else moves", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.setViewportSize({ width: 1400, height: 900 });
+  // (a designed size: in a narrower window the band puts Legend on the Show row and its legend under the second line)
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
   // off to start with: Legend on its own at the top right, unticked, and no panel (Kyler, 2026-10-04)

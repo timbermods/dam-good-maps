@@ -2,14 +2,16 @@
 // two designed). The water row sits centred on the window when it fits between the Show row and Legend (each one
 // clear gap away), else as close to the centre as it can; when it can't fit at all it moves to a second line under
 // the band, and Legend's open legend and the panels start under it. Legend centres in the gap between the water row
-// (or, with the row below, the Show row) and Top-down. The panels and the open legend are as tall as the room left
+// and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after Badwater
+// (Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
 // 2560×1440). Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 
 import { useEffect } from "preact/hooks";
 
-/** One clear gap between neighbours in the band. */
+/** One clear gap between neighbours in the band, and the gap between the Show row's toggles. */
 const GAP = 16;
+const TOGGLE_GAP = 4;
 /** The band's top and height, and the gap under it. */
 const TOP = 10;
 const BAND = 36;
@@ -40,20 +42,28 @@ export function useBandLayout(ready: boolean): void {
       const L = legend.width;
       let left: number;
       let top = TOP;
-      let centre: number;
+      let legendLeft: number;
+      let panelLeft: number;
       if (S + GAP + w + GAP + L + GAP <= C) {
-        // in the band: centred on the window, else as near the centre as the Show row and Legend allow
+        // in the band: centred on the window, else as near the centre as the Show row and Legend allow; Legend centred
+        // between the water row and Top-down, its open legend centred under it (clear of a panel open at the left, the
+        // button clear of Top-down)
         left = Math.min(Math.max(v.width / 2 - w / 2, S + GAP), C - GAP - L - GAP - w);
-        centre = (left + w + C) / 2;
+        const centre = Math.min(Math.max((left + w + C) / 2, TOP + PANEL_W + GAP + LEGEND_W / 2), C - 8 - L / 2);
+        legendLeft = centre - L / 2;
+        panelLeft = centre - LEGEND_W / 2;
       } else {
-        // a second line under the band, centred, clear of the corner's second row
+        // a second line under the band, centred, clear of the corner's second row; Legend the Show row's last toggle,
+        // its open legend under the second line, from its left edge, clear of a panel open at the left
         top = TOP + BAND + UNDER;
         left = Math.max(TOP, Math.min(v.width / 2 - w / 2, C - GAP - w));
-        centre = (S + C) / 2;
+        legendLeft = S + TOGGLE_GAP;
+        panelLeft = Math.max(legendLeft, TOP + PANEL_W + GAP);
       }
       left = Math.round(left);
-      // (its open legend clear of a panel open at the left, and the button clear of Top-down)
-      centre = Math.round(Math.min(Math.max(centre, TOP + PANEL_W + GAP + LEGEND_W / 2), C - 8 - L / 2));
+      // (one line: whole pixels; on the Show row it keeps the toggles' own spacing exactly)
+      if (top === TOP) legendLeft = Math.round(legendLeft);
+      panelLeft = Math.round(panelLeft);
       const below = top + BAND;
       // the controls under a panel or the legend: as tall as the room above the first of them it would meet
       // (over the minimap, room for the coordinates and the readout, a line each, one gap apart)
@@ -77,9 +87,10 @@ export function useBandLayout(ready: boolean): void {
       const vars: Record<string, string> = {
         "--water-left": `${left}px`,
         "--water-top": `${top}px`,
-        "--legend-centre": `${centre}px`,
+        "--legend-left": `${legendLeft}px`,
+        "--legend-panel-left": `${panelLeft}px`,
         "--legend-drop": `${drop}px`,
-        "--legend-max": `${roomAbove(centre - LEGEND_W / 2, centre + LEGEND_W / 2, legendTop)}px`,
+        "--legend-max": `${roomAbove(panelLeft, panelLeft + LEGEND_W, legendTop)}px`,
         // (the panel sits in the main area, the view's own top and left)
         "--panel-top": `${Math.round(v.top - m.top + panelTop)}px`,
         "--panel-max": `${roomAbove(TOP, TOP + PANEL_W, panelTop)}px`,
