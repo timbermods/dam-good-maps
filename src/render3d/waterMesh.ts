@@ -268,6 +268,61 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
   return b.finish();
 }
 
+/** The water each tile's chunk was last drawn with: its surface (NaN where dry), depth and badwater
+ *  share (the renderer's `drawWater`). */
+export interface DrawnWater {
+  surface: Float32Array;
+  depth: Float32Array;
+  contamination: Float32Array;
+}
+
+export function drawnWater(N: number): DrawnWater {
+  return { surface: new Float32Array(N).fill(NaN), depth: new Float32Array(N), contamination: new Float32Array(N) };
+}
+
+/** A chunk drawn on `sw`: what it shows, tile by tile. */
+export function drewChunk(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, cx: number, cy: number): void {
+  for (let y = cy * CHUNK; y < Math.min(H, (cy + 1) * CHUNK); y++)
+    for (let x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) {
+      const i = y * W + x;
+      drawn.surface[i] = sw.surface[i];
+      drawn.depth[i] = sw.depth[i];
+      drawn.contamination[i] = sw.contamination[i];
+    }
+}
+
+/** How far the water may be from what is drawn before a moving water's chunk is drawn again: a
+ *  two-hundredth of a level in its surface or depth, a hundredth in its badwater share; a tile turning
+ *  wet or dry always counts. (0: any difference, the water in place.) */
+export const MOVED_WATER = { level: 0.005, share: 0.01 };
+
+/** Chunks whose drawn water differs from `sw` by more than `tol` (a tile's surface, depth or badwater
+ *  share; wet or dry), with the chunks within six tiles (the badwater's blend reaches three, a top's
+ *  corners, curtains and falls three more). */
+export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }): Set<string> {
+  const out = new Set<string>();
+  const nx = Math.ceil(W / CHUNK);
+  const ny = Math.ceil(H / CHUNK);
+  const dirty = new Uint8Array(nx * ny);
+  const R = 6;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const sa = drawn.surface[i];
+      const sb = sw.surface[i];
+      const wa = sa === sa;
+      if (!wa && !(sb === sb)) continue;
+      if (wa === (sb === sb) && Math.abs(sa - sb) <= tol.level && Math.abs(drawn.depth[i] - sw.depth[i]) <= tol.level && Math.abs(drawn.contamination[i] - sw.contamination[i]) <= tol.share) continue;
+      const cx0 = Math.floor(Math.max(0, x - R) / CHUNK);
+      const cx1 = Math.floor(Math.min(W - 1, x + R) / CHUNK);
+      const cy0 = Math.floor(Math.max(0, y - R) / CHUNK);
+      const cy1 = Math.floor(Math.min(H - 1, y + R) / CHUNK);
+      for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
+    }
+  for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
+  return out;
+}
+
 /** Lower water columns (in caves) grouped by tile. */
 export function lowerByTile(sw: SurfaceWater, view: WaterView): Map<number, number[]> | null {
   if (!sw.lower.length) return null;

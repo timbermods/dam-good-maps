@@ -1,0 +1,16 @@
+{
+  "typecheck": "passed",
+  "contractTests": 75,
+  "testFiles": 7,
+  "maxTestWorkers": 1,
+  "files": [
+    "tests/contract/storedMap.test.ts",
+    "tests/contract/yourMaps.test.ts",
+    "tests/contract/projects.test.ts",
+    "tests/contract/bake.test.ts",
+    "tests/contract/waterStatus.test.ts",
+    "tests/contract/deferWaterObjects.test.ts",
+    "tests/unit/editor.test.ts"
+  ],
+  "timingAssertions": false
+}
