@@ -1,24 +1,21 @@
 // Your maps (PLAN §20 D234, amended by D330; docs/UI-BRIEF.md §3, §6): every edited map, kept in this
 // browser. This is the plain model the page and any other caller share (D342 (3)): what an entry
-// holds, which maps are kept (the last 30 unstarred; a star keeps a map for good; the oldest
-// unstarred drop off, never the one just saved), the list's order, and the words for a save that
+// holds, the list's order (every map stays until the player deletes it), and the words for a save that
 // failed. The store itself is a platform adapter (src/platform/yourMaps.ts: IndexedDB); the
 // background saving is `saver.ts`.
 
 import { gunzipSync, strFromU8 } from "fflate";
 
-/** Unstarred maps kept (D234 (4)). */
-export const KEEP = 30;
-
 export interface YourMapEntry {
   id: string;
+  /** Storage commit token, independent of the worker revision (two tabs may share a revision). */
+  storageVersion?: string;
   name: string;
   /** Where the map came from (a generated map, a real place, an imported .timber). */
   kind: "generated" | "place" | "import";
   /** ISO times: first kept, and last edited. */
   createdAt: string;
   editedAt: string;
-  starred: boolean;
   /** A PNG data URL (`thumbnailDataUrl`), or null. */
   thumbnail: string | null;
   /** Changes with every saved version of the map (the page's count of its edits works). */
@@ -71,7 +68,7 @@ export function withStoredName(entry: YourMapEntry, project: Uint8Array): YourMa
 
 /** A save that could not be kept: storage is full (say so plainly), or there is no browser storage
  *  at all (a private window, blocked site data). */
-export type StoreResult = { ok: true } | { ok: false; reason: "full" | "unavailable" };
+export type StoreResult = { ok: true; /** the map's new commit token, after a write */ storageVersion?: string } | { ok: false; reason: "full" | "unavailable" | "conflict" };
 
 /** A removed map, held so the removal can be undone. */
 export interface Removed {
@@ -82,17 +79,10 @@ export interface Removed {
 /** The words for a save that failed (D234 (5)). */
 export function storeProblem(r: StoreResult): string | null {
   if (r.ok) return null;
+  if (r.reason === "conflict") return "Changed in another tab. Download the project to keep your edits.";
   return r.reason === "full"
-    ? "Browser storage is full, so Your maps can't keep this map. Unstar some maps, or download them as project files."
-    : "This browser isn't keeping Your maps (private window or blocked site data). Download the project file to keep a map.";
-}
-
-/** Which entries drop off: all but the newest `KEEP` unstarred ones (starred maps always stay).
- *  `keep` is never dropped (the map just saved). */
-export function toDrop(entries: readonly YourMapEntry[], keep?: string): string[] {
-  const unstarred = entries.filter((e) => !e.starred && e.id !== keep).sort((a, b) => b.editedAt.localeCompare(a.editedAt));
-  const room = keep && entries.some((e) => e.id === keep && !e.starred) ? KEEP - 1 : KEEP;
-  return unstarred.slice(Math.max(0, room)).map((e) => e.id);
+    ? "Browser storage is full. Delete some maps or download this one."
+    : "This browser can't keep Your maps. Download the project to keep this one.";
 }
 
 /** The list's order: newest edit first. */
@@ -106,10 +96,12 @@ export interface YourMapsStore {
   list(): Promise<YourMapEntry[]>;
   /** A map's project file, or null. */
   project(id: string): Promise<Uint8Array | null>;
-  /** Keep a map (a new one, or a new version of one), then drop the oldest unstarred past `KEEP`. */
-  put(entry: YourMapEntry, project: Uint8Array): Promise<StoreResult>;
+  /** Keep a map (a new one, or a new version of one); with `expected`, only over that storage version (null: a new
+   *  map, or one saved before tokens), else a conflict (another tab changed or deleted it). A token this tab replaced
+   *  itself (its own save, rename, mark or restore since) still counts as the map's. Every write gives the map a new
+   *  token, in the result (`storageVersion`). */
+  put(entry: YourMapEntry, project: Uint8Array, expected?: string | null): Promise<StoreResult>;
   rename(id: string, name: string): Promise<StoreResult>;
-  star(id: string, starred: boolean): Promise<StoreResult>;
   /** The latest version was saved to Timberborn. */
   markSaved(id: string, revision: number): Promise<StoreResult>;
   /** A copy under a new id and name (to try an idea without risking the original). */

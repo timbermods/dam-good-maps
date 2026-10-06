@@ -16,6 +16,9 @@ interface Exports {
   water_alloc(len: number): number;
   water_dealloc(ptr: number, len: number): void;
   water_new(ptr: number, len: number): number;
+  water_strip(ptr: number, len: number): number;
+  water_sync(sim: number, lo: number, hi: number): void;
+  water_seep(sim: number, k: number, set: number): number;
   water_free(sim: number): void;
   water_ptr(sim: number, which: number): number;
   water_run(sim: number, ticks: number, scale: number): void;
@@ -144,6 +147,15 @@ function writeRules(w: Writer, r: RustRules): void {
   w.u32(r.edgeSpill ? 1 : 0);
 }
 
+/** Whether two arrays hold the same bits (a fast exact comparison: what a direct edit of the water changes). */
+export function sameBits(a: Float64Array, b: Float64Array): boolean {
+  if (a.length !== b.length) return false;
+  const x = new Int32Array(a.buffer, a.byteOffset, 2 * a.length);
+  const y = new Int32Array(b.buffer, b.byteOffset, 2 * b.length);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+  return true;
+}
+
 // A Rust simulation is freed by `free` (WaterSim.dispose), or else when its WaterSim is collected. Wasm memory
 // never shrinks, so code that makes and drops many simulations frees each when done with it.
 const finalizer = new FinalizationRegistry<number>((handle) => rustWater().water_free(handle));
@@ -152,6 +164,7 @@ const finalizer = new FinalizationRegistry<number>((handle) => rustWater().water
 export class RustSim {
   private readonly handle: number;
   private freed = false;
+  private adoptedPending = false;
   private readonly n: number;
   private readonly hasDam: boolean;
   private readonly ptrs: { d: number; dold: number; c: number; out: number; floor: number; dam: number; params: number };
@@ -191,8 +204,27 @@ export class RustSim {
     return new Float64Array(rustWater().memory.buffer, ptr, len);
   }
 
+  /** Whether the caller's water differs from the water this simulation last held: a direct edit of the public
+   *  arrays (water.ts keeps such a simulation on one thread: rebuilding the strips' occupancy from the edit
+   *  would change the established one-thread bytes). */
+  waterChanged(D: Float64Array, C: Float64Array, out: Float64Array): boolean {
+    const { n, ptrs } = this;
+    return !sameBits(D, this.f64(ptrs.d, n)) || !sameBits(C, this.f64(ptrs.c, n)) || !sameBits(out, this.f64(ptrs.out, 4 * n));
+  }
+
+  /** Sets the outflows (the water's momentum) this simulation holds, with `WaterSim.setOut`. */
+  setOut(out: ArrayLike<number>): void {
+    this.f64(this.ptrs.out, 4 * this.n).set(out);
+  }
+
   /** Copies the caller's water and model into the simulation. */
   private copyIn(m: RustModel, D: Float64Array, C: Float64Array, out: Float64Array): void {
+    // An adopted state has dirty evaporation modifiers. Flush them against committed depth
+    // before copying a public edit; an ordinary run computes them itself, with unchanged bytes.
+    if (this.adoptedPending && this.waterChanged(D, C, out)) {
+      rustWater().water_books(this.handle);
+      this.adoptedPending = false;
+    }
     const { n, ptrs } = this;
     this.f64(ptrs.floor, n).set(m.floor);
     if (this.hasDam && m.dam) this.f64(ptrs.dam, n).set(m.dam);
@@ -221,6 +253,7 @@ export class RustSim {
       left -= step;
     }
     const { n, ptrs } = this;
+    this.adoptedPending = false;
     D.set(this.f64(ptrs.d, n));
     C.set(this.f64(ptrs.c, n));
     out.set(this.f64(ptrs.out, 4 * n));
@@ -254,7 +287,88 @@ export class RustSim {
   dold(): Float64Array {
     return this.f64(this.ptrs.dold, this.n).slice();
   }
+
+  /** Each emitter's seep state (1 on, 0 off; only a seep is ever off). */
+  seeps(count: number): Uint8Array {
+    const x = rustWater();
+    const out = new Uint8Array(count);
+    for (let k = 0; k < count; k++) out[k] = x.water_seep(this.handle, k, 2);
+    return out;
+  }
+
+  /** Takes over water another simulation ran (the multi-core water's, parallel.ts): the caller's water and
+   *  model, the depth before the last substep and the seeps' states, then the bookkeeping rebuilt to match. */
+  adopt(m: RustModel, D: Float64Array, C: Float64Array, out: Float64Array, dold: Float64Array, seeps: Uint8Array): void {
+    this.copyIn(m, D, C, out);
+    this.f64(this.ptrs.dold, this.n).set(dold);
+    const x = rustWater();
+    for (let k = 0; k < seeps.length; k++) x.water_seep(this.handle, k, seeps[k] ? 1 : 0);
+    x.water_sync(this.handle, 0, m.H);
+    this.adoptedPending = true;
+  }
 }
+
+/** One strip of a larger map in this thread's module (the multi-core water, parallel.ts; rust/water's
+ *  `Sim::new_strip`): rows `lo..hi` of a map `mapH` rows high, each emitter its cells on them with the whole
+ *  emitter's tile count. Its arrays are views of the module's memory, valid until the next call that can grow
+ *  it, so they are taken afresh after each call. */
+export class RustStrip {
+  readonly handle: number;
+  private readonly ptrs: { d: number; dold: number; c: number; out: number; floor: number; dam: number; params: number };
+  private freed = false;
+
+  constructor(
+    m: RustModel,
+    depth: Float64Array,
+    contamination: Float64Array,
+    rules: RustRules,
+    lo: number,
+    mapH: number,
+    counts: readonly number[],
+    readonly n = m.W * m.H,
+  ) {
+    const w = new Writer(4 + modelSize(m) + 8 + 16 * this.n + 8 + 4 * counts.length);
+    w.u32(STRIP_MAGIC);
+    writeModel(w, m);
+    writeRules(w, rules);
+    w.f64s(depth);
+    w.f64s(contamination);
+    w.u32(lo);
+    w.u32(mapH);
+    w.u32s(counts);
+    const x = rustWater();
+    this.handle = withBytes(w.bytes(), (ptr, len) => x.water_strip(ptr, len));
+    const at = (which: number) => x.water_ptr(this.handle, which);
+    this.ptrs = { d: at(0), dold: at(1), c: at(2), out: at(3), floor: at(4), dam: at(5), params: at(6) };
+  }
+
+  /** A view of one of its arrays: depth, old depth, contamination, outflows (4 per tile), floor, partial
+   *  obstacles, emitter parameters (4 per emitter). */
+  view(which: "d" | "dold" | "c" | "out" | "floor" | "dam" | "params", len: number): Float64Array {
+    return new Float64Array(rustWater().memory.buffer, this.ptrs[which], len);
+  }
+
+  run(ticks: number, scale: number): void {
+    rustWater().water_run(this.handle, ticks, scale);
+  }
+
+  /** The bookkeeping brought up to date with water written over its rows `lo..hi`. */
+  sync(lo: number, hi: number): void {
+    if (hi > lo) rustWater().water_sync(this.handle, lo, hi);
+  }
+
+  seep(k: number, set = 2): number {
+    return rustWater().water_seep(this.handle, k, set);
+  }
+
+  free(): void {
+    if (this.freed) return;
+    this.freed = true;
+    rustWater().water_free(this.handle);
+  }
+}
+
+const STRIP_MAGIC = 0x544d4744; // "DGMT"
 
 // ------------------------------------------------------------------------------- the canonical settle job
 

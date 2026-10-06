@@ -1,0 +1,11 @@
+import ts from 'typescript';
+import {resolve} from 'node:path';
+import {applyCandidate} from './candidate.mjs';
+const config=ts.readConfigFile('tsconfig.json',ts.sys.readFile);
+const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,process.cwd());
+const target=resolve('src/worker/session.ts').replaceAll('\\','/').toLowerCase();
+const host=ts.createCompilerHost(parsed.options),read=host.readFile.bind(host);
+host.readFile=file=>{const source=read(file);return file.replaceAll('\\','/').toLowerCase()===target?applyCandidate(source):source;};
+const program=ts.createProgram(parsed.fileNames,parsed.options,host);
+const errors=ts.getPreEmitDiagnostics(program);
+if(errors.length){console.error(ts.formatDiagnosticsWithColorAndContext(errors,{getCanonicalFileName:x=>x,getCurrentDirectory:()=>process.cwd(),getNewLine:()=> '\n'}));process.exitCode=1;}else console.log('Candidate typecheck passed; product source was never written.');

@@ -16,6 +16,8 @@ const HEAVY = [
   "tests/contract/firstLand256.test.ts", // the first land shown is the map at 256² (D348)
   "tests/contract/forceEverywhere.heavy.test.ts", // every force at many places on every theme (D356)
   "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
+  "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
+  "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
 ];
 
 export default defineConfig({

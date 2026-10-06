@@ -1,0 +1,84 @@
+{
+  "verified": true,
+  "seed": 4264,
+  "size": 256,
+  "edits": 12,
+  "method": "E2E editor hook: alternating Raise/Lower, request background checks to completion; compare current worker terrain, water and soil bytes",
+  "baselineUnused": 36,
+  "fixedUnused": 0,
+  "baselinePeakWasmMiB": 114,
+  "fixedPeakWasmMiB": 53.8125,
+  "settledFingerprintsIdentical": true,
+  "baselineBeforeGC": {
+    "unusedCount": 36,
+    "unusedAlive": 2,
+    "unusedCells": 131072,
+    "createdCount": 73,
+    "freedCount": 13,
+    "finalizedCount": 57,
+    "outstanding": 3,
+    "maxOutstanding": 11,
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 119537664
+      }
+    ],
+    "heap": null
+  },
+  "baselineAfterGC": {
+    "unusedCount": 36,
+    "unusedAlive": 0,
+    "unusedCells": 0,
+    "createdCount": 73,
+    "freedCount": 13,
+    "finalizedCount": 60,
+    "outstanding": 0,
+    "maxOutstanding": 11,
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 119537664
+      }
+    ],
+    "heap": null
+  },
+  "fixedBeforeGC": {
+    "unusedCount": 0,
+    "unusedAlive": 0,
+    "unusedCells": 0,
+    "createdCount": 37,
+    "freedCount": 13,
+    "finalizedCount": 24,
+    "outstanding": 0,
+    "maxOutstanding": 5,
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 56426496
+      }
+    ],
+    "heap": null
+  },
+  "fixedAfterGC": {
+    "unusedCount": 0,
+    "unusedAlive": 0,
+    "unusedCells": 0,
+    "createdCount": 37,
+    "freedCount": 13,
+    "finalizedCount": 24,
+    "outstanding": 0,
+    "maxOutstanding": 5,
+    "wasm": [
+      {
+        "id": 1,
+        "label": "water",
+        "bytes": 56426496
+      }
+    ],
+    "heap": null
+  }
+}

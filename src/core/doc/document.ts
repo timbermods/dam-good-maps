@@ -15,7 +15,8 @@
 // `regenerateRegion` operation, a "stamp" origin or one of the editor's retired set pieces (all
 // removed): they are dropped or converted quietly, and the land the saved map holds stays as it was.
 // `upgradeCarves` turns a project's `carve` operations, from before the forces shared `forceResult`
-// (D220), into that one; they build exactly as they did.
+// (D220), into that one; they build exactly as they did. A carve saved with Carve's retired
+// aging setting (D473) loses it on open: its recorded result stays as it was.
 
 import { gunzipSync, gzipSync, strFromU8, strToU8 } from "fflate";
 import type { Feature } from "../features/schema";
@@ -304,7 +305,8 @@ function dropRetiredPieces(raw: Record<string, unknown>): string | null {
 
 /** A project saved before D220 keeps its carves as the `carve` operation: each becomes the forces'
  *  one operation, `forceResult` (forces/op.ts `forceOfCarve`, the conversion the build always made of
- *  it), in the log and in a Try another's undo data. Quiet: the map is the same. Mutates `raw`. */
+ *  it), in the log and in a Try another's undo data; a carve's retired aging setting is dropped there
+ *  too (`dropRetiredCarveSetting`). Quiet: the map is the same. Mutates `raw`. */
 function upgradeCarves(raw: Record<string, unknown>): void {
   const upgrade = (op: unknown) => {
     const o = op as { op?: string; params?: unknown } | null;
@@ -317,8 +319,20 @@ function upgradeCarves(raw: Record<string, unknown>): void {
   for (const e of raw.edits as { undo?: { replaced?: { op?: unknown } } }[]) {
     upgrade(e);
     upgrade(e?.undo?.replaced?.op);
+    dropRetiredCarveSetting(e);
+    dropRetiredCarveSetting(e?.undo?.replaced?.op);
   }
 }
+
+// <!-- retired-terms:allow --> (the retired setting's own name, which an old project may hold)
+/** Carve's Maturity is retired (D473): a carve saved with it (Mature, or Auto resolved Mature) keeps
+ *  its recorded result, the literal tiles, and loses the setting, so run again it is the Young carve
+ *  Carve always makes. Quiet: the map is the same. Mutates the operation. */
+function dropRetiredCarveSetting(op: unknown): void {
+  const o = op as { op?: string; params?: { settings?: Record<string, unknown> } } | null;
+  if (o?.op === "forceResult" && o.params?.settings && typeof o.params.settings === "object") delete o.params.settings.maturity;
+}
+// <!-- /retired-terms:allow -->
 
 /** Open a project file. Version 1 files (M1, M2) hold the spec, the features and the heights; they
  *  open with a base that has no stored map, and the session rebuilds it from the features. */
