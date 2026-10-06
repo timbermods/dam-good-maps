@@ -1,0 +1,567 @@
+{
+  "dev": "1416a9b22fb4a529cc4dd65552cd53891b0b7272",
+  "m9b": "e292cefe30469033a922650f0455f87297c051d5",
+  "node": "v24.13.0",
+  "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+  "logicalCpus": 16,
+  "memoryGiB": 61.60379409790039,
+  "dependencies": "C:/Users/Kyler/Documents/ChatGPT/dam-good-maps/investigation/startup/local/checkout",
+  "esbuild": "0.28.2",
+  "fflate": "0.8.3",
+  "loadMethod": "Windows PDH whole-machine Processor(_Total), 1 s, uncontrollable shared load; median of per-run sample medians / worst sample. Null when no sample.",
+  "method": "Sequential refs, one same-input warmup per cell, three repetitions, seed 1 River Valley/default. Headless Node operation times exclude bundling/network/UI/GPU. Ref outputs differ; never a causal speedup comparison. Save = encodeProject of a fresh zero-edit document; reopen = decodeProject + MapSession.open. Generation CPU = process.cpuUsage (not per-thread CPU).",
+  "cells": [
+    {
+      "ref": "dev",
+      "size": 128,
+      "repeats": 3,
+      "firstLand": {
+        "median": 2117.6100000000006,
+        "worst": 2227.029199999997
+      },
+      "firstWater": {
+        "median": 13576,
+        "worst": 14467
+      },
+      "final": {
+        "median": 15598.888700000003,
+        "worst": 16258.105900000002
+      },
+      "cpuMs": {
+        "median": 4609,
+        "worst": 6109
+      },
+      "save": {
+        "median": 153.52529999999388,
+        "worst": 564.0213999999978
+      },
+      "reopen": {
+        "median": 2303.0175000000017,
+        "worst": 4167.461799999997
+      },
+      "loadMedian": {
+        "median": 100,
+        "worst": 100
+      },
+      "loadWorst": {
+        "median": 100,
+        "worst": 100
+      },
+      "identicalRepeatExports": true,
+      "passed": true
+    },
+    {
+      "ref": "dev",
+      "size": 256,
+      "repeats": 3,
+      "firstLand": {
+        "median": 4610.21219999998,
+        "worst": 4705.410999999993
+      },
+      "firstWater": {
+        "median": 24260,
+        "worst": 26931
+      },
+      "final": {
+        "median": 39000.80279999999,
+        "worst": 39824.6318
+      },
+      "cpuMs": {
+        "median": 12125,
+        "worst": 13265
+      },
+      "save": {
+        "median": 193.50860000000102,
+        "worst": 195.04730000000563
+      },
+      "reopen": {
+        "median": 3033.208099999989,
+        "worst": 3682.0194000000192
+      },
+      "loadMedian": {
+        "median": 100,
+        "worst": 100
+      },
+      "loadWorst": {
+        "median": 100,
+        "worst": 100
+      },
+      "identicalRepeatExports": true,
+      "passed": true
+    },
+    {
+      "ref": "m9b",
+      "size": 128,
+      "repeats": 3,
+      "firstLand": {
+        "median": 3862.2906000000075,
+        "worst": 4262.9686999999685
+      },
+      "firstWater": {
+        "median": 5243,
+        "worst": 6178
+      },
+      "final": {
+        "median": 8865.503299999982,
+        "worst": 10035.52469999995
+      },
+      "cpuMs": {
+        "median": 2484,
+        "worst": 3797
+      },
+      "save": {
+        "median": 253.90909999998985,
+        "worst": 433.30180000001565
+      },
+      "reopen": {
+        "median": 1162.2357000000193,
+        "worst": 1165.1636999999755
+      },
+      "loadMedian": {
+        "median": 100,
+        "worst": 100
+      },
+      "loadWorst": {
+        "median": 100,
+        "worst": 100
+      },
+      "identicalRepeatExports": true,
+      "passed": true
+    },
+    {
+      "ref": "m9b",
+      "size": 256,
+      "repeats": 3,
+      "firstLand": {
+        "median": 9188.032699999982,
+        "worst": 12578.873299999977
+      },
+      "firstWater": {
+        "median": 15269,
+        "worst": 18181
+      },
+      "final": {
+        "median": 27991.078499999945,
+        "worst": 30940.784800000023
+      },
+      "cpuMs": {
+        "median": 11812,
+        "worst": 12702
+      },
+      "save": {
+        "median": 578.5374000000302,
+        "worst": 1031.8854000000283
+      },
+      "reopen": {
+        "median": 5102.753000000026,
+        "worst": 5670.49040000001
+      },
+      "loadMedian": {
+        "median": 100,
+        "worst": 100
+      },
+      "loadWorst": {
+        "median": 100,
+        "worst": 100
+      },
+      "identicalRepeatExports": true,
+      "passed": true
+    }
+  ],
+  "profiles": [
+    {
+      "ref": "dev",
+      "seed": 1,
+      "size": 256,
+      "method": "1 ms V8 executing leaf samples, separate untimed generation",
+      "samples": 11365,
+      "top": [
+        {
+          "name": "substep",
+          "samples": 3353,
+          "percent": 29.502859656841178
+        },
+        {
+          "name": "pathField",
+          "samples": 2269,
+          "percent": 19.964804223493182
+        },
+        {
+          "name": "damCandidate",
+          "samples": 1147,
+          "percent": 10.092388913330401
+        },
+        {
+          "name": "drainage",
+          "samples": 644,
+          "percent": 5.666520017597888
+        },
+        {
+          "name": "updateEvapMod",
+          "samples": 446,
+          "percent": 3.9243290805103386
+        },
+        {
+          "name": "buildActive",
+          "samples": 409,
+          "percent": 3.5987681478222613
+        },
+        {
+          "name": "(garbage collector)",
+          "samples": 203,
+          "percent": 1.7861856577210735
+        },
+        {
+          "name": "planBadwater",
+          "samples": 198,
+          "percent": 1.7421909370875495
+        },
+        {
+          "name": "spillLevels",
+          "samples": 166,
+          "percent": 1.460624725032996
+        },
+        {
+          "name": "square",
+          "samples": 157,
+          "percent": 1.3814342278926528
+        },
+        {
+          "name": "pickSeeds",
+          "samples": 112,
+          "percent": 0.9854817421909371
+        },
+        {
+          "name": "(anonymous)",
+          "samples": 108,
+          "percent": 0.9502859656841179
+        }
+      ],
+      "sha256": "a00f48c78a97547349e873981c892bc175fa55b480491bf04ab1a95bd897fb6e"
+    },
+    {
+      "ref": "m9b",
+      "seed": 1,
+      "size": 256,
+      "method": "1 ms V8 executing leaf samples, separate untimed generation",
+      "samples": 8584,
+      "top": [
+        {
+          "name": "substep",
+          "samples": 5133,
+          "percent": 59.7972972972973
+        },
+        {
+          "name": "pathField",
+          "samples": 311,
+          "percent": 3.6230195712954334
+        },
+        {
+          "name": "stamp",
+          "samples": 266,
+          "percent": 3.09878844361603
+        },
+        {
+          "name": "drainage",
+          "samples": 224,
+          "percent": 2.60950605778192
+        },
+        {
+          "name": "roomMap",
+          "samples": 168,
+          "percent": 1.95712954333644
+        },
+        {
+          "name": "square",
+          "samples": 154,
+          "percent": 1.7940354147250699
+        },
+        {
+          "name": "probe",
+          "samples": 134,
+          "percent": 1.5610438024231128
+        },
+        {
+          "name": "spillLevels",
+          "samples": 122,
+          "percent": 1.4212488350419386
+        },
+        {
+          "name": "placeSlopes",
+          "samples": 93,
+          "percent": 1.0834109972041006
+        },
+        {
+          "name": "tileHash01",
+          "samples": 90,
+          "percent": 1.048462255358807
+        },
+        {
+          "name": "deepen",
+          "samples": 79,
+          "percent": 0.9203168685927307
+        },
+        {
+          "name": "spreadGraph",
+          "samples": 74,
+          "percent": 0.8620689655172413
+        }
+      ],
+      "sha256": "83d994eba70a602d083ee79f5fbf293a1761abf48ec9749df0af9974d9665fdf"
+    }
+  ],
+  "rawSamples": [
+    {
+      "ref": "dev",
+      "size": 128,
+      "rep": 0,
+      "firstLand": 2117.6100000000006,
+      "firstWater": 14467,
+      "final": 16258.105900000002,
+      "cpuMs": 6109,
+      "save": 96.81499999999505,
+      "reopen": 2303.0175000000017,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 18,
+      "passed": true,
+      "attempts": 3,
+      "settleTicks": 640,
+      "exportBytes": 197660,
+      "exportHash": "6092ab43b7a35dde42d418fbe4264d094737c25aa3789ff51f45c3a1f9bd6444",
+      "reopenedHeightsHash": "630e92d8127ae7247caba1a2c2c444ae83757d12b4107a6d3512616b80c3501d",
+      "projectBytes": 214391
+    },
+    {
+      "ref": "dev",
+      "size": 128,
+      "rep": 1,
+      "firstLand": 2027.5332999999955,
+      "firstWater": 11044,
+      "final": 13226.2615,
+      "cpuMs": 4609,
+      "save": 564.0213999999978,
+      "reopen": 4167.461799999997,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 17,
+      "passed": true,
+      "attempts": 3,
+      "settleTicks": 640,
+      "exportBytes": 197660,
+      "exportHash": "6092ab43b7a35dde42d418fbe4264d094737c25aa3789ff51f45c3a1f9bd6444",
+      "reopenedHeightsHash": "630e92d8127ae7247caba1a2c2c444ae83757d12b4107a6d3512616b80c3501d",
+      "projectBytes": 214391
+    },
+    {
+      "ref": "dev",
+      "size": 128,
+      "rep": 2,
+      "firstLand": 2227.029199999997,
+      "firstWater": 13576,
+      "final": 15598.888700000003,
+      "cpuMs": 4249,
+      "save": 153.52529999999388,
+      "reopen": 487.2390000000014,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 16,
+      "passed": true,
+      "attempts": 3,
+      "settleTicks": 640,
+      "exportBytes": 197660,
+      "exportHash": "6092ab43b7a35dde42d418fbe4264d094737c25aa3789ff51f45c3a1f9bd6444",
+      "reopenedHeightsHash": "630e92d8127ae7247caba1a2c2c444ae83757d12b4107a6d3512616b80c3501d",
+      "projectBytes": 214391
+    },
+    {
+      "ref": "dev",
+      "size": 256,
+      "rep": 0,
+      "firstLand": 4283.555899999992,
+      "firstWater": 24260,
+      "final": 39000.80279999999,
+      "cpuMs": 12016,
+      "save": 195.04730000000563,
+      "reopen": 3682.0194000000192,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 40,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 896,
+      "exportBytes": 353733,
+      "exportHash": "209c55c76a8c7d05f60d8773944c717c508cf43efbfbc66d91f2e296fbbb8036",
+      "reopenedHeightsHash": "beec285c309d62001b89e0aa66c88b6530a84a86031ff0f2a9804982547aee19",
+      "projectBytes": 372353
+    },
+    {
+      "ref": "dev",
+      "size": 256,
+      "rep": 1,
+      "firstLand": 4705.410999999993,
+      "firstWater": 26931,
+      "final": 39824.6318,
+      "cpuMs": 13265,
+      "save": 189.06539999999222,
+      "reopen": 1561.122699999978,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 38,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 896,
+      "exportBytes": 353733,
+      "exportHash": "209c55c76a8c7d05f60d8773944c717c508cf43efbfbc66d91f2e296fbbb8036",
+      "reopenedHeightsHash": "beec285c309d62001b89e0aa66c88b6530a84a86031ff0f2a9804982547aee19",
+      "projectBytes": 372353
+    },
+    {
+      "ref": "dev",
+      "size": 256,
+      "rep": 2,
+      "firstLand": 4610.21219999998,
+      "firstWater": 23166,
+      "final": 33202.5509,
+      "cpuMs": 12125,
+      "save": 193.50860000000102,
+      "reopen": 3033.208099999989,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 32,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 896,
+      "exportBytes": 353733,
+      "exportHash": "209c55c76a8c7d05f60d8773944c717c508cf43efbfbc66d91f2e296fbbb8036",
+      "reopenedHeightsHash": "beec285c309d62001b89e0aa66c88b6530a84a86031ff0f2a9804982547aee19",
+      "projectBytes": 372353
+    },
+    {
+      "ref": "m9b",
+      "size": 128,
+      "rep": 0,
+      "firstLand": 4262.9686999999685,
+      "firstWater": 6178,
+      "final": 10035.52469999995,
+      "cpuMs": 3797,
+      "save": 189.92359999998007,
+      "reopen": 1162.2357000000193,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 10,
+      "passed": true,
+      "attempts": 1,
+      "settleTicks": 1408,
+      "exportBytes": 158384,
+      "exportHash": "192adf8488511bbece787ca796fa09cb06ac343a5df2ed3fcb86820ddcedce4b",
+      "reopenedHeightsHash": "85fadaed3f823615dff9b49964605c3053c79c8f09c5fda5bcad9460ed16b058",
+      "projectBytes": 169635
+    },
+    {
+      "ref": "m9b",
+      "size": 128,
+      "rep": 1,
+      "firstLand": 3862.2906000000075,
+      "firstWater": 5243,
+      "final": 8865.503299999982,
+      "cpuMs": 2484,
+      "save": 433.30180000001565,
+      "reopen": 1165.1636999999755,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 10,
+      "passed": true,
+      "attempts": 1,
+      "settleTicks": 1408,
+      "exportBytes": 158384,
+      "exportHash": "192adf8488511bbece787ca796fa09cb06ac343a5df2ed3fcb86820ddcedce4b",
+      "reopenedHeightsHash": "85fadaed3f823615dff9b49964605c3053c79c8f09c5fda5bcad9460ed16b058",
+      "projectBytes": 169635
+    },
+    {
+      "ref": "m9b",
+      "size": 128,
+      "rep": 2,
+      "firstLand": 2273.4307000000263,
+      "firstWater": 3439,
+      "final": 6156.981499999994,
+      "cpuMs": 2219,
+      "save": 253.90909999998985,
+      "reopen": 699.688599999994,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 7,
+      "passed": true,
+      "attempts": 1,
+      "settleTicks": 1408,
+      "exportBytes": 158384,
+      "exportHash": "192adf8488511bbece787ca796fa09cb06ac343a5df2ed3fcb86820ddcedce4b",
+      "reopenedHeightsHash": "85fadaed3f823615dff9b49964605c3053c79c8f09c5fda5bcad9460ed16b058",
+      "projectBytes": 169635
+    },
+    {
+      "ref": "m9b",
+      "size": 256,
+      "rep": 0,
+      "firstLand": 9188.032699999982,
+      "firstWater": 15269,
+      "final": 27991.078499999945,
+      "cpuMs": 12702,
+      "save": 155.99239999998827,
+      "reopen": 4851.256599999964,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 29,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 2816,
+      "exportBytes": 361833,
+      "exportHash": "c953406136a99958d6ad178543a2919c3efc4155d5d839ef800fa469eacbdac5",
+      "reopenedHeightsHash": "3501bec053a16abdca17a942583ab4806676eb546b952420f025e83539b9184a",
+      "projectBytes": 377386
+    },
+    {
+      "ref": "m9b",
+      "size": 256,
+      "rep": 1,
+      "firstLand": 7637.893700000015,
+      "firstWater": 14567,
+      "final": 26344.60349999997,
+      "cpuMs": 11812,
+      "save": 1031.8854000000283,
+      "reopen": 5102.753000000026,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 28,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 2816,
+      "exportBytes": 361833,
+      "exportHash": "c953406136a99958d6ad178543a2919c3efc4155d5d839ef800fa469eacbdac5",
+      "reopenedHeightsHash": "3501bec053a16abdca17a942583ab4806676eb546b952420f025e83539b9184a",
+      "projectBytes": 377386
+    },
+    {
+      "ref": "m9b",
+      "size": 256,
+      "rep": 2,
+      "firstLand": 12578.873299999977,
+      "firstWater": 18181,
+      "final": 30940.784800000023,
+      "cpuMs": 11641,
+      "save": 578.5374000000302,
+      "reopen": 5670.49040000001,
+      "loadMedian": 100,
+      "loadWorst": 100,
+      "loadSamples": 33,
+      "passed": true,
+      "attempts": 2,
+      "settleTicks": 2816,
+      "exportBytes": 361833,
+      "exportHash": "c953406136a99958d6ad178543a2919c3efc4155d5d839ef800fa469eacbdac5",
+      "reopenedHeightsHash": "3501bec053a16abdca17a942583ab4806676eb546b952420f025e83539b9184a",
+      "projectBytes": 377386
+    }
+  ]
+}
