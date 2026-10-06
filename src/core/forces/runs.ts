@@ -5,9 +5,10 @@
 // final map (the stages are only its presentation), so the result never depends on the pace, the
 // machine or the effects. Nothing changes before the force reaches it (D321, item 30): objects and
 // sources go as the front, the lava or the ice arrives (an impact's all at once, at its moment; under
-// a quake they ride the ground), and the water stays as it was until the land is final, then flows
-// on from there as after any edit (a force never adds any). The editor paces the stages (Fast or
-// Slow forces, item 29); Carve (carve/play.ts) is played back through the same worker calls.
+// a quake they ride the ground). Each stage's map carries the water as it was (a force never adds any):
+// the editor flows the map's own water on the land as each stage shows it, and keeps that water
+// (worker/session.ts, D371). The editor paces the stages (Fast or Slow forces, item 29); Carve
+// (carve/play.ts) is played back through the same worker calls.
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
@@ -403,6 +404,9 @@ export class QuakeRun extends Staged implements StagedRun {
   plan0: QuakePlan;
   protected readonly approach = 1;
   private painted = false;
+  /** A Slide's ground as it shows now: where each tile's came from (of the map before it); null for a
+   *  Lift, and before the block moves. The editor's water rides the block by it. */
+  ground: Uint32Array | null = null;
 
   constructor(before: FullForceMap, public settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
     super(before, keep);
@@ -442,6 +446,7 @@ export class QuakeRun extends Staged implements StagedRun {
     const m = snapshotMap(this.plan0.map);
     m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
     this.map = m;
+    this.ground = null;
     this.stage = this.stages;
     this.clearShown();
   }
@@ -515,6 +520,7 @@ export class QuakeRun extends Staged implements StagedRun {
       m.water = { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
     } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
+    this.ground = src;
   }
 
   /** Each tile's travel for the current plan (computed once per plan; a repaint replaces the plan). */

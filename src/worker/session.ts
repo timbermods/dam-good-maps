@@ -40,7 +40,7 @@ import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
-import { mapObjects, waterModel } from "../core/sim/model";
+import { EMITTERS, mapObjects, objectTile, waterModel } from "../core/sim/model";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { changedRect } from "../render3d/mesh";
@@ -1613,7 +1613,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   if (!plan.ok) return refuse(plan.error);
   req = plan.request;
   const carve = plan.carve;
-  // the map's own water waits: the force's water takes over from it (a weather run ends)
+  // the map's own water waits: the force's water takes over from it, as it flows (a weather run ends)
+  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
   stopWater();
   weatherToken++;
   draft?.job.dispose();
@@ -1637,7 +1638,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     heatSent: false,
     viewAt: -Infinity,
   };
-  startForceWater(force);
+  startForceWater(force, flowing);
   return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings }, verb: req.verb, gesture };
 }
 
@@ -1741,7 +1742,15 @@ export function forceAdvance(steps: number): ForceFrame | null {
     if (f.play) f.play.showTo(f.play.total);
     else f.staged!.finishAll();
   }
-  return forceFrame(f);
+  return withForceWater(f, forceFrame(f));
+}
+
+/** A frame whose land changed, its water sent just before it (the page gets the two together and draws
+ *  them in one frame: the water never a frame behind its land). */
+function withForceWater(f: NonNullable<typeof force>, frame: ForceFrame): ForceFrame {
+  const w = forceWater;
+  if (frame.heights && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
+  return frame;
 }
 
 /** The land shown is the force's final land, and it still has steps to show. (The ground's heights:
@@ -1761,12 +1770,33 @@ function landFinal(f: NonNullable<typeof force>): boolean {
 
 // ------------------------------------------------------------- a force's own water (D371)
 
-/** The water flowing on a carve's land as it is shown (D371): the map's own water, the carve's source
- *  running from its first step, on the ground as each frame has it, so the river is born as it cuts,
- *  just behind the cutting edge. Its frames go to the page as a stroke's water does (D197); kept, this
- *  water is what the map's water flows on from, so nothing jumps; the settle that follows ends on the
- *  settled water, as after any edit. A dry canyon has none. */
-let forceWater: { force: Parameters<typeof forceFrame>[0]; sim: WaterSim; model: WaterModel; ground: Uint8Array; front: CarveFront; seen: SeenWater; sent?: Float64Array; emitters: Map<string, number>; objects: readonly EntitySpec[] } | null = null;
+/** The water flowing on a force's land as it is shown (D371): the map's own water on the ground as each
+ *  frame has it, so the land and its water change together. A carve's source runs from its first step,
+ *  so its river is born as it cuts, just behind the cutting edge (`carveFront`); under every other force
+ *  the water rides the ground it stands on and flows on from there: into a crater or a rift as it opens,
+ *  off a cone or a block as it rises, along with a Slide's block (`rideSlide`); a glacier's tarn and
+ *  meltwater river fill from its springs at the water's own pace (Kyler, #275). Its frames go to the
+ *  page as a stroke's water does (D197); kept, this water is what the map's water flows on from, so
+ *  nothing jumps; the settle that follows ends on the settled water, as after any edit. A dry canyon has
+ *  none. */
+let forceWater: {
+  force: Parameters<typeof forceFrame>[0];
+  sim: WaterSim;
+  model: WaterModel;
+  ground: Uint8Array;
+  /** A carve's cutting front (null for the other forces: no water of their own leads the land). */
+  front: CarveFront | null;
+  seen: SeenWater;
+  /** A Slide's ground as last shown: where each tile's came from (null: where it stood). */
+  slide: Uint32Array | null;
+  sent?: Float64Array;
+  /** Each clearable source's and seep's emitter, by id, and the objects they were last read from (D474). */
+  emitters: Map<string, number>;
+  objects: readonly EntitySpec[];
+  /** The water last sent to the page, while the land is as it was then (kept, it is what the map's water
+   *  flows on from: what was shown, never the few ticks the simulation ran since). */
+  lastShown?: { depth: Float64Array; contamination: Float64Array } | null;
+} | null = null;
 
 /** The shown water catches up with the force's simulation after `ticks` more of them. */
 function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
@@ -1774,33 +1804,34 @@ function seeWater(w: NonNullable<typeof forceWater>, ticks: number): void {
 }
 let forceWaterToken = 0;
 
-function startForceWater(f: NonNullable<typeof force>): void {
+/** `flowing`: the map's water in flight as the force started, if it was still settling. */
+function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null): void {
   forceWater?.sim.dispose();
   forceWater = null;
   const token = ++forceWaterToken;
   const p = f.play;
-  if (!p || p.run.settings.dry) return;
-  const m = p.map;
+  if (p ? p.run.settings.dry : !f.staged) return;
+  const m = p ? p.map : f.staged!.map;
   const model = modelOf(m);
   const depth = Float64Array.from(m.water.depth);
   const contamination = Float64Array.from(m.water.contamination);
-  const flows = mapFlows(f.session, m.water.depth);
-  const front = carveFront(p, model, depth, contamination);
+  const flows = mapFlows(f.session, m.water.depth, flowing);
+  const front = p ? carveFront(p, model, depth, contamination) : null;
   const sim = new WaterSim(model, { depth, contamination });
-  // the map's water carries on as it flowed (its outflows), so only what the carve does changes it: from
-  // a standstill, every river on the map would start again and ripple everywhere while the carve plays
+  // the map's water carries on as it flowed (its outflows), so only what the force does changes it: from
+  // a standstill, every river on the map would start again and ripple everywhere while the force plays
   if (flows) {
-    for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
+    if (front) for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
     sim.setOut(flows);
   }
-  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
+  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), slide: null, emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
-function mapFlows(s: MapSession, depth: ArrayLike<number>): Float64Array | null {
-  const now = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
+  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;
@@ -1900,6 +1931,7 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
 function frontWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; contamination: Float64Array } {
   const depth = w.seen.depth.slice();
   const contamination = w.seen.contamination.slice();
+  if (!w.front) return { depth, contamination };
   const { held, film, filmBad } = w.front;
   for (let i = 0; i < held.length; i++)
     if (held[i] || film[i] > depth[i]) {
@@ -1911,6 +1943,7 @@ function frontWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; c
 
 /** The walls the front has passed (all of them, `all`: the force kept or skipped to its end) let go. */
 function frontPassed(w: NonNullable<typeof forceWater>, shown: number, all = false): void {
+  if (!w.front) return;
   const { reach, held, base } = w.front;
   for (let i = 0; i < held.length; i++)
     if (held[i] && (all || reach[i] <= shown)) {
@@ -1919,15 +1952,27 @@ function frontPassed(w: NonNullable<typeof forceWater>, shown: number, all = fal
     }
 }
 
-/** The force's water now, to flow on from (null: it has none). */
+/** The force's water as shown: a carve's with its front (`frontWater`). */
+function shownWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; contamination: Float64Array } {
+  return frontWater(w);
+}
+
+/** The force's water now, to flow on from (null: it has none). Called once the force is whole: its
+ *  last land is the kept land. */
 function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
   const w = forceWater;
   if (!w || w.force !== f) return null;
+  if (f.staged) {
+    // (a force kept part way, or skipped to its end: its water rides the rest of its land at once)
+    forceWaterFlows(w);
+  }
   // (kept: the map's water flows on from it over all of the land, the films still held with it)
-  const { depth, contamination } = frontWater(w);
+  const { depth, contamination } = w.lastShown ?? shownWater(w);
   frontPassed(w, Infinity, true);
   const sim = w.sim;
-  return { model: w.model, water: { settled: false, ticks: sim.ticks, depth, contamination, sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
+  const out = sim.out.slice();
+  // (a staged force's water goes on with the kept map's own model: its objects as they are now)
+  return { model: f.staged ? modelOf(f.staged.map) : w.model, water: { settled: false, ticks: sim.ticks, depth, contamination, sat: new Uint8Array(sim.N), out, preview: true } };
 }
 
 function endForceWater(): void {
@@ -1936,35 +1981,127 @@ function endForceWater(): void {
   forceWaterToken++;
 }
 
-/** Whether the force's water flows now (still being worked out, nothing is cut yet, and no water
- *  flows before the cut reaches its source); its floor brought to the ground shown, the tiles the
- *  front has reached let go (`carveFront`), and every source or seep gone from the land shown stopped
- *  (D474: taken by the carve or cleared, its water drains from that step, as the game's would; one that
- *  rides runs on, on its new ground). */
+/** Whether the force's water flows now (still being worked out, nothing is shown yet, and no water
+ *  flows before a carve's cut reaches its source); its floor brought to the ground shown, the tiles a
+ *  carve's front has reached let go (`carveFront`), a Slide's water moved with its block, and every
+ *  source or seep gone from the land shown stopped (D474: taken or cleared, its water drains from that
+ *  step, as the game's would; one that rides runs on, on its new ground: `followSources`). */
 function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
+  const r = w.force.staged;
+  if (r) {
+    if (!r.planned || r.shown === 0) return false;
+    const moved = followSources(w, r.map.entities);
+    if (r instanceof QuakeRun && r.ground && r.ground !== w.slide) {
+      rideSlide(w, r.ground);
+      w.lastShown = null;
+    } else if (moved) restartSim(w, w.sim.D.slice(), w.sim.C.slice(), w.sim.out.slice());
+    const h = r.map.heights;
+    for (let i = 0; i < h.length; i++)
+      if (h[i] !== w.ground[i]) {
+        w.model.floor[i] += h[i] - w.ground[i];
+        w.ground[i] = h[i];
+        w.lastShown = null;
+      }
+    return true;
+  }
   const p = w.force.play!;
   if (p.shown === 0) return false;
   const h = p.map.heights;
-  const { held, base } = w.front;
+  const { held, base } = w.front!;
   for (let i = 0; i < h.length; i++)
     if (h[i] !== w.ground[i]) {
       if (held[i]) base[i] += h[i] - w.ground[i];
       else w.model.floor[i] += h[i] - w.ground[i];
       w.ground[i] = h[i];
+      w.lastShown = null;
       // (new ground: the film it had goes with it)
-      w.front.film[i] = 0;
+      w.front!.film[i] = 0;
     }
-  if (p.map.entities !== w.objects) {
-    w.objects = p.map.entities;
-    const here = new Set(p.map.entities.map((e) => e.id));
-    for (const [id, k] of w.emitters)
-      if (!here.has(id)) {
-        w.model.emitters[k].strength = 0;
-        w.emitters.delete(id);
-      }
-  }
+  followSources(w, p.map.entities);
   frontPassed(w, p.shown);
-  return p.shown >= w.front.origin;
+  return p.shown >= w.front!.origin;
+}
+
+/** A Slide's water rides its block (quake.ts): as the block moves along, a tile at a time, the water on
+ *  each tile goes where the ground it stands on went (where it stays, it stays), colliding water summed,
+ *  its volume and badwater kept, as the quake's own last stage moves it; the water then flows on from
+ *  there. The shown water moves with it, so it never lags its ground. */
+function rideSlide(w: NonNullable<typeof forceWater>, ground: Uint32Array): void {
+  const N = ground.length;
+  const where = new Int32Array(N).fill(-1);
+  for (let j = 0; j < N; j++) where[ground[j]] = j;
+  const from = w.slide;
+  w.slide = ground;
+  const to = new Int32Array(N);
+  let moved = false;
+  for (let t = 0; t < N; t++) {
+    const s = from ? from[t] : t;
+    to[t] = where[s] >= 0 ? where[s] : t;
+    if (to[t] !== t) moved = true;
+  }
+  if (!moved) return;
+  const carry = (D: Float64Array, C: Float64Array): void => {
+    const d = new Float64Array(N);
+    const c = new Float64Array(N);
+    for (let t = 0; t < N; t++) {
+      const v = D[t];
+      if (!v) continue;
+      d[to[t]] += v;
+      c[to[t]] += v * C[t];
+    }
+    for (let i = 0; i < N; i++) c[i] = d[i] ? c[i] / d[i] : 0;
+    D.set(d);
+    C.set(c);
+  };
+  const depth = w.sim.D.slice();
+  const contamination = w.sim.C.slice();
+  carry(depth, contamination);
+  carry(w.seen.depth, w.seen.contamination);
+  // (the simulation starts again on the moved water: its flows where nothing moved, still where it did)
+  const out = w.sim.out.slice();
+  for (let t = 0; t < N; t++) if (to[t] !== t) out.fill(0, 4 * t, 4 * t + 4).fill(0, 4 * to[t], 4 * to[t] + 4);
+  restartSim(w, depth, contamination, out);
+}
+
+/** The force's simulation made again on this water (its emitters' tiles are fixed when it is made). */
+function restartSim(w: NonNullable<typeof forceWater>, depth: Float64Array, contamination: Float64Array, out: Float64Array): void {
+  const old = w.sim;
+  const sim = new WaterSim(w.model, { depth, contamination });
+  sim.setOut(out);
+  sim.ticks = old.ticks;
+  old.dispose();
+  w.sim = sim;
+}
+
+/** The sources and seeps on the land shown (D474): one gone from it (taken by the force, or cleared at
+ *  the step its tile first changes) stops at once, so its water drains as the game's would; one that rides
+ *  runs on from its new tiles. True when one moved to other tiles (the simulation is made again for it). */
+function followSources(w: NonNullable<typeof forceWater>, objects: readonly EntitySpec[]): boolean {
+  if (objects === w.objects) return false;
+  w.objects = objects;
+  const here = new Map(objects.map((e) => [e.id, e]));
+  let moved = false;
+  for (const [id, k] of w.emitters) {
+    const e = here.get(id);
+    const em = w.model.emitters[k];
+    if (!e) {
+      em.strength = 0;
+      w.emitters.delete(id);
+      w.lastShown = null;
+      continue;
+    }
+    const { W, H } = w.model;
+    const cells: number[] = [];
+    for (const [lx, ly] of EMITTERS[e.template]?.tiles ?? []) {
+      const [x, y] = objectTile(e as Parameters<typeof objectTile>[0], lx, ly);
+      if (x >= 0 && y >= 0 && x < W && y < H) cells.push(y * W + x);
+    }
+    if (!cells.length || (cells.length === em.cells.length && cells.every((c, j) => c === em.cells[j]))) continue;
+    em.cells = cells;
+    if (em.depthLimit) em.depthLimit = { ...em.depthLimit, anchor: e.x >= 0 && e.y >= 0 && e.x < W && e.y < H ? e.y * W + e.x : cells[0] };
+    moved = true;
+  }
+  return moved;
 }
 
 /** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
@@ -1976,13 +2113,27 @@ export function flowForceWater(ticks: number): Float64Array | null {
     w.sim.run(ticks);
     seeWater(w, ticks);
   }
-  return frontWater(w).depth;
+  return shownWater(w).depth;
 }
 
 /** How fast a force's own water flows: substeps a second (two game minutes a second), whatever the map's
  *  size or the machine, so a carve's breakthrough drains its sheet at a pace the eye follows rather than at
  *  once (#247). A machine that can't keep up flows as fast as it can, never catching up in a burst. */
 const FORCE_WATER_PACE = 400;
+
+/** The force's water as shown, to the page when it moved since it was last sent (`always`: with a frame
+ *  whose land changed). */
+function sendForceWater(w: NonNullable<typeof forceWater>, always = false): void {
+  if (!listener) return;
+  const shown = shownWater(w);
+  const D = shown.depth;
+  let moved = always || !w.sent;
+  for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - w.sent![i]) > 0.01) moved = true;
+  if (!moved) return;
+  w.sent = D;
+  w.lastShown = shown;
+  listener({ kind: "water", version, water: waterOf(w.force.session, { ...shown, out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
+}
 
 async function runForceWater(token: number): Promise<void> {
   let last = 0;
@@ -2005,13 +2156,7 @@ async function runForceWater(token: number): Promise<void> {
       seeWater(w, ran);
       if (listener && performance.now() - last >= DRAFT_FRAME_MS) {
         last = performance.now();
-        const D = w.sim.D;
-        let moved = !w.sent;
-        for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - w.sent![i]) > 0.01) moved = true;
-        if (moved) {
-          w.sent = D.slice();
-          listener({ kind: "water", version, water: waterOf(w.force.session, { ...frontWater(w), out: w.sim.out }, w.ground), done: 0, ticks: w.sim.ticks, draft: true });
-        }
+        sendForceWater(w);
       }
     } else owed = 0;
     // (ahead of the pace: wait a few milliseconds rather than spin)
@@ -2030,7 +2175,7 @@ export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFr
   } catch {
     // (a stroke that reaches the start's ground: the last good one stays)
   }
-  return forceFrame(f);
+  return withForceWater(f, forceFrame(f));
 }
 
 /** The page's view back to the map as it stands (a force dropped, or refused). */
@@ -2089,6 +2234,10 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   // (a gesture taken back is never kept, D341: nothing lands after Esc)
   if (!f || f.session !== s || (gesture !== undefined && f.gesture !== gesture)) return { ...changed(s, false, ["There is no force at work"], t0), kept: false };
   force = null;
+  // a force kept part way keeps its whole result: its showing only shows it (a carve's playback, Slow
+  // forces' jump to the end, D321; a staged force's stages, Esc aside)
+  if (f.carve) f.play?.plan();
+  else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (the water it flowed as it worked: the map's water flows on from it, D371)
   const flowed = forceWaterState(f);
   endForceWater();
@@ -2099,15 +2248,11 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
   };
-  // a force kept part way keeps its whole result: its showing only shows it (a carve's playback, Slow
-  // forces' jump to the end, D321; a staged force's stages, Esc aside)
-  if (f.carve) f.play?.plan();
-  else if (!f.staged!.done && !(f.staged instanceof QuakeRun && f.staged.painting)) f.staged!.finishAll();
   // (its operation assembled in the core, forces/keep.ts)
   const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
   if (!kept.ok) return refused([kept.error]);
   const params = kept.params;
-  const water: WarmState = f.carve ? (flowed ?? f.carve.liveWater()) : f.staged!.liveWater();
+  const water: WarmState = flowed ?? (f.carve ? f.carve.liveWater() : f.staged!.liveWater());
   handoff = water;
   // (where the history stood: its Esc, arriving after this keep, takes it back exactly, D341)
   const mark = s.mark();
