@@ -413,6 +413,9 @@ test("every basin source's highlight reads, under its own water too, in High as 
     for (const look of ["standard", "high"] as const) {
       r.setLookChoice(look, false);
       r.setClock(12.5);
+      // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera,
+      // and the editor notes them again whenever its controls change size, so they go here, just before framing)
+      r.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 });
       r.resetView();
       const f0 = readFrame();
       /** Round each source's middle on screen, at its top: the colour. */
