@@ -75,7 +75,11 @@ Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response heade
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
 cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
 `SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
-workers. A second build target, a single-file build for a
+workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
+scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
+anything with a query or range always come from the network. On a host that sends the headers itself the page registers
+it once the map is editable (`cacheAfterEditable`). A new version never takes over an open page (no `skipWaiting`): it
+waits until the old tabs close. A second build target, a single-file build for a
 Claude artifact (deferred with Claude, D277), swaps the platform adapters (§19.9): data is bundled, workers can be
 inlined, and libraries come from npm. The visual design is the org's Impeccable site flow and the timbermods design
 system (walnut lodge palette, `DESIGN.md`), done as its own step.

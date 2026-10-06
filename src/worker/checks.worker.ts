@@ -5,11 +5,13 @@
 // water stay quick. It talks only to the editor's worker, over a port the page hands both.
 
 import { expose } from "comlink";
-import * as ed from "./session";
+// The replica (the whole editor core, the Rust checks among it) loads on its first request, so starting this
+// worker costs next to nothing while the first map opens (D367).
+const session = () => import("./checksReplica");
 
 const api = {
-  follow: (p: ed.FollowPayload) => ed.follow(p),
-  check: (version: number, onProgress?: (p: ed.CheckProgress) => void) => ed.replicaCheck(version, onProgress),
+  follow: async (p: import("./session").FollowPayload) => (await session()).follow(p),
+  check: async (version: number, onProgress?: (p: import("./session").CheckProgress) => void) => (await session()).replicaCheck(version, onProgress),
 };
 
 export type ChecksApi = typeof api;

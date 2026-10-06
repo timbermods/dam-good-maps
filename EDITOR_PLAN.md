@@ -833,7 +833,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
 
 - **Instant checks** after every edit, on the dirty region: footprints, ground support, overlaps, start area,
   limits, slopes, terrain support. **Background checks** in a web worker, debounced (0.7 s) and cancelled when a
-  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival.
+  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival. The checks
+  worker starts small and loads its replica on its first request; a page that calls the editor worker's `deferChecks`
+  before a map opens keeps the replica waiting until `editorReady`, after the first editable frame (D367), and until
+  then the checks run in the editor's own worker, so Save and export keep their full check.
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
