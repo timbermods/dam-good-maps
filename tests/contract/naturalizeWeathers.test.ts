@@ -20,8 +20,9 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 const W = 96;
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Slope|RuinColumnH\d+)$/;
 
-// (seed 1 on M9b's maps, D148: seed 3 has no 19 × 19 stretch of dry, open ground below level 12 away from the start; the best has 16 bad tiles)
-function session(seed = 1): MapSession {
+// (seed 1 on M9b's maps, D148: seed 3 has no 19 × 19 stretch of dry, open ground below level 12 away from the start; the best has 16 bad tiles;
+// seed 11 for 0.8.1's maps, D148: badwater ditches now follow the land and seed 1's best spot has 49 bad tiles; seed 7 has an open spot, but it straddles a four-level terrace edge, so the Raise cliff's tallest step is the terrace's)
+function session(seed = 11): MapSession {
   const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");

@@ -8,7 +8,7 @@ use crate::input::{Basin, Entity, Map, Playable};
 use crate::js::{locale_int, num, round, to_fixed1};
 use crate::json::{arr, b, n, obj, s, strings, tiles, Json};
 use crate::misc::{asks_for_badwater, channel_bed, guid_from, official_range, polygon_mask};
-use crate::report::Collector;
+use crate::report::{Collector, Profile};
 use crate::words::{cap, counted, counted_as, lines, place_of, possessive};
 use crate::soil::game_soil;
 use crate::tables::{self, *};
@@ -743,7 +743,9 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     let mut r = vec![
         ("id", s("start.badwater")),
         ("class", s("playability")),
-        ("advisory", b(true)),
+        // (a rule for a generated map: no badwater within the distance of its start, Kyler, 2026-10-05,
+        // #265; a warning on an edited or imported one)
+        ("advisory", b(c.profile != Profile::Generate)),
         ("ok", b(db >= rules.badwater_within)),
         ("value", if db.is_finite() { n(round(db * 10.0) / 10.0) } else { s("none") }),
         ("limit", n(rules.badwater_within)),

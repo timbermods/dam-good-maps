@@ -4,7 +4,7 @@
 // red), to .scratch/sheet/, and tools/contact-sheet.py lays them out, labelled, as one PNG under
 // 1 MB.
 //
-//   npx tsx tools/contact-sheet.ts [--seeds 1-30] [--size 128] [--out .scratch/sheet] [--badwater]
+//   npx tsx tools/contact-sheet.ts [--seeds 1-30] [--size 128] [--out .scratch/sheet] [--badwater] [--themes riverValley,delta]
 //
 // --badwater (D200) also shows badwater: water carrying it in rust red, and each BadwaterSource as a
 // yellow square 7 tiles wide with a dark rim.
@@ -28,9 +28,10 @@ const [a, b] = arg("seeds", "1-30").split("-").map(Number);
 const size = Number(arg("size", "128"));
 const out = arg("out", ".scratch/sheet");
 const showBadwater = process.argv.includes("--badwater");
+const only = arg("themes", "").split(",").filter(Boolean);
 mkdirSync(out, { recursive: true });
 const index: { theme: string; seed: number; file: string; attempts: number; passed: boolean }[] = [];
-for (const theme of AVAILABLE_THEMES) {
+for (const theme of AVAILABLE_THEMES.filter((t) => only.length === 0 || only.includes(t))) {
   for (let seed = a; seed <= (b ?? a); seed++) {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const { W, H } = r.built;
