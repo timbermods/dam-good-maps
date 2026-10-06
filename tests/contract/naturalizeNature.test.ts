@@ -141,7 +141,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 3 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 4 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -184,17 +184,14 @@ function terraced(s: MapSession): [number, number] {
 }
 
 describe("painting the same spot again settles (D399)", () => {
-  // Expected failure, kept on the seed that caught it: on #265's River Valley 3 (its main river kept
-  // clean), Size 12 at Strength 10 changes 378, 136, 40, 94 tiles, then none: the fourth stroke moves
-  // more than the third. For the milestone session; when it passes, it comes off this list. It passes on
-  // 0.8.3's map (D476, badwater joining River Valley's main river), so it is off the list; its cause stays
-  // ROADMAP's item.
-  const fails = new Set<string>([]);
+  // (on #265's River Valley 3, rule 3 changed 378, 136, 40, 94 tiles at Size 12, Strength 10: the shed
+  // lost some cliffs' slopes, and the cliffs left were cut back again by every stroke; rule 4 measures
+  // the slope from every cliff)
   for (const [size, strength] of [
     [5, 5],
     [12, 10],
   ] as const)
-    (fails.has(`${size} ${strength}`) ? it.fails : it)(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => {
+    it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => {
       const s = session("riverValley", 3, 100);
       const rand = mulberry(size * 31 + strength);
       const [cx, cy] = terraced(s);
@@ -225,8 +222,9 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // session; when one passes, it comes off this list. Lake Basin's maps at Terracing 100 moved when
   // round 2 came to every Lake Basin map (2026-10-03): seed 3 passes now, seed 1 (2,258 → 2,380) fails. On 0.8.1's final maps (D148; badwater ditches follow the land) seed 1
   // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
-  // River Valley 6 (2,388 → 2,412) joined it when #265 kept River Valley's main river clean, and passes
-  // again on 0.8.3's map (D476), so it is off the list.
+  // River Valley 6 (2,388 → 2,412 with rule 3) passes with rule 4 (2,299), whose shed measures the
+  // slope from every cliff. With rule 4, River Valley 3 ends 2,079 → 2,298 and Lake Basin 1 2,300 →
+  // 2,315.
   const fails = new Set(["riverValley 3", "lakeBasin 1"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
@@ -362,7 +360,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 3, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 4, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
