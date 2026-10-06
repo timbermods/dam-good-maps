@@ -43,6 +43,7 @@
 // Every model stays within its footprint. Jitter, turn and tint come from each object's tile, so a
 // redraw looks the same.
 
+import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
@@ -1038,7 +1039,7 @@ const TREES = new Set(["Pine", "Birch", "Oak"]);
 /** Build the objects of a map view as a group of instanced meshes; with the soil (and the map's
  *  width), ruins on moist ground are overgrown. `lite`: the light look's models (software
  *  rendering). */
-export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false): { group: Group; instances: number } {
+export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache): { group: Group; instances: number } {
   const batches = new Map<string, Batch>();
   const batch = (key: string, model: () => Model): Batch => {
     let b = batches.get(key);
@@ -1134,7 +1135,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (!n) continue;
     // the light look bakes every instance into one mesh drawn once: software rendering pays for
     // each instance it draws, not for each triangle
-    const mesh = lite ? new InstancedMesh(baked(b.model(), b.matrices, b.tints), material, 1) : new InstancedMesh(b.model().geometry(), material, n);
+    const mesh = lite ? new InstancedMesh(baked(b.model(), b.matrices, b.tints), material, 1) : new InstancedMesh(models ? models.geometry(key, () => b.model().geometry()) : b.model().geometry(), material, n);
     mesh.name = key;
     if (lite) {
       mesh.instanceMatrix.array.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);

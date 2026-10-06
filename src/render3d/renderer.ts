@@ -71,6 +71,7 @@ import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
+import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
@@ -177,6 +178,21 @@ const PITCH_MIN = 0.18;
 /** How long a frame may spend meshing a stroke's water (updateWaterSoon). */
 const WATER_MESH_BUDGET_MS = 2;
 const PITCH_MAX = 1.5;
+/** A source's middle tile (a badwater source's: one tile in from its corner, turned with it), or -1 for
+ *  anything else or off the map. */
+function sourceMiddle(e: EntityView, k: number, W: number, H: number): number {
+  const name = e.templates[e.template[k]];
+  if (name !== "WaterSource" && name !== "BadwaterSource") return -1;
+  let x = e.x[k];
+  let y = e.y[k];
+  if (name === "BadwaterSource") {
+    const o = e.orientation[k];
+    x += o === 0 || o === 1 ? 1 : -1;
+    y += o === 0 || o === 3 ? 1 : -1;
+  }
+  return x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
+}
+
 /** The even margin a framed map keeps inside the part of the view the page leaves it (CSS pixels). */
 export const FRAME_MARGIN = 12;
 
@@ -549,20 +565,12 @@ export class MapRenderer {
     d.fill(0);
     const e = m.entities;
     for (let k = 0; k < e.count; k++) {
-      const name = e.templates[e.template[k]];
-      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
-      // a badwater source's middle: one tile in from its corner, turned with it
-      let x = e.x[k];
-      let y = e.y[k];
-      if (name === "BadwaterSource") {
-        const o = e.orientation[k];
-        x += o === 0 || o === 1 ? 1 : -1;
-        y += o === 0 || o === 3 ? 1 : -1;
-      }
-      if (x < 0 || y < 0 || x >= m.W || y >= m.H) continue;
-      d[(y * m.W + x) * 4 + (name === "WaterSource" ? 0 : 1)] = 255;
+      const i = sourceMiddle(e, k, m.W, m.H);
+      if (i >= 0) d[i * 4 + (e.templates[e.template[k]] === "WaterSource" ? 0 : 1)] = 255;
     }
     for (const i of this.sourceGlow) if (i >= 0 && i < m.W * m.H) d[i * 4 + 2] = 255;
+    for (const i of this.sourcesLit) if (i >= 0 && i < m.W * m.H) d[i * 4 + 3] = 255;
+    this.uniforms.sourceLit.value = this.sourcesLit.size ? 1 : 0;
     t.needsUpdate = true;
     this.requestRender();
   }
@@ -1263,16 +1271,19 @@ export class MapRenderer {
     }
   }
 
+  private readonly entityModels = new EntityGeometryCache();
+
   private setEntitiesInner(e: EntityView): number {
     if (this.objects) {
       this.high?.releaseObjects();
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software);
+    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
+    this.sourcesLit.clear();
     group.renderOrder = 1;
     this.objects = group;
     this.scene.add(group);
@@ -1620,6 +1631,8 @@ export class MapRenderer {
   private ghost: { group: Group; key: string; undo?: () => void } | null = null;
   private thumbs = new Map<string, string>();
   private lit: { mesh: InstancedMesh; i: number; color: [number, number, number] }[] = [];
+  /** The middle tiles of the sources highlighted: the water over them turns red too (`markSources`). */
+  private sourcesLit = new Set<number>();
 
   /** The ghost of an object being placed (the left shelf, D184): the object itself, its footprint's
    *  corner at tile (x, y) on the ground at `z`, tinted green where it fits, red where it doesn't
@@ -1736,6 +1749,19 @@ export class MapRenderer {
     }
     this.lit = [];
     const m = this.map;
+    // the sources among them: the water over each turns red too, under water as above it
+    const lit = new Set<number>();
+    if (m && tiles?.length) {
+      const want = new Set(tiles);
+      for (let k = 0; k < m.entities.count; k++) {
+        const i = want.has(m.entities.y[k] * m.W + m.entities.x[k]) ? sourceMiddle(m.entities, k, m.W, m.H) : -1;
+        if (i >= 0) lit.add(i);
+      }
+    }
+    if (lit.size || this.sourcesLit.size) {
+      this.sourcesLit = lit;
+      this.markSources();
+    }
     if (m && this.objects && tiles?.length) {
       const want = new Set(tiles);
       for (const c of this.objects.children) {
@@ -1780,9 +1806,14 @@ export class MapRenderer {
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
     if (!this.juicy) return;
-    if (m.verb === "carve") this.forceFx?.set(m);
-    else this.forceFxOf().set(m);
+    const fresh = m.verb === "carve" ? this.forceFx?.set(m) : this.forceFxOf().set(m);
+    // (a new force: an earlier eruption's heat never shows again; only this force's own, given with
+    // its frames)
+    if (fresh && !this.heatOfThisForce) this.setHeat(null);
   }
+
+  /** The heat on the ground is the force's at work (given since the last force ended). */
+  private heatOfThisForce = false;
 
   /** The forces' moments playing now, each its place and age, or null (tests). */
   get forceShowing(): ReturnType<ForceEffects["showing"]> | null {
@@ -1792,12 +1823,15 @@ export class MapRenderer {
   /** The force was kept: its tails play out (dust settling, lava cooling). */
   forceDone(): void {
     this.forceFx?.finish();
+    // (its lava cools on; the next force's first moment puts its heat away)
+    this.heatOfThisForce = false;
   }
 
   /** Esc, undo: a force's effects and its heat go at once. */
   clearForce(): void {
     this.forceFx?.clear();
     this.setHeat(null);
+    this.heatOfThisForce = false;
   }
 
   private forceFxOf(): ForceEffects {
@@ -1824,6 +1858,7 @@ export class MapRenderer {
       return;
     }
     old.dispose();
+    this.heatOfThisForce = true;
     const t = overlayTexture(m.W, m.H);
     (t.image.data as Uint8Array).set(mask);
     t.magFilter = t.minFilter = LinearFilter;
@@ -2811,6 +2846,7 @@ export class MapRenderer {
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();
+    this.entityModels.dispose();
     this.gl.dispose();
     // free the context now: browsers keep only a few, and the editor opens a view per map
     this.gl.forceContextLoss();
