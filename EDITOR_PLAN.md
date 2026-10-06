@@ -398,7 +398,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
-  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  stroke records its rule (`weathering: 4`, added by the core); a stroke saved with rule 3 (dab by dab, some
+  cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
