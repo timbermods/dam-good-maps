@@ -1,8 +1,8 @@
 {
- "written": "the code before the carve operation was retired (D462)",
+ "written": "the code before the carve operation was retired (D462); timber re-pinned for #310 F3 water tokens (generator 0.8.1)",
  "heights": "2a4f3e9282860be4",
  "entities": "c27fad10dbe92d2b",
  "water": "17c6fa4361330662",
- "timber": "95abf020b3ee695f",
+ "timber": "c13976e11ebdab05",
  "undone": "042f10b648cf6f35"
 }

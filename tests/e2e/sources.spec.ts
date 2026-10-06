@@ -39,9 +39,11 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and keeps room
-  // for only one of the two rows; of River Valley 96² seeds 1-30 only seed 4 has both)
-  await openEditor(page, "s=4&z=96&d=n&t=riverValley");
+  // (seed 8 for #265's maps, D148: seed 6 has room for only one row since the start's badwater distance
+  // became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no room for either row since the badwater ditches
+  // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
+  // kept room for only one of the two rows)
+  await openEditor(page, "s=8&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.waitForTimeout(500);
   const found = await spots(page);

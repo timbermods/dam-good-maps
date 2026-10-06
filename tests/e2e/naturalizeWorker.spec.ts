@@ -55,7 +55,7 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   expect(i.history.at(-1)!.label).toMatch(/^Naturalize, \d+ tiles?$/);
   const last = (await page.evaluate(() => window.dgmEditor!.lastStroke())) as { tool: string; weathering?: number; size: number; strength: number } | null;
   expect(last?.tool).toBe("naturalize");
-  expect(last?.weathering).toBe(3);
+  expect(last?.weathering).toBe(4);
   // the worker's map is the one painted, byte for byte
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
   const painted = await heights(page);

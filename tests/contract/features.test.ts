@@ -31,9 +31,10 @@ describe.each([
     // every check passes except, possibly, the advisory ones (PLAN §11, §19.5): plants.drought;
     // from M8, the start targets and the stored drought water (D85); since maps need not hold their
     // water (D152), how much clean water the map keeps; and the resource amounts, which are
-    // information (Kyler, 2026-09-25: resources like the official maps; D148)
+    // information (Kyler, 2026-09-25: resources like the official maps; D148); the badwater distance
+    // is a rule when generating (Kyler, 2026-10-05, #265)
     expect(r.report.checks.filter((c) => !c.ok && !c.advisory)).toEqual([]);
-    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.badwater", "start.reach", "start.ruins_clear", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes"]);
+    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.reach", "start.ruins_clear", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes"]);
     expect(r.report.passed).toBe(true);
   });
 

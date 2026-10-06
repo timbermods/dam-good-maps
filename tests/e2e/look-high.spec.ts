@@ -360,11 +360,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   expect(errors).toEqual([]);
 });
 
-test("High's basin sources highlight as Standard's do (D378): a source turns a clear red (D249), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
-  // An expected failure, naming the bug it found: a source's highlight is unreadable when it sits under its own
-  // water (seed 4242's first clean source, generator 0.8.0: red 3.7 in Standard, 3.2 in High, against 25). Kyler's
-  // decision: it must read under water, in both looks; fix/basin-highlight fixes it and removes this.
-  test.fail(true, "a source's highlight is unreadable under its own water (Standard 3.7, High 3.2, against 25)");
+test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
   // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera)
@@ -383,12 +379,12 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
     };
     const m = r.mapState()!;
     const e = m.entities;
-    /** Each kind's first source: its tile (as the page highlights it), its middle, and whether its
-     *  basin shows above the water there. */
-    const sources: Record<string, { tile: number; middle: number; x: number; y: number; dry: boolean }> = {};
+    /** Every source on the map: its kind, its tile (as the page highlights it), its middle, and the top
+     *  there (the water's surface over a source under its own water, else its ground). */
+    const sources: { name: string; tile: number; middle: number; x: number; y: number; top: number; depth: number }[] = [];
     for (let k = 0; k < e.count; k++) {
       const name = e.templates[e.template[k]];
-      if ((name !== "WaterSource" && name !== "BadwaterSource") || sources[name]) continue;
+      if (name !== "WaterSource" && name !== "BadwaterSource") continue;
       let x = e.x[k];
       let y = e.y[k];
       if (name === "BadwaterSource") {
@@ -396,59 +392,65 @@ test("High's basin sources highlight as Standard's do (D378): a source turns a c
         x += o === 0 || o === 1 ? 1 : -1;
         y += o === 0 || o === 3 ? 1 : -1;
       }
-      sources[name] = { tile: e.y[k] * m.W + e.x[k], middle: y * m.W + x, x, y, dry: !(m.surface.depth[y * m.W + x] > 0.25) };
+      const middle = y * m.W + x;
+      const depth = m.surface.depth[middle] || 0;
+      const top = depth > 0 && Number.isFinite(m.surface.surface[middle]) ? m.surface.surface[middle] : m.heights[middle] + 0.3;
+      sources.push({ name, tile: e.y[k] * m.W + e.x[k], middle, x, y, top, depth });
     }
-    const out: Record<string, Record<string, { red: number; glow: number }>> = {};
+    /** Each kind's first source, for the glow. */
+    const firsts = ["WaterSource", "BadwaterSource"].map((n) => sources.findIndex((s) => s.name === n));
+    const out: Record<string, { red: number[]; glow: number[] }> = {};
     let back = 0;
     for (const look of ["standard", "high"] as const) {
       r.setLookChoice(look, false);
       r.setClock(12.5);
       r.resetView();
       const f0 = readFrame();
-      /** Round each source's middle on screen: how much redder than green, and the colour itself. */
+      /** Round each source's middle on screen, at its top: the colour. */
       const at = (f: typeof f0) =>
-        Object.fromEntries(
-          Object.entries(sources).map(([name, s]) => {
-            const p = r.project(s.x + 0.5, m.heights[s.middle] + 0.3, -(s.y + 0.5));
-            const cx = Math.round(p.x * f.k);
-            const cy = f.H - 1 - Math.round(p.y * f.k);
-            const rgb = [0, 0, 0];
-            for (let dy = -3; dy <= 3; dy++)
-              for (let dx = -3; dx <= 3; dx++) {
-                const o = ((cy + dy) * f.W + cx + dx) * 4;
-                for (let c = 0; c < 3; c++) rgb[c] += f.px[o + c] / 49;
-              }
-            return [name, rgb];
-          }),
-        );
+        sources.map((s) => {
+          const p = r.project(s.x + 0.5, s.top, -(s.y + 0.5));
+          const cx = Math.round(p.x * f.k);
+          const cy = f.H - 1 - Math.round(p.y * f.k);
+          const rgb = [0, 0, 0];
+          for (let dy = -3; dy <= 3; dy++)
+            for (let dx = -3; dx <= 3; dx++) {
+              const o = ((cy + dy) * f.W + cx + dx) * 4;
+              for (let c = 0; c < 3; c++) rgb[c] += f.px[o + c] / 49;
+            }
+          return rgb;
+        });
       const plain = at(f0);
-      r.highlightObjects(Object.values(sources).map((s) => s.tile));
+      r.highlightObjects(sources.map((s) => s.tile));
       const red = at(readFrame());
       r.highlightObjects(null);
-      r.setSourceGlow(Object.values(sources).map((s) => s.middle));
+      r.setSourceGlow(firsts.map((k) => sources[k].middle));
       const glow = at(readFrame());
       r.setSourceGlow([]);
       const f1 = readFrame();
       for (let i = 0; i < f0.px.length; i++) back = Math.max(back, Math.abs(f0.px[i] - f1.px[i]));
-      out[look] = Object.fromEntries(
-        Object.keys(sources).map((name) => {
-          const [a, b] = [plain[name], red[name]];
-          return [name, { red: b[0] - b[1] - (a[0] - a[1]), glow: Math.max(...glow[name].map((v: number, c: number) => Math.abs(v - a[c]))) }];
-        }),
-      );
+      out[look] = {
+        // how much redder than green each source turned
+        red: sources.map((_, k) => red[k][0] - red[k][1] - (plain[k][0] - plain[k][1])),
+        glow: firsts.map((k) => Math.max(...glow[k].map((v: number, c: number) => Math.abs(v - plain[k][c])))),
+      };
     }
-    return { sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, s.dry])), out, back, look: r.look };
+    return { sources: sources.map((s) => ({ name: s.name, x: s.x, y: s.y, depth: s.depth })), out, back, look: r.look };
   });
   const { standard, high } = result.out;
   expect(result.look).toBe("high");
-  // a source turns a clear red where its basin shows (a bad source under its own pool barely does, in
-  // either look: the badwater over it hides it)
-  expect(high.WaterSource.red).toBeGreaterThan(25);
-  expect(high.WaterSource.red).toBeGreaterThan(standard.WaterSource.red * 0.75);
+  expect(result.sources.some((s) => s.depth > 0.5)).toBe(true);
+  // every source turns a clear red, the one deepest under its own water included, in each look
+  for (const [look, o] of [["standard", standard], ["high", high]] as const) {
+    const worst = Math.min(...o.red);
+    const k = o.red.indexOf(worst);
+    expect(worst, `${look}: the worst, ${JSON.stringify(result.sources[k])}`).toBeGreaterThan(25);
+  }
+  expect(Math.min(...high.red)).toBeGreaterThan(Math.min(...standard.red) * 0.75);
   // the water over a source the pointer's water comes from glows, clean and bad, as in Standard
-  for (const name of ["WaterSource", "BadwaterSource"]) {
-    expect(high[name].glow, name).toBeGreaterThan(3);
-    expect(high[name].glow, name).toBeGreaterThan(standard[name].glow * 0.6);
+  for (const [k, name] of ["WaterSource", "BadwaterSource"].entries()) {
+    expect(high.glow[k], name).toBeGreaterThan(3);
+    expect(high.glow[k], name).toBeGreaterThan(standard.glow[k] * 0.6);
   }
   // and both go exactly (software drawing on CI may stray a little on a redraw)
   expect(result.back).toBeLessThanOrEqual(8);

@@ -33,7 +33,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **Carve plays smoothly** (#297, `fix/carve-smooth`; renderer session): `approved`; its PR gets approved from the renderer side. A new renderer session (worktree `DamGoodMaps-forces-play`) gives the other six forces the same, on a new branch from `fix/carve-smooth`; the old renderer session is closed.
 - **Carve's river follows its cut** (#292, `fix/carve-water-front`): `needs-kyler`.
 - **Forces end the moment their land is final** (#275, `fix/force-feedback`): `approved`; two `forcesSitting` failures to fix.
-- **The badwater line** (#265, `fix/badwater-line-names`; theme critique session): generator 0.8.1, one re-pin, `needs-kyler`. Kyler asked its session for three facts before judging: what the sheets' red marks mean, badwater's share of water against the official maps, and Delta seed 16's start water. Lake Basin's lake is mostly badwater on 17 of 20 sheet seeds.
+- **The badwater line** (#265, `fix/badwater-line-names`; badwater session): generator 0.8.1, `needs-kyler`. Kyler's verdicts (2026-10-05): badwater keeps joining rivers and lakes; Lake Basin's main lake and River Valley's and Delta's main river stay clean on most maps, and the start's badwater distance becomes a rule for generated maps. Ported onto the Rust checks; #310's F3 folded into its re-pin.
 - **Canyon and Highlands height** (#261, `investigation/canyon-highlands-height`): `approved`, in the generator queue.
 - **Islands round 6** (#235, `investigation/islands-round-3`): `approved`, adopted in the generator queue, re-pinned.
 - **Deposit's pillars** (`feature/deposit-pillars`; milestone session): the investigation (#285) is merged; the adoption is in progress, approved by Kyler on the sheet.
@@ -68,12 +68,23 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **3. The generator queue**, one re-pin at a time (D148, D308)
 
 1. **Badwater joins rivers and lakes** (done, #245, D469, amending D57): `water.badwater_contained` is information, the
-   start keeps clean, pumpable water (D85). The badwater line itself (#265, generator 0.8.1) is the first re-pin, in flight.
+   start keeps clean, pumpable water (D85). The badwater line itself (#265, generator 0.8.1) is done: Lake Basin's lake and
+   Delta's and River Valley's main river stay clean on about 85 maps in 100.
+   - **Before the next step:** #265's maps exposed two Naturalize shortfalls, marked expected failures (its settling on River
+     Valley seed 3 at Size 12, its terraces on River Valley seed 6). No test stays known-failing (D341): each cause is found
+     and fixed in its own PR into dev; a fix that changes what Naturalize does for a player is shown to Kyler first.
+   - **The poisoned main river must happen** (Kyler, 2026-10-05): on Delta and River Valley the maps allowed a poisoned main
+     river (`POISONED_RIVER`, about 15 in 100) must actually get one. On #265's sheets it happened on 0 of 20 Delta and 1 of
+     20 River Valley maps: the generator lets badwater reach the main river but doesn't take it there. The fix is folded
+     into the re-pins of Delta arms round 2 (#233) and River Valley round 2 (#244), not a re-pin of its own, and shown to
+     Kyler in those rounds' sheets.
 2. **Delta arms round 2** (#233, merged as an investigation, waiting its turn; promise, water and straightness 30 of 30 at
-   128²): its patch is adopted with one new generator version and one re-pin.
+   128²): its patch is adopted with one new generator version and one re-pin, with the poisoned main river's fix.
 3. **Lake Basin round 3** (#234, merged as an investigation, waiting its turn; drowned valley outlines): its patch is
-   adopted third, one re-pin. River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets) follows.
-4. **Islands round 6** (#235, `approved`): adopted in this queue's order, re-pinned. Round 2 is #210.
+   adopted third, one re-pin. River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets) follows, with the
+   poisoned main river's fix.
+4. **Islands round 6** (#235, `approved`): adopted in this queue's order, re-pinned. Round 2 is #210. Then Canyon and
+   Highlands (#261). Every step brings its sheets to Kyler.
 
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 
@@ -224,7 +235,8 @@ byte-identical in every engine, with their own contract tests. The page adds the
 ## Badwater line, wave check, wider names (#265, D469)
 
 The badwater line follows the land and joins rivers and lakes, a straightness check and wider names: generator 0.8.1, the
-first re-pin of the generator queue. Waits on its session's fixes and Kyler's look.
+first re-pin of the generator queue. Done (Kyler approved the reworked sheets, 2026-10-05); its follow-ups are in the
+generator queue above.
 
 ## Canyon and Highlands height (#261)
 
