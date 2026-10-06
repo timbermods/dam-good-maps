@@ -186,8 +186,10 @@ function terraced(s: MapSession): [number, number] {
 describe("painting the same spot again settles (D399)", () => {
   // Expected failure, kept on the seed that caught it: on #265's River Valley 3 (its main river kept
   // clean), Size 12 at Strength 10 changes 378, 136, 40, 94 tiles, then none: the fourth stroke moves
-  // more than the third. For the milestone session; when it passes, it comes off this list.
-  const fails = new Set(["12 10"]);
+  // more than the third. For the milestone session; when it passes, it comes off this list. It passes on
+  // 0.8.3's map (D476, badwater joining River Valley's main river), so it is off the list; its cause stays
+  // ROADMAP's item.
+  const fails = new Set<string>([]);
   for (const [size, strength] of [
     [5, 5],
     [12, 10],
@@ -223,8 +225,9 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // session; when one passes, it comes off this list. Lake Basin's maps at Terracing 100 moved when
   // round 2 came to every Lake Basin map (2026-10-03): seed 3 passes now, seed 1 (2,258 → 2,380) fails. On 0.8.1's final maps (D148; badwater ditches follow the land) seed 1
   // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
-  // River Valley 6 (2,388 → 2,412) joined it when #265 kept River Valley's main river clean.
-  const fails = new Set(["riverValley 3", "riverValley 6", "lakeBasin 1"]);
+  // River Valley 6 (2,388 → 2,412) joined it when #265 kept River Valley's main river clean, and passes
+  // again on 0.8.3's map (D476), so it is off the list.
+  const fails = new Set(["riverValley 3", "lakeBasin 1"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],

@@ -2,8 +2,9 @@
 // rises in a hollow on high ground (a pit dug two levels into the rock, its outline irregular) and
 // drains by its own winding ditch down the slope into a river or a lake, as most maps' badwater
 // does (Kyler, 2026-10-03, D469: contamination is part of the game's challenge, and working out how
-// to deal with it is the pleasure), and to the map's edge only where it can reach no water it may
-// join; never into nor across the start's own clean water, which stays pumpable (D85). A levee on
+// to deal with it is the pleasure), on most maps one of them into the theme's main water (D476),
+// and to the map's edge only where it can reach no water it may join; never into nor across the
+// start's own clean water, which stays pumpable (D85). A levee on
 // the ditch is the counterplay (`water.badwater_contained` is information, D469). The set piece
 // carries the pit's source, floor and outlet; the pit's own shape is the
 // terrain's, which the generated field holds.
@@ -49,6 +50,9 @@ export interface Hazards {
   heights: Uint8Array;
   /** Tiles the objects and resources keep off (the pits, their rims and their ditches). */
   avoid: Uint8Array;
+  /** The join to the main water runs into water that passed the start planned from (D476): the start
+   *  is then found by other clean water (a reading for the generator's fixes). */
+  past?: boolean;
 }
 
 export interface BadwaterAsk {
@@ -64,24 +68,32 @@ export interface BadwaterAsk {
   /** The eroded field the land was snapped from (levels, floats): a ditch follows its drainage as
    *  the rivers do. Without it the ditch takes the cheapest way. */
   field?: Float64Array | null;
-  /** The theme's main water, kept clean on most maps (Kyler, 2026-10-05, #265): Lake Basin's main lake
-   *  (`mainLake`), River Valley's and Delta's main river (`mainRiver`). No ditch joins it or water that
-   *  flows into it, which would carry its badwater there. */
-  keepClean?: Uint8Array | null;
-  /** The theme's main water on a map drawn poisoned (the occasional map, Kyler, 2026-10-05): the first
-   *  hollow's ditch joins it, below the start's water where it can, else beyond the badwater distance
-   *  with the start then kept by other clean water (D85), so the poisoned map really has a poisoned
-   *  river; without it the ditch went to the nearest water, seldom the main (#265's sheets: 0 of 20). */
-  poison?: Uint8Array | null;
+  /** The theme's main water (`mainWater`), on the maps whose badwater joins it (D476, most maps): the
+   *  first hollow's ditch joins it or water that flows into it, below the start's water where it can,
+   *  else beyond the badwater distance with the start then found by other clean water (D85); where
+   *  none can, the badwater drains where the land takes it. Without it the ditches go to the nearest
+   *  water, seldom the main (#265's sheets: 0 of 20 Delta maps). */
+  join?: Uint8Array | null;
 }
 
-/** The main river's water (River Valley's and Delta's main water, kept clean on most maps: Kyler,
- *  2026-10-05, #265): the planned water (channels and lakes) of the river the hydrology names
+/** The theme's main water, which badwater joins on most maps (D476), from the hydrology's own plan:
+ *  Lake Basin's main lake (`mainLake`, its largest planned lake); on every other theme the main river
+ *  (`mainRiver`: River Valley's, Canyon's and Highlands' "river/main" with its lakes and the rivers
+ *  joining it, Delta's trunk and own channel, Islands' sea, which its main river drains, Any's as its
+ *  land made it). Each falls back on the other where the map has none. */
+export function mainWater(theme: string, hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
+  const lake = () => mainLake(hy.water, W, H);
+  const river = () => mainRiver(hy, W, H);
+  const first = theme === "lakeBasin" ? lake() : river();
+  return first.some((v) => v) ? first : theme === "lakeBasin" ? river() : lake();
+}
+
+/** The main river's water: the planned water (channels and lakes) of the river the hydrology names
  *  "river/main", from its head to where it leaves the map, with the arms it splits round an island
  *  and the lakes it runs through; on a delta its trunk and its own channel below the fan's apex, not
- *  the fan's other arms (side channels, which badwater may join, D469); and the water of every river
- *  that joins it, whose badwater would run on into it below the junction. Rivers that leave the map
- *  on their own stay open to badwater. Empty on a map without a main river. */
+ *  the fan's other arms (side channels, which badwater may join too, D469); and the water of every
+ *  river that joins it, whose badwater runs on into it below the junction. Empty on a map without a
+ *  main river. */
 export function mainRiver(hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
   const N = W * H;
   const out = new Uint8Array(N);
@@ -339,25 +351,22 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // where a ditch may end: any river or lake beyond the badwater distance whose water never
   // passes the start (the water near the start, and what flows past it, stays clean: D85); and the
   // tiles it keeps off (the start's ground, the start's water, a river's head at the edge)
-  // (the theme's main water, kept clean on most maps: Lake Basin's lake, River Valley's and Delta's
-  // main river)
-  const lake = ask.keepClean ?? null;
-  // (`only`: the water a ditch must join this time, the main water a poisoned map takes badwater
-  // into; any other water is kept off as water it may not join. `loose`: that water may pass the
-  // start planned so far, which then gives way to another)
+  // (`only`: the water a ditch must join this time, the theme's main water, D476, or water that
+  // flows into it; any other water is kept off as water it may not join. `loose`: that water may
+  // pass the start planned so far, which then gives way to another)
   const outlets = (dn: ReturnType<typeof drainage>, only: Uint8Array | null, loose: boolean): { goal: Uint8Array; keepOff: Uint8Array } => {
     // water on each tile goes side to side down the land's drainage: whether it passes the start,
-    // and whether it ends in the main water kept clean
+    // and whether it ends in the water the ditch must join
     const reachesStart = new Uint8Array(N);
-    const reachesLake = new Uint8Array(N);
+    const reachesOnly = new Uint8Array(N);
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
       reachesStart[j] = sd[j] <= 26 || (r >= 0 && reachesStart[r]) ? 1 : 0;
-      if (lake) reachesLake[j] = lake[j] || (r >= 0 && reachesLake[r]) ? 1 : 0;
+      if (only) reachesOnly[j] = only[j] || (r >= 0 && reachesOnly[r]) ? 1 : 0;
     }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && !reachesLake[j] && (!only || only[j])) goal[j] = 1;
+    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && (!only || reachesOnly[j])) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water
@@ -617,13 +626,17 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       placed.push([cx, cy]);
     }
   };
-  // (a poisoned map's main water takes the first hollow's badwater, where a ditch can reach it below
+  // (D476: the theme's main water takes the first hollow's badwater, where a ditch can reach it below
   // the start's water; where none can (the start planned beside the main river, most of it passing
   // the start), anywhere beyond the badwater distance, and the start is then found by other clean
-  // water, its rules blocking as ever, D85. The rest join whatever water is nearest, as on any map)
-  if (ask.poison?.some((v) => v)) {
-    place(ask.poison, 1);
-    if (!out.count) place(ask.poison, 1, true);
+  // water, its rules blocking as ever, D85; where none can at all, the badwater drains where the land
+  // takes it. The rest join whatever water is nearest, as on any map)
+  if (ask.join?.some((v) => v)) {
+    place(ask.join, 1);
+    if (!out.count) {
+      place(ask.join, 1, true);
+      if (out.count) out.past = true;
+    }
   }
   place(null, ask.count);
   // fewer hollows fit than were asked for (a small map, few rises): the ones placed carry the
