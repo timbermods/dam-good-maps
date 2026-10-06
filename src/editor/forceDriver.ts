@@ -6,7 +6,8 @@
 // about four times as long, to be watched; a click or a new gesture jumps it to its final land.
 // Each frame shows the ground that changed (only its chunks) and the objects, and its moment goes to
 // the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
-// water stays as it was until the land is final (item 30), then flows on as after any edit; the camera
+// map's water flows on the land as each frame has it, drawn with it (D371), and on from there once
+// kept, as after any edit; the camera
 // never moves by itself (D265). Pause holds a carve; a force is kept when it ends. Undo drops all of it
 // at once, at any moment while the force is at work, its keep on its way included (D341): each force is
 // a gesture the worker knows by name, so undo reaches it whatever the worker is doing, and nothing of
