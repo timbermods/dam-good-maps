@@ -784,9 +784,12 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
  *  every 12 ticks the first day, every 96 after; the soil each day; the end is the map's own water
  *  and soil, exactly. The map never changes. */
 let weatherToken = 0;
+/** The weather run the page shows (its token): while it is the latest, the page's water is its day's. */
+let weatherShown = -1;
 export function startWeather(hazard: Hazard): void {
   const s = need();
   const token = ++weatherToken;
+  weatherShown = token;
   const days = hazardDays(s.meta.designedFor ?? "normal", hazard);
   const base = s.built.waterModel;
   // (the hazard's steps are the core's, sim/weather.ts `HazardRun`: here its pace and its frames)
@@ -1817,7 +1820,8 @@ let pageWater: { session: MapSession; version: number; view: WaterView } | null 
  *  from the water on screen and its first frame never jumps from it. Only the force's water: its plan
  *  and its result are the map's own. */
 export function forceShows(view: WaterView | null): void {
-  pageWater = session && view ? { session, version, view } : null;
+  // (a Drought or Badtide shown: that day's water is not the map's, D180 (8))
+  pageWater = session && view && weatherShown !== weatherToken ? { session, version, view } : null;
 }
 
 /** The page's water (`forceShows`) as the force's water starts from it: a column a tile on the force's

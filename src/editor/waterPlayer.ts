@@ -17,8 +17,9 @@ export interface WaterFrame {
   water: WaterView;
   /** How far the journey has come (0–1), for the status. */
   done: number;
-  /** The settled water, with what grows on it: shown last, and then the journey is over. */
-  final?: () => void;
+  /** The settled water, with what grows on it: shown last, and then the journey is over. `water` false: what it
+   *  carries but its water (a force starting from the water on screen, `flushFinals`). */
+  final?: (water?: boolean) => void;
   /** A weather run's words ("Drought: day 4 of 9"). */
   words?: string;
 }
@@ -130,14 +131,15 @@ export class WaterPlayer {
   /** Apply what the settled frames still waiting to be shown carry (the plants, the soil, the water), once and in
    *  order, without showing any frame. A new journey or a cleared one drops those frames, and the worker does not
    *  send their parts again (each view is a difference from the last it sent), so whoever drops them first calls this
-   *  (`WaterJourney.flush`), before the next view is applied on top. A weather run's frames are only for show. */
-  flushFinals(): void {
+   *  (`WaterJourney.flush`), before the next view is applied on top. A weather run's frames are only for show.
+   *  `water` false: their water is left out, the water on screen staying (a force starts from it). */
+  flushFinals(water = true): void {
     if (this.weather) return;
     for (let k = this.at + 1; k < this.frames.length; k++) {
       const done = this.frames[k].final;
       if (!done) continue;
       this.frames[k].final = undefined;
-      done();
+      done(water);
     }
   }
 
