@@ -39,6 +39,9 @@ export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: st
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
 }
 
+/** The pill's widest words, laid under its own unseen so it keeps their width in every state. */
+const DOT_WIDEST = ["Checking the map", "88 things to look at"];
+
 /** The quiet dot, and its list under it while it is open. */
 export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boolean): void; actions: ItemActions }) {
   const d = dotOf(p);
@@ -66,7 +69,15 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
             {d.count}
           </span>
         ) : null}
-        <span class="dot-words">{d.words}</span>
+        {/* (one width whatever it says, its widest state's: the header's right side never changes width, Kyler 2026-10-05) */}
+        <span class="dot-words">
+          <span>{d.words}</span>
+          {DOT_WIDEST.map((w) => (
+            <span key={w} class="dot-sizer" aria-hidden="true">
+              {w}
+            </span>
+          ))}
+        </span>
       </button>
       {p.open ? (
         <div class="checks-list" role="region" aria-label="Checks">

@@ -111,7 +111,7 @@ async function openEditor(page: Page) {
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
   await page.locator(".map-note button").first().click().catch(() => undefined);
   // the checks done: the dot's words, and with them the header's right group, hold still from here
-  await expect(page.locator(".checks-dot .dot-words")).toHaveText("Ready to play", { timeout: 120_000 });
+  await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
 }
 
 const settle = async (page: Page, w: number, h: number) => {

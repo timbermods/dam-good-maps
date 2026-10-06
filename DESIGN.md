@@ -410,6 +410,9 @@ refinements and what the mockups left open:
   row is for the tools only: an object picked shows no row above the bar (Select's own row gives way while one is
   picked on the map). "Drag it to move it" is gone. At 1920×1080 a source picked on the map takes 267px (303 with
   Try another), clear of the camera group.
+- **The checks pill is one width** (Kyler, 2026-10-05): its widest state's ("88 things to look at"), whatever it says,
+  so the header's right side never changes width between "Ready to play", "Checking the map", "Settling…" and the
+  rest.
 - **The top band** (Kyler, 2026-10-04): every control in it (the six toggles, the water row, Legend, Top-down, Reset
   view and the compass) one height, 36px, one top and one bottom at both sizes; the corner's second row (the slice,
   Slow forces, the sound) is 36px too.
@@ -517,7 +520,8 @@ refinements and what the mockups left open:
   that failed stops a replacement with "Your map was not saved. Download the project before replacing it." (or
   "…before generating another."); the question before closing a map Your maps isn't keeping reads "<what> closes
   <name>, which this browser isn't keeping. Download the project first to keep its edits.", its button **Download
-  project**. Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
+  project** lit and in focus, so Enter keeps the player's work; Cancel and **Close it** (unlit) keep their places
+  (`docs/design/close-question-1920x1080`). Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
   clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
@@ -560,8 +564,8 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything, History, About. There is no Copy
-  link: the address is always the open map's share link, so the browser's own address is the link.
+- **File** holds exactly Open…, Download project, Download .timber, Clear everything, History, Another like this
+  (generated maps only: File is its one way in, Kyler 2026-10-05) and About. There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
 - **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a plain
@@ -592,7 +596,7 @@ D380 work.
   measures how far each group reaches and caps the info's width between them, so a name too long truncates with an
   ellipsis and its tooltip holds the full name. On the right Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
-  History, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
+  History, Another like this on a generated map, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
   docs/progress/page.md).
@@ -778,6 +782,15 @@ tooltip: a short purpose phrase, then its key as a small key cap (D351). Numbers
 
 **Contracts a restyle never breaks.** Share links, project files, Your maps' storage, saved file names, the worker's
 API, every pinned hash, and every role and accessible name the tests use.
+
+## Open question (2026-10-05, for Kyler): the map's name at 1280 to 1,600px
+
+With the checks pill at one width the centred name has 114px at 1280×800 and 134px at 1300; the longest generated
+name ("Twin Channel Island Chain") needs 227px, a name at Rename's limit about 380px. Centred and on one line they
+fit from about 1,393px and 1,560px. The options, drawn on the page at 1280×800
+(`docs/design/name-options-1280x800.png`): A, the name centred between the side groups (off the window's centre by
+71px; a renamed name still cut); A+B, as A with a long name on two lines, its seed and size line giving way; C, below
+1,600px the pill shows its dot (and count) only, its words in its tooltip, the name centred on one line.
 
 ## Kyler's answers (2026-10-05)
 

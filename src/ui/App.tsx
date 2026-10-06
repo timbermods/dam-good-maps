@@ -834,13 +834,15 @@ export function App() {
     onRename: rename,
   };
 
-  // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms); Esc cancels, and goes
-  // no further (autoFocus works once a page in some browsers: the focus is set here)
+  // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project
+  // where it offers one, lit (Kyler, 2026-10-05: Enter keeps the player's work); Esc cancels, and goes no further
+  // (autoFocus works once a page in some browsers: the focus is set here)
   const confirmNo = useRef<HTMLButtonElement>(null);
   const confirmYes = useRef<HTMLButtonElement>(null);
+  const confirmProject = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!confirm) return;
-    (confirm.focusYes ? confirmYes : confirmNo).current?.focus();
+    (confirm.offerProject ? confirmProject : confirm.focusYes ? confirmYes : confirmNo).current?.focus();
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
@@ -894,14 +896,14 @@ export function App() {
             Cancel
           </button>
           {confirm.offerProject ? (
-            <button type="button" class="ghost" title="Download the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
+            <button ref={confirmProject} type="button" class="primary" title="Download the map and its edits as a project" onClick={() => void generator.project().then((p) => saveFile(p.bytes, p.fileName, "application/gzip"))}>
               Download project
             </button>
           ) : null}
           <button
             type="button"
             ref={confirmYes}
-            class="primary"
+            class={confirm.offerProject ? "ghost" : "primary"}
             title={confirm.yesTitle ?? "Replace the map"}
             onClick={() => {
               const c = confirm;

@@ -96,9 +96,20 @@
 
 /* the checks' words beside the dot */
 .checks-dot .dot-words {
+  display: inline-grid;
+  justify-items: start;
   font-size: 0.85rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+/* (the pill's one width: every state's words in one cell, the unseen ones holding it at the widest) */
+.checks-dot .dot-words > * {
+  grid-area: 1 / 1;
+}
+
+.checks-dot .dot-words > .dot-sizer {
+  visibility: hidden;
 }
 
 .checks-dot.warn .dot-words {
