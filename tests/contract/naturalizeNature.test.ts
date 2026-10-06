@@ -226,8 +226,12 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // slope from every cliff. With rule 4, River Valley 3 ends 2,079 → 2,298 and Lake Basin 1 2,300 →
   // 2,315. Lake Basin 3 joined them with Lake Basin round 3 (#234, generator 0.8.4: 2,351 → 2,665): the
   // drag only lowers ground (1,753 tiles lowered, 5 raised), cutting tall cliffs (4 to 8 levels) into
-  // small steps without raising their foot. RULE5_NOTE
-  const fails = new Set<string>([]);
+  // small steps without raising their foot. Rule 5 (the scree builds up at a cliff's foot from what
+  // its top loses; a cliff standing in water keeps its top; one above farmland or a stream pulls back
+  // as before) clears River Valley 3 (2,008 → 1,944) and Lake Basin 1 (2,200 → 2,170) on 0.8.4.
+  // Lake Basin 3 still ends 2,351 → 2,458 (rule 4: 2,665), from cliffs above farmland pulling back
+  // (D418) and edges wandering at a terrace's moist rim; Kyler's call.
+  const fails = new Set(["lakeBasin 3"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],

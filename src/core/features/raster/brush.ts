@@ -19,10 +19,11 @@
 //   Naturalize weathers all but the start's pad and its `keep` runs (D368 (8), `weathers`).
 //   Since D399 Naturalize weathers like nature (weather.ts): the stroke gathers pressure as Raise
 //   does; edges wander along noise fixed to the map, cliffs shed into stepped slopes, narrow terraces
-//   join their neighbours, the downhill order and the water kept. Rule 4 (`weathering: 4`, new
+//   join their neighbours, the downhill order and the water kept. Rule 5 (`weathering: 5`, new
 //   strokes) weathers dab by dab, each dab the land the dabs before it left, round where it presses
-//   harder, moist ground held; rule 3 did the same but lost some cliffs' scree slopes (weather.ts
-//   `shed`); rule 2 worked the whole stroke out again from the land before it after every dab. A
+//   harder, moist ground held, the scree building up at a cliff's foot from what its top loses; rule 4
+//   did the same with the top cut back whatever its foot took; rule 3 also lost some cliffs' scree
+//   slopes (weather.ts `shed`); rule 2 worked the whole stroke out again from the land before it after every dab. A
 //   stroke replays with the rule it was painted with.
 // - Shapes (the brush kit, PLAN §20 D182, D179 (3)): round, or square (by the larger of the two
 //   distances, on the tile grid). A pen's pressure scales each dab's pressure (a mouse presses
@@ -120,7 +121,8 @@ export interface BrushParams {
   /** Naturalize's rule (D399): 2 weathers like nature (weather.ts), the whole stroke at once; 3 the
    *  same, dab by dab, each dab weathering the land the dabs before it left where it presses harder
    *  (and moist ground keeps its height); 4 the same, its scree's slope measured from every cliff
-   *  (weather.ts `shed`). Absent, a stroke from before replays with the rule it was painted with. The
+   *  (weather.ts `shed`); 5 the same, the scree building up at a cliff's foot from what its top loses
+   *  (a cliff standing in water keeps its top). Absent, a stroke from before replays with the rule it was painted with. The
    *  session records it on every new weathering stroke. */
   weathering?: 2 | 3 | 4 | 5;
   /** Naturalize, rule 2: where water would stand on the ring round its working rectangle when the

@@ -33,8 +33,13 @@
 // - Rule 3 weathers one dab at a time (brush.ts): the land the dabs before it left, in a rectangle round
 //   where this dab presses harder, its edges wandering only there; the order kept is the land's when the
 //   stroke began, and its softening is three box passes (cheap to work out again round each change).
-// - Rule 4 (new strokes) is rule 3 with the scree's slope measured from every cliff (`shed`): rules 2
-//   and 3 lost some cliffs' slopes, leaving cliffs that every pass cut back again, and replay so.
+// - Rule 4 is rule 3 with the scree's slope measured from every cliff (`shed`): rules 2 and 3 lost
+//   some cliffs' slopes, leaving cliffs that every pass cut back again, and replay so.
+// - Rule 5 (new strokes) is rule 4 with the scree building up at a cliff's foot from what its top
+//   loses (`shed`): each cliff's top comes down no more than its foot rises, and the reverse, so a
+//   cliff becomes a slope instead of being cut into small steps above a foot that stays; the slope
+//   may run out over all the stroke reaches. A cliff standing in water keeps its top (what it sheds
+//   the water takes away); above farmland or a stream it pulls back as before (D418).
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -87,7 +92,7 @@ export interface WeatherInput {
   /** Each tile it changes, as triples (map tile, level before, level after), when given. */
   changes?: number[] | null;
   /** The stroke's rule (brush.ts `weathering`): rule 4 measures the scree's slope from every cliff
-   *  (`shed`). */
+   *  (`shed`); rule 5 also builds the scree up at the foot from what the top loses. */
   rule?: number;
 }
 
@@ -566,8 +571,9 @@ const SHED_CELL = 12;
  *  toward the stroke's edge and no new cliff is left. The slope is a distance from the cliffs (the
  *  least, over them, of the middle and a level a tread), so a slope once shed has no cliff left to
  *  shed: painting again leaves it as it is. Changes `h` in place; `hi` is the highest each tile may
- *  stand, `lo` the lowest. `every` (rule 4): the distance is measured from every cliff; rules 2 and 3
- *  lost some of them (their strokes replay as they were). */
+ *  stand, `lo` the lowest. `every` (rules 4 and 5): the distance is measured from every cliff; rules 2
+ *  and 3 lost some of them (their strokes replay as they were). `water` (rule 5, where water stood):
+ *  what a cliff's top loses its foot gains, and a cliff standing in water keeps its top. */
 function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false, water: Uint8Array | null = null): void {
   const n = bw * bh;
   // (rule 5: each cliff's tops and feet, joined into one cliff where they touch, so what its top
@@ -661,7 +667,8 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   for (let y = 1; y < bh - 1; y++)
     for (let x = 1; x < bw - 1; x++) {
       const k = y * bw + x;
-      if (!on(k)) continue;
+      // (rule 5: the slope may run out over all the stroke reaches, so the scree has room at the foot)
+      if (!(part ? I[k] > 0 : on(k))) continue;
       const gx = box.x0 + x;
       const gy = box.y0 + y;
       const g = gy * cache.W + gx;
