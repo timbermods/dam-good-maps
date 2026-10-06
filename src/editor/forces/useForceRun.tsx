@@ -164,6 +164,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   forcer.current ??= new ForceDriver({
     start: (again, gesture) =>
       enqueue(() => {
+        // (the water on screen: the force's water starts from it, not from the worker's further on)
+        void api.forceShows(mirror.current.waterView);
         const q = forceReq.current;
         if (again || !q) {
           // Try another: the row's current pins go with it (D309), so a detail still on Auto
@@ -337,7 +339,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The water's journey and a weather run give way to the force's own water. */
   function clearForForce() {
-    journey.current?.flush();
+    // (the settled water waiting stays unshown: the force's water starts from the water on screen)
+    journey.current?.flush(false);
     player.current?.clear();
     if (weatherRef.current) setWeather(null);
     setPicked(null);
