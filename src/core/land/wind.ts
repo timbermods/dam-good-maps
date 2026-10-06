@@ -92,3 +92,29 @@ function windOnce(tiles: readonly number[], W: number, H: number, allowed: (i: n
   return out;
 }
 
+/** A line of points drawn as side-to-side steps from `start`: each point's tile is reached by
+ *  stepping along the longer axis first, every step on an allowed tile; a loop is cut back to where
+ *  it began; the route ends at the first tile `isEnd` names. Null where a step would land on a tile
+ *  not allowed. */
+export function walkRoute(start: number, points: readonly (readonly [number, number])[], W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean): number[] | null {
+  const out: number[] = [start];
+  let wx = start % W;
+  let wy = (start - wx) / W;
+  if (isEnd(start)) return out;
+  for (const [px, py] of points) {
+    const x = Math.round(px);
+    const y = Math.round(py);
+    while (wx !== x || wy !== y) {
+      if (Math.abs(x - wx) >= Math.abs(y - wy)) wx += Math.sign(x - wx);
+      else wy += Math.sign(y - wy);
+      if (wx < 0 || wy < 0 || wx >= W || wy >= H) return null;
+      const i = wy * W + wx;
+      if (!allowed(i)) return null;
+      const at = out.indexOf(i);
+      if (at >= 0) out.length = at + 1;
+      else out.push(i);
+      if (isEnd(i)) return out;
+    }
+  }
+  return out;
+}

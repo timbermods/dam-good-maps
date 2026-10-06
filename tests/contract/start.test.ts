@@ -114,7 +114,7 @@ function fileOf(s: Scene): TimberFile {
 
 /** The checks on the scene, its water given directly, with a spec holding the start rules (its
  *  difficulty's, `rules` changing some). */
-function check(s: Scene, rules: Partial<Rules> = {}): Record<string, CheckResult> {
+function check(s: Scene, rules: Partial<Rules> = {}, profile: "generate" | "export" = "generate"): Record<string, CheckResult> {
   const difficulty = rules.difficulty ?? "normal";
   const r = { ...DIFFICULTY_RULES[difficulty], ...rules };
   const spec = {
@@ -130,7 +130,7 @@ function check(s: Scene, rules: Partial<Rules> = {}): Record<string, CheckResult
   } as unknown as MapSpec;
   const model = waterModel(W, H, s.heights, s.objects);
   const water = { settled: true, ticks: 0, depth: s.depth, contamination: s.contamination, sat: new Uint8Array(N) } as CanonicalWater;
-  const v = validateMap(fileOf(s), { profile: "generate", spec, features: null, water: { model, settled: water } });
+  const v = validateMap(fileOf(s), { profile, spec, features: null, water: { model, settled: water } });
   return Object.fromEntries(v.report.checks.map((c) => [c.id, c]));
 }
 
@@ -161,7 +161,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(rulesFor(spec).waterWithin).toBe(33);
   });
 
-  it("a map that meets all three passes, and the other start rules are only targets", () => {
+  it("a map that meets all three passes; the badwater distance is a rule when generating, the other start rules only targets", () => {
     const c = check(good());
     expect(c["start.water"].ok).toBe(true);
     expect(c["start.water"].value).toBe(20);
@@ -171,7 +171,11 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(c["start.wood_floor"].ok).toBe(true);
     expect(c["start.food"].ok).toBe(true);
     expect(c["start.food"].value).toBe(35);
-    for (const id of ["start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    for (const id of ["start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    // (Kyler, 2026-10-05, #265: a generated map's start keeps the badwater distance; an edited or
+    // imported map only warns)
+    expect(c["start.badwater"].advisory).toBe(false);
+    expect(check(good(), {}, "export")["start.badwater"].advisory).toBe(true);
     expect(c["start.reach_water"]).toBeUndefined();
   });
 

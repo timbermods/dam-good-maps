@@ -112,7 +112,7 @@ function downstreamEdges(dir: number): Edge[] {
 const OPPOSITE: Record<Edge, Edge> = { east: "west", west: "east", north: "south", south: "north" };
 
 /** Chaikin corner cutting, then samples about every `step` tiles, keeping both ends. */
-function smoothPath(pts0: Point[], iters: number, step: number): Point[] {
+export function smoothPath(pts0: Point[], iters: number, step: number): Point[] {
   let pts = pts0;
   for (let it = 0; it < iters && pts.length > 2; it++) {
     const out: Point[] = [pts[0]];
@@ -251,9 +251,10 @@ export function wanderOf(g: Pick<Genome, "wander" | "wanderCell">, width: number
  * wide as the valley floor lets them swing (the ground no more than a level over the valley's
  * bottom) and never less than `minAmp` tiles, tapered to nothing at both ends so the mouth, the
  * spring and the confluence stay put. Points stay two tiles inside the map, apart from the ends
- * that lie beyond it. Exact arithmetic: the deterministic sine.
+ * that lie beyond it. Exact arithmetic: the deterministic sine. (The badwater ditches wind by it
+ * too, land/hazards.ts: one way a channel bends on every map.)
  */
-function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wander, seed: number): Point[] {
+export function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, wv: Wander, seed: number): Point[] {
   const pts = resample(path, 1);
   const n = pts.length;
   if (n < 8) return path;

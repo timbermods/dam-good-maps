@@ -168,6 +168,26 @@ describe("forces clear sources (D474)", () => {
     expect(ride.entities.find((e) => e.id === "seep")?.z).toBe(ride.heights[32 * W + 32]);
   }, 60000);
 
+  test("a source inside a crater: Clear takes it at its step, Ride sets it on the crater's ground, never a pillar of its own", () => {
+    const req = CASES.find((c) => c.name === "craterize")!.request;
+    const run = (m: FullForceMap, sources?: "ride" | "clear") => use(m, (sources ? { ...req, settings: { ...req.settings, sources } } : req) as ForceRequest);
+    const bare = run(fixture("plain", W));
+    // at the centre, partway out and near the rim
+    for (const x of [32, 38, 44]) {
+      const i = 32 * W + x;
+      const m = fixture("plain", W);
+      m.entities.push(...plainEntities([waterSource({ x, y: 32, z: m.heights[i], id: "S", owner: "test", strength: 1 })]));
+      expect(bare.heights[i], `the crater changes the ground at ${x}`).not.toBe(m.heights[i]);
+      const clear = run(m, "clear");
+      expect(clear.heights[i], `Clear: the crater's ground at ${x}`).toBe(bare.heights[i]);
+      const step = clear.params.cleared?.find((c) => c.id === "S")?.step;
+      expect(step, `Clear takes the source at ${x} as its ground moves`).toBe(clear.frames.find((f) => f.heights[i] !== m.heights[i])?.shown);
+      const ride = run(m, "ride");
+      expect(ride.heights[i], `Ride: the crater's ground at ${x}`).toBe(bare.heights[i]);
+      expect(ride.entities.find((e) => e.id === "S")?.z, `Ride: the source at ${x} stands on it`).toBe(bare.heights[i]);
+    }
+  }, 60000);
+
   test("Glaciate under Ride takes no kept source's water into its springs", () => {
     const m = sourced("river");
     const req = CASES.find((c) => c.name === "glaciate")!.request;

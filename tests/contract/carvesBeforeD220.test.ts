@@ -7,7 +7,8 @@
 // layer showing, a dry canyon stopped early, and a Try another path that replaced it (its undo data
 // holding the canyon's `carve`). Project and digests were written by the code before the `carve`
 // operation was retired (this file's DGM_RECORD branch at f8b61db6), so the digests are of the map that
-// code built.
+// code built; the file's digest was taken again when #310 F3 wrote the water's tokens to nine places
+// (generator 0.8.1, D455: a project from an older version may reopen a few bytes different).
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -17,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { componentsOf } from "../../src/core/format/entities";
+import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
 
 const DIR = join(__dirname, "../fixtures");
 const PROJECT = join(DIR, "carves-before-d220.damgoodmaps.json");
@@ -51,7 +53,9 @@ describe("carves saved before D220 open exactly (D158)", () => {
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
   });
 
-  it("the project saved with them opens to the same map, its objects, water and file, and undo brings back the carve Try another replaced", () => opensAsSaved(false));
+  // (opened live by today's generator: the carves' conversion alone; a live map's file carries today's
+  // generator version, so its file is compared only frozen, below)
+  it("opened live by today's generator, the project gives the same map, its objects and water, and undo brings back the carve Try another replaced", () => opensAsSaved(false));
 
   // A newer generator opens it frozen ("It opens exactly as it was saved", D336, D455): the stored
   // generation's slopes, trees and bushes stand as stored, and only where the carves changed a tile
@@ -99,15 +103,16 @@ describe("carves saved before D220 open exactly (D158)", () => {
   function opensAsSaved(newer: boolean): void {
     const d = JSON.parse(readFileSync(DIGESTS, "utf8")) as Digests;
     const doc = decodeProject(new Uint8Array(readFileSync(PROJECT)));
-    // (saved by any generator but this one, a project opens frozen: no newer generator needed)
-    if (newer) doc.generatorVersion = `${doc.generatorVersion}-older`;
+    // (saved by any generator but this one, a project opens frozen: no newer generator needed; the
+    // project was saved by 0.8.0, so it opens live only when it says today's generator saved it)
+    doc.generatorVersion = newer ? `${GENERATOR_VERSION}-older` : GENERATOR_VERSION;
     const s = MapSession.open(doc);
     expect(s.mode).toBe(newer ? "frozen" : "live");
     expect(sha(s.built.heights)).toBe(d.heights);
     expect(entitiesOf(s)).toBe(d.entities);
     s.settleCanonical();
     expect(sha(new Uint8Array(Float64Array.from(s.built.water).buffer))).toBe(d.water);
-    expect(sha(s.exportTimber().bytes)).toBe(d.timber);
+    if (newer) expect(sha(s.exportTimber().bytes)).toBe(d.timber);
     expect(s.undo()).toBe(true);
     expect(sha(s.built.heights)).toBe(d.undone);
     expect(s.redo()).toBe(true);

@@ -33,6 +33,8 @@ export interface OutcomeInput {
   built: { W: number; H: number; heights: Uint8Array; water: Float64Array; contamination: Float64Array };
   features: readonly Feature[];
   intentions: readonly { id: IntentionId; ok: boolean }[];
+  /** The water as its rivers were planned (the land screens), not settled: lakes read as planned. */
+  planned?: boolean;
 }
 
 export interface Outcomes {
@@ -52,7 +54,7 @@ export interface Outcomes {
 export function outcomesOf(r: OutcomeInput): Outcomes {
   const { W, H } = r.built;
   const story = waterStory(W, H, r.built.water, r.features, r.built.contamination);
-  const signature = signatureOf(W, H, r.built.heights, r.built.water, r.features);
+  const signature = signatureOf(W, H, r.built.heights, r.built.water, r.features, !r.planned);
   const theme = r.spec.theme;
   const promise = theme === "any" ? true : PROMISES[theme].holds(signature, Math.min(W, H));
   const emerged = r.intentions.filter((x) => x.ok).map((x) => x.id);
