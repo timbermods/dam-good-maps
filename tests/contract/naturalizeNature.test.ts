@@ -224,8 +224,11 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
   // River Valley 6 (2,388 → 2,412 with rule 3) passes with rule 4 (2,299), whose shed measures the
   // slope from every cliff. With rule 4, River Valley 3 ends 2,079 → 2,298 and Lake Basin 1 2,300 →
-  // 2,315.
-  const fails = new Set(["riverValley 3", "lakeBasin 1"]);
+  // 2,315. Lake Basin 3 joined them with Lake Basin round 3 (#234, generator 0.8.4: 2,351 → 2,665): the
+  // drag only lowers ground (1,753 tiles lowered, 5 raised), cutting tall cliffs (4 to 8 levels) into
+  // small steps without raising their foot. Held as expected on Kyler's call (2026-10-06); the planned
+  // Naturalize fix, a stroke that lowers a tall cliff raises its foot, clears all three.
+  const fails = new Set(["riverValley 3", "lakeBasin 1", "lakeBasin 3"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
