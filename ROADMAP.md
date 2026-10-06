@@ -29,7 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, generator 0.8.2, `approved`) is merging; then **badwater joins the main water** (D476, `feature/badwater-joins`,
+  (#325, generator 0.8.2) is merged; next **badwater joins the main water** (D476, `feature/badwater-joins`,
   generator 0.8.3), Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
   Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
@@ -73,7 +73,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 
 1. **The badwater line** (done, #265, generator 0.8.1; D469): badwater joins rivers and lakes, the start keeps clean, pumpable
    water (D85) and no badwater within 15 of it. Its Naturalize shortfalls are fixed (#324).
-2. **Delta arms round 2** (#325, generator 0.8.2, `approved`, merging): #233's arms, adopted on dev.
+2. **Delta arms round 2** (done, #325, generator 0.8.2): #233's arms, adopted on dev.
 3. **Badwater joins the main water** (D476, `feature/badwater-joins`, generator 0.8.3): on most maps a badwater course is routed
    into the theme's main water; about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
    poisoned-main-river follow-up. Its sheets shade water by how bad it is.

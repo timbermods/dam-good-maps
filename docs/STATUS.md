@@ -50,8 +50,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
    each merged after a green full run, no pin moved; #310's F3 landed in #265's re-pin. Still to land: #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's, now that #311 is merged (page part before worker part).
-2. Merged on 2026-10-05: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's). In flight:
-   Delta arms round 2 (#325, generator 0.8.2, `approved`), merging after its full run.
+2. Merged on 2026-10-05 and 06: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's),
+   Delta arms round 2 (#325, generator 0.8.2). In flight: CI for investigation-only PRs (#327) and the roadmap canvas
+   reading dev's latest commit (#328), each merging on green.
 3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
    Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
    replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, `feature/badwater-joins`, in
