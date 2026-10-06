@@ -110,6 +110,18 @@ const OWN_DRAIN = 15;
  *  the least share of badwater that starts the run. */
 const REST_DAYS = 6;
 const REST_TRACE = 0.001;
+/** The nearest a rescue round eases the start's badwater distance to (D471): Normal's, the player's
+ *  own when nearer. */
+const BADWATER_FLOOR = 15;
+/** The start's badwater distance a rescue round asks (D471): no more than the map's size allows
+ *  (about a third of its longer side) in the first, a seventh less each round after, never under 15
+ *  tiles or the player's own when nearer. */
+export function easedBadwater(asked: number, W: number, H: number, ease: number): number {
+  if (ease < 1) return asked;
+  let room = 0.3 * Math.max(W, H);
+  for (let k = 1; k < ease; k++) room *= 0.85;
+  return Math.min(asked, Math.max(Math.min(asked, BADWATER_FLOOR), Math.round(room)));
+}
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
@@ -238,7 +250,9 @@ export interface GenerateOptions {
   /** The rescue round (D471, set by `generate` itself): from 1 the start's groves may lean to the
    *  wood each species gives and what the start rules ask is filled in on its walk, a shown land's start asks only for Buildable land's walkable land, a
    *  Water without stairs rule under 7 is held to itself, the start's walk asks for moist land
-   *  enough for the wood and berries asked, and the badwater distance no more than the map allows;
+   *  enough for the wood and berries asked (a start whose walk has too little land for them gives way
+   *  to another), and the badwater distance no more than the map allows, less each round
+   *  (`easedBadwater`);
    *  from 2 the start's ground asks for half the land it otherwise joins (`minFoot`, a target, D85),
    *  a plan's start may be levelled from further (by a bank too) and needs no second place; from 3
    *  a land holding fewer rivers on its edge than the Rivers count is kept and a small map's start
@@ -387,7 +401,7 @@ export const WEAR_MOST = 200;
 export function rescueRounds(W: number, H: number): number {
   // (more on small maps, whose rounds are quick and whose land most often has no room: about the
   // same time as six at 192² and up)
-  return Math.max(6, Math.min(24, Math.round((12 * 128 * 128) / (W * H))));
+  return Math.max(6, Math.min(48, Math.round((12 * 128 * 128) / (W * H))));
 }
 /** Genomes a round may draw before the next round's begin (a round draws a few dozen at most). */
 const ROUND_GENOMES = 1000;
@@ -1151,6 +1165,15 @@ function reachesDown(cells: readonly number[], spill: Float64Array, W: number, H
   return false;
 }
 
+/** Dry tiles within 20 tiles' walk of the start (where the start rules count its wood and berries). */
+function walkLand(b: BuildResult): number {
+  const d = startWalk(b, true);
+  if (!d) return 0;
+  let n = 0;
+  for (let i = 0; i < d.length; i++) if (d[i] <= 20 && !(b.water[i] > WET)) n++;
+  return n;
+}
+
 /** Tiles the colony walks to from the start (the objects must not cut the start off). */
 function startWalkable(b: BuildResult): number {
   const d = startWalk(b, true);
@@ -1459,6 +1482,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const rule = spec.settings.start.rules.waterWithin;
   // (a rescue round's easing, D471)
   const ease = opts.ease ?? 0;
+  // (D471: a rescue round asks a badwater distance no more than the map's size allows, each round a
+  // little less, the hollows placed, the start held and the map checked at it alike; never under 15
+  // tiles, or the player's own if nearer. Since the distance became a rule, #265, a 48² map asked for
+  // 60 made none: no start on it stands 60 tiles from anything. The spec the map carries keeps the
+  // player's)
+  if (ease >= 1) {
+    const hz = spec.settings.hazards;
+    const eased = easedBadwater(Math.max(hz.badwaterDistance, spec.settings.start.rules.badwaterWithin), W, H, ease);
+    hz.badwaterDistance = Math.min(hz.badwaterDistance, eased);
+    spec.settings.start.rules.badwaterWithin = Math.min(spec.settings.start.rules.badwaterWithin, eased);
+  }
   // the walk the start's settled water is held to: the rule less a margin (`waterAim`); in a rescue
   // round, a rule under 7 is held to itself, as the check reads it (the margin leaves a start at 4
   // or 5 a tile or two to its shore)
@@ -1710,8 +1744,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
-    // (a target, D85; a rescue round, D471, asks no more than the map's size allows)
-    distance: Math.min(Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin), ease >= 1 ? Math.max(8, Math.round(0.3 * Math.max(W, H))) : Infinity),
+    // (the start's rule, D469 amended; a rescue round's is eased above)
+    distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin),
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
@@ -2544,6 +2578,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // its badwater comes to rest, gives way to another start on the same settled water, as a start
     // whose water moved does (not on the last attempt, whose map is the one kept when none passes)
     if (!why && !lastAttempt && b.start && badwaterNear(b, b.start) < badWithin) why = "start.badwater";
+    // (D471: in a rescue round, a start whose 20 tiles' walk holds less dry land than the wood and
+    // berries the start rules ask need gives way to another, as one whose water moved does: a 48²
+    // start asked for 800 logs and 200 bushes in a pocket of land got neither)
+    if (!why && !lastAttempt && ease >= 1 && moistWant > MOIST_WALK && b.start && walkLand(b) < moistWant) why = "start walk too small";
     if (!why && N <= 96 * 96) {
       const objects = planExtras({ spec, base: b, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
       const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");
