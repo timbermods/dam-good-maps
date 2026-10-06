@@ -539,15 +539,28 @@ const CONFIG = {
 
   async function readText(path, quiet) {
     try {
-      const r = await fetchT(RAW + path, { cache: 'no-cache' });
+      const r = await fetchT(rawBase + path, { cache: 'no-cache' });
       if (!r.ok) return { ok: false, status: r.status };
       return { ok: true, text: (await r.text()).replace(/\r\n/g, '\n') };
     } catch (e) { return { ok: false, status: 0, quiet }; }
   }
 
   // The raw texts, kept in this browser so the page opens at once; a document that can't be read keeps last time's.
+  // The texts are read at the branch's latest commit: a branch's raw files can be served stale for a long time
+  // (a cache between some browsers and GitHub ignores no-cache), a commit's never change. If the commit can't be
+  // read, the branch is read as before.
+  let rawBase = RAW;
+  async function pinRaw() {
+    try {
+      const r = await fetchT(`https://api.github.com/repos/${CONFIG.repo}/commits/${CONFIG.branch}`, { cache: 'no-cache', headers: { Accept: 'application/vnd.github.sha' } });
+      const sha = r.ok ? (await r.text()).trim() : '';
+      rawBase = /^[0-9a-f]{40}$/.test(sha) ? `https://raw.githubusercontent.com/${CONFIG.repo}/${sha}/` : RAW;
+    } catch { rawBase = RAW; }
+  }
+
   async function readDocs(last) {
     const notes = [];
+    await pinRaw();
     const keys = ['roadmap', 'status', 'perfect'];
     const [results, decisions] = await Promise.all([Promise.all(keys.map((k) => readText(CONFIG.paths[k]))), readDecisions(notes)]);
     const texts = {};

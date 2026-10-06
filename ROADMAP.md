@@ -29,7 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, generator 0.8.2, `approved`) is merging; then **badwater joins the main water** (D476, `feature/badwater-joins`,
+  (#325, generator 0.8.2) is merged; next **badwater joins the main water** (D476, `feature/badwater-joins`,
   generator 0.8.3), Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
   Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
@@ -73,7 +73,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 
 1. **The badwater line** (done, #265, generator 0.8.1; D469): badwater joins rivers and lakes, the start keeps clean, pumpable
    water (D85) and no badwater within 15 of it. Its Naturalize shortfalls are fixed (#324).
-2. **Delta arms round 2** (#325, generator 0.8.2, `approved`, merging): #233's arms, adopted on dev.
+2. **Delta arms round 2** (done, #325, generator 0.8.2): #233's arms, adopted on dev.
 3. **Badwater joins the main water** (D476, `feature/badwater-joins`, generator 0.8.3, `needs-kyler` for its sheets): on most
    maps a badwater course is routed into the theme's main water (Lake Basin's main lake; elsewhere `river/main`, Delta's
    trunk, Islands' sea); about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
@@ -204,7 +204,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 
 **Speed rounds (done):** water speed (#290, the flow layout and the skipped wet-list rebuild, no SIMD) and forces speed half A
 (#289) are merged; generation speed (#291) was closed unadopted: generation gets faster with the generator's Rust port after
-the theme queue. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
+the theme queue. Generation speed round 3 (#326, merged as a record) is not adopted: its patch saved 2.9% in total
+(median 1.1%, some themes slower). It found that failed layouts take about half the generation time, and the only large
+lever changes maps, so it belongs to a generator round if Kyler ever asks for one. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
 merged. The dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279) is parked (see its
 section below).
 

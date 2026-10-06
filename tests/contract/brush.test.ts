@@ -10,6 +10,7 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applyBrush, brushProblems, BrushStroke, type BrushParams, type BrushTool } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { ridingPieces } from "../../src/core/features/edits";
 import { padTile } from "../../src/core/features/raster/terrain";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
@@ -82,15 +83,11 @@ describe("a brush stroke is exact", () => {
       }
   });
 
-  // Expected failure, kept on the seed that caught it: on 0.8.3's Islands 96² seed 5 (D476), the first
-  // stroke, a Raise (Size 6, Strength 9) over a lake 1.4 deep at (59–61, 38–40), paints 10 and 12 on the
-  // page where the operation builds 11. For the milestone session; when it passes, it comes off this list.
-  const fails = new Set(["islands 96 5"]);
   for (const [theme, size, seed] of [
     ["riverValley", 96, 3],
     ["islands", 96, 5],
   ] as [ThemeId, number, number][])
-    (fails.has(`${theme} ${size} ${seed}`) ? it.fails : it)(`${theme} ${size}²: what the page paints is what the operation builds, byte for byte, and replays to the same file`, () => {
+    it(`${theme} ${size}²: what the page paints is what the operation builds, byte for byte, and replays to the same file`, () => {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
@@ -104,9 +101,13 @@ describe("a brush stroke is exact", () => {
       const { dabs, ...settings } = p;
       const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
       for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
-      // the worker: the operation
+      // let go: a source of several tiles it tilted rides it whole (D249), as the page does
+      const rigid = preview.rides(ridingPieces(s.built.entities, W, W));
+      if (rigid.length) preview.finish(rigid);
+      // the worker: the operation (handed no pieces: the session finds the same ones itself)
       const u = s.apply({ op: "brush", params: p }, "user", "stroke");
       expect(u.errors).toEqual([]);
+      expect((u.applied[0].params as BrushParams).rigid ?? []).toEqual(rigid);
       expect(Array.from(shown), `${tool} stroke ${k}`).toEqual(Array.from(s.built.heights));
       expect(Array.from(preview.pre)).toEqual(Array.from(s.terrainState().pre));
     }

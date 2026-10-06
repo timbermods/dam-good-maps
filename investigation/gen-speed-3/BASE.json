@@ -1,0 +1,44 @@
+{
+  "base": "c896e83c092960c4ddb5939207e1d99863a19ac8",
+  "branch": "investigation/gen-speed-3",
+  "target": "dev",
+  "themes": [
+    "any",
+    "riverValley",
+    "canyon",
+    "highlands",
+    "lakeBasin",
+    "delta",
+    "islands"
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "size": 128,
+  "settings": "makeSpec defaults: Normal, Variety 70",
+  "node": "v22.23.3",
+  "wasm": {
+    "water": {
+      "source": "src/core/sim/waterWasm.ts",
+      "bytes": 206732,
+      "sha256": "ffa052a0145adc5d6eaa527a0875ddd6e566d9b33bef912bcabdf1e62daa1c04"
+    },
+    "forces": {
+      "source": "src/core/forces/rust/forcesWasm.ts",
+      "bytes": 917626,
+      "sha256": "7e32213f868e85869716b9fafdfbaa3ca6ac4b4fd3814fb962d5637ae8aa13ad"
+    },
+    "analysis": {
+      "source": "src/core/analysis/rust/analysisWasm.ts",
+      "bytes": 63607,
+      "sha256": "0f1fe285482ebf12e68b0072d33d26c0b94729169373dce2e013877807125186"
+    },
+    "checks": {
+      "source": "src/core/validate/checksWasm.ts",
+      "bytes": 527082,
+      "sha256": "4eea6a052f187f5676b00650128dbf04b899f909beb2fe3beb1cd9467ddba8fa"
+    }
+  }
+}

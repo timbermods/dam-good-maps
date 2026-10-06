@@ -50,12 +50,14 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
    each merged after a green full run, no pin moved; #310's F3 landed in #265's re-pin. Still to land: #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's, now that #311 is merged (page part before worker part).
-2. Merged on 2026-10-05: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's). In flight:
-   Delta arms round 2 (#325, generator 0.8.2, `approved`), merging after its full run.
+2. Merged on 2026-10-05 and 06: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's),
+   Delta arms round 2 (#325, generator 0.8.2); CI: investigation-only PRs run only `changes` (#327), the quick suite in two
+   shards (#333, it had reached 28 of its 30 minutes); the roadmap canvas reads dev's latest commit (#328); one core rule for
+   the pieces that ride a brush stroke (#331, a preview mismatch #330's maps exposed).
 3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
    Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
-   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, `feature/badwater-joins`, in
-   progress, with contamination-shaded sheets and two High-look captures), then Lake Basin round 3 (#234,
+   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, #330, sheets and High-look captures
+   built; its last test fixes and full run in progress, then `needs-kyler`), then Lake Basin round 3 (#234,
    `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
    marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
    makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
