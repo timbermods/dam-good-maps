@@ -54,8 +54,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    session's, now that #311 is merged (page part before worker part).
 2. #265 is merged (generator 0.8.1, Kyler approved its sheets). Before the queue's next step: the two Naturalize failures
    #265's maps exposed (settling on River Valley seed 3 at Size 12, terraces on River Valley seed 6), each cause fixed in its
-   own PR (in progress); a fix that changes what a player sees goes to Kyler first.
-3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: Delta arms round 2 (#233), Lake Basin
+   own PR: one bug behind both, #324 (`needs-kyler`, rule 4 of Naturalize's weathering, a before | rule 3 | rule 4 image).
+3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: Delta arms round 2 (#325, generator 0.8.2,
+   `needs-kyler` for its sheets; merges after #324 is settled), Lake Basin
    round 3 (#234), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261). #233 and #244 fold in
    the poisoned main river's fix (ROADMAP, the generator queue).
 4. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
