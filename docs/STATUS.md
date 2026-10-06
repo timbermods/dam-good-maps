@@ -62,7 +62,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, `feature/badwater-joins`, in
    progress, with contamination-shaded sheets and two High-look captures), then Lake Basin round 3 (#234,
    `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
-   marked), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
+   marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
+   makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 4. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
    the dam sketch after the Weather view.
 
