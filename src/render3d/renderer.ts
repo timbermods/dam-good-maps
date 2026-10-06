@@ -71,6 +71,7 @@ import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
+import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
 import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
 import { focusLost } from "./focusLost";
@@ -1270,13 +1271,15 @@ export class MapRenderer {
     }
   }
 
+  private readonly entityModels = new EntityGeometryCache();
+
   private setEntitiesInner(e: EntityView): number {
     if (this.objects) {
       this.high?.releaseObjects();
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software);
+    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -2843,6 +2846,7 @@ export class MapRenderer {
     for (const m of Object.values(this.std)) m.dispose();
     this.sky.geometry.dispose();
     this.patterns.dispose();
+    this.entityModels.dispose();
     this.gl.dispose();
     // free the context now: browsers keep only a few, and the editor opens a view per map
     this.gl.forceContextLoss();
