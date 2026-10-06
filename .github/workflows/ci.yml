@@ -12,6 +12,7 @@ on:
 # What runs, by event:
 #   pull request into dev    the light set: `changes`, `test` (typecheck, quick suite, build) and the browser shards.
 #                            Not while a PR is a draft: marking it ready runs CI. A newer push cancels the run.
+#                            One that touches only investigation/ (Codex's investigation PRs) runs `changes` alone.
 #   merge group (the queue)  the full suite on the merged state, once per batch of queued PRs, classified by the batch's
 #                            change (below). Nothing merges into dev without it. Pushes to dev run no CI; the
 #                            nightly (nightly.yml) checks dev's tip every night.
@@ -30,7 +31,8 @@ concurrency:
 # The `changes` job decides what a run needs (tools/ci-changes.mjs, tests/unit/ci-changes.test.ts). Three classes of
 # change, for pull requests into dev and merge groups; main and manual runs run everything:
 #   - only documents, investigation/, LICENSE or package.json's descriptive fields (not dependencies, devDependencies,
-#     scripts or anything else): `test` runs its two document tests and the build; every other job is skipped;
+#     scripts or anything else): `test` runs its two document tests and the build; every other job is skipped; a pull
+#     request into dev touching only investigation/ skips `test` too (the nightly and the merge still check it);
 #   - only src/editor/, src/ui/ and the browser specs (tests/e2e/), plus documents: `test` and the browser shards run;
 #     oracle, generation, engines and rust are skipped;
 #   - anything else: all of them, except the Rust checks, which run only when rust/, tools/rust/, the toolchain
@@ -45,6 +47,7 @@ jobs:
       heavy: ${{ steps.which.outputs.heavy }}
       suites: ${{ steps.which.outputs.suites }}
       rust: ${{ steps.which.outputs.rust }}
+      test: ${{ steps.which.outputs.test }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -60,6 +63,8 @@ jobs:
 
   test:
     needs: changes
+    # (skipped for a pull request into dev that touches only investigation/)
+    if: needs.changes.outputs.test != 'false'
     runs-on: ubuntu-latest
     # the browser specs alone take about 25 minutes with the forces and Glaciate; 30 cut them off
     timeout-minutes: 30
