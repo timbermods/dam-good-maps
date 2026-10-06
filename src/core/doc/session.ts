@@ -24,7 +24,7 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import { limitRuns, tiltedPieces, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { terrainColumns } from "../terrain/runs";
@@ -783,15 +783,15 @@ export class MapSession {
     // by dab with some scree slopes lost; rule 2, the whole stroke at once, saved with where water
     // would stand round it, `rim`)
     // (rule 4 painted on the page comes with its rule but never its ring: added here)
-    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || ((applied.params.weathering === 3 || applied.params.weathering === 4) && applied.params.rim === undefined))) {
+    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || (byDabRule(applied.params.weathering) && applied.params.rim === undefined))) {
       const pre = this.cur.cache.terrain.pre7;
       const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
-      applied.params = { ...applied.params, weathering: applied.params.weathering ?? 4, ...(rim.length ? { rim } : {}) };
+      applied.params = { ...applied.params, weathering: applied.params.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
     }
     // and where the settled water stood round it (rule 3: and the moist ground), unless the page
     // recorded the water it showed
     const p = applied.op === "brush" ? applied.params : null;
-    if (p && (p.weathering === 2 || p.weathering === 3 || p.weathering === 4) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
+    if (p && (p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
       const box = weatherBox(p, this.size.x, this.size.y);
       if (box) {
         if (p.weathering === 2) {

@@ -215,7 +215,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
     // (the same rectangle as the last dab's: the same land and water before it, worked out once)
     const key = `${box.x0},${box.y0},${box.x1},${box.y1}:${inp.version ?? 0}`;
     const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key));
-    const { lo, hi, wet, shedHi, ring, w0, still } = p;
+    const { lo, hi, wet, shedHi, ring, w0, still, water } = p;
     // (rule 3: an edge wanders only where this dab presses harder than those before it)
     let fresh: Uint8Array | null = null;
     if (inp.was) {
@@ -227,7 +227,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
     }
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, inp.rule === 4);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, inp.rule === 4 || inp.rule === 5, inp.rule === 5 ? water : null);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water
@@ -305,6 +305,8 @@ interface Prepared {
   ring: Int16Array;
   w0: Int16Array;
   still: Uint8Array;
+  /** Where water stood when the stroke began (rule 3's limits). */
+  water: Uint8Array;
   /** The ways water could leave it before the stroke, worked out when first asked. */
   passages?: Passages;
 }
@@ -321,6 +323,7 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
   for (const [y, a, b] of inp.pools ?? []) for (let x = Math.max(a, box.x0); x <= Math.min(b, box.x1); x++) if (y >= box.y0 && y <= box.y1) hi[(y - box.y0) * bw + x - box.x0] = h0[(y - box.y0) * bw + x - box.x0];
   // (rule 3: the same from the map's limits, and the moist ground held where it is)
   const limits = inp.limits;
+  const water = new Uint8Array(n);
   if (limits)
     for (let y = 0; y < bh; y++)
       for (let x = 0; x < bw; x++) {
@@ -329,6 +332,7 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
         if (limits.lo[g]) lo[k] = limits.lo[g];
         if (limits.wet[g] || limits.moist[g]) hi[k] = h0[k];
         if (limits.moist[g]) lo[k] = h0[k];
+        if (limits.wet[g]) water[k] = 1;
       }
   const wet = hi.slice();
   const shedHi = hi.slice();
@@ -364,7 +368,7 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
       for (let yy = Math.max(0, y - CLIFF_ROOM); yy <= Math.min(bh - 1, y + 1 + CLIFF_ROOM); yy++)
         for (let xx = Math.max(0, x - CLIFF_ROOM); xx <= Math.min(bw - 1, x + 1 + CLIFF_ROOM); xx++) still[yy * bw + xx] = 1;
     }
-  return { key, lo, hi, wet, shedHi, ring, w0, still };
+  return { key, lo, hi, wet, shedHi, ring, w0, still, water };
 }
 
 // ------------------------------------------------------------------------------------------ wander
@@ -564,8 +568,18 @@ const SHED_CELL = 12;
  *  shed: painting again leaves it as it is. Changes `h` in place; `hi` is the highest each tile may
  *  stand, `lo` the lowest. `every` (rule 4): the distance is measured from every cliff; rules 2 and 3
  *  lost some of them (their strokes replay as they were). */
-function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false): void {
+function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false, water: Uint8Array | null = null): void {
   const n = bw * bh;
+  // (rule 5: each cliff's tops and feet, joined into one cliff where they touch, so what its top
+  // loses its foot gains)
+  const part = water ? i32("shed.part", n).fill(-1) : null;
+  // (and the feet the top pulls back from, its own: nothing builds up there)
+  const pull = water ? u8("shed.pull", n).fill(0) : null;
+  const join = (a: number, b: number) => {
+    const ra = find(part!, a);
+    const rb = find(part!, b);
+    if (ra !== rb) part![Math.max(ra, rb)] = Math.min(ra, rb);
+  };
   const on = (k: number) => I[k] >= SHED_FROM;
   // where the slope starts: down from the middle at each cliff's foot (the ceiling over the ground
   // above), up from the middle at its top (the floor under the ground below); as keys, LEVEL a level
@@ -588,21 +602,34 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
         const top = D > 0 ? k : j;
         const foot = top === k ? j : k;
         const F = h[foot];
+        // (rule 5: a cliff standing in water keeps its top: what it sheds the water takes away)
+        if (water && hi[foot] <= F && water[foot]) continue;
         const room = -run * Math.ceil((D > 0 ? D : -D) / 2);
         if (room < far[top]) far[top] = room;
         if (room < far[foot]) far[foot] = room;
         if (hi[foot] <= F) {
           // a foot that may not rise: the top pulls back from it
           cut[foot] = Math.min(cut[foot], LEVEL * F);
+          if (pull) pull[foot] = 1;
         } else {
           const mid = F + Math.ceil((D > 0 ? D : -D) / 2);
           cut[foot] = Math.min(cut[foot], LEVEL * (mid - 1));
           fill[top] = Math.min(fill[top], -LEVEL * mid);
+          if (part) {
+            if (part[top] < 0) part[top] = top;
+            if (part[foot] < 0) part[foot] = foot;
+            join(top, foot);
+          }
         }
         any = true;
       }
     }
   if (!any) return;
+  if (part)
+    for (let k = bw; k < n - bw; k++) {
+      if (part[k] < 0) continue;
+      for (const j of [k + 1, k + bw - 1, k + bw, k + bw + 1]) if (part[j] >= 0) join(k, j);
+    }
   // how far each tile is from a cliff, in fifths of a tile (a straight step 5, a diagonal 7): a cliff
   // sheds only so far round it (farther with Strength, and as the map's noise says, so it retreats
   // unevenly along its length); ground beyond is left as it is, and holds the slope as ground the
@@ -669,7 +696,8 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   const around = [-1, 1, -bw, bw, -bw - 1, -bw + 1, bw - 1, bw + 1];
   const diagonal = new Int32Array(LEVEL + 1);
   for (let c = 0; c <= LEVEL; c++) diagonal[c] = Math.round(c * 1.4142);
-  const spread = (key: Int32Array, limit: number) => {
+  // (`org`, rule 5: each tile takes the cliff its key came from)
+  const spread = (key: Int32Array, limit: number, org: Int32Array | null = null) => {
     let base = INF;
     for (let k = 0; k < n; k++) if (key[k] < base) base = key[k];
     if (base > limit) return;
@@ -744,17 +772,19 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
           const v = kk + (e < 4 ? step : diagonal[step]);
           if (v >= key[j] || v > limit) continue;
           key[j] = v;
+          if (org) org[j] = org[k];
           queue(j, v - base);
         }
       }
   };
   const level = (key: number) => Math.ceil(key / LEVEL);
-  const ceilAt = (k: number) => {
-    const v = level(cut[k] + wob[k]);
+  // (`s`, rule 5: the slope shifted that many levels, the cut's up, the fill's down)
+  const ceilAt = (k: number, s = 0) => {
+    const v = level(cut[k] + wob[k]) + s;
     return step[k] === 2 ? v + (v & 1) : v;
   };
-  const floorAt = (k: number) => {
-    const v = -level(fill[k] - wob[k] - lobe[k]);
+  const floorAt = (k: number, s = 0) => {
+    const v = -level(fill[k] - wob[k] - lobe[k]) - s;
     return step[k] === 2 ? v - (v & 1) : v;
   };
   const beside = (k: number) => cost[k - 1] || cost[k + 1] || cost[k - bw] || cost[k + bw];
@@ -764,9 +794,21 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   };
   const v = u8("shed.v", n);
   v.set(h);
+  // (rule 5: the cliff each tile's slope comes from, down from its foot and up from its top)
+  let fromFoot: Int32Array | null = null;
+  let fromTop: Int32Array | null = null;
+  if (part) {
+    fromFoot = i32("shed.fromFoot", n).fill(-1);
+    fromTop = i32("shed.fromTop", n).fill(-1);
+    for (let k = 0; k < n; k++) {
+      if (part[k] < 0) continue;
+      if (cut[k] < INF && !pull![k]) fromFoot[k] = find(part, k);
+      if (fill[k] < INF) fromTop[k] = find(part, k);
+    }
+  }
   // the cut: ground above the slope comes down to it, but no more than two levels below ground it
   // may not move (and a level less each tread from there)
-  spread(cut, LEVEL * maxH);
+  spread(cut, LEVEL * maxH, fromFoot);
   const held = i32("shed.held", n).fill(INF);
   for (let k = 0; k < n; k++) {
     if (!inner(k)) continue;
@@ -786,7 +828,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
   }
   // the fill: ground below the slope comes up to it, but no more than two levels above ground it
   // may not move, nor above the ground just cut (and a level more each tread from there)
-  spread(fill, -LEVEL * minH);
+  spread(fill, -LEVEL * minH, fromTop);
   const capped = i32("shed.capped", n).fill(INF);
   for (let k = 0; k < n; k++) {
     if (!inner(k)) continue;
@@ -803,6 +845,59 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     if (capped[k] < INF) t = Math.min(t, level(capped[k]));
     t = Math.max(h[k], Math.min(t, hi[k]));
     v[k] = t;
+  }
+  if (fromFoot && fromTop) {
+    // rule 5: the scree builds up at the foot from what the top loses. Each cliff's top comes down
+    // by no more than its foot can take, and its foot rises by no more than its top gives: the side
+    // that would move more moves less, its slope shifted a level at a time (the cut's up, the
+    // fill's down) until it moves no more than the other
+    const lose = i32("shed.lose", n).fill(0);
+    const gain = i32("shed.gain", n).fill(0);
+    for (let k = 0; k < n; k++) {
+      if (v[k] < h[k] && fromFoot[k] >= 0) lose[fromFoot[k]] += h[k] - v[k];
+      else if (v[k] > h[k] && fromTop[k] >= 0) gain[fromTop[k]] += v[k] - h[k];
+    }
+    const cutAt = (k: number, s: number) => {
+      let t = ceilAt(k, s);
+      if (held[k] < INF) t = Math.max(t, -level(held[k]));
+      return Math.min(h[k], Math.max(t, lo[k]));
+    };
+    const fillAt = (k: number, s: number) => {
+      let t = floorAt(k, s);
+      if (capped[k] < INF) t = Math.min(t, level(capped[k]));
+      return Math.max(h[k], Math.min(t, hi[k]));
+    };
+    // (each cliff's shift: 0 until settled; a cliff settles at the first shift that balances it)
+    const shift = i32("shed.shift", n).fill(0);
+    const open = u8("shed.open", n).fill(0);
+    let left = 0;
+    for (let c = 0; c < n; c++) if (lose[c] !== gain[c] && (lose[c] > 0 || gain[c] > 0)) (open[c] = 1), left++;
+    const sum = i32("shed.sum", n);
+    for (let s = 1; left && s <= maxH - minH + 1; s++) {
+      for (let c = 0; c < n; c++) if (open[c]) sum[c] = 0;
+      for (let k = 0; k < n; k++) {
+        if (v[k] < h[k]) {
+          const c = fromFoot[k];
+          if (c >= 0 && open[c] && lose[c] > gain[c]) sum[c] += h[k] - cutAt(k, s);
+        } else if (v[k] > h[k]) {
+          const c = fromTop[k];
+          if (c >= 0 && open[c] && gain[c] > lose[c]) sum[c] += fillAt(k, s) - h[k];
+        }
+      }
+      for (let c = 0; c < n; c++) {
+        if (!open[c]) continue;
+        if (lose[c] > gain[c] ? sum[c] <= gain[c] : sum[c] <= lose[c]) (open[c] = 0), (shift[c] = s), left--;
+      }
+    }
+    for (let k = 0; k < n; k++) {
+      if (v[k] < h[k]) {
+        const c = fromFoot[k];
+        if (c >= 0 && lose[c] > gain[c]) v[k] = shift[c] ? cutAt(k, shift[c]) : h[k];
+      } else if (v[k] > h[k]) {
+        const c = fromTop[k];
+        if (c >= 0 && gain[c] > lose[c]) v[k] = shift[c] ? fillAt(k, shift[c]) : h[k];
+      }
+    }
   }
   h.set(v);
 }

@@ -141,7 +141,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 4 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 5 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -224,8 +224,11 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
   // River Valley 6 (2,388 → 2,412 with rule 3) passes with rule 4 (2,299), whose shed measures the
   // slope from every cliff. With rule 4, River Valley 3 ends 2,079 → 2,298 and Lake Basin 1 2,300 →
-  // 2,315.
-  const fails = new Set(["riverValley 3", "lakeBasin 1"]);
+  // 2,315. Rule 5 (scree builds up at a cliff's foot from what its top loses; a cliff whose foot may
+  // not rise stands) clears Lake Basin 1 (2,300 → 2,254 on 0.8.3). River Valley 3 still fails
+  // (2,008 → 2,205; rule 4 2,258): its cliffs' feet are dry and take the scree, and a cliff made a
+  // slope of two-level steps has more level edges than the cliff had.
+  const fails = new Set(["riverValley 3"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
@@ -360,7 +363,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 4, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 5, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
