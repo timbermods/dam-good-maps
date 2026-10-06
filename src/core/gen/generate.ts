@@ -51,7 +51,7 @@ import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad 
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
-import { mainLake, mainRiver, planBadwater, type Hazards } from "../land/hazards";
+import { mainWater, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
@@ -102,12 +102,9 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
-/** Lake Basin maps (in 100) whose main lake badwater may reach (Kyler, 2026-10-05: the occasional
- *  variation, not the rule). */
-const POISONED_LAKE = 15;
-/** River Valley and Delta maps (in 100) whose main river badwater may reach (Kyler, 2026-10-05, #265:
- *  the same occasional variation as Lake Basin's lake, drawn apart). */
-const POISONED_RIVER = 15;
+/** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
+ *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
+const OWN_DRAIN = 15;
 /** Days the water is run on past its settle for the start's badwater distance, where badwater mixes
  *  into water near the start (#265: River Valley 128² seed 12's came to rest by the fourth day), and
  *  the least share of badwater that starts the run. */
@@ -156,7 +153,9 @@ export interface GenerationInfo {
   /** The automatic fixes made on the shown land after its water settled (D348): "start from the
    *  plan" (no place for a start on the settled water: the start goes where the plan put it), "start
    *  on dry ground", "spring by the start" (a group of sources in a hollow or dry bed by the start,
-   *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)). */
+   *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)), "start
+   *  moved off badwater" (a start that broke the badwater distance gave way to another), "start by
+   *  other water" (the badwater joins the main water past the start planned from, D476). */
   fixes?: string[];
   /** The way out worn wider (D350 (b), D360 (3)): the tiles cut, the basin's size and its level, the
    *  width worn and the path its water takes out. */
@@ -1737,20 +1736,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the size, each about as strong (resources/badwater.ts `badwaterBudget`, moved by the seed and
   // scaled by the Badwater setting), each in a hollow of its own
   const budget = badwaterBudget(W, H, spec.settings.hazards.badwater, seed);
-  // (the theme's main water stays clean: Lake Basin's lake, River Valley's and Delta's main river; on
-  // about one map in seven its badwater may reach it, the occasional poisoned lake or river: Kyler,
-  // 2026-10-05, #265)
-  const cleanKind =
-    shown.theme === "lakeBasin" && hash32(seed, "poisoned lake") % 100 >= POISONED_LAKE
-      ? "lake"
-      : (shown.theme === "riverValley" || shown.theme === "delta") && hash32(seed, "poisoned river") % 100 >= POISONED_RIVER
-        ? "river"
-        : null;
-  const mainWater = (): Uint8Array | null => (cleanKind === "lake" ? mainLake(hy.water, W, H) : cleanKind === "river" ? mainRiver(hy, W, H) : null);
-  // (and on a Delta drawn poisoned its main river takes the badwater, rather than only being allowed
-  // it: the ditches went to the nearest water, which was seldom the main river, ROADMAP's generator
-  // queue. River Valley joins with its round, #244)
-  const poisonWater = (): Uint8Array | null => (shown.theme === "delta" && !cleanKind ? mainRiver(hy, W, H) : null);
+  // (D476: on most maps one badwater course joins the theme's main water, hazards.ts `mainWater`, as
+  // in the game: badwater that drains on its own is no challenge, and diverting it is part of the
+  // fun; on the occasional map, by its own draw, the badwater drains where the land takes it)
+  const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN;
+  const joinWater = (): Uint8Array | null => (joins ? mainWater(shown.theme, hy, W, H) : null);
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
@@ -1774,7 +1764,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, keepClean: mainWater(), poison: poisonWater() }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, join: joinWater() }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
@@ -1998,7 +1988,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // is shown, D348)
       let keepOffH = badAsk.keepOff ?? null;
       let hollowTries = 0;
-      let lakeOf: Uint8Array | null = null;
       // (the pre-fill of the land as it will be shown, for the dam-wall check below)
       let shownFill: Float64Array | null = null;
       for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
@@ -2008,18 +1997,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const fill = pf.depth;
         const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
         shownFill = Float64Array.from(fill);
-        // (the theme's main water kept clean, Kyler, 2026-10-05, #265: a ditch whose badwater the
-        // pre-fill carries into it, through water the land's drainage did not lead there, a flat that
-        // floods into the lake, is planned again off that water while tries are left)
-        let poisons = false;
-        if (cleanKind && bad.features.length && hollowTries + 1 < HOLLOW_TRIES) {
-          lakeOf ??= mainWater()!;
-          let n = 0;
-          let hit = 0;
-          for (let i = 0; i < N; i++) if (lakeOf[i]) { n++; if (fill[i] > WET && pf.contamination[i] >= 0.05) hit++; }
-          poisons = hit > 0.1 * n;
-        }
-        if (!reached.size && !poisons) break;
+        if (!reached.size) break;
         shownFill = null;
         const leave = hy.rivers.filter((r) => reached.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
         if (reached.size && (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length)) {
@@ -2030,15 +2008,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           dropRivers(leave.map((r) => r.id));
           droppedPre.push(...leave.map((r) => r.id));
         }
-        if (poisons || bad.features.some((f) => reached.has(f.id))) {
+        if (bad.features.some((f) => reached.has(f.id))) {
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
           keepOffH = orMask(keepOffH, bad.avoid);
-          if (poisons) {
-            const took = new Uint8Array(N);
-            for (let i = 0; i < N; i++) if (fill[i] > WET && pf.contamination[i] > 0) took[i] = 1;
-            keepOffH = orMask(keepOffH, took);
-          }
           bad = ++hollowTries < HOLLOW_TRIES && guess ? planBad(est, { ...badAsk, keepOff: keepOffH }, attempt * 4 + 5 + hollowTries, guess) : noBad;
           if (bad.features.length) {
             h.set(bad.heights);
@@ -2089,7 +2062,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
         if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
       }
-      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       // (above 128² the land is shown as soon as it passes the land stage, D348, D278: there the
       // target is time to editable land, 3 s typical, and the settle a hidden land would wait for
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
@@ -2629,9 +2602,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       h.set(levelled);
       return fail(why, b, true);
     }
+    if (why === "start.badwater" && !fixes.includes("start moved off badwater")) fixes.push("start moved off badwater");
     cur = again;
   }
   pick = cur;
+  // (D476: the main water's badwater joins it past the start planned from, so the start was found by
+  // other clean water)
+  if (bad.past) fixes.push("start by other water");
   if (badAsk.count > 0 && !bad.features.length) return fail("no place for badwater", base, true);
   // D171: a source inside a flow fails the map (water.source_in_flow, blocking here); the objects and
   // resources change no water, so it is found on this settle and the field planned again at once

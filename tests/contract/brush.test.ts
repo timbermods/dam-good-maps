@@ -83,10 +83,11 @@ describe("a brush stroke is exact", () => {
       }
   });
 
-  it.each([
+  for (const [theme, size, seed] of [
     ["riverValley", 96, 3],
     ["islands", 96, 5],
-  ] as [ThemeId, number, number][])("%s %i²: what the page paints is what the operation builds, byte for byte, and replays to the same file", (theme, size, seed) => {
+  ] as [ThemeId, number, number][])
+    it(`${theme} ${size}²: what the page paints is what the operation builds, byte for byte, and replays to the same file`, () => {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
@@ -378,8 +379,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
   // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
   it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
-    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148)
-    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148; seed 3 since 0.8.3's courses follow the land, D476, where seeds 1, 2 and 4–8 have none)
+    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");

@@ -2,8 +2,9 @@
 // rises in a hollow on high ground (a pit dug two levels into the rock, its outline irregular) and
 // drains by its own winding ditch down the slope into a river or a lake, as most maps' badwater
 // does (Kyler, 2026-10-03, D469: contamination is part of the game's challenge, and working out how
-// to deal with it is the pleasure), and to the map's edge only where it can reach no water it may
-// join; never into nor across the start's own clean water, which stays pumpable (D85). A levee on
+// to deal with it is the pleasure), on most maps one of them into the theme's main water (D476),
+// and to the map's edge only where it can reach no water it may join; never into nor across the
+// start's own clean water, which stays pumpable (D85). A levee on
 // the ditch is the counterplay (`water.badwater_contained` is information, D469). The set piece
 // carries the pit's source, floor and outlet; the pit's own shape is the
 // terrain's, which the generated field holds.
@@ -25,7 +26,7 @@ import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
 import type { Feature, SetPieceFeature } from "../features/schema";
 import { hash32 } from "../math/hash";
-import { distanceFrom, MinHeap, N4 } from "../math/grid";
+import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { fbm } from "../math/noise";
 import { stream, type Rng } from "../math/rng";
 import { walkRoute } from "./wind";
@@ -49,6 +50,9 @@ export interface Hazards {
   heights: Uint8Array;
   /** Tiles the objects and resources keep off (the pits, their rims and their ditches). */
   avoid: Uint8Array;
+  /** The join to the main water runs into water that passed the start planned from (D476): the start
+   *  is then found by other clean water (a reading for the generator's fixes). */
+  past?: boolean;
 }
 
 export interface BadwaterAsk {
@@ -64,24 +68,32 @@ export interface BadwaterAsk {
   /** The eroded field the land was snapped from (levels, floats): a ditch follows its drainage as
    *  the rivers do. Without it the ditch takes the cheapest way. */
   field?: Float64Array | null;
-  /** The theme's main water, kept clean on most maps (Kyler, 2026-10-05, #265): Lake Basin's main lake
-   *  (`mainLake`), River Valley's and Delta's main river (`mainRiver`). No ditch joins it or water that
-   *  flows into it, which would carry its badwater there. */
-  keepClean?: Uint8Array | null;
-  /** The theme's main water on a map drawn poisoned (the occasional map, Kyler, 2026-10-05): the first
-   *  hollow's ditch joins it, below the start's water where it can, else beyond the badwater distance
-   *  with the start then kept by other clean water (D85), so the poisoned map really has a poisoned
-   *  river; without it the ditch went to the nearest water, seldom the main (#265's sheets: 0 of 20). */
-  poison?: Uint8Array | null;
+  /** The theme's main water (`mainWater`), on the maps whose badwater joins it (D476, most maps): the
+   *  first hollow's ditch joins it or water that flows into it, below the start's water where it can,
+   *  else beyond the badwater distance with the start then found by other clean water (D85); where
+   *  none can, the badwater drains where the land takes it. Without it the ditches go to the nearest
+   *  water, seldom the main (#265's sheets: 0 of 20 Delta maps). */
+  join?: Uint8Array | null;
 }
 
-/** The main river's water (River Valley's and Delta's main water, kept clean on most maps: Kyler,
- *  2026-10-05, #265): the planned water (channels and lakes) of the river the hydrology names
+/** The theme's main water, which badwater joins on most maps (D476), from the hydrology's own plan:
+ *  Lake Basin's main lake (`mainLake`, its largest planned lake); on every other theme the main river
+ *  (`mainRiver`: River Valley's, Canyon's and Highlands' "river/main" with its lakes and the rivers
+ *  joining it, Delta's trunk and own channel, Islands' sea, which its main river drains, Any's as its
+ *  land made it). Each falls back on the other where the map has none. */
+export function mainWater(theme: string, hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
+  const lake = () => mainLake(hy.water, W, H);
+  const river = () => mainRiver(hy, W, H);
+  const first = theme === "lakeBasin" ? lake() : river();
+  return first.some((v) => v) ? first : theme === "lakeBasin" ? river() : lake();
+}
+
+/** The main river's water: the planned water (channels and lakes) of the river the hydrology names
  *  "river/main", from its head to where it leaves the map, with the arms it splits round an island
  *  and the lakes it runs through; on a delta its trunk and its own channel below the fan's apex, not
- *  the fan's other arms (side channels, which badwater may join, D469); and the water of every river
- *  that joins it, whose badwater would run on into it below the junction. Rivers that leave the map
- *  on their own stay open to badwater. Empty on a map without a main river. */
+ *  the fan's other arms (side channels, which badwater may join too, D469); and the water of every
+ *  river that joins it, whose badwater runs on into it below the junction. Empty on a map without a
+ *  main river. */
 export function mainRiver(hy: Pick<Hydro, "water" | "rivers" | "lakes" | "arms">, W: number, H: number): Uint8Array {
   const N = W * H;
   const out = new Uint8Array(N);
@@ -183,11 +195,27 @@ function traceRoute(dn: Drainage, E: Float64Array, rim: readonly number[], pit: 
 }
 
 /** The route of a ditch from the pit's edge down to a river or the map edge where the field's own
- *  way is barred: side-to-side steps, cheapest where the ground falls, never near the start; the
- *  field's rise in the cost keeps it to the land's own slope, and noise makes it wind where the
- *  field is flat. */
-function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number, from: number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, sill: number, wander: number, toEdge: boolean): { tiles: number[]; end: number } | null {
+ *  way is barred, as a stream finds its way down (Kyler, #330: the routed courses read as dug, a
+ *  dead-straight trench through terraces, a long straight run with a right-angle turn): steps to all
+ *  eight neighbours, so it runs at any angle, not along the grid; cheapest along the land's valleys
+ *  (where the field's drainage gathers, `area`) and its low ground (the least height above the
+ *  lowest ground two tiles round); down a terrace a level at a time, a drop of two levels or more in
+ *  one step dear, so it goes round a cliff where it can rather than cutting a slot through it; uphill
+ *  dear (the ditch must cut through it), never near the start; the field's rise keeps it to the
+ *  land's own slope, and noise makes it wind where the field is flat. */
+function ditchRoute(h: Uint8Array, E: Float64Array | null, area: Float64Array | null, W: number, H: number, from: number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, sill: number, wander: number, toEdge: boolean): { tiles: number[]; end: number } | null {
   const N = W * H;
+  // (the lowest ground two tiles round each tile: a tile standing above it is a valley's side)
+  const low = new Uint8Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let m = 255;
+      for (let yy = Math.max(0, y - 2); yy <= Math.min(H - 1, y + 2); yy++) for (let xx = Math.max(0, x - 2); xx <= Math.min(W - 1, x + 2); xx++) m = Math.min(m, h[yy * W + xx]);
+      low[y * W + x] = m;
+    }
+  // (and the ground it keeps off, kept at a distance: those zones are squares and rings, and a
+  // route hugging their edges ran ruler-straight with a right-angle turn, #330)
+  const near = distanceFrom(avoid, W, H);
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const heap = new MinHeap();
@@ -195,6 +223,7 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
     cost[i] = 0;
     heap.push(0, i);
   }
+  const barred = (n: number) => pit[n] === 1 || avoid[n] === 1;
   while (heap.size) {
     const c = heap.pop();
     const k = heap.lastKey;
@@ -207,20 +236,31 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
       for (let i = c; i >= 0; i = prev[i]) tiles.push(i);
       return { tiles: tiles.reverse(), end: c };
     }
-    for (const [dx, dy] of N4) {
+    for (const [dx, dy] of N8) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const n = yy * W + xx;
-      if (pit[n] || avoid[n]) continue;
+      if (barred(n)) continue;
+      // (a diagonal step is walked side to side through one of the two tiles beside it: both open)
+      const diag = dx !== 0 && dy !== 0;
+      if (diag && (barred(y * W + xx) || barred(yy * W + x))) continue;
       // (the border is where the water leaves: only a route that may end there steps onto it)
       if (!toEdge && (xx === 0 || yy === 0 || xx === W - 1 || yy === H - 1)) continue;
-      // uphill is dear (the ditch must cut through it), downhill cheap
+      const len = diag ? Math.SQRT2 : 1;
+      // uphill is dear (the ditch must cut through it), a terrace down a level at a time cheap, a
+      // cliff dear: a way round it is taken where there is one
       const rise = Math.max(0, h[n] - Math.min(h[c], sill));
-      // noise makes the ditch wind as a gully does, not run along the grid; climbing the field is
-      // dear, so it keeps to the land's own slope
+      const drop = Math.max(0, h[c] - h[n]);
+      const cliff = drop >= 2 ? 4 * (drop - 1) * (drop - 1) : 0;
+      // along the valleys and the low ground, as water finds its way
+      const side = 1.5 * (h[n] - low[n]);
+      const valley = area ? 2.5 / (1 + portable.sqrt(area[n]) / 2) : 0;
+      // noise makes the ditch wind as a gully does; climbing the field is dear, so it keeps to the
+      // land's own slope
       const climb = E ? 6 * Math.max(0, E[n] - E[c]) : 0;
-      const nk = k + 1 + 3 * rise + climb + 1.6 * (1 + fbm(wander, xx, yy, 5, 2)) + 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2));
+      const hug = near[n] < 4 ? 1.5 * (4 - near[n]) : 0;
+      const nk = k + len * (1 + side + valley + hug + 1.6 * (1 + fbm(wander, xx, yy, 5, 2)) + 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2))) + 3 * rise + cliff + climb;
       if (nk < cost[n]) {
         cost[n] = nk;
         prev[n] = c;
@@ -232,8 +272,11 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
 }
 
 /** The longest straight stretch a ditch may run, in tiles (D209: a one-tile ditch's banks are a
- *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44). */
-const DITCH_STRAIGHT = 24;
+ *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44, for
+ *  rivers). 9 since #330: with most maps' badwater routed into the main water, a one-tile course 12 or
+ *  more tiles straight read as dug, not a stream; a draw that can't keep to it is drawn again, else
+ *  the pit goes elsewhere (about 7 in 100 fewer pits fit, their badwater shared by the rest, D200). */
+const DITCH_STRAIGHT = 9;
 
 /** The most tiles in a row of `tiles` whose middles all lie within 0.75 of one straight line (the
  *  line through the stretch's two ends): how far a ditch runs ruler-straight. */
@@ -273,13 +316,16 @@ function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number
   const pts: Point[] = tiles.map((i) => [i % W, (i - (i % W)) / W]);
   const tries: Point[][] = [];
   if (n >= 8) {
-    const path = smoothPath(pts, 3, 1);
+    // (its corners rounded first: the route thinned to a point every few tiles, then cut as a
+    // river's course is, so a turn bends over several tiles, never at a right angle, #330)
+    const sparse = pts.filter((_, k) => k % 4 === 0 || k === n - 1);
+    const path = smoothPath(sparse, 3, 1);
     const amp = Math.min(3.2, n / 7);
     for (const f of [1, 1, 1, 1, 0.6, 0.6]) {
       const a = f * amp;
       tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
     }
-    tries.push(path);
+    tries.push(path, smoothPath(pts, 3, 1));
   }
   tries.push(pts);
   for (const t of tries) {
@@ -339,25 +385,22 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // where a ditch may end: any river or lake beyond the badwater distance whose water never
   // passes the start (the water near the start, and what flows past it, stays clean: D85); and the
   // tiles it keeps off (the start's ground, the start's water, a river's head at the edge)
-  // (the theme's main water, kept clean on most maps: Lake Basin's lake, River Valley's and Delta's
-  // main river)
-  const lake = ask.keepClean ?? null;
-  // (`only`: the water a ditch must join this time, the main water a poisoned map takes badwater
-  // into; any other water is kept off as water it may not join. `loose`: that water may pass the
-  // start planned so far, which then gives way to another)
+  // (`only`: the water a ditch must join this time, the theme's main water, D476, or water that
+  // flows into it; any other water is kept off as water it may not join. `loose`: that water may
+  // pass the start planned so far, which then gives way to another)
   const outlets = (dn: ReturnType<typeof drainage>, only: Uint8Array | null, loose: boolean): { goal: Uint8Array; keepOff: Uint8Array } => {
     // water on each tile goes side to side down the land's drainage: whether it passes the start,
-    // and whether it ends in the main water kept clean
+    // and whether it ends in the water the ditch must join
     const reachesStart = new Uint8Array(N);
-    const reachesLake = new Uint8Array(N);
+    const reachesOnly = new Uint8Array(N);
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
       reachesStart[j] = sd[j] <= 26 || (r >= 0 && reachesStart[r]) ? 1 : 0;
-      if (lake) reachesLake[j] = lake[j] || (r >= 0 && reachesLake[r]) ? 1 : 0;
+      if (only) reachesOnly[j] = only[j] || (r >= 0 && reachesOnly[r]) ? 1 : 0;
     }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && !reachesLake[j] && (!only || only[j])) goal[j] = 1;
+    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && (!only || reachesOnly[j])) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water
@@ -541,8 +584,8 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // to water that keeps off it; to the edge only where no water can be reached (Kyler, 2026-10-03:
       // badwater draining off the map on its own is rare)
       let base = E && dnE ? traceRoute(dnE, E, edge, pit, goal, keepOff, (i) => goal[i] === 1, limit) : null;
-      if (!base) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
-      if (!base && !only) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
+      if (!base) base = ditchRoute(hh, E, dnE?.area ?? null, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
+      if (!base && !only) base = ditchRoute(hh, E, dnE?.area ?? null, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
       if (!base || base.length < 3 || base.length > limit) continue;
       // bent as a river's course is (D209: a ditch that cannot be bent, running straight across a
       // flat or in a regular wave, is no gully: the pit goes elsewhere)
@@ -617,13 +660,17 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       placed.push([cx, cy]);
     }
   };
-  // (a poisoned map's main water takes the first hollow's badwater, where a ditch can reach it below
+  // (D476: the theme's main water takes the first hollow's badwater, where a ditch can reach it below
   // the start's water; where none can (the start planned beside the main river, most of it passing
   // the start), anywhere beyond the badwater distance, and the start is then found by other clean
-  // water, its rules blocking as ever, D85. The rest join whatever water is nearest, as on any map)
-  if (ask.poison?.some((v) => v)) {
-    place(ask.poison, 1);
-    if (!out.count) place(ask.poison, 1, true);
+  // water, its rules blocking as ever, D85; where none can at all, the badwater drains where the land
+  // takes it. The rest join whatever water is nearest, as on any map)
+  if (ask.join?.some((v) => v)) {
+    place(ask.join, 1);
+    if (!out.count) {
+      place(ask.join, 1, true);
+      if (out.count) out.past = true;
+    }
   }
   place(null, ask.count);
   // fewer hollows fit than were asked for (a small map, few rises): the ones placed carry the
