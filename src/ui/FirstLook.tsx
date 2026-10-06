@@ -13,27 +13,47 @@ export interface Progress {
   land: Extract<GenProgress, { kind: "land" }> | null;
   /** The map, once it passed (shown until the page takes it). */
   candidate?: Extract<GenProgress, { kind: "candidate" }> | null;
+  /** Which of each stage's wordings it shows now (`sayStage`). */
+  said?: Said;
 }
 
-const STAGES: Record<string, string> = {
-  land: "Raising the land",
-  water: "Running the rivers",
-  start: "Settling the water and finding a start",
-  objects: "Placing ruins, relics and other objects",
-  resources: "Growing forests and berries",
-  check: "Checking the map",
+/** Each stage's words, one for each layout that reaches it (Kyler, 2026-10-05: a failed layout starts again from the
+ *  land, and the same line again read as stuck); past the last, the last. */
+const STAGES: Record<string, readonly string[]> = {
+  land: ["Raising the land", "Shaping new hills", "Lifting the ridges", "Folding the valleys"],
+  water: ["Running the rivers", "Rerouting the rivers", "Filling the low ground", "Finding the water's way"],
+  start: ["Settling the water and finding a start", "Letting the water settle", "Looking for a dry bank", "Picking a better start"],
+  objects: ["Placing ruins, relics and other objects", "Scattering the ruins", "Burying old relics", "Moving the ruins"],
+  resources: ["Growing forests and berries", "Planting the groves", "Ripening the berries", "Thickening the woods"],
+  check: ["Checking the map", "Checking it again", "Another look", "One last check"],
 };
+
+/** For each stage, the layout that last showed it and which of its wordings it took. */
+export type Said = Record<string, { attempt: number; n: number }>;
+
+/** A stage reached by a layout: the first layout to reach it takes its first wording, each later one the next. */
+export function sayStage(said: Said | undefined, stage: string, attempt: number): Said {
+  const was = said?.[stage];
+  if (was && was.attempt === attempt) return said!;
+  return { ...said, [stage]: { attempt, n: was ? was.n + 1 : 0 } };
+}
+
+function stageWords(p: Progress): string {
+  const words = STAGES[p.stage];
+  if (!words) return "Generating";
+  return words[Math.min(p.said?.[p.stage]?.n ?? 0, words.length - 1)];
+}
 
 /** What the generator is doing, in its own words, and nothing more ("Running the rivers…"). */
 export function stageText(p: Progress | null): string {
   if (!p) return "Generating…";
-  return p.candidate ? "Your map is ready…" : `${STAGES[p.stage] ?? "Generating"}…`;
+  return p.candidate ? "Your map is ready…" : `${stageWords(p)}…`;
 }
 
 /** "Running the rivers", and which layout it is when the first did not pass. */
 export function progressText(p: Progress | null): string {
   if (!p) return "Generating…";
-  const what = STAGES[p.stage] ?? "Generating";
+  const what = stageWords(p);
   if (p.candidate) return "Your map is ready…";
   return p.attempt > 0 ? `${what} (layout ${p.attempt + 1})…` : `${what}…`;
 }

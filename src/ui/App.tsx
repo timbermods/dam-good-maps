@@ -36,7 +36,7 @@ import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, progressText, stageText, type Progress } from "./FirstLook";
+import { FirstLook, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
@@ -592,10 +592,10 @@ export function App() {
         proxy((p: GenProgress) =>
           setProgress((q) =>
             p.kind === "stage"
-              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null }
+              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, p.attempt) }
               : p.kind === "candidate"
-                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p }
-                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null },
+                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said }
+                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said },
           ),
         ),
         seedWord,
