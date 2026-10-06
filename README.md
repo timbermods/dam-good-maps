@@ -81,8 +81,8 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Download project**, **Download .timber**, **Clear everything**, **History** and
-  **About**.
+  has **Open…**, **Download project**, **Download .timber**, **Clear everything** and **About**.
+  **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
 - **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
 - **Real places** in the header opens maps made from real land: click one to edit it.

@@ -60,10 +60,11 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
-  Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right Undo, Redo, the checks dot with its
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right **History**
+  (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, History, About; on a generated map also **Another like this**,
+  Download project, Download .timber, Clear everything, About; on a generated map also **Another like this**,
   M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control

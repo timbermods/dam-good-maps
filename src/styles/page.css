@@ -111,6 +111,26 @@
   margin-left: auto;
 }
 
+/* every control in the bar one height, Save's, 40px on whole pixels, one gap (6px) between them all (Kyler,
+   2026-10-06); Undo and Redo square, their symbols as they are; pressed (History open) changes only the colours */
+.editor-actions > button,
+.editor-actions .checks-dot,
+.editor-actions > .menu-wrap > button {
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.editor-actions > .icon-button {
+  justify-content: center;
+  width: 40px;
+  padding: 0;
+}
+
+.editor-actions .checks-dot {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* the checks' words beside the dot */
 .checks-dot .dot-words {
   display: inline-grid;

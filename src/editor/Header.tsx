@@ -371,6 +371,10 @@ export function Header(p: HeaderProps) {
         </span>
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
+        {/* History, a button of its own left of Undo (Kyler, 2026-10-06): pressed while its panel is open */}
+        <button type="button" class="ghost history-button" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={p.onHistory}>
+          History
+        </button>
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
@@ -387,7 +391,7 @@ export function Header(p: HeaderProps) {
         </button>
         {p.look}
         <div class="menu-wrap" ref={wrap}>
-          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="File: open, save, download, history, about" onClick={() => setMenu(!menu)}>
+          <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             File
           </button>
           {menu ? (
@@ -412,11 +416,6 @@ export function Header(p: HeaderProps) {
               <li role="none">
                 <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
                   Clear everything
-                </button>
-              </li>
-              <li role="none">
-                <button type="button" role="menuitem" aria-pressed={p.historyOpen} title="Every step of the map's history" onClick={pick(p.onHistory)}>
-                  History{p.info.orphans.length ? ` (${p.info.orphans.length} to review)` : ""}
                 </button>
               </li>
               {p.info.kind === "generated" && p.onAnother ? (

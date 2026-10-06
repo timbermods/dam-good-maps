@@ -194,9 +194,10 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   // the header's File menu, the history, the checks dot, the legend, the minimap and the water bar
   await openFileMenu(page);
   await check("the File menu");
-  await page.getByRole("menuitem", { name: /^History/ }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await check("the history");
-  await (await openFileMenu(page)).getByRole("menuitem", { name: /^History/ }).click();
+  await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await page.getByRole("button", { name: /^Checks:/ }).click();
   await check("the checks list");
   await page.getByRole("button", { name: /^Checks:/ }).click();

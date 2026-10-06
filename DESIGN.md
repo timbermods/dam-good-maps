@@ -564,7 +564,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything, History, Another like this
+- **File** holds exactly Open…, Download project, Download .timber, Clear everything, Another like this
   (generated maps only: File is its one way in, Kyler 2026-10-05) and About. There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
@@ -594,9 +594,9 @@ D380 work.
   own title type: the name on the first line and under it "seed 4242 · 128×128" (an opened file shows its size; if
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
-  (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right Undo, Redo, the checks dot with its words, Save to
+  (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
-  History, Another like this on a generated map, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
+  Another like this on a generated map, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
   docs/progress/page.md).
@@ -801,6 +801,14 @@ API, every pinned hash, and every role and accessible name the tests use.
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.
+- **History is a button** in the header, directly left of Undo: "History", pressed (the mint, nothing else changing)
+  while its panel is open, no count (the panel's "To review" list stays); gone from File, whose tooltip is "Open and
+  download maps, and more". Every control in the header's right group is one height, Save's, 40px on whole pixels,
+  6px apart; Undo and Redo 40px squares with their symbols. Captures `docs/design/history-{closed,open,review}-*`.
+  Open at 1280 (Kyler to pick, `docs/design/history-options-1280x800.jpg`): the panel, a 290px column beside the map,
+  leaves the bar over the minimap and the shelf (A: open it in the left panel's place, over the map, one panel at a
+  time); and a name at Rename's limit takes three lines beside the button (a: Rename's cap at two lines here; b: a
+  two-line name in 15px type).
 - **The shelf's tooltips** say what each item is for and nothing more: no key, no "R turns it" (R still turns a held
   item).
 - **The shelf's title:** "Items", bold, in the items' type, one row of their height (30px) and one gap above them, its

@@ -116,7 +116,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   expect((await info(page)).history.map((h) => h.applied)).toEqual([true, true, false]);
   await page.getByRole("button", { name: "Redo (Ctrl+Y)" }).click();
   await page.evaluate(() => window.dgmEditor!.idle());
-  await (await openFileMenu(page)).getByRole("menuitem", { name: /^History/ }).click();
+  // (History, a button in the bar since Kyler's 2026-10-06 sitting)
+  await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move start" })).toBeVisible();
 
   // saved from the editor (export profile): the quiet dot says it is ready to play, and the File menu's

@@ -26,7 +26,7 @@ export async function expectReady(page: Page, timeout = 120_000): Promise<void> 
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout });
 }
 
-/** Open the File menu in the header and return it (Open…, Download project, Download .timber, Clear everything, History, About). */
+/** Open the File menu in the header and return it (Open…, Download project, Download .timber, Clear everything, About; Another like this on a generated map). */
 export async function openFileMenu(page: Page): Promise<Locator> {
   await page.getByRole("button", { name: "File", exact: true }).click();
   return page.getByRole("menu", { name: "File" });
