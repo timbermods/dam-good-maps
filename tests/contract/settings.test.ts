@@ -34,12 +34,13 @@ describe("each setting moves its measured target (ROADMAP M6)", () => {
   };
   const name = (e: (typeof EXPERIMENTS)[number]) => (e.info ? `${e.setting} (information: ${e.info})` : e.setting);
   // D466: expected failures, the known shortfalls held for settings round 2 (docs/progress/m9b.md); each moves
-  // back to the plain list when round 2 fixes it. "Designed for" is dropped when D449's core change removes it.
+  // back to the plain list when it passes. (Designed for passes on 0.8.3, #330's badwater joining the main
+  // water, so it runs as a plain test again until D449's core change removes it.)
   // (Drought reserve is held again, Kyler on #338: it passed on 0.8.1 only because one Plenty map, with
   // 2,692 of stored water, carried the mean, +232; on 0.8.0 it moved +170, on 0.8.2 +139. The setting
   // itself is the weakness: the settler counts only natural stored water near a start, not dam sites,
   // so Plenty can't tell starts apart)
-  const HELD = new Set(["Verticality", "Drought reserve", "Lakes and basins", "Waterfalls", "Designed for"]);
+  const HELD = new Set(["Verticality", "Drought reserve", "Lakes and basins", "Waterfalls"]);
   it.each(EXPERIMENTS.filter((e) => !HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s", check);
   it.fails.each(EXPERIMENTS.filter((e) => HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s (expected failure, settings round 2)", check);
 });
