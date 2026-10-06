@@ -20,7 +20,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D476**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D477**). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -57,10 +57,10 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    Codex: generation speed round 3 merged as a record, not adopted (#326); first load merged as a record (#332) and its
    milestone half adopted (#334: readiness handshake, deferred checks, asset caching in the service worker); the page
    session adopts page.patch next.
-3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
-   Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
-   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, #330, green full run, `needs-kyler`
-   for its sheets), then Lake Basin round 3 (#234,
+   TS7 (#336, Kyler adopted): the preparation is merged (#337); the settings extremes fixed in #338 (drought reserve held
+   for settings round 2, D466), merging on green; then #24 and #25 on a green nightly (D460).
+3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (done, #330, D476,
+   generator 0.8.3), then Lake Basin round 3 (#234,
    `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
    marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
    makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
