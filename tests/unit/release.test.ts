@@ -37,26 +37,26 @@ describe("the forces before their release", () => {
     vi.stubEnv("BASE_URL", "/dam-good-maps/");
     vi.resetModules();
     const pub = await import("../../src/editor/TopBar");
-    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve", "craterize", "erupt", "rift", "quake", "glaciate", "deposit"] : []);
+    expect(pub.SHOWN_FORCES.map((f) => f.id)).toEqual(FORCES_RELEASED ? ["carve", "craterize", "erupt", "rift", "quake", "deposit", "glaciate"] : []);
     for (const id of ["carve", "craterize", "quake", "erupt", "glaciate", "rift", "deposit"] as const) expect(pub.forceShown(id)).toBe(FORCES_RELEASED);
     vi.stubEnv("BASE_URL", "/dam-good-maps/preview/");
     vi.resetModules();
     const pre = await import("../../src/editor/TopBar");
-    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "rift", "quake", "glaciate", "deposit"]);
+    expect(pre.SHOWN_FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "rift", "quake", "deposit", "glaciate"]);
     expect(pre.forceShown("carve")).toBe(true);
   });
 
-  it("under the tests, the top bar shows the seven forces, each with its key (Rift and Deposit none yet), in the row's order by prominence (D352); only Quake has a mode switch, its one choice (D289: the others' gesture is the mode)", async () => {
+  it("under the tests, the top bar shows the seven forces, each with its key (Shift and its place in the bar, Kyler 2026-10-06), in the row's order (Glaciate last); only Quake has a mode switch, its one choice (D289: the others' gesture is the mode)", async () => {
     const t = await import("../../src/editor/TopBar");
     for (const id of ["carve", "craterize", "quake", "erupt", "glaciate", "rift", "deposit"] as const) expect(t.forceShown(id)).toBe(true);
     expect(t.FORCES.map((f) => [f.name, f.key, ...(f.modes ?? [])])).toEqual([
-      ["Carve", "7"],
-      ["Craterize", "8"],
-      ["Erupt", "0"],
-      ["Rift", undefined],
-      ["Quake", "9", "Lift", "Slide"],
-      ["Glaciate", "-"],
-      ["Deposit", undefined],
+      ["Carve", "Shift+1"],
+      ["Craterize", "Shift+2"],
+      ["Erupt", "Shift+3"],
+      ["Rift", "Shift+4"],
+      ["Quake", "Shift+5", "Lift", "Slide"],
+      ["Deposit", "Shift+6"],
+      ["Glaciate", "Shift+7"],
     ]);
   });
 });

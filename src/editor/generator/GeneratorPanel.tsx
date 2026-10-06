@@ -167,7 +167,9 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
             <section class="gen-otm" aria-labelledby="gen-otm-head">
               {/* its heading's line holds Reset settings at the right (Kyler, 2026-10-06): the panel no taller */}
               <div class="gen-otm-head">
-                <h3 id="gen-otm-head">On this map</h3>
+                <h3 id="gen-otm-head">
+                  On this map
+                </h3>
                 <button type="button" class="ghost sheet-act" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
                   Reset settings
                 </button>
