@@ -140,4 +140,56 @@ describe("Carve's river is born as it cuts (D371)", () => {
     expect(ed.flowForceWater(1)).toBeNull();
     ed.forceCancel();
   });
+
+  it("the water follows the cut, never leads it: no dry or damp tile the carve is still to cut gets water, clicked or drawn (shown from its end)", async () => {
+    const { origin, ground, water } = await open();
+    const end: [number, number] = [Math.max(6, Math.min(W - 7, origin[0] + (origin[0] < W / 2 ? 30 : -30))), origin[1]];
+    for (const req of [
+      { verb: "carve" as const, settings: { ...DEFAULTS, power: 70 }, origin, cut: null },
+      { verb: "carve" as const, settings: { ...DEFAULTS, power: 70, mode: "aim" as const }, origin, end, cut: null },
+    ]) {
+      expect(ed.forceStart(req).errors).toEqual([]);
+      let f = ed.forceAdvance(1)!;
+      for (let k = 0; k < 400 && !f.planned; k++) f = ed.forceAdvance(1)!;
+      // a step at a time, the water given a Fast step's worth of the game's time each (and more)
+      let land: Uint8Array = ground.slice();
+      const seen: { land: Uint8Array; depth: Float64Array }[] = [];
+      while (!f.done) {
+        f = ed.forceAdvance(1)!;
+        if (f.heights) land = f.heights.slice();
+        seen.push({ land, depth: Float64Array.from(ed.flowForceWater(12)!) });
+      }
+      const cut = land;
+      let ahead = 0;
+      // (on ground that showed no water, or only a film on damp ground: water already there may rise a little)
+      for (const q of seen) for (let i = 0; i < N; i++) if (cut[i] !== ground[i] && q.land[i] === ground[i] && water[i] <= 0.05 && q.depth[i] > water[i] + 0.01) ahead++;
+      expect(ahead, req.end ? "drawn" : "clicked").toBe(0);
+      expect(seen.at(-1)!.depth.some((d, i) => d > water[i] + 0.05), "the river is born at all").toBe(true);
+      ed.forceStop();
+      ed.undo();
+      ed.settleWater();
+    }
+  });
+
+  it("its water as shown never strobes: few tiles go wet, dry and wet again (or the reverse) from one frame to the next", async () => {
+    const { origin } = await open();
+    expect(ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null }).errors).toEqual([]);
+    let f = ed.forceAdvance(1)!;
+    for (let k = 0; k < 400 && !f.planned; k++) f = ed.forceAdvance(1)!;
+    // (a frame of Fast's: a step of the carve and six ticks of its water, a hundred and twenty times the game's pace)
+    const shown: Float64Array[] = [];
+    while (!f.done) {
+      f = ed.forceAdvance(1)!;
+      shown.push(Float64Array.from(ed.flowForceWater(6)!));
+    }
+    // (a thin sheet's own waves, crest to crest about twelve ticks, would alternate every frame if shown as they are)
+    const wet = (d: number) => d > 0.05;
+    let blinks = 0;
+    for (let u = 2; u < shown.length; u++) for (let i = 0; i < N; i++) if (wet(shown[u - 2][i]) === wet(shown[u][i]) && wet(shown[u - 1][i]) !== wet(shown[u][i])) blinks++;
+    // (shown as they are, about one a frame on this map; averaged, about one every six)
+    expect(blinks / shown.length, `${blinks} blinks in ${shown.length} frames`).toBeLessThan(0.5);
+    ed.forceStop();
+    ed.undo();
+    ed.settleWater();
+  });
 });

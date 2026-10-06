@@ -100,11 +100,12 @@ describe("a force's character from the land and the seed, on Auto until pinned (
     };
     const started = ed.forceStart({ verb: "craterize", settings, origin: at, cut: null, natural: true });
     expect(started.errors).toEqual([]);
-    expect(started.settings).toEqual(craterNature({ ...settings, seed: settings.seed }, ground));
+    // (a new force clears sources unless its row says Ride: D474)
+    expect(started.settings).toEqual({ ...craterNature({ ...settings, seed: settings.seed }, ground), sources: "clear" });
     for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++);
     expect(ed.forceStop().kept).toBe(true);
     const first = lastParams().params.settings as CraterSettings;
-    expect(first).toEqual(craterNature(settings, ground));
+    expect(first).toEqual({ ...craterNature(settings, ground), sources: "clear" });
     // Try another with no pins (a caller outside the row, D309): the next seed, and every choice
     // drawn again from it
     const seen = new Set([`${first.walls} ${first.centre} ${first.debris} ${first.rays}`]);
@@ -114,7 +115,7 @@ describe("a force's character from the land and the seed, on Auto until pinned (
       for (let j = 0; j < 400 && !ed.forceAdvance(8)!.done; j++);
       expect(ed.forceStop().kept).toBe(true);
       const p = lastParams().params.settings as CraterSettings;
-      expect(p).toEqual(craterNature({ ...settings, seed: p.seed }, ground));
+      expect(p).toEqual({ ...craterNature({ ...settings, seed: p.seed }, ground), sources: "clear" });
       seen.add(`${p.walls} ${p.centre} ${p.debris} ${p.rays}`);
     }
     expect(seen.size).toBeGreaterThan(1);

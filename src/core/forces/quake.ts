@@ -12,6 +12,7 @@
 // Planned in Rust (rust/forces, PLAN §20 D381; rust/bridge.ts); its showing (`revealQuake`), its brush and a
 // click's natural fault (`clickFault`) stay here. The TypeScript planner it replaced is tag `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import { snapshotMap, type FullForceMap } from "./force";
 import { clamp, hash } from "./random";
@@ -33,6 +34,8 @@ export interface QuakeIntent {
 
 export interface QuakeSettings {
   mode: "lift" | "slide";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   scarp: "sheer" | "stepped";

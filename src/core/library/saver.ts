@@ -31,6 +31,7 @@ interface Pending {
 export class YourMapsSaver {
   private pending = new Map<string, Pending>();
   private writing = new Map<string, Promise<void>>();
+  private epochs = new Map<string, number>();
   private readonly delay: number;
   private readonly setTimer: (fn: () => void, ms: number) => unknown;
   private readonly clearTimer: (t: unknown) => void;
@@ -52,9 +53,19 @@ export class YourMapsSaver {
   }
 
   /** Save now what is waiting (one map, or all). Nobody needs to await it. */
-  flush(id?: string): Promise<void> {
-    const ids = id === undefined ? [...this.pending.keys()] : this.pending.has(id) ? [id] : [];
-    return Promise.all(ids.map((k) => this.run(k))).then(() => undefined);
+  async flush(id?: string): Promise<void> {
+    const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
+    await Promise.all(ids.map((k) => this.run(k)));
+    if (id === undefined ? this.pending.size > 0 : this.pending.has(id)) await this.flush(id);
+  }
+
+  /** Cancel every queued save of a deleted map and wait for a write already in storage. */
+  async discard(id: string): Promise<void> {
+    const p = this.pending.get(id);
+    if (p) this.clearTimer(p.timer);
+    this.pending.delete(id);
+    this.epochs.set(id, (this.epochs.get(id) ?? 0) + 1);
+    await this.writing.get(id);
   }
 
   /** Whether a save is waiting or being written (for tests and the page's leave warning). */
@@ -67,13 +78,20 @@ export class YourMapsSaver {
     if (!p) return this.writing.get(id) ?? Promise.resolve();
     this.clearTimer(p.timer);
     this.pending.delete(id);
+    const epoch = this.epochs.get(id) ?? 0;
     const before = this.writing.get(id) ?? Promise.resolve();
     const w = before
       .then(async () => {
         let r: StoreResult;
         try {
+          if ((this.epochs.get(id) ?? 0) !== epoch) return;
           const s = await p.take();
-          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project);
+          if ((this.epochs.get(id) ?? 0) !== epoch) return;
+          if (s.entry.id !== id) throw new Error("snapshot belongs to another map");
+          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project, s.entry.storageVersion ?? null);
+          if (r.ok && r.storageVersion) {
+            s.entry.storageVersion = r.storageVersion;
+          }
         } catch {
           r = { ok: false, reason: "unavailable" };
         }

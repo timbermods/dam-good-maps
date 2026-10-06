@@ -1,0 +1,148 @@
+--- /dev/null
++++ b/src/render3d/entityGeometry.ts
+@@ -0,0 +1,31 @@
++// Static object model data reused between force frames (investigation/force-playback).
++// Each batch still owns its geometry and GPU attributes: disposing one cannot retire another's
++// buffers. Only immutable CPU arrays are shared, and per-instance grow/matrix/colour data stays local.
++import { BufferAttribute, BufferGeometry } from "three";
++
++export class EntityGeometryCache {
++  private readonly models = new Map<string, BufferGeometry>();
++
++  geometry(key: string, build: () => BufferGeometry): BufferGeometry {
++    let model = this.models.get(key);
++    if (!model) this.models.set(key, (model = build()));
++    const g = new BufferGeometry();
++    for (const [name, value] of Object.entries(model.attributes)) {
++      const a = value as BufferAttribute;
++      const fresh = new BufferAttribute(a.array, a.itemSize, a.normalized);
++      fresh.setUsage(a.usage);
++      fresh.gpuType = a.gpuType;
++      g.setAttribute(name, fresh);
++    }
++    if (model.index) g.setIndex(new BufferAttribute(model.index.array, 1));
++    g.boundingSphere = model.boundingSphere?.clone() ?? null;
++    g.boundingBox = model.boundingBox?.clone() ?? null;
++    return g;
++  }
++
++  /** This renderer is gone: release the model data as well. */
++  dispose(): void {
++    for (const g of this.models.values()) g.dispose();
++    this.models.clear();
++  }
++}
+--- a/src/render3d/entities3d.ts
++++ b/src/render3d/entities3d.ts
+@@ -43,6 +43,7 @@
+ // Every model stays within its footprint. Jitter, turn and tint come from each object's tile, so a
+ // redraw looks the same.
+ 
++import { EntityGeometryCache } from "./entityGeometry";
+ import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, type ShaderMaterial } from "three";
+ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
+ import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+@@ -1038,7 +1039,7 @@
+ /** Build the objects of a map view as a group of instanced meshes; with the soil (and the map's
+  *  width), ruins on moist ground are overgrown. `lite`: the light look's models (software
+  *  rendering). */
+-export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false): { group: Group; instances: number } {
++export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache): { group: Group; instances: number } {
+   const batches = new Map<string, Batch>();
+   const batch = (key: string, model: () => Model): Batch => {
+     let b = batches.get(key);
+@@ -1134,7 +1135,7 @@
+     if (!n) continue;
+     // the light look bakes every instance into one mesh drawn once: software rendering pays for
+     // each instance it draws, not for each triangle
+-    const mesh = lite ? new InstancedMesh(baked(b.model(), b.matrices, b.tints), material, 1) : new InstancedMesh(b.model().geometry(), material, n);
++    const mesh = lite ? new InstancedMesh(baked(b.model(), b.matrices, b.tints), material, 1) : new InstancedMesh(models ? models.geometry(key, () => b.model().geometry()) : b.model().geometry(), material, n);
+     mesh.name = key;
+     if (lite) {
+       mesh.instanceMatrix.array.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+--- a/src/render3d/renderer.ts
++++ b/src/render3d/renderer.ts
+@@ -71,6 +71,7 @@
+ import { WaterMotion } from "./motion";
+ import { RowUploads } from "./rowUploads";
+ import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
++import { EntityGeometryCache } from "./entityGeometry";
+ import { terrainChanges } from "./terrainChanges";
+ import { glideStep, STILL, wanted, type Glide } from "./cameraGlide";
+ import { focusLost } from "./focusLost";
+@@ -1262,13 +1263,15 @@
+     }
+   }
+ 
++  private readonly entityModels = new EntityGeometryCache();
++
+   private setEntitiesInner(e: EntityView): number {
+     if (this.objects) {
+       this.high?.releaseObjects();
+       this.scene.remove(this.objects);
+       disposeGroup(this.objects);
+     }
+-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software);
++    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
+     this.objectsMoved = false;
+     // (a highlight belonged to the objects as they were)
+     this.lit = [];
+@@ -2783,6 +2786,7 @@
+     for (const m of Object.values(this.std)) m.dispose();
+     this.sky.geometry.dispose();
+     this.patterns.dispose();
++    this.entityModels.dispose();
+     this.gl.dispose();
+     // free the context now: browsers keep only a few, and the editor opens a view per map
+     this.gl.forceContextLoss();
+--- /dev/null
++++ b/tests/unit/entityGeometry.test.ts
+@@ -0,0 +1,48 @@
++import { describe, expect, it } from "vitest";
++import { ShaderMaterial, type BufferAttribute, type InstancedMesh } from "three";
++import { EntityGeometryCache } from "../../src/render3d/entityGeometry";
++import { buildEntities, disposeGroup } from "../../src/render3d/entities3d";
++import { entityView, soilView } from "../../src/render3d/model";
++
++describe("force object model data can be reused without sharing mutable batch state", () => {
++  for(const lite of [false,true]) it(`matches fresh models, with changed life, soil, size and variant (${lite ? "light" : "GPU"})`, () => {
++    const models = new EntityGeometryCache();
++    const material = new ShaderMaterial();
++    for(let step=0;step<3;step++) {
++      const view=entityView([
++        {id:"pine",template:"Pine",x:3,y:3,z:step,owner:"a",orientation:"Cw0",dead:step===1,young:step===2},
++        {id:"ruin",template:"RuinColumnH4",x:6,y:3,z:step,owner:"a",orientation:"Cw0",variant:["A","B","C"][step]},
++        {id:"start",template:"StartingLocation",x:12,y:4,z:2,owner:"a",orientation:"Cw90"},
++        {id:"source",template:"WaterSource",x:20,y:4,z:step,owner:"a",orientation:"Cw0",strength:step+1},
++      ]);
++      const moisture=new Float64Array(32*32).fill(step===1 ? 1 : 0);
++      const soil=soilView(moisture,new Float64Array(32*32));
++      const fresh=buildEntities(view,material,soil,32,lite);
++      const cached=buildEntities(view,material,soil,32,lite,models);
++      expect(cached.instances).toBe(fresh.instances);
++      expect(cached.group.children.map(m=>m.name)).toEqual(fresh.group.children.map(m=>m.name));
++      for(let i=0;i<fresh.group.children.length;i++) {
++        const a=fresh.group.children[i] as InstancedMesh,b=cached.group.children[i] as InstancedMesh;
++        expect(Array.from(b.instanceMatrix.array)).toEqual(Array.from(a.instanceMatrix.array));
++        expect(Array.from(b.instanceColor!.array)).toEqual(Array.from(a.instanceColor!.array));
++        for(const name of Object.keys(a.geometry.attributes)) expect(Array.from(b.geometry.getAttribute(name).array)).toEqual(Array.from(a.geometry.getAttribute(name).array));
++        expect(b.userData).toEqual(a.userData);
++      }
++      disposeGroup(fresh.group);disposeGroup(cached.group);
++    }
++    models.dispose();material.dispose();
++  });
++  it("reuses immutable arrays but keeps GPU attributes and growth data independent", () => {
++    const models=new EntityGeometryCache(),material=new ShaderMaterial();
++    const view=entityView([{template:"Pine",x:3,y:3,z:2,owner:"a",orientation:"Cw0"}]);
++    const a=buildEntities(view,material,null,32,false,models).group;
++    const b=buildEntities(view,material,null,32,false,models).group;
++    const ga=(a.children[0] as InstancedMesh).geometry,gb=(b.children[0] as InstancedMesh).geometry;
++    expect(ga.getAttribute("position")).not.toBe(gb.getAttribute("position"));
++    expect(ga.getAttribute("position").array).toBe(gb.getAttribute("position").array);
++    expect(ga.getAttribute("grow").array).not.toBe(gb.getAttribute("grow").array);
++    (ga.getAttribute("grow") as BufferAttribute).setX(0,99);
++    expect(gb.getAttribute("grow").getX(0)).toBe(0);
++    disposeGroup(a);disposeGroup(b);models.dispose();material.dispose();
++  });
++});

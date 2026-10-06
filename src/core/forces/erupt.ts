@@ -11,6 +11,7 @@
 // cursor ring reads it as the pointer moves (`eruptAnatomy`). The TypeScript planner it replaced is tag
 // `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import { snapshotMap, type FullForceMap } from "./force";
 import { clamp, hash } from "./random";
@@ -32,6 +33,8 @@ export interface EruptIntent {
 
 export interface EruptSettings {
   mode: "vent" | "fissure";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   shape: "steep" | "broad";
@@ -591,8 +594,9 @@ export function erupt(m: FullForceMap, s: EruptSettings, intent: EruptIntent, ke
 
 /** The eruption at `t` (0–1) of its swell: every raised tile a share of the way up (whole levels),
  *  objects on their ground then. */
-export function stageMap(before: FullForceMap, after: FullForceMap, t: number): FullForceMap {
-  const m = snapshotMap(after);
+export function stageMap(before: FullForceMap, after: FullForceMap, t: number, water = after.water): FullForceMap {
+  // Playback keeps the old water; copy that directly instead of copying and discarding the new water.
+  const m = snapshotMap({ ...after, water });
   for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.round(before.heights[i] + (after.heights[i] - before.heights[i]) * smoothstep(t));
   m.entities = m.entities.map((e) => ({ ...e, z: m.heights[e.y * m.W + e.x] }));
   m.fallen = m.fallen.map((f) => ({ ...f, z: m.heights[Math.floor(f.y) * m.W + Math.floor(f.x)] }));

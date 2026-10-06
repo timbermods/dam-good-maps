@@ -1,0 +1,178 @@
+--- a/src/worker/session.ts
++++ b/src/worker/session.ts
+@@ -1435,6 +1435,8 @@
+   trail: TrailPoint[];
+   cue: ForceCue;
+   heights?: Uint8Array;
++  /** Only the rows inside rect, packed left-to-right, top-to-bottom (force-playback). */
++  heightPatch?: Uint8Array;
+   rect?: { x0: number; y0: number; x1: number; y1: number };
+   entities?: EntityView;
+   heat?: Uint8Array;
+@@ -1640,7 +1642,7 @@
+   return { verb: "carve", phase: p.done ? "done" : "carve", progress: p.total ? p.shown / p.total : 0, x: h.x, y: h.y, z: h.z, size: h.width, power: p.run.settings.power };
+ }
+ 
+-function forceFrame(f: NonNullable<typeof force>): ForceFrame {
++function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
+   const map = f.play ? f.play.map : f.staged!.map;
+   const { W, H } = map;
+   let head: ForceHead;
+@@ -1662,8 +1664,21 @@
+   }
+   const rect = changedRect(W, H, f.shown, map.heights);
+   if (rect) {
+-    f.shown = map.heights.slice();
+-    out.heights = map.heights.slice();
++    const width = rect.x1 - rect.x0 + 1;
++    const size = width * (rect.y1 - rect.y0 + 1);
++    if (patches && size < map.heights.length) {
++      const patch = new Uint8Array(size);
++      for (let y = rect.y0; y <= rect.y1; y++) {
++        const start = y * W + rect.x0;
++        const row = map.heights.subarray(start, start + width);
++        patch.set(row, (y - rect.y0) * width);
++        f.shown.set(row, start);
++      }
++      out.heightPatch = patch;
++    } else {
++      f.shown.set(map.heights);
++      out.heights = map.heights.slice();
++    }
+     out.rect = rect;
+   }
+   const now = performance.now();
+@@ -1688,7 +1703,7 @@
+ }
+ 
+ /** Run the force `steps` steps more (ten are a second of a carve), and what changed. */
+-export function forceAdvance(steps: number): ForceFrame | null {
++export function forceAdvance(steps: number, patches = false): ForceFrame | null {
+   const f = force;
+   if (!f || f.session !== session) return null;
+   if (f.play) {
+@@ -1701,7 +1716,7 @@
+     if (!r.planned) r.step();
+     else for (let k = 0; k < steps && !r.done; k++) r.step();
+   }
+-  return forceFrame(f);
++  return forceFrame(f, patches);
+ }
+ 
+ // ------------------------------------------------------------- a force's own water (D371)
+@@ -1955,7 +1970,7 @@
+ 
+ /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
+  *  is free); the whole result shows at once. */
+-export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
++export function forcePaint(path: Point[], side: 1 | -1, power?: number, patches = false): ForceFrame | null {
+   const f = force;
+   if (!f || f.session !== session || !(f.staged instanceof QuakeRun) || f.request.verb !== "quake") return null;
+   try {
+@@ -1964,7 +1979,7 @@
+   } catch {
+     // (a stroke that reaches the start's ground: the last good one stays)
+   }
+-  return forceFrame(f);
++  return forceFrame(f, patches);
+ }
+ 
+ /** The page's view back to the map as it stands (a force dropped, or refused). */
+--- a/src/worker/generator.worker.ts
++++ b/src/worker/generator.worker.ts
+@@ -29,6 +29,7 @@
+ 
+ function frameBuffers(f: ed.ForceFrame): Transferable[] {
+   const out = viewBuffers({ heights: f.heights, entities: f.entities }) as Transferable[];
++  if (f.heightPatch) out.push(f.heightPatch.buffer as Transferable);
+   if (f.heat) out.push(f.heat.buffer as Transferable);
+   return out;
+ }
+@@ -162,9 +163,9 @@
+   /** Try another: the last kept force again, with the next seed. `pins`: the row's current
+    *  per-detail state (D309); left out, every detail re-rolls. */
+   forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
+-  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
++  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps, true)),
+   /** A painted Lift's fault as it is painted now. */
+-  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power)),
++  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
+   /** Keep the force at work (`gesture`: only if it is that one, D341). */
+   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
+--- /dev/null
++++ b/tests/unit/forcePlaybackTransport.test.ts
+@@ -0,0 +1,73 @@
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { makeSpec } from "../../src/core/spec/mapspec";
++import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
++import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
++import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
++import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
++import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
++import { applyForceTerrain } from "../../src/editor/session/mirror";
++import { runGenerate } from "../../src/worker/api";
++import * as ed from "../../src/worker/session";
++
++afterEach(() => { ed.forceCancel(); vi.restoreAllMocks(); });
++
++it("patches accumulate before a draw, and whole replies replace them on undo", () => {
++  const m = { heights: new Uint8Array(24).fill(2) };
++  const original = m.heights;
++  const drawn = original.slice();
++  applyForceTerrain(m, { rect: {x0:1,y0:1,x1:2,y1:2}, heightPatch: new Uint8Array([3,4,5,6]) }, 6);
++  applyForceTerrain(m, { rect: {x0:2,y0:2,x1:3,y1:2}, heightPatch: new Uint8Array([7,8]) }, 6);
++  expect(m.heights).toBe(original);
++  expect(Array.from(m.heights)).toEqual([2,2,2,2,2,2,2,3,4,2,2,2,2,5,7,8,2,2,2,2,2,2,2,2]);
++  expect(Array.from(drawn)).toEqual(new Array(24).fill(2));
++  expect(applyForceTerrain(m, {}, 6)).toBe(false);
++  applyForceTerrain(m, { rect: {x0:0,y0:0,x1:5,y1:3}, heights: drawn }, 6);
++  expect(m.heights).toBe(drawn);
++});
++
++describe("a transferred force patch shows every frame of the full-snapshot protocol", () => {
++  const origin: [number,number] = [30,24];
++  const requests: ed.ForceRequest[] = [
++    {verb:"carve", settings:{...CARVE_DEFAULTS, power:50, seed:7}, origin:[30,10], end:[20,37], cut:null},
++    {verb:"craterize", settings:{...CRATER_DEFAULTS, power:50, seed:7}, origin, cut:null},
++    {verb:"erupt", settings:{...ERUPT_DEFAULTS, power:50, seed:7}, origin, cut:null},
++    {verb:"quake", settings:{...QUAKE_DEFAULTS, power:50, seed:7, mode:"slide"}, path:[{x:10,y:25},{x:37,y:28}], side:1, cut:null},
++    {verb:"glaciate", settings:{...GLACIATE_DEFAULTS, power:50, seed:7}, origin:[30,10], end:[20,37], cut:null},
++  ];
++  for (const request of requests) it(request.verb, async () => {
++    await runGenerate(makeSpec({seed:4242,theme:"highlands",size:{x:48,y:48}}));
++    ed.refine();
++    const bytes = ed.project().bytes;
++    let tick = 0, uuid = 0;
++    vi.spyOn(performance,"now").mockImplementation(() => (tick += .25));
++    vi.spyOn(crypto,"randomUUID").mockImplementation(() => `00000000-0000-4000-8000-${String(++uuid).padStart(12,"0")}`);
++    const play = (patches: boolean) => {
++      ed.openProject(bytes); tick=0; uuid=0;
++      const m = {heights:ed.terrainNow().heights};
++      const start = ed.forceStart(request);
++      expect(start.errors).toEqual([]);
++      expect(start.frame).not.toBeNull();
++      applyForceTerrain(m,start.frame!,48);
++      const frames: {heights:number[]; cue:ed.ForceFrame["cue"]; shown:number; trail:ed.ForceFrame["trail"]}[] = [];
++      let patchCount=0;
++      for(let k=0;k<500;k++) {
++        const frame=ed.forceAdvance(1,patches)!;
++        expect(frame).not.toBeNull();
++        const transfer=[frame.heightPatch?.buffer,frame.heights?.buffer].filter(Boolean) as ArrayBuffer[];
++        const f=structuredClone(frame,{transfer});
++        if(f.heightPatch) { patchCount++; expect(frame.heightPatch!.byteLength).toBe(0); }
++        applyForceTerrain(m,f,48);
++        frames.push({heights:Array.from(m.heights),cue:f.cue,shown:f.shown,trail:f.trail});
++        if(f.done) break;
++      }
++      expect(frames.at(-1)?.cue.phase).toBe("done");
++      const kept=ed.forceStop();
++      expect(kept.ok).toBe(true);
++      expect(Array.from(kept.view.heights!)).toEqual(Array.from(m.heights));
++      return {frames,patchCount};
++    };
++    const full=play(false), sparse=play(true);
++    expect(sparse.patchCount).toBeGreaterThan(0);
++    expect(sparse.frames).toEqual(full.frames);
++  });
++});

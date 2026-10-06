@@ -1,7 +1,8 @@
 // The validation report (PLAN §11.6, §19.5): every check yields {id, class, severity, ok, value,
 // limit, message, where?, fix?}. `where` names the tiles, feature or entities involved; `fix` is a
 // list of edit operations the editor offers as a one-click fix (EDITOR_PLAN §6), in the envelope
-// the operations engine takes (core/doc/ops.ts), applied as one step with `MapSession.applyAll`.
+// the operations engine takes (core/doc/ops.ts), applied as one step with `MapSession.applyAll`. The
+// checks that fill it run in Rust (rust/checks/src/report.rs writes it, with these rules).
 
 import type { EditOp } from "../doc/ops";
 
@@ -72,32 +73,6 @@ export function blocks(profile: Profile, r: CheckResult): boolean {
   if (profile === "generate") return true;
   if (profile === "export") return r.class === "load" || r.class === "principle";
   return false;
-}
-
-export class Collector {
-  readonly checks: CheckResult[] = [];
-  constructor(readonly profile: Profile) {}
-
-  add(r: Omit<CheckResult, "severity">): CheckResult {
-    const out = { ...r, severity: severityOf(this.profile, r.class, r.ok, r.advisory) } as CheckResult;
-    this.checks.push(out);
-    return out;
-  }
-
-  /** A check that does not apply to this map: reported as passing, with the reason. */
-  notApplicable(id: string, cls: CheckClass, message: string, advisory = false): void {
-    this.add({ id, class: cls, ok: true, applicable: false, message, ...(advisory ? { advisory } : {}) });
-  }
-
-  /** Mark the checks `which` picks as approximate (see `CheckResult.approximate`): they pass, keep
-   *  what they measured, and say why. Checks that do not apply stay as they are. */
-  approximate(which: (id: string) => boolean, reason: string): void {
-    for (let k = 0; k < this.checks.length; k++) {
-      const c = this.checks[k];
-      if (!which(c.id) || c.applicable === false) continue;
-      this.checks[k] = { ...c, ok: true, severity: "info", approximate: reason, message: `Approximate (${reason}): ${c.message}` };
-    }
-  }
 }
 
 /** The map card's groups (PLAN §11.6). */

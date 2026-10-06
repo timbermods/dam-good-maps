@@ -66,10 +66,15 @@ describe("which suites a change needs", () => {
       expect(isRustInput(f), f).toBe(true);
       expect(classify([f], none), f).toEqual(all);
     }
+    // (the multi-core water, its policy and the isolation it needs: the identity job runs it on threads)
+    for (const f of ["src/core/sim/parallel.ts", "src/core/sim/parallelPolicy.ts", "src/platform/isolation.ts", "public/sw.js"]) expect(isRustInput(f), f).toBe(true);
     expect(isRustInput("src/core/sim/preview.ts")).toBe(false);
     // (the forces' Wasm and what wraps it, and the maps their byte fixtures stand on)
     for (const f of ["src/core/forces/rust/bridge.ts", "src/core/forces/rust/forcesWasm.ts", "tests/contract/forceFixtures.ts", "tools/rust/forces-pins.json"]) expect(isRustInput(f), f).toBe(true);
     expect(isRustInput("src/core/forces/runs.ts")).toBe(false);
+    for (const f of ["src/core/analysis/rust/bridge.ts", "src/core/analysis/rust/analysisWasm.ts", "tools/rust/analysis-pins.json", "tests/golden/water.json.gz"]) expect(isRustInput(f), f).toBe(true);
+    expect(isRustInput("src/core/analysis/story.ts")).toBe(false);
+    for (const f of ["src/core/validate/rust.ts", "src/core/validate/checksWasm.ts", "src/core/validate/checks.ts", "src/core/sim/model.ts", "tools/rust/checks-pins.json"]) expect(isRustInput(f), f).toBe(true);
   });
   it("dependency changes run everything; a descriptive package.json change is a document", () => {
     const deps = readWith({ "package.json": [pkg(), pkg({ dependencies: { a: "2" } })] });

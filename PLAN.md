@@ -71,8 +71,11 @@ DOM access, so it runs identically in the Web Worker, in Node (tests, batch runs
 Canvas 2D (an `ImageData` buffer); the 3D preview is three.js in a lazy-loaded chunk. The zip is fflate `zipSync` with a
 fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker (0.4.4, vendored, D20), because canvas
 `toBlob` encoders differ between browsers; both keep files byte-reproducible. Hosting is GitHub Pages from GitHub
-Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers (no COOP/COEP), so `SharedArrayBuffer`
-threads are unavailable and parallel work runs as independent workers. A second build target, a single-file build for a
+Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
+(`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
+cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
+`SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
+workers. A second build target, a single-file build for a
 Claude artifact (deferred with Claude, D277), swaps the platform adapters (§19.9): data is bundled, workers can be
 inlined, and libraries come from npm. The visual design is the org's Impeccable site flow and the timbermods design
 system (walnut lodge palette, `DESIGN.md`), done as its own step.
@@ -110,6 +113,16 @@ Node:
     it replaced (tag `ts-forces-final`); their byte fixtures give the same results natively, in Node and in
     each engine (CI's `rust` job). The request, Keep, the build's last touches, the record and the showing stay
     in TypeScript (`src/core/forces/README.md`).
+  - Six analysis kernels run in Rust (`rust/analysis`, D391): `distanceFrom`, `walkDistance`, `landRegions`,
+    `spillLevels`, `damSites` and `roomMap`, byte for byte the TypeScript they replaced (tag
+    `ts-analysis-final`), with byte fixtures in CI's `rust` job like the forces'. The outcomes and M9b's
+    descriptive rows keep a TypeScript `distanceFrom`.
+  - The checks run in Rust (`rust/checks`, D465): one call validates a map, the report and what the checks
+    measured byte for byte the TypeScript they replaced (tag `ts-checks-final`), with byte fixtures in CI's
+    `rust` job like the forces'. A map the checks cannot read as the map it claims to be (a broken character,
+    a position off the tile grid, a setting of the wrong kind, unreadable stored water) is refused with a
+    one-line reason. `rulesFor`, the colony's reach and the extras' bands stay in TypeScript for the
+    generator and the editor (`src/core/validate/README.md`).
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.
@@ -650,7 +663,7 @@ where the land's own processes make them. The builder's limits still fix what a 
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
   water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
   (D469; `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
-  badwater, so only stored water stays clean; the map card says so when the drought reserve is Scarce.
+  badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge
 

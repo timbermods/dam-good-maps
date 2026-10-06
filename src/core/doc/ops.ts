@@ -315,13 +315,15 @@ export function applyOp(state: DocState, op: AppliedOp): void {
 }
 
 /** A force's objects, as the entity edits the build applies (same seq): the objects that lost their
- *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
- *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+ *  ground go, and the sources it cleared (D474), the ones it carried move, the trees it knocked down
+ *  die, and a carve's source is placed. Each is quiet: what the ground's resources placed again may
+ *  have changed. */
 function forceEntityEdits(op: ForceOp): EntityOp[] {
   const { seq, origin } = op;
   const out: EntityOp[] = [];
   const p = op.params;
-  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
+  const gone = p.cleared?.length ? [...p.removed, ...p.cleared.map((c) => c.id)] : p.removed;
+  if (gone.length) out.push({ op: "deleteEntities", params: { entities: gone, quiet: true }, seq, origin });
   for (const m of p.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
   for (const f of p.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
   // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
@@ -628,8 +630,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
         for (const m of p.moved ?? []) if (!ctx.entityIds.has(m.id)) return [`entity ${m.id} does not exist`];
         for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];
+        for (const c of p.cleared ?? []) if (!ctx.entityIds.has(c.id)) return [`there is no source ${c.id} to clear`];
       }
-      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
+      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.cleared ?? []).map((c) => c.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
         if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];

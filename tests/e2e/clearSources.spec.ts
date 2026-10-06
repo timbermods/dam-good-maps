@@ -3,7 +3,7 @@
 // water drains away (D260).
 
 import { expect, test, type Page } from "@playwright/test";
-import { startHintUp, toolInHand } from "./helpers";
+import { startHintUp, toolInHand, toolPutAway } from "./helpers";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -80,6 +80,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   await page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" }).fill("6");
   await stroke(page, x, y);
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
   // (a Flatten stroke leaves a "Move the start here" tag on this ground once the page is idle: picking the
   // source from the shelf takes it away, so wait for it, or a late one sits under the strokes below)
   await startHintUp(page);
@@ -93,6 +94,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
     await page.mouse.click(p.x, p.y);
     await idle(page);
     await page.keyboard.press("Escape");
+    await toolPutAway(page);
     await expect.poll(async () => (await drawn(page)).some(([a, b]) => a === x && b === y)).toBe(true);
     await expect.poll(() => waterNear(page, x, y, 2), { timeout: 30_000 }).toBeGreaterThan(0.2);
 
@@ -114,6 +116,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
     await expect.poll(() => waterNear(page, x, y, 4), { timeout: 30_000 }).toBeLessThan(0.05);
     await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" }).click();
     await page.keyboard.press("Escape");
+    await toolPutAway(page);
   }
   expect(errors).toEqual([]);
 });

@@ -2,7 +2,7 @@
 # built with strict floating point: no FMA, no libm, no transcendental intrinsics (tools/rust/guard.mjs).
 [workspace]
 resolver = "2"
-members = ["portable", "portable-check", "water", "forces"]
+members = ["portable", "portable-check", "water", "forces", "analysis", "checks"]
 
 [workspace.package]
 version = "0.1.0"

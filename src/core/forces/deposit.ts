@@ -1,4 +1,5 @@
 // Presentation only; the conserved cut/fill, branches and arrival tape are produced in Rust.
+import type { SourcesRule } from "./clear";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { Staged, type StagedRun, type ForceCue } from "./runs";
@@ -8,7 +9,7 @@ import type { Point } from "./quake";
 import { smoothstep } from "../math/clamp";
 import { trimRock } from "./rock";
 
-export interface DepositSettings { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; floor: number; seed: number }
+export interface DepositSettings { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; floor: number; seed: number; sources?: SourcesRule }
 export interface DepositIntent { path: Point[] }
 export const DEPOSIT_DEFAULTS: DepositSettings = { mode: "fan", power: 70, size: null, channels: "auto", floor: 1, seed: 1 };
 export function validateDeposit(s: DepositSettings): void {
