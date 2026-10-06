@@ -22,7 +22,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
 **Contact sheets and captures**
-- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps.
+- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, and whether each theme's main water carries it (#265).
 - `capture-*.ts`: before and after captures for Kyler's look rounds, taken in a real browser.
 
 **Data the game supplies**

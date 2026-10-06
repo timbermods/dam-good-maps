@@ -128,13 +128,13 @@ describe("an edit never places an object (D368 (10))", () => {
     }, 120000);
   }
 
-  it("a Quake Lift after a wide Flatten adds nothing back: what the Flatten's ground and water took stays gone (D404)", async () => {
+  const liftAfterFlatten = async (seed: number) => {
     // (the finding, Highlands seed 3 at 128²: the Flatten flooded groves, bushes and ruin fields and
     // broke slopes' steps; a Lift that drained the ground or gave a step back brought them back, 122
     // objects on one side of the fault and 266 on the other. The build re-marks a kept tree dead or
     // alive and keeps every bush and ruin column where the generation put them; a slope an edit
     // broke stays gone)
-    await open(3);
+    await open(seed);
     const dabs: number[] = [];
     for (let y = 30; y <= 100; y += 4) for (let x = 14; x <= 124; x += 4) dabs.push(x * 4, y * 4);
     expect(ed.apply({ op: "brush", params: { tool: "flatten", size: 14, strength: 10, level: 8, dabs } }, "user", "flatten").errors).toEqual([]);
@@ -150,7 +150,11 @@ describe("an edit never places an object (D368 (10))", () => {
       ed.undo();
       expect(shown(entities())).toEqual(shown(before));
     }
-  }, 300000);
+  };
+  it("a Quake Lift after a wide Flatten adds nothing back: what the Flatten's ground and water took stays gone (D404)", () => liftAfterFlatten(1), 300000);
+  // (seed 3 on 0.8.1's maps: a two-tile spring river at (34, 29) whose head row the Lift once lengthened
+  // to 3 springs, the new one counted as added; an edited map now keeps the generation's row, D314)
+  it("Highlands seed 3, beside a two-spring head row: a Quake Lift after a wide Flatten adds nothing back", () => liftAfterFlatten(3), 300000);
 });
 
 describe("a spring the build derives again after an edit keeps its id (PLAN §19.4, D314)", () => {
@@ -223,7 +227,8 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
   it("walling the mine site off from the start adds no slope and reports resources.mine_site", async () => {
     // a generated map whose mine site the colony reaches
     let mine: { x: number; y: number; z: number } | null = null;
-    for (const seed of [4, 2, 5, 6]) {
+    // (7 to 12 since the start's badwater distance became a rule, Kyler, 2026-10-05, D148: none of 4, 2, 5, 6 has one now)
+    for (const seed of [4, 2, 5, 6, 7, 8, 9, 10, 11, 12]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;

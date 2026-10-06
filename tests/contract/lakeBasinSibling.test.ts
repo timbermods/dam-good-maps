@@ -30,7 +30,8 @@ describe("Another like this on a Lake Basin map (D278 (1c))", () => {
       (sib.outcomes?.promise ? kept : missed).push(seed);
     }
     // (10 of 12 with round 2 on every Lake Basin map, 5 and 12 missing, as River Valley's siblings keep
-    // theirs on 10 of 12; 6 of 12 while round 2 ran on the preset path only)
+    // theirs on 10 of 12; 6 of 12 while round 2 ran on the preset path only; 12 of 12 since #265 reads a
+    // lake as it holds water, where the settled lake stands wider than the lake planned)
     expect(kept.length, `siblings missing the promise: ${missed.join(", ")}`).toBeGreaterThanOrEqual(10);
   }, 1_200_000);
 });
