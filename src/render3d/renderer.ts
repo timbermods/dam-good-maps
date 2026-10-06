@@ -1780,9 +1780,14 @@ export class MapRenderer {
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
     if (!this.juicy) return;
-    if (m.verb === "carve") this.forceFx?.set(m);
-    else this.forceFxOf().set(m);
+    const fresh = m.verb === "carve" ? this.forceFx?.set(m) : this.forceFxOf().set(m);
+    // (a new force: an earlier eruption's heat never shows again; only this force's own, given with
+    // its frames)
+    if (fresh && !this.heatOfThisForce) this.setHeat(null);
   }
+
+  /** The heat on the ground is the force's at work (given since the last force ended). */
+  private heatOfThisForce = false;
 
   /** The forces' moments playing now, each its place and age, or null (tests). */
   get forceShowing(): ReturnType<ForceEffects["showing"]> | null {
@@ -1792,12 +1797,15 @@ export class MapRenderer {
   /** The force was kept: its tails play out (dust settling, lava cooling). */
   forceDone(): void {
     this.forceFx?.finish();
+    // (its lava cools on; the next force's first moment puts its heat away)
+    this.heatOfThisForce = false;
   }
 
   /** Esc, undo: a force's effects and its heat go at once. */
   clearForce(): void {
     this.forceFx?.clear();
     this.setHeat(null);
+    this.heatOfThisForce = false;
   }
 
   private forceFxOf(): ForceEffects {
@@ -1824,6 +1832,7 @@ export class MapRenderer {
       return;
     }
     old.dispose();
+    this.heatOfThisForce = true;
     const t = overlayTexture(m.W, m.H);
     (t.image.data as Uint8Array).set(mask);
     t.magFilter = t.minFilter = LinearFilter;

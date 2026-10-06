@@ -202,15 +202,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
   as each frame has it, as it flowed (its currents carried in), and each frame's land and water are drawn in the same
   frame. Water rides the ground it stands on and flows on from there: into a crater or a rift as it opens, off a cone
-  or a lifted fault, along with a Slide's block; a glacier's own water (its tarn, its meltwater river) comes in as the
-  ice melts back; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
+  or a lifted fault, along with a Slide's block; a glacier's tarn and meltwater river fill from its springs at the
+  water's own pace once its land is final; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
   from the first step, so the water follows the cutting edge down the new channel and never leads it (each dry or damp
   tile is held until the front reaches it; water already there flows on as it flowed)
   (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
-  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
-  never depend on the pace.
+  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
+  moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
+  places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
+  melt-back, the lava cooling; a new force puts any of them away at once). A force's heat is its own: a later force
+  never shows an earlier eruption's. The result
+  and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
   operation without the choice), removes every water and badwater source and seep on a tile whose ground the force
   changes (a multi-tile one if any of its tiles changes; in a working area, the feathered ground the force keeps);
