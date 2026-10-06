@@ -33,6 +33,8 @@
 // - Rule 3 weathers one dab at a time (brush.ts): the land the dabs before it left, in a rectangle round
 //   where this dab presses harder, its edges wandering only there; the order kept is the land's when the
 //   stroke began, and its softening is three box passes (cheap to work out again round each change).
+// - Rule 4 (new strokes) is rule 3 with the scree's slope measured from every cliff (`shed`): rules 2
+//   and 3 lost some cliffs' slopes, leaving cliffs that every pass cut back again, and replay so.
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -84,6 +86,9 @@ export interface WeatherInput {
   was?: Float32Array | null;
   /** Each tile it changes, as triples (map tile, level before, level after), when given. */
   changes?: number[] | null;
+  /** The stroke's rule (brush.ts `weathering`): rule 4 measures the scree's slope from every cliff
+   *  (`shed`). */
+  rule?: number;
 }
 
 // Work buffers kept between dabs (a large brush's rectangle is tens of thousands of tiles, worked
@@ -222,7 +227,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
     }
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, inp.rule === 4);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water
@@ -557,8 +562,9 @@ const SHED_CELL = 12;
  *  toward the stroke's edge and no new cliff is left. The slope is a distance from the cliffs (the
  *  least, over them, of the middle and a level a tread), so a slope once shed has no cliff left to
  *  shed: painting again leaves it as it is. Changes `h` in place; `hi` is the highest each tile may
- *  stand, `lo` the lowest. */
-function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array): void {
+ *  stand, `lo` the lowest. `every` (rule 4): the distance is measured from every cliff; rules 2 and 3
+ *  lost some of them (their strokes replay as they were). */
+function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false): void {
   const n = bw * bh;
   const on = (k: number) => I[k] >= SHED_FROM;
   // where the slope starts: down from the middle at each cliff's foot (the ceiling over the ground
@@ -659,6 +665,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     if (h[k] > maxH) maxH = h[k];
   }
   const link = i32("shed.link", n);
+  const entries = every ? { tile: i32("shed.tile", 4 * n), next: i32("shed.next", 4 * n) } : { tile: link, next: link };
   const around = [-1, 1, -bw, bw, -bw - 1, -bw + 1, bw - 1, bw + 1];
   const diagonal = new Int32Array(LEVEL + 1);
   for (let c = 0; c <= LEVEL; c++) diagonal[c] = Math.round(c * 1.4142);
@@ -672,10 +679,58 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
         link[k] = head[key[k] - base];
         head[key[k] - base] = k;
       } else key[k] = INF;
+    if (!every) {
+      // (rules 2 and 3, kept so their strokes replay exactly: a tile given a lower key while it still
+      // waited under its old one took the rest of that bucket's queue with it, so some cliffs never
+      // carried their key and their slopes were cut short)
+      for (let b = 0; b < head.length; b++)
+        while (head[b] >= 0) {
+          const k = head[b];
+          head[b] = link[k];
+          const kk = b + base;
+          if (key[k] !== kk) continue;
+          const ck = cost[k];
+          // (every key is on a tile inside the ring, whose ring tiles cost nothing: no step leaves the
+          // rectangle or wraps a row)
+          for (let e = 0; e < 8; e++) {
+            const j = k + around[e];
+            const cj = cost[j];
+            if (!cj) continue;
+            const step = cj + (ck || cj);
+            const v = kk + (e < 4 ? step : diagonal[step]);
+            if (v >= key[j] || v > limit) continue;
+            key[j] = v;
+            link[j] = head[v - base];
+            head[v - base] = j;
+          }
+        }
+      return;
+    }
+    // each bucket a list of entries (a tile and the next entry), so a tile given a lower key is queued
+    // again and its old entry, read later, is passed over
+    head.fill(-1);
+    let tile = entries.tile;
+    let next = entries.next;
+    let count = 0;
+    const queue = (k: number, b: number) => {
+      if (count === tile.length) {
+        const t = new Int32Array(2 * count);
+        t.set(tile);
+        const x = new Int32Array(2 * count);
+        x.set(next);
+        entries.tile = tile = t;
+        entries.next = next = x;
+      }
+      tile[count] = k;
+      next[count] = head[b];
+      head[b] = count++;
+    };
+    for (let k = 0; k < n; k++) if (key[k] <= limit) queue(k, key[k] - base);
     for (let b = 0; b < head.length; b++)
       while (head[b] >= 0) {
-        const k = head[b];
-        head[b] = link[k];
+        const q = head[b];
+        head[b] = next[q];
+        const k = tile[q];
         const kk = b + base;
         if (key[k] !== kk) continue;
         const ck = cost[k];
@@ -689,8 +744,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
           const v = kk + (e < 4 ? step : diagonal[step]);
           if (v >= key[j] || v > limit) continue;
           key[j] = v;
-          link[j] = head[v - base];
-          head[v - base] = j;
+          queue(j, v - base);
         }
       }
   };
