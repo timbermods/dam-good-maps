@@ -881,7 +881,7 @@ export class BrushStroke {
     const was = this.lastBox;
     let same = !!was && was.x0 === box.x0 && was.y0 === box.y0 && was.x1 === box.x1 && was.y1 === box.y1;
     for (let y = box.y0; y <= box.y1; y++)
-      for (let x = box.x0; x <= box.x1; x++) {
+      for (let x: number = box.x0; x <= box.x1; x++) {
         const i = y * W + x;
         if (last[i] !== I[i]) {
           same = false;

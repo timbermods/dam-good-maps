@@ -118,7 +118,7 @@ export class RemotePreview {
     if (!b) return 0;
     let n = 0;
     for (let y = b.y0; y <= b.y1; y++)
-      for (let x = b.x0; x <= b.x1; x++) {
+      for (let x: number = b.x0; x <= b.x1; x++) {
         const i = y * this.W + x;
         if (this.heights[i] !== this.start[i]) n++;
       }
