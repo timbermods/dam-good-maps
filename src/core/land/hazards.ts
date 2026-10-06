@@ -68,6 +68,11 @@ export interface BadwaterAsk {
    *  (`mainLake`), River Valley's and Delta's main river (`mainRiver`). No ditch joins it or water that
    *  flows into it, which would carry its badwater there. */
   keepClean?: Uint8Array | null;
+  /** The theme's main water on a map drawn poisoned (the occasional map, Kyler, 2026-10-05): the first
+   *  hollow's ditch joins it, below the start's water where it can, else beyond the badwater distance
+   *  with the start then kept by other clean water (D85), so the poisoned map really has a poisoned
+   *  river; without it the ditch went to the nearest water, seldom the main (#265's sheets: 0 of 20). */
+  poison?: Uint8Array | null;
 }
 
 /** The main river's water (River Valley's and Delta's main water, kept clean on most maps: Kyler,
@@ -337,7 +342,10 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // (the theme's main water, kept clean on most maps: Lake Basin's lake, River Valley's and Delta's
   // main river)
   const lake = ask.keepClean ?? null;
-  const outlets = (dn: ReturnType<typeof drainage>): { goal: Uint8Array; keepOff: Uint8Array } => {
+  // (`only`: the water a ditch must join this time, the main water a poisoned map takes badwater
+  // into; any other water is kept off as water it may not join. `loose`: that water may pass the
+  // start planned so far, which then gives way to another)
+  const outlets = (dn: ReturnType<typeof drainage>, only: Uint8Array | null, loose: boolean): { goal: Uint8Array; keepOff: Uint8Array } => {
     // water on each tile goes side to side down the land's drainage: whether it passes the start,
     // and whether it ends in the main water kept clean
     const reachesStart = new Uint8Array(N);
@@ -349,7 +357,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       if (lake) reachesLake[j] = lake[j] || (r >= 0 && reachesLake[r]) ? 1 : 0;
     }
     const goal = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && !startWater[j] && sd[j] > D + 6 && !reachesStart[j] && !reachesLake[j]) goal[j] = 1;
+    for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && !reachesLake[j] && (!only || only[j])) goal[j] = 1;
     const keepOff = new Uint8Array(N);
     for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water
@@ -363,242 +371,261 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     }
     return { goal, keepOff };
   };
-  // how far a ditch from each tile would run to water it may join, standing below the pit's floor:
-  // pits near such water rank first, so most badwater joins a river or a lake; then pits whose
-  // ditch can reach the map's edge (a map whose water all passes the start, or stands above them),
-  // so few run to the edge and none is left without a way out
-  const o0 = outlets(drainage(hh, W, H, { eight: false }));
-  const spread = (seeds: (j: number) => boolean): Float64Array => {
-    const d = new Float64Array(N).fill(Infinity);
-    const q = new Int32Array(N);
-    let head = 0;
-    let tail = 0;
-    for (let j = 0; j < N; j++) {
-      if (seeds(j)) {
-        d[j] = 0;
-        q[tail++] = j;
-      }
-    }
-    while (head < tail) {
-      const c = q[head++];
-      const x = c % W;
-      const y = (c - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const n = yy * W + xx;
-        if (o0.keepOff[n] || d[n] <= d[c] + 1) continue;
-        d[n] = d[c] + 1;
-        q[tail++] = n;
-      }
-    }
-    return d;
-  };
-  const toEdge = spread((j) => {
-    const x = j % W;
-    const y = (j - x) / W;
-    return !o0.keepOff[j] && (x === 0 || y === 0 || x === W - 1 || y === H - 1);
-  });
-  const toWater = new Map<number, Float64Array>();
-  const ditchEst = (i: number, floor: number): number => {
-    let d = toWater.get(floor);
-    if (!d) {
-      d = spread((j) => o0.goal[j] === 1 && !o0.keepOff[j] && hh[j] + wetNow[j] < floor);
-      toWater.set(floor, d);
-    }
-    return Number.isFinite(d[i]) ? d[i] : W + toEdge[i];
-  };
-  // candidate pit centres: beyond the distance, off the water, on ground that stands above its
-  // surroundings (a hollow dug there keeps a rim two levels high). They aim at about the distance
-  // (its pit and the soil it soaks a few tiles further out): the Badwater distance setting is how
-  // far the colony's first badwater lies, and moves it (ROADMAP M6)
-  const cands: [number, number][] = [];
-  for (let y = 8; y < H - 8; y++)
-    for (let x = 8; x < W - 8; x++) {
-      const i = y * W + x;
-      if (sd[i] < D + 8 || dWet[i] < 9 || ask.keepOff?.[i]) continue;
-      let lo = 99;
-      for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-      // (its pit two below the lowest ground round it, never below the beds' floor, item 47)
-      if (lo < BED_FLOOR + 2) continue;
-      cands.push([Math.abs(sd[i] - (D + 11)) + 8 * rng.float() - 0.3 * h[i] + 0.5 * Math.max(0, Math.min(ditchEst(i, lo - 2), 4 * W) - 10), i]);
-    }
-  cands.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const placed: [number, number][] = [];
-  // (a ditch runs as far as the land takes it to water; past the side's length it is no ditch)
-  const limit = Math.max(W, H);
-  let cached: { hh: Uint8Array; dn: ReturnType<typeof drainage>; outs: { goal: Uint8Array; keepOff: Uint8Array } } | null = null;
-  // (60 pits tried at most; one too near a hollow already placed is passed over, not tried: the
-  // pits by the nearest low water lie close together, and a second hollow was left unplaced)
-  for (let c = 0, tried = 0; c < cands.length && tried < 60 && out.count < ask.count; c++) {
-    const i = cands[c][1];
-    const cx = i % W;
-    const cy = (i - cx) / W;
-    if (placed.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 24)) continue;
-    tried++;
-    // where water on each tile goes (side to side, as the game's water moves), and where a ditch
-    // may end: the same until a pit is dug (reused across candidates)
-    if (!cached || cached.hh !== hh) {
-      const d0 = drainage(hh, W, H, { eight: false });
-      cached = { hh, dn: d0, outs: outlets(d0) };
-    }
-    const dn = cached.dn;
-    const passesStart = (from: number) => {
-      for (let j = from, n = 0; j >= 0 && n < 4 * (W + H); j = dn.rcv[j], n++) if (sd[j] <= 26) return true;
-      return false;
+  // the hollows, ranked and placed until `want` in all, each ditch to water it may join (`only`: to
+  // that water alone, never the map's edge)
+  const place = (only: Uint8Array | null, want: number, loose = false): void => {
+    // how far a ditch from each tile would run to water it may join, standing below the pit's floor:
+    // pits near such water rank first, so most badwater joins a river or a lake; then pits whose
+    // ditch can reach the map's edge (a map whose water all passes the start, or stands above them),
+    // so few run to the edge and none is left without a way out
+    const o0 = outlets(drainage(hh, W, H, { eight: false }), only, loose);
+    const spread = (seeds: (j: number) => boolean): Float64Array => {
+      const d = new Float64Array(N).fill(Infinity);
+      const q = new Int32Array(N);
+      let head = 0;
+      let tail = 0;
+      for (let j = 0; j < N; j++) {
+        if (seeds(j)) {
+          d[j] = 0;
+          q[tail++] = j;
+        }
+      }
+      while (head < tail) {
+        const c = q[head++];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [dx, dy] of N4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const n = yy * W + xx;
+          if (o0.keepOff[n] || d[n] <= d[c] + 1) continue;
+          d[n] = d[c] + 1;
+          q[tail++] = n;
+        }
+      }
+      return d;
     };
-    let lo = 99;
-    for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) lo = Math.min(lo, hh[(cy + dy) * W + cx + dx]);
-    const floor = lo - 2;
-    const s = hash32(seed, "pit", attempt, out.count);
-    // the pit: the 3×3 source and an irregular blob round it, radius 2.5–4
-    const pit = new Uint8Array(N);
-    const r0 = 2.6 + 1.2 * rng.float();
-    // the fall of the ground round the pit (from its high side to its low), else east
-    let gx = 0;
-    let gy = 0;
-    for (let dy = -4; dy <= 4; dy++)
-      for (let dx = -4; dx <= 4; dx++) {
-        const x = cx + dx;
-        const y = cy + dy;
-        if (x < 0 || y < 0 || x >= W || y >= H) continue;
-        gx -= dx * hh[y * W + x];
-        gy -= dy * hh[y * W + x];
-      }
-    const gl = portable.sqrt(gx * gx + gy * gy);
-    const fx = gl > 0 ? gx / gl : 1;
-    const fy = gl > 0 ? gy / gl : 0;
-    const elong = 1.5 + 0.6 * rng.float();
-    for (let dy = -8; dy <= 8; dy++)
-      for (let dx = -8; dx <= 8; dx++) {
-        const x = cx + dx;
-        const y = cy + dy;
-        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
-        const inCore = Math.abs(dx) <= 1 && Math.abs(dy) <= 1;
-        // (M9b, D294: the hollows read as round red discs: the pit is long along the fall of the
-        // ground, 1.5–2.1 times as long as wide, so the soil it stains runs down toward its ditch)
-        const along = (x - cx) * fx + (y - cy) * fy;
-        const across = -(x - cx) * fy + (y - cy) * fx;
-        const e = portable.sqrt((along / elong) * (along / elong) + across * across * elong * 0.5);
-        if (inCore || e < r0 * (1 + 0.35 * fbm(s, x, y, 4, 2))) pit[y * W + x] = 1;
-      }
-    // the ditch: from the pit's edge to a river channel (not the start's reach) or the map edge
-    const edge: number[] = [];
-    for (let y = Math.max(1, cy - 9); y <= Math.min(H - 2, cy + 9); y++)
-      for (let x = Math.max(1, cx - 9); x <= Math.min(W - 2, cx + 9); x++) {
-        const j = y * W + x;
-        if (pit[j]) continue;
-        if (N4.some(([dx, dy]) => pit[(y + dy) * W + x + dx])) edge.push(j);
-      }
-    // (water it may join stands below the pit's floor, so the badwater runs down into it; water
-    // standing higher would run back up the ditch into the pit, a source in another's flow, D171:
-    // that water, and the ring beside it, the ditch keeps off)
-    const goal = new Uint8Array(N);
-    const keepOff = cached.outs.keepOff.slice();
-    // (and never a tile it keeps off, a river's mouth or the player's keep-off: the trace, the
-    // cheapest way and the drawn ditch all end only where the ditch may go)
-    for (let j = 0; j < N; j++) if (cached.outs.goal[j] && !keepOff[j] && hh[j] + wetNow[j] < floor) goal[j] = 1;
-    for (let j = 0; j < N; j++) {
-      if (!cached.outs.goal[j] || goal[j] || cached.outs.keepOff[j]) continue;
+    const toEdge = spread((j) => {
       const x = j % W;
       const y = (j - x) / W;
-      for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) if (!goal[yy * W + xx]) keepOff[yy * W + xx] = 1;
-    }
-    let clear = true;
-    for (let j = 0; j < N && clear; j++) if (pit[j] && ask.keepOff?.[j]) clear = false;
-    // (and the ground the basin keeps clear of resources, a square 5 tiles either way of its
-    // middle, setpieces/badwaterBasin.ts `clears`: it took a player's forest beside the pit)
-    if (ask.keepOff)
-      for (let y = Math.max(0, cy - 5); y <= Math.min(H - 1, cy + 5) && clear; y++)
-        for (let x = Math.max(0, cx - 5); x <= Math.min(W - 1, cx + 5) && clear; x++) if (ask.keepOff[y * W + x]) clear = false;
-    if (!clear) continue;
-    const onBorder = (i: number) => {
-      const x = i % W;
-      const y = (i - x) / W;
-      return x === 0 || y === 0 || x === W - 1 || y === H - 1;
-    };
-    const isEnd = (i: number) => goal[i] === 1 || onBorder(i);
-    // the way down: the field's own drainage from the rim, as a river's course, to the water it
-    // meets; where that way leads off the map or into ground the ditch keeps off, the cheapest way
-    // to water that keeps off it; to the edge only where no water can be reached (Kyler, 2026-10-03:
-    // badwater draining off the map on its own is rare)
-    let base = E && dnE ? traceRoute(dnE, E, edge, pit, goal, keepOff, (i) => goal[i] === 1, limit) : null;
-    if (!base) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
-    if (!base) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
-    if (!base || base.length < 3 || base.length > limit) continue;
-    // bent as a river's course is (D209: a ditch that cannot be bent, running straight across a
-    // flat or in a regular wave, is no gully: the pit goes elsewhere)
-    const wound = windDitch(base, hh, W, H, (i) => !pit[i] && !keepOff[i], isEnd, hash32(seed, "ditch-meander", attempt, c), stream(seed, "ditch-wave", attempt, c));
-    if (!wound) continue;
-    const route = { tiles: wound, end: wound[wound.length - 1] };
-    // its water must never pass the start's water on the way out
-    if (passesStart(route.end)) continue;
-    // bed levels: the sill one above the floor, then never rising, cut two below the ground beside
-    // (M9b, D302: cut one below, the water refilling it after a drought rose over its banks and
-    // spread a sheet of badwater over the flat beside it, which stayed until the badtide)
-    const tiles = route.tiles.slice(0, goal[route.end] ? route.tiles.length - 1 : route.tiles.length);
-    if (tiles.length < 2) continue;
-    const onDitch = new Set(tiles);
-    const levels: number[] = [];
-    let run = floor + 1;
-    for (let k = 0; k < tiles.length; k++) {
-      const j = tiles[k];
-      const x = j % W;
-      const y = (j - x) / W;
-      let ring = hh[j];
-      for (const [dx, dy] of N4) {
-        const n = (y + dy) * W + x + dx;
-        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
-        if (pit[n] || onDitch.has(n) || hy.water[n] === 1 || hy.water[n] === 2) continue;
-        ring = Math.min(ring, hh[n]);
+      return !o0.keepOff[j] && (x === 0 || y === 0 || x === W - 1 || y === H - 1);
+    });
+    const toWater = new Map<number, Float64Array>();
+    const toWaterAt = (i: number, floor: number): number => {
+      let d = toWater.get(floor);
+      if (!d) {
+        d = spread((j) => o0.goal[j] === 1 && !o0.keepOff[j] && hh[j] + wetNow[j] < floor);
+        toWater.set(floor, d);
       }
-      run = Math.min(run, ring - 2);
-      if (run < BED_FLOOR) run = BED_FLOOR;
-      levels.push(run);
-    }
-    const outlet: number[] = [];
-    for (const j of tiles) outlet.push(j % W, Math.floor(j / W));
-    const plan = { mode: "basin", x: cx - 1, y: cy - 1, floor, strength: ask.strength, outlet, outletLevels: levels, outletWidth: 1, outletTo: goal[route.end] ? (hy.water[route.end] === 2 ? "lake" : "river") : "edge" };
-    // dig it into a copy and prove it holds before touching the map
-    const next = hh.slice();
-    for (let j = 0; j < N; j++) if (pit[j]) next[j] = floor;
-    for (let k = 0; k < tiles.length; k++) next[tiles[k]] = Math.min(next[tiles[k]], levels[k]);
-    const bedKeys = channelTiles({ tiles: outlet, levels, width: 1, to: "" }, W, H).bed;
-    let flat = true;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (next[(cy + dy) * W + cx + dx] !== floor) flat = false;
-    if (!flat || basinLeak(plan, next, W, H)) continue;
-    // banks: every tile beside the ditch stands above its bed
-    let banks = true;
-    for (let k = 0; k < tiles.length && banks; k++) {
-      const j = tiles[k];
-      const x = j % W;
-      const y = (j - x) / W;
-      for (const [dx, dy] of N4) {
-        const n = (y + dy) * W + x + dx;
-        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
-        if (pit[n] || bedKeys.has(n) || hy.water[n] === 1 || hy.water[n] === 2) continue;
-        if (next[n] < levels[k] + 1) banks = false;
-      }
-    }
-    if (!banks) continue;
-    hh = next;
-    for (let j = 0; j < N; j++) if (pit[j]) avoid[j] = 1;
-    for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 6; x <= cx + 6; x++) if (x >= 0 && y >= 0 && x < W && y < H) avoid[y * W + x] = 1;
-    for (const j of bedKeys.keys()) avoid[j] = 1;
-    const role = `setpiece/badwaterBasin/${out.count}`;
-    const f: SetPieceFeature = {
-      id: featureId(seed, "setPiece", role),
-      kind: "setPiece",
-      origin: "generated",
-      role,
-      locked: false,
-      params: { kind: "badwaterBasin", request: { mode: "basin", at: [cx, cy], strength: ask.strength }, plan, report: ["a hollow found in the land: badwater rises in its pit and leaves by a winding ditch"] },
+      return d[i];
     };
-    out.features.push(f);
-    out.count++;
-    placed.push([cx, cy]);
+    const ditchEst = (i: number, floor: number): number => {
+      const d = toWaterAt(i, floor);
+      return Number.isFinite(d) ? d : W + toEdge[i];
+    };
+    // (a ditch runs as far as the land takes it to water; past the side's length it is no ditch)
+    const limit = Math.max(W, H);
+    // candidate pit centres: beyond the distance, off the water, on ground that stands above its
+    // surroundings (a hollow dug there keeps a rim two levels high). They aim at about the distance
+    // (its pit and the soil it soaks a few tiles further out): the Badwater distance setting is how
+    // far the colony's first badwater lies, and moves it (ROADMAP M6)
+    const cands: [number, number][] = [];
+    for (let y = 8; y < H - 8; y++)
+      for (let x = 8; x < W - 8; x++) {
+        const i = y * W + x;
+        if (sd[i] < D + 8 || dWet[i] < 9 || ask.keepOff?.[i]) continue;
+        let lo = 99;
+        for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
+        // (its pit two below the lowest ground round it, never below the beds' floor, item 47)
+        if (lo < BED_FLOOR + 2) continue;
+        // (a ditch that must join one water: only pits whose way to it is open and short enough)
+        if (only && !(toWaterAt(i, lo - 2) <= limit)) continue;
+        cands.push([Math.abs(sd[i] - (D + 11)) + 8 * rng.float() - 0.3 * h[i] + 0.5 * Math.max(0, Math.min(ditchEst(i, lo - 2), 4 * W) - 10), i]);
+      }
+    cands.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    let cached: { hh: Uint8Array; dn: ReturnType<typeof drainage>; outs: { goal: Uint8Array; keepOff: Uint8Array } } | null = null;
+    // (60 pits tried at most; one too near a hollow already placed is passed over, not tried: the
+    // pits by the nearest low water lie close together, and a second hollow was left unplaced)
+    for (let c = 0, tried = 0; c < cands.length && tried < 60 && out.count < want; c++) {
+      const i = cands[c][1];
+      const cx = i % W;
+      const cy = (i - cx) / W;
+      if (placed.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 24)) continue;
+      tried++;
+      // where water on each tile goes (side to side, as the game's water moves), and where a ditch
+      // may end: the same until a pit is dug (reused across candidates)
+      if (!cached || cached.hh !== hh) {
+        const d0 = drainage(hh, W, H, { eight: false });
+        cached = { hh, dn: d0, outs: outlets(d0, only, loose) };
+      }
+      const dn = cached.dn;
+      const passesStart = (from: number) => {
+        for (let j = from, n = 0; j >= 0 && n < 4 * (W + H); j = dn.rcv[j], n++) if (sd[j] <= 26) return true;
+        return false;
+      };
+      let lo = 99;
+      for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) lo = Math.min(lo, hh[(cy + dy) * W + cx + dx]);
+      const floor = lo - 2;
+      const s = hash32(seed, "pit", attempt, out.count);
+      // the pit: the 3×3 source and an irregular blob round it, radius 2.5–4
+      const pit = new Uint8Array(N);
+      const r0 = 2.6 + 1.2 * rng.float();
+      // the fall of the ground round the pit (from its high side to its low), else east
+      let gx = 0;
+      let gy = 0;
+      for (let dy = -4; dy <= 4; dy++)
+        for (let dx = -4; dx <= 4; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          gx -= dx * hh[y * W + x];
+          gy -= dy * hh[y * W + x];
+        }
+      const gl = portable.sqrt(gx * gx + gy * gy);
+      const fx = gl > 0 ? gx / gl : 1;
+      const fy = gl > 0 ? gy / gl : 0;
+      const elong = 1.5 + 0.6 * rng.float();
+      for (let dy = -8; dy <= 8; dy++)
+        for (let dx = -8; dx <= 8; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+          const inCore = Math.abs(dx) <= 1 && Math.abs(dy) <= 1;
+          // (M9b, D294: the hollows read as round red discs: the pit is long along the fall of the
+          // ground, 1.5–2.1 times as long as wide, so the soil it stains runs down toward its ditch)
+          const along = (x - cx) * fx + (y - cy) * fy;
+          const across = -(x - cx) * fy + (y - cy) * fx;
+          const e = portable.sqrt((along / elong) * (along / elong) + across * across * elong * 0.5);
+          if (inCore || e < r0 * (1 + 0.35 * fbm(s, x, y, 4, 2))) pit[y * W + x] = 1;
+        }
+      // the ditch: from the pit's edge to a river channel (not the start's reach) or the map edge
+      const edge: number[] = [];
+      for (let y = Math.max(1, cy - 9); y <= Math.min(H - 2, cy + 9); y++)
+        for (let x = Math.max(1, cx - 9); x <= Math.min(W - 2, cx + 9); x++) {
+          const j = y * W + x;
+          if (pit[j]) continue;
+          if (N4.some(([dx, dy]) => pit[(y + dy) * W + x + dx])) edge.push(j);
+        }
+      // (water it may join stands below the pit's floor, so the badwater runs down into it; water
+      // standing higher would run back up the ditch into the pit, a source in another's flow, D171:
+      // that water, and the ring beside it, the ditch keeps off)
+      const goal = new Uint8Array(N);
+      const keepOff = cached.outs.keepOff.slice();
+      // (and never a tile it keeps off, a river's mouth or the player's keep-off: the trace, the
+      // cheapest way and the drawn ditch all end only where the ditch may go)
+      for (let j = 0; j < N; j++) if (cached.outs.goal[j] && !keepOff[j] && hh[j] + wetNow[j] < floor) goal[j] = 1;
+      for (let j = 0; j < N; j++) {
+        if (!cached.outs.goal[j] || goal[j] || cached.outs.keepOff[j]) continue;
+        const x = j % W;
+        const y = (j - x) / W;
+        for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) if (!goal[yy * W + xx]) keepOff[yy * W + xx] = 1;
+      }
+      let clear = true;
+      for (let j = 0; j < N && clear; j++) if (pit[j] && ask.keepOff?.[j]) clear = false;
+      // (and the ground the basin keeps clear of resources, a square 5 tiles either way of its
+      // middle, setpieces/badwaterBasin.ts `clears`: it took a player's forest beside the pit)
+      if (ask.keepOff)
+        for (let y = Math.max(0, cy - 5); y <= Math.min(H - 1, cy + 5) && clear; y++)
+          for (let x = Math.max(0, cx - 5); x <= Math.min(W - 1, cx + 5) && clear; x++) if (ask.keepOff[y * W + x]) clear = false;
+      if (!clear) continue;
+      const onBorder = (i: number) => {
+        const x = i % W;
+        const y = (i - x) / W;
+        return x === 0 || y === 0 || x === W - 1 || y === H - 1;
+      };
+      const isEnd = (i: number) => goal[i] === 1 || onBorder(i);
+      // the way down: the field's own drainage from the rim, as a river's course, to the water it
+      // meets; where that way leads off the map or into ground the ditch keeps off, the cheapest way
+      // to water that keeps off it; to the edge only where no water can be reached (Kyler, 2026-10-03:
+      // badwater draining off the map on its own is rare)
+      let base = E && dnE ? traceRoute(dnE, E, edge, pit, goal, keepOff, (i) => goal[i] === 1, limit) : null;
+      if (!base) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
+      if (!base && !only) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
+      if (!base || base.length < 3 || base.length > limit) continue;
+      // bent as a river's course is (D209: a ditch that cannot be bent, running straight across a
+      // flat or in a regular wave, is no gully: the pit goes elsewhere)
+      const wound = windDitch(base, hh, W, H, (i) => !pit[i] && !keepOff[i], isEnd, hash32(seed, "ditch-meander", attempt, c), stream(seed, "ditch-wave", attempt, c));
+      if (!wound) continue;
+      const route = { tiles: wound, end: wound[wound.length - 1] };
+      // its water must never pass the start's water on the way out
+      if ((!loose && passesStart(route.end)) || (only && !goal[route.end])) continue;
+      // bed levels: the sill one above the floor, then never rising, cut two below the ground beside
+      // (M9b, D302: cut one below, the water refilling it after a drought rose over its banks and
+      // spread a sheet of badwater over the flat beside it, which stayed until the badtide)
+      const tiles = route.tiles.slice(0, goal[route.end] ? route.tiles.length - 1 : route.tiles.length);
+      if (tiles.length < 2) continue;
+      const onDitch = new Set(tiles);
+      const levels: number[] = [];
+      let run = floor + 1;
+      for (let k = 0; k < tiles.length; k++) {
+        const j = tiles[k];
+        const x = j % W;
+        const y = (j - x) / W;
+        let ring = hh[j];
+        for (const [dx, dy] of N4) {
+          const n = (y + dy) * W + x + dx;
+          if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+          if (pit[n] || onDitch.has(n) || hy.water[n] === 1 || hy.water[n] === 2) continue;
+          ring = Math.min(ring, hh[n]);
+        }
+        run = Math.min(run, ring - 2);
+        if (run < BED_FLOOR) run = BED_FLOOR;
+        levels.push(run);
+      }
+      const outlet: number[] = [];
+      for (const j of tiles) outlet.push(j % W, Math.floor(j / W));
+      const plan = { mode: "basin", x: cx - 1, y: cy - 1, floor, strength: ask.strength, outlet, outletLevels: levels, outletWidth: 1, outletTo: goal[route.end] ? (hy.water[route.end] === 2 ? "lake" : "river") : "edge" };
+      // dig it into a copy and prove it holds before touching the map
+      const next = hh.slice();
+      for (let j = 0; j < N; j++) if (pit[j]) next[j] = floor;
+      for (let k = 0; k < tiles.length; k++) next[tiles[k]] = Math.min(next[tiles[k]], levels[k]);
+      const bedKeys = channelTiles({ tiles: outlet, levels, width: 1, to: "" }, W, H).bed;
+      let flat = true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (next[(cy + dy) * W + cx + dx] !== floor) flat = false;
+      if (!flat || basinLeak(plan, next, W, H)) continue;
+      // banks: every tile beside the ditch stands above its bed
+      let banks = true;
+      for (let k = 0; k < tiles.length && banks; k++) {
+        const j = tiles[k];
+        const x = j % W;
+        const y = (j - x) / W;
+        for (const [dx, dy] of N4) {
+          const n = (y + dy) * W + x + dx;
+          if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+          if (pit[n] || bedKeys.has(n) || hy.water[n] === 1 || hy.water[n] === 2) continue;
+          if (next[n] < levels[k] + 1) banks = false;
+        }
+      }
+      if (!banks) continue;
+      hh = next;
+      for (let j = 0; j < N; j++) if (pit[j]) avoid[j] = 1;
+      for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 6; x <= cx + 6; x++) if (x >= 0 && y >= 0 && x < W && y < H) avoid[y * W + x] = 1;
+      for (const j of bedKeys.keys()) avoid[j] = 1;
+      const role = `setpiece/badwaterBasin/${out.count}`;
+      const f: SetPieceFeature = {
+        id: featureId(seed, "setPiece", role),
+        kind: "setPiece",
+        origin: "generated",
+        role,
+        locked: false,
+        params: { kind: "badwaterBasin", request: { mode: "basin", at: [cx, cy], strength: ask.strength }, plan, report: ["a hollow found in the land: badwater rises in its pit and leaves by a winding ditch"] },
+      };
+      out.features.push(f);
+      out.count++;
+      placed.push([cx, cy]);
+    }
+  };
+  // (a poisoned map's main water takes the first hollow's badwater, where a ditch can reach it below
+  // the start's water; where none can (the start planned beside the main river, most of it passing
+  // the start), anywhere beyond the badwater distance, and the start is then found by other clean
+  // water, its rules blocking as ever, D85. The rest join whatever water is nearest, as on any map)
+  if (ask.poison?.some((v) => v)) {
+    place(ask.poison, 1);
+    if (!out.count) place(ask.poison, 1, true);
   }
+  place(null, ask.count);
   // fewer hollows fit than were asked for (a small map, few rises): the ones placed carry the
   // budget's total between them, each up to the builder's strongest, so the map's badwater stays
   // about what the official maps have for its size (D200)

@@ -1,0 +1,32 @@
+{
+  "base": "c896e83c092960c4ddb5939207e1d99863a19ac8",
+  "node": "v22.23.3",
+  "productFilesChanged": [],
+  "baselineTypecheck": "passed: npm run typecheck",
+  "candidateTypecheck": "passed: node investigation/gen-speed-3/typecheck.mjs (full project, compiler host overlay)",
+  "pairedIdentity": { "cases": 21, "matched": 21, "mismatches": 0 },
+  "contracts": {
+    "command": "node node_modules/vitest/vitest.mjs run --config investigation/gen-speed-3/verify.config.mts",
+    "config": "candidate overlay, one worker",
+    "filesPassed": 6,
+    "testsPassed": 111,
+    "testsFailed": 0,
+    "files": [
+      "tests/contract/features.test.ts",
+      "tests/contract/firstLand.test.ts",
+      "tests/contract/start.test.ts",
+      "tests/contract/resources.test.ts",
+      "tests/unit/rustWater.test.ts",
+      "tests/unit/water-speedups.test.ts"
+    ]
+  },
+  "nodeWasmPins": { "forces": 48, "analysis": 496, "checks": 30, "mismatches": 0 },
+  "adoptionApplyCheck": "passed against recorded dev; refreshed origin/dev still equals base",
+  "speedTestsOrGates": 0,
+  "limits": [
+    "Node worker-API computation; browser paint/transit excluded",
+    "One pair per seed on a shared machine; no speed guarantee",
+    "No native or browser pin corpus run locally; required from adoption CI",
+    "Investigation-only PR CI does not apply the adoption patch"
+  ]
+}

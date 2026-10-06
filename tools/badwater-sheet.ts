@@ -9,7 +9,7 @@
 //
 //   git worktree add --detach .scratch/dev origin/dev   (then npm ci there)
 //   npx tsx tools/badwater-sheet.ts --before .scratch/dev [--theme riverValley,delta,lakeBasin]
-//       [--seeds 1-20] [--size 128] [--workers 8] [--out docs/sheets/badwater-line]
+//       [--seeds 1-20 or 10,48,56] [--size 128] [--workers 8] [--out docs/sheets/badwater-line]
 //
 // Writes <out>-<theme>.png (laid out by tools/badwater-sheet.py, under 1 MB) and prints the counts.
 
@@ -173,8 +173,10 @@ const NAMES: Record<string, string> = { riverValley: "River Valley", delta: "Del
 async function main(): Promise<void> {
   const before = resolve(arg("before", ""));
   const themes = arg("theme", "riverValley,delta,lakeBasin").split(",");
-  const [a, z] = arg("seeds", "1-20").split("-").map(Number);
-  const seeds = Array.from({ length: (z ?? a) - a + 1 }, (_, k) => a + k);
+  // (a range, 1-20, or a list, 10,48,56)
+  const seedArg = arg("seeds", "1-20");
+  const [a, z] = seedArg.split("-").map(Number);
+  const seeds = seedArg.includes(",") ? seedArg.split(",").map(Number) : Array.from({ length: (z ?? a) - a + 1 }, (_, k) => a + k);
   const size = Number(arg("size", "128"));
   const workers = Math.min(8, Number(arg("workers", "8")));
   const out = arg("out", "docs/sheets/badwater-line");

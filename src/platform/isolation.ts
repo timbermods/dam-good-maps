@@ -46,3 +46,11 @@ async function isolate(): Promise<void> {
 }
 
 await isolate();
+
+/** On a host that sends the isolation headers itself (no reload needed), register the same service worker for its
+ *  cache of the build's files, once the map is editable so it never competes with the first map (D367, D397). */
+export function cacheAfterEditable(): void {
+  if (typeof window === "undefined" || !window.crossOriginIsolated || !window.isSecureContext || !("serviceWorker" in navigator)) return;
+  const base = import.meta.env.BASE_URL;
+  void navigator.serviceWorker.register(base + "sw.js", { scope: base, updateViaCache: "none" }).catch(() => {});
+}
