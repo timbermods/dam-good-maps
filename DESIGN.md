@@ -593,8 +593,8 @@ D380 work.
   shown selected while the drawer is open; the map's info at the window's exact horizontal centre, in the editor's
   own title type: the name on the first line and under it "seed 4242 · 128×128" (an opened file shows its size; if
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
-  measures how far each group reaches and caps the info's width between them, so a name too long truncates with an
-  ellipsis and its tooltip holds the full name. On the right Undo, Redo, the checks dot with its words, Save to
+  measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
+  (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
   History, Another like this on a generated map, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
@@ -783,17 +783,15 @@ tooltip: a short purpose phrase, then its key as a small key cap (D351). Numbers
 **Contracts a restyle never breaks.** Share links, project files, Your maps' storage, saved file names, the worker's
 API, every pinned hash, and every role and accessible name the tests use.
 
-## Open question (2026-10-05, for Kyler): the map's name at 1280 to 1,600px
-
-With the checks pill at one width the centred name has 114px at 1280×800 and 134px at 1300; the longest generated
-name ("Twin Channel Island Chain") needs 227px, a name at Rename's limit about 380px. Centred and on one line they
-fit from about 1,393px and 1,560px. The options, drawn on the page at 1280×800
-(`docs/design/name-options-1280x800.png`): A, the name centred between the side groups (off the window's centre by
-71px; a renamed name still cut); A+B, as A with a long name on two lines, its seed and size line giving way; C, below
-1,600px the pill shows its dot (and count) only, its words in its tooltip, the name centred on one line.
-
 ## Kyler's answers (2026-10-05)
 
+- **The map's name always shows in full** (Kyler's A+B, from `docs/design/name-options-1280x800.png`): centred on the
+  window whenever it fits there on one line; else centred between the left group (Map Generator, Real places, Your
+  maps) and the right group (Undo, Redo, the checks pill, Save to Timberborn, Look, File), 12px from each as today;
+  else on two lines there, its seed and size line giving way. Never "…", never on another control; nothing else in the
+  bar moves or changes size, and the pill keeps its words at every width (no icon-only states). At 1280 a short name
+  ("Standing Stone") and the longest generated one ("Twin Channel Island Chain") sit between the groups on one line
+  (at 1300 the short one stays centred), a name at Rename's limit on two; from 1920 all are centred on one line. Captures: `docs/design/title-{short,longest,renamed}-{1280x800,1300x900,1920x1080,2560x1440}-{light,dark}`.
 - **Rift and Deposit have no keys** for now: the number row (1–0, -) is taken and = zooms.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.

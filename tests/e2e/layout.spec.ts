@@ -409,5 +409,29 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
+    // the map's name in full (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, never "…",
+    // clear of both groups, the bar's other pieces where they were
+    const actions = await header.locator(".editor-actions").boundingBox();
+    for (const name of ["Twin Channel Island Chain", "Where the Long Winding River Meets"]) {
+      await header.locator(".editor-title .title-button").click();
+      await page.keyboard.press("Control+A");
+      await page.keyboard.type(name);
+      await page.keyboard.press("Enter");
+      await expect(header.locator(".editor-title .title-button")).toHaveText(name);
+      await settle(page, w, h);
+      const button = header.locator(".editor-title .title-button");
+      // (no "…", at most two lines of its line height)
+      expect(
+        await button.evaluate((e) => {
+          const cs = getComputedStyle(e);
+          const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+          return e.scrollWidth <= e.clientWidth + 0.5 && e.getBoundingClientRect().height <= 2 * line + 0.5;
+        }),
+        `${name} in full`,
+      ).toBe(true);
+      const bs = await boxes(page, [".editor-bar .new-map", ".editor-bar .editor-title", ".editor-bar .editor-actions"]);
+      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
+      expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
+    }
   });
 }

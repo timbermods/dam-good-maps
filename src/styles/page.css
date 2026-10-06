@@ -47,12 +47,29 @@
 
 .editor-title {
   position: absolute;
-  left: 50%;
+  left: var(--title-x, 50%);
   top: 50%;
   transform: translate(-50%, -50%);
   flex: none;
-  max-width: calc(100% - 2 * max(var(--side-l, 0px), var(--side-r, 0px)) - 24px);
+  max-width: var(--title-max, calc(100% - 2 * max(var(--side-l, 0px), var(--side-r, 0px)) - 24px));
   text-align: center;
+}
+
+/* a name too long for one line where it sits: two lines, the seed and size line giving way (Kyler, 2026-10-05) */
+.editor-title.two-lines {
+  width: var(--title-max);
+}
+
+.editor-title.two-lines h1,
+.editor-title.two-lines .title-button {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.editor-title.two-lines h1 {
+  line-height: 22px;
 }
 
 .editor-title .muted {

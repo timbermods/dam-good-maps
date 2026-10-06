@@ -289,9 +289,27 @@ export function Header(p: HeaderProps) {
       const sr = r ? Math.ceil(h.right - r.left) : 0;
       el.style.setProperty("--side-l", `${sl}px`);
       el.style.setProperty("--side-r", `${sr}px`);
-      const title = el.querySelector(".editor-title");
+      // the map's name (Kyler, 2026-10-05, A+B): centred on the window when it fits there on one line; else centred
+      // between the two groups, today's 12px from each; else on two lines there, its seed and size line giving way.
+      // Never "…", never on another control; nothing else in the bar moves.
+      const title = el.querySelector<HTMLElement>(".editor-title");
       const facts = title?.querySelector(".muted");
-      if (title && facts) title.classList.toggle("no-facts", h.width - 2 * Math.max(sl, sr) - 24 < facts.scrollWidth);
+      const name = title?.querySelector<HTMLElement>(".title-button");
+      if (title && facts && name) {
+        const centred = h.width - 2 * Math.max(sl, sr) - 24;
+        const between = h.width - sl - sr - 24;
+        const f = getComputedStyle(name);
+        const pen = document.createElement("canvas").getContext("2d");
+        if (pen) pen.font = `${f.fontStyle} ${f.fontWeight} ${f.fontSize} ${f.fontFamily}`;
+        const wide = pen ? Math.ceil(pen.measureText(name.textContent ?? "").width) + 1 : name.scrollWidth;
+        const inGap = wide > centred;
+        const room = Math.floor(inGap ? between : centred);
+        title.style.setProperty("--title-x", `${Math.round(inGap ? sl + 12 + between / 2 : h.width / 2)}px`);
+        title.style.setProperty("--title-max", `${room}px`);
+        const two = wide > room;
+        title.classList.toggle("two-lines", two);
+        title.classList.toggle("no-facts", two || room < facts.scrollWidth);
+      }
     };
     fit.current = note;
     note();
