@@ -1,0 +1,61 @@
+diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
+index 276b5ad3..c513a4a4 100644
+--- a/src/core/land/hydro.ts
++++ b/src/core/land/hydro.ts
+@@ -86,6 +86,11 @@ const MAX_WIDTH = 8.4;
+
+ /** Width that keeps a flow about half a level deep in its channel, well inside banks one level
+  *  high (D26). */
++/** The share of a sea's map its sea may hold, Islands' water cap (D369, D409). */
++const SEA_SHARE = 0.7;
++/** A lake this share of a sea's map or more is its sea (`seaLevel`'s own line). */
++const SEA_LAKE = 0.05;
++
+ export function widthFor(flow: number): number {
+   return Math.round(clamp(flow / 0.75, MIN_WIDTH, MAX_WIDTH) * 10) / 10;
+ }
+@@ -841,7 +846,11 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+   const water = new Uint8Array(N);
+   const lakes: Lake[] = [];
+   const lakeOf = new Int32Array(N).fill(-1);
+-  const budget = g.hydro.lakeBudget * N;
++  // (D369, D409, D432: on a sea's map the sea is the map's water, not a lake of the budget: a hollow
++  // may hold up to Islands' water cap. Cut down to the lake budget, the sea's sill fell to its floor
++  // and the rivers' channels ran on through it to the edge, and the sea drained: most open layouts at
++  // 128² lost their sea at the land stage, and the lands drawn again shrank it further.)
++  const budget = (g.seaLayout ? Math.max(g.hydro.lakeBudget, SEA_SHARE) : g.hydro.lakeBudget) * N;
+   const rivers: RiverFeature[] = [];
+   const falls: Hydro["falls"] = [];
+   const arms: Arm[] = [];
+@@ -898,6 +907,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+     const lakeAt = new Uint8Array(n + 1);
+     let run = startBed;
+     let inLake = -1;
++    let seaSill = -1;
+     /** Whether a lake's water, standing at its sill, would spill out of the river's channel
+      *  upstream of sample `j`: where the backwater reaches (the bed below the sill), the ground
+      *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
+@@ -961,6 +971,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
+       if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
+         const lk = hollow(ci, maxSill);
++        if (process.env.DGM_DEBUG_ISLANDS) { const raw = flood(ci, lv.filled[ci]); console.log("    [hollow]", rid, "at", ci % W, Math.floor(ci / W), "filled", lv.filled[ci], "h", h[ci], "raw tiles", raw.length, "budget", Math.round(budget), "maxSill", maxSill, "->", lk ? `tiles ${lk.tiles.length} sill ${lk.sill}` : "null", lk && spillsUpstream(lk, j) ? "spillsUpstream" : ""); }
+         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
+         const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
+         if (lk && again !== undefined) inLake = lakeOf[again];
+@@ -985,9 +996,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+       }
+       if (inLake >= 0) {
+         run = lakes[inLake].outletBed;
++        // (D432: a sea's outlet pours over its sill: past the sea, while the ground beside the course
++        // stands at the sea's sill or higher, the bed is cut no deeper than the sill's own bed, a
++        // level under the sea; it deepens as the land falls away. Cut `cut` levels under the rim as
++        // any course is, the sill fell with it, and a shallow sea drained to its floor.)
++        seaSill = g.seaLayout && lakes[inLake].tiles.length >= SEA_LAKE * N ? lakes[inLake].outletBed + 1 : -1;
+         inLake = -1;
+       }
+-      run = Math.min(run, ring - cut, floorRing - 1, beside);
++      run = Math.min(run, seaSill >= 0 && ring >= seaSill ? Math.max(ring - cut, seaSill - 1) : ring - cut, floorRing - 1, beside);
+       if (run < endBed) run = endBed;
+       // (never below the beds' floor, item 47: a river there runs shallower)
+       if (run < BED_FLOOR) run = BED_FLOOR;
