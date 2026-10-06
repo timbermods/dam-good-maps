@@ -35,8 +35,8 @@ describe("each setting moves its measured target (ROADMAP M6)", () => {
   const name = (e: (typeof EXPERIMENTS)[number]) => (e.info ? `${e.setting} (information: ${e.info})` : e.setting);
   // D466: expected failures, the known shortfalls held for settings round 2 (docs/progress/m9b.md); each moves
   // back to the plain list when round 2 fixes it. "Designed for" is dropped when D449's core change removes it.
-  // (Drought reserve passes on 0.8.1's maps, the badwater ditches following the land, and is back on the
-  // plain list)
+  // (Drought reserve is on the plain list: it passed on 0.8.1's maps, +232, one Plenty map's 2,692 of
+  // stored water carrying it, and falls short on 0.8.2's, +139: its cause waits on Kyler, #fix/settings-extremes)
   const HELD = new Set(["Verticality", "Lakes and basins", "Waterfalls", "Designed for"]);
   it.each(EXPERIMENTS.filter((e) => !HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s", check);
   it.fails.each(EXPERIMENTS.filter((e) => HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s (expected failure, settings round 2)", check);
