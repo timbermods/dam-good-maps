@@ -1737,6 +1737,14 @@ export function forceAdvance(steps: number): ForceFrame | null {
     if (!r.planned) r.step();
     else for (let k = 0; k < steps && !r.done; k++) r.step();
   }
+  // the land is final: the force is over now (its row back to its settings, the next edit at once);
+  // what was left of its showing changes nothing on the ground, and its objects take their final
+  // places at once (a glacier's melt-back, an eruption's last cooling and a carve's surge play out
+  // as the page's effects)
+  if (landFinal(f)) {
+    if (f.play) f.play.showTo(f.play.total);
+    else f.staged!.finishAll();
+  }
   return withForceWater(f, forceFrame(f));
 }
 
@@ -1748,14 +1756,29 @@ function withForceWater(f: NonNullable<typeof force>, frame: ForceFrame): ForceF
   return frame;
 }
 
+/** The land shown is the force's final land, and it still has steps to show. (The ground's heights:
+ *  all of the land a frame shows.) */
+function landFinal(f: NonNullable<typeof force>): boolean {
+  const shown = f.play ? f.play.map : f.staged!.map;
+  const planned = f.play ? f.play.planned : f.staged!.planned;
+  const done = f.play ? f.play.done : f.staged!.done;
+  if (!planned || done || (f.staged instanceof QuakeRun && f.staged.painting)) return false;
+  const final = f.play ? f.play.run.map : f.staged!.final();
+  if (!final) return false;
+  const a = shown.heights;
+  const b = final.heights;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 // ------------------------------------------------------------- a force's own water (D371)
 
 /** The water flowing on a force's land as it is shown (D371): the map's own water on the ground as each
  *  frame has it, so the land and its water change together. A carve's source runs from its first step,
  *  so its river is born as it cuts, just behind the cutting edge (`carveFront`); under every other force
  *  the water rides the ground it stands on and flows on from there: into a crater or a rift as it opens,
- *  off a cone or a block as it rises, along with a Slide's block (`rideSlide`), and a glacier's own water
- *  (its tarn, its meltwater river) comes in as the ice melts back (`glacierWater`). Its frames go to the
+ *  off a cone or a block as it rises, along with a Slide's block (`rideSlide`); a glacier's tarn and
+ *  meltwater river fill from its springs at the water's own pace (Kyler, #275). Its frames go to the
  *  page as a stroke's water does (D197); kept, this water is what the map's water flows on from, so
  *  nothing jumps; the settle that follows ends on the settled water, as after any edit. A dry canyon has
  *  none. */
@@ -1769,8 +1792,6 @@ let forceWater: {
   seen: SeenWater;
   /** A Slide's ground as last shown: where each tile's came from (null: where it stood). */
   slide: Uint32Array | null;
-  /** A glacier's own water, eased in as the ice melts back (null until it is planned, and for the others). */
-  glacier: GlacierWater | null;
   sent?: Float64Array;
   /** Each clearable source's and seep's emitter, by id, and the objects they were last read from (D474). */
   emitters: Map<string, number>;
@@ -1808,7 +1829,7 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
     if (front) for (let i = 0; i < front.held.length; i++) if (front.held[i]) flows.fill(0, 4 * i, 4 * i + 4);
     sim.setOut(flows);
   }
-  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), slide: null, glacier: null, emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
+  forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), slide: null, emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
@@ -1975,24 +1996,9 @@ function frontPassed(w: NonNullable<typeof forceWater>, shown: number, all = fal
     }
 }
 
-/** The force's water as shown: a carve's with its front (`frontWater`), a glacier's with its own water
- *  eased in (`glacierWater`). */
+/** The force's water as shown: a carve's with its front (`frontWater`). */
 function shownWater(w: NonNullable<typeof forceWater>): { depth: Float64Array; contamination: Float64Array } {
-  const out = frontWater(w);
-  const g = w.glacier;
-  if (g && g.weight > 0) {
-    const { depth, contamination } = out;
-    const t = g.weight;
-    for (const i of g.tiles) {
-      const a = depth[i];
-      const b = g.final.depth[i];
-      const d = a + (b - a) * t;
-      // (its badwater by volume, so the two waters mix as they would)
-      contamination[i] = d > 0 ? (a * contamination[i] * (1 - t) + b * g.final.contamination[i] * t) / d : 0;
-      depth[i] = d;
-    }
-  }
-  return out;
+  return frontWater(w);
 }
 
 /** The force's water now, to flow on from (null: it has none). Called once the force is whole: its
@@ -2001,20 +2007,14 @@ function forceWaterState(f: NonNullable<typeof force>): WarmState | null {
   const w = forceWater;
   if (!w || w.force !== f) return null;
   if (f.staged) {
-    // (a force kept part way, or skipped to its end: its water rides the rest of its land at once,
-    // and a glacier's own water is in)
+    // (a force kept part way, or skipped to its end: its water rides the rest of its land at once)
     forceWaterFlows(w);
-    if (w.glacier && w.glacier.weight !== 1) {
-      w.glacier.weight = 1;
-      w.lastShown = null;
-    }
   }
   // (kept: the map's water flows on from it over all of the land, the films still held with it)
   const { depth, contamination } = w.lastShown ?? shownWater(w);
   frontPassed(w, Infinity, true);
   const sim = w.sim;
   const out = sim.out.slice();
-  if (w.glacier) for (const i of w.glacier.tiles) out.fill(0, 4 * i, 4 * i + 4);
   // (a staged force's water goes on with the kept map's own model: its objects as they are now)
   return { model: f.staged ? modelOf(f.staged.map) : w.model, water: { settled: false, ticks: sim.ticks, depth, contamination, sat: new Uint8Array(sim.N), out, preview: true } };
 }
@@ -2046,7 +2046,6 @@ function forceWaterFlows(w: NonNullable<typeof forceWater>): boolean {
         w.ground[i] = h[i];
         w.lastShown = null;
       }
-    if (r.verb === "glaciate") glacierWater(w, r);
     return true;
   }
   const p = w.force.play!;
@@ -2149,37 +2148,6 @@ function followSources(w: NonNullable<typeof forceWater>, objects: readonly Enti
   return moved;
 }
 
-/** A glacier's own water (its tarn and meltwater river, the plan's: glaciate/run.ts), on its own ground
- *  (its footprint and every tile it changed), eased in from the water flowing there once all its land
- *  shows: through its melt-back, so the valley's water fills as the ice goes, never at once at the end. */
-interface GlacierWater {
-  final: { depth: Float64Array; contamination: Float64Array };
-  tiles: number[];
-  /** The step its land was all shown at (-1: not yet). */
-  from: number;
-  /** How far in (0 to 1). */
-  weight: number;
-}
-
-function glacierWater(w: NonNullable<typeof forceWater>, r: StagedRun): void {
-  let g = w.glacier;
-  if (!g) {
-    const end = r.final();
-    if (!end) return;
-    const own = (r as StagedRun & { footprint?(): Uint8Array | null }).footprint?.() ?? null;
-    const before = w.force.before.heights;
-    const tiles: number[] = [];
-    for (let i = 0; i < before.length; i++) if (own?.[i] || end.heights[i] !== before[i]) tiles.push(i);
-    g = w.glacier = { final: end.water, tiles, from: -1, weight: 0 };
-  }
-  if (g.from < 0) {
-    const h = r.map.heights;
-    const end = r.final()!.heights;
-    if (g.tiles.every((i) => h[i] === end[i])) g.from = r.shown;
-  }
-  if (g.from >= 0) g.weight = r.total > g.from ? Math.min(1, (r.shown - g.from) / (r.total - g.from)) : 1;
-}
-
 /** The force's water `ticks` on, on the ground shown now, and its depths (Node tests run it
  *  themselves, as they run `settleWater`); null when the force has none. */
 export function flowForceWater(ticks: number): Float64Array | null {
@@ -2201,7 +2169,6 @@ const FORCE_WATER_PACE = 400;
  *  whose land changed). */
 function sendForceWater(w: NonNullable<typeof forceWater>, always = false): void {
   if (!listener) return;
-  // (the water as shown: a glacier's own water comes in while its simulation may stand still)
   const shown = shownWater(w);
   const D = shown.depth;
   let moved = always || !w.sent;

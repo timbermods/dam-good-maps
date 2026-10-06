@@ -82,12 +82,14 @@ export const WATER = {
 /** The editor's marks for water, not water itself: the brush ring's water-blue when smart Lower
  *  carves a bed the water follows (D198) and the thin dark outline every ring has, so it holds on
  *  bright shallows and pale ground (checked in greyscale and three colour-blindness simulations,
- *  tests/unit/brush-ring.test.ts); and the glow of the sources feeding the water under the pointer
- *  (D196). */
+ *  tests/unit/brush-ring.test.ts); the glow of the sources feeding the water under the pointer
+ *  (D196); and the clear red of the water over a highlighted source (D249: Remove's red, Clear
+ *  sources' glow), so it reads under its own water. */
 export const WATER_UI = {
   ring: [0.35, 0.82, 1.0] as Rgb,
   ringEdge: [0.0, 0.01, 0.03] as Rgb,
   sourceGlow: [1.0, 0.93, 0.55] as Rgb,
+  sourceLit: [0.9, 0.12, 0.08] as Rgb,
 } as const;
 
 /** Clean water's surface, as the water shader draws it: foam along the shore and broken foam
@@ -419,6 +421,7 @@ export const WATER_GLSL = /* glsl */ `
   #define BADWATER_VEIN ${glColor(WATER.badVein)}
   #define BADWATER_FOAM ${glColor(WATER.badFoam)}
   #define WATER_SOURCE_GLOW ${glColor(WATER_UI.sourceGlow)}
+  #define WATER_SOURCE_LIT ${glColor(WATER_UI.sourceLit)}
   #define WATER_MIXING ${glColor(WATER.mixing)}
   #define WATER_CLEAR_TINT ${glColor(WATER.clearTint)}
   #define WATER_CLEAR_SHORE ${glColor(WATER.clearShore)}

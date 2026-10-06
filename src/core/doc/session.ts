@@ -789,19 +789,20 @@ export class MapSession {
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 3): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 2, the
-    // whole stroke at once, saved with where water would stand round it, `rim`)
-    // (rule 3 painted on the page comes with its rule but never its ring: added here)
-    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || (applied.params.weathering === 3 && applied.params.rim === undefined))) {
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 4): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 3, dab
+    // by dab with some scree slopes lost; rule 2, the whole stroke at once, saved with where water
+    // would stand round it, `rim`)
+    // (rule 4 painted on the page comes with its rule but never its ring: added here)
+    if (applied.op === "brush" && applied.params.tool === "naturalize" && applied.params.weathers && (applied.params.weathering === undefined || ((applied.params.weathering === 3 || applied.params.weathering === 4) && applied.params.rim === undefined))) {
       const pre = this.cur.cache.terrain.pre7;
       const rim = weatherRim(applied.params, pre, waterLevels(pre, this.size.x, this.size.y), this.size.x, this.size.y);
-      applied.params = { ...applied.params, weathering: 3, ...(rim.length ? { rim } : {}) };
+      applied.params = { ...applied.params, weathering: applied.params.weathering ?? 4, ...(rim.length ? { rim } : {}) };
     }
     // and where the settled water stood round it (rule 3: and the moist ground), unless the page
     // recorded the water it showed
     const p = applied.op === "brush" ? applied.params : null;
-    if (p && (p.weathering === 2 || p.weathering === 3) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
+    if (p && (p.weathering === 2 || p.weathering === 3 || p.weathering === 4) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
       const box = weatherBox(p, this.size.x, this.size.y);
       if (box) {
         if (p.weathering === 2) {
