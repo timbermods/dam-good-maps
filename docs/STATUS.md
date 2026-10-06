@@ -54,10 +54,13 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    Delta arms round 2 (#325, generator 0.8.2); CI: investigation-only PRs run only `changes` (#327), the quick suite in two
    shards (#333, it had reached 28 of its 30 minutes); the roadmap canvas reads dev's latest commit (#328); one core rule for
    the pieces that ride a brush stroke (#331, a preview mismatch #330's maps exposed).
+   Codex: generation speed round 3 merged as a record, not adopted (#326); first load merged as a record (#332) and its
+   milestone half adopted (#334: readiness handshake, deferred checks, asset caching in the service worker); the page
+   session adopts page.patch next.
 3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
    Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
-   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, #330, sheets and High-look captures
-   built; its last test fixes and full run in progress, then `needs-kyler`), then Lake Basin round 3 (#234,
+   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, #330, green full run, `needs-kyler`
+   for its sheets), then Lake Basin round 3 (#234,
    `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
    marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
    makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
