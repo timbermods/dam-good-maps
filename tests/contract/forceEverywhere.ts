@@ -197,6 +197,9 @@ export const KNOWN: readonly { use: Use; ground: Ground; power: number; theme?: 
   // (M9b's maps, 2026-10-02: Delta's alluvial plain and an Islands sea at the edge give a slide no slope
   // within its reach, so it moves nothing; for Kyler, D356)
   ...([["quake slide", "random", 10], ["quake slide click", "random", 10], ["quake slide", "flat", 10], ["quake slide click", "flat", 50], ["quake slide click", "flat", 90]] as const).map(([use, ground, power]) => ({ use, ground, power, theme: "delta" as ThemeId, why: "Delta 128² seed 5's plain: no slope for the slide" })),
+  // (0.8.1's maps: Islands seed 5's edge click at (0, 27) is flat ground at level 10 all round, so a weak
+  // slide click moves 8 tiles, one short of visible; for Kyler, D356)
+  { use: "quake slide click", ground: "edge", power: 10, theme: "islands", why: "Islands 128² seed 5: flat ground at the map's edge, no slope for a weak slide click" },
   { use: "quake slide", ground: "edge", power: 90, theme: "islands", why: "Islands 128² seed 5: the sea at the map's edge, no slope for the slide" },
 ];
 

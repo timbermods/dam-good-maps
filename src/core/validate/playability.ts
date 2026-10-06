@@ -15,6 +15,7 @@ import { channelTiles } from "../features/route";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
 import type { MapObject } from "../sim/model";
 import { asksForBadwater } from "../resources/badwater";
+import { distanceFrom } from "../math/grid";
 import { DIFFICULTY_RULES, SMALL_MAP, type Difficulty, type MapSpec } from "../spec/mapspec";
 
 /** Water deeper than this counts as a water tile (prototype `wet = D > 0.05`). */
@@ -266,6 +267,26 @@ export function bandScale(W: number, H: number): number {
 
 /** No water tile within this many tiles (Chebyshev) of such an object: it stays out of flood reach. */
 export const FLOOD_MARGIN = 2;
+
+/** The nearest badwater or contaminated soil to the start, measured from the district center's 3×3
+ *  middle: start.badwater's reading (rust/checks `playability.rs` reads it the same way), which the
+ *  generator holds as a rule (Kyler, 2026-10-05, #265). `at` is its tile, -1 where the map has none. */
+export function nearestBadwater(W: number, H: number, middle: readonly [number, number], depth: ArrayLike<number>, contamination: ArrayLike<number>, soilContamination: ArrayLike<number>): { distance: number; at: number } {
+  const N = W * H;
+  const mask = new Uint8Array(N);
+  const [sx, sy] = middle;
+  for (let y = sy - 1; y <= sy + 1; y++) for (let x = sx - 1; x <= sx + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) mask[y * W + x] = 1;
+  const d = distanceFrom(mask, W, H);
+  let distance = Infinity;
+  let at = -1;
+  for (let i = 0; i < N; i++) {
+    if ((soilContamination[i] > 0 || (depth[i] > WET && contamination[i] >= BAD)) && d[i] < distance) {
+      distance = d[i];
+      at = i;
+    }
+  }
+  return { distance, at };
+}
 
 /** The tiles within `margin` (a square round each, Chebyshev) of the water: deeper than `WET`. The
  *  objects keep `FLOOD_MARGIN + 1` (gen/extras.ts `objectKeepOff`), the mine pads more

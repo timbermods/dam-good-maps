@@ -140,9 +140,14 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   expect((await labels(page)).filter((l) => l === "Place water source")).toHaveLength(1);
 });
 
+/** A map with flat, dry, empty ground for B7's and B11's objects (seed 8 for #265's maps, D148: seed 9's
+ *  land has none since the start's badwater distance became a rule and River Valley's main river stays
+ *  clean). */
+const ROOMY = "s=8&z=96&d=n&t=riverValley";
+
 test("B7: X puts down what is held; the plain pointer picks an object and drags it", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  await open(page, ROOMY);
   await page.getByRole("button", { name: "Top-down" }).click();
   // a brush, a force and the shelf's object all go back with X
   await page.getByRole("button", { name: "Raise brush (1)" }).click();
@@ -242,7 +247,7 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
 
 test("B11: hovering a thing names it and the ground under it, with any tool held", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  await open(page, ROOMY);
   await page.getByRole("button", { name: "Top-down" }).click();
   const spot = await flatDry(page, 4);
   const [gx, gy] = spot!;

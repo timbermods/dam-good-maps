@@ -87,7 +87,9 @@ describe("Max water depth (D264)", () => {
       for (const i of r.raised) expect(rv[i], `river tile ${i}`).toBeLessThan(1.6);
     }
   };
-  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(2));
+  // (seed 5 for 0.8.1's maps, D148: seed 2's river has no stretch deeper than 1.2 that the rule raises, so the
+  // river half had nothing to apply; seeds 5 and 7 have both halves)
+  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(5));
   // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): on M9b's River Valley 96²
   // seed 3 the settle leaves the pit 0.07 over the 3, past the 0.06 the bound allows (the editor's water,
   // for the milestone session); when it passes, `fails` comes off.

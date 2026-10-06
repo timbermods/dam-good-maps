@@ -21,13 +21,15 @@ const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("a force leaves the locked land, and the ground above the layer showing, as they are (D254, D259, D207)", () => {
   // (on M9b's map, D148: its start stands at (19, 22), so the area lies east of it, across its west edge,
-  // and the Erupt 9 tiles from it)
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 27 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // and the Erupt 9 tiles from it; 25 tiles wide, not 27, for 0.8.1's map, D148: a derived slope at (46, 15)
+  // climbs to ground inside a 27-wide area, so the Erupt rightly drops it with that ground, and no force or lock
+  // touched anything outside the area)
+  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 25 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 16; y < 28; y++) area.push([y, 21, 47]);
+    for (let y = 16; y < 28; y++) area.push([y, 21, 45]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;

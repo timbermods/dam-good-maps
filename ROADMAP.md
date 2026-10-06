@@ -33,7 +33,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **Carve plays smoothly** (#297, `fix/carve-smooth`; renderer session): `approved`; its PR gets approved from the renderer side. A new renderer session (worktree `DamGoodMaps-forces-play`) gives the other six forces the same, on a new branch from `fix/carve-smooth`; the old renderer session is closed.
 - **Carve's river follows its cut** (#292, `fix/carve-water-front`): `needs-kyler`.
 - **Forces end the moment their land is final** (#275, `fix/force-feedback`): `approved`; two `forcesSitting` failures to fix.
-- **The badwater line** (#265, `fix/badwater-line-names`; theme critique session): generator 0.8.1, one re-pin, `needs-kyler`. Kyler asked its session for three facts before judging: what the sheets' red marks mean, badwater's share of water against the official maps, and Delta seed 16's start water. Lake Basin's lake is mostly badwater on 17 of 20 sheet seeds.
+- **The badwater line** (#265, `fix/badwater-line-names`; badwater session): generator 0.8.1, `needs-kyler`. Kyler's verdicts (2026-10-05): badwater keeps joining rivers and lakes; Lake Basin's main lake and River Valley's and Delta's main river stay clean on most maps, and the start's badwater distance becomes a rule for generated maps. Ported onto the Rust checks; #310's F3 folded into its re-pin.
 - **Canyon and Highlands height** (#261, `investigation/canyon-highlands-height`): `approved`, in the generator queue.
 - **Islands round 6** (#235, `investigation/islands-round-3`): `approved`, adopted in the generator queue, re-pinned.
 - **Deposit's pillars** (`feature/deposit-pillars`; milestone session): the investigation (#285) is merged; the adoption is in progress, approved by Kyler on the sheet.

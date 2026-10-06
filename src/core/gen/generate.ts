@@ -27,7 +27,7 @@ import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
-import { WaterSim } from "../sim/water";
+import { TICKS_PER_DAY, WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
 import { seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
@@ -51,7 +51,7 @@ import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad 
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
-import { planBadwater, type Hazards } from "../land/hazards";
+import { mainLake, mainRiver, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
@@ -70,7 +70,7 @@ import { AVAILABLE_THEMES, EDITOR_LEVEL, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFA
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -102,6 +102,17 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Lake Basin maps (in 100) whose main lake badwater may reach (Kyler, 2026-10-05: the occasional
+ *  variation, not the rule). */
+const POISONED_LAKE = 15;
+/** River Valley and Delta maps (in 100) whose main river badwater may reach (Kyler, 2026-10-05, #265:
+ *  the same occasional variation as Lake Basin's lake, drawn apart). */
+const POISONED_RIVER = 15;
+/** Days the water is run on past its settle for the start's badwater distance, where badwater mixes
+ *  into water near the start (#265: River Valley 128² seed 12's came to rest by the fourth day), and
+ *  the least share of badwater that starts the run. */
+const REST_DAYS = 6;
+const REST_TRACE = 0.001;
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
@@ -165,7 +176,7 @@ export interface GenerationInfo {
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
   /** The longest straight channel bank and canal (D209). */
-  straight: { run: number; canal: number } | null;
+  straight: { run: number; canal: number; wave: number } | null;
   /** Water storage near the start (preferred, #67). */
   storage: boolean | null;
   /** The start's water stays pumpable through the first Normal drought (#59). */
@@ -1692,12 +1703,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the size, each about as strong (resources/badwater.ts `badwaterBudget`, moved by the seed and
   // scaled by the Badwater setting), each in a hollow of its own
   const budget = badwaterBudget(W, H, spec.settings.hazards.badwater, seed);
+  // (the theme's main water stays clean: Lake Basin's lake, River Valley's and Delta's main river; on
+  // about one map in seven its badwater may reach it, the occasional poisoned lake or river: Kyler,
+  // 2026-10-05, #265)
+  const cleanKind =
+    shown.theme === "lakeBasin" && hash32(seed, "poisoned lake") % 100 >= POISONED_LAKE
+      ? "lake"
+      : (shown.theme === "riverValley" || shown.theme === "delta") && hash32(seed, "poisoned river") % 100 >= POISONED_RIVER
+        ? "river"
+        : null;
+  const mainWater = (): Uint8Array | null => (cleanKind === "lake" ? mainLake(hy.water, W, H) : cleanKind === "river" ? mainRiver(hy, W, H) : null);
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
     // (a target, D85; a rescue round, D471, asks no more than the map's size allows)
     distance: Math.min(Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin), ease >= 1 ? Math.max(8, Math.round(0.3 * Math.max(W, H))) : Infinity),
     keepOff: (weir ? pool : null) as Uint8Array | null,
+    // (the ditches follow the field's own drainage, as the rivers' courses do)
+    field: land.E,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -1713,7 +1736,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, keepClean: mainWater() }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
@@ -1750,7 +1773,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!from) {
       if (!lastAttempt && !g.tall && maxOf(hLand) > 16) return fail("above 16", null, false);
       if (shown.theme === "canyon" && N <= 128 * 128) {
-        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
@@ -1809,7 +1832,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       // (Canyon at 128² and under is screened above, before its other land checks: round 2)
       if (shown.theme !== "canyon" || N > 128 * 128) {
-        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [] });
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
@@ -1937,18 +1960,31 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // is shown, D348)
       let keepOffH = badAsk.keepOff ?? null;
       let hollowTries = 0;
+      let lakeOf: Uint8Array | null = null;
       // (the pre-fill of the land as it will be shown, for the dam-wall check below)
       let shownFill: Float64Array | null = null;
       for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
         const bw = build([...rivers, ...bad.features], "water");
         const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
-        const fill = prefill(model).depth;
+        const pf = prefill(model);
+        const fill = pf.depth;
         const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
         shownFill = Float64Array.from(fill);
-        if (!reached.size) break;
+        // (the theme's main water kept clean, Kyler, 2026-10-05, #265: a ditch whose badwater the
+        // pre-fill carries into it, through water the land's drainage did not lead there, a flat that
+        // floods into the lake, is planned again off that water while tries are left)
+        let poisons = false;
+        if (cleanKind && bad.features.length && hollowTries + 1 < HOLLOW_TRIES) {
+          lakeOf ??= mainWater()!;
+          let n = 0;
+          let hit = 0;
+          for (let i = 0; i < N; i++) if (lakeOf[i]) { n++; if (fill[i] > WET && pf.contamination[i] >= 0.05) hit++; }
+          poisons = hit > 0.1 * n;
+        }
+        if (!reached.size && !poisons) break;
         shownFill = null;
         const leave = hy.rivers.filter((r) => reached.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
-        if (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length) {
+        if (reached.size && (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length)) {
           if (!lastAttempt) return fail("source in a flow", null, true);
           break;
         }
@@ -1956,10 +1992,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           dropRivers(leave.map((r) => r.id));
           droppedPre.push(...leave.map((r) => r.id));
         }
-        if (bad.features.some((f) => reached.has(f.id))) {
+        if (poisons || bad.features.some((f) => reached.has(f.id))) {
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
           keepOffH = orMask(keepOffH, bad.avoid);
+          if (poisons) {
+            const took = new Uint8Array(N);
+            for (let i = 0; i < N; i++) if (fill[i] > WET && pf.contamination[i] > 0) took[i] = 1;
+            keepOffH = orMask(keepOffH, took);
+          }
           bad = ++hollowTries < HOLLOW_TRIES && guess ? planBad(est, { ...badAsk, keepOff: keepOffH }, attempt * 4 + 5 + hollowTries, guess) : noBad;
           if (bad.features.length) {
             h.set(bad.heights);
@@ -2311,6 +2352,29 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (d[i] < badWithin + 2) out[i] = 1;
     return out;
   };
+  // (the nearest badwater or its soil to a start, start.badwater's reading, on the water as the file
+  // holds it and as its badwater comes to rest: the settle stops once the water's depth is still, and
+  // where badwater mixes into water near the start it goes on spreading for a few days, in the game as
+  // here (River Valley 128² seed 12: 17.5 tiles at the settle, 13.8 four days on). The water is run on
+  // only when water within the distance carries some badwater)
+  const badwaterNear = (b: BuildResult, st: { x: number; y: number }): number => {
+    const d0 = nearestBadwater(W, H, [st.x, st.y], b.water, b.contamination, b.soilContamination).distance;
+    if (d0 < badWithin) return d0;
+    const m = new Uint8Array(N);
+    for (let y = st.y - 1; y <= st.y + 1; y++) for (let x = st.x - 1; x <= st.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1;
+    const sd = distanceFrom(m, W, H);
+    let mixing = false;
+    for (let i = 0; i < N && !mixing; i++) if (sd[i] < badWithin && b.water[i] > WET && b.contamination[i] >= REST_TRACE) mixing = true;
+    if (!mixing) return d0;
+    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    let d = d0;
+    for (let day = 0; day < REST_DAYS && d >= badWithin; day++) {
+      sim.run(TICKS_PER_DAY);
+      d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], sim.D, sim.C, b.soilContamination).distance);
+    }
+    sim.dispose();
+    return d;
+  };
   // (near the guess: the hollows were planned from it, so they keep the distance the settings ask
   // for, and the land was judged and shaped round it before it was shown: its second place for a
   // start, its mine-site pads, D363)
@@ -2498,6 +2562,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         fixes.push("spring by the start");
       }
     }
+    // the start's badwater distance is a rule (Kyler, 2026-10-05, #265; start.badwater blocks a
+    // generated map): badwater or its soil nearer the start, on the water as the file holds it or as
+    // its badwater comes to rest, gives way to another start on the same settled water, as a start
+    // whose water moved does (not on the last attempt, whose map is the one kept when none passes)
+    if (!why && !lastAttempt && b.start && badwaterNear(b, b.start) < badWithin) why = "start.badwater";
     if (!why && N <= 96 * 96) {
       const objects = planExtras({ spec, base: b, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
       const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");
@@ -2711,9 +2780,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   info.start = pick;
   // ---- the drought-aware start on the real water (information: the settler chose by it)
   if (built.start) info.startDrought = startWaterWalk(built, droughtStorage(built.waterModel, built.water, FIRST_DROUGHT_DAYS)) <= rule;
-  // ---- no ruler-straight channels (D209)
-  const st = straightness(W, H, built.water);
-  info.straight = { run: st.longest?.length ?? 0, canal: st.canal?.length ?? 0 };
+  // ---- no ruler-straight channels (D209), and no badwater ditch drawn as a regular wave (its line
+  //      is the planned one: the water alone is not read for it, rivers' meanders being
+  //      quasi-periodic too)
+  const ditches: [number, number][][] = [];
+  for (const f of features) {
+    if (f.kind !== "setPiece" || f.params.kind !== "badwaterBasin") continue;
+    const o = (f.params.plan as { outlet: number[] }).outlet;
+    const pts: [number, number][] = [];
+    for (let k = 0; k + 1 < o.length; k += 2) pts.push([o[k], o[k + 1]]);
+    ditches.push(pts);
+  }
+  const st = straightness(W, H, built.water, { channels: ditches });
+  info.straight = { run: st.longest?.length ?? 0, canal: st.canal?.length ?? 0, wave: st.wave?.length ?? 0 };
   const straight = tooStraight(st);
   // ---- water storage near the start: preferred (#67)
   const storage = v.report.checks.find((c) => c.id === "water.storage_possible");
