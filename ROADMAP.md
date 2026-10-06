@@ -81,7 +81,10 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 2. **Delta arms round 2** (#233; `feature/delta-arms-2`, generator 0.8.2, `needs-kyler` for its sheet): the patch is
    adopted onto 0.8.1 (promise 25 → 30, water 27 → 30, straightness 30 → 30 of 30 at 128², the investigation's own
    measures), with the poisoned main river's fix for Delta: on a map drawn poisoned the first basin's ditch must join
-   the main river (`BadwaterAsk.poison` in `land/hazards.ts`, shared so River Valley's round reuses it). One re-pin.
+   the main river (`BadwaterAsk.poison` in `land/hazards.ts`, shared so River Valley's round reuses it). Of seeds 1–20
+   only seed 10 is drawn poisoned (11 of seeds 1–100); on those 11 a ditch now joins the main river on all, and the sheet's
+   reading (a tenth of its water bad) counts 9, against 8 on dev. One re-pin: `LIVE_SHA` only (the version string;
+   River Valley's maps unchanged).
 3. **Lake Basin round 3** (#234, merged as an investigation, waiting its turn; drowned valley outlines): its patch is
    adopted third, one re-pin. River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets) follows, with the
    poisoned main river's fix.
