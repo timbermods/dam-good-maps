@@ -112,7 +112,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await bar.getByRole("button", { name: "Drought" }).click();
   // (the box reads the day at once; its quiet fill runs until the day shows)
   await expect(day).toHaveText(/^Day \d+$/);
-  await expect(day).not.toHaveClass(/working/, { timeout: 120_000 });
+  await expect(day).not.toHaveClass(/counting/, { timeout: 120_000 });
   const last = Number((await day.textContent())!.replace(/\D/g, ""));
   expect(last).toBeGreaterThan(1);
   expect(await wet(page)).toBeLessThan(settled / 2);
@@ -120,11 +120,14 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await expect(day).toHaveText(`Day ${last}`);
   await bar.getByRole("button", { name: "Day on" }).click();
   await expect(day).toHaveText(`Day ${last + 1}`);
-  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
+  // (the box keeps its place and size while the day is worked out: it stays inside its stepper)
+  const working = await day.boundingBox();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
+  expect(working).toEqual(await day.boundingBox());
   await bar.getByRole("button", { name: "Day back" }).click();
   await bar.getByRole("button", { name: "Day back" }).click();
   await expect(day).toHaveText(`Day ${last - 1}`);
-  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
   // a typed day, in the box's own place and size
   const box = await day.boundingBox();
   await day.dblclick();
@@ -135,7 +138,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await field.fill("2");
   await field.press("Enter");
   await expect(day).toHaveText("Day 2");
-  await expect(day).not.toHaveClass(/working/, { timeout: 60_000 });
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
   await day.dblclick();
   await field.fill("5");
   await field.press("Escape");
@@ -156,7 +159,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const bad0 = await bad();
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).toHaveText(/^Day \d+$/);
-  await expect(day).not.toHaveClass(/working/, { timeout: 180_000 });
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
   expect(await bad()).toBeGreaterThan(bad0 + 50);
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");

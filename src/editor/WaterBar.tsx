@@ -87,9 +87,10 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
         </button>
         {/* the day asked for, at once (Kyler, 2026-10-04: never counting); a quiet fill inside the box until it shows;
             double-clicked while a hazard is shown, a field in its place for a typed day (Enter or clicking away shows it,
-            Esc cancels), the box's size and place unchanged */}
+            Esc cancels), the box's size and place unchanged; "counting", never "working", the editor's Working… note's class,
+            which would lift the box out of the stepper */}
         <span
-          class={`day-label${weather && counting !== null ? " working" : ""}${typing !== null ? " typing" : ""}`}
+          class={`day-label${weather && counting !== null ? " counting" : ""}${typing !== null ? " typing" : ""}`}
           aria-live="polite"
           // (no tooltip while a day is typed: it would open on the field's focus, a box under the day box)
           {...(typing === null ? tip("Type a day", "Double-click") : {})}
