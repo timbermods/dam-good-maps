@@ -77,9 +77,10 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   const themes: ThemeId[] = ["riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
   // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out where it
   // would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for one, then seed
-  // 2, whose Lake Basin has none on D333's maps, D148)
+  // 2, whose Lake Basin has none on D333's maps, D148; Islands seed 1 since badwater joins the main
+  // water, D476, D148: its seed 3 leaves the thorn belt out)
   const everyObject = (theme: ThemeId) => {
-    const spec = makeSpec({ seed: 3, size: { x: 96, y: 96 }, theme });
+    const spec = makeSpec({ seed: theme === "islands" ? 1 : 3, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -116,8 +117,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // Islands 3 for 2 since Islands' second shape round, D417, D429, left seed 2 without one; canyon 6 for
     // canyon 4, which 0.8.1's maps (badwater ditches along the land) left without one; canyon 3 for canyon 6
     // since the start's badwater distance became a rule, Kyler, 2026-10-05, D148; Islands 1 for 3 since #265
-    // read that rule at rest and moves a start that breaks it on the same land: seed 3 has no site)
-    for (const [theme, seed] of [["islands", 1], ["riverValley", 3], ["canyon", 3], ["riverValley", 4]] as [ThemeId, number][]) {
+    // read that rule at rest and moves a start that breaks it on the same land: seed 3 has no site; canyon 8 for
+    // canyon 3 since badwater joins the main water, D476, D148: of Canyon seeds 1–15 only 8 and 13 have one)
+    for (const [theme, seed] of [["islands", 1], ["riverValley", 3], ["canyon", 8], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");

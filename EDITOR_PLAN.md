@@ -202,15 +202,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
   as each frame has it, as it flowed (its currents carried in), and each frame's land and water are drawn in the same
   frame. Water rides the ground it stands on and flows on from there: into a crater or a rift as it opens, off a cone
-  or a lifted fault, along with a Slide's block; a glacier's own water (its tarn, its meltwater river) comes in as the
-  ice melts back; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
+  or a lifted fault, along with a Slide's block; a glacier's tarn and meltwater river fill from its springs at the
+  water's own pace once its land is final; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
   from the first step, so the water follows the cutting edge down the new channel and never leads it (each dry or damp
   tile is held until the front reaches it; water already there flows on as it flowed)
   (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
   nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
-  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces). The result and what is saved
-  never depend on the pace.
+  (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
+  moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
+  places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
+  melt-back, the lava cooling; a new force puts any of them away at once). A force's heat is its own: a later force
+  never shows an earlier eruption's. The result
+  and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
   operation without the choice), removes every water and badwater source and seep on a tile whose ground the force
   changes (a multi-tile one if any of its tiles changes; in a working area, the feathered ground the force keeps);
@@ -398,7 +402,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
-  stroke records its rule (`weathering: 3`, added by the core); a stroke saved with D399's first rule
+  stroke records its rule (`weathering: 4`, added by the core); a stroke saved with rule 3 (dab by dab, some
+  cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
   item 42); F held, { and } size it as for the forces (D205, D226, D368 (1)).
@@ -828,7 +833,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
 
 - **Instant checks** after every edit, on the dirty region: footprints, ground support, overlaps, start area,
   limits, slopes, terrain support. **Background checks** in a web worker, debounced (0.7 s) and cancelled when a
-  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival.
+  newer edit arrives: water simulation, reachability, resource totals, moisture reach, drought survival. The checks
+  worker starts small and loads its replica on its first request; a page that calls the editor worker's `deferChecks`
+  before a map opens keeps the replica waiting until `editorReady`, after the first editable frame (D367), and until
+  then the checks run in the editor's own worker, so Save and export keep their full check.
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or

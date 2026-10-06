@@ -6,7 +6,7 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
+import { BrushStroke, brushHard, tiltedPieces, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, keepShownGround, padTile } from "./terrain";
@@ -63,9 +63,9 @@ export class StrokePreview {
     // hands in, so the operation it records keeps exactly what this preview used (D399; the session
     // adds them itself to a stroke that comes without)
     const record = settings as Omit<BrushParams, "dabs">;
-    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (settings.weathering === 3 && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || ((settings.weathering === 3 || settings.weathering === 4) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
     if (fresh) {
-      record.weathering = 3;
+      record.weathering = 4;
       delete record.shore;
       delete record.pools;
       delete record.moist;
@@ -77,8 +77,8 @@ export class StrokePreview {
     // a new weathering stroke weathers like nature (D399), as the session records it when it applies,
     // reading where water stands round it from the same land
     let water: Uint8Array | undefined;
-    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 3 };
-    if ((settings.weathering === 2 || settings.weathering === 3) && !settings.rim) water = waterLevels(state.pre, W, H);
+    if (settings.tool === "naturalize" && settings.weathers && settings.weathering === undefined) settings = { ...settings, weathering: 4 };
+    if ((settings.weathering === 2 || settings.weathering === 3 || settings.weathering === 4) && !settings.rim) water = waterLevels(state.pre, W, H);
     this.W = W;
     this.H = H;
     this.state = state;
@@ -120,6 +120,13 @@ export class StrokePreview {
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
     const r = this.stroke.add(dabs, pressure, levels);
     return r ? this.settle(r) : null;
+  }
+
+  /** Of the map's pieces that may ride a stroke (`ridingPieces`), the ones this stroke has tilted so
+   *  far: the `rigid` pieces to hand `finish` when it is let go, the same ones the session would add
+   *  to its operation (D249). */
+  rides(pieces: readonly (readonly [number, number, number, number])[]): [number, number, number, number][] {
+    return tiltedPieces(pieces, this.start, this.heights, this.W);
   }
 
   /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle

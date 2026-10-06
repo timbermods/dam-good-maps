@@ -1,17 +1,21 @@
-// Badwater sheets, before | after (#265; D469): seeds of a theme at one size, each map as another
-// checkout makes it (--before, a worktree of dev with its own packages: never a junction into this
-// one) beside this checkout's, top-down: badwater (water 5% or more bad) rust red, badwater sources
-// yellow, the start a red square. Each side also says, per map, whether its main water carries
-// badwater: over a tenth of the main water's wet tiles 5% or more bad. The main water is read from
-// the finished map, the same on every version: River Valley's and Delta's the course of the river
-// named "river/main" (its own channel on a delta, not the fan's other arms) and the lakes it runs
-// through; Lake Basin's its largest lake as it holds water.
+// Badwater sheets, before | after (#265, D469, D476): seeds of a theme at one size, each map as another
+// checkout makes it (--before: a copy of another commit's tree, e.g. `git archive origin/dev src tools`
+// unpacked under .scratch/, which finds this checkout's packages; or a worktree with its own packages,
+// never a junction into this one) beside this checkout's, top-down. Water is shaded by how
+// contaminated it is, from the water's own colour to rust (the share of badwater, its square root, so
+// a light trace shows; a key on the sheet), badwater sources yellow, the start a red square. Each side
+// also says, per map, whether badwater reaches its main water: 10 or more of the main water's wet tiles
+// 5% or more bad. The main water is read from the finished map, the same on every version: Lake
+// Basin's its largest lake as it holds water; every other theme's the course of the river named
+// "river/main" (its own channel on a delta, not the fan's other arms) and the lakes it drains (Islands'
+// sea among them).
 //
-//   git worktree add --detach .scratch/dev origin/dev   (then npm ci there)
+//   git archive origin/dev src tools | tar -x -C .scratch/dev
 //   npx tsx tools/badwater-sheet.ts --before .scratch/dev [--theme riverValley,delta,lakeBasin]
-//       [--seeds 1-20] [--size 128] [--workers 8] [--out docs/sheets/badwater-line]
+//       [--seeds 1-20 or 10,48,56] [--size 128] [--workers 8] [--out docs/sheets/badwater-joins]
 //
-// Writes <out>-<theme>.png (laid out by tools/badwater-sheet.py, under 1 MB) and prints the counts.
+// Writes <out>-<theme>.png (laid out by tools/badwater-sheet.py, under 1 MB) and prints the counts and,
+// on this checkout's side, how many starts moved for badwater (the generator's fixes).
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -33,10 +37,16 @@ interface Made extends Job {
   version: string;
   passed: boolean;
   attempts: number;
-  /** Share of the main water's wet tiles 5% or more bad (-1: no main water read). */
+  /** Wet tiles of the main water 5% or more bad (-1: no main water read). */
   mainBad: number;
+  fixes: string[];
   error?: string;
 }
+
+/** Badwater reaches the main water: this many of its wet tiles 5% or more bad. */
+const REACH_TILES = 10;
+/** The colour full badwater is shaded (the key's end). */
+const RUST = [150, 48, 32];
 
 function workerSource(root: string): string {
   const u = (p: string) => JSON.stringify(pathToFileURL(join(root, p)).href);
@@ -47,8 +57,9 @@ import { generate } from ${u("src/core/gen/generate.ts")};
 import { shadeTiles } from ${u("src/core/render/shade.ts")};
 import { polygonMask } from ${u("src/core/features/geometry.ts")};
 import * as mapspec from ${u("src/core/spec/mapspec.ts")};
+import { sqrt } from ${u("src/core/math/portable.ts")};
 import { encodePng } from ${png};
-const WET = 0.05, BAD = 0.05;
+const WET = 0.05, BAD = 0.05, RUST = ${JSON.stringify(RUST)};
 function mainMask(r, theme) {
   const b = r.built, W = b.W, H = b.H, N = W * H;
   const wet = (i) => b.water[i] > WET;
@@ -116,16 +127,19 @@ parentPort.on("message", (job) => {
     const put = (x, y, c) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const k = ((H - 1 - y) * W + x) * 3; img[k] = c[0]; img[k + 1] = c[1]; img[k + 2] = c[2]; };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      put(x, y, b.water[i] > WET && b.contamination[i] >= BAD ? [150, 48, 32] : [rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]]);
+      const c = [rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]];
+      // (water from its own colour to rust by the square root of its badwater share)
+      const t = b.water[i] > WET ? sqrt(Math.min(1, Math.max(0, b.contamination[i]))) : 0;
+      put(x, y, c.map((v, k) => Math.round(v * (1 - t) + RUST[k] * t)));
     }
     for (const s of b.sources) if (s.template === "BadwaterSource") for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) put(s.x + dx, s.y + dy, [255, 205, 0]);
     if (b.start) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) put(b.start.x + dx, b.start.y + dy, Math.max(Math.abs(dx), Math.abs(dy)) === 3 ? [255, 255, 255] : [220, 30, 30]);
     const m = mainMask(r, job.theme);
-    let n = 0, bad = 0;
-    if (m) for (let i = 0; i < N; i++) if (m[i]) { n++; if (b.contamination[i] >= BAD) bad++; }
-    parentPort.postMessage({ ...job, png: Buffer.from(encodePng(img, W, H)).toString("base64"), version: mapspec.GENERATOR_VERSION, passed: r.report.passed, attempts: r.attempts, mainBad: n ? bad / n : -1 });
+    let bad = 0;
+    if (m) for (let i = 0; i < N; i++) if (m[i] && b.contamination[i] >= BAD) bad++;
+    parentPort.postMessage({ ...job, png: Buffer.from(encodePng(img, W, H)).toString("base64"), version: mapspec.GENERATOR_VERSION, passed: r.report.passed, attempts: r.attempts, mainBad: m ? bad : -1, fixes: r.info.fixes ?? [] });
   } catch (e) {
-    parentPort.postMessage({ ...job, png: "", version: mapspec.GENERATOR_VERSION, passed: false, attempts: 0, mainBad: -1, error: String((e && e.message) || e) });
+    parentPort.postMessage({ ...job, png: "", version: mapspec.GENERATOR_VERSION, passed: false, attempts: 0, mainBad: -1, fixes: [], error: String((e && e.message) || e) });
   }
 });
 `;
@@ -168,23 +182,27 @@ function arg(name: string, fallback: string): string {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const NAMES: Record<string, string> = { riverValley: "River Valley", delta: "Delta", lakeBasin: "Lake Basin" };
+const NAMES: Record<string, string> = { any: "Any", riverValley: "River Valley", canyon: "Canyon", highlands: "Highlands", lakeBasin: "Lake Basin", delta: "Delta", islands: "Islands" };
+const MAIN: Record<string, string> = { lakeBasin: "lake", islands: "river and sea" };
 
 async function main(): Promise<void> {
   const before = resolve(arg("before", ""));
   const themes = arg("theme", "riverValley,delta,lakeBasin").split(",");
-  const [a, z] = arg("seeds", "1-20").split("-").map(Number);
-  const seeds = Array.from({ length: (z ?? a) - a + 1 }, (_, k) => a + k);
+  // (a range, 1-20, or a list, 10,48,56)
+  const seedArg = arg("seeds", "1-20");
+  const [a, z] = seedArg.split("-").map(Number);
+  const seeds = seedArg.includes(",") ? seedArg.split(",").map(Number) : Array.from({ length: (z ?? a) - a + 1 }, (_, k) => a + k);
   const size = Number(arg("size", "128"));
   const workers = Math.min(8, Number(arg("workers", "8")));
-  const out = arg("out", "docs/sheets/badwater-line");
+  const out = arg("out", "docs/sheets/badwater-joins");
   const jobs = themes.flatMap((theme) => seeds.map((seed) => ({ theme, seed, size })));
   const after = await makeAll(jobs, ROOT, workers, "this checkout");
   const old = arg("before", "") ? await makeAll(jobs, before, workers, "before") : [];
   const dir = join(ROOT, ".scratch", "badwater-sheet");
   mkdirSync(dir, { recursive: true });
+  const reaches = (m: Made) => m.mainBad >= REACH_TILES;
   const line = (ms: Made[]) => {
-    const hit = ms.filter((m) => m.mainBad > 0.1).map((m) => m.seed).sort((p, q) => p - q);
+    const hit = ms.filter(reaches).map((m) => m.seed).sort((p, q) => p - q);
     return `${hit.length} of ${ms.length}${hit.length ? ` (${hit.join(", ")})` : ""}`;
   };
   for (const theme of themes) {
@@ -197,16 +215,18 @@ async function main(): Promise<void> {
       writeFileSync(join(dir, fa), Buffer.from(m.png, "base64"));
       let fb = "";
       if (o?.png) writeFileSync(join(dir, (fb = `${theme}-${m.seed}-before.png`)), Buffer.from(o.png, "base64"));
-      return { seed: m.seed, after: fa, before: fb, afterBad: m.mainBad > 0.1, beforeBad: !!o && o.mainBad > 0.1 };
+      return { seed: m.seed, after: fa, before: fb, afterBad: reaches(m), beforeBad: !!o && reaches(o) };
     });
     const vb = B[0]?.version ?? "";
     const va = A[0]?.version ?? "";
-    const title = `${NAMES[theme] ?? theme} ${size}², seeds ${seeds[0]}–${seeds[seeds.length - 1]}: ${B.length ? `before (dev, ${vb}) | ` : ""}after (${va}). Rust red: badwater; yellow: sources; red square: start; * main ${theme === "lakeBasin" ? "lake" : "river"} carries badwater`;
-    writeFileSync(join(dir, `${theme}.json`), JSON.stringify({ title, maps }, null, 1));
+    const main = MAIN[theme] ?? "river";
+    const title = `${NAMES[theme] ?? theme} ${size}², seeds ${seeds[0]}–${seeds[seeds.length - 1]}: ${B.length ? `before (dev, ${vb}) | ` : ""}after (${va}). Yellow: badwater sources; red square: start; * badwater reaches the main ${main} (${REACH_TILES}+ tiles 5% or more bad)`;
+    writeFileSync(join(dir, `${theme}.json`), JSON.stringify({ title, rust: RUST, maps }, null, 1));
     const png = `${out}-${theme}.png`;
     const r = spawnSync(process.env.PYTHON ?? "python", [join(ROOT, "tools", "badwater-sheet.py"), join(dir, `${theme}.json`), dir, png], { encoding: "utf8" });
     process.stdout.write(r.stdout + r.stderr);
-    console.log(`${NAMES[theme] ?? theme}: main ${theme === "lakeBasin" ? "lake" : "river"} carries badwater on ${B.length ? `${line(B)} before, ` : ""}${line(A)} after`);
+    const moved = (fix: string) => A.filter((m) => m.fixes.includes(fix)).map((m) => m.seed);
+    console.log(`${NAMES[theme] ?? theme}: badwater reaches the main ${main} on ${B.length ? `${line(B)} before, ` : ""}${line(A)} after; starts moved off badwater: [${moved("start moved off badwater").join(", ")}], by other water: [${moved("start by other water").join(", ")}]`);
     for (const m of [...A, ...B]) if (m.error || !m.passed) console.log(`  ${m.version} seed ${m.seed}: ${m.error ?? "did not pass"}`);
   }
 }

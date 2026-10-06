@@ -10,3 +10,4 @@ export function classify(
   mode?: "auto" | "full" | "light",
 ): { heavy: boolean; suites: boolean; rust: boolean };
 export function needsHeavy(files: string[], read: (path: string, side: "old" | "new") => string | null): boolean;
+export function needsTest(files: string[], mode?: "auto" | "full" | "light"): boolean;

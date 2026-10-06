@@ -11,7 +11,7 @@ import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { ERUPT_DEFAULTS, ERUPT_SIZE_MAX } from "../../src/core/forces/erupt";
-import { ADVANCE_STEPS, RETREAT_STEPS } from "../../src/core/forces/glaciate/run";
+import { ADVANCE_STEPS } from "../../src/core/forces/glaciate/run";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -63,7 +63,10 @@ describe("a river drawn uphill is shown the way it was drawn (A5)", () => {
     // the same land kept, the same operation (only its showing differs)
     expect(hash(back.kept)).toBe(hash(forward.kept));
     expect(opBack).toEqual(opForward);
-    expect(back.frames.length).toBe(forward.frames.length);
+    // (each showing ends the moment its land is final, #275: forward that comes before its last step,
+    // shown from the end only at it; both end on the land kept)
+    expect(hash(back.frames.at(-1)!)).toBe(hash(back.kept));
+    expect(hash(forward.frames.at(-1)!)).toBe(hash(forward.kept));
     // the first tiles to change: near the course's end shown from the end, near its origin otherwise
     const firstChange = (frames: Uint8Array[]) => {
       for (const h of frames) {
@@ -107,7 +110,7 @@ describe("the editor's fissure takes its breadth from its shape (A6)", () => {
 });
 
 describe("Glaciate's land changes only as the ice passes, and settles at its last stage (A7)", () => {
-  it("no tile changes before the front reaches it; during the melt nothing more changes; the last stage is the kept land", async () => {
+  it("no tile changes before the front reaches it; the force is over once the ice has passed, its last frame the kept land", async () => {
     const b = await fresh(21);
     const st = b.start!;
     let at: [number, number] = [W >> 1, W >> 1];
@@ -124,14 +127,12 @@ describe("Glaciate's land changes only as the ice passes, and settles at its las
       }
     expect(ed.forceStart({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power: 50 }, origin: at, cut: null, natural: true }).errors).toEqual([]);
     const { frames, kept } = playOut();
-    expect(frames.length).toBe(ADVANCE_STEPS + RETREAT_STEPS + 1);
+    // (over the moment its land is final, #275: the melt-back is the page's effect, no frames of its own)
+    expect(frames.length).toBe(ADVANCE_STEPS + 1);
     // its land grows with the front: each stage of the advance changes more
     const changed = (h: Uint8Array) => h.reduce((n, v, i) => n + (v !== b.heights[i] ? 1 : 0), 0);
     for (let k = 2; k <= ADVANCE_STEPS; k++) expect(changed(frames[k])).toBeGreaterThanOrEqual(changed(frames[k - 1]));
     expect(changed(frames[1])).toBeLessThan(changed(frames[ADVANCE_STEPS]));
-    // the melt reveals it: no ground changes under the retreating ice until its end, which is the kept
-    // land (the ice, the effects' clock, keeps to the same stages: D344 A7)
-    for (let k = ADVANCE_STEPS + 1; k < frames.length; k++) expect(hash(frames[k])).toBe(hash(frames[ADVANCE_STEPS]));
     expect(hash(frames.at(-1)!)).toBe(hash(kept));
   }, 120_000);
 });

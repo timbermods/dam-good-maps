@@ -19,10 +19,11 @@
 //   Naturalize weathers all but the start's pad and its `keep` runs (D368 (8), `weathers`).
 //   Since D399 Naturalize weathers like nature (weather.ts): the stroke gathers pressure as Raise
 //   does; edges wander along noise fixed to the map, cliffs shed into stepped slopes, narrow terraces
-//   join their neighbours, the downhill order and the water kept. Rule 3 (`weathering: 3`, new
+//   join their neighbours, the downhill order and the water kept. Rule 4 (`weathering: 4`, new
 //   strokes) weathers dab by dab, each dab the land the dabs before it left, round where it presses
-//   harder, moist ground held; rule 2 worked the whole stroke out again from the land before it
-//   after every dab. A stroke replays with the rule it was painted with.
+//   harder, moist ground held; rule 3 did the same but lost some cliffs' scree slopes (weather.ts
+//   `shed`); rule 2 worked the whole stroke out again from the land before it after every dab. A
+//   stroke replays with the rule it was painted with.
 // - Shapes (the brush kit, PLAN §20 D182, D179 (3)): round, or square (by the larger of the two
 //   distances, on the tile grid). A pen's pressure scales each dab's pressure (a mouse presses
 //   fully). An area (Timberborn's own editor's Terrain, Kyler 2026-10-03), Raise and Lower only: the
@@ -118,9 +119,10 @@ export interface BrushParams {
   weathers?: true;
   /** Naturalize's rule (D399): 2 weathers like nature (weather.ts), the whole stroke at once; 3 the
    *  same, dab by dab, each dab weathering the land the dabs before it left where it presses harder
-   *  (and moist ground keeps its height). Absent, a stroke from before replays with the rule it was
-   *  painted with. The session records it on every new weathering stroke. */
-  weathering?: 2 | 3;
+   *  (and moist ground keeps its height); 4 the same, its scree's slope measured from every cliff
+   *  (weather.ts `shed`). Absent, a stroke from before replays with the rule it was painted with. The
+   *  session records it on every new weathering stroke. */
+  weathering?: 2 | 3 | 4;
   /** Naturalize, rule 2: where water would stand on the ring round its working rectangle when the
    *  stroke began, as pairs [tile along the ring (clockwise from its top-left corner), depth in
    *  levels]; the session records them, so nothing it does newly holds water outside it either. */
@@ -246,7 +248,7 @@ function preciseReach(size: number): number {
 
 /** Whether a stroke weathers like nature (D399, weather.ts). */
 export function weathersLikeNature(p: Pick<BrushParams, "tool" | "weathers" | "weathering">): boolean {
-  return p.tool === "naturalize" && p.weathers === true && (p.weathering === 2 || p.weathering === 3);
+  return p.tool === "naturalize" && p.weathers === true && (p.weathering === 2 || p.weathering === 3 || p.weathering === 4);
 }
 
 /** Where water stood when a rule 3 stroke began, on every tile of the map: the level a dry tile beside
@@ -474,6 +476,27 @@ export function levelRigid(rigid: readonly (readonly [number, number, number, nu
   return out;
 }
 
+/** Of the pieces that may ride a stroke (`ridingPieces`, edits.ts), the ones it tilted, which ride it
+ *  whole (D249): a tile changed from `before` and their tiles no longer level in `now` (the shown
+ *  heights before and after the stroke). The session and the page's preview both ask this, so the
+ *  stroke's `rigid` pieces are the same on both sides. */
+export function tiltedPieces(pieces: readonly (readonly [number, number, number, number])[], before: ArrayLike<number>, now: ArrayLike<number>, W: number): [number, number, number, number][] {
+  const out: [number, number, number, number][] = [];
+  for (const [x0, y0, x1, y1] of pieces) {
+    const first = now[y0 * W + x0];
+    let level = true;
+    let changed = false;
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (now[i] !== first) level = false;
+        if (now[i] !== before[i]) changed = true;
+      }
+    if (changed && !level) out.push([x0, y0, x1, y1]);
+  }
+  return out;
+}
+
 /** What a natural weathering reads beyond its settings while it is painted (the page's stroke, before
  *  it is an operation; D399): the level water would stand at on every tile (the drainage, for `rim`),
  *  and the settled water's depth with the heights it stands on (for `shore` and `pools`, handed to
@@ -568,7 +591,7 @@ export class BrushStroke {
     this.acc = new Int32Array(W * H);
     const pointwise = settings.tool === "raise" || settings.tool === "lower" || settings.tool === "flatten";
     this.nature = weathersLikeNature(settings) && !settings.precise;
-    this.byDab = this.nature && settings.weathering === 3;
+    this.byDab = this.nature && (settings.weathering === 3 || settings.weathering === 4);
     this.before = pointwise || this.nature ? heights.slice() : null;
     this.steps = settings.tool === "naturalize" && !this.nature ? new Uint16Array(W * H) : null;
     this.reach = this.nature ? new Uint16Array(W * H) : null;
@@ -797,7 +820,7 @@ export class BrushStroke {
     }
     const cache = (this.cache ??= new WeatherCache(this.heights, W, H, true));
     const changes: number[] = [];
-    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, changes, cache }, this.heights);
+    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, changes, cache, rule: this.settings.weathering }, this.heights);
     if (changed) {
       this.version++;
       cache.changed(changes);
@@ -858,7 +881,7 @@ export class BrushStroke {
     const was = this.lastBox;
     let same = !!was && was.x0 === box.x0 && was.y0 === box.y0 && was.x1 === box.x1 && was.y1 === box.y1;
     for (let y = box.y0; y <= box.y1; y++)
-      for (let x = box.x0; x <= box.x1; x++) {
+      for (let x: number = box.x0; x <= box.x1; x++) {
         const i = y * W + x;
         if (last[i] !== I[i]) {
           same = false;
@@ -1122,7 +1145,7 @@ export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: nu
   const { dabs, pressure, levels, ...settings } = p;
   // (rule 3: where water stood over its working rectangle when it began, from the ring it recorded)
   let water: Uint8Array | undefined;
-  if (weathersLikeNature(p) && p.weathering === 3 && !p.precise) {
+  if (weathersLikeNature(p) && (p.weathering === 3 || p.weathering === 4) && !p.precise) {
     const box = weatherBox(p, W, H);
     if (box) water = boxWaterLevels(heights, box, p.rim ?? [], W, H);
   }
@@ -1147,9 +1170,9 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.sources !== undefined && (p.sources !== "keep" || p.keep === undefined)) return ["a stroke keeps its sources with their kept runs"];
   if (p.seed !== undefined && !Number.isInteger(p.seed)) return ["a brush's seed is a whole number"];
   if (p.weathers !== undefined && (p.weathers !== true || p.tool !== "naturalize")) return ["only a naturalize stroke weathers"];
-  if (p.weathering !== undefined && ((p.weathering !== 2 && p.weathering !== 3) || p.weathers !== true || p.precise)) return ["only a weathering naturalize stroke, never a precise one, has rule 2 or 3"];
-  if (p.moist !== undefined && (p.weathering !== 3 || !Array.isArray(p.moist) || p.moist.length > 65536 || !p.moist.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a natural weathering's moist ground is runs [y, x0, x1], with rule 3"];
-  if ((p.shore !== undefined || p.pools !== undefined) && ((p.weathering !== 2 && p.weathering !== 3) || !Array.isArray(p.shore ?? []) || !Array.isArray(p.pools ?? []) || (p.shore ?? []).length > 65536 || (p.pools ?? []).length > 65536 || !(p.shore ?? []).every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= 255) || !(p.pools ?? []).every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2])))
+  if (p.weathering !== undefined && ((p.weathering !== 2 && p.weathering !== 3 && p.weathering !== 4) || p.weathers !== true || p.precise)) return ["only a weathering naturalize stroke, never a precise one, has rule 2, 3 or 4"];
+  if (p.moist !== undefined && ((p.weathering !== 3 && p.weathering !== 4) || !Array.isArray(p.moist) || p.moist.length > 65536 || !p.moist.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a natural weathering's moist ground is runs [y, x0, x1], with rule 3 or 4"];
+  if ((p.shore !== undefined || p.pools !== undefined) && ((p.weathering !== 2 && p.weathering !== 3 && p.weathering !== 4) || !Array.isArray(p.shore ?? []) || !Array.isArray(p.pools ?? []) || (p.shore ?? []).length > 65536 || (p.pools ?? []).length > 65536 || !(p.shore ?? []).every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= 255) || !(p.pools ?? []).every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2])))
     return ["a natural weathering's shore is runs [y, x0, x1, level] and its pools runs [y, x0, x1]"];
   if (p.rim !== undefined && (p.weathering !== 2 || !Array.isArray(p.rim) || p.rim.length % 2 || p.rim.length > 8192 || !p.rim.every((v, k) => Number.isInteger(v) && (k % 2 ? v >= 1 && v <= BRUSH_MAX_LEVEL : v >= 0)))) return [`a natural weathering's rim is pairs [tile along the ring, depth 1 to ${BRUSH_MAX_LEVEL}]`];
   if (p.dabs.length < 2 || p.dabs.length % 2) return ["a stroke needs its dabs, as pairs of numbers"];
