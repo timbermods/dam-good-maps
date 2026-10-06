@@ -760,7 +760,7 @@ export class BrushPainter {
     const tiles: GhostTile[] = [];
     if (r)
       for (let y = r.y0; y <= r.y1; y++)
-        for (let x = r.x0; x <= r.x1; x++) {
+        for (let x: number = r.x0; x <= r.x1; x++) {
           const i = y * h.W + x;
           if (shown[i] !== trial.start[i]) tiles.push({ i, from: trial.start[i], to: shown[i] });
         }

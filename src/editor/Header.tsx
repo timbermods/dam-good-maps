@@ -287,9 +287,10 @@ export function Header(p: HeaderProps) {
       const sr = r ? Math.ceil(h.right - r.left) : 0;
       el.style.setProperty("--side-l", `${sl}px`);
       el.style.setProperty("--side-r", `${sr}px`);
-      // the map's name (Kyler, 2026-10-05, A+B): centred on the window when it fits there on one line; else centred
-      // between the two groups, today's 12px from each; else on two lines there, its seed and size line giving way.
-      // Never "…", never on another control; nothing else in the bar moves.
+      // the map's name (Kyler, 2026-10-05, A+B; 2026-10-06): centred on the window when it fits there on one line; else
+      // centred between the two groups, today's 12px from each; else on two lines there at full size, its seed and size
+      // line giving way; only when two full-size lines can't hold it, two lines in 13px. Never small on one line, never
+      // "…", never on another control; nothing else in the bar moves.
       const title = el.querySelector<HTMLElement>(".editor-title");
       const facts = title?.querySelector(".muted");
       const name = title?.querySelector<HTMLElement>(".title-button");
@@ -298,16 +299,34 @@ export function Header(p: HeaderProps) {
         const between = h.width - sl - sr - 24;
         const f = getComputedStyle(name);
         // (measured at the title's own size: on two lines it is smaller, and must not then fit one line and flip back)
-        if (!title.classList.contains("two-lines")) title.dataset.size = f.fontSize;
+        if (!title.classList.contains("small")) title.dataset.size = f.fontSize;
         const pen = document.createElement("canvas").getContext("2d");
         if (pen) pen.font = `${f.fontStyle} ${f.fontWeight} ${title.dataset.size ?? f.fontSize} ${f.fontFamily}`;
-        const wide = pen ? Math.ceil(pen.measureText(name.textContent ?? "").width) + 1 : name.scrollWidth;
+        const text = name.textContent ?? "";
+        const wide = pen ? Math.ceil(pen.measureText(text).width) + 1 : name.scrollWidth;
         const inGap = wide > centred;
         const room = Math.floor(inGap ? between : centred);
         title.style.setProperty("--title-x", `${Math.round(inGap ? sl + 12 + between / 2 : h.width / 2)}px`);
         title.style.setProperty("--title-max", `${room}px`);
         const two = wide > room;
+        // (how many lines its words take at full size in that room, broken where the browser breaks them)
+        const linesAt = (w: number) => {
+          if (!pen) return 3;
+          let lines = 1;
+          let line = "";
+          for (const word of text.split(/\s+/).filter(Boolean)) {
+            if (Math.ceil(pen.measureText(word).width) + 1 > w) return Infinity;
+            const next = line ? `${line} ${word}` : word;
+            if (Math.ceil(pen.measureText(next).width) + 1 <= w) line = next;
+            else {
+              lines++;
+              line = word;
+            }
+          }
+          return lines;
+        };
         title.classList.toggle("two-lines", two);
+        title.classList.toggle("small", two && linesAt(room) > 2);
         title.classList.toggle("no-facts", two || room < facts.scrollWidth);
       }
     };

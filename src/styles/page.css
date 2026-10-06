@@ -68,9 +68,14 @@
   text-overflow: clip;
 }
 
-/* (on two lines, 13px type: Kyler, 2026-10-06; at 1280 every name Rename allows fits two lines in it) */
-.editor-title.two-lines h1,
-.editor-title.two-lines .title-button {
+/* (two lines at full size; only when two full-size lines can't hold it, two lines in 13px: Kyler, 2026-10-06; at 1280
+   every name Rename allows fits two lines in that) */
+.editor-title.two-lines h1 {
+  line-height: 22px;
+}
+
+.editor-title.two-lines.small h1,
+.editor-title.two-lines.small .title-button {
   font-size: 13px;
   line-height: 16px;
 }

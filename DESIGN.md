@@ -807,9 +807,9 @@ API, every pinned hash, and every role and accessible name the tests use.
   6px apart; Undo and Redo 40px squares with their symbols. Captures `docs/design/history-{closed,open,review}-*`.
   Its panel opens in the left panel's place (Kyler's A, `docs/design/history-options-1280x800.jpg`): the panels' box,
   640px over the map at the left, as tall as its steps up to the panels' room, one of Map Generator, Real places, Your
-  maps and History at a time; nothing moves at any width. A name on two lines in the header takes 13px type (Kyler,
-  2026-10-06: 15px left a name at Rename's limit on three lines at 1280), so every name Rename allows fits two lines
-  beside History at 1280. The Look button is one width, its widest state's ("Look: Standard"), so the header's right
+  maps and History at a time; nothing moves at any width. A name that doesn't fit one line at full size takes two lines at full
+  size; only when two full-size lines can't hold it does it take two lines in 13px (Kyler, 2026-10-06), so every name
+  Rename allows fits two lines beside History at 1280, and no name is ever small on a single line. The Look button is one width, its widest state's ("Look: Standard"), so the header's right
   side never changes width with the look either; at 1280 the name has 141px.
 - **The shelf's tooltips** say what each item is for and nothing more: no key, no "R turns it" (R still turns a held
   item).

@@ -13,6 +13,13 @@ Kyler's three answers (no keys for Rift and Deposit, Rename stops at two lines, 
 page.patch once #311 merges into dev. The local dev server for this worktree runs on port 5180 (the app's preview tool
 serves the main clone). Below: the previous session's handoff, its queue now done but for #312.
 
+### How #163 merges, and after (Kyler, 2026-10-06)
+
+The milestone session squash-merges #163 into dev, keeping only the final checkpoint's captures in docs/design; the
+rest go to a GitHub Release linked from DESIGN.md. Once it is merged, feature/page restarts from dev, carrying over any
+commits made after the squash point, so the old history never merges in later. From then on, page PRs keep only the
+latest checkpoint's captures in docs/design.
+
 ## Handoff (2026-10-05, the page session that built Rift, Deposit, Sources and Your maps; read this first)
 
 Branch `feature/page`, PR #163 (labels `approved`, `needs-kyler`), last push 3c9402d6. Worktree
