@@ -75,7 +75,11 @@ Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response heade
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
 cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
 `SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
-workers. A second build target, a single-file build for a
+workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
+scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
+anything with a query or range always come from the network. On a host that sends the headers itself the page registers
+it once the map is editable (`cacheAfterEditable`). A new version never takes over an open page (no `skipWaiting`): it
+waits until the old tabs close. A second build target, a single-file build for a
 Claude artifact (deferred with Claude, D277), swaps the platform adapters (§19.9): data is bundled, workers can be
 inlined, and libraries come from npm. The visual design is the org's Impeccable site flow and the timbermods design
 system (walnut lodge palette, `DESIGN.md`), done as its own step.
@@ -561,7 +565,10 @@ it, an inland sea in a ring of land on the fourth; its start may stand on an isl
 D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
-narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
+narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447). Each arm
+takes its own broad curved course from the apex, the low ground choosing its way inside it, so arms diverge, converge
+and now and then braid round an island on a flat reach; every channel shares one falling bed at each distance down the
+fan, cut from the lakes' actual floors (#233, generator 0.8.2).
 Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
 basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
 curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
@@ -651,7 +658,10 @@ where the land's own processes make them. The builder's limits still fix what a 
   joins the main river downstream of the start reach or runs to its own edge, keeping 12 tiles beyond the start's
   zone and 2 tiles clear of other rivers (D57, D62). **Counterplay:** a levee or dam across the outlet contains it
   (a source never stops, so only while the basin fills); thorn tiles along the rim block its soil contamination
-  (7-tile reach).
+  (7-tile reach). The ditch's course is found as a stream's (`land/hazards.ts`): the field's own drainage, else
+  eight-way steps along valleys and low ground, a terrace down at its lowest and round a cliff where it can, clear of
+  the edges of ground it keeps off; its corners rounded, then wound by the rivers' meander, never straight for more
+  than 9 tiles (#330).
 - **Where** (D200): every map has badwater (§5.4), as many basins as the official maps have sources for the size,
   each where the ground 4–6 tiles round its floor stands higher (a hollow or a side valley, as 84% of the official
   sources stand) before open ground, at the badwater distance + 14 tiles from the start. A map that asks for badwater
@@ -661,11 +671,13 @@ where the land's own processes make them. The builder's limits still fix what a 
   as it stands, at least the badwater distance + 14 tiles from the start, the water settled again with them, and a
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
-  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
-  (D469), but on about 85 maps in 100 of their themes no ditch joins Lake Basin's main lake (its largest planned lake)
-  or River Valley's and Delta's main river (`river/main` with its split arms, its lakes and the rivers joining it; on a
-  delta its trunk and own channel, not the fan's other arms), nor water that flows into them (Kyler, 2026-10-05, #265;
-  `POISONED_LAKE`, `POISONED_RIVER`) ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
+  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater joins rivers and
+  lakes (D469), and on most maps the first basin's ditch joins the theme's main water (D476, `land/hazards.ts`
+  `mainWater`: Lake Basin's main lake, its largest planned lake, or water flowing into it; elsewhere the river named
+  `river/main` with its split arms, its lakes and the rivers joining it, on a delta its trunk and own channel, on
+  Islands the sea it drains), below the start's water where it can, else beyond the badwater distance with the start
+  then found by other clean water (`BadwaterAsk.join`); on about 15 maps in 100 (`OWN_DRAIN`, its own hash), and where
+  no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge

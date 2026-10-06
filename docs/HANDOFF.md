@@ -120,13 +120,14 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   **The `needs-kyler` label is itself a ping:** labelling an issue or PR sends one ntfy notification from GitHub
   (`.github/workflows/needs-kyler-ping.yml`, the `NTFY_TOPIC` secret Kyler sets), its number and title, its link as the click target.
 - **When CI runs:**
-  - a **pull request into `dev`** runs the light set: `test` (typecheck, quick suite, build) and the four browser shards. Not
+  - a **pull request into `dev`** runs the light set: `test` (typecheck, the quick suite in two shards, build) and the four browser shards. Not
     while it is a draft; a newer push cancels the run it supersedes;
   - the **merge queue** (a merge group) runs the full suite on the merged state, once per batch: oracle, generation, engines and rust as
     well. Nothing merges into `dev` without it. `dev` has no CI of its own on a push; the nightly checks its tip;
   - a **push to `main`, a pull request into `main` (a release) and a manual run** run the full suite, never cancelled;
   - the rest is skipped by what changed (`tools/ci-changes.mjs`): only documents, `investigation/`, `LICENSE` or `package.json`'s
-    descriptive fields run just the document tests and the build; only `src/editor/`, `src/ui/` and `tests/e2e/` skip oracle,
+    descriptive fields run just the document tests and the build (a pull request into dev touching only `investigation/`
+    runs nothing beyond `changes`); only `src/editor/`, `src/ui/` and `tests/e2e/` skip oracle,
     generation, engines and rust; the Rust checks run only when `rust/`, `tools/rust/`, the Wasm's TypeScript wrapper or the
     workflow changes. CodeQL runs on pushes and weekly, not on PRs.
 - **Merging into `dev`** goes through the queue: open the PR ready, wait for the light set to go green, then add it to the
@@ -169,7 +170,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D476**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D477**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

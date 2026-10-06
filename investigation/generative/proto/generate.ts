@@ -155,8 +155,8 @@ function attemptOnce(theme: ThemeId, seed: number, size: number, difficulty: Dif
       const [bx, by] = pick.shore;
       const steps = Math.ceil(Math.max(Math.abs(bx - pick.x), Math.abs(by - pick.y)) * 2);
       for (let k = 0; k <= steps; k++) {
-        const px = pick.x + ((bx - pick.x) * k) / steps;
-        const py = pick.y + ((by - pick.y) * k) / steps;
+        const px: number = pick.x + ((bx - pick.x) * k) / steps;
+        const py: number = pick.y + ((by - pick.y) * k) / steps;
         for (let dy = -1; dy <= 1; dy++)
           for (let dx = -1; dx <= 1; dx++) {
             const j = Math.round(py + dy) * W + Math.round(px + dx);

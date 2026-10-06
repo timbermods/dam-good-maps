@@ -1,0 +1,32 @@
+diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
+index 928b37b1..eced44a1 100644
+--- a/src/core/gen/generate.ts
++++ b/src/core/gen/generate.ts
+@@ -37,7 +37,7 @@ import { placementOf } from "../format/entities";
+ import type { JsonObject } from "../format/json";
+ import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
+ import type { FieldData } from "../doc/document";
+-import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
++import { buildMap, rebuild as rebuildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
+ import { previewSettle } from "../sim/preview";
+ import type { FieldCache } from "../features/target";
+ import { featureId } from "../features/ids";
+@@ -1517,8 +1517,17 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+     const steps = standingSteps(ramps.steps, h, W, H);
+     return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
+   };
++  // Every build keeps its own field snapshot. The incremental pipeline checks terrain,
++  // slopes, water, soil barriers and resource inputs before reusing any prior work.
++  // Scope it to this attempt; speculative builds are valid cache inputs too.
++  let previousBuild: BuildResult | null = null;
+   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
+-    const b = buildMap({ W, H, seed, features, field: fieldOf() }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
++    const input = { W, H, seed, features, field: fieldOf() };
++    const options = { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) };
++    const b = previousBuild ? rebuildMap(previousBuild, input, options) : buildMap(input, options);
++    previousBuild = b;
++    // Generation has no editor dirty-region consumer. Keep its full-build result shape.
++    b.dirty = null;
+     if (stop === "water") return b;
+     // (a settle counts once: the cache hands the attempts on a land the settles they share)
+     if (!counted.has(b.settle.depth)) {

@@ -29,8 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, generator 0.8.2, `approved`) is merging; then **badwater joins the main water** (D476, `feature/badwater-joins`,
-  generator 0.8.3), Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
+  (#325, 0.8.2) and badwater joins the main water (#330, D476, 0.8.3) are merged; next Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
   Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
   #225) and green CI.
@@ -73,10 +72,15 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 
 1. **The badwater line** (done, #265, generator 0.8.1; D469): badwater joins rivers and lakes, the start keeps clean, pumpable
    water (D85) and no badwater within 15 of it. Its Naturalize shortfalls are fixed (#324).
-2. **Delta arms round 2** (#325, generator 0.8.2, `approved`, merging): #233's arms, adopted on dev.
-3. **Badwater joins the main water** (D476, `feature/badwater-joins`, generator 0.8.3): on most maps a badwater course is routed
-   into the theme's main water; about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
-   poisoned-main-river follow-up. Its sheets shade water by how bad it is.
+2. **Delta arms round 2** (done, #325, generator 0.8.2): #233's arms, adopted on dev.
+3. **Badwater joins the main water** (done, #330, D476, generator 0.8.3): on most
+   maps a badwater course is routed into the theme's main water (Lake Basin's main lake; elsewhere `river/main`, Delta's
+   trunk, Islands' sea); about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
+   poisoned-main-river follow-up. Its sheets shade water by how bad it is. Every ditch follows the land as a stream does
+   (eight-way steps along valleys and low ground, round cliffs, corners rounded, no straight run over 9 tiles; Kyler's
+   verdict on #330). Seeds 1–20 at 128², badwater reaching the main water, dev → 0.8.3: River Valley 1 → 17, Delta
+   1 → 18, Lake Basin 5 → 18, Islands 16 → 19, Highlands 18 → 20, Canyon 19 → 19, Any 20 → 19; 27 of 140 starts moved
+   for it, never the land.
 4. **Lake Basin round 3** (#234, `feature/lake-basin-3`, built and measured): drowned valley outlines; it also fixes seeds 12
    and 15, which have no lake on dev yet pass the promise (D464).
 5. **River Valley round 2** (#244), **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands**
@@ -85,8 +89,11 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 
 - **Startup** part 1 (D367, D455): the core half is done (#222: a project carries its map and opens from it, with the replay
-  compared byte for byte) and so is the renderer's warm-up (#208). Left: the checks start after the first editable frame, and
-  the page autosaves again once the water settles (the page's half).
+  compared byte for byte) and so is the renderer's warm-up (#208). Codex's first-load round (#332) is adopted in two halves:
+  the milestone half is built (`feature/first-load`: the editor worker's `deferChecks`/`editorReady`, the checks worker
+  loading its replica on first use, the service worker's caching, `cacheAfterEditable`); the page half waits on its
+  `page.patch` in the page session (the checks start after the first editable frame, the renderer warms after the
+  worker's first answer, and the page autosaves again once the water settles).
 - **The page is the editor** (#163; D384, D388, D395): the page session, with Kyler's sittings at each checkpoint: the
   settings panel (option B) is built; the single-view generator waits on Kyler's pick between two mockups (`?gen=a`, `?gen=b`
   on `/preview/`); the area brush (#227, merged) joins Raise and Lower with the page's toggle. The `/preview/` slot is its (D396).
@@ -97,7 +104,8 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   startup part 1 (D455); the land and its water change together under every force (done: D371, Carve #199 and #257, the rest #311); Glaciate in Fast (done, #203, D374); Shift+F resets what F changes; a
   Strength slider for Smooth and Naturalize (built in the page); trees on dried soil (D376); a Sources setting for every
   force (done, D474, #308, #322); batch jobs across all threads; startup part 2's service worker with multi-core
-  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching remains); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
+  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching is built with the
+  first-load round's milestone half, and registering it on hosts that send the headers waits on the page half); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
   session's items on its own PRs: #219 the default view fits the map (done), #240 the High bake worker (done), #225 a
   source's highlight reads under its water (done); then renderer R1 from the performance audit (#152).
 - **Open investigations** (the milestone session reads them; Kyler's yes adopts one): theme critique (#211), the performance audit (#152, approved), scaling (#132), parallel water (#130). The
@@ -201,7 +209,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 
 **Speed rounds (done):** water speed (#290, the flow layout and the skipped wet-list rebuild, no SIMD) and forces speed half A
 (#289) are merged; generation speed (#291) was closed unadopted: generation gets faster with the generator's Rust port after
-the theme queue. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
+the theme queue. Generation speed round 3 (#326, merged as a record) is not adopted: its patch saved 2.9% in total
+(median 1.1%, some themes slower). It found that failed layouts take about half the generation time, and the only large
+lever changes maps, so it belongs to a generator round if Kyler ever asks for one. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
 merged. The dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279) is parked (see its
 section below).
 
@@ -309,12 +319,17 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
    as normal, otherwise it stops at the save point, never an approximate replay; the renderer warms its shaders and GPU state while the map
    loads; the checks start after the first editable frame, every gate unchanged. The core half (the stored map, the replay
    rule, the replica's comparison; `src/core/doc/stored.ts`) is built on `feature/startup-part1`; the renderer's half and
-   the page's start of the checks after the first editable frame are separate.
+   the page's start of the checks after the first editable frame are separate. Codex's first-load round (#332) gives the
+   checks' start: its milestone half (the editor worker's `deferChecks`/`editorReady`, the replica loaded on first use)
+   is built; its page half (`page.patch`) is the page session's to adopt.
 2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
-   with multi-core water's adoption.
+   with multi-core water's adoption. The isolation is merged (#281) and the caching is built (first-load's milestone
+   half: content-hashed build files only, never `skipWaiting`); registering it on hosts that send the headers is called
+   by the page half.
 
-Both parts add the investigation's CI check (the service worker's, the milestone session's).
+The service worker's check is `tests/unit/serviceWorker.test.ts` (its cache) with `tests/e2e/isolation.spec.ts` (its
+isolation); no timing check (D453).
 
 ## Carve's river is born as it cuts (D371)
 

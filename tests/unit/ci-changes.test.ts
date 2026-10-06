@@ -3,7 +3,7 @@
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { describe, expect, it } from "vitest";
-import { classify, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -14,6 +14,14 @@ describe("which changes need the heavy suites", () => {
   it("documents, images under docs and LICENSE are light", () => {
     for (const f of ["README.md", "docs/STATUS.md", "investigation/x/REPORT.md", "docs/sheets/m9.png", "LICENSE", "PLAN.md"]) expect(isDocument(f), f).toBe(true);
     expect(needsHeavy(["README.md", "docs/STATUS.md", "LICENSE"], () => null)).toBe(false);
+  });
+  it("a pull request into dev touching only investigation/ skips `test`; anything else, or any other run, keeps it", () => {
+    expect(needsTest(["investigation/x/REPORT.md", "investigation/x/run.ts"], "light")).toBe(false);
+    expect(needsTest(["investigation/x/REPORT.md", "docs/STATUS.md"], "light")).toBe(true);
+    expect(needsTest(["investigation/x/run.ts", "src/a.ts"], "light")).toBe(true);
+    expect(needsTest([], "light")).toBe(true);
+    expect(needsTest(["investigation/x/run.ts"], "auto")).toBe(true);
+    expect(needsTest(["investigation/x/run.ts"], "full")).toBe(true);
   });
   it("a change touching only investigation/ (plus documents) is light", () => {
     expect(isInvestigation("investigation/probe/run.ts")).toBe(true);

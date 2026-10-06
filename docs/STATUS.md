@@ -20,7 +20,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D476**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D477**). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -50,12 +50,17 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
    each merged after a green full run, no pin moved; #310's F3 landed in #265's re-pin. Still to land: #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's, now that #311 is merged (page part before worker part).
-2. Merged on 2026-10-05: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's). In flight:
-   Delta arms round 2 (#325, generator 0.8.2, `approved`), merging after its full run.
-3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
-   Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
-   replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, `feature/badwater-joins`, in
-   progress, with contamination-shaded sheets and two High-look captures), then Lake Basin round 3 (#234,
+2. Merged on 2026-10-05 and 06: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's),
+   Delta arms round 2 (#325, generator 0.8.2); CI: investigation-only PRs run only `changes` (#327), the quick suite in two
+   shards (#333, it had reached 28 of its 30 minutes); the roadmap canvas reads dev's latest commit (#328); one core rule for
+   the pieces that ride a brush stroke (#331, a preview mismatch #330's maps exposed).
+   Codex: generation speed round 3 merged as a record, not adopted (#326); first load merged as a record (#332) and its
+   milestone half adopted (#334: readiness handshake, deferred checks, asset caching in the service worker); the page
+   session adopts page.patch next.
+   TS7 (#336, Kyler adopted): the preparation is merged (#337); the settings extremes fixed in #338 (drought reserve held
+   for settings round 2, D466), merging on green; then #24 and #25 on a green nightly (D460).
+3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (done, #330, D476,
+   generator 0.8.3), then Lake Basin round 3 (#234,
    `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
    marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
    makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).

@@ -6,7 +6,8 @@
 // camera (operations record their results, so picking maths never reaches a replay) and the tools that only make
 // pictures or time the renderer.
 
-import ts from "typescript";
+// TypeScript 7's CLI has no stable compiler API; use Microsoft's compatibility API for this guard.
+import ts from "@typescript/typescript6";
 
 /** Math's members that are exact arithmetic or constants in every engine: anything else is rejected. */
 const EXACT = new Set(["abs", "ceil", "floor", "round", "trunc", "min", "max", "sign", "imul", "clz32", "fround", "PI", "E", "LN2", "LN10", "LOG2E", "LOG10E", "SQRT1_2", "SQRT2"]);
