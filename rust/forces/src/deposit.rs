@@ -27,28 +27,11 @@ fn neighbours(m:&Map,i:usize)->[Option<usize>;4] {
     let x=i%m.w;let y=i/m.w;
     [if x>0{Some(i-1)}else{None},if x+1<m.w{Some(i+1)}else{None},if y>0{Some(i-m.w)}else{None},if y+1<m.h{Some(i+m.w)}else{None}]
 }
-fn receiving(m:&Map,origin:Point,drawn:bool,floor:u8,power:f64)->(Point,u32) {
+// The fan stays where it is clicked or drawn (Kyler, #341): what is under it only sets its placement.
+fn receiving(m:&Map,origin:Point)->(Point,u32) {
     let h=m.heights[m.at(origin.x,origin.y)];let mut lo=h;let mut hi=h;
     for y in (-5..=5).step_by(2) {for x in (-5..=5).step_by(2) {let v=m.heights[m.at(origin.x+x as f64,origin.y+y as f64)];lo=lo.min(v);hi=hi.max(v);}}
-    let mut units=0u32;let cut=(0.6+power*4.4).ceil() as u8;
-    for i in 0..m.heights.len() {
-        let v=m.heights[i]; if hypot((i%m.w) as f64-origin.x,(i/m.w) as f64-origin.y)<=48.0&&v>h&&v>floor {units+=(v-floor).min(cut) as u32;}
-    }
-    if units>=round(48.0+power*160.0) as u32 {
-        if m.depth[m.at(origin.x,origin.y)]>0.08{return (origin,3);}
-        if drawn||h-lo<3&&(h as f64)<m.ceiling-1.0{return(origin,if hi-lo<2{2}else{0});}
-    }
-    let mut best=f64::INFINITY;let mut mouth=origin;
-    for i in 0..m.heights.len() {
-        let d=hypot((i%m.w) as f64-origin.x,(i/m.w) as f64-origin.y);let v=m.heights[i];
-        if v as i32>h as i32-2||d>48.0||d<3.0 {continue;}
-        let score=d+v as f64*2.5;if score<best {best=score;mouth=Point{x:(i%m.w) as f64,y:(i/m.w) as f64};}
-    }
-    if best==f64::INFINITY&&hi-lo<2 {
-        // An edge click on a flat needs an upstream apron inside the map, not outside it.
-        let inset=8.0;mouth=Point{x:clamp(origin.x,min(inset,(m.w-1) as f64*0.25),(m.w-1) as f64-min(inset,(m.w-1) as f64*0.25)),y:clamp(origin.y,min(inset,(m.h-1) as f64*0.25),(m.h-1) as f64-min(inset,(m.h-1) as f64*0.25))};
-    }
-    (mouth,if best==f64::INFINITY&&hi-lo<2{2}else if hi<=h{4}else{1})
+    (origin,if m.depth[m.at(origin.x,origin.y)]>0.08{3}else if hi-lo<2{2}else{0})
 }
 fn heading(m:&Map,mouth:Point,last:Point,drawn:bool,reach:f64)->Point {
     let base=if drawn{portable_math::atan2(last.y-mouth.y,last.x-mouth.x)}else{0.0};let mut best=f64::INFINITY;let mut angle=base;
@@ -152,12 +135,16 @@ fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,m
 pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area:&[u8],channels:u32)->Plan {
     let n=map.heights.len();let power=max(0.025,s.power/100.0);let floor=s.floor.unwrap_or(1.0) as u8;
     let origin=intent.path[0];let last=*intent.path.last().unwrap();let drawn=intent.path.len()>1&&hypot(last.x-origin.x,last.y-origin.y)>1.0;
-    let (mut mouth,mut placement)=receiving(before,origin,drawn,floor,power);
+    let (mut mouth,mut placement)=receiving(before,origin);
     let drawn=drawn&&hypot(last.x-mouth.x,last.y-mouth.y)>1.0;
-    let width=s.size.unwrap_or(14.0+s.power*0.34);
-    // Size is reach; Power changes the material/relief within it (D361). Full Power matches round 2.
-    let reach=if drawn{clamp(hypot(last.x-mouth.x,last.y-mouth.y),4.0,112.0)}else{9.0+width*0.80};
-    let dir=heading(before,mouth,last,drawn,reach);let width=if drawn{max(10.0,reach*0.95)}else{width};
+    // Size is the fan's width, a click's and a drag's (the page's ring and band, its Auto size rounded as the page
+    // shows it); Power changes the material/relief within it (D361). A click changes nothing outside its circle
+    // (Kyler, #341): the fan runs from the click to the circle's edge, and what it takes lies inside it too.
+    let width=s.size.unwrap_or(round((14.0+s.power*0.34)/2.0)*2.0);
+    // (at least four tiles round: a smaller circle has no room for a fan and the ground that pays for it)
+    let circle=if drawn{f64::INFINITY}else{max(4.0,width/2.0)};
+    let reach=if drawn{clamp(hypot(last.x-mouth.x,last.y-mouth.y),4.0,112.0)}else{max(2.0,circle-0.5)};
+    let dir=heading(before,mouth,last,drawn,reach);
     let mouth_h=before.heights[map.at(mouth.x,mouth.y)];let wet=(-3..=3).any(|y|(-3..=3).any(|x|before.depth[map.at(mouth.x+x as f64,mouth.y+y as f64)]>0.08));
     let datum_h=max(mouth_h as f64,if wet{(mouth_h as f64+before.depth[map.at(mouth.x,mouth.y)]).ceil()}else{mouth_h as f64});
     let outlet=if wet{outlet(before,mouth,dir)}else{vec![0;n]};
@@ -185,15 +172,19 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     let mut distance=vec![u16::MAX;n];let mut queue=vec![];for i in 0..n{if channel[i]!=0{distance[i]=0;queue.push(i);}}
     let mut at=0;while at<queue.len(){let i=queue[at];at+=1;for j in neighbours(&map,i).into_iter().flatten(){if distance[j]>distance[i]+1{distance[j]=distance[i]+1;queue.push(j);}}}
     let mut offers=vec![];let mut donors=vec![];let mut expected=0.0;
-    let room_at=|i:usize|if keep.get(i).copied().unwrap_or(0)!=0{0}else{area.get(i).copied().unwrap_or(255)};
+    let inside=|i:usize|hypot((i%map.w) as f64-origin.x,(i/map.w) as f64-origin.y)<=circle;
+    let room_at=|i:usize|if keep.get(i).copied().unwrap_or(0)!=0||!inside(i){0}else{area.get(i).copied().unwrap_or(255)};
     for i in 0..n {
         if room_at(i)==0{continue;}let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
         let along=dx*dir.x+dy*dir.y;let cross=-dx*dir.y+dy*dir.x;let u=along/reach;
         let lobe=0.72+0.38*noise(s.seed,cross/8.0,900.0)+0.12*noise(s.seed,along/12.0,700.0);
         let half=3.0+power*6.0+width*0.5*pow(clamp(u,0.0,1.0),0.78)*lobe;
         let offset=(noise(s.seed,along/12.0,2100.0)-0.5)*width*0.18*smooth(u*4.0);let toe=reach*(0.73+0.31*noise(s.seed,cross/7.0,1100.0));
-        if along>=-3.0&&along<=toe&&(cross-offset).abs()<half{
-            let edge=smooth((half-(cross-offset).abs())/6.0)*smooth((toe-along)/6.0);
+        // (a click's fan runs from the click outward, what it takes lies behind it in the same circle)
+        if along>=if circle.is_finite(){0.0}else{-3.0}&&along<=toe&&(cross-offset).abs()<half{
+            // (a click's small fan tapers over its own size: a fixed six tiles would leave it nothing)
+            let taper=if circle.is_finite(){clamp(reach*0.4,1.0,6.0)}else{6.0};
+            let edge=smooth((half-(cross-offset).abs())/taper)*smooth((toe-along)/taper);
             let datum=datum_h+1.7+power*if placement==2{3.0}else{7.0}-clamp(u,0.0,1.0)*(1.2+power*if placement==2{2.0}else{5.0});
             let relief=(noise(s.seed,along/17.0+cross/10.0,1400.0)-0.5)*1.35;
             let mut target=max(h as f64,min(map.ceiling,round(h as f64+max(0.0,datum+relief-h as f64)*edge))) as u8;
@@ -235,7 +226,8 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     }
     let minimum=round(48.0+power*160.0) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
     if room<minimum||offers.len()<min_area{
-        let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
+        let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0
+            &&(!circle.is_finite()||{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;dx*dir.x+dy*dir.y>=0.0})).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
         candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
         for (i,d) in candidates{let h=before.heights[i];if d>max(16.0,width*0.6)||h as f64>=map.ceiling||h as f64>mouth_h as f64+3.0+power*2.0||wet&&before.depth[i]>0.05{continue;}
             if used[i]{donors.retain(|v|v.i!=i);used[i]=false;}
@@ -249,10 +241,14 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     }
     let available:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
     if available<9{let mut candidates:Vec<_>=(0..n).filter(|&i|room_at(i)>0&&!offered[i]&&!used[i]&&outlet[i]==0&&before.heights[i]>floor
-        &&{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;-(dx*dir.x+dy*dir.y)>2.0||before.heights[i]>mouth_h})
-        .map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)+if before.depth[i]>0.05{48.0}else{0.0})).collect();
+        &&(circle.is_finite()||{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;-(dx*dir.x+dy*dir.y)>2.0||before.heights[i]>mouth_h}))
+        // (a click's circle: behind the click first, then its sides, so the fan's ground stays whole)
+        .map(|i|{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;let ahead=circle.is_finite()&&dx*dir.x+dy*dir.y>=0.0;
+            (i,hypot(dx,dy)+if before.depth[i]>0.05{48.0}else{0.0}+if ahead{100.0}else{0.0})}).collect();
         candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));let mut missing=9-available;
-        for (i,_) in candidates{if missing==0{break;}let cut=(before.heights[i]-floor).min(room_at(i)).min(missing as u8);
+        // (a click's circle spreads what it takes as its other donors do: shallow, over more ground)
+        let most=if circle.is_finite(){(0.6+power*4.4).ceil() as u8}else{u8::MAX};
+        for (i,_) in candidates{if missing==0{break;}let cut=(before.heights[i]-floor).min(room_at(i)).min(missing as u8).min(most);
             donors.push(Donor{i,target:before.heights[i]-cut,rank:3.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)/max(48.0,width)});missing-=cut as usize;
         }
     }
