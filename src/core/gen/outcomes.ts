@@ -23,7 +23,9 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
   canyon: { text: "a river cut deep between cliffs for a real stretch", words: "its canyon", noun: "Gorge", holds: (s, side) => s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side) },
   // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side)
   highlands: { text: "high, rugged ground with plateaus and valleys among it", words: "its highlands", noun: "Heights", holds: (s, side) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / side) },
-  lakeBasin: { text: "big lakes that dominate the water", words: "its big lakes", noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.04 },
+  // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
+  // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
+  lakeBasin: { text: "big lakes that dominate the water", words: "its big lakes", noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },
   delta: { text: "a river splitting into several channels as it reaches low ground", words: "its delta", noun: "Delta", holds: (s) => s.mouths >= 3 },
   islands: { text: "land broken by water into islands", words: "its sea", noun: "Isles", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
 };
