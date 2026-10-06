@@ -377,14 +377,15 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       // (the groves and patches' own gaps take ground too: fill them there)
       dense = room < need / 0.75;
       // D471: in a rescue round, a mix whose trees can't give Minimum starting wood on all of the
-      // walk's dry ground, a tree a tile (birch alone, a log a tree, at 800 logs), leans the start's
-      // own groves to the wood each species gives, whatever the mix: the requirement holds, the mix
-      // leans the rest of the map
+      // walk's dry ground, a tree a tile (birch alone, a log a tree, at 800 logs), plants the start's
+      // own groves with the species that gives the most wood, oak, whatever the mix: the requirement
+      // holds, the mix leans the rest of the map (a lean by each species' wood still drew pines and
+      // birches enough to leave a 48² start short)
       const r = spec.settings.start.rules;
       let ground = 0;
       for (let i = 0; i < N; i++) if (nearWalk[i] && free[i] && !wet[i]) ground++;
       if (constraints?.woodLean && ground * perTree < r.woodWithin20 - gotWood) {
-        woodW = [TREE_LOGS.Pine, TREE_LOGS.Birch, TREE_LOGS.Oak, 0];
+        woodW = [0, 0, TREE_LOGS.Oak, 0];
         tight = true;
       }
       if (room < need) {
