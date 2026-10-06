@@ -85,8 +85,11 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 
 - **Startup** part 1 (D367, D455): the core half is done (#222: a project carries its map and opens from it, with the replay
-  compared byte for byte) and so is the renderer's warm-up (#208). Left: the checks start after the first editable frame, and
-  the page autosaves again once the water settles (the page's half).
+  compared byte for byte) and so is the renderer's warm-up (#208). Codex's first-load round (#332) is adopted in two halves:
+  the milestone half is built (`feature/first-load`: the editor worker's `deferChecks`/`editorReady`, the checks worker
+  loading its replica on first use, the service worker's caching, `cacheAfterEditable`); the page half waits on its
+  `page.patch` in the page session (the checks start after the first editable frame, the renderer warms after the
+  worker's first answer, and the page autosaves again once the water settles).
 - **The page is the editor** (#163; D384, D388, D395): the page session, with Kyler's sittings at each checkpoint: the
   settings panel (option B) is built; the single-view generator waits on Kyler's pick between two mockups (`?gen=a`, `?gen=b`
   on `/preview/`); the area brush (#227, merged) joins Raise and Lower with the page's toggle. The `/preview/` slot is its (D396).
@@ -97,7 +100,8 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   startup part 1 (D455); the land and its water change together under every force (done: D371, Carve #199 and #257, the rest #311); Glaciate in Fast (done, #203, D374); Shift+F resets what F changes; a
   Strength slider for Smooth and Naturalize (built in the page); trees on dried soil (D376); a Sources setting for every
   force (done, D474, #308, #322); batch jobs across all threads; startup part 2's service worker with multi-core
-  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching remains); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
+  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching is built with the
+  first-load round's milestone half, and registering it on hosts that send the headers waits on the page half); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
   session's items on its own PRs: #219 the default view fits the map (done), #240 the High bake worker (done), #225 a
   source's highlight reads under its water (done); then renderer R1 from the performance audit (#152).
 - **Open investigations** (the milestone session reads them; Kyler's yes adopts one): theme critique (#211), the performance audit (#152, approved), scaling (#132), parallel water (#130). The
@@ -311,12 +315,17 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
    as normal, otherwise it stops at the save point, never an approximate replay; the renderer warms its shaders and GPU state while the map
    loads; the checks start after the first editable frame, every gate unchanged. The core half (the stored map, the replay
    rule, the replica's comparison; `src/core/doc/stored.ts`) is built on `feature/startup-part1`; the renderer's half and
-   the page's start of the checks after the first editable frame are separate.
+   the page's start of the checks after the first editable frame are separate. Codex's first-load round (#332) gives the
+   checks' start: its milestone half (the editor worker's `deferChecks`/`editorReady`, the replica loaded on first use)
+   is built; its page half (`page.patch`) is the page session's to adopt.
 2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
-   with multi-core water's adoption.
+   with multi-core water's adoption. The isolation is merged (#281) and the caching is built (first-load's milestone
+   half: content-hashed build files only, never `skipWaiting`); registering it on hosts that send the headers is called
+   by the page half.
 
-Both parts add the investigation's CI check (the service worker's, the milestone session's).
+The service worker's check is `tests/unit/serviceWorker.test.ts` (its cache) with `tests/e2e/isolation.spec.ts` (its
+isolation); no timing check (D453).
 
 ## Carve's river is born as it cuts (D371)
 
