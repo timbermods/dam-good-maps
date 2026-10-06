@@ -354,7 +354,7 @@ export function useSelect(ed: Ed): SelectSlice {
     if (!z || (!brushTool && !tool)) return null;
     void selectionTick;
     return (
-      <button type="button" class="select-chip" {...tip("Working inside this area: Select again", "M", "Esc clears it")} onClick={openSelect}>
+      <button type="button" class="select-chip" {...tip("Working inside this area: Select again", "1", "Esc clears it")} onClick={openSelect}>
         Working inside {z.w} × {z.h}
       </button>
     );

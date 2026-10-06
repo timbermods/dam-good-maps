@@ -36,7 +36,7 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   await openEditor(page, "s=3&z=96&d=n&t=riverValley&tr=100", { timeout: 180_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
   // Naturalize, Size 12, Strength 10
-  await page.keyboard.press("5");
+  await page.keyboard.press("6");
   for (let k = 0; k < 6; k++) await page.keyboard.press("}");
   for (let k = 0; k < 5; k++) await page.keyboard.press("]");
   const before = await heights(page);

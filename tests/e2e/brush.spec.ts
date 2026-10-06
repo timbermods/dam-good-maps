@@ -45,9 +45,9 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
 
   // the top bar: labelled, with shortcuts; the number keys pick a brush
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  await expect(bar.getByRole("button", { name: "Raise brush (1)" })).toBeVisible();
-  await page.keyboard.press("1");
-  await expect(bar.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.getByRole("button", { name: "Raise brush (2)" })).toBeVisible();
+  await page.keyboard.press("2");
+  await expect(bar.getByRole("button", { name: "Raise brush (2)" })).toHaveAttribute("aria-pressed", "true");
   // the first run's three hints (D184): painting the land takes its line away
   const hints = page.getByRole("status", { name: "First steps" });
   await expect(hints).toContainText("Shape the land");
@@ -95,7 +95,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   expect((await info(page)).history.length).toBe(steps);
 
   // flatten: Ctrl+click takes the level from the ground as its target (D322)
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const p = await client(page, ...start.position);
   const level = await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), start.position);
   await page.keyboard.down("Control");
@@ -115,7 +115,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await page.keyboard.press("{");
   await expect.poll(async () => (await saved()).size).toBe(s0);
   const k0 = (await saved()).strength;
-  await page.keyboard.press("4");
+  await page.keyboard.press("5");
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -100);
@@ -125,7 +125,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
 
   // Esc puts the brush away
   await page.keyboard.press("Escape");
-  await expect(bar.getByRole("button", { name: "Smooth brush (4)" })).toHaveAttribute("aria-pressed", "false");
+  await expect(bar.getByRole("button", { name: "Smooth brush (5)" })).toHaveAttribute("aria-pressed", "false");
 
   // the strokes are kept: a reload opens the map with them (from Your maps)
   i = await info(page);
@@ -150,9 +150,9 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   const count = async () => (await info(page)).history.length;
 
   // choosing a brush leaves the camera where it is; its key again keeps it out
-  const raise = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Raise brush (1)" });
+  const raise = page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Raise brush (2)" });
   await raise.click();
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await expect(raise).toHaveAttribute("aria-pressed", "true");
   expect(await view()).toBe(turned);
 
@@ -203,7 +203,7 @@ test("with a brush out, a fast left-drag paints and never turns the camera", asy
   n = await count();
   await page.evaluate(
     ([x, y]) => {
-      (document.querySelector('[aria-label="Lower brush (2)"]') as HTMLButtonElement).click();
+      (document.querySelector('[aria-label="Lower brush (3)"]') as HTMLButtonElement).click();
       const c = document.querySelector(".view3d > canvas")!;
       const ev = (type: string, px: number, buttons: number) => new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 8, pointerType: "mouse", isPrimary: true, clientX: px, clientY: y, button: 0, buttons });
       c.dispatchEvent(ev("pointerdown", x - 120, 1));

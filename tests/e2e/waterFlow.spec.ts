@@ -55,7 +55,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
   // a strong water source on high ground away from the start: its water spreads over seconds
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const want: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
   // (up from there if a bar over the map, the water bar's, covers it)
   const at = await page.evaluate(([x, y]) => {

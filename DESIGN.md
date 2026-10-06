@@ -329,7 +329,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Glaciate, Deposit; thirteen cells of one width (76px where there is room,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); thirteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -792,7 +792,27 @@ API, every pinned hash, and every role and accessible name the tests use.
   bar moves or changes size, and the pill keeps its words at every width (no icon-only states). At 1280 a short name
   ("Standing Stone") and the longest generated one ("Twin Channel Island Chain") sit between the groups on one line
   (at 1300 the short one stays centred), a name at Rename's limit on two; from 1920 all are centred on one line. Captures: `docs/design/title-{short,longest,renamed}-{1280x800,1300x900,1920x1080,2560x1440}-{light,dark}`.
-- **Rift and Deposit have no keys** for now: the number row (1–0, -) is taken and = zooms.
+
+## Kyler's sitting on /preview/ (2026-10-06)
+
+- **The keys go by the bar's places**, on the key's code (any keyboard layout): 1 Select, 2 Raise, 3 Lower, 4 Flatten,
+  5 Smooth, 6 Naturalize; Shift+1 Carve, Shift+2 Craterize, Shift+3 Erupt, Shift+4 Rift, Shift+5 Quake, Shift+6
+  Deposit, Shift+7 Glaciate; M Markers. The shelf's items, water sources included, have none. Never while typing in a
+  field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
+  with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
+- **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.
+- **The shelf's tooltips** say what each item is for and nothing more: no key, no "R turns it" (R still turns a held
+  item).
+- **The shelf's title:** "Items", bold, in the items' type, one row of their height (30px) and one gap above them, its
+  words at the names' inset (46px from the panel's edge); the list grows by that row upward, nothing else moving.
+- **Map Generator's custom size:** Custom's place is 100px whether chosen or not, room for "512" in each field (38px),
+  the × centred 4px from each, the fields the size buttons' 20px; the four sizes share the rest, the line ending on
+  Theme's edge. (Custom sizes stay 48 to 256 until D357.)
+- **Another like this in the panel:** three placements drawn for Kyler (`docs/design/another-like-this-options-1920x1080.jpg`),
+  each with File keeping it or not: A, a fourth row under Reset settings (the block 30px taller, the groups below
+  moving down 30px); B, beside Surprise me with the buttons' column 250px (no taller, but the fields 90px narrower:
+  Theme's "Any" and the name cut); C, in Reset settings' place, Reset settings at the panel's foot (no taller; Reset
+  settings further away). Kyler picks.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).

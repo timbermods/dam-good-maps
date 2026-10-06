@@ -54,7 +54,7 @@ async function settled(page: Page) {
 test("Glaciate's settings are Power, Size, Meltwater, its benches, steps, tarn and scree, the Floor and Try another, all shown (D289, D309; Kyler's option B, no More)", async ({ page }) => {
   await openTopDown(page);
   await expect(page.getByRole("button", { name: /^Glaciate/ })).toBeVisible();
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const row = page.getByRole("group", { name: "Glaciate options" });
   await expect(row).toBeVisible();
   await expect(row.getByRole("group", { name: "Mode" })).toHaveCount(0);
@@ -75,7 +75,7 @@ test("Glaciate's settings are Power, Size, Meltwater, its benches, steps, tarn a
 
 test("Glaciate's details (D309): its benches, steps, tarn and scree, each on Auto; after a run each shows what it drew; a pin survives Try another", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const row = page.getByRole("group", { name: "Glaciate options" });
   const details = row;
   expect(await details.getByRole("group", { name: "Benches" }).getByRole("button").allTextContents()).toEqual(["None", "Some", "Many"]);
@@ -101,7 +101,7 @@ test("Glaciate's details (D309): its benches, steps, tarn and scree, each on Aut
 
 test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Ctrl+Z takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
   // the cursor shows where it acts, nothing more (D258)
@@ -158,7 +158,7 @@ test("a click Flows at once, the camera still (D265); kept as one step exactly a
 
 test("a drag draws its path (D321, item 41): only the line drawn, no route or footprint on the land; let go, it grinds along it (D258)", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const at = await high(page);
   const dx = at[0] < 48 ? 1 : -1;
   const a = await client(page, at[0], at[1]);
@@ -181,7 +181,7 @@ test("a drag draws its path (D321, item 41): only the line drawn, no route or fo
 
 test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D321's item 29)", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const at = await high(page);
   const timed = async (speed: string) => {
     await setWaterSpeed(page, speed);
@@ -210,7 +210,7 @@ test("a glacier's pace is Fast's, whatever the water's speed (D266, amended by D
 
 test("Glaciate's size at the cursor (D312): a faint ring of its width, its Size alone (D368 (3): Power is how deep, never how wide); no route or outline", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("-");
+  await page.keyboard.press("Shift+Digit7");
   const row = page.getByRole("group", { name: "Glaciate options" });
   const at = await high(page);
   const p = await client(page, at[0], at[1]);

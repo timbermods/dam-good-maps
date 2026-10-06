@@ -101,7 +101,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a
   hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
-  Craterize, Erupt, Rift, Quake, Glaciate, Deposit, keys 7, 8, 0, none, 9, -, none; a force not adopted yet takes its
+  Craterize, Erupt, Rift, Quake, Deposit, Glaciate, keys Shift+1 to Shift+7; a force not adopted yet takes its
   place in the list): thirteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
   map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
   minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
@@ -712,8 +712,9 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms, Alt+scroll slices
 the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
-T toggles clear water. 1 to 5 pick the brushes, 6 the Water source, 7 Carve, 8 Craterize, 9 Quake, 0 Erupt, -
-Glaciate and M Select.
+T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
+keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+7 Carve,
+Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. The shelf's items have no keys.
 
 - **Z undoes, C redoes and X puts down whatever is held** (D345, B7): a brush, a force, the shelf's object, the
   selection, a picked source or object, leaving Select in hand (§3), which picks **every object on the map**
@@ -739,7 +740,8 @@ Glaciate and M Select.
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
-- Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Shift+1 to 9 glides back to it; bookmarks
+- Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
+  number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
 

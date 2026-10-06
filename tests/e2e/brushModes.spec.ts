@@ -42,7 +42,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
 
   // Lower in Ground, from the dry land by the river, a level below it and deep enough to reach the
   // bed: the wet tiles stay, the banks stay at or above the water's surface
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   const row = page.getByRole("group", { name: "Lower options" });
   await row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Ground" }).click();
   await setLevel(row, 0);
@@ -71,7 +71,7 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   for (const [by, x0, x1, level] of st.bank!) for (let bx = x0; bx <= x1; bx++) expect(after.heights[by * W + bx]).toBeGreaterThanOrEqual(Math.min(level, before.heights[by * W + bx]));
 
   // Water: a Flatten on the bed a level up reshapes only the wet tiles
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const frow = page.getByRole("group", { name: "Flatten options" });
   await frow.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Water" }).click();
   const bed = after.heights[y * W + x];
@@ -89,9 +89,9 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.mode).toBe("water");
 
   // each brush remembers its own mode; the others stay on Both
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   await expect(row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Ground" })).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await expect(page.getByRole("group", { name: "Raise options" }).getByRole("group", { name: "Mode" }).getByRole("button", { name: "Both" })).toHaveAttribute("aria-pressed", "true");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}").modes);
   expect(saved).toMatchObject({ lower: "ground", flatten: "water", raise: "both" });

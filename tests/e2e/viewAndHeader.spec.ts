@@ -60,11 +60,11 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   expect(-t[2]).toBeGreaterThan(96 * 0.65);
   expect(-t[2]).toBeLessThan(96 * 0.85);
 
-  // camera bookmarks: Ctrl+Shift+2 keeps this view, Shift+2 glides back to it
+  // camera bookmarks: Ctrl+Shift+2 keeps this view, Alt+2 glides back to it (Shift and a number pick a force)
   await page.keyboard.press("Control+Shift+Digit2");
   await expect.poll(async () => (await info(page)).views.map((v) => v.slot)).toEqual([2]);
   await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [70, 5, -20], yaw: 1.2, distance: 60 }));
-  await page.keyboard.press("Shift+Digit2");
+  await page.keyboard.press("Alt+Digit2");
   await expect.poll(async () => (await view(page)).target[0], { timeout: 5000 }).toBeCloseTo(t[0], 3);
   expect((await view(page)).target[2]).toBeCloseTo(t[2], 3);
   // bookmarks alone don't keep a map (D330, Kyler, 2026-10-05): a reload makes the address's map again, without them
@@ -168,7 +168,7 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   expect(pair).not.toBeNull();
   const [hx, hy] = pair!;
   const high = await page.evaluate(([x, y]) => window.dgm3d!.renderer.mapState()!.heights[y * window.dgm3d!.renderer.mapState()!.W + x], [hx, hy] as [number, number]);
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   for (let k = 0; k < 3; k++) await page.keyboard.press("{");
   const q = await client(page, hx + 1, hy);
   await page.mouse.move(q.x, q.y);

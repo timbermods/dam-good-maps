@@ -32,7 +32,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const at: [number, number] = [start[0] < i.W / 2 ? Math.round(i.W * 0.75) : Math.round(i.W * 0.25), Math.round(i.H / 2)];
-  await page.getByRole("button", { name: "Raise brush (1)" }).click();
+  await page.getByRole("button", { name: "Raise brush (2)" }).click();
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);
   await idle(page);
@@ -55,7 +55,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   // (at the slowest pace, so Esc comes while it is still at work)
   await setWaterSpeed(page, "slower");
   const kept = (await info(page)).history.filter((h) => h.applied).length;
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const c = await client(page, at[0], at[1] + 8);
   await page.mouse.move(c.x + 3, c.y);
   await page.mouse.click(c.x, c.y);

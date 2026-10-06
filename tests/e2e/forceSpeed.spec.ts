@@ -99,11 +99,11 @@ async function kept(page: Page) {
 
 /** Each force's largest case: its key, its row's name, and its gesture. */
 const CASES: { name: string; key: string; mode?: string; go(page: Page, s: Awaited<ReturnType<typeof spots>>): Promise<void> }[] = [
-  { name: "Carve", key: "7", go: (page, s) => drag(page, s.high, s.low) },
-  { name: "Craterize", key: "8", go: (page, s) => click(page, s.mid) },
-  { name: "Quake", key: "9", mode: "Slide", go: (page, s) => drag(page, [s.mid[0] - 30, s.mid[1] - 12], [s.mid[0] + 30, s.mid[1] + 12]) },
-  { name: "Erupt", key: "0", go: (page, s) => click(page, s.mid) },
-  { name: "Glaciate", key: "-", go: (page, s) => click(page, s.high) },
+  { name: "Carve", key: "Shift+Digit1", go: (page, s) => drag(page, s.high, s.low) },
+  { name: "Craterize", key: "Shift+Digit2", go: (page, s) => click(page, s.mid) },
+  { name: "Quake", key: "Shift+Digit5", mode: "Slide", go: (page, s) => drag(page, [s.mid[0] - 30, s.mid[1] - 12], [s.mid[0] + 30, s.mid[1] + 12]) },
+  { name: "Erupt", key: "Shift+Digit3", go: (page, s) => click(page, s.mid) },
+  { name: "Glaciate", key: "Shift+Digit7", go: (page, s) => click(page, s.high) },
 ];
 
 test("Fast (the default): each force's land is final within about two seconds of its gesture; Slow forces play about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
@@ -134,7 +134,7 @@ test("Fast (the default): each force's land is final within about two seconds of
   // (The click comes in the page frame that sees it showing, so it finds it at work on any machine.)
   await watch.click();
   await expect(watch).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   const n0 = (await labels(page)).length;
   await drag(page, s.high, s.low);
   const seen = await page.waitForFunction(

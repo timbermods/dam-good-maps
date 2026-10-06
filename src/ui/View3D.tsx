@@ -34,6 +34,8 @@ export interface View3DProps {
   legendExtra?: (LegendEntry & { tiles?: number[] })[];
   /** Turn **Markers** on while true (a tool that needs them, or a layer the player turned on). */
   markersWanted?: boolean;
+  /** Filled with the Markers toggle, as its click does it (the editor's M). */
+  markersToggle?: { current: (() => void) | null };
   /** Whether the legend starts open (the editor starts it closed, to keep its map clear). */
   legendOpen?: boolean;
   children?: ComponentChildren;
@@ -318,6 +320,7 @@ export function View3D(props: View3DProps) {
     saveMarkers(next);
     renderer.current?.setMarkers(next);
   };
+  if (props.markersToggle) props.markersToggle.current = toggleMarkers;
 
   const legendId = useMemo(() => `legend-${Math.random().toString(36).slice(2, 8)}`, []);
 
@@ -430,7 +433,7 @@ export function View3D(props: View3DProps) {
         Heights
       </ShowRow>
       {props.besideHeight}
-      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and level lines")}>
+      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and level lines", "M")}>
         Markers
       </ShowRow>
       <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the water's currents")}>

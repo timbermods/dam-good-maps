@@ -215,7 +215,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   expect(await trees(page, [gx, gy], 5)).toBe(n0 - 1);
 
   // Select, a rectangle round the grove and the source, then Delete: all of it, one step
-  await bar.getByRole("button", { name: "Select (M)" }).click();
+  await bar.getByRole("button", { name: "Select (1)" }).click();
   const c = await client(page, gx - 5, gy - 5);
   const d = await client(page, gx + 5, gy + 5);
   await page.mouse.move(c.x, c.y);

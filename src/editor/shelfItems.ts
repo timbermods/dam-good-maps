@@ -21,14 +21,12 @@ export interface ShelfItem {
   hint: string;
   /** A water source: clean or bad (its strength in the options). */
   source?: "clean" | "bad";
-  /** Its key, when it has one. */
-  key?: string;
 }
 
 /** The objects menu's order (Layout 2, Kyler, 2026-10-03). */
 export const SHELF: readonly ShelfItem[] = [
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "where the colony starts" },
-  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "where water starts" },
+  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", turns: false, hint: "where water starts" },
   { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "where badwater starts" },
   { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
   { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "plant pines" },
@@ -60,9 +58,10 @@ export const LEGEND_TEMPLATES: Record<string, string> = {
   Blockage: "Blockage",
 };
 
-/** An item's tooltip (D368 (6)): what it is for, then its key and R's turn as key caps. */
+/** An item's tooltip (D368 (6)): what it is for, nothing more (Kyler, 2026-10-06: no keys on the shelf, and R's turn
+ *  goes unsaid; R still turns a held item). */
 export function shelfTip(it: ShelfItem) {
-  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1), it.key, it.turns && "R turns it");
+  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1));
 }
 
 export interface ShelfOptions {

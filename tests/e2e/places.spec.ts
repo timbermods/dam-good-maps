@@ -138,7 +138,7 @@ test("a real place replaces the open map without asking, and the replaced map st
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   const name = await page.evaluate(() => window.dgmEditor!.info().name);
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));
   const b = await page.evaluate(() => window.dgmEditor!.tileToClient(26, 20));
   await page.mouse.move(a.x, a.y);

@@ -88,6 +88,8 @@ export interface SessionSlice {
   flowing: number | null;
   markersOn: boolean;
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
+  /** The Show row's Markers toggle, as its click does it (the 3D view puts it here): M's way to it. */
+  markersToggle: { current: (() => void) | null };
   setNearSources: Dispatch<StateUpdater<number[]>>;
   nearSources: number[];
   setFeeding: Dispatch<StateUpdater<number[]>>;
@@ -249,6 +251,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [flowing, setFlowing] = useState<number | null>(null);
   /** **Markers** is on (every source shows its marker then, D196). */
   const [markersOn, setMarkersOn] = useState(false);
+  const markersToggle = useRef<(() => void) | null>(null);
   /** The source groups near the pointer, and those the pointer's water comes from (D196). */
   const [nearSources, setNearSources] = useState<number[]>([]);
   const [feeding, setFeeding] = useState<number[]>([]);
@@ -625,7 +628,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick,
-    flowing, markersOn, setMarkersOn, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
+    flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,

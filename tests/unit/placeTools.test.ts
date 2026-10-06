@@ -51,7 +51,8 @@ describe("the shelf's objects (D212, D226)", () => {
   it("read Start, Water source, Badwater source, Natural dam, Pine, Birch, Oak, Berry bush and so on (Layout 2's objects menu); the sources place clean and bad", () => {
     expect(SHELF.slice(0, 8).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
     const [clean, bad] = [SHELF[1], SHELF[2]];
-    expect([clean.source, clean.template, clean.key, bad.source, bad.template]).toEqual(["clean", "WaterSource", "6", "bad", "BadwaterSource"]);
+    // (no keys on the shelf: Kyler, 2026-10-06)
+    expect([clean.source, clean.template, bad.source, bad.template]).toEqual(["clean", "WaterSource", "bad", "BadwaterSource"]);
     // what they place: a clean source on the tile, a bad one's 3 x 3 round it, at the row's strength
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: false, sourceStrength: 4 }, 10, 12)).toMatchObject({ template: "WaterSource", x: 10, y: 12, components: { WaterSource: { SpecifiedStrength: 4 } } });
     expect(sourceRequest({ ...DEFAULT_OPTIONS, sourceBad: true, badwaterStrength: 2 }, 10, 12)).toMatchObject({ template: "BadwaterSource", x: 9, y: 11, components: { WaterSource: { SpecifiedStrength: 2 } } });

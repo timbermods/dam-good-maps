@@ -94,9 +94,9 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Glaciate", "Deposit"]);
-  await page.keyboard.press("8");
-  await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  await page.keyboard.press("Shift+Digit2");
+  await expect(forces.getByRole("button", { name: "Craterize (Shift+2)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });
   // its settings, all shown (Kyler's option B, no More): Power, Size, then its walls, centre, debris and rays from
   // the land and the seed until pinned (D309), the Floor and Try another; the click or drag is the mode (D289)
@@ -185,7 +185,7 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   expect(await startAt(page)).toEqual(start);
   // Esc puts the force away
   await page.keyboard.press("Escape");
-  await expect(forces.getByRole("button", { name: "Craterize (8)" })).toHaveAttribute("aria-pressed", "false");
+  await expect(forces.getByRole("button", { name: "Craterize (Shift+2)" })).toHaveAttribute("aria-pressed", "false");
 });
 
 test("clicked quickly (D378): the next force plays in full from its first moment, the last one's tail skipped to its end", async ({ page }) => {
@@ -215,7 +215,7 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   const firstMoment = () =>
     page.evaluate(() => (window as unknown as { moments: { verb: string; x: number; y: number; phase: string; showing: Record<string, Record<string, number | null> | null> }[] }).moments[0]);
   const force = async (key: string, power: string, at: [number, number]) => {
-    const row = page.getByRole("group", { name: `${key === "8" ? "Craterize" : "Erupt"} options` });
+    const row = page.getByRole("group", { name: `${key === "Shift+Digit2" ? "Craterize" : "Erupt"} options` });
     // (its key again would put it away)
     if (!(await row.isVisible())) await page.keyboard.press(key);
     await row.getByRole("slider", { name: "Power" }).fill(power);
@@ -223,15 +223,15 @@ test("clicked quickly (D378): the next force plays in full from its first moment
     await clickTile(page, at[0], at[1]);
     await expect.poll(() => status(page), { timeout: 30_000 }).toBeNull();
   };
-  for (const [a, b] of [["8", "8"], ["8", "0"], ["0", "0"]] as const) {
+  for (const [a, b] of [["Shift+Digit2", "Shift+Digit2"], ["Shift+Digit2", "Shift+Digit3"], ["Shift+Digit3", "Shift+Digit3"]] as const) {
     await force(a, "30", far);
     // (kept: an eruption's lava still cools, however slowly the browser draws; a crater's dust may
     // already have settled where it keeps slowly, as software drawing on CI does: forcePlayback.test
     // holds that case on exact time)
-    if (a === "0") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
+    if (a === "Shift+Digit3") expect((await page.evaluate(() => window.dgm3d!.renderer.forceShowing))!.erupt).not.toBeNull();
     await force(b, "35", next);
     const m = await firstMoment();
-    const verb = b === "8" ? "craterize" : "erupt";
+    const verb = b === "Shift+Digit2" ? "craterize" : "erupt";
     expect(m.verb, `${a} then ${b}`).toBe(verb);
     // its own effect, where it is, from its start
     expect(m.showing[verb], `${a} then ${b}`).toMatchObject({ x: m.x, y: m.y });
@@ -247,7 +247,7 @@ test("clicked quickly (D378): the next force plays in full from its first moment
 
 test("Craterize's details (D309): always shown, each on Auto (choices and an Off and On); a pin survives Try another", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
   const details = row;
   for (const g of ["Walls", "Centre"]) await expect(details.getByRole("group", { name: g, exact: true })).toBeVisible();
@@ -272,7 +272,7 @@ test("Craterize's details (D309): always shown, each on Auto (choices and an Off
 
 test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mode); each one step; undo takes it back", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("0");
+  await page.keyboard.press("Shift+Digit3");
   const row = page.getByRole("group", { name: "Erupt options" });
   // its settings, all shown (no More): Power, Size, its shape, summit, flows and ridges from the land and the seed
   // until pinned (D309), the Floor and Try another
@@ -313,7 +313,7 @@ test("Erupt: a click vents, a drag opens a fissure (D289: the gesture is the mod
 
 test("Erupt near the ceiling (D226): it completes under it; again on its summit it rises on the flank, with no preview on the land (D258)", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("0");
+  await page.keyboard.press("Shift+Digit3");
   // (its summit is the land's and the seed's now, D289)
   const { far } = await places(page);
   const W = (await info(page)).W;
@@ -355,7 +355,7 @@ test("Erupt near the ceiling (D226): it completes under it; again on its summit 
 
 test("Quake: a painted Lift follows the stroke and is kept when let go; V flips the side (X was its key before D323 item 16); a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("9");
+  await page.keyboard.press("Shift+Digit5");
   const row = page.getByRole("group", { name: "Quake options" });
   // its settings: its one choice, Lift or Slide, Power (its line sets its length), the Side that moves (V flips it),
   // its scarp from the land and the seed until pinned (D309), the Floor and Try another; no More
@@ -412,7 +412,7 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");
   await row.getByRole("slider", { name: "Size" }).fill("16");
@@ -463,7 +463,7 @@ test("the forces with reduced motion: the same land, no camera moving", async ({
   await openTopDown(page);
   const { far } = await places(page);
   const view = () => page.evaluate(() => window.dgm3d!.renderer.getView());
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
   const v0 = await view();
   await clickTile(page, far[0], far[1]);
@@ -491,7 +491,7 @@ test("the forces with reduced motion: the same land, no camera moving", async ({
 test("the camera moves only when the player moves it (D265): no Follow anywhere, and a carve leaves the view where it was", async ({ page }) => {
   await openTopDown(page);
   await expect(page.getByRole("toolbar", { name: "Water time" }).getByRole("button", { name: "Follow" })).toHaveCount(0);
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row.getByLabel("Follow", { exact: true })).toHaveCount(0);
   await row.getByRole("slider", { name: "Power" }).fill("50");
@@ -513,7 +513,7 @@ test("the camera moves only when the player moves it (D265): no Follow anywhere,
 
 test("a force keeps its own pace whatever the water's speed (D266)", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   await page.getByRole("group", { name: "Craterize options" }).getByRole("slider", { name: "Power" }).fill("30");
   const { far } = await places(page);
   const timed = async (speed: string) => {
@@ -551,9 +551,9 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
     return (await gesture(page)).ring!;
   };
   for (const [key, name, size] of [
-    ["8", "Craterize options", 40],
-    ["0", "Erupt options", 30],
-    ["7", "Carve options", 10],
+    ["Shift+Digit2", "Craterize options", 40],
+    ["Shift+Digit3", "Erupt options", 30],
+    ["Shift+Digit1", "Carve options", 10],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name });
@@ -571,7 +571,7 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
   }
   // Quake (D368 (2)): only a small marker at the pointer, never a circle of how far it could reach
   // (the force's own decision, never drawn in advance), at any Power
-  await page.keyboard.press("9");
+  await page.keyboard.press("Shift+Digit5");
   const row = page.getByRole("group", { name: "Quake options" });
   const drawn = () => page.evaluate(() => window.dgm3d!.renderer.forceRingState);
   for (const power of ["20", "90"]) {
@@ -585,7 +585,7 @@ test("a force's size at the cursor (D312): a faint ring whose radius follows Pow
 
 test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc drops it; let go, the river carves along it as one step", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   await page.getByRole("group", { name: "Carve options" }).getByRole("slider", { name: "Power" }).fill("40");
   const { far } = await places(page);
   const dx = far[0] > 48 ? -1 : 1;
@@ -618,7 +618,7 @@ test("Carve's drawn path (D321, item 41): the line shows as it is drawn; Esc dro
 
 test("Erupt's terrain is final in about two seconds (D312); its effects may linger, the player acts at once", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("0");
+  await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
   const { far } = await places(page);
   const p = await client(page, far[0], far[1]);
@@ -636,6 +636,6 @@ test("Erupt's terrain is final in about two seconds (D312); its effects may ling
   expect(Math.abs(t.show - showMs("erupt", t.total, "fast", t.worked))).toBeLessThanOrEqual(1);
   expect(t.due).toBeLessThanOrEqual(Math.max(FAST_MS, t.worked + MIN_SHOW_MS) + 1);
   // at once: the tools answer (a brush picked)
-  await page.keyboard.press("1");
-  await expect(page.getByRole("button", { name: "Raise brush (1)" })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("2");
+  await expect(page.getByRole("button", { name: "Raise brush (2)" })).toHaveAttribute("aria-pressed", "true");
 });

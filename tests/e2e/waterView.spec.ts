@@ -69,7 +69,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await expect(page.getByRole("checkbox", { name: "See-through" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("checkbox", { name: "See-through" }).click();
   await expect.poll(() => clear(page)).toBe(false);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await page.mouse.move(mp.x + 2, mp.y);
   await page.mouse.move(mp.x, mp.y);
   await expect.poll(() => clearNear(page)).not.toBeNull();
@@ -82,7 +82,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("Escape");
   // the shelf's ghost over water clears the water under it too (placing on a bed)
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   await page.mouse.move(mp.x + 2, mp.y);
   await page.mouse.move(mp.x, mp.y);
   await expect.poll(() => clearNear(page)).not.toBeNull();
@@ -125,7 +125,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 
   // a source picked on the shelf: every source shows its marker with its strength
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   await expect.poll(async () => page.locator(".source-marker").count()).toBeGreaterThan(0);
   // a new source on dry, empty, level ground (level 3 × 3: a badwater source stands on it below;
   // M9a's land is rarely level where the first dry tile is, D148)
@@ -180,7 +180,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const dir = from[1] < W / 2 ? 1 : -1;
   const channel = Array.from({ length: 6 }, (_, k) => (from[1] + dir * (4 + k)) * W + from[0]);
   const before = await depthAt(page, channel);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   // (the brush takes the map's left button once the page has drawn the click: pressed sooner, on a slow
   // page, the drag panned the camera, nothing was painted and the water never came. So the press waits
   // for the brush to be out: over the river it clears the water round it, D212)
@@ -199,7 +199,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   // Shift+scroll sets a soft brush's strength (Smooth's), and says it beside the pointer (a height
   // brush's target, D322: brushKit.spec)
-  await page.keyboard.press("4");
+  await page.keyboard.press("5");
   // (the strength is said for 1.2 s, then the brush's own words come back: what the note said is kept as
   // it changes, so a slow page or a slow poll can't miss it, D341)
   await page.evaluate(() => {

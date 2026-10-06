@@ -81,15 +81,15 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // the bar: Select, the five brushes and the forces (no Remove, D288), and above it only the held tool's
   // settings; the objects menu in Layout 2's order: the start, then the sources (Kyler, 2026-10-03)
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  for (const name of ["Raise brush (1)", "Lower brush (2)", "Flatten brush (3)", "Smooth brush (4)", "Naturalize brush (5)", "Select (M)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Raise brush (2)", "Lower brush (3)", "Flatten brush (4)", "Smooth brush (5)", "Naturalize brush (6)", "Select (1)"]) await expect(bar.getByRole("button", { name })).toBeVisible();
   await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source (6)", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
+  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
   // the forces, all five ready (D216, D219, D291), in the bar after the tools
   const forces = page.getByRole("group", { name: "Forces" });
-  for (const name of ["Carve (7)", "Craterize (8)", "Quake (9)", "Erupt (0)", "Glaciate (-)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Carve (Shift+1)", "Craterize (Shift+2)", "Quake (Shift+5)", "Erupt (Shift+3)", "Glaciate (Shift+7)"]) await expect(forces.getByRole("button", { name })).toBeVisible();
   // F and R do nothing with no brush or object out: the old camera zoom on R and F is gone (D212;
   // F sizes the brush, R turns the shelf's object)
   const distance = () => page.evaluate(() => window.dgm3d!.renderer.getView().distance);
@@ -106,12 +106,13 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await soundButton.click();
   await expect(soundButton).toHaveAttribute("aria-pressed", "false");
   await soundButton.click();
-  // the shelf's Water source (6): its strength in the row; a brush puts it back
-  await page.keyboard.press("6");
-  await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" })).toHaveAttribute("aria-pressed", "true");
+  // the shelf's Water source: its strength in the row; a brush puts it back
+  // (no key of its own: Kyler, 2026-10-06)
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true })).toHaveAttribute("aria-pressed", "true");
   const sourceRow = page.getByRole("group", { name: "Water source options" });
   await expect(sourceRow.getByRole("slider")).toBeVisible();
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   await expect(sourceRow).toHaveCount(0);
   const lowerRow = page.getByRole("group", { name: "Lower options" });
   // (the brush round, not square and not straight lines: one choice of three)
@@ -137,7 +138,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(true);
   await levelLines.click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.levelLines)).toBe(false);
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   await expect(lowerRow).toBeVisible();
 
   // the target (D322, item 37): beside the pointer, a level below the ground while it follows it;
@@ -207,7 +208,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await choose(lowerRow, "Brush", "Round");
 
   // Flatten in steps: in the stroke's operation
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const flatRow = page.getByRole("group", { name: "Flatten options" });
   // benches every 3 levels from a level just below this ground: the click takes it down to one
   const hb = await heightAt(page, a[0], a[1] + 6);
@@ -323,7 +324,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // (the map framed again, as it was)
   await page.evaluate(() => window.dgm3d!.renderer.frameMap());
 
-  await page.keyboard.press("4");
+  await page.keyboard.press("5");
   // Smooth has no walkable option (D247: the shelf's Slope puts a slope where wanted) and no target;
   // its stroke over the pit's walls carries none
   const smoothRow = page.getByRole("group", { name: "Smooth options" });
@@ -342,7 +343,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
 
   // the Select tool: M, a rectangle with its size, raise it one level a click (D323 item 6), one step
   await page.keyboard.press("Escape");
-  await page.keyboard.press("m");
+  await page.keyboard.press("1");
   const sel = page.getByRole("group", { name: "Selection" });
   await expect(sel).toBeVisible();
   const c0 = (await flatDry(page, start, 3, [pit, a, f]))!;
@@ -367,11 +368,11 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await expect(sel.getByRole("status")).toHaveText("7 × 5 tiles (31)");
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.dgmEditor!.selection())).toEqual([]);
-  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
 
   // Ctrl+drag with a brush out selects too: the brush stays out, and the Select row is a chip
   // beside it (D259: one row at a time)
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await page.keyboard.down("Control");
   await page.mouse.move(q0.x, q0.y);
   await page.mouse.down();

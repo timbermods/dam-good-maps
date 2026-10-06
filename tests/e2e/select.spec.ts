@@ -73,7 +73,7 @@ async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = fal
 test("Select: its button and shapes; a circle set to a level changes exactly its tiles, one step; Ctrl+click takes a level; the working area keeps a stroke inside, with the row a chip", async ({ page }) => {
   await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  await expect(bar.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
   await expect(row).toBeVisible();
   // the marking modes are icons, each named, Whole map among them (D323 items 6 and 43, D345 B8)
@@ -123,7 +123,7 @@ test("Select: its button and shapes; a circle set to a level changes exactly its
 
   // the working area: Raise picked, the row a chip; a stroke across the circle's edge changes only
   // the land inside it, a level a tile at most from its edge
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await expect(row).toHaveCount(0);
   await expect(page.locator(".select-chip")).toHaveText("Working inside 9 × 9");
   await expect(page.locator(".select-chip")).toHaveAttribute("data-keys", /Esc clears it/);
@@ -210,7 +210,7 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   // a Raise across it and its banks: no bank tile changes
   const h0 = await heights(page);
   const inSel = new Set(sel);
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   const a = await client(page, r![0] - 4, r![1] - 4);
   const b = await client(page, r![0] + 4, r![1] + 4);
   await page.mouse.move(a.x, a.y);
@@ -227,7 +227,7 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   await idle(page);
 
   // Flatten on the water's selection: its bed at that level, one step
-  await page.getByRole("button", { name: "Select (M)" }).click();
+  await page.getByRole("button", { name: "Select (1)" }).click();
   const L = Math.min(...sel.map((i) => h0[i])) + 1;
   await row.getByRole("slider", { name: "Level", exact: true }).fill(String(L));
   const n0 = (await labels(page)).length;

@@ -26,11 +26,11 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
 
   // every brush's row: its size, a number and a slider
   for (const [key, name] of [
-    ["1", "Raise"],
-    ["2", "Lower"],
-    ["3", "Flatten"],
-    ["4", "Smooth"],
-    ["5", "Naturalize"],
+    ["2", "Raise"],
+    ["3", "Lower"],
+    ["4", "Flatten"],
+    ["5", "Smooth"],
+    ["6", "Naturalize"],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });
@@ -38,7 +38,7 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
     await expect(settingValue(page, "Size")).toHaveText(/^\d+(\.5)?$/);
   }
   // set on Lower's slider, a stroke is that size
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   const lower = page.getByRole("group", { name: "Lower options" });
   await lower.getByRole("slider", { name: "Size" }).fill("8");
   await expect(settingValue(page, "Size")).toHaveText("8");
@@ -53,7 +53,7 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.size).toBe(8);
   // the largest brush reaches half the map's width (D322, item 42): a Flatten of the whole map in
   // one click from its middle, square
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const flat = page.getByRole("group", { name: "Flatten options" });
   const big = String(Math.ceil(Math.max(i.W, i.H) / 2));
   await expect(flat.getByRole("slider", { name: "Size" })).toHaveAttribute("max", big);
@@ -71,13 +71,13 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   await choose(flat, "Brush", "Round");
   await flat.getByRole("slider", { name: "Size" }).fill("5");
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
 
   // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back
   for (const [key, rowName, sizes] of [
-    ["7", "Carve options", ["Size"]],
-    ["8", "Craterize options", ["Size"]],
-    ["0", "Erupt options", ["Size"]],
+    ["Shift+Digit1", "Carve options", ["Size"]],
+    ["Shift+Digit2", "Craterize options", ["Size"]],
+    ["Shift+Digit3", "Erupt options", ["Size"]],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: rowName });

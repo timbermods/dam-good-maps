@@ -69,7 +69,7 @@ async function wordy(page: Page): Promise<string[]> {
       // (a second sentence: a full stop, ! or ? then a new capital or bracket; ".timber" and "Ctrl+Z" are not)
       const second = /[.!?][)"']?\s+[A-Z(]/.test(t);
       const bracket = bracketedKey(t);
-      // (a control named with its key, "Carve (7)": its tooltip ends with that key's cap)
+      // (a control named with its key, "Carve (Shift+1)": its tooltip ends with that key's cap)
       const named = /\(([^()]+)\)$/.exec(el.getAttribute("aria-label") ?? "")?.[1];
       const keys = (el.getAttribute("data-keys") ?? "").split("|").map((k) => k.split(" ")[0]);
       const missing = named && !/\s/.test(named) && !keys.includes(named) ? named : null;
@@ -105,13 +105,13 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("the editor as it opens");
 
   // every brush, with its options row
-  for (const k of ["1", "2", "3", "4", "5"]) {
+  for (const k of ["2", "3", "4", "5", "6"]) {
     await page.keyboard.press(k);
     await check(`brush ${k}`);
   }
   // Flatten's steps
   const steps = page.getByRole("checkbox", { name: "In steps" });
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   if (await steps.count()) {
     await steps.check();
     await check("Flatten in steps");
@@ -120,7 +120,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.keyboard.press("x");
 
   // every force, with its More
-  for (const k of ["7", "8", "9", "0", "-"]) {
+  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7"]) {
     await page.keyboard.press(k);
     await check(`force ${k}`);
     const open = page.locator('.force-options button:text-is("More")');
@@ -170,7 +170,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   });
   expect(spots.length, "two open, level, dry spots").toBe(2);
   const [[sx, sy], [mx, my]] = spots;
-  await shelf.getByRole("button", { name: "Water source (6)" }).click();
+  await shelf.getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
@@ -285,15 +285,15 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   };
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  // Kyler's two: "Carve a river" then 7, "Smooth bumps and steps" then 4
-  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (7)" }))).toEqual({ text: "Carve a river", caps: ["7"], last: "tip-key", native: null });
-  expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (4)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["4"], last: "tip-key", native: null });
-  // a few more, keys of every kind: a force's own, a shelf item's with R's turn, the header's, a size's
-  expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (-)" }))).caps).toEqual(["-"]);
+  // Kyler's two: "Carve a river" then Shift+1, "Smooth bumps and steps" then 5
+  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (Shift+1)" }))).toEqual({ text: "Carve a river", caps: ["Shift+1"], last: "tip-key", native: null });
+  expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (5)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["5"], last: "tip-key", native: null });
+  // a few more, keys of every kind: a force's own, a shelf item's (none), the header's, a size's
+  expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (Shift+7)" }))).caps).toEqual(["Shift+7"]);
   const shelf = page.getByRole("navigation", { name: "Place" });
-  expect(await tooltipOf(shelf.getByRole("button", { name: "Water source (6)" }))).toMatchObject({ text: "Where water starts", caps: ["6"] });
+  expect(await tooltipOf(shelf.getByRole("button", { name: "Water source", exact: true }))).toMatchObject({ text: "Where water starts", caps: [] });
   expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   const size = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Size"])');
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
   const power = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Power"])');

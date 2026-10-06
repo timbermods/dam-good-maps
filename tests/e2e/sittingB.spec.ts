@@ -114,7 +114,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
@@ -148,18 +148,18 @@ test("B7: X puts down what is held and Select stays in hand; a press picks an ob
   await open(page, ROOMY);
   await page.getByRole("button", { name: "Top-down" }).click();
   // a brush, a force and the shelf's object all go back with X
-  await page.getByRole("button", { name: "Raise brush (1)" }).click();
+  await page.getByRole("button", { name: "Raise brush (2)" }).click();
   await expect(page.getByRole("group", { name: "Raise options" })).toBeVisible();
   await page.keyboard.press("x");
   await expect(page.getByRole("group", { name: "Raise options" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   await page.keyboard.press("x");
-  await expect(page.getByRole("button", { name: "Carve (7)" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Carve (Shift+1)" })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" }).click();
   await page.keyboard.press("x");
   await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" })).toHaveAttribute("aria-pressed", "false");
   // and a selection: X clears it, and Select stays in hand
-  const select = page.getByRole("button", { name: "Select (M)" });
+  const select = page.getByRole("button", { name: "Select (1)" });
   await expect(select).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("group", { name: "How to select" }).getByRole("button", { name: "Whole map" }).click();
   expect((await page.evaluate(() => window.dgmEditor!.selection())).length).toBeGreaterThan(0);
@@ -211,7 +211,7 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   test.setTimeout(240_000);
   await open(page);
   await page.getByRole("button", { name: "Top-down" }).click();
-  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
   // Whole map is among the marking icons
   const modes = row.getByRole("group", { name: "How to select" });
@@ -277,7 +277,7 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await page.mouse.move(c.x, c.y);
   await expect(readout).toHaveText(/^Geothermal field · Height \d+, (dry|moist) soil$/);
   // a source says its strength, with a brush held
-  await page.getByRole("button", { name: "Flatten brush (3)" }).click();
+  await page.getByRole("button", { name: "Flatten brush (4)" }).click();
   const src = await page.evaluate(() => {
     const e = window.dgm3d!.renderer.mapState()!.entities;
     for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource") return [e.x[k], e.y[k]];
@@ -295,12 +295,12 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Rift, Quake, Glaciate, Deposit; the hint points at Carve", async ({ page }) => {
+test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate; the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
   // (Layout 2's bar has one cell per force, the clusters' order kept, with no gap between clusters)
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Glaciate", "Deposit"]);
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 
@@ -312,7 +312,7 @@ test("B14: after an undo, a redo and an edit the water's state is the worker's r
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
   // an edit that moves water: a source; it flows, then settles
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);

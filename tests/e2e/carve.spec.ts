@@ -61,7 +61,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   // its settings, every one always shown (Kyler's option B: no More): Power, Size, What it leaves (River or Canyon,
   // D289), Wander, Walls, Canyon depth, River depth, Banks, the Floor and Try another; a mode is the gesture
-  const carve = page.getByRole("button", { name: "Carve (7)" });
+  const carve = page.getByRole("button", { name: "Carve (Shift+1)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
@@ -75,7 +75,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   // depends on the rows over the map, and a short creek there can end before Esc arrives)
   await row.getByRole("slider", { name: "Power" }).fill("60");
   // the other forces beside it, in the forces group (D216, D219)
-  for (const name of ["Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(page.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Craterize (Shift+2)", "Quake (Shift+5)", "Erupt (Shift+3)"]) await expect(page.getByRole("button", { name })).toBeVisible();
 
   const before = await heights(page);
   const n0 = (await labels(page)).length;
@@ -162,7 +162,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
 
 test("Carve's details (D309): always shown, each on Auto; pinning one keeps it through Try another", async ({ page }) => {
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   // (the details sit with the rest: More is gone)
   const details = row;
@@ -194,7 +194,7 @@ test("Carve's details (D309): always shown, each on Auto; pinning one keeps it t
 
 test("Carve: a drag draws its path, the line showing as it is drawn; on release the river carves along it from its higher end, whichever way it was drawn; undo while it runs takes it back", async ({ page }) => {
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row.getByRole("button", { name: "Aim" })).toHaveCount(0);
   await expect(row.getByText("Defy gravity")).toHaveCount(0);

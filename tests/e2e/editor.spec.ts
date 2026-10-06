@@ -46,7 +46,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   const lowered: [number, number] = [x, 12];
   const ground = await page.evaluate(([a, b]) => window.dgm3d!.renderer.heightAt(a, b), lowered);
   await centreOn(page, lowered[0], lowered[1]);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await toolInHand(page);
   // (from the tile itself: its target is a level below where the stroke starts, D322)
   await drag(page, lowered, [lowered[0] + 3, lowered[1]]);
@@ -84,7 +84,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
     [start0[0], start0[1]] as const,
   );
   expect(spring).not.toBeNull();
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   await centreOn(page, spring![0], spring![1]);
   await toolInHand(page);
   const sp = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), spring!);
@@ -198,7 +198,7 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
 test("the next visit, with no link in the address, opens the map left open, with its edits", async ({ page }) => {
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await drag(page, [30, 40], [34, 40]);
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   expect((await info(page)).edits).toBe(1);

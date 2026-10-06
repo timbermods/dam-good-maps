@@ -97,7 +97,7 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await page.mouse.move(5, 5);
   await page.keyboard.press("x");
   await expect.poll(() => selection(page)).toEqual([]);
-  await expect(page.getByRole("button", { name: "Select (M)" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   expect(await selection(page)).toEqual([]);
   void W;
 });
@@ -151,13 +151,13 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
 
 test("one bar at the bottom: Select, the five brushes, a hairline, the forces in their clusters' order (D352), and the held tool's settings directly above it (Layout 2, structure only)", async ({ page }) => {
   await openTopDown(page);
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
-  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Glaciate", "Deposit"]);
-  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Glaciate", "Deposit"]);
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
   // the hairline between the tools and the forces
   const naturalize = await box(tools.getByRole("button", { name: /^Naturalize/ }));
   const carve = await box(tools.getByRole("button", { name: /^Carve/ }));

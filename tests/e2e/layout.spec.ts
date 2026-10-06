@@ -309,14 +309,8 @@ for (const [w, h] of SIZES) {
     }
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
     await onTheCells(page, "Select");
-    for (const [key, what] of [["1", "Raise"], ["2", "Lower"], ["3", "Flatten"], ["4", "Smooth"], ["5", "Naturalize"], ["7", "Carve"], ["8", "Craterize"], ["0", "Erupt"], ["9", "Quake"], ["-", "Glaciate"]] as const) {
+    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
       await page.keyboard.press(key);
-      await onTheCells(page, what);
-      await page.keyboard.press("Escape");
-    }
-    // (Rift and Deposit have no key yet)
-    for (const what of ["Rift", "Deposit"]) {
-      await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: what, exact: true }).click();
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
     }
@@ -336,7 +330,7 @@ for (const [w, h] of SIZES) {
       expect(win.t, `the window clear of the camera group (${state})`).toBeGreaterThan(corner[0].b);
     };
     const listBox = (await boxes(page, [".objects-menu"]))[0];
-    await page.getByRole("button", { name: "Water source (6)" }).click();
+    await page.getByRole("button", { name: "Water source", exact: true }).click();
     await objectWindow("a water source picked in the list");
     await expect(page.locator(".tool-settings")).toHaveCount(0);
     await page.keyboard.press("Escape");

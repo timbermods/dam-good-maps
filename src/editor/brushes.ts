@@ -34,7 +34,7 @@
 // (raise ↔ lower); Shift+scroll sets the target (Smooth and Naturalize: the strength); Ctrl+click
 // takes the land's level as the target (on water, its bed); Ctrl+drag selects (the Select tool);
 // { and } change the size (D368 (1)); hold F and move the mouse to size the ring, its size beside it, and let go
-// (a click sets it too, D205, from Blender); 1–5 pick a brush; Esc cancels a stroke in progress or a
+// (a click sets it too, D205, from Blender); 2–6 pick a brush (1 Select); Esc cancels a stroke in progress or a
 // resize, then lets a set target follow the ground again.
 
 import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
@@ -85,11 +85,11 @@ export function withShape(s: BrushSettings, shape: "square" | "straight" | "area
 }
 
 export const BRUSHES: { tool: BrushTool; name: string; key: string; hint: string }[] = [
-  { tool: "raise", name: "Raise", key: "1", hint: "raise the ground" },
-  { tool: "lower", name: "Lower", key: "2", hint: "lower the ground" },
-  { tool: "flatten", name: "Flatten", key: "3", hint: "level the ground" },
-  { tool: "smooth", name: "Smooth", key: "4", hint: "smooth bumps and steps" },
-  { tool: "naturalize", name: "Naturalize", key: "5", hint: "weather cliffs into slopes" },
+  { tool: "raise", name: "Raise", key: "2", hint: "raise the ground" },
+  { tool: "lower", name: "Lower", key: "3", hint: "lower the ground" },
+  { tool: "flatten", name: "Flatten", key: "4", hint: "level the ground" },
+  { tool: "smooth", name: "Smooth", key: "5", hint: "smooth bumps and steps" },
+  { tool: "naturalize", name: "Naturalize", key: "6", hint: "weather cliffs into slopes" },
 ];
 
 export const BRUSH_NAMES: Record<BrushTool, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };

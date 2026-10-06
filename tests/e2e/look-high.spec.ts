@@ -302,7 +302,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   expect(await look(page)).toBe("high");
-  await page.keyboard.press("0");
+  await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
   // dry ground in the middle of the view, clear of the controls over the map
   const at = await page.evaluate(() => {

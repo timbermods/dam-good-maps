@@ -17,7 +17,7 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   // one edit: a Lower stroke
   const at: [number, number] = [70, 12];
   const ground = await page.evaluate(([x, y]) => window.dgm3d!.renderer.heightAt(x, y), at);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await centreOn(page, at[0], at[1]);
   const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] - 3, at[1]] as const);
   const b = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] + 3, at[1]] as const);

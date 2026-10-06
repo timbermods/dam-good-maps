@@ -85,7 +85,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   expect((await sources(page)).filter((s) => s.y === ay && (s.x === ax || s.x === bx))).toHaveLength(2);
 
   // Raise: Sources in its row, Ride by default (a soft raise: Free, so a hold keeps raising)
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   const row = page.getByRole("group", { name: "Raise options" });
   const sourcesChoice = row.getByRole("group", { name: "Sources" });
   await expect(sourcesChoice.getByRole("button", { name: "Ride" })).toHaveAttribute("aria-pressed", "true");

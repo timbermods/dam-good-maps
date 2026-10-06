@@ -708,6 +708,17 @@
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+/* the list's title (Kyler, 2026-10-06): "Items", bold, in the items' own type, one row of their height and one gap above
+   them, its words at the names' inset (the row's 4px, the picture's 28px and the 8px gap) */
+.objects-menu .shelf-title {
+  height: 30px;
+  margin: 0 0 2px;
+  padding-left: 40px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 30px;
+}
+
 /* picked: its row lit in the mint, as the bar lights a tool */
 .objects-menu .shelf-item[aria-pressed="true"] {
   background: var(--accent);
@@ -1543,9 +1554,27 @@
   color: var(--accent-ink);
 }
 
+/* Custom's place one width whether it is chosen or not (Kyler, 2026-10-06): room for two numbers of "512" each, the ×
+   centred between them, the fields the size buttons' height; the four sizes share what is left, the line ending where
+   the lines above end */
+.size-line .set-seg > :last-child {
+  flex: 0 0 100px;
+}
+
+.size-line .seg-custom .set-size {
+  align-self: stretch;
+  gap: 4px;
+}
+
 .size-line .seg-custom .set-num {
-  width: 32px;
-  height: 18px;
+  width: 38px;
+  height: 100%;
+  padding: 0 4px;
+  border-radius: 0;
+  border-top: 0;
+  border-bottom: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .sheet-top > .sheet-act {

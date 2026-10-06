@@ -1,6 +1,6 @@
 // The bar (PLAN §20 D184, D212; Layout 2): Select, the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, a
-// hairline, then the forces in D352's order (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake,
-// Glaciate, Deposit; keys 7, 8, 0, 9 and -; Rift and Deposit have none yet), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
+// hairline, then the forces (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate,
+// Kyler 2026-10-06; keys 1 Select, 2–6 the brushes, Shift+1–7 the forces), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
 // the bar's width and one height for every tool, every setting always shown (More is gone). The brushes: Size, Level
 // (Raise, Lower and Flatten's target, D322 item 37: Auto follows the ground, Free sculpts softly) or Strength
 // (Smooth, Naturalize), Mode (item 2), Sources (item 31), Brush (round, square or straight lines, one at a time) and
@@ -131,18 +131,20 @@ export interface Force {
  *  the tooltips follow. */
 export const FORCE_GROUPS: readonly (readonly string[])[] = [
   ["carve", "craterize", "erupt"],
-  ["rift", "quake", "glaciate"],
-  ["erode", "deposit"],
+  ["rift", "quake", "deposit"],
+  // (Glaciate last: Kyler, 2026-10-06)
+  ["glaciate", "erode"],
 ];
 
 const FORCE_LIST: readonly Force[] = [
-  { id: "carve", name: "Carve", ready: true, key: "7", hint: "carve a river" },
-  { id: "craterize", name: "Craterize", ready: true, key: "8", hint: "an impact crater" },
-  { id: "erupt", name: "Erupt", ready: true, key: "0", hint: "a volcano" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "9", hint: "a fault that lifts or slides the land" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "-", hint: "a glacier carves a valley" },
-  { id: "rift", name: "Rift", ready: true, hint: "the land cracks open and drops" },
-  { id: "deposit", name: "Deposit", ready: true, hint: "a fan of sediment at a valley's mouth" },
+  // (the keys, Kyler 2026-10-06: Shift and the number of its place in the bar, matched on the key's code)
+  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "carve a river" },
+  { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "an impact crater" },
+  { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "a volcano" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "a fault that lifts or slides the land" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "Shift+7", hint: "a glacier carves a valley" },
+  { id: "rift", name: "Rift", ready: true, key: "Shift+4", hint: "the land cracks open and drops" },
+  { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "a fan of sediment at a valley's mouth" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */
@@ -182,7 +184,7 @@ export const STRENGTH_KEYS = ["F+scroll", "[", "]"] as const;
 /** The tooltips of the tools, the forces and Select (D368 (6)): what it is for, then its key as a key cap. */
 export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint), b.key);
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
-export const SELECT_TIP = tip("Mark an area to change", "M");
+export const SELECT_TIP = tip("Mark an area to change", "1");
 
 export interface TopBarProps {
   /** The brush out, or null. */
@@ -402,7 +404,7 @@ export function TopBar(p: TopBarProps) {
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}
       {grid ? <div class="map-bar tool-settings">{grid}</div> : null}
       <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
-        {p.onSelect ? button("select", "Select", "Select (M)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
+        {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
         {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
         {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}
         {SHOWN_FORCES.length ? (

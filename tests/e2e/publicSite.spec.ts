@@ -16,20 +16,20 @@ test("the public site shows no forces before their release: no button, no key, n
   await waitForEditor(page);
   await page.evaluate(() => window.dgmEditor!.idle());
   const bar = page.getByRole("toolbar", { name: "Tools" });
-  await expect(bar.getByRole("button", { name: "Raise brush (1)" })).toBeVisible();
-  await expect(bar.getByRole("button", { name: "Select (M)" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Raise brush (2)" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Select (1)" })).toBeVisible();
   // no forces group, and none of the forces
   await expect(bar.getByRole("group", { name: "Forces" })).toHaveCount(0);
   for (const name of ["Carve", "Craterize", "Quake", "Erupt", "Glaciate", "Rift", "Deposit"]) await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
   // Carve's key does nothing: no options row, no Unleash or Aim
   await page.mouse.move(700, 500);
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   await page.waitForTimeout(250);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Unleash" })).toHaveCount(0);
   expect(await page.evaluate(() => window.dgmEditor!.carve())).toBeNull();
   // the other keys still work
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await expect(page.getByRole("group", { name: "Raise options" })).toBeVisible();
   expect(errors).toEqual([]);
 });
