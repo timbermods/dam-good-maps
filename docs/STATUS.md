@@ -40,10 +40,6 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | #261 | Canyon and Highlands height (generator 0.9.0) | Canyon session | `approved`; adopted in the generator queue's order, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; adopted in the generator queue's order, re-pinned |
 | #163 | The page is the editor | page | `needs-kyler` and `approved`; CI failing; merges once green, reviewed |
-| #322 | Craterize clears and rides sources (D474) | renderer (forces play) | `approved`; dev merged in, full run going; merges first |
-| #275 | Forces end the moment their land is final | renderer (forces play) | `approved` (Kyler checks on /preview/); reviewed; merges after #322 with dev merged in |
-| #225 | A source's highlight reads under its own water | renderer (forces play) | `approved` (Kyler checks on /preview/); reviewed; merges after #322 |
-| #323 | #312's renderer part (shared object models) | renderer (forces play) | Reviewed; merges on green after #322 |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view; reconcile its rust/water patch with multi-core and water speed; two doubts listed in ROADMAP |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -54,9 +50,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
    each merged after a green full run, no pin moved; #310's F3 landed in #265's re-pin. Still to land: #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's, now that #311 is merged (page part before worker part).
-2. In flight, in this order (all `approved`): the Craterize fix (#322), Naturalize rule 4 (#324, the fix for the two failures
-   #265's maps exposed), Delta arms round 2 (#325, generator 0.8.2), then #275, #225 and #323, each on review and green CI;
-   the page session hears on #236 as each lands.
+2. Merged on 2026-10-05: the Craterize fix (#322), Naturalize rule 4 (#324), #275, #225 and #323 (forces play's). In flight:
+   Delta arms round 2 (#325, generator 0.8.2, `approved`), merging after its full run.
 3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (D476,
    Kyler 2026-10-05: on most maps a badwater course is routed into the theme's main water, about 15 in 100 drain unsteered;
    replaces the 85-in-100 clean rule and the poisoned-main-river follow-up; generator 0.8.3, `feature/badwater-joins`, in
