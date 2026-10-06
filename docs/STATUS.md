@@ -37,7 +37,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #265 | Badwater line, wave check, wider names (generator 0.8.1) | milestone (taken over 2026-10-05) | Rework in progress on Kyler's decisions: Lake Basin as it is; Delta's and River Valley's main river clean on about 85 in 100; River Valley seeds 12, 5 and 11 checked; lakeBasinSibling's red fixed; #310's F3 folded in; the three sheets redone. Ported onto the Rust checks after #321. Then `needs-kyler` for the sheets |
+| #265 | Badwater line, wave check, wider names (generator 0.8.1) | milestone (taken over 2026-10-05) | Rework landed (a57e61d7, green full run): Delta's and River Valley's main river clean on about 85 in 100, RV 12's leak and RV 5/11's replan fixed, lakeBasinSibling 12/12, #310's F3 folded in, on the Rust checks. `needs-kyler` for the three sheets; merge dev in again before merging |
 | #261 | Canyon and Highlands height (generator 0.9.0) | Canyon session | `approved`; adopted in the generator queue's order, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; adopted in the generator queue's order, re-pinned |
 | #163 | The page is the editor | page | `needs-kyler` and `approved`; CI failing; merges once green, reviewed |
