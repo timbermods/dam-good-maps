@@ -201,7 +201,9 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
 
 **Speed rounds (done):** water speed (#290, the flow layout and the skipped wet-list rebuild, no SIMD) and forces speed half A
 (#289) are merged; generation speed (#291) was closed unadopted: generation gets faster with the generator's Rust port after
-the theme queue. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
+the theme queue. Generation speed round 3 (#326, merged as a record) is not adopted: its patch saved 2.9% in total
+(median 1.1%, some themes slower). It found that failed layouts take about half the generation time, and the only large
+lever changes maps, so it belongs to a generator round if Kyler ever asks for one. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
 merged. The dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279) is parked (see its
 section below).
 
