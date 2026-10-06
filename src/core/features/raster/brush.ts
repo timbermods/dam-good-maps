@@ -476,6 +476,27 @@ export function levelRigid(rigid: readonly (readonly [number, number, number, nu
   return out;
 }
 
+/** Of the pieces that may ride a stroke (`ridingPieces`, edits.ts), the ones it tilted, which ride it
+ *  whole (D249): a tile changed from `before` and their tiles no longer level in `now` (the shown
+ *  heights before and after the stroke). The session and the page's preview both ask this, so the
+ *  stroke's `rigid` pieces are the same on both sides. */
+export function tiltedPieces(pieces: readonly (readonly [number, number, number, number])[], before: ArrayLike<number>, now: ArrayLike<number>, W: number): [number, number, number, number][] {
+  const out: [number, number, number, number][] = [];
+  for (const [x0, y0, x1, y1] of pieces) {
+    const first = now[y0 * W + x0];
+    let level = true;
+    let changed = false;
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (now[i] !== first) level = false;
+        if (now[i] !== before[i]) changed = true;
+      }
+    if (changed && !level) out.push([x0, y0, x1, y1]);
+  }
+  return out;
+}
+
 /** What a natural weathering reads beyond its settings while it is painted (the page's stroke, before
  *  it is an operation; D399): the level water would stand at on every tile (the drainage, for `rim`),
  *  and the settled water's depth with the heights it stands on (for `shore` and `pools`, handed to

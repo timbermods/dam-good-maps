@@ -14,6 +14,7 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { brushProblems, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { ridingPieces } from "../../src/core/features/edits";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -177,6 +178,48 @@ describe("brushes and water sources (D249)", () => {
     expect(Array.from(shown)).toEqual(Array.from(s.built.heights));
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     expect(Array.from(MapSession.open(decodeProject(s.project())).built.heights)).toEqual(Array.from(s.built.heights));
+  });
+
+  it("a badwater source in a lake, a Raise over it that the page doesn't list it for: the preview's own ride gives exactly the land the operation builds", () => {
+    // (found on Islands 96² seed 5 with generator 0.8.3: a Raise, Size 6, Strength 9, past a 3 × 3
+    // source in a lake 1.4 deep; the preview without the ride painted 10 and 12 where the operation,
+    // which rides the source itself, built 11)
+    let found: { s: MapSession; x: number; y: number } | null = null;
+    for (let seed = 5; seed < 20 && !found; seed++) {
+      const r = generate(makeSpec({ seed, theme: "islands", size: { x: W, y: W } }));
+      const s = MapSession.fromGenerated(r, r.file);
+      s.setWaterMode("defer");
+      const b = s.built;
+      const st = b.start!;
+      // three level, wet tiles a side, with no object on or round them
+      for (let y = 14; y < W - 14 && !found; y++)
+        for (let x = 14; x < W - 14 && !found; x++) {
+          if (Math.hypot(x - st.x, y - st.y) < 30) continue;
+          let ok = true;
+          for (let yy = y; yy <= y + 2 && ok; yy++) for (let xx = x; xx <= x + 2 && ok; xx++) if (!(b.water[yy * W + xx] > 0.5) || b.channel[yy * W + xx] || b.heights[yy * W + xx] !== b.heights[y * W + x]) ok = false;
+          if (ok && !b.entities.some((e) => Math.abs(e.x - x - 1) <= 3 && Math.abs(e.y - y - 1) <= 3)) found = { s, x, y };
+        }
+    }
+    expect(found).not.toBeNull();
+    const { s, x, y } = found!;
+    expect(s.apply({ op: "placeEntity", params: { id: BAD, template: "BadwaterSource", x, y, orientation: "Cw0" } }).errors).toEqual([]);
+    // a Raise held below and right of it: its falloff lifts the source's tiles unevenly
+    const dabs: number[] = [];
+    for (let k = 0; k < 30; k++) dabs.push(4 * (x + 3) + 2, 4 * (y + 4) + 2);
+    const settings: Omit<BrushParams, "dabs"> = { tool: "raise", size: 6, strength: 9 };
+    const shown = s.built.heights.slice();
+    const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
+    for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
+    // the stroke tilted it: the source rides whole
+    const rigid = preview.rides(ridingPieces(s.built.entities, W, W));
+    expect(rigid).toEqual([[x, y, x + 2, y + 2]]);
+    preview.finish(rigid);
+    const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Raise");
+    expect(u.errors).toEqual([]);
+    expect((u.applied[0].params as BrushParams).rigid).toEqual(rigid);
+    expect(Array.from(shown)).toEqual(Array.from(s.built.heights));
+    expect(Array.from(preview.pre)).toEqual(Array.from(s.terrainState().pre));
+    expect(new Set([0, 1, 2].flatMap((dy) => [0, 1, 2].map((dx) => s.built.heights[(y + dy) * W + x + dx]))).size).toBe(1);
   });
 
   it("a stroke's riding pieces are rectangles on the map, a few tiles across", () => {

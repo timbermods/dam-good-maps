@@ -6,7 +6,7 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, brushHard, type BrushParams, type Rect } from "./brush";
+import { BrushStroke, brushHard, tiltedPieces, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, keepShownGround, padTile } from "./terrain";
@@ -120,6 +120,13 @@ export class StrokePreview {
   add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, levels?: ArrayLike<number>): Rect | null {
     const r = this.stroke.add(dabs, pressure, levels);
     return r ? this.settle(r) : null;
+  }
+
+  /** Of the map's pieces that may ride a stroke (`ridingPieces`), the ones this stroke has tilted so
+   *  far: the `rigid` pieces to hand `finish` when it is let go, the same ones the session would add
+   *  to its operation (D249). */
+  rides(pieces: readonly (readonly [number, number, number, number])[]): [number, number, number, number][] {
+    return tiltedPieces(pieces, this.start, this.heights, this.W);
   }
 
   /** The stroke's dabs are all in: the pieces that ride it whole take the level of their middle
