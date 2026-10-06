@@ -28,14 +28,15 @@ async function watchFiles(page: Page) {
   });
 }
 
-test("Download project and Download .timber keep a paused Fast force, and the file reopens on the land shown", async ({ page }) => {
+test("Download project and Download .timber keep a paused force, and the file reopens on the land shown", async ({ page }) => {
   test.setTimeout(300_000);
   for (const choice of ["Download project", "Download .timber"]) {
     await openEditor(page, "s=4242&z=256&d=n&t=highlands");
     await watchFiles(page);
     await page.getByRole("button", { name: "Top-down", exact: true }).click();
+    // (Slow forces: a Fast force ends as soon as its land is final, sooner than a slow machine's Space can pause it)
     const slow = page.getByRole("button", { name: "Slow forces", exact: true });
-    if ((await slow.getAttribute("aria-pressed")) === "true") await slow.click();
+    if ((await slow.getAttribute("aria-pressed")) !== "true") await slow.click();
     await page.getByRole("button", { name: "Craterize (8)", exact: true }).click();
     await page.evaluate(() => {
       const r = window.dgm3d!.renderer;
