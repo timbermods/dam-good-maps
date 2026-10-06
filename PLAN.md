@@ -258,7 +258,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Range | Default | Maps to |
 |---|---|---|---|
 | Badwater | No badwater, Low, Normal, High | Normal (Highlands and Islands: Low) | Every map has at least one badwater source, a late-game resource like the mine site, unless the player picks **No badwater** (a peaceful map: none is placed, badtides still turn every source bad; the share link `bw=0` and the description record it, D200). Sources and strength are the official maps' for the size (`official-baselines.json`: 1 / 2 / 4 / 3.5 sources and 1.25 / 3.5 / 5.5 / 6.5 strength for small / medium / large / max, joined in ln(area)), moved within the official typical range by the seed, then × 0.5 / 1 / 1.5 (sources) and × 0.5 / 1 / 1.75 (strength) for Low / Normal / High; each source 1–3 strong, a BadwaterSource 3×3 in a side basin (§9.5). Where fewer hollows fit than the budget asks, the ones placed share its total, each up to 3. |
-| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). The start rule "No badwater within" (§5.6) is the same value: the panel sets both, and validation uses the larger. A target with an advisory warning, never a reason to reject (D85). |
+| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). The start rule "No badwater within" (§5.6) is the same value: the panel sets both, and validation uses the larger. For a generated map it is a rule: a start with badwater or contaminated soil nearer, on the water as the file holds it or as its badwater comes to rest (run on up to six days where water near the start carries some), is never kept; another start is found on the same land (Kyler, 2026-10-05, #265). On an edited or imported map, an advisory warning (D85). |
 | Thorn belts | Off, Some | Some (Highlands, River Valley) | 1–3 belts of 13–40 thorns, each across the way from the start to a relic or a geothermal field, 5–8 tiles in front of it, 9–17 tiles across and 2–3 deep, every thorn 22+ tiles from the start; a belt that would cut the colony's land in two is left out. |
 | Unstable cores | Off, On | Off | Advanced. 1–4 cores, 40+ tiles from the start, countdown in cycle 5–12 (10.5 days in, the official value), radius 2–3, never within radius + 2 of each other or of a dam site. |
 
@@ -662,7 +662,10 @@ where the land's own processes make them. The builder's limits still fix what a 
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
   water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
-  (D469; `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
+  (D469), but on about 85 maps in 100 of their themes no ditch joins Lake Basin's main lake (its largest planned lake)
+  or River Valley's and Delta's main river (`river/main` with its split arms, its lakes and the rivers joining it; on a
+  delta its trunk and own channel, not the fan's other arms), nor water that flows into them (Kyler, 2026-10-05, #265;
+  `POISONED_LAKE`, `POISONED_RIVER`) ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge
@@ -783,7 +786,7 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    water drained, and the water settles on from there, by the same test and limit; a map with none keeps its
    bytes. The Python oracle does the same (golden fixture `plateau_pit`). An imported map's own standing water that
    no source of its file feeds is a stored lake of the map (D457), kept like a Fill.
-3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7 significant digits, depths
+3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, the Single to 9 significant places, #310 F3; depths
    under 1e-6 dry), outflows 0, soil moisture and contamination at steady state, and the evaporation modifiers of the
    settled water.
 
@@ -909,7 +912,7 @@ when a map misses one (D85).
 | `start.wood` | Requirement 2 (D164, D227): the logs of the grown trees within 20 tiles' walk (slopes allowed), alive or dead, by species ≥ Minimum starting wood (250 / 200 / 0); saplings' logs reported apart. | rejects |
 | `start.wood_floor` | The starting-logs floor (D224, D227): the same logs within about 40 tiles' walk (the pin's `withinWalk`) ≥ the floor (178 for 1.1.2.4), at every difficulty. Never approximate: counted over the ground and its slopes, never the water. Both validators. | rejects (the editor: on the quiet dot, never blocking export) |
 | `start.food` | Requirement 3: living berry bushes within 20 tiles' walk (slopes allowed) ≥ Minimum starting bushes (40 / 30 / 20). | rejects |
-| `start.badwater` | No badwater water or contaminated soil within the badwater distance (30 / 15 / 8). | advisory |
+| `start.badwater` | No badwater water or contaminated soil within the badwater distance (30 / 15 / 8). | blocking when generating (Kyler, 2026-10-05); advisory otherwise |
 | `start.reach` | Dry tiles walkable from the start (same level, plus slope links; blocked by Thorns, Blockage, NaturalDam, relics, cores, geothermal and mine sites) ≥ the buildable-land target (750 / 1,300 / 2,500). | advisory |
 | `start.ruins_clear` | No ruin column within 20 / 15 / 12. | advisory |
 | `plants.survive` | Every living tree and bush stands on moisture > 0, no water and clean soil; every living succulent on moisture 0. | rejects |

@@ -102,7 +102,8 @@ parentPort.on("message", (job) => {
       drawn: r.info.genome ? r.info.genome.intentions : [],
       recipe: r.info.genome?.seaLayout ? "sea " + r.info.genome.seaLayout : null,
       hydro: r.info.hydro, story, outcomes: out, sig: signatureOf(W, H, b.heights, b.water, r.features),
-      name: r.name ?? null, description: r.description ?? null,
+      name: r.name ?? null, description: r.description ?? null, straight: r.info.straight ?? null,
+      badwater: r.features.filter((f) => f.kind === "setPiece" && f.params.kind === "badwaterBasin").map((f) => f.params.plan.outletTo),
       failures: r.failures.map((f) => f.failed.join("+")),
     });
   } catch (e) {
