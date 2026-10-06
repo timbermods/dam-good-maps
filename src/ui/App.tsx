@@ -42,6 +42,7 @@ import { tip } from "./Tooltip";
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
 let generator = gen.api;
+void generator.deferChecks();
 const yourMaps = openYourMaps();
 
 declare global {
@@ -661,6 +662,7 @@ export function App() {
       const old = gen;
       gen = createGeneratorWorker();
       generator = gen.api;
+      void generator.deferChecks();
       old.stop();
       back.current = null;
       backReady.current = null;
@@ -717,7 +719,8 @@ export function App() {
 
   useEffect(() => {
     // the 3D view's renderer warms while the first map loads (D367, part 1): the view takes it when it opens
-    void prepareRenderer();
+    // Let the worker load and accept its first RPC before GPU preparation holds the page.
+    void generator.sessionInfo().then(() => prepareRenderer()).catch(() => discardPreparedRenderer());
     void (async () => {
       const list = await yourMaps.list().catch(() => [] as YourMapEntry[]);
       setMaps(list);

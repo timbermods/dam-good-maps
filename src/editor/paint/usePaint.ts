@@ -3,6 +3,7 @@
 // says while it works.
 
 import { proxy } from "comlink";
+import { cacheAfterEditable } from "../../platform/isolation";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { FixOp } from "../../core/validate/report";
@@ -210,41 +211,53 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     setCheck((c) => (c && c.version === info.version ? c : null));
     setProgress(null);
+    if (!ed.ready) return;
     let live = true;
-    const t = setTimeout(() => {
-      void api
-        .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
-        .then((r) => {
-          if (!r || !mounted.current) return;
-          // (a force at work shows its own water: the map's comes after it)
-          if (ed.forcer.current?.running) {
-            ed.deferred.current.push(r.view);
-            return;
-          }
-          // the exact settle's water ends the journey in progress (eased into), or shows at once.
-          // The worker put it in place and sends it once, so it shows even when the page moved on
-          // while the check ran (the check started as an edit went in): only the report waits
-          // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
-          // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
-          journey.current?.check(r);
-          if (!live || r.check.version !== infoRef.current.version) return;
-          // Canonical water changes the saved project even without a new edit version.
-          // Tell Your maps so a save made during the preview is refreshed with its stored map.
-          infoRef.current = { ...infoRef.current, waterPending: r.info.waterPending };
-          setInfo(infoRef.current);
-          props.onChange(infoRef.current);
-          setCheck(r.check);
-          setProgress(null);
-        })
-        .catch(() => {
-          // the check is advisory here: export runs it again
-        });
-    }, 700);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    // Two frames give the fully drawn map and its installed handlers a chance to paint.
+    let first = 0, second = 0;
+    first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        void api.editorReady();
+        cacheAfterEditable();
+        t = setTimeout(() => {
+          void api
+            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
+            .then((r) => {
+              if (!r || !mounted.current) return;
+              // (a force at work shows its own water: the map's comes after it)
+              if (ed.forcer.current?.running) {
+                ed.deferred.current.push(r.view);
+                return;
+              }
+              // the exact settle's water ends the journey in progress (eased into), or shows at once.
+              // The worker put it in place and sends it once, so it shows even when the page moved on
+              // while the check ran (the check started as an edit went in): only the report waits
+              // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
+              // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
+              journey.current?.check(r);
+              if (!live || r.check.version !== infoRef.current.version) return;
+              // Canonical water changes the saved project even without a new edit version.
+              // Tell Your maps so a save made during the preview is refreshed with its stored map.
+              infoRef.current = { ...infoRef.current, waterPending: r.info.waterPending };
+              setInfo(infoRef.current);
+              props.onChange(infoRef.current);
+              setCheck(r.check);
+              setProgress(null);
+            })
+            .catch(() => {
+              // the check is advisory here: export runs it again
+            });
+        }, 700);
+      });
+    });
     return () => {
       live = false;
       clearTimeout(t);
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
     };
-  }, [info.version]);
+  }, [info.version, ed.ready]);
 
   // the water layer on show: fetched again after every change of the map or its water
   useEffect(() => {
@@ -295,6 +308,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           draftWater.current = null;
           // an edit's water plays at a pace the eye can follow, and the settled water ends it
           journey.current?.news(e);
+          if (e.kind === "settled" && e.version === infoRef.current.version) {
+            infoRef.current = { ...infoRef.current, waterPending: e.info.waterPending };
+            setInfo(infoRef.current);
+            props.onChange(infoRef.current);
+          }
           // (a held weather day: the journey isn't shown, so the settled water goes in place now and the day runs again
           // from it)
           if (e.kind === "settled" && weatherRef.current) player.current?.skip();

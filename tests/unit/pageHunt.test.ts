@@ -44,7 +44,7 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     runId: { current: 0 }, back: { current: null }, backReady: { current: null },
     cancelling: { current: false }, session: { kind: "import" }, entry: { current: { id: "old" } }, kept: { current: true },
     gen: old, generator: { generate: async () => { generated++; throw new Error("stale generation"); } },
-    createGeneratorWorker: () => ({ api: { openProject: async (b: Uint8Array) => { opened.push([...b]); return {}; } } }),
+    createGeneratorWorker: () => ({ api: { deferChecks: async () => {}, openProject: async (b: Uint8Array) => { opened.push([...b]); return {}; } } }),
     snapshot: () => recovery.promise, saver: { changed() {}, flush: async () => {} },
     stopBackground() {}, setBusy() {}, setError() {}, setProgress() {}, setSeedText() {},
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
