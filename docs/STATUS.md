@@ -59,11 +59,14 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    session adopts page.patch next.
    TS7 (#336, Kyler adopted): the preparation is merged (#337); the settings extremes fixed in #338 (drought reserve held
    for settings round 2, D466), merging on green; then #24 and #25 on a green nightly (D460).
-3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: **badwater joins the main water** (done, #330, D476,
-   generator 0.8.3), then Lake Basin round 3 (#234,
-   `feature/lake-basin-3` at 7ea81d05, built and measured, re-pin waits; its Lake Basin 3 Naturalize failure gets fixed, not
-   marked; and Kyler, 2026-10-05: seeds 12 and 15 at 128² have no lake on dev yet pass, against D464: fix why the generator
-   makes them and why the promise passes them, in this re-pin, both seeds on its sheets), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
+3. The generator queue, one re-pin at a time, each with its sheets for Kyler: done today Delta arms (#325, 0.8.2), badwater
+   joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4); in progress River Valley round 2 (#244,
+   `feature/river-valley-2`, 0.8.5); then Islands round 6 (#235) and Canyon and Highlands (#261). Also merged: #338 (every
+   settings extreme makes a map; Drought reserve held for settings round 2) and #340 (Quake's Slide on flat ground splits
+   along the fault). In progress: Naturalize raising a cliff's foot (`fix/naturalize-cliff-foot`, clears the three held
+   Terracing 100 failures; `needs-kyler` with a before/after). The page (#163) waits on its five failing tests (page
+   session), then a squash keeping only the last checkpoint's captures (the rest to a Release); #329 (the lake jump) goes
+   on /preview/ only after #163 is in dev.
 4. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
    the dam sketch after the Weather view.
 
