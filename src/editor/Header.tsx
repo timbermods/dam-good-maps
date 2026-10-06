@@ -258,8 +258,6 @@ export interface HeaderProps {
   onMaps(): void;
   placesOpen: boolean;
   onPlaces(): void;
-  /** Another like this (D278 (1c)): a sibling of a generated map. */
-  onAnother?(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
 }
@@ -299,8 +297,10 @@ export function Header(p: HeaderProps) {
         const centred = h.width - 2 * Math.max(sl, sr) - 24;
         const between = h.width - sl - sr - 24;
         const f = getComputedStyle(name);
+        // (measured at the title's own size: on two lines it is smaller, and must not then fit one line and flip back)
+        if (!title.classList.contains("two-lines")) title.dataset.size = f.fontSize;
         const pen = document.createElement("canvas").getContext("2d");
-        if (pen) pen.font = `${f.fontStyle} ${f.fontWeight} ${f.fontSize} ${f.fontFamily}`;
+        if (pen) pen.font = `${f.fontStyle} ${f.fontWeight} ${title.dataset.size ?? f.fontSize} ${f.fontFamily}`;
         const wide = pen ? Math.ceil(pen.measureText(name.textContent ?? "").width) + 1 : name.scrollWidth;
         const inGap = wide > centred;
         const room = Math.floor(inGap ? between : centred);
@@ -418,13 +418,6 @@ export function Header(p: HeaderProps) {
                   Clear everything
                 </button>
               </li>
-              {p.info.kind === "generated" && p.onAnother ? (
-                <li role="none">
-                  <button type="button" role="menuitem" onClick={pick(p.onAnother)} title="A new map like this one, on different land">
-                    Another like this
-                  </button>
-                </li>
-              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
                   About

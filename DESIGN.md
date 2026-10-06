@@ -564,8 +564,8 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything, Another like this
-  (generated maps only: File is its one way in, Kyler 2026-10-05) and About. There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
+- **File** holds exactly Open…, Download project, Download .timber, Clear everything and About (Another like this is in
+  the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
 - **Select always in hand:** held when a map opens, Esc and X return to it, a drag on the land marks an area, a plain
@@ -596,7 +596,7 @@ D380 work.
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
   (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
   Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
-  Another like this on a generated map, About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
+  About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
   docs/progress/page.md).
@@ -805,10 +805,12 @@ API, every pinned hash, and every role and accessible name the tests use.
   while its panel is open, no count (the panel's "To review" list stays); gone from File, whose tooltip is "Open and
   download maps, and more". Every control in the header's right group is one height, Save's, 40px on whole pixels,
   6px apart; Undo and Redo 40px squares with their symbols. Captures `docs/design/history-{closed,open,review}-*`.
-  Open at 1280 (Kyler to pick, `docs/design/history-options-1280x800.jpg`): the panel, a 290px column beside the map,
-  leaves the bar over the minimap and the shelf (A: open it in the left panel's place, over the map, one panel at a
-  time); and a name at Rename's limit takes three lines beside the button (a: Rename's cap at two lines here; b: a
-  two-line name in 15px type).
+  Its panel opens in the left panel's place (Kyler's A, `docs/design/history-options-1280x800.jpg`): the panels' box,
+  640px over the map at the left, as tall as its steps up to the panels' room, one of Map Generator, Real places, Your
+  maps and History at a time; nothing moves at any width. A name on two lines in the header takes 13px type (Kyler,
+  2026-10-06: 15px left a name at Rename's limit on three lines at 1280), so every name Rename allows fits two lines
+  beside History at 1280. The Look button is one width, its widest state's ("Look: Standard"), so the header's right
+  side never changes width with the look either; at 1280 the name has 141px.
 - **The shelf's tooltips** say what each item is for and nothing more: no key, no "R turns it" (R still turns a held
   item).
 - **The shelf's title:** "Items", bold, in the items' type, one row of their height (30px) and one gap above them, its
@@ -816,11 +818,11 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **Map Generator's custom size:** Custom's place is 100px whether chosen or not, room for "512" in each field (38px),
   the × centred 4px from each, the fields the size buttons' 20px; the four sizes share the rest, the line ending on
   Theme's edge. (Custom sizes stay 48 to 256 until D357.)
-- **Another like this in the panel:** three placements drawn for Kyler (`docs/design/another-like-this-options-1920x1080.jpg`),
-  each with File keeping it or not: A, a fourth row under Reset settings (the block 30px taller, the groups below
-  moving down 30px); B, beside Surprise me with the buttons' column 250px (no taller, but the fields 90px narrower:
-  Theme's "Any" and the name cut); C, in Reset settings' place, Reset settings at the panel's foot (no taller; Reset
-  settings further away). Kyler picks.
+- **Another like this is in the Map Generator** (Kyler's C, `docs/design/another-like-this-options-1920x1080.jpg`), in
+  Reset settings' place under Surprise me, and no longer in File: on a generated map only, greyed on an opened one so
+  the panel keeps its shape. Reset settings sits at the right of the "On this map" line, the buttons' 150px and their
+  right edge (Kyler's pick, 2026-10-06: a row of its own at the foot would make the panel 43px taller, scrolling at
+  1920×1080); the panel stays 692px.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).

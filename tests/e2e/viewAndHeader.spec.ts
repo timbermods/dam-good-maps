@@ -36,10 +36,13 @@ test("the header, the quiet dot, the first run's hints, the minimap and camera b
   await expect(edit.getByRole("button", { name: "Save to Timberborn" })).toHaveClass(/primary/);
   const menu = await openFileMenu(page);
   for (const item of ["Open…", "Download project", "Download .timber", "Clear everything", "About"]) await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
-  // (History is a button of its own, left of Undo: Kyler, 2026-10-06)
-  await expect(menu.getByRole("menuitem", { name: /^History/ })).toHaveCount(0);
+  // (History is a button of its own, left of Undo, and Another like this is in the Map Generator: Kyler, 2026-10-06)
+  await expect(menu.getByRole("menuitem", { name: /^History|^Another like this/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(menu).toHaveCount(0);
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
+  await expect(page.getByRole("form", { name: "Settings" }).getByRole("button", { name: "Another like this" })).toBeEnabled();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
 
   // the quiet dot: ready to play, its list under it, never a dialog
   const dot = page.getByRole("button", { name: /^Checks:/ });

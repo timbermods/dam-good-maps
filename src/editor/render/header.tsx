@@ -28,10 +28,13 @@ export function header(ed: Ed, props: EditorProps) {
       onSaveProject={() => void exportProject()}
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
-      onHistory={() => setShowHistory(!showHistory)}
+      // (one left panel at a time: History opening closes Map Generator, Real places or Your maps)
+      onHistory={() => {
+        if (!showHistory && (props.drawerOpen || props.mapsOpen || props.placesOpen)) props.onDrawer(false);
+        setShowHistory(!showHistory);
+      }}
       name={props.name}
       onRename={props.onRename}
-      onAnother={props.onAnother ? () => props.onAnother!(info) : undefined}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
       mapsOpen={props.mapsOpen}

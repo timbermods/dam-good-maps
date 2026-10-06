@@ -38,6 +38,8 @@ export function editorView(ed: Ed, props: EditorProps) {
         {drawerOpen ? <GeneratorPanel model={props.drawer} info={info} icon={(t) => icons[t] ?? null} trees={livingTrees(mirror.current.entities)} /> : null}
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
+        {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
+        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -101,7 +103,6 @@ export function editorView(ed: Ed, props: EditorProps) {
             </View3D>
           </div>
         </section>
-        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
       </div>
       <DropTarget onFile={props.onOpenFile} />
     </div>

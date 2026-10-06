@@ -150,8 +150,9 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
             Surprise me
           </button>
           <div>{f.size}</div>
-          <button type="button" class="ghost sheet-act" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
-            Reset settings
+          {/* Another like this in Reset settings' place (Kyler, 2026-10-06): generated maps only, greyed on an opened one */}
+          <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "A new map like this one, on different land" : "Only for a generated map")} onClick={m.onAnother}>
+            Another like this
           </button>
         </div>
         <div class="sheet-cols">
@@ -164,9 +165,13 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
             {group("Resources")}
             {group("Difficulty")}
             <section class="gen-otm" aria-labelledby="gen-otm-head">
-              <h3 id="gen-otm-head">
-                On this map
-              </h3>
+              {/* its heading's line holds Reset settings at the right (Kyler, 2026-10-06): the panel no taller */}
+              <div class="gen-otm-head">
+                <h3 id="gen-otm-head">On this map</h3>
+                <button type="button" class="ghost sheet-act" {...tip("Put every setting back to the theme's own")} onClick={m.onReset}>
+                  Reset settings
+                </button>
+              </div>
               <ul>
                 {counts.map(([t, name, n]) => {
                   const src = icon(t);

@@ -68,8 +68,25 @@
   text-overflow: clip;
 }
 
-.editor-title.two-lines h1 {
-  line-height: 22px;
+/* (on two lines, 13px type: Kyler, 2026-10-06; at 1280 every name Rename allows fits two lines in it) */
+.editor-title.two-lines h1,
+.editor-title.two-lines .title-button {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+/* the Look button one width, its widest state's ("Look: Standard"), whatever it says */
+.look-words {
+  display: inline-grid;
+  justify-items: center;
+}
+
+.look-words > * {
+  grid-area: 1 / 1;
+}
+
+.look-words > .look-sizer {
+  visibility: hidden;
 }
 
 .editor-title .muted {
@@ -317,9 +334,12 @@
   grid-row: 1;
 }
 
-.editor-main > .history {
-  grid-column: 3;
-  grid-row: 1;
+/* History in the left panel's place (Kyler, 2026-10-06): the panels' box, over the map, as tall as its steps up to the
+   panels' room, scrolling inside past it; nothing moves when it opens */
+.gen.history-panel {
+  width: 640px;
+  padding: 12px;
+  border: 1px solid var(--rule);
 }
 
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
@@ -1595,6 +1615,24 @@
   border-bottom: 0;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* On this map's heading with Reset settings at its right, the buttons' column's width (Kyler, 2026-10-06) */
+.gen-otm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gen-otm-head h3 {
+  margin: 0;
+}
+
+.gen-otm-head > .sheet-act {
+  width: 150px;
+  height: var(--line);
+  padding: 0 8px;
+  font-size: 13px;
 }
 
 .sheet-top > .sheet-act {

@@ -64,8 +64,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About; on a generated map also **Another like this**,
-  M9b's D278 (1c): a sibling, the same theme, settings and intentions on different land, with its own share link).
+  Download project, Download .timber, Clear everything, About). **Another like this** (M9b's D278 (1c): a sibling, the
+  same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the map's **Name** (the

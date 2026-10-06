@@ -62,8 +62,6 @@ export interface EditorProps {
   replacing?: boolean;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
-  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
-  onAnother?(info: SessionInfo): void;
   /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
   /** The page's own line (a save that failed, a version found), shown with the editor's notes above the bar. */
@@ -113,6 +111,10 @@ export default function Editor(props: EditorProps) {
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);
   useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
+  // one left panel at a time: Map Generator, Real places or Your maps opening closes History (Kyler, 2026-10-06)
+  useEffect(() => {
+    if (props.drawerOpen || props.mapsOpen || props.placesOpen) ed.setShowHistory(false);
+  }, [props.drawerOpen, props.mapsOpen, props.placesOpen]);
   // Your maps' picture: the land and water as the view shows them
   useEffect(() => {
     props.onPicture?.(() => {

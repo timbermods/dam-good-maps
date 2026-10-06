@@ -117,7 +117,7 @@ export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJ
   const current = info.history.filter((h) => h.applied).length - 1;
   const orphanNotes = info.orphans.filter((o) => !info.history.some((h) => h.seq === o.seq && h.orphaned));
   return (
-    <aside class="history" aria-label="History">
+    <aside class="history gen history-panel" aria-label="History">
       <header>
         <h2>History</h2>
         <button type="button" class="linkish" aria-label="Close the history" title="Close the history" onClick={onClose}>

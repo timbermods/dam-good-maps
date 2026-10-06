@@ -127,6 +127,10 @@ test("the header names the open map: a generated map, then an opened file, the r
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "My island.timber", mimeType: "application/zip", buffer: Buffer.from(g.bytes) });
   await expect(page.locator(".editor-title h1")).toHaveText("My island", { timeout: 60_000 });
   await expect(page.locator(".editor-title .muted")).toHaveText("96×96");
+  // (on an opened map Another like this is there, greyed: the panel keeps its shape)
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
+  await expect(page.getByRole("form", { name: "Settings" }).getByRole("button", { name: "Another like this" })).toBeDisabled();
+  await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe("");
   await edit();

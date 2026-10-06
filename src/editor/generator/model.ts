@@ -20,6 +20,10 @@ export interface GeneratorModel extends SettingsProps {
   changed: boolean;
   onGenerate(): void;
   onSurprise(): void;
+  /** Another like this (D278 (1c)): a sibling of the open map, the same theme, settings and intentions on new land. */
+  onAnother(): void;
+  /** The open map is a generated one (Another like this works on those only; greyed otherwise). */
+  canAnother: boolean;
   maps: YourMapRow[];
   /** The open map in Your maps. */
   current: string | null;

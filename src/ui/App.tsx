@@ -825,6 +825,8 @@ export function App() {
     changed,
     onGenerate: () => guard(() => generate(), "Generating a new map"),
     onSurprise: () => guard(() => generate({ theme: "any" }), "Generating a new map"),
+    onAnother: () => guard(() => void anotherLikeThis(), "Another like this"),
+    canAnother: session?.kind === "generated",
     // (the open map's tile says its name as soon as it is renamed)
     maps: maps.map((e) => rowOf(e.id === entry.current?.id && name ? { ...e, name } : e)),
     current: entry.current?.id ?? null,
@@ -973,7 +975,6 @@ export function App() {
         saveState={saveState}
         name={name}
         onRename={rename}
-        onAnother={() => guard(() => void anotherLikeThis(), "Another like this")}
         onPicture={(get) => (picture.current = get)}
         drawer={drawer}
         drawerOpen={panel === "generator"}
