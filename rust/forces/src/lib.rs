@@ -2438,8 +2438,10 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             keep[i] = 1;
         }
     }
+    // (an aquifer keeps its ground; water and badwater sources and seeps don't: they ride the crater's
+    // ground, and Sources set to Clear takes those on ground it changed, D474)
     for e in &before.entities {
-        if emitter(s(e, "template")) {
+        if emitter(s(e, "template")) && !ride_source(s(e, "template")) {
             for i in m.footprint(e, 0) {
                 keep[i] = 1;
             }
@@ -2565,6 +2567,16 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
         }
         let tile = n(&e, "y") as usize * m.w + n(&e, "x") as usize;
         if keep[tile] != 0 {
+            entities.push(e);
+            continue;
+        }
+        // (a source or seep rides its ground, D474)
+        if ride_source(s(&e, "template")) {
+            let z = n(&e, "z") + m.heights[tile] as f64 - before.heights[tile] as f64;
+            if n(&e, "z") != z {
+                e.raw_removed = true;
+            }
+            setn(&mut e, "z", z);
             entities.push(e);
             continue;
         }
