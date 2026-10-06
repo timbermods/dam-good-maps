@@ -79,7 +79,10 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 3. **Badwater joins the main water** (D476; `feature/badwater-joins`, generator 0.8.3, `needs-kyler` for its sheets):
    on most maps one badwater course is routed into the theme's main water, on about 15 in 100 (its own draw) the
    badwater drains where the land takes it; `POISONED_LAKE`, `POISONED_RIVER` and the poisoned-main-river follow-up are
-   replaced. The badwater sheet shades water by how contaminated it is. COUNTS
+   replaced. The badwater sheet shades water by how contaminated it is. Of seeds 1–20 at 128², badwater reaches the
+   main water (10 or more of its tiles 5% or more bad) on, dev → this step: River Valley 1 → 18, Delta 1 → 19, Lake
+   Basin 5 → 18, Islands 16 → 19, Highlands 18 → 20, Canyon 19 → 19, Any 20 → 20. 18 of the 140 starts moved for it
+   (8 off badwater at rest, 10 by other water), none of the land.
 4. **Lake Basin round 3** (#234, merged as an investigation, waiting its turn; drowned valley outlines): its patch is
    adopted next, one re-pin. Then River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets).
 5. **Islands round 6** (#235, `approved`): adopted in this queue's order, re-pinned. Round 2 is #210. Then Canyon and
