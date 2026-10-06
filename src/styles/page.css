@@ -1192,8 +1192,19 @@
 /* the messages (the editor's and the page's: a save that failed, a file saved) sit above the first steps' hints and
    the bar's settings, one gap apart, never over the bar or another control. A message and the hints are one width
    (Kyler, 2026-10-05), their left and right edges shared to the pixel at every size, hints shown or not: one fixed
-   width, the hints' own with all three lines, set on whole pixels in the dock's middle. A message's words are centred
+   width, the hints' own with all three lines, measured in the player's font (src/editor/TopBar.tsx), set on whole
+   pixels in the dock's middle. A message's words are centred
    and wrap; its × sits where the hints' × does, 10px in from the right edge. */
+/* (the unseen hints that measure it) */
+.tool-dock > .note-sizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .tool-dock {
   --note-w: 522px;
   --note-left: calc((100% - var(--note-w)) / 2);

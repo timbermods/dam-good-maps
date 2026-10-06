@@ -60,11 +60,13 @@ async function spots(page: Page): Promise<{ high: [number, number]; low: [number
   });
 }
 
-/** Every slider of the force's row at its end (Power 100, its largest size). */
+/** Every slider of the force's row at its end (Power 100, its largest size), but the Floor: a rule, not a size, which
+ *  at its top would leave a force nothing to cut. */
 async function largest(page: Page, name: string) {
   const row = page.getByRole("group", { name: `${name} options` });
   await row.getByRole("slider").evaluateAll((els) =>
     els.forEach((e) => {
+      if (e.closest(".set")?.querySelector(".set-label")?.textContent === "Floor") return;
       const i = e as HTMLInputElement;
       i.value = i.max;
       i.dispatchEvent(new Event("input", { bubbles: true }));

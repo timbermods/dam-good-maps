@@ -8,7 +8,8 @@
 // force is at work the other tools wait.
 
 import { createContext, type ComponentChildren } from "preact";
-import { useContext, useRef } from "preact/hooks";
+import { useContext, useLayoutEffect, useRef } from "preact/hooks";
+import { FirstRunSizer } from "./FirstRun";
 import { FLOOR_MIN } from "../core/forces/floor";
 import { CEILING } from "../core/format/world";
 import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice } from "./brushes";
@@ -383,8 +384,19 @@ export function TopBar(p: TopBarProps) {
       <span class="icon-word">{name}</span>
     </button>
   );
+  // the hints' and the messages' one width: the hints' own with all three lines, in whole pixels, once the fonts are in
+  const dock = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const d = dock.current;
+    const sizer = d?.querySelector<HTMLElement>(".note-sizer");
+    if (!d || !sizer) return;
+    const set = () => d.style.setProperty("--note-w", `${Math.ceil(sizer.getBoundingClientRect().width)}px`);
+    set();
+    void document.fonts?.ready.then(set);
+  }, []);
   return (
-    <div class="tool-dock">
+    <div class="tool-dock" ref={dock}>
+      <FirstRunSizer />
       {p.notes ? <div class="dock-notes">{p.notes}</div> : null}
       {p.hints ?? null}
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}

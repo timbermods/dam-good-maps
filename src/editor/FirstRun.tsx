@@ -30,6 +30,21 @@ export function saveFirstRun(done: Set<FirstStep>): void {
   }
 }
 
+/** The hints with all three lines, unseen: the width the hints and every message above the bar share (Kyler,
+ *  2026-10-05), measured in the player's own font, whatever lines are left or whether the hints show at all. */
+export function FirstRunSizer() {
+  return (
+    <div class="map-note note-sizer" aria-hidden="true">
+      <ul>
+        {LINES.map(([k, words]) => (
+          <li key={k}>{words}</li>
+        ))}
+      </ul>
+      <span class="linkish">×</span>
+    </div>
+  );
+}
+
 export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
   const left = LINES.filter(([k]) => !p.done.has(k));
   if (!left.length) return null;

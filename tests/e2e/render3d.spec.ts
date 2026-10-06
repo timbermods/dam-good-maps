@@ -32,8 +32,15 @@ test("the 3D preview builds a 256² map, reads tiles on hover, and remeshes only
   const drawn = await page.evaluate(() => window.dgm3d!.renderer.info());
   expect(drawn.triangles).toBeGreaterThan(10_000);
 
-  // hover: the readout names what is under the pointer
-  const c = await page.evaluate(() => window.dgm3d!.renderer.tileToClient(128, 128));
+  // hover: the readout names what is under the pointer (dry ground nearest the middle: 0.8.1's river runs through it)
+  const c = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    for (let d = 0; d < 64; d++)
+      for (let y = 128 - d; y <= 128 + d; y++)
+        for (let x = 128 - d; x <= 128 + d; x++) if (Math.max(Math.abs(x - 128), Math.abs(y - 128)) === d && m.surface.depth[y * m.W + x] === 0) return r.tileToClient(x, y);
+    return r.tileToClient(128, 128);
+  });
   await page.mouse.move(c.x, c.y);
   await expect(page.locator(".readout")).toContainText(/height \d+/i);
 
