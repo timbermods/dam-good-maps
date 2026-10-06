@@ -40,7 +40,7 @@ import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
-import { distanceFrom, N4 } from "../math/grid";
+import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { clamp } from "../math/clamp";
 import { REACH as STORY_REACH } from "../analysis/story";
@@ -339,6 +339,71 @@ interface Head {
   kind: "edge" | "spring";
   edge?: Edge;
   flow: number;
+}
+
+/** A Delta arm's course from the fan's apex to its mouth (#233, Delta arms round 2): the seeded apex
+ *  and mouth kept, the low ground choosing the way inside a broad curved corridor with its own
+ *  departure, phase and turning length, so neighbouring arms diverge, converge and braid rather than
+ *  follow apex-to-mouth rays. */
+function deltaCourse(from: Point, to: Point, E: Float64Array, W: number, H: number, gap: number, seed: number): Point[] {
+  const end: Point = [clamp(to[0], 0, W - 1), clamp(to[1], 0, H - 1)];
+  const start = Math.round(from[1]) * W + Math.round(from[0]);
+  const goal = Math.round(end[1]) * W + Math.round(end[0]);
+  const axis = to[0] < 0 || to[0] >= W ? 0 : 1, across = 1 - axis;
+  const sign = end[axis] < from[axis] ? -1 : 1;
+  const reach = Math.abs(end[axis] - from[axis]);
+  if (reach < 8) return [from, to];
+  const side = across === 0 ? W : H;
+  const amp = Math.min(clamp(gap * 0.8, 8, 16), reach * 0.24);
+  const phase = TWO_PI * ((hash32(seed, "fan-phase") >>> 0) / 4294967296);
+  const turns = 0.65 + 0.6 * ((hash32(seed, "fan-turns") >>> 0) / 4294967296);
+  const centreAt = (t: number) => clamp(from[across] + t * (end[across] - from[across])
+    + amp * sinDet(TWO_PI * t / 2) * sinDet(phase + TWO_PI * turns * t), 3, side - 4);
+  const room = clamp(gap * 0.15, 2.5, 4.5);
+  const costs = new Float64Array(W * H).fill(Infinity);
+  const parent = new Int32Array(W * H).fill(-1);
+  const heap = new MinHeap();costs[start] = 0;heap.push(0, start);
+  while (heap.size) {
+    const i = heap.pop(), cost = heap.lastKey;
+    if (cost !== costs[i]) continue;
+    if (i === goal) break;
+    const x = i % W, y = Math.floor(i / W);
+    const forward = axis === 0 ? x : y;
+    for (const [dx, dy] of DIRS8) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      const next = axis === 0 ? xx : yy;
+      const t = sign * (next - from[axis]) / reach;
+      if (t < -0.02 || t > 1.02 || sign * (next - forward) < 0) continue;
+      const u = clamp(t, 0, 1), off = (across === 0 ? xx : yy) - centreAt(u);
+      const r = 2 + room * 4 * u * (1 - u);
+      if (Math.abs(off) > r) continue;
+      // The guide bends at the river's scale, instead of following an apex-to-mouth ray.
+      // Within it, elevation and uphill work decide; independent noise breaks ties on flats.
+      const rise = Math.max(0, E[j] - E[i]);
+      const grade = E[start] + u * (E[goal] - E[start]);
+      const terrain = Math.max(0, E[j] - grade);
+      const step = (dx && dy ? portable.sqrt(2) : 1)
+        * (1 + 2.5 * rise + 0.5 * terrain + 0.6 * (1 + fbm(seed, xx, yy, 11, 2)) + 1.4 * off * off / (r * r));
+      const c = cost + step;
+      if (c < costs[j]) {costs[j] = c;parent[j] = i;heap.push(c, j);}
+    }
+  }
+  if (parent[goal] < 0) {
+    const guide: Point[] = [from];
+    for (let q = 1; q < 40; q++) {
+      const t = q / 40, p: Point = [0, 0];
+      p[axis] = from[axis] + sign * reach * t;p[across] = centreAt(t);
+      guide.push(p);
+    }
+    guide.push(to);
+    return smoothPath(guide, 2, 1);
+  }
+  const path: Point[] = [];
+  for (let i = goal; i >= 0; i = parent[i]) {path.push([i % W, Math.floor(i / W)]);if (i === start) break;}
+  path.reverse();path[0] = from;path.push(to);
+  return smoothPath(path, 2, 1);
 }
 
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
@@ -1403,6 +1468,31 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const m = exits.get(main.id)!;
     const e = main.params.exit.edge;
     const fan = g.theme === "delta";
+    // Delta's fan is fed from the actual lake floor, not an outlet profile that can stand
+    // above the lake's settled water. Do this before drawing any arm, so its bed shares it.
+    if (fan) {
+      const bed = m.prof.slice();
+      let run = Infinity;
+      for (let q = 0; q <= m.n; q++) {
+        const s = q * m.L / m.n, {p:[px,py]} = pointAt(m.path, s);
+        const r = m.half(s, m.L);
+        for (let y = Math.max(0, Math.floor(py - r)); y <= Math.min(H - 1, Math.ceil(py + r)); y++)
+          for (let x = Math.max(0, Math.floor(px - r)); x <= Math.min(W - 1, Math.ceil(px + r)); x++) {
+            const i = y * W + x;
+            if (water[i] === 2 && (x-px)*(x-px)+(y-py)*(y-py) < r*r) run = Math.min(run, h[i]);
+          }
+        run = Math.max(BED_FLOOR, Math.min(run, bed[q]));
+        bed[q] = run;
+      }
+      const st = stamp(m.path, W, H, Math.ceil(m.width / 2 + 3));
+      carve(st, bed, m.L, m.n, m.half, 0);
+      m.prof.set(bed);
+      const steps: BedStep[] = [];
+      for (let q = 1; q <= m.n; q++) if (bed[q-1] > bed[q])
+        steps.push({at:Math.round(q * m.L / m.n * 100)/100,drop:bed[q-1]-bed[q]});
+      main.params.bedProfile = {start:bed[0],steps};
+    }
+
     const s0 = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
     const { p: p0 } = pointAt(m.path, s0);
     const end = m.path[m.path.length - 2];
@@ -1424,7 +1514,9 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
     const iHi = fan ? Math.min(k, Math.floor((ma - 6) / gap)) : 0;
     const i0 = fan ? Math.round(clamp(k / 2 - lean / gap, Math.min(iLo, iHi), Math.max(iLo, iHi))) : -1;
     // (the arms' beds, for the main river's own course below the apex, D447)
-    const armBeds: { prof: Float64Array; L: number; n: number }[] = [];
+    const deltaGround = fan ? h.slice() : null;
+    const armBeds: { prof: Float64Array; L: number; n: number; course: Point[]; st: Stamp; half: (s:number,L:number)=>number }[] = [];
+    const braidBeds: typeof armBeds = [];
     for (let a = 0; a < (fan ? k + 1 : k); a++) {
       let along: number;
       if (fan) {
@@ -1448,20 +1540,56 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
         const y = (1 - t) * (1 - t) * p0[1] + 2 * t * (1 - t) * mid[1] + t * t * ey;
         pts.push([x, y]);
       }
-      const armPath = smoothPath(pts, 1, 1);
+      const armPath = fan && natural ? deltaCourse(p0, [ex, ey], E, W, H, gap, hash32(seed, "delta-course", attempt, a)) : smoothPath(pts, 1, 1);
       // (D416: a fan's arms narrower, each carrying its share of the river half a level deep, never
       // a pale sheet across the fan)
-      const aw = Math.max(MIN_WIDTH, Math.round((fan ? 0.4 : 0.6) * m.width * 10) / 10);
+      const aw = Math.max(MIN_WIDTH, Math.round((fan ? 0.55 : 0.6) * m.width * 10) / 10);
       // (D416: a fan's arms wander as rivers do, never a ruled curve)
-      const awv = natural ? { ...wanderOf(g, aw), amp: fan ? 2.5 : 1.5, minAmp: 1 } : null;
-      const armCourse = awv ? meanderPath(armPath, h, W, H, awv, hash32(seed, "arm", attempt, 1 + a)) : armPath;
+      const awv = natural ? (fan ? { ...wanderOf(g, aw), amp: clamp(gap * 0.18, 3.5, 7), minAmp: 2.8, cell: clamp(gap * 1.5, 16, 28), widthVar: 0.5 } : { ...wanderOf(g, aw), amp: 1.5, minAmp: 1 }) : null;
+      const armCourse = awv ? meanderPath(armPath, fan ? deltaGround! : h, W, H, awv, hash32(seed, "arm", attempt, 1 + a)) : armPath;
       const aws = hash32(seed, "arm-width", attempt, 1 + a);
-      const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);
+      const ahalf = (s: number, L: number) => fan ? Math.max(MIN_WIDTH / 2, halfWidthAt(aw, awv, aws, s, L)) : halfWidthAt(aw, awv, aws, s, L);
       const j0 = Math.round((s0 / m.L) * m.n);
-      const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, m.prof[j0]);
-      carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
+      const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, fan ? Math.max(BED_FLOOR, Math.min(m.prof[j0], deltaGround![Math.round(clamp(p0[1], 0, H - 1)) * W + Math.round(clamp(p0[0], 0, W - 1))]) - 1) : m.prof[j0]);
+      carve(pa.st, pa.prof, pa.L, pa.n, ahalf, fan ? 1.8 : 0);
       markArm(pa.st, pa.L, ahalf);
-      armBeds.push({ prof: pa.prof, L: pa.L, n: pa.n });
+      // A short second thread round an island on a flat reach; both threads keep one bed.
+      // This never adds a new mouth or changes the fan's slots, and never cuts a lower shortcut.
+      if (fan && natural && a % 2 === 0 && pa.L > 38) {
+        const bs = hash32(seed, "delta-braid", attempt, a);
+        const sA = pa.L * (0.38 + 0.12 * fbm(bs, 0, 0, 3, 1));
+        const sB = Math.min(pa.L - 9, sA + 20 + 6 * fbm(bs, 1, 0, 3, 1));
+        const ja = Math.round(sA / pa.L * pa.n), jb = Math.round(sB / pa.L * pa.n);
+        const bed = pa.prof[ja];
+        let flat = sB - sA >= 16, lo = Infinity, hi = -Infinity;
+        for (let q = ja; q <= jb; q++) {
+          if (pa.prof[q] !== bed) flat = false;
+          const [x, y] = pointAt(armCourse, q * pa.L / pa.n).p;
+          const z = deltaGround![Math.round(clamp(y, 0, H - 1)) * W + Math.round(clamp(x, 0, W - 1))];
+          lo = Math.min(lo, z);hi = Math.max(hi, z);
+        }
+        if (flat && hi - lo <= 1) {
+          const branch: Point[] = [], side = (bs & 1) ? 1 : -1;
+          let clear = true;
+          for (let q = 0; q <= 24; q++) {
+            const t = q / 24, {p, n} = pointAt(armCourse, sA + t * (sB - sA));
+            const off = side * clamp(gap * 0.28, 4.5, 7) * sinDet(TWO_PI * t / 2);
+            const x = p[0] + n[0] * off, y = p[1] + n[1] * off;
+            if (x < 3 || y < 3 || x > W - 4 || y > H - 4) {clear = false;break;}
+            const i = Math.round(y) * W + Math.round(x);
+            if (q > 5 && q < 19 && water[i]) clear = false;
+            branch.push([x, y]);
+          }
+          if (clear) {
+            const width = Math.max(1.8, aw * 0.75), half = () => width / 2;
+            const bp = profileOf(branch, width, 1, false, main.id, half, bed, bed);
+            bp.prof.fill(bed);carve(bp.st, bp.prof, bp.L, bp.n, half, 1.2);markArm(bp.st, bp.L, half);
+            braidBeds.push({prof:bp.prof,L:bp.L,n:bp.n,course:branch,st:bp.st,half});
+            arms.push({kind:"split", river:main.id, path:branch});
+          }
+        }
+      }
+      armBeds.push({ prof: pa.prof, L: pa.L, n: pa.n, course:armCourse, st:pa.st, half:ahalf });
       arms.push({ kind: "mouth", river: main.id, path: armCourse });
     }
     // (D447: on a Delta the main river's own course below the apex is one of the fan's channels: its
@@ -1479,15 +1607,25 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
       const bw = Math.max(MIN_WIDTH, Math.round(0.4 * m.width * 10) / 10);
       const bhalf = () => bw / 2;
       const pb = profileOf(below, bw, 1, false, main.id, bhalf, m.prof[j0]);
-      const bed = pb.prof.slice();
-      for (let q = 0; q <= pb.n; q++) {
-        const t = (q * pb.L) / pb.n;
-        for (const ab of armBeds) {
-          const v = ab.prof[Math.min(ab.n, Math.round((t / ab.L) * ab.n))];
-          if (v < bed[q]) bed[q] = v;
-        }
+      // Delta's threads share a falling bed at each downstream position across the fan.
+      // Arc length differs when a thread bends: comparing equal arc distances let the lower
+      // thread steal the whole flow. Recut all threads before the land is shown, never raise one.
+      const axis = alongEdge ? 0 : 1, sign = e === "west" || e === "south" ? -1 : 1;
+      const bins = Math.max(1, Math.ceil(reach));
+      const level = new Float64Array(bins + 1).fill(Infinity);
+      const plans = [...armBeds, {prof:pb.prof,L:pb.L,n:pb.n,course:below,st:pb.st,half:bhalf}];
+      const at = (p: Point) => Math.round(clamp(sign * (p[axis] - p0[axis]), 0, bins));
+      for (const plan of plans) for (let q = 0; q <= plan.n; q++) {
+        const row = at(pointAt(plan.course, q * plan.L / plan.n).p);
+        level[row] = Math.min(level[row], plan.prof[q]);
       }
-      carve(pb.st, bed, pb.L, pb.n, bhalf, 0);
+      let run = m.prof[j0];
+      for (let q = 0; q <= bins; q++) {run = Math.min(run, level[q]);level[q] = run;}
+      for (const plan of [...plans, ...braidBeds]) {
+        for (let q = 0; q <= plan.n; q++) plan.prof[q] = Math.min(plan.prof[q], level[at(pointAt(plan.course, q * plan.L / plan.n).p)]);
+        carve(plan.st, plan.prof, plan.L, plan.n, plan.half, 1.8);
+      }
+      const bed = pb.prof.slice();
       markArm(pb.st, pb.L, bhalf);
       for (let j = j0; j <= m.n; j++) {
         const q = Math.min(pb.n, Math.max(0, Math.round((((j * m.L) / m.n - s0) / pb.L) * pb.n)));
@@ -1509,7 +1647,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
   // feature's bed follows)
   if (natural && arms.length)
     for (const r of rivers) {
-      if (!("river" in r.params.exit)) continue;
+      if (!("river" in r.params.exit) && !(g.theme === "delta" && r.role === "river/main")) continue;
       const m = exits.get(r.id);
       if (!m) continue;
       const st = stamp(m.path, W, H, Math.ceil(m.width / 2 + 3));

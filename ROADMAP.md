@@ -78,8 +78,10 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
      20 River Valley maps: the generator lets badwater reach the main river but doesn't take it there. The fix is folded
      into the re-pins of Delta arms round 2 (#233) and River Valley round 2 (#244), not a re-pin of its own, and shown to
      Kyler in those rounds' sheets.
-2. **Delta arms round 2** (#233, merged as an investigation, waiting its turn; promise, water and straightness 30 of 30 at
-   128²): its patch is adopted with one new generator version and one re-pin, with the poisoned main river's fix.
+2. **Delta arms round 2** (#233; `feature/delta-arms-2`, generator 0.8.2, `needs-kyler` for its sheet): the patch is
+   adopted onto 0.8.1 (promise 25 → 30, water 27 → 30, straightness 30 → 30 of 30 at 128², the investigation's own
+   measures), with the poisoned main river's fix for Delta: on a map drawn poisoned the first basin's ditch must join
+   the main river (`BadwaterAsk.poison` in `land/hazards.ts`, shared so River Valley's round reuses it). One re-pin.
 3. **Lake Basin round 3** (#234, merged as an investigation, waiting its turn; drowned valley outlines): its patch is
    adopted third, one re-pin. River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets) follows, with the
    poisoned main river's fix.

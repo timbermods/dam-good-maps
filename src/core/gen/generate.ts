@@ -1713,6 +1713,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         ? "river"
         : null;
   const mainWater = (): Uint8Array | null => (cleanKind === "lake" ? mainLake(hy.water, W, H) : cleanKind === "river" ? mainRiver(hy, W, H) : null);
+  // (and on a Delta drawn poisoned its main river takes the badwater, rather than only being allowed
+  // it: the ditches went to the nearest water, which was seldom the main river, ROADMAP's generator
+  // queue. River Valley joins with its round, #244)
+  const poisonWater = (): Uint8Array | null => (shown.theme === "delta" && !cleanKind ? mainRiver(hy, W, H) : null);
   const badAsk = {
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
@@ -1736,7 +1740,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, keepClean: mainWater() }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, keepClean: mainWater(), poison: poisonWater() }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
