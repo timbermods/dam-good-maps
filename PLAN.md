@@ -654,7 +654,10 @@ where the land's own processes make them. The builder's limits still fix what a 
   joins the main river downstream of the start reach or runs to its own edge, keeping 12 tiles beyond the start's
   zone and 2 tiles clear of other rivers (D57, D62). **Counterplay:** a levee or dam across the outlet contains it
   (a source never stops, so only while the basin fills); thorn tiles along the rim block its soil contamination
-  (7-tile reach).
+  (7-tile reach). The ditch's course is found as a stream's (`land/hazards.ts`): the field's own drainage, else
+  eight-way steps along valleys and low ground, a terrace down at its lowest and round a cliff where it can, clear of
+  the edges of ground it keeps off; its corners rounded, then wound by the rivers' meander, never straight for more
+  than 9 tiles (#330).
 - **Where** (D200): every map has badwater (§5.4), as many basins as the official maps have sources for the size,
   each where the ground 4–6 tiles round its floor stands higher (a hollow or a side valley, as 84% of the official
   sources stand) before open ground, at the badwater distance + 14 tiles from the start. A map that asks for badwater

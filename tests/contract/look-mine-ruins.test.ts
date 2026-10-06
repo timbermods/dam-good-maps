@@ -40,7 +40,7 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "323581c269776b1e784b21b0c99b5a9b6d9d2f3f22a273d3e9267238a1f490f9";
+const LIVE_SHA = "5aa13f63c731fbf4eaeb7592288766b789d88ca777d4b429b590080e96396b50";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

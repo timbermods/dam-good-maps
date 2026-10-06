@@ -26,7 +26,7 @@ import { OFFICIAL_BADWATER as B } from "../gen/calibrated";
 import { channelTiles } from "../features/route";
 import type { Feature, SetPieceFeature } from "../features/schema";
 import { hash32 } from "../math/hash";
-import { distanceFrom, MinHeap, N4 } from "../math/grid";
+import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { fbm } from "../math/noise";
 import { stream, type Rng } from "../math/rng";
 import { walkRoute } from "./wind";
@@ -195,11 +195,27 @@ function traceRoute(dn: Drainage, E: Float64Array, rim: readonly number[], pit: 
 }
 
 /** The route of a ditch from the pit's edge down to a river or the map edge where the field's own
- *  way is barred: side-to-side steps, cheapest where the ground falls, never near the start; the
- *  field's rise in the cost keeps it to the land's own slope, and noise makes it wind where the
- *  field is flat. */
-function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number, from: number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, sill: number, wander: number, toEdge: boolean): { tiles: number[]; end: number } | null {
+ *  way is barred, as a stream finds its way down (Kyler, #330: the routed courses read as dug, a
+ *  dead-straight trench through terraces, a long straight run with a right-angle turn): steps to all
+ *  eight neighbours, so it runs at any angle, not along the grid; cheapest along the land's valleys
+ *  (where the field's drainage gathers, `area`) and its low ground (the least height above the
+ *  lowest ground two tiles round); down a terrace a level at a time, a drop of two levels or more in
+ *  one step dear, so it goes round a cliff where it can rather than cutting a slot through it; uphill
+ *  dear (the ditch must cut through it), never near the start; the field's rise keeps it to the
+ *  land's own slope, and noise makes it wind where the field is flat. */
+function ditchRoute(h: Uint8Array, E: Float64Array | null, area: Float64Array | null, W: number, H: number, from: number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, sill: number, wander: number, toEdge: boolean): { tiles: number[]; end: number } | null {
   const N = W * H;
+  // (the lowest ground two tiles round each tile: a tile standing above it is a valley's side)
+  const low = new Uint8Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let m = 255;
+      for (let yy = Math.max(0, y - 2); yy <= Math.min(H - 1, y + 2); yy++) for (let xx = Math.max(0, x - 2); xx <= Math.min(W - 1, x + 2); xx++) m = Math.min(m, h[yy * W + xx]);
+      low[y * W + x] = m;
+    }
+  // (and the ground it keeps off, kept at a distance: those zones are squares and rings, and a
+  // route hugging their edges ran ruler-straight with a right-angle turn, #330)
+  const near = distanceFrom(avoid, W, H);
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const heap = new MinHeap();
@@ -207,6 +223,7 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
     cost[i] = 0;
     heap.push(0, i);
   }
+  const barred = (n: number) => pit[n] === 1 || avoid[n] === 1;
   while (heap.size) {
     const c = heap.pop();
     const k = heap.lastKey;
@@ -219,20 +236,31 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
       for (let i = c; i >= 0; i = prev[i]) tiles.push(i);
       return { tiles: tiles.reverse(), end: c };
     }
-    for (const [dx, dy] of N4) {
+    for (const [dx, dy] of N8) {
       const xx = x + dx;
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const n = yy * W + xx;
-      if (pit[n] || avoid[n]) continue;
+      if (barred(n)) continue;
+      // (a diagonal step is walked side to side through one of the two tiles beside it: both open)
+      const diag = dx !== 0 && dy !== 0;
+      if (diag && (barred(y * W + xx) || barred(yy * W + x))) continue;
       // (the border is where the water leaves: only a route that may end there steps onto it)
       if (!toEdge && (xx === 0 || yy === 0 || xx === W - 1 || yy === H - 1)) continue;
-      // uphill is dear (the ditch must cut through it), downhill cheap
+      const len = diag ? Math.SQRT2 : 1;
+      // uphill is dear (the ditch must cut through it), a terrace down a level at a time cheap, a
+      // cliff dear: a way round it is taken where there is one
       const rise = Math.max(0, h[n] - Math.min(h[c], sill));
-      // noise makes the ditch wind as a gully does, not run along the grid; climbing the field is
-      // dear, so it keeps to the land's own slope
+      const drop = Math.max(0, h[c] - h[n]);
+      const cliff = drop >= 2 ? 4 * (drop - 1) * (drop - 1) : 0;
+      // along the valleys and the low ground, as water finds its way
+      const side = 1.5 * (h[n] - low[n]);
+      const valley = area ? 2.5 / (1 + portable.sqrt(area[n]) / 2) : 0;
+      // noise makes the ditch wind as a gully does; climbing the field is dear, so it keeps to the
+      // land's own slope
       const climb = E ? 6 * Math.max(0, E[n] - E[c]) : 0;
-      const nk = k + 1 + 3 * rise + climb + 1.6 * (1 + fbm(wander, xx, yy, 5, 2)) + 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2));
+      const hug = near[n] < 4 ? 1.5 * (4 - near[n]) : 0;
+      const nk = k + len * (1 + side + valley + hug + 1.6 * (1 + fbm(wander, xx, yy, 5, 2)) + 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2))) + 3 * rise + cliff + climb;
       if (nk < cost[n]) {
         cost[n] = nk;
         prev[n] = c;
@@ -244,8 +272,11 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, W: number, H: number,
 }
 
 /** The longest straight stretch a ditch may run, in tiles (D209: a one-tile ditch's banks are a
- *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44). */
-const DITCH_STRAIGHT = 24;
+ *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44, for
+ *  rivers). 9 since #330: with most maps' badwater routed into the main water, a one-tile course 12 or
+ *  more tiles straight read as dug, not a stream; a draw that can't keep to it is drawn again, else
+ *  the pit goes elsewhere (about 7 in 100 fewer pits fit, their badwater shared by the rest, D200). */
+const DITCH_STRAIGHT = 9;
 
 /** The most tiles in a row of `tiles` whose middles all lie within 0.75 of one straight line (the
  *  line through the stretch's two ends): how far a ditch runs ruler-straight. */
@@ -285,13 +316,16 @@ function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number
   const pts: Point[] = tiles.map((i) => [i % W, (i - (i % W)) / W]);
   const tries: Point[][] = [];
   if (n >= 8) {
-    const path = smoothPath(pts, 3, 1);
+    // (its corners rounded first: the route thinned to a point every few tiles, then cut as a
+    // river's course is, so a turn bends over several tiles, never at a right angle, #330)
+    const sparse = pts.filter((_, k) => k % 4 === 0 || k === n - 1);
+    const path = smoothPath(sparse, 3, 1);
     const amp = Math.min(3.2, n / 7);
     for (const f of [1, 1, 1, 1, 0.6, 0.6]) {
       const a = f * amp;
       tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
     }
-    tries.push(path);
+    tries.push(path, smoothPath(pts, 3, 1));
   }
   tries.push(pts);
   for (const t of tries) {
@@ -550,8 +584,8 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // to water that keeps off it; to the edge only where no water can be reached (Kyler, 2026-10-03:
       // badwater draining off the map on its own is rare)
       let base = E && dnE ? traceRoute(dnE, E, edge, pit, goal, keepOff, (i) => goal[i] === 1, limit) : null;
-      if (!base) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
-      if (!base && !only) base = ditchRoute(hh, E, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
+      if (!base) base = ditchRoute(hh, E, dnE?.area ?? null, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), false)?.tiles ?? null;
+      if (!base && !only) base = ditchRoute(hh, E, dnE?.area ?? null, W, H, edge, pit, goal, keepOff, floor + 1, hash32(seed, "ditch", attempt, c), true)?.tiles ?? null;
       if (!base || base.length < 3 || base.length > limit) continue;
       // bent as a river's course is (D209: a ditch that cannot be bent, running straight across a
       // flat or in a regular wave, is no gully: the pit goes elsewhere)

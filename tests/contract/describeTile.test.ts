@@ -113,8 +113,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
 
   it("the description follows the water: re-asking after the water under a tile changes gives the new depth, with nothing else to refresh", async () => {
     // (seed 1 on M9b's maps, D148: seed 3's River Valley has no dry, flat, empty 7×7 at level 5 or
-    // above, 6 tiles clear of the water, that the test edits on)
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
+    // above, 6 tiles clear of the water, that the test edits on; seed 2 since 0.8.3's badwater courses
+    // follow the land, D476, D148: seed 1 has none)
+    await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const b0 = s.built;
