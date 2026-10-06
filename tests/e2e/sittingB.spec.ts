@@ -140,8 +140,8 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
 
 /** A map with flat, dry, empty ground for B7's and B11's objects (seed 8 for #265's maps, D148: seed 9's
  *  land has none since the start's badwater distance became a rule and River Valley's main river stays
- *  clean). */
-const ROOMY = "s=8&z=96&d=n&t=riverValley";
+ *  clean; seed 7 for 0.8.3's maps, D476, D148: seed 8's has none, and seed 6's B11 hover lands on another thing, once the badwater courses follow the land). */
+const ROOMY = "s=7&z=96&d=n&t=riverValley";
 
 test("B7: X puts down what is held and Select stays in hand; a press picks an object and drags it", async ({ page }) => {
   test.setTimeout(240_000);

@@ -413,7 +413,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   **Power**; **Try another** (another tilt and crack). **V** flips the side that moves, even while painting; its
   scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve and shows its whole
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
-  along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there, and a river that crossed the fault is
+  along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
+  ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
   joined again along it. A crack runs along the fault and dust rises at its head. Objects ride with the land (a
   rigid one on flat ground of its own), trees on the fault go (D321 item 7), the start is carried to level ground
   when its own breaks (D257); it never adds water.

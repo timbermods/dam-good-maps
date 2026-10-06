@@ -29,8 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, generator 0.8.2) is merged; next **badwater joins the main water** (D476, `feature/badwater-joins`,
-  generator 0.8.3), Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
+  (#325, 0.8.2) and badwater joins the main water (#330, D476, 0.8.3) are merged; next Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
   Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
   #225) and green CI.
@@ -74,9 +73,14 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 1. **The badwater line** (done, #265, generator 0.8.1; D469): badwater joins rivers and lakes, the start keeps clean, pumpable
    water (D85) and no badwater within 15 of it. Its Naturalize shortfalls are fixed (#324).
 2. **Delta arms round 2** (done, #325, generator 0.8.2): #233's arms, adopted on dev.
-3. **Badwater joins the main water** (D476, `feature/badwater-joins`, generator 0.8.3): on most maps a badwater course is routed
-   into the theme's main water; about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
-   poisoned-main-river follow-up. Its sheets shade water by how bad it is.
+3. **Badwater joins the main water** (done, #330, D476, generator 0.8.3): on most
+   maps a badwater course is routed into the theme's main water (Lake Basin's main lake; elsewhere `river/main`, Delta's
+   trunk, Islands' sea); about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
+   poisoned-main-river follow-up. Its sheets shade water by how bad it is. Every ditch follows the land as a stream does
+   (eight-way steps along valleys and low ground, round cliffs, corners rounded, no straight run over 9 tiles; Kyler's
+   verdict on #330). Seeds 1–20 at 128², badwater reaching the main water, dev → 0.8.3: River Valley 1 → 17, Delta
+   1 → 18, Lake Basin 5 → 18, Islands 16 → 19, Highlands 18 → 20, Canyon 19 → 19, Any 20 → 19; 27 of 140 starts moved
+   for it, never the land.
 4. **Lake Basin round 3** (#234, `feature/lake-basin-3`, built and measured): drowned valley outlines; it also fixes seeds 12
    and 15, which have no lake on dev yet pass the promise (D464).
 5. **River Valley round 2** (#244), **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands**

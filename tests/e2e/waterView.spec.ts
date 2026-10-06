@@ -40,13 +40,15 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // the water, where three rivers join on most maps)
   // (seed 8 at 20% of its river on M9b's maps, D148: the water joins up, so past the
   // first third of seed 8 three source groups feed a spot; at 0.1 to 0.3 of its path, one does)
+  // (at 5% of its river on 0.8.3's maps, D476, D148: a spring river now joins seed 8's above 10% of its
+  // path, so from there two source groups feed the spot; above it one does)
   await openEditor(page, "s=8&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const path = (i.features.find((f) => f.kind === "river")!.params as { path: [number, number][] }).path;
-  const mid = path[Math.floor(path.length * 0.2)];
+  const mid = path[Math.floor(path.length * 0.05)];
   const m: [number, number] = [Math.round(mid[0]), Math.round(mid[1])];
   const mp = await client(page, ...m);
 

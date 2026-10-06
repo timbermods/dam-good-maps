@@ -192,16 +192,9 @@ export function describe(o: Outcome): string {
 /** What the sweep found doing nothing visible, kept for Kyler (D356: a force that works only in narrow
  *  situations becomes an option or is dropped; he decides). Each is allowed here until it is decided,
  *  and the check fails on anything else. Emptied by D360 (1) (Carve clicked at the map's edge carves
- *  inward, and a Quake click makes a short fault); a `theme` limits an entry to that theme's maps. */
-export const KNOWN: readonly { use: Use; ground: Ground; power: number; theme?: ThemeId; why: string }[] = [
-  // (M9b's maps, 2026-10-02: Delta's alluvial plain and an Islands sea at the edge give a slide no slope
-  // within its reach, so it moves nothing; for Kyler, D356)
-  ...([["quake slide", "random", 10], ["quake slide click", "random", 10], ["quake slide", "flat", 10], ["quake slide click", "flat", 50], ["quake slide click", "flat", 90]] as const).map(([use, ground, power]) => ({ use, ground, power, theme: "delta" as ThemeId, why: "Delta 128² seed 5's plain: no slope for the slide" })),
-  // (0.8.1's maps: Islands seed 5's edge click at (0, 27) is flat ground at level 10 all round, so a weak
-  // slide click moves 8 tiles, one short of visible; for Kyler, D356)
-  { use: "quake slide click", ground: "edge", power: 10, theme: "islands", why: "Islands 128² seed 5: flat ground at the map's edge, no slope for a weak slide click" },
-  { use: "quake slide", ground: "edge", power: 90, theme: "islands", why: "Islands 128² seed 5: the sea at the map's edge, no slope for the slide" },
-];
+ *  inward, and a Quake click makes a short fault) and again when a Slide on level ground came to split
+ *  the ground along its fault (rust/forces, D356); a `theme` limits an entry to that theme's maps. */
+export const KNOWN: readonly { use: Use; ground: Ground; power: number; theme?: ThemeId; why: string }[] = [];
 
 /** The uses that did nothing visible and are not among the known ones. */
 export const unexpected = (o: readonly Outcome[]) => invisible(o).filter((r) => !KNOWN.some((k) => k.use === r.use && k.ground === r.place.ground && k.power === r.power && (!k.theme || k.theme === r.theme)));

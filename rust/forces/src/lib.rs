@@ -9729,7 +9729,18 @@ fn quake(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8])
                 }
             }
         }
-    } else if m.heights == before.heights {
+    }
+    // A force always has a visible effect (D356): a Lift that moved nothing, or a Slide that moved
+    // too little to see (fewer than 9 tiles: level ground slid along level ground, as on a plateau or
+    // a plain), splits the ground along the fault, its moving side a level up and the other a level
+    // down, on what the quake left.
+    let unseen = if slide {
+        (0..nn).filter(|&i| m.heights[i] != before.heights[i]).count() < 9
+    } else {
+        m.heights == before.heights
+    };
+    if unseen {
+        let base = m.heights.clone();
         let cap = min(22.0, m.ceiling);
         for p in &fault.points {
             for yy in -2..=2 {
@@ -9738,7 +9749,7 @@ fn quake(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8])
                     let y = clamp(round(p.y) + yy as f64, 0.0, m.h as f64 - 1.0);
                     let i = y as usize * m.w + x as usize;
                     let f = fault.at(x, y);
-                    let h = before.heights[i] as f64;
+                    let h = base[i] as f64;
                     m.heights[i] = (if h == 0.0 {
                         1.0
                     } else if h == cap {
