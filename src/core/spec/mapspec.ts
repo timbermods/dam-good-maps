@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
 // URL codec produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.8.2";
+export const GENERATOR_VERSION = "0.8.3";
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
  *  theme only leans the generator toward that kind of land. */

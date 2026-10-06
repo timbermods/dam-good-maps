@@ -33,6 +33,9 @@ function spot(s: MapSession): [number, number] | null {
       if (Math.hypot(x - st.x, y - st.y) < 36) continue;
       let dry = true;
       for (let yy = y - 8; yy <= y + 8 && dry; yy++) for (let xx = x - 8; xx <= x + 14 && dry; xx++) if (b.water[yy * W + xx] > 0 || b.channel[yy * W + xx] || b.heights[yy * W + xx] > 11) dry = false;
+      // (and level ground round where the badwater source goes, whose 3 × 3 must stand level: on
+      // 0.8.3's maps, D476, the first dry spot found had a step under it)
+      for (let yy = y - 3; yy <= y + 3 && dry; yy++) for (let xx = x + 4; xx <= x + 10 && dry; xx++) if (b.heights[yy * W + xx] !== b.heights[y * W + x + 7]) dry = false;
       if (dry && !b.entities.some((e) => Math.abs(e.x - x - 3) <= 9 && Math.abs(e.y - y) <= 9 && !/^(Pine|Birch|Oak|BlueberryBush)$/.test(e.template))) return [x, y];
     }
   return null;
