@@ -37,12 +37,11 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #265 | Badwater line, wave check, wider names (generator 0.8.1) | milestone (taken over 2026-10-05) | Rework landed (a57e61d7, green full run): Delta's and River Valley's main river clean on about 85 in 100, RV 12's leak and RV 5/11's replan fixed, lakeBasinSibling 12/12, #310's F3 folded in, on the Rust checks. `needs-kyler` for the three sheets; merge dev in again before merging |
 | #261 | Canyon and Highlands height (generator 0.9.0) | Canyon session | `approved`; adopted in the generator queue's order, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; adopted in the generator queue's order, re-pinned |
 | #163 | The page is the editor | page | `needs-kyler` and `approved`; CI failing; merges once green, reviewed |
 | #275 | Forces end the moment their land is final | renderer (forces play) | `approved`; conflicts and two `forcesSitting` failures; forces play takes it after the Craterize fix |
-| #225 | A source's highlight reads under its own water | **unowned** | Fails the palette test (a hard-coded colour); suggest the forces-play renderer session, or close it if #311 supersedes |
+| #225 | A source's highlight reads under its own water | renderer (forces play; Kyler, 2026-10-05) | Fails the palette test (a hard-coded colour); after #275, or closed if #311 covers it |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view; reconcile its rust/water patch with multi-core and water speed; two doubts listed in ROADMAP |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -51,19 +50,21 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 ## Left for the next milestone session, in order
 
 1. Done on 2026-10-05: #313's fieldData width fix and #315's LS1 (#319), #304 (the forces run rust/water's kernel) and the Rust checks (#321, tag `ts-checks-final`),
-   each merged after a green full run, no pin moved. Still to land with other work: #310's F3, folded into #265's generator
-   re-pin only; #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
+   each merged after a green full run, no pin moved; #310's F3 landed in #265's re-pin. Still to land: #310's F1 and #312's page.patch are the page session's; #312's renderer.patch and worker.patch the renderer
    session's, now that #311 is merged (page part before worker part).
-2. The generator queue, one re-pin at a time, once Kyler approves #265's reworked sheets: the badwater line (#265), then Delta arms round 2
-   (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
-3. Settle with Kyler who owns #225 (#320; #275 is forces play's).
+2. #265 is merged (generator 0.8.1, Kyler approved its sheets). Before the queue's next step: the two Naturalize failures
+   #265's maps exposed (settling on River Valley seed 3 at Size 12, terraces on River Valley seed 6), each cause fixed in its
+   own PR (in progress); a fix that changes what a player sees goes to Kyler first.
+3. Then the generator queue, one re-pin at a time, each with its sheets for Kyler: Delta arms round 2 (#233), Lake Basin
+   round 3 (#234), River Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261). #233 and #244 fold in
+   the poisoned main river's fix (ROADMAP, the generator queue).
 4. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
    the dam sketch after the Weather view.
 
 ## Waiting for Kyler
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
-[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today: #265,
+[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
 #163). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
