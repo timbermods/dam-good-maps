@@ -199,7 +199,9 @@ test("a click picks no generated feature, and never water (D184, D196)", async (
   expect((await info(page)).edits).toBe(1);
   expect((await info(page)).history.at(-1)!.label).toBe("Delete a level of ground");
   // hover reads the tile in plain words (a tile of the start's own dry pad: (40, 40) is water on
-  // D333's map, D148)
+  // D333's map, D148; the view brought back to the pad first: on seed 84 the river's middle leaves it
+  // under the page's panels)
+  await centreOn(page, start.position[0] + 2, start.position[1]);
   const q = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [start.position[0] + 2, start.position[1]] as [number, number]);
   await page.mouse.move(q.x, q.y);
   await expect(page.locator(".readout")).toContainText(/height \d+/i);

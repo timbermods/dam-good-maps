@@ -364,12 +364,14 @@ test("D360 a: the plain pointer highlights, picks and drags a tree", async ({ pa
   });
   expect(tree).not.toBeNull();
   const at = await client(page, tree!.x, tree!.y);
-  const lit = () => page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
+  // the tree's own tile lights (not a count of lit tiles: among dense trees the pointer's resting spot
+  // lights another tree's tile, sooner or later, and one lit tile is not more than one)
+  const lit = () => page.evaluate(([x, y]) => window.dgm3d!.renderer.overlayData()![4 * (y * window.dgm3d!.renderer.mapState()!.W + x) + 3] > 0, [tree!.x, tree!.y] as [number, number]);
   await page.mouse.move(at.x + 20, at.y + 20);
-  const before = await lit();
+  expect(await lit()).toBe(false);
   await page.mouse.move(at.x + 1, at.y);
   await page.mouse.move(at.x, at.y);
-  await expect.poll(lit).toBeGreaterThan(before);
+  await expect.poll(lit).toBe(true);
   await page.mouse.click(at.x, at.y);
   await expect(page.getByRole("group", { name: `${tree!.name}, selected` })).toBeVisible();
   const to = await client(page, tree!.x + 3, tree!.y);
