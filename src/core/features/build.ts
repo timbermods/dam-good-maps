@@ -80,10 +80,14 @@ export interface PlacedSource {
  *  features: its surface, its caves and overhangs, and its objects. */
 export interface BaseLayer {
   /** Its terrain as runs per tile (D119). The tiles that are not a plain run from z = 0 are kept
-   *  exactly, left alone by every tool. */
-  terrain: ColumnTerrain;
+   *  exactly, left alone by every tool. Absent: a heightfield, every tile plain. */
+  terrain?: ColumnTerrain;
   /** Its surface, derived from the terrain (`terrain.heights()`). */
   heights: Uint8Array;
+  /** The older form of the tiles that are not plain. The build reads `terrain`, never this: it stays
+   *  only while tests that pass an empty one are another branch's to change, and one with tiles in
+   *  it and no `terrain` is refused. */
+  columns?: ReadonlyMap<number, Uint8Array>;
   entities: readonly EntitySpec[];
   /** Features the base already contains (a stored generation): not rasterized again. */
   frozen?: ReadonlySet<string>;
@@ -623,7 +627,9 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     for (const [k, tiles] of watch) if (!slopeGone![k] && broken(tiles, heights)) slopeGone![k] = 1;
   };
   checkSlopes();
-  const caves = base && !base.terrain.allPlain() ? (i: number) => !base.terrain.isPlain(i) : undefined;
+  if (base && !base.terrain && base.columns?.size) throw new Error("the base layer has caves or overhangs but no terrain: pass its terrain as runs");
+  const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
+  const caves = layered ? (i: number) => !layered.isPlain(i) : undefined;
   //    (a Keep stroke keeps its sources' ground as step 7 shows it, reading the tiles as it will)
   const shownLock = input.locked?.mask;
   const shown = {
@@ -1335,7 +1341,7 @@ function markDifference(a: readonly number[], b: readonly number[], mask: Uint8A
 function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: number): EntitySpec {
   if (!e.raw) return e;
   const i = e.y * W + e.x;
-  if (i < 0 || i >= heights.length || !base.terrain.isPlain(i)) return e;
+  if (i < 0 || i >= heights.length || (base.terrain && !base.terrain.isPlain(i))) return e;
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;

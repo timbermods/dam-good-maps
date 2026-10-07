@@ -104,6 +104,8 @@ changed. The milestone session asks Kyler (D117).
   and a tile that is not plain is kept exactly: moving them waits for step 3 (D280). `BuildResult` has no terrain
   field yet (stage 5 adds it with the water model that needs it). `BaseTerrain.columns` and `session.columns` stay as
   the derived voxel form the 3D view's mesher takes (the renderer session's contract until step 2).
+  `BaseLayer.columns` stays declared, unread, because `tests/contract/editsPlaceNothing.test.ts` (the generator
+  queue's file this week) passes an empty one: remove it and the four test literals when that file is free.
   `KeptContent.heights` is old projects' only. `src/core/gen/pack.ts` still writes `voxelsFromHeights` (same bytes;
   not this run's file).
 - **One behaviour to know:** a stored run that names a plain tile, or a height that disagrees with its tile's runs,
