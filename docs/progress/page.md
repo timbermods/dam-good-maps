@@ -3,15 +3,22 @@
 "The page is the editor" with the design pass (D330, D384, D388), on `feature/page`. Design decisions are in
 [DESIGN.md](../../DESIGN.md); this file is the work. The milestone session folds both into PLAN when the page merges.
 
-## Now (2026-10-05, the page session on Kyler's PC, worktree `C:\Users\Kyler\code\DamGoodMaps-page`)
+## Now (2026-10-07: the page is on dev, and the page session is stopped)
 
-Done and on /preview/: every tool's settings back on two rows (120px; Try another one row at cells 12–13, Sources at
-10–11); the open legend clear of the corner's second row; CI's test updates (Select at rest, only edited maps kept,
-seven forces, the Real places panel) and a reopened map kept at its opening version; #310 F1 (saving waits for a force
-at work); the saving review's page half (#317) with the conflict line in the store's words, messages above the bar;
-Kyler's three answers (no keys for Rift and Deposit, Rename stops at two lines, no undo after Generate). Next: #312's
-page.patch once #311 merges into dev. The local dev server for this worktree runs on port 5180 (the app's preview tool
-serves the main clone). Below: the previous session's handoff, its queue now done but for #312.
+"The page is the editor" merged into dev as #347 (the squash of #163 from 5faf94d8, D478); #163 is closed. `feature/page`
+was restarted from dev and holds nothing of its own. The queue below is done: the saving review's page half, #310 F1 and
+#312's page part all went in with #347. Kyler retook nothing: the `title-*` captures stay in the Release.
+
+**Nothing is queued for the page.** The next page work is the Block tool's interface, when step 3 of terrain above
+terrain (ROADMAP.md) needs it; 3D's Foundations is the milestone session's. Start no page work without Kyler's yes.
+
+To resume: read CLAUDE.md, AGENTS.md, DESIGN.md, EDITOR_PLAN.md and the "To page" notes on #236; reset `feature/page` to
+`origin/dev` if it has fallen behind, then `npm ci`. Worktree `C:\Users\Kyler\code\DamGoodMaps-page`; the dev server
+is `node node_modules/vite/bin/vite.js --port 5180`; local e2e is `DGM_E2E_PORT=4180 npx playwright test <spec>
+--workers=2` (forces play shares the PC and comes first). /preview/ always holds the page editor (D477); ask on #236
+before publishing a page branch there. For everything Kyler sees: captures in light and dark at 1920×1080, 2560×1440
+and 1280 wide; a layout change that adds room is a mockup first; page PRs keep only the latest checkpoint's captures
+in docs/design (D478). Below: the earlier sessions' records.
 
 ### How #163 merges, and after (Kyler, 2026-10-06)
 
