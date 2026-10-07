@@ -40,7 +40,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
 | #342 | TypeScript 7.0.2 (D460) | milestone | `hold`, draft: one error in the page's src/editor/brushes.ts (TS7022), fixed by investigation/ts7/page.patch, which the page session carries. Once that is on dev: merge dev in, full run and nightly, merge |
-| #163 | The page is the editor | page | `approved`; head 8c32e1d4 (the last red test fixed); its full run 37588882841 and light run 37588064603 are going. When both are green: the squash (D478), below |
+| #163 | The page is the editor | page | `approved`; head 5faf94d8 (the camera test fix); its full run 37589532598 and light run 37589307154 are going. When both are green: the squash (D478), below |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`; dev merged in (26abfab5). Waits for #163 (D477): then merge dev in, publish at /preview/, tell Kyler; after his try, republish feature/page |
 | River Valley round 2 | #244's adoption, generator 0.8.5 | milestone | `feature/river-valley-2` at d50884d9 (dev merged in, rule 5). naturalizeNature's riverValley 6 still fails (2,226 → 2,229): Kyler's choice, #345. No PR until he answers |
 | #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
