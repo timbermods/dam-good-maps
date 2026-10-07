@@ -25,16 +25,17 @@ const objects = (s: MapSession) => s.built.entities.map((e) => `${e.template} ${
 describe("Try another after a force that carried the start (D257, D220)", () => {
   // (seed 3 on M9b's maps, D148: its Highlands 64² seed 4 has no start; the Slide is clicked seven tiles
   // north of the start, as it was on dev's map; seed 2 for 0.8.3's maps, D148: on seed 3's the next try breaks the start's ground too,
-  // wherever the Slide is clicked; here it is clicked seven tiles north of the start and one east)
-  it("Highlands 64², seed 2: a Quake Slide clicked at (37, 21) carries the start; Try another leaves the start's ground alone, so the start stays at (36, 28) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
+  // wherever the Slide is clicked; here it is clicked seven tiles north of the start and one east;
+  // the start at (35, 19) on 0.8.8's map, the Canyon and Highlands height round, D148, the click the same way from it)
+  it("Highlands 64², seed 2: a Quake Slide clicked at (36, 12) carries the start; Try another leaves the start's ground alone, so the start stays at (35, 19) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const orig = startMiddle(open())!;
-    expect(orig).toEqual([36, 28]);
+    expect(orig).toEqual([35, 19]);
 
-    // the first try: a Slide clicked at (37, 21), Power 40, the editor's way; it breaks the start's ground
-    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 37, y: 21 }, { x: 37, y: 21 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    // the first try: a Slide clicked at (36, 12), Power 40, the editor's way; it breaks the start's ground
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 36, y: 12 }, { x: 36, y: 12 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
     expect(play()).toBe(true);
     expect(startMiddle(open())).not.toEqual(orig);
 

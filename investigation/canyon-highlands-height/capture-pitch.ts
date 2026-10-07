@@ -7,7 +7,7 @@
 //       [--out investigation/canyon-highlands-height/local/pitch] [--port 4197] [--pitch 55]
 //
 // Adapted from investigation/theme-critique/capture-3d.ts (PR #211): builds and serves this checkout,
-// opens each map from its share link, presses "Refine this map", lets the water settle and captures the
+// opens each map from its share link (the page is the editor, D330), lets the water settle and captures the
 // 3D canvas twice. JPEGs <theme>-<seed>-70.jpg and <theme>-<seed>-55.jpg, plus index.json.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -40,12 +40,10 @@ interface Result {
 async function openMap(page: Page, theme: ThemeId, seed: number): Promise<{ checks: string; blocked: boolean }> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#s=${seed}&z=128&d=n&t=${theme}`);
-  const summary = page.getByText(/checks (passed|failed)/).first();
-  await summary.waitFor({ timeout: 300_000 });
-  const checks = ((await summary.textContent()) ?? "").trim();
-  if (/failed/.test(checks)) return { checks, blocked: true };
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 120_000 });
+  // (the page is the editor, D330: the map opens in it from its share link; its checks show on the dot beside Save)
+  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  const ready = await page.getByRole("button", { name: /^Checks: Ready to play/ }).first().waitFor({ timeout: 180_000 }).then(() => true, () => false);
+  const checks = ready ? "Ready to play" : "not ready";
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   const close = page.getByRole("button", { name: /close|dismiss|×/i }).first();

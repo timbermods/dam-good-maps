@@ -6,6 +6,58 @@ branch (Kyler, 2026-10-04): `land/canyon.ts`, `land/highlands.ts` and their call
 0.8.8 (0.9.0 on its first base), the contract tests re-pinned (D148), PLAN §8 and STATUS updated. Each theme's own shaping only; River Valley
 and Any are untouched; nothing is stamped.
 
+## On dev (generator 0.8.8, 2026-10-07)
+
+Merged with dev at 0104b950 (0.8.7: badwater joins the main water, D476; the start's badwater distance a rule,
+D469; every setting makes a map, D471; the water story's reach counts the main water, D480; Lake Basin round 3,
+River Valley round 2, Islands round 6; TypeScript 7). The sections below are the round before that merge. First
+maps meeting all three outcomes, seeds 1–20 at 96² / 128² / 256² (`measure.ts`):
+
+| | approved, on its old base | merged before D480 | on dev now (0.8.8) | dev's own today (0.8.7) |
+|---|---|---|---|---|
+| Canyon | 16 / 15 / 15 | 13 / 15 / 10 | 14 / 15 / 13 | 14 / 16 / 16 |
+| Highlands | 16 / 17 / 18 | 14 / 14 / 16 | 14 / 17 / 16 | 10 / 15 / 15 |
+
+No map fails an absolute and none is without a start, at any size (all 120 reports pass).
+
+- **What is missed now** (promise / water story, no standout missed): Canyon 6 / 0, 3 / 2 and 4 / 4 at 96², 128²
+  and 256² (seed 10 at 256² misses both); Highlands 5 / 2, 3 / 1 and 3 / 1 (96² seed 13 and 128² seed 9 miss both).
+- **D480** changed no land (all 120 maps are the merge's) and brought back Canyon 96² seed 13, Canyon 256² seeds
+  1, 9 and 17 and Highlands 128² seeds 5, 14 and 15, each a reach miss with badwater in the main water.
+- **Canyon 256²'s water misses**, the gap to the approved 15: on seeds 5, 13 and 20 badwater joins the main river
+  (D476) and half or more of the main water carries it, so the story's mostly-badwater rule (D333,
+  `analysis/story.ts`) counts the main system as none of the story: "the main system holds 0% of the water" on 5
+  and 20, whose reach is 0.44 and 0.64, and a reach of 23% on 13. Seed 20 missed its water before the merge too;
+  5 and 13 are new. Seed 10's river holds water on 20% of its course, as before the merge. The promise misses (2,
+  4, 10, 19) are the approved table's. Kyler, 2026-10-07: D476 stands, the absolutes and D85 are the bar, and the
+  round merges as it is; the mostly-badwater rule is a question of its own. Dev's own Canyon 256² misses 2 and 19
+  (promise), 15 and 18 (water).
+- **The other water misses:** Canyon 128² seeds 13 and 15 and Highlands 96² seeds 13 and 16 (the main system
+  holds 43–71% of the water); Highlands 128² seed 9 and 256² seed 11 (a reach of 33% and 23%).
+- **The main river's walls** (median of the maps' medians; the share of the course with 5+ levels on both sides),
+  beside dev's own: Canyon 128² 6.3 levels and 65% (dev 2.8 and 19%), Canyon 256² 3.2 and 41% (1.1 and 18%);
+  Highlands 128² 2.3 and 23% (1.8 and 13%), Highlands 256² 1.3 and 10% (0.8 and 10%). At 96² the shaping fades
+  out: Canyon 1.9 and 14% (1.9 and 17%), Highlands 1.8 and 16% (2.4 and 23%).
+- **Other themes:** River Valley, Lake Basin, Delta, Islands and Any, seeds 1–8 at 96² and 128² (80 maps), are
+  byte-identical to dev (heights, water, entities). Three files conflicted: `generate.ts` (both sides' additions
+  kept), `field.ts` (dev's island rim call with this round's tarn arc) and `smallStarts.test.ts`.
+- **A thorn belt left out, as designed:** on Canyon 96² seed 3 with every object on, the two belts planned would
+  cut the start's walkable land from 2,274 tiles to 1,134, so the walk rule (`gen/generate.ts`, where the objects
+  are placed: thorns go first while the start's walk falls by more than the objects' own tiles and 40) leaves both
+  out. The map passes with its start, three mine sites and every other kind.
+- **Re-pins on the merged maps** (D148; each test carries its reason): `objects` (Canyon seed 3 keeps its start
+  and three mine sites, every kind of object is checked on Canyon 96² seed 1; a second district on Canyon 2;
+  rises on Canyon 1, 5 and 18 with River Valley 8; weirs on Canyon 10 and Highlands 4), `areaStart` (Highlands 64²
+  seed 3's start at (17, 16), the area 29 wide from (17, 10), the Erupt at (26, 16); the layer test on seed 7,
+  its start at level 11), `tryAnotherStart` (seed 2's start at (35, 19), the Slide at (36, 12)), `carve` (the
+  oxbow on Highlands 96² seed 8 with the carve's seed 1), `editsPlaceNothing` (seed 1's three-spring row at
+  (65–67, 58)), `glaciatePowerSize` (Power's comparison from (14, 46), Size's from (62, 14), no bar moved),
+  `unleash` (the course takes two inflow sources it runs over, D474, and the count allows for exactly those),
+  `look-mine-ruins` (the file's sha with generator 0.8.8; River Valley's land is untouched).
+- Sheets on the merged code: [Canyon and Highlands](../../docs/sheets/canyon-highlands-height.png),
+  [every theme](../../docs/sheets/canyon-highlands-height-all.png); the sheets under "The outcome" are made again
+  on it, dev's tip (0104b950) on the left.
+
 ## The camera
 
 The opening view (`renderer.resetView`) frames the whole map from a fixed yaw at a pitch of 70° down, so a
@@ -94,18 +146,19 @@ Highlands approved. Canyon, two fixes (judged on the sheets, seeds 1–30 at 128
 
 ## The outcome
 
-First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 96² round's change) → after
-(Canyon's row and the relief figures below predate Kyler's second look; not measured again).
+First maps meeting all three outcomes, seeds 1–20, before (dev's tip with the 96² round's change) → after, on the
+round's own base (the counts on dev are in "On dev" above). Canyon's row is measured again after Kyler's second
+look (`measure.ts` on the approved head): 15 at 128², where the row first read 18 on the round before that look.
 
 | | 96² | 128² | 256² |
 |---|---|---|---|
-| Canyon | 16 → 16 | 17 → **18** | 16 → 16 |
+| Canyon | 16 → 16 | 17 → 15 | 16 → 15 |
 | Highlands | 16 → 16 | 15 → **17** | 17 → **18** |
 
 At 96² both themes' maps are the 96² round's, byte for byte. Failing an absolute: none, before or after, at any
 size. Relief at 128² (seeds 1–20, `survey3.ts`, the main river's walls as the highest ground within 5 tiles of the
 bank over the water): Canyon's walls 2.8 → 6.2 levels median, the share of the course with walls of 5+ on both
-sides 22% → 63%; Highlands 2.0 → 2.7 and 13% → 23%, its land in benches four apart against a spread of 2–3.
+sides 22% → 63% (6.5 and 65% after the second look); Highlands 2.0 → 2.7 and 13% → 23%, its land in benches four apart against a spread of 2–3.
 The green (`survey4.ts`, the share of the dry land that is moist, seeds 1–30): Highlands 27% mean before and
 after at 128² (4 maps under 20% before, 5 after), 15% at 256² both (26 and 25 under 20%); Canyon 24% → 26% at
 128². Attempts at 128² (seeds 1–20): Canyon 149 → 171, Highlands 200 → 187. Lands changed: every Canyon and
