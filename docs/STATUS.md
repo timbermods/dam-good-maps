@@ -21,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D481**; D480 is the reach re-base, on its PR). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D481**). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -42,9 +42,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: as #235, after Islands (0.8.8). Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
-| (PR to come) | The water story's reach counts the main water, badwater or not (D480, generator 0.8.6) | milestone | Kyler, 2026-10-07: the clean-water-reach outcome is re-based so badwater in the main water doesn't count against a map; the absolutes and D85 are the bar. A `build` agent on `fix/story-reach-main-water` (worktree `DamGoodMaps-reach`); it changes candidate choice, so maps of every theme may move: full run and nightly before it merges |
-| #235 | Islands round 6 | milestone | `approved`; Kyler, 2026-10-07: D476 stands; merge as it is after its re-pin if badwater's share of the water is at or below the official maps' (measuring). Goes on top of the reach re-base (D480), so it becomes 0.8.7; startPlanting's ring test is held as a named gap (below). Branch at 62850d17, worktree `DamGoodMaps-islands-6` |
+| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: as #235 (badwater's share at Canyon 256² 0.23 against 0.53), after Islands (0.8.8). Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
+| #235 | Islands round 6 | milestone | `approved`; Kyler, 2026-10-07: D476 stands; merge as it is after its re-pin if badwater's share of the water is at or below the official maps' (measuring). Badwater's share is at or below the official maps' (0.16–0.17 against 0.53), and the reach re-base is on dev (#351, D480, 0.8.6), so it is being re-pinned on top as 0.8.7; startPlanting's ring test is held as a named gap (below). Branch at 62850d17, worktree `DamGoodMaps-islands-6` |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
