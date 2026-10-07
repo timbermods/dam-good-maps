@@ -21,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D481**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D482**). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -42,6 +42,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
+| (branch) | 3D, step 1: Foundations (D481, D280 (1)) | milestone | `feature/3d-foundations`, worktree `DamGoodMaps-3d-foundations`, `build` agents. Started 2026-10-07 ahead of the Weather view, custom map sizes and the dam sketch. Already on dev: the Rust stacked-column engine and #71's eight game-verified fixtures in CI (T1–T6, two cave cases), so no probe batch is needed to start. In work: the conversion of `core/terrain`, the build and the validator to runs, then wiring the engine in. It stays out of the generator's files (`src/core/gen`, `src/core/land`, the pinned tests) until #261 is merged |
 | #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands, badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8. Dev merged in locally (`DamGoodMaps-canyon-height`, f83c463a, not pushed); a `build` agent is on the 12 re-pins, the sheets and the checks. All three outcomes of 20 with D480: Canyon 14 / 15 / 13 (dev 14 / 16 / 16), Highlands 14 / 17 / 16 (dev 10 / 15 / 15); no map fails an absolute or lacks a start. The three-mine-sites test is not a missing start: the walk rule drops both thorn belts on Canyon 96² seed 3. Then a full run and a nightly, merge when green |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
@@ -64,7 +65,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
 4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
    `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
-5. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
+5. Then (D481): 3D Foundations first, in work; after it the Weather view, custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
    Weather view.
 
 Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-final`), #311, #265, #322, #324, #325, #275,
