@@ -1110,7 +1110,7 @@ index 00e51bc2..5b61ae73 100644
      for (let k = 0; k < -2 * dl; k++) {
        const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
 diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
-index 6791d056..8673fede 100644
+index 1f86dcad..53615466 100644
 --- a/src/core/land/hydro.ts
 +++ b/src/core/land/hydro.ts
 @@ -341,6 +341,39 @@ interface Head {
@@ -1506,15 +1506,15 @@ index 4d64c40e..a9d03fa8 100644
 +  return n;
 +}
 diff --git a/src/core/spec/mapspec.ts b/src/core/spec/mapspec.ts
-index 59784e53..2bb082bf 100644
+index 2bb082bf..c308f6c0 100644
 --- a/src/core/spec/mapspec.ts
 +++ b/src/core/spec/mapspec.ts
 @@ -1,7 +1,7 @@
  // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
  // URL codec produce one. Complete, never a diff.
  
--export const GENERATOR_VERSION = "0.8.5";
-+export const GENERATOR_VERSION = "0.8.6";
+-export const GENERATOR_VERSION = "0.8.6";
++export const GENERATOR_VERSION = "0.8.7";
  
  /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
   *  theme only leans the generator toward that kind of land. */

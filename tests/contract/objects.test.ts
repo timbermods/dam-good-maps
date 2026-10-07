@@ -119,7 +119,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // since the start's badwater distance became a rule, Kyler, 2026-10-05, D148; Islands 1 for 3 since #265
     // read that rule at rest and moves a start that breaks it on the same land: seed 3 has no site; canyon 8 for
     // canyon 3 since badwater joins the main water, D476, D148: of Canyon seeds 1–15 only 8 and 13 have one;
-    // Islands 10 for 1 since Islands round 6, 0.8.6, D148: its sea is most of the map, and of Islands seeds 1–30
+    // Islands 10 for 1 since Islands round 6, 0.8.7, D148: its sea is most of the map, and of Islands seeds 1–30
     // only 10, 17, 21 and 23 have one)
     for (const [theme, seed] of [["islands", 10], ["riverValley", 3], ["canyon", 8], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
