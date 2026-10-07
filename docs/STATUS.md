@@ -8,7 +8,7 @@ is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/RE
 
 As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
 session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page session runs in a cloud container (not the `DamGoodMaps-page` worktree); the probe folder is
+chat (D117). The page session runs in the worktree `DamGoodMaps-page`; the probe folder is
 `DamGoodMaps-probe`.
 
 ## Released
@@ -22,11 +22,11 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D481**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
+- **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
-  jump), #312's worker part now the page part is on dev, and Deposit's outline (#341, on `fix/deposit-outline`; its Rust is a core
+  jump), #312's worker part now the page part is on dev, and Deposit's outline (#348, on `fix/deposit-outline`; its Rust is a core
   change, reviewed with a full CI run when its PR comes).
 - **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
@@ -42,7 +42,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands and badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8 on top of Islands round 6 (merged, #235, 0.8.7); a `build` agent is on the re-pin. Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
+| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands, badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8. Dev merged in locally (`DamGoodMaps-canyon-height`, f83c463a, not pushed); a `build` agent is on the 12 re-pins, the sheets and the checks. All three outcomes of 20 with D480: Canyon 14 / 15 / 13 (dev 14 / 16 / 16), Highlands 14 / 17 / 16 (dev 10 / 15 / 15); no map fails an absolute or lacks a start. The three-mine-sites test is not a missing start: the walk rule drops both thorn belts on Canyon 96² seed 3. Then a full run and a nightly, merge when green |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -64,9 +64,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
 4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
    `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
-5. **Deposit (#341):** Kyler's answers to its three questions (a drag's changes inside its band; the smallest click's circle;
-   small fans in basins) are not yet on #341 or in the docs: ask Kyler, post them on #341, and record any rule.
-6. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
+5. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
    Weather view.
 
 Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-final`), #311, #265, #322, #324, #325, #275,
@@ -89,7 +87,7 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#329, #348). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#329, #348, #352: whether the story should drop a main water that is mostly badwater). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches
