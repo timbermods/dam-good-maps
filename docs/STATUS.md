@@ -40,10 +40,11 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #342 | TypeScript 7.0.2 (D460) | milestone | Ready, hold lifted: dev merged in (67075f97; lock regenerated from dev's, libc kept; the page's pageHunt and savingReview tests read App.tsx through `@typescript/typescript6`). Full run 37597312248 and nightly 37597316171 going: merge when both are green |
+| #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (67075f97); full run 37597312248 green. Its nightly failed on dev's own Badwater experiment (#350). Once #350 is on dev: merge dev in, full run and nightly, merge when both are green |
+| #350 | Settings suite: the Badwater experiment runs 8 seeds | milestone | dev's nightly is red since River Valley round 2 (4 seeds move 0.57, bar 0.6; 8 seeds 0.71, as much as 0.8.4). Nightly 37603764242 on the branch: merge when it and the PR's checks are green |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`. Real conflicts with dev now the page is on it (src/worker/session.ts against the held weather view, src/editor/waterPlayer.ts): forces play merges dev in (asked on #236). Then the checks, /preview/ once its build holds the page editor (D477), and a ping to Kyler; after his try, republish the page editor |
 | #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
-| #235 | Islands round 6 | Islands | `approved`; in the generator queue after River Valley round 2, re-pinned |
+| #235 | Islands round 6 | milestone | `approved` and `needs-kyler`: merged with dev and re-pinned (0.8.6, 62850d17; worktree `DamGoodMaps-islands-6`), but its measures on today's dev fall short of the approved round (all three outcomes at 96² 30 → 26, 128² 26 → 22, 256² 30 → 21) and startPlanting's ring test fails (0.442, bar 0.45). Kyler's choice on the PR: merge as it is with the test held, or another pass on sea maps' badwater and starts first |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -75,7 +76,7 @@ reserve held for settings round 2 and Designed for off that list (D466).
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#235, #329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches
