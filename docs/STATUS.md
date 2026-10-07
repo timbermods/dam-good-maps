@@ -21,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D480**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D481**; D480 is the reach re-base, on its PR). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -41,9 +41,10 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
-| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | milestone | `approved` and `needs-kyler`: merged with dev locally, not pushed (worktree `DamGoodMaps-canyon-height`, c6d33bf2, generator 0.8.7, no re-pin yet; 12 quick tests wait on it, one of them `objects`' canyon three-mine-sites start, to investigate). The walls hold; all-three outcomes fall on today's dev (Canyon 256² 15 → 10 of 20) from badwater joining the main water (D476), the cause of Islands 6's shortfall too. Kyler's choice on the PR: merge as it is, a pass for Canyon's clean river, or one pass on D476 across themes |
-| #235 | Islands round 6 | milestone | `approved` and `needs-kyler`: merged with dev and re-pinned (0.8.6, 62850d17; worktree `DamGoodMaps-islands-6`), but its measures on today's dev fall short of the approved round (all three outcomes at 96² 30 → 26, 128² 26 → 22, 256² 30 → 21) and startPlanting's ring test fails (0.442, bar 0.45). Kyler's choice on the PR: merge as it is with the test held, or another pass on sea maps' badwater and starts first |
+| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
+| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: as #235, after Islands (0.8.8). Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
+| (PR to come) | The water story's reach counts the main water, badwater or not (D480, generator 0.8.6) | milestone | Kyler, 2026-10-07: the clean-water-reach outcome is re-based so badwater in the main water doesn't count against a map; the absolutes and D85 are the bar. A `build` agent on `fix/story-reach-main-water` (worktree `DamGoodMaps-reach`); it changes candidate choice, so maps of every theme may move: full run and nightly before it merges |
+| #235 | Islands round 6 | milestone | `approved`; Kyler, 2026-10-07: D476 stands; merge as it is after its re-pin if badwater's share of the water is at or below the official maps' (measuring). Goes on top of the reach re-base (D480), so it becomes 0.8.7; startPlanting's ring test is held as a named gap (below). Branch at 62850d17, worktree `DamGoodMaps-islands-6` |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -72,11 +73,22 @@ Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-fin
 #225, #323, #327, #328, #331, #333, #326 and #332 (records), #334, #336 (record), #337, #330 (D476), #338, #340, #339; Drought
 reserve held for settings round 2 and Designed for off that list (D466).
 
+## Expected failures, in one place
+
+Tests marked as expected failures, each a named gap. One comes off the list only when its gap is closed, never by moving it.
+
+| Test | Gap | Since |
+|---|---|---|
+| naturalizeNature: Lake Basin 3 and River Valley 6 at Terracing 100 | Naturalize on cliffs whose foot can't rise (farmland, D418). Both come off together, the next time Naturalize gets real work, judged on a sheet; first check whether the level-edge count scores a stepped slope as younger than the tall cliff it came from (D479) | #339, #346 |
+| maxWaterDepth: seed 5's pit ends 0.07 over the number | The pit's water past the bound (seed 3 until 0.8.5, the same shortfall) | M9b |
+| startPlanting: "no two starts get the same ring" (0.442, bar 0.45) | Sea-map starts: two Any maps that roll a sea layout lean less. Held when Islands round 6 merges (Kyler, 2026-10-07) | #235, when merged |
+| settings experiments (nightly): Verticality, Drought reserve, Lakes and basins, Waterfalls | Settings round 2 (D466) | 2026-10-03 |
+
 ## Waiting for Kyler
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#235, #261, #329, #348). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#329, #348). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches
