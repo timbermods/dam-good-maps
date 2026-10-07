@@ -387,8 +387,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   bends an edge by several tiles), never fraying; a cliff of three levels or more sheds into a stepped slope,
   up from the cliff's middle and down from it in steps mostly two levels tall, treads two tiles or more (wider
   with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
-  the foot becomes an apron that runs out in lobes (where the foot is water or a stream the whole cliff pulls
-  back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  the foot becomes an apron that runs out in lobes, the scree building up at the foot from what the top
+  loses, so the top comes down no more than its foot rises (a cliff standing in water keeps its top, the
+  water taking what it sheds; above a stream the whole cliff pulls back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
   presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
   terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
   edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
@@ -403,7 +404,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
-  stroke records its rule (`weathering: 4`, added by the core); a stroke saved with rule 3 (dab by dab, some
+  stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
+  whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
   number and a slider up to half the map's width, so the largest brush paints the whole map in one stroke (D322,
