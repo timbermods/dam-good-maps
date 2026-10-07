@@ -195,6 +195,12 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   free port (Playwright's `reuseExistingServer` once tested another agent's build).
 - **Sub-agents:** one Kyler stops can't be resumed: start a new one in the same worktree and tell it the exact state
   (running processes, last commit, what's left). Some hand back before their CI finishes; check the PR yourself.
+- **TypeScript 7 has no compiler API** (#342): code that transpiles or parses TypeScript imports `@typescript/typescript6`
+  (as `tools/portable-guard.ts` does). About thirty older investigation scripts still `require('typescript')` (the
+  theme rounds' `run.cjs`, the probe's `run.cjs` and `check.cjs`): they run only where a `typescript` 5 or 6 resolves,
+  for example after `npm --prefix investigation/probe ci`; change the import when one is next used.
+- **A step that changes generated maps or their measures gets a Nightly run too** (`gh workflow run nightly.yml --ref
+  <branch>`): the full CI run skips the heavy settings experiments, and River Valley round 2 turned dev's nightly red (#350).
 - **Merges between steps that change generated maps** conflict on the generator version and the pinned seed-4242 sha
   (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version.
 
