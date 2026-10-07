@@ -21,7 +21,7 @@ import { bump, DIRS8, dist, unit } from "./num";
 import { polyDist } from "../math/polyline";
 import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
-import type { Genome, Part } from "./genome";
+import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
 export function landSeed(seed: number, variation: number): number {
@@ -146,7 +146,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // corners. The rim's inner line is a rounded square whose distance from the edge wanders from
         // a tile or two to a tenth of the map, broken by narrow headlands, its fall to the sea now a
         // gentle shore, now a cliff)
-        const keepRim = sea ? rimKeep(s, x, y, W, H) : 1;
+        const keepRim = sea ? rimKeep(p.coast ?? s, x, y, W, H, p.lobes, p.thinLip) : 1;
         U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
       });
@@ -243,20 +243,69 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const major = p.size * portable.sqrt(aspect);
       const minor = p.size / portable.sqrt(aspect);
       const cell = Math.max(6, p.size * 0.55);
+      // (a hollow, Lake Basin's drowned basin (#234, `land/lakeBasin.ts`, the shape with a negative
+      // height), keeps the plain warped footprint and its broad flank: the lobes, coves and steep
+      // flank below are an island's in a sea, and would redraw every Lake Basin's lake)
+      if (p.height < 0) {
+        each((x, y, i) => {
+          const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
+          const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
+          const dx = x - cx + wx;
+          const dy = y - cy + wy;
+          const a = (dx * ux + dy * uy) / major;
+          const b = (-dx * uy + dy * ux) / minor;
+          const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
+          if (d >= 1.15) return;
+          let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
+          n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
+          const t = smoothstep((1.15 - d) / 0.4);
+          U[i] += p.height * t * (0.72 + 0.4 * n);
+        });
+        return;
+      }
+      // (round 4: the coast's warp and wobble are a 14-tile island's at most, in tiles: grown with a
+      // larger island, a 256² island's coast swung 9–14 tiles, past the strait of 4–7 its neighbours
+      // and the shore keep, and joined them; the detail per tile stays as at 128²)
+      // (an island a strait off the shore (`calm`) keeps a calmer coast, a fifth the wobble, so its
+      // strait stays one: at the full wobble it was fused or out of reach as often as not)
+      const wob = Math.min(p.size, 14) * (p.calm ? 0.2 : 1);
+      // (round 6: never an ellipse, at any size. Its outline is lobed by two waves round it, deep bays
+      // between broad points, and cut by coves of a third of its size and of a few tiles, all only
+      // inward, so the straits its neighbours and the shore keep stay; drawn 8% larger, its
+      // points reach a little past the ellipse. Round 5's wobble, capped at a 14-tile island's for the
+      // straits, left a 256² island an ellipse with a rough edge.)
+      const ir = stream(s, "isle-outline");
+      const k1 = 2 + Math.floor(2 * ir.float());
+      // (the second wave 5–7 round: 4 round, on the island's own axes, drew a rounded square)
+      const k2 = 5 + Math.floor(3 * ir.float());
+      const p1 = ir.float();
+      const p2 = ir.float();
+      const a1 = 0.14 + 0.16 * ir.float();
+      const a2 = 0.07 + 0.09 * ir.float();
       each((x, y, i) => {
-        const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
-        const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
+        const wx = 0.38 * wob * fbm(s + 1, x, y, cell, 2);
+        const wy = 0.38 * wob * fbm(s + 2, x, y, cell, 2);
         const dx = x - cx + wx;
         const dy = y - cy + wy;
         const a = (dx * ux + dy * uy) / major;
         const b = (-dx * uy + dy * ux) / minor;
-        const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
-        if (d >= 1.15) return;
+        const r0 = portable.sqrt(a * a + b * b);
+        if (r0 >= 1.4) return;
+        const t0 = pseudoAngle(a, b);
+        const lobed = 1 - a1 * (0.5 + 0.5 * sinDet(TWO_PI * (k1 * t0 + p1))) - a2 * (0.5 + 0.5 * sinDet(TWO_PI * (k2 * t0 + p2)));
+        const coves = (1 - 0.28 * Math.max(0, fbm(s + 7, x, y, Math.max(5, p.size * 0.33), 2))) * (1 - 0.12 * Math.max(0, fbm(s + 9, x, y, 4, 2)));
+        const d = r0 / (1.08 * lobed * coves * (1 + ((0.22 * wob) / p.size) * fbm(s, x, y, Math.max(5, p.size * 0.35), 3)));
+        if (d >= 1.05) return;
         let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
         n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
         // (steep flanks into the sea, a broad top: no shallow shelf round it)
-        const t = smoothstep((1.15 - d) / 0.4);
-        U[i] += p.height * t * (0.72 + 0.4 * n);
+        // (round 4: the ridged noise lifts the top from 0.7 to 1.15 of the island's height, so it
+        // stands out of the sea about as large as it is drawn; from 0.52, a low island's flats and
+        // hollows stayed under the water and it stood as a pebble, a third its size or none. Its
+        // flank falls from 0.8 of its radius to 1.05: falling from 0.75 to 1.15, neighbours' feet met
+        // in a shelf at the water's level, which joined them and joined them to the shore.)
+        const t = smoothstep((1.05 - d) / 0.25);
+        U[i] += p.height * t * (0.85 + 0.3 * n);
       });
       return;
     }
@@ -303,24 +352,6 @@ export interface Field {
   hard: Float64Array;
 }
 
-/** How much of a sea's depth a tile takes, 0 at the map's edge (D350: the game drains every edge
- *  tile, so the sea keeps a rim of land) to 1 inside the rim (D417): the rim's inner line is a
- *  rounded square (no square corners), its distance from the edge wandering from 1% of the side to
- *  8%, with narrow headlands reaching up to 3% further in, its fall to the sea 2% (a cliff) to 5% of
- *  the side. */
-function rimKeep(s: number, x: number, y: number, W: number, H: number): number {
-  const side = Math.min(W, H);
-  const ex = Math.min(x, W - 1 - x);
-  const ey = Math.min(y, H - 1 - y);
-  const rc = 0.2 * side;
-  const e = ex < rc && ey < rc ? rc - portable.sqrt((rc - ex) * (rc - ex) + (rc - ey) * (rc - ey)) : Math.min(ex, ey);
-  const t = 0.5 * (fbm(s + 17, x, y, 0.3 * side, 2) + 1);
-  const head = Math.max(0, 1 - 2 * Math.abs(fbm(s + 29, x, y, 0.14 * side, 2)) - 0.72) / 0.28;
-  const inner = side * (0.01 + 0.07 * t + 0.03 * head);
-  const fall = side * (0.02 + 0.015 * (fbm(s + 41, x, y, 0.2 * side, 2) + 1));
-  return smoothstep((e - inner) / fall);
-}
-
 /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
 export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
   const ls = landSeed(seed, g.variation);
@@ -342,7 +373,9 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       else {
         const du = x / (W - 1) - g.focus[0];
         const dv = y / (H - 1) - g.focus[1];
-        h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - 0.3 * g.tilt * proj;
+        // (round 6: not on an open island sea, whose floor lies level: its levels' contours ran
+        // ruler-straight across the sea, seams in the water)
+        h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - (g.seaLayout && !g.seaRing ? 0 : 0.3 * g.tilt * proj);
       }
       // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
       // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
@@ -468,5 +501,16 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field 
   let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion);
   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
   if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
+  // (round 6: an island sea's lip, a tile or two at the map's edge between it and a fall of a dozen
+  // levels, keeps its uplift: the erosion's diffusion wore a ridge that thin down into the sea, and
+  // the sea drained over it. The mainland's lobes keep their erosion.)
+  const sea = g.parts.find((p) => p.shape === "sea" && p.coast !== undefined && p.thinLip);
+  if (sea)
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const lip = lipKeep(sea.coast!, x, y, W, H, true);
+        if (lip < 1 && rimKeep(sea.coast!, x, y, W, H, sea.lobes, true) >= lip && E[i] < U[i]) E[i] = U[i];
+      }
   return { E, hard };
 }

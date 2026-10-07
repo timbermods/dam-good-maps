@@ -341,6 +341,39 @@ interface Head {
   flow: number;
 }
 
+/** The sea of an island sea's map: the largest hollow of the land's levels (4-connected tiles a level
+ *  or more under their spill), when it is a tenth of the map or more; null otherwise. */
+function seaOf(h: Uint8Array, W: number, H: number): Uint8Array | null {
+  const N = W * H;
+  const filled = drainage(h, W, H, { eight: false }).filled;
+  const seen = new Uint8Array(N);
+  let best: number[] = [];
+  for (let s0 = 0; s0 < N; s0++) {
+    if (seen[s0] || !(filled[s0] - h[s0] >= 1)) continue;
+    const q = [s0];
+    seen[s0] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (seen[j] || !(filled[j] - h[j] >= 1)) continue;
+        seen[j] = 1;
+        q.push(j);
+      }
+    }
+    if (q.length > best.length) best = q;
+  }
+  if (best.length < 0.1 * N) return null;
+  const sea = new Uint8Array(N);
+  for (const i of best) sea[i] = 1;
+  return sea;
+}
+
 /** A Delta arm's course from the fan's apex to its mouth (#233, Delta arms round 2): the seeded apex
  *  and mouth kept, the low ground choosing the way inside a broad curved corridor with its own
  *  departure, phase and turning length, so neighbouring arms diverge, converge and braid rather than
@@ -453,7 +486,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // count the player set may enter as a river of its own when no inflow can join. A few heads, never
   // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
   const owner = new Int32Array(N).fill(-1);
-  const traced: { k: number; head: Head; cells: number[]; joins: number }[] = [];
+  const traced: { k: number; head: Head; cells: number[]; joins: number; toSea?: boolean }[] = [];
+  // (round 6, Islands: a river that meets the sea ends there, and none is ever routed on through the
+  // sea and across its lip to the map's edge: its bed cut there drained the sea through the lip, the
+  // cause round 5 widened the lip for. A later head still joins a river on the land (D273 (1)): one
+  // let end in the sea as a join made every spring a river of its own, and at 256² they cut the
+  // mainland into strips with no room for a start. The sea: the largest hollow of the land's levels,
+  // a tenth of the map or more.)
+  const seaAt = g.seaLayout ? seaOf(h, W, H) : null;
   const areaK = N / (128 * 128);
   // A few fed tributaries read better than many shallow fragments at large sizes.
   // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
@@ -477,8 +517,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     let c = hd.cell;
     let joins = -1;
     const guard = new Set<number>();
+    let toSea = false;
     while (c >= 0 && !guard.has(c)) {
       guard.add(c);
+      if (seaAt && seaAt[c]) {
+        cells.push(c);
+        toSea = true;
+        break;
+      }
       if (owner[c] >= 0) {
         joins = owner[c];
         cells.push(c);
@@ -510,7 +556,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
-    traced.push({ k, head: hd, cells, joins });
+    traced.push({ k, head: hd, cells, joins, toSea });
     return true;
   };
   // edge inflows: low points of the upstream edges with long paths inland. When the player set the
@@ -938,7 +984,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     let tiles = flood(seedCell, sill);
     // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
     // river begins (`maxSill`)
-    while ((tiles.length > budget || sill > maxSill) && sill > 1) {
+    // (round 6, D432: an island sea is the map's water, not a lake of the budget: cut to it, a sea a
+    // setting's lean had put over the budget drained to its floor)
+    const sea = !!seaAt?.[seedCell];
+    while (((tiles.length > budget && !sea) || sill > maxSill) && sill > 1) {
       sill--;
       const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
       if (h[lowest] >= sill) return null;
@@ -1282,7 +1331,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     exits.set(rid, { path, prof, L, n, width, half });
     const entry = hd.kind === "edge" ? { edge: hd.edge! } : { spring: [hx, hy] as Point };
-    const exit = tr.joins >= 0 ? { river: featureId(seed, "river", roleOf(tr.joins)) } : { edge: exitEdge ?? ("east" as Edge) };
+    // (round 6: a river that ends in the sea fills it, its water leaving where the sea's does)
+    const exit = tr.joins >= 0 ? { river: featureId(seed, "river", roleOf(tr.joins)) } : tr.toSea && !exitEdge ? { basin: path[path.length - 1] } : { edge: exitEdge ?? ("east" as Edge) };
     rivers.push({
       id: rid,
       kind: "river",
