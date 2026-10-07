@@ -243,6 +243,26 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const major = p.size * portable.sqrt(aspect);
       const minor = p.size / portable.sqrt(aspect);
       const cell = Math.max(6, p.size * 0.55);
+      // (a hollow, Lake Basin's drowned basin (#234, `land/lakeBasin.ts`, the shape with a negative
+      // height), keeps the plain warped footprint and its broad flank: the lobes, coves and steep
+      // flank below are an island's in a sea, and would redraw every Lake Basin's lake)
+      if (p.height < 0) {
+        each((x, y, i) => {
+          const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
+          const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
+          const dx = x - cx + wx;
+          const dy = y - cy + wy;
+          const a = (dx * ux + dy * uy) / major;
+          const b = (-dx * uy + dy * ux) / minor;
+          const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
+          if (d >= 1.15) return;
+          let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
+          n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
+          const t = smoothstep((1.15 - d) / 0.4);
+          U[i] += p.height * t * (0.72 + 0.4 * n);
+        });
+        return;
+      }
       // (round 4: the coast's warp and wobble are a 14-tile island's at most, in tiles: grown with a
       // larger island, a 256² island's coast swung 9–14 tiles, past the strait of 4–7 its neighbours
       // and the shore keep, and joined them; the detail per tile stays as at 128²)
