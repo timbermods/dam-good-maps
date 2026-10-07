@@ -5,6 +5,7 @@
 // at the map's water again.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const wet = (page: Page) =>
@@ -45,19 +46,16 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const bar = page.getByRole("toolbar", { name: "Water time" });
-  await expect(bar.getByRole("status")).toHaveText("Water settled");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const i = await page.evaluate(() => window.dgmEditor!.info());
   const W = i.W;
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
   // a strong water source on high ground away from the start: its water spreads over seconds
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const want: [number, number] = [start[0] < W / 2 ? Math.round(W * 0.85) : Math.round(W * 0.15), Math.round(W * 0.9)];
   // (up from there if a bar over the map, the water bar's, covers it)
   const at = await page.evaluate(([x, y]) => {
@@ -91,37 +89,63 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const frames = () => page.evaluate(() => (window as unknown as { dgmShown: number[] }).dgmShown);
   await page.mouse.click(p.x, p.y);
   await idle(page);
+  // the row has no controls for the water's journey (Kyler, 2026-10-04): it plays into place by itself
+  await expect(bar.getByRole("button")).toHaveText(["Drought", "Badtide", "◀", "▶"]);
   // it grows over the frames, not in one step: the page shows at least four different waters on its way
   await expect.poll(async () => new Set(await frames()).size, { timeout: 60_000 }).toBeGreaterThanOrEqual(4);
   expect(Math.max(...(await frames()))).toBeGreaterThan(w0);
-  await expect(bar.getByRole("status")).toContainText(/Water flowing|Water settled/);
-
-  // pause holds it
-  await bar.getByRole("button", { name: "Pause", exact: true }).click();
-  const held = await wet(page);
-  await page.waitForTimeout(600);
-  expect(await wet(page)).toBe(held);
-  await bar.getByRole("button", { name: "Play", exact: true }).click();
 
   // it ends at the map's water: what the worker has, what the export gets
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 60_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await endsAtMapWater(page);
 
-  // replay: from the water right after the edit, then back to the same end
   const settled = await wet(page);
-  await bar.getByRole("button", { name: "Replay" }).click();
-  await page.waitForTimeout(200);
-  expect(await wet(page)).not.toBe(settled);
-  await bar.getByRole("button", { name: "Skip" }).click();
-  await expect(bar.getByRole("status")).toHaveText("Water settled");
-  await endsAtMapWater(page);
 
-  // a drought: the water drains and dries, then comes back to the map's water
+  // a drought, held on a day (Kyler, 2026-10-04): its last day shows and stays, the water drained; ◀ steps a day back,
+  // ▶ past the default length; a day typed into the box (double-clicked) shows, Esc cancels one; Drought again brings
+  // the map's own water back
+  const day = bar.locator(".day-label");
+  await expect(day).toHaveText("Day –");
+  // (with no hazard shown, a double-click does nothing)
+  await day.dblclick();
+  await expect(bar.getByRole("textbox", { name: "Day" })).toHaveCount(0);
   await bar.getByRole("button", { name: "Drought" }).click();
-  await expect(bar.getByRole("status")).toContainText(/Drought: day \d+ of \d+/);
-  await expect.poll(() => wet(page), { timeout: 30_000 }).toBeLessThan(settled / 2);
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 120_000 });
+  // (the box reads the day at once; its quiet fill runs until the day shows)
+  await expect(day).toHaveText(/^Day \d+$/);
+  await expect(day).not.toHaveClass(/counting/, { timeout: 120_000 });
+  const last = Number((await day.textContent())!.replace(/\D/g, ""));
+  expect(last).toBeGreaterThan(1);
+  expect(await wet(page)).toBeLessThan(settled / 2);
+  await page.waitForTimeout(1500);
+  await expect(day).toHaveText(`Day ${last}`);
+  await bar.getByRole("button", { name: "Day on" }).click();
+  await expect(day).toHaveText(`Day ${last + 1}`);
+  // (the box keeps its place and size while the day is worked out: it stays inside its stepper)
+  const working = await day.boundingBox();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
+  expect(working).toEqual(await day.boundingBox());
+  await bar.getByRole("button", { name: "Day back" }).click();
+  await bar.getByRole("button", { name: "Day back" }).click();
+  await expect(day).toHaveText(`Day ${last - 1}`);
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
+  // a typed day, in the box's own place and size
+  const box = await day.boundingBox();
+  await day.dblclick();
+  const field = bar.getByRole("textbox", { name: "Day" });
+  await expect(field).toBeFocused();
+  const typed = await field.boundingBox();
+  expect([typed!.x, typed!.y, typed!.width, typed!.height]).toEqual([box!.x, box!.y, box!.width, box!.height]);
+  await field.fill("2");
+  await field.press("Enter");
+  await expect(day).toHaveText("Day 2");
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
+  await day.dblclick();
+  await field.fill("5");
+  await field.press("Escape");
+  await expect(day).toHaveText("Day 2");
+  await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
+  await expect(day).toHaveText("Day –");
   await endsAtMapWater(page);
 
   // a badtide: the clean water turns to badwater, then washes out to the map's water
@@ -134,9 +158,10 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
     });
   const bad0 = await bad();
   await bar.getByRole("button", { name: "Badtide" }).click();
-  await expect(bar.getByRole("status")).toContainText(/Badtide: day \d+ of \d+/);
-  await expect.poll(bad, { timeout: 30_000 }).toBeGreaterThan(bad0 + 50);
-  await expect(bar.getByRole("status")).toHaveText("Water settled", { timeout: 180_000 });
+  await expect(day).toHaveText(/^Day \d+$/);
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  expect(await bad()).toBeGreaterThan(bad0 + 50);
+  await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
   await endsAtMapWater(page);
   expect(errors).toEqual([]);

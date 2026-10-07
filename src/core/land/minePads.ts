@@ -12,11 +12,13 @@
 // (gen/extras.ts), far enough out.
 
 import { landRegions } from "../analysis/regions";
+import { analyze } from "../analysis/rust/bridge";
 import { distanceFrom, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import * as portable from "../math/portable";
 import { mineDistance } from "../resources/mineGround";
+import { FLOOD_MARGIN, nearWater } from "../validate/playability";
 
 /** A mine site's square: its footprint (5×5) and the ring round it, all at one level. */
 const SIDE = 7;
@@ -29,9 +31,9 @@ const PAD_R = 4.3;
 /** The most tiles a pad takes down (D363: about 49). */
 export const PAD_MOST = 49;
 /** The water's margin the objects keep (validate/playability.ts FLOOD_MARGIN + 1, a square round
- *  each wet tile), and a pad's, wider: the planned water is only the plan, and the settled water
- *  spreads further, over flats and into ponds. */
-const WATER_MARGIN = 3;
+ *  each wet tile, as gen/extras.ts `objectKeepOff` keeps it), and a pad's, wider: the planned water
+ *  is only the plan, and the settled water spreads further, over flats and into ponds. */
+const WATER_MARGIN = FLOOD_MARGIN + 1;
 const PAD_WATER_MARGIN = 5;
 
 export interface MinePad {
@@ -53,39 +55,6 @@ interface SiteOptions {
   /** The least distance from the start, and the distance the placement looks at first. */
   lo: number;
   far: number;
-}
-
-/** The tiles within `margin` (a square round each) of the water: wetter than 0.05. */
-function nearWater(wet: ArrayLike<number>, W: number, H: number, margin: number): Uint8Array {
-  const N = W * H;
-  const out = new Uint8Array(N);
-  // (a square dilation, rows then columns)
-  const rows = new Uint8Array(N);
-  for (let y = 0; y < H; y++) {
-    let last = -Infinity;
-    for (let x = 0; x < W; x++) {
-      if (wet[y * W + x] > 0.05) last = x;
-      if (x - last <= margin) rows[y * W + x] = 1;
-    }
-    last = Infinity;
-    for (let x = W - 1; x >= 0; x--) {
-      if (wet[y * W + x] > 0.05) last = x;
-      if (last - x <= margin) rows[y * W + x] = 1;
-    }
-  }
-  for (let x = 0; x < W; x++) {
-    let last = -Infinity;
-    for (let y = 0; y < H; y++) {
-      if (rows[y * W + x]) last = y;
-      if (y - last <= margin) out[y * W + x] = 1;
-    }
-    last = Infinity;
-    for (let y = H - 1; y >= 0; y--) {
-      if (rows[y * W + x]) last = y;
-      if (last - y <= margin) out[y * W + x] = 1;
-    }
-  }
-  return out;
 }
 
 /** The middles of the level squares on the land (`land`'s regions), clear of `blocked` and the
@@ -355,73 +324,12 @@ function steepBy(h: Uint8Array, W: number, H: number, x: number, y: number, top:
  * whose land (tiles joined by steps of one level) holds `want` level squares for a site apart from
  * each other, each `lo` tiles or more from a start there, clear of the water's margin and of
  * `keep` (what the objects' placement keeps off: the hollows' ground, channels, objects, protected
- * set pieces). A start chosen on it has ground in its walk for its sites, nothing changed.
+ * set pieces). A start chosen on it has ground in its walk for its sites, nothing changed. With
+ * `firm`, the land is what stays joined `firm` tiles or more from the water, and a dry tile by the
+ * water belongs to the firm land nearest it. The squares are the level squares `minePads` takes
+ * (`levelSquares`), a few tiles apart; "apart" is `APART` (Chebyshev) and "out" `mineDistance`. In
+ * Rust (analysis/rust/bridge.ts, D391).
  */
 export function roomMap(h: Uint8Array, W: number, H: number, opts: { wet: ArrayLike<number>; keep: Uint8Array; want: number; lo: number; firm?: number }): Uint8Array {
-  const N = W * H;
-  const water = opts.firm ? nearWater(opts.wet, W, H, opts.firm) : new Uint8Array(N);
-  if (!opts.firm) for (let i = 0; i < N; i++) water[i] = opts.wet[i] > 0.05 ? 1 : 0;
-  const land = landRegions(h, W, H, water);
-  // (with `firm`, a dry tile by the water, where a start stands, belongs to the firm land nearest it)
-  if (opts.firm)
-    for (let i = 0; i < N; i++) {
-      if (land[i] >= 0 || opts.wet[i] > 0.05) continue;
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let r = 1; r <= opts.firm + 1 && land[i] < 0; r++)
-        for (let dy = -r; dy <= r && land[i] < 0; dy++)
-          for (let dx = -r; dx <= r && land[i] < 0; dx++) {
-            const u = x + dx;
-            const v = y + dy;
-            if (Math.max(Math.abs(dx), Math.abs(dy)) === r && u >= 0 && v >= 0 && u < W && v < H && !water[v * W + u] && land[v * W + u] >= 0) land[i] = land[v * W + u];
-          }
-    }
-  const near = nearWater(opts.wet, W, H, WATER_MARGIN);
-  const blocked = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (near[i] || opts.keep[i]) blocked[i] = 1;
-  // (the squares, a few tiles apart: every square found stands within three of one of these, and
-  // each of these is a square, so what they show room for is there)
-  const byLand = new Map<number, number[]>();
-  for (const c of levelSquares(h, W, H, land, blocked)) {
-    const list = byLand.get(land[c]) ?? [];
-    if (list.every((t) => chebyshev(t, c, W) >= 4)) list.push(c);
-    byLand.set(land[c], list);
-  }
-  const out = new Uint8Array(N);
-  for (let i = 0; i < N; i++) {
-    const list = land[i] >= 0 ? byLand.get(land[i]) : undefined;
-    if (!list) continue;
-    const x = i % W;
-    const y = (i - x) / W;
-    // (the squares far enough from here; for two sites, two of them far enough apart: the span of
-    // their middles, Chebyshev)
-    let n = 0;
-    let x0 = Infinity;
-    let x1 = -Infinity;
-    let y0 = Infinity;
-    let y1 = -Infinity;
-    const farOnes: number[] = [];
-    for (const c of list) {
-      const cx = c % W;
-      const cy = (c - cx) / W;
-      if (mineDistance(x, y, cx, cy) < opts.lo) continue;
-      n++;
-      if (opts.want > 2) farOnes.push(c);
-      if (cx < x0) x0 = cx;
-      if (cx > x1) x1 = cx;
-      if (cy < y0) y0 = cy;
-      if (cy > y1) y1 = cy;
-      // The answer is monotone for one/two sites; more squares cannot undo it.
-      if (opts.want <= 1 || (opts.want === 2 && (x1 - x0 >= APART || y1 - y0 >= APART))) break;
-    }
-    if (!n) continue;
-    if (opts.want <= 1) out[i] = 1;
-    else if (opts.want === 2) out[i] = x1 - x0 >= APART || y1 - y0 >= APART ? 1 : 0;
-    else {
-      const taken: number[] = [];
-      for (const c of farOnes) if (taken.every((t) => chebyshev(t, c, W) >= APART)) taken.push(c);
-      out[i] = taken.length >= opts.want ? 1 : 0;
-    }
-  }
-  return out;
+  return Uint8Array.from(analyze("roomMap", W, H, [opts.want, opts.lo, opts.firm ?? 0], [h, opts.wet, opts.keep]));
 }

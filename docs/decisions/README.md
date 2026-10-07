@@ -1,12 +1,14 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D471; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D480; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
 ## [How we work (sessions, models, reviews, documents, merging, releases)](how-we-work.md)
 
+- D478: Page captures: only the latest checkpoint in docs/design
+- D477: /preview/ always holds the page editor
 - D470: Coordination, labels, the line, pings
 - D468: Page session on Opus 5.5
 - D460: Dependabot majors after M9b
@@ -59,6 +61,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Core, files and validation](core.md)
 
+- D475: No old-project compatibility until launch
 - D455: Byte-exact reopening
 - D456: Undo after reopen takes a whole step
 - D1: Shared foundations, features first
@@ -75,6 +78,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D476: Badwater joins the main water
+- D471: Every setting makes a map
 - D469: Badwater mixes with clean water
 - D458: Lake Basin round 2 adopted
 - D464: Lake Basin always reads as one
@@ -113,6 +118,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Water](water.md)
 
+- D472: No drought or badtide on the map card
 - D457: Imported map's water kept
 - D27: The canonical settle
 - D120: One water model, stacked columns
@@ -129,6 +135,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D399: Naturalize land algorithm
 - D404: Trees follow moisture after edits
 - D425: No edit adds an object
+- D479: Naturalize rule 5, scree at a cliff's foot
 - D418: Naturalize keeps wet ground
 - D419: Naturalize weathered dab by dab
 - D422: Naturalize in the worker
@@ -149,6 +156,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
+- D474: Forces can clear sources
+- D473: Carve's aging setting removed
 - D257: The forces
 - D258: Clean, magic gestures
 - D344: Pace and animation

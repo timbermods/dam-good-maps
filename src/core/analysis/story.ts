@@ -11,7 +11,8 @@
 // course stands dry for a stretch cannot be followed.
 
 import type { Feature, RiverFeature } from "../features/schema";
-import { distanceFrom, N4 } from "../math/grid";
+import { distanceFromInTs, N4 } from "../math/grid";
+import { components } from "./regions";
 
 export interface WaterStory {
   /** Tiles with water 0.05 deep or more. */
@@ -47,37 +48,13 @@ export const REACH = 0.14;
 /** The labels of the wet systems (−1 dry) and each system's tiles and volume. */
 export function wetSystems(W: number, H: number, depth: ArrayLike<number>, min = 0.05): { labels: Int32Array; tiles: number[]; volume: number[] } {
   const N = W * H;
-  const labels = new Int32Array(N).fill(-1);
-  const tiles: number[] = [];
-  const volume: number[] = [];
-  const q = new Int32Array(N);
-  for (let s = 0; s < N; s++) {
-    if (labels[s] >= 0 || !(depth[s] >= min)) continue;
-    const id = tiles.length;
-    let head = 0;
-    let tail = 0;
-    q[tail++] = s;
-    labels[s] = id;
-    let v = 0;
-    while (head < tail) {
-      const i = q[head++];
-      v += depth[i];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (labels[j] >= 0 || !(depth[j] >= min)) continue;
-        labels[j] = id;
-        q[tail++] = j;
-      }
-    }
-    tiles.push(tail);
-    volume.push(v);
-  }
-  return { labels, tiles, volume };
+  const mask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (depth[i] >= min) mask[i] = 1;
+  const { labels, sizes, order } = components(mask, W, H);
+  // (each system's depths summed in the order its flood reached them)
+  const volume: number[] = new Array(sizes.length).fill(0);
+  for (const i of order) volume[labels[i]] += depth[i];
+  return { labels, tiles: sizes, volume };
 }
 
 /** The water systems with those along each plugged river's course joined into one (the water above
@@ -185,7 +162,8 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       if (!contamination || !(contamination[i] >= 0.05)) clean[i] = 1;
     } else dry++;
   }
-  const dist = distanceFrom(clean, W, H);
+  // (the outcomes stay in TypeScript, D391)
+  const dist = distanceFromInTs(clean, W, H);
   const R = REACH * Math.min(W, H);
   let near = 0;
   for (let i = 0; i < W * H; i++) if (!(depth[i] >= 0.05) && dist[i] <= R) near++;

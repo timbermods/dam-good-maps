@@ -37,7 +37,7 @@ import { JUICE } from "./palette";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
 export interface ForceMoment {
-  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate";
+  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
   phase: string;
   progress: number;
   x: number;
@@ -342,7 +342,8 @@ class Plume {
   }
 
   finish(now: number): void {
-    this.ended ??= now;
+    // (only a plume that began cools: one cleared, or never begun, has no lava to show)
+    if (this.emitters.length) this.ended ??= now;
   }
 
   /** Seconds since it began, and since it ended (0 while it runs). */
@@ -475,13 +476,13 @@ class Glacier {
   }
 
   /** Its own seconds now: the last frame's, run on at the showing's pace, never past the next stage
-   *  (a tenth of its seconds); once ended, on to its end within a third of a second at most. */
+   *  (a tenth of its seconds); once ended (kept the moment its land is final), on to its end at that
+   *  pace: the ice melts back on the page, and a new force puts it away (ForceEffects.skip). */
   private seconds(now: number): number {
     const c = this.cue;
     const s = Math.min(c.s + 0.1, c.s + ((now - c.at) / 1000) * c.pace);
     if (this.ended === null) return Math.min(5, s);
-    const rate = Math.max(c.pace, (5 - this.endS) / 0.35);
-    return Math.min(5, Math.max(s, this.endS + ((now - this.ended) / 1000) * rate));
+    return Math.min(5, Math.max(s, this.endS + ((now - this.ended) / 1000) * c.pace));
   }
 
   /** Its tongue from the stations, over the land as it is now; its clock starts. */
@@ -633,14 +634,16 @@ export class ForceEffects {
 
   /** A force's latest moment (from its frame). The first moment after the last force was kept or
    *  dropped is a new force's (D378): whatever of the last one still plays skips to its end, and the
-   *  new one plays in full, however quickly it came. A carve's moments count too, its surge its own. */
-  set(m: ForceMoment): void {
+   *  new one plays in full, however quickly it came. A carve's moments count too, its surge its own.
+   *  True for a new force's first moment. */
+  set(m: ForceMoment): boolean {
     const now = performance.now();
-    if (this.over) {
+    const fresh = this.over;
+    if (fresh) {
       this.over = false;
       this.skip();
     }
-    if (m.verb === "carve") return;
+    if (m.verb === "carve") return fresh;
     if (m.verb === "craterize") {
       if (this.verb !== "craterize" || !this.impact.active) this.impact.begin(m, now);
       if (m.phase === "impact" || m.phase === "done") this.impact.strike(now);
@@ -652,11 +655,13 @@ export class ForceEffects {
     } else if (m.verb === "glaciate") {
       if (m.phase === "gather") this.glacier.gatherAt(m, now);
       else if (m.glaciate?.path) this.glacier.advance(m.glaciate.path, this.ground, now);
-      if (m.glaciate && m.phase !== "gather") this.glacier.clockTo(m.phase === "done" ? 5 : m.glaciate.seconds, m.pace ?? 1, now);
+      // (its last frame comes the moment its land is final, #275: the ice melts back from where it is)
+      if (m.glaciate && m.phase !== "gather" && m.phase !== "done") this.glacier.clockTo(m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
     }
     this.verb = m.verb;
     this.kick();
+    return fresh;
   }
 
   /** The force was kept or ended: its tails play out (the dust settles, the lava cools). */
@@ -691,9 +696,10 @@ export class ForceEffects {
     return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now) };
   }
 
-  /** The eruption's heat on the ground now: its age and its cooling (seconds), or null. */
+  /** The eruption's heat on the ground now: its age and its cooling (seconds), or null (no eruption
+   *  playing or cooling: a later force's end never brings an old one's back). */
   heat(now: number): { age: number; cooling: number } | null {
-    return this.plume.active || (this.plume.ended !== null && now - this.plume.ended < 6500) ? this.plume.ages(now) : null;
+    return this.plume.active ? this.plume.ages(now) : null;
   }
 
   get active(): boolean {

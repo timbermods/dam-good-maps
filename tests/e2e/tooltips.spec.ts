@@ -1,6 +1,6 @@
 // Every tool and control has an accurate tooltip when hovered (PLAN §20 D351, item B12): every tool and force,
 // every option in a settings row and in More, every view toggle, every shelf item, every button in the
-// panel and the ⋯ menu says in one plain line what it does, and its key where it has one. This test
+// map generator's panel, the legend and the File menu says in one plain line what it does, and its key where it has one. This test
 // collects the interactive controls from the rendered page, in every state the editor has, and fails
 // on any control with no tooltip (its own `title`, or the label or group that holds it).
 //
@@ -12,6 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -68,7 +69,7 @@ async function wordy(page: Page): Promise<string[]> {
       // (a second sentence: a full stop, ! or ? then a new capital or bracket; ".timber" and "Ctrl+Z" are not)
       const second = /[.!?][)"']?\s+[A-Z(]/.test(t);
       const bracket = bracketedKey(t);
-      // (a control named with its key, "Carve (7)": its tooltip ends with that key's cap)
+      // (a control named with its key, "Carve (Shift+1)": its tooltip ends with that key's cap)
       const named = /\(([^()]+)\)$/.exec(el.getAttribute("aria-label") ?? "")?.[1];
       const keys = (el.getAttribute("data-keys") ?? "").split("|").map((k) => k.split(" ")[0]);
       const missing = named && !/\s/.test(named) && !keys.includes(named) ? named : null;
@@ -83,13 +84,13 @@ async function wordy(page: Page): Promise<string[]> {
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 4 since D385, D148: seed 9's land changed when its water from nowhere went; its one flat
-  // spot is a plateau by the map's edge, where the placed source's water runs over the uneven ground
-  // the mine site needs levelled, and "the water is in the way")
-  await page.goto("./#s=4&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  // (seed 6 for 0.8.3's maps, D148: seed 8 has one open, level, dry spot since badwater joins the main
+  // water, D476; seed 8 for #265's maps, D148: seed 6 has one open, level, dry spot since the start's badwater
+  // distance became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no open, level, dry spot since the badwater
+  // ditches follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere
+  // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
+  // uneven ground the mine site needs levelled, and "the water is in the way")
+  await openEditor(page, "s=6&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.waitForTimeout(500);
 }
@@ -105,13 +106,13 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("the editor as it opens");
 
   // every brush, with its options row
-  for (const k of ["1", "2", "3", "4", "5"]) {
+  for (const k of ["2", "3", "4", "5", "6"]) {
     await page.keyboard.press(k);
     await check(`brush ${k}`);
   }
   // Flatten's steps
   const steps = page.getByRole("checkbox", { name: "In steps" });
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   if (await steps.count()) {
     await steps.check();
     await check("Flatten in steps");
@@ -120,7 +121,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.keyboard.press("x");
 
   // every force, with its More
-  for (const k of ["7", "8", "9", "0", "-"]) {
+  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7"]) {
     await page.keyboard.press(k);
     await check(`force ${k}`);
     const open = page.locator('.force-options button:text-is("More")');
@@ -141,8 +142,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
     await page.keyboard.press("Escape");
   }
 
-  // Select, its row and its Delete menu
-  await page.keyboard.press("m");
+  // Select (in hand once the brushes and forces are put away), its row and its Delete menu
   await page.getByRole("group", { name: "How to select" }).getByRole("button", { name: "Whole map" }).click();
   await check("Select with a selection");
   await page.getByRole("group", { name: "Selection" }).getByRole("button", { name: "Delete", exact: true }).click();
@@ -171,7 +171,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   });
   expect(spots.length, "two open, level, dry spots").toBe(2);
   const [[sx, sy], [mx, my]] = spots;
-  await shelf.getByRole("button", { name: "Water source (6)" }).click();
+  await shelf.getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
@@ -192,36 +192,79 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("an object picked");
   await page.keyboard.press("x");
 
-  // the header's menu, the history, the checks dot, the minimap and the water bar
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await check("the ⋯ menu");
-  await page.getByRole("menuitem", { name: /^History/ }).click();
+  // the header's File menu, the history, the checks dot, the legend, the minimap and the water bar
+  await openFileMenu(page);
+  await check("the File menu");
+  await page.keyboard.press("Escape");
+  await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await check("the history");
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^History/ }).click();
+  await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await page.getByRole("button", { name: /^Checks:/ }).click();
   await check("the checks list");
   await page.getByRole("button", { name: /^Checks:/ }).click();
-  await page.getByRole("button", { name: "Minimap" }).click();
-  await check("the minimap");
-  await page.getByRole("button", { name: "Badwater", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
+  await check("the legend");
+  await page.getByRole("checkbox", { name: "Legend", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Badwater", exact: true }).click();
   await check("the badwater layer");
 
   expect(missing, "controls with no tooltip, or a tooltip that is not one short phrase, by state").toEqual({});
   expect((await info(page)).W).toBeGreaterThan(0);
 });
 
-test("every control on the settings page has a tooltip", async ({ page }) => {
+test("every control in the map generator's panel, in each settings section opened in place, and the title's rename button has a tooltip", async ({ page }) => {
   test.setTimeout(200_000);
   await page.setViewportSize({ width: 1400, height: 1000 });
-  await page.goto("./#s=9&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
+  await openEditor(page, "s=9&z=96&d=n&t=riverValley");
   const missing: Record<string, string[]> = {};
-  // (the advanced sections open too)
-  for (const s of await page.locator("summary").all()) if (await s.isVisible()) await s.click().catch(() => undefined);
-  const m = [...(await untitled(page)), ...(await wordy(page))];
-  if (m.length) missing["the settings page"] = m;
+  const check = async (state: string) => {
+    const m = [...(await untitled(page)), ...(await wordy(page))];
+    if (m.length) missing[state] = m;
+  };
+  await check("the editor with the drawer closed");
+  // the title renames in place: its button, then its field (Esc puts the name back)
+  await expect(page.locator(".editor-title h1 button.title-button")).toHaveAttribute("title", "Rename");
+  await page.locator(".editor-title h1 button.title-button").click();
+  await expect(page.getByLabel("Map name")).toBeFocused();
+  await check("the title being renamed");
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Map name")).toHaveCount(0);
+  await openDrawer(page);
+  // every group shows at once: nothing to open, no dialog
+  for (const section of ["Terrain", "Water", "Hazards", "Resources", "Difficulty"]) await openSection(page, section);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await check("the map generator");
+  // Your maps, its own panel in the generator's place (its tiles join a few seconds after a map opens: only the region
+  // is certain)
+  await openYourMaps(page);
+  await check("Your maps");
+  // Real places, in the same box (its places join once their list has loaded)
+  await page.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Real places" }).getByRole("button").first()).toBeVisible({ timeout: 30_000 });
+  await check("Real places");
+  await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
+  // closed again
+  await page.locator("header.editor-bar").getByRole("button", { name: "Your maps", exact: true }).click();
+  await check("the panels closed again");
   expect(missing, "controls with no tooltip, by state").toEqual({});
+});
+
+test("no grey line under a setting: the official maps' range is the tooltip's last words (Kyler, 2026-10-03)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await openEditor(page, "s=9&z=96&d=n&t=riverValley");
+  const drawer = await openDrawer(page);
+  // nothing in the panel reads as a reference line
+  await expect(drawer.locator(".band, [class*='-band']")).toHaveCount(0);
+  await expect(drawer).not.toContainText("Official");
+  // a setting with a range in the official maps says it at the end of its tooltip
+  const setting = (name: string) => drawer.locator(".set.line").filter({ has: page.locator(".set-label", { hasText: new RegExp(`^${name}$`) }) });
+  for (const [name, range] of [["Relief", /Official maps: 9–15/], ["Waterfalls", /Official maps: 0–41/], ["Max walk to water", /Official maps: most 12/], ["Starting wood", /Official maps: most 110/]] as const) {
+    const title = (await setting(name).getAttribute("title")) ?? "";
+    expect(title, name).toMatch(new RegExp(` · ${range.source}[^.]*$`));
+  }
+  // and one with none has only what it does
+  expect(await setting("River style").getAttribute("title")).toBe("How the rivers run: straight, meandering or braided");
 });
 
 test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, in the one shared tooltip", async ({ page }) => {
@@ -244,18 +287,18 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   };
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  // Kyler's two: "Carve a river" then 7, "Smooth bumps and steps" then 4
-  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (7)" }))).toEqual({ text: "Carve a river", caps: ["7"], last: "tip-key", native: null });
-  expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (4)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["4"], last: "tip-key", native: null });
-  // a few more, keys of every kind: a force's own, a shelf item's with R's turn, the header's, a size's
-  expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (-)" }))).caps).toEqual(["-"]);
+  // Kyler's two: "Carve a river" then Shift+1, "Smooth bumps and steps" then 5
+  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (Shift+1)" }))).toEqual({ text: "Carve a river", caps: ["Shift+1"], last: "tip-key", native: null });
+  expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (5)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["5"], last: "tip-key", native: null });
+  // a few more, keys of every kind: a force's own, a shelf item's (none), the header's, a size's
+  expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (Shift+7)" }))).caps).toEqual(["Shift+7"]);
   const shelf = page.getByRole("navigation", { name: "Place" });
-  expect(await tooltipOf(shelf.getByRole("button", { name: "Water source (6)" }))).toMatchObject({ text: "Where water starts", caps: ["6"] });
+  expect(await tooltipOf(shelf.getByRole("button", { name: "Water source", exact: true }))).toMatchObject({ text: "Where water starts", caps: [] });
   expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
-  await page.keyboard.press("7");
-  const size = page.getByRole("group", { name: "Carve options" }).locator(".size-control .slider-field");
+  await page.keyboard.press("Shift+Digit1");
+  const size = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Size"])');
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
-  const power = page.getByRole("group", { name: "Carve options" }).locator(".slider-field").filter({ hasText: "Power" });
+  const power = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Power"])');
   expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });

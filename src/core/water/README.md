@@ -111,8 +111,8 @@ const r = edgeLip(heights, W, H, { row, surface, keep?, reach? });
 - **The generator** (M9b): every edge river's mouth, before the course check (`gen/generate.ts`); the
   course check seals only the mouth's own tiles (`land/courses.ts` `sealedMouths`, the build's
   `mouthTilesOf`), and badwater ditches keep out of the lip's reach.
-- **The forces** do not call it yet: Carve's source row and Glaciate's meltwater can still stand on an edge
-  and pour off it. Whether to wire it in is Kyler's call (the coherence review's B3, D462).
+- **The forces** do not call it (D462): Carve's source row and Glaciate's meltwater can stand on an edge
+  and pour off it.
 - **Real places** (when it resumes, D319): each head the conversion puts on an edge.
 
 # A basin's way out worn wider (`outletWear.ts`, PLAN §20 D350 (b))
@@ -131,3 +131,11 @@ returns the new ground, the tiles cut and the path, or null. The generator calls
 whose water doesn't settle within the settle's 6 days (D358): on the basin over its level, then on
 the water still rising (9, then 17 tiles, the first that settles, a cut of at most 200 tiles);
 `tests/unit/outletWear.test.ts`.
+
+# A spring by the start (`springSites.ts`, D330)
+
+`springCandidates(ground, rule, tries, walkTo, keep?)` is where a spring by a start without water may go: dry, free
+ground off the start's 5×5 within the rule's walk less 4, in a riverbed or a hollow, a riverbed first, then the deeper
+hollow, then the shorter walk, each place 6 tiles from the others. The generator's `springByStart` (on a shown land)
+and `doc/waterFix.ts` (on a map as edited) both use it, each with its own walk, filters (the generator: off the edge,
+under the start's pad), tries (3 and 6) and strengths.

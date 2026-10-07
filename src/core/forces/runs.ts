@@ -5,9 +5,10 @@
 // final map (the stages are only its presentation), so the result never depends on the pace, the
 // machine or the effects. Nothing changes before the force reaches it (D321, item 30): objects and
 // sources go as the front, the lava or the ice arrives (an impact's all at once, at its moment; under
-// a quake they ride the ground), and the water stays as it was until the land is final, then flows
-// on from there as after any edit (a force never adds any). The editor paces the stages (Fast or
-// Slow forces, item 29); Carve (carve/play.ts) is played back through the same worker calls.
+// a quake they ride the ground). Each stage's map carries the water as it was (a force never adds any):
+// the editor flows the map's own water on the land as each stage shows it, and keeps that water
+// (worker/session.ts, D371). The editor paces the stages (Fast or Slow forces, item 29); Carve
+// (carve/play.ts) is played back through the same worker calls.
 //
 // Each step also says what the effects and the sounds need (its cue): the phase, where, how big.
 
@@ -24,6 +25,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
+import { changedGround, clearable, clears, CLEARABLE, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -49,6 +51,8 @@ export interface ForceCue {
   erupt?: { vents: Point[]; radius: number; fissure: boolean; line: Point[] };
   /** A quake: its crack as it runs, and whether it slides. */
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
+  rift?: { path: Point[]; width: number };
+  deposit?: { mouth: Point; direction: Point; reach: number; branches: Point[][] };
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
   /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
@@ -59,7 +63,7 @@ export interface ForceCue {
 
 /** A staged force as the worker drives it. */
 export interface StagedRun {
-  readonly verb: "craterize" | "erupt" | "quake" | "glaciate";
+  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;
@@ -83,6 +87,12 @@ export interface StagedRun {
   finishAll(): void;
   /** The build's last touches on the planned map. */
   finalize: Finalize | null;
+  /** Sources set to Clear (D474): the sources its showing has cleared so far, each with the step
+   *  (`shown`) that took it; all of them once shown to its end. */
+  readonly cleared: readonly ClearedSource[];
+  /** The working area's depth (D254), or null: what it clears is on the ground its operation keeps
+   *  changed, feathered. */
+  ease: Uint8Array | null;
 }
 
 /** The water model of a force's map (features/build.ts). */
@@ -184,14 +194,50 @@ export abstract class Staged {
     }
     this.stage++;
     this.show(this.stage);
+    this.clearShown();
     if (this.stage >= this.stages) this.ended = true;
   }
 
-  /** Its last touches, if not made yet (tests, Claude's step). */
+  /** Its settings (each force's own): Sources among them (D474). */
+  abstract readonly settings: { sources?: SourcesRule };
+  /** The planned result (null until planned). */
+  abstract final(): FullForceMap | null;
+  /** Sources set to Clear: the sources it clears, once planned (D474). */
+  protected clearing: SourceClearing | null = null;
+  /** The working area (D254): how many levels each tile may change, or null for none (`planForce`
+   *  sets it): it clears the sources on the ground its operation keeps changed, feathered. */
+  ease: Uint8Array | null = null;
+
+  get cleared(): readonly ClearedSource[] {
+    return this.clearing?.record ?? [];
+  }
+
+  /** The frame just shown without the sources it has cleared: each goes at the first step its land
+   *  differs at one of the source's tiles (D474: no pop), the last at the latest. */
+  protected clearShown(): void {
+    const c = this.clearing;
+    if (!c) return;
+    this.map.entities = c.show(this.map.heights, this.map.entities, this.shown, this.shown >= this.total);
+  }
+
+  /** Its last touches, if not made yet (tests, Claude's step); with Sources set to Clear, the sources
+   *  its planned land takes (those on ground it changed that it neither took nor carried away itself). */
   planAll(): this {
     if (!this.settled) {
       this.settle();
       this.settled = true;
+      this.clearing = null;
+      const after = this.final();
+      // (Ride: a source or seep stands on the ground its last touches left, D474)
+      if (after && !clears(this.settings.sources)) {
+        const W = after.W;
+        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+      }
+      if (after && clears(this.settings.sources)) {
+        const ground = this.before.heights;
+        const standing = new Set(after.entities.map((e) => e.id));
+        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, changedGround(ground, after.heights, this.ease), (id) => !standing.has(id)));
+      }
     }
     return this;
   }
@@ -307,7 +353,7 @@ export class EruptRun extends Staged implements StagedRun {
       this.map = snapshotMap(this.plan0.map);
       return;
     }
-    const m = stageMap(this.before, this.plan0.map, t);
+    const m = stageMap(this.before, this.plan0.map, t, this.before.water);
     // an object changes (falls, goes, rides the rock) only once the eruption reaches it: the heat's
     // arrival, from the vent outward (or along a fissure); the water waits for the final land
     const heat = this.heat()!;
@@ -322,7 +368,6 @@ export class EruptRun extends Staged implements StagedRun {
     const had = new Set(this.before.fallen.map((f) => f.id));
     const ids = new Set(m.entities.map((e) => e.id));
     m.fallen = m.fallen.filter((f) => ids.has(f.id) && (had.has(f.id) || reached(f.x, f.y)));
-    m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
   }
 
@@ -359,6 +404,9 @@ export class QuakeRun extends Staged implements StagedRun {
   plan0: QuakePlan;
   protected readonly approach = 1;
   private painted = false;
+  /** A Slide's ground as it shows now: where each tile's came from (of the map before it); null for a
+   *  Lift, and before the block moves. The editor's water rides the block by it. */
+  ground: Uint32Array | null = null;
 
   constructor(before: FullForceMap, public settings: QuakeSettings, public intent: QuakeIntent, keep: Uint8Array | null = null) {
     super(before, keep);
@@ -398,7 +446,9 @@ export class QuakeRun extends Staged implements StagedRun {
     const m = snapshotMap(this.plan0.map);
     m.water = { depth: prev.water.depth.slice(), contamination: prev.water.contamination.slice() };
     this.map = m;
+    this.ground = null;
     this.stage = this.stages;
+    this.clearShown();
   }
 
   /** The painted fault is let go: the quake is done. */
@@ -435,7 +485,8 @@ export class QuakeRun extends Staged implements StagedRun {
       m = snapshotMap(p.map);
       src.set(p.source);
     } else {
-      m = snapshotMap(this.before);
+      // The riders below replace every object: avoid a discarded JSON round trip.
+      m = snapshotMap({ ...this.before, entities: [] });
       this.shift(f, m.heights, m.lava, src);
       // (what the fault does besides moving the block, its rivers joined again across it and its
       // tear, D368 (9): each part shown as the slide passes it, never all at the end)
@@ -469,7 +520,11 @@ export class QuakeRun extends Staged implements StagedRun {
       m.water = { depth: D, contamination: Float64Array.from(C, (v, i) => (D[i] ? v / D[i] : 0)) };
     } else m.water = { depth: this.before.water.depth.slice(), contamination: this.before.water.contamination.slice() };
     this.map = m;
+    this.ground = src;
   }
+
+  /** Each tile's travel for the current plan (computed once per plan; a repaint replaces the plan). */
+  private travel0: { plan: QuakePlan; values: Float64Array } | null = null;
 
   /** The block `f` of its way along (whole tiles): the heights, rock and where each tile's ground came
    *  from (of `this.before`). */
@@ -486,6 +541,8 @@ export class QuakeRun extends Staged implements StagedRun {
       if (lava) lava[j] = this.before.lava[s];
       if (src) src[j] = s;
     }
+    if (this.travel0?.plan !== p) this.travel0 = { plan: p, values: Float64Array.from(p.dx, (dx, i) => portable.hypot(dx, p.dy[i])) };
+    const travelValues = this.travel0.values;
     const priority = new Float32Array(N).fill(-1);
     for (let i = 0; i < N; i++) {
       if (!p.dx[i] && !p.dy[i]) continue;
@@ -493,7 +550,7 @@ export class QuakeRun extends Staged implements StagedRun {
       const y = Math.floor(i / W) + off(p.dy[i]);
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const j = y * W + x;
-      const travel = portable.hypot(p.dx[i], p.dy[i]);
+      const travel = travelValues[i];
       if (travel < priority[j]) continue;
       priority[j] = travel;
       heights[j] = this.before.heights[i];

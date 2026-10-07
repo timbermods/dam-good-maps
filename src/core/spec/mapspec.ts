@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
 // URL codec produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.9.0";
+export const GENERATOR_VERSION = "0.8.7";
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
  *  theme only leans the generator toward that kind of land. */
@@ -86,16 +86,6 @@ export interface Settings {
   };
 }
 
-export interface Region {
-  runs: [number, number, number][];
-}
-
-export interface SetPieceRequest {
-  kind: string;
-  params: Record<string, unknown>;
-  region?: Region;
-}
-
 export interface MapSpec {
   specVersion: 1;
   generatorVersion: string;
@@ -114,8 +104,6 @@ export interface MapSpec {
   /** Room for Timber Together multi-colony maps (PLAN §20, D5). The generator builds only
    *  {count: 1, mod: "none"} until a milestone schedules multi-colony maps. */
   colonies: { count: 1 | 2 | 3 | 4; mod: "none" | "timberTogether" };
-  setPieces: SetPieceRequest[];
-  constraints: { keepOut: Region[]; keep: string[] };
   accepted?: { attempt: number; candidate: number };
 }
 
@@ -217,6 +205,16 @@ export function upgradeSpec(spec: unknown): void {
   if (!("woodWithin20" in rules) && typeof trees === "number" && Number.isFinite(trees)) rules.woodWithin20 = woodForTrees(trees);
 }
 
+/** A spec stored before the coherence cleanup (D462) carries `setPieces` and `constraints` (keep-out
+ *  regions and kept features): nothing read them once locks and keep-outs went (D253, D270, D336),
+ *  so they are dropped. Changes the spec in place. */
+export function upgradeRetiredFields(spec: unknown): void {
+  const s = spec as Record<string, unknown> | null;
+  if (!s || typeof s !== "object") return;
+  delete s.setPieces;
+  delete s.constraints;
+}
+
 /** A spec stored before M9a has no Verticality: it takes its theme's default. Changes the spec in
  *  place; anything else is left for the schema to judge. */
 export function upgradeVerticality(spec: unknown): void {
@@ -315,8 +313,6 @@ export function makeSpec(opts: {
     designedFor,
     settings: defaultSettings(theme, designedFor, size),
     colonies: { count: 1, mod: "none" },
-    setPieces: [],
-    constraints: { keepOut: [], keep: [] },
   };
 }
 

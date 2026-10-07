@@ -27,7 +27,7 @@ import type { Rng } from "../math/rng";
 import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
 import type { Genome } from "./genome";
 import { unit } from "./num";
-import { levelRegions, N4 } from "../math/grid";
+import { distanceFrom, levelRegions, N4 } from "../math/grid";
 
 export const INTENTIONS = [
   "under-cliff",
@@ -152,7 +152,7 @@ export function drawIntentions(theme: ThemeId, vt: number, rng: Rng, size: { W: 
   const out: IntentionId[] = [];
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
-      if (out.includes(id) || out.some((o) => CLASH.some(([a, b]) => (a === o && b === id) || (b === o && a === id)))) return 0;
+      if (out.includes(id) || out.some((o) => clashes(o, id))) return 0;
       if (size && tooSmallFor(id, size.W, size.H)) return 0;
       if (sea && DRAINS_A_SEA.has(id)) return 0;
       return weightOf(id, theme) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
@@ -406,7 +406,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
         const xx = i % W;
         const yy = (i - xx) / W;
         if (h[i] >= L && h[i] <= L + 1)
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          for (const [dx, dy] of N4) {
             const X = xx + dx;
             const Y = yy + dy;
             if (X >= 0 && Y >= 0 && X < W && Y < H && h[Y * W + X] - h[i] >= 2 && h[Y * W + X] >= L + 2) cliff = true;
@@ -716,39 +716,6 @@ const RAYS: [number, number][] = (() => {
   return a.map((v, k) => [v, b[k]] as [number, number]);
 })();
 
-/** Chamfer distance to the marked tiles (Infinity where none). */
-function distanceTo(mask: Uint8Array, W: number, H: number): Float64Array {
-  const N = W * H;
-  const d = new Float64Array(N);
-  for (let i = 0; i < N; i++) d[i] = mask[i] ? 0 : Infinity;
-  const R2 = Math.SQRT2;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      let v = d[i];
-      if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
-      if (y > 0) {
-        if (d[i - W] + 1 < v) v = d[i - W] + 1;
-        if (x > 0 && d[i - W - 1] + R2 < v) v = d[i - W - 1] + R2;
-        if (x < W - 1 && d[i - W + 1] + R2 < v) v = d[i - W + 1] + R2;
-      }
-      d[i] = v;
-    }
-  for (let y = H - 1; y >= 0; y--)
-    for (let x = W - 1; x >= 0; x--) {
-      const i = y * W + x;
-      let v = d[i];
-      if (x < W - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
-      if (y < H - 1) {
-        if (d[i + W] + 1 < v) v = d[i + W] + 1;
-        if (x < W - 1 && d[i + W + 1] + R2 < v) v = d[i + W + 1] + R2;
-        if (x > 0 && d[i + W - 1] + R2 < v) v = d[i + W - 1] + R2;
-      }
-      d[i] = v;
-    }
-  return d;
-}
-
 /** A body's second moments: the ratio of its minor to its major axis (1 round, near 0 long). */
 function shapeOf(tiles: readonly number[], W: number): { axes: number } {
   let cx = 0;
@@ -987,7 +954,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           if (!(D[i] >= 0.1)) continue;
           const s = h[i] + D[i];
           let sides = 0;
-          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          for (const [dx, dy] of N4) {
             for (let r = 1; r <= 3; r++) {
               const xx = x + dx * r;
               const yy = y + dy * r;
@@ -1337,7 +1304,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       // one body of water, so the lake is what stands apart from the channel)
       const onCourse = new Uint8Array(N);
       for (const path of [...c.rivers, ...(c.arms ?? [])]) for (const [x, y] of resample(path, W, H)) onCourse[Math.round(y) * W + Math.round(x)] = 1;
-      const near = distanceTo(onCourse, W, H);
+      const near = distanceFrom(onCourse, W, H);
       const off = new Uint8Array(N);
       for (let i = 0; i < N; i++) off[i] = D[i] >= 0.3 && near[i] >= 3 ? 1 : 0;
       const seenO = new Uint8Array(N);
@@ -1588,7 +1555,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       // start's own water clean
       const bad = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05 && eu(i) <= 60) bad[i] = 1;
-      const dist = distanceTo(bad, W, H);
+      const dist = distanceFrom(bad, W, H);
       let surf = 0;
       let n = 0;
       for (let i = 0; i < N; i++)

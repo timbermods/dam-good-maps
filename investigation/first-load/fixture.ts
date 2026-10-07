@@ -1,0 +1,11 @@
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { makeSpec } from './local/page-original/src/core/spec/mapspec';
+import { runGenerate } from './local/page-original/src/worker/api';
+import * as ed from './local/page-original/src/worker/session';
+import { decodeProject } from './local/page-original/src/core/doc/document';
+const spec=makeSpec({seed:4263,size:{x:128,y:128},theme:'riverValley'});
+const r=await runGenerate(spec);ed.refine();const p=ed.project(6);const doc=decodeProject(p.bytes);
+if(!doc.stored)throw Error('Fixture has no stored map');
+mkdirSync(resolve('investigation/first-load/local'),{recursive:true});writeFileSync('investigation/first-load/local/reopen.json.gz',p.bytes);
+console.log(JSON.stringify({sha:r.sha256,bytes:p.bytes.length,stored:true}));

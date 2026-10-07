@@ -336,9 +336,13 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         return;
       }
       if (!start) return;
+      // a click that never left its tile, with no Shift or Alt, is no area: it clears the selection (Select is
+      // always in hand, so a click on the land must not leave a one-tile selection behind)
+      const s0 = start;
+      const clicked = how === "set" && mode() !== "brush" && points.every((p) => p[0] === s0[0] && p[1] === s0[1]);
       start = null;
       painted = null;
-      sel.apply(tiles, how);
+      sel.apply(clicked ? [] : tiles, how);
       tiles = [];
       host.drawing(null, null, null);
       host.changed();

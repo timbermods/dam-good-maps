@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { startMiddle } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
@@ -24,19 +24,17 @@ const objects = (s: MapSession) => s.built.entities.map((e) => `${e.template} ${
 
 describe("Try another after a force that carried the start (D257, D220)", () => {
   // (seed 3 on M9b's maps, D148: its Highlands 64² seed 4 has no start; the Slide is clicked seven tiles
-  // north of the start, as it was on dev's map; the start at (16, 15) since the 96² round's flow
-  // moved the map, investigation/canyon-highlands-96, and the Slide clicked six tiles east of it,
-  // where it carries the start: seven tiles north it leaves it where it stood, and four tiles east
-  // its second try touches the ground beside the start)
-  it("Highlands 64², seed 3: a Quake Slide clicked at (22, 15) carries the start; Try another leaves the start's ground alone, so the start stays at (16, 15) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
+  // north of the start, as it was on dev's map; seed 2 for 0.8.3's maps, D148: on seed 3's the next try breaks the start's ground too,
+  // wherever the Slide is clicked; here it is clicked seven tiles north of the start and one east)
+  it("Highlands 64², seed 2: a Quake Slide clicked at (37, 21) carries the start; Try another leaves the start's ground alone, so the start stays at (36, 28) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const orig = startMiddle(open())!;
-    expect(orig).toEqual([16, 15]);
+    expect(orig).toEqual([36, 28]);
 
-    // the first try: a Slide clicked at (22, 15), Power 40, the editor's way; it breaks the start's ground
-    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 22, y: 15 }, { x: 22, y: 15 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    // the first try: a Slide clicked at (37, 21), Power 40, the editor's way; it breaks the start's ground
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 37, y: 21 }, { x: 37, y: 21 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
     expect(play()).toBe(true);
     expect(startMiddle(open())).not.toEqual(orig);
 

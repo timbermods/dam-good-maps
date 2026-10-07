@@ -58,17 +58,17 @@ function clamp255(v: number): number {
 export const THUMB_W = 960;
 export const THUMB_H = 540;
 
-/** 960×540 RGBA thumbnail: the shaded map fitted and centred on a dark background, north up,
- *  sampled bilinearly between tile centres. */
-export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null): Uint8Array {
+/** An RGBA thumbnail, 960×540 unless given another size (the Real places cards): the shaded map
+ *  fitted and centred on a dark background, north up, sampled bilinearly between tile centres. */
+export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?: ArrayLike<number> | null, width = THUMB_W, height = THUMB_H): Uint8Array {
   const tiles = shadeTiles(heights, W, H, water);
-  const fit = Math.min(THUMB_W / W, THUMB_H / H);
+  const fit = Math.min(width / W, height / H);
   const w = Math.max(1, Math.floor(W * fit));
   const h = Math.max(1, Math.floor(H * fit));
-  const ox = Math.floor((THUMB_W - w) / 2);
-  const oy = Math.floor((THUMB_H - h) / 2);
-  const out = new Uint8Array(THUMB_W * THUMB_H * 4);
-  for (let i = 0; i < THUMB_W * THUMB_H; i++) {
+  const ox = Math.floor((width - w) / 2);
+  const oy = Math.floor((height - h) / 2);
+  const out = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
     out[i * 4] = 38;
     out[i * 4 + 1] = 44;
     out[i * 4 + 2] = 36;
@@ -85,7 +85,7 @@ export function thumbnailRgba(heights: Uint8Array, W: number, H: number, water?:
       const x0 = Math.floor(mx);
       const x1 = Math.min(W - 1, x0 + 1);
       const tx = mx - x0;
-      const o = ((py + oy) * THUMB_W + (px + ox)) * 4;
+      const o = ((py + oy) * width + (px + ox)) * 4;
       for (let c = 0; c < 3; c++) {
         const a = tiles[(y0 * W + x0) * 3 + c] * (1 - tx) + tiles[(y0 * W + x1) * 3 + c] * tx;
         const b = tiles[(y1 * W + x0) * 3 + c] * (1 - tx) + tiles[(y1 * W + x1) * 3 + c] * tx;

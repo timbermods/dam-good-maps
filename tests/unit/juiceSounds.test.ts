@@ -47,7 +47,7 @@ describe("the sound bank (D226)", () => {
 
   it("every recipe and bed uses the bank's recordings, bounded; runs climb to a fifth and reset; each force phase is its own; distance lowers and darkens", () => {
     const ids = new Set(BANK_IDS);
-    expect(SOUNDS.length).toBe(22);
+    expect(SOUNDS.length).toBe(24);
     for (const sound of SOUNDS)
       for (let i = 0; i < 20; i++) {
         const layers = recipe(sound.id, { size: i / 20, strength: i / 20 });
@@ -67,6 +67,8 @@ describe("the sound bank (D226)", () => {
       ["craterize", ["incoming", "impact", "debris"]],
       ["erupt", ["rumble", "plume", "cool"]],
       ["glaciate", ["advance", "retreat"]],
+      ["rift", ["crack"]],
+      ["deposit", ["advance"]],
     ] as const)
       for (const phase of phases) {
         const layers = recipe(name, {}, { phase });

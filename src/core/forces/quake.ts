@@ -2,7 +2,8 @@
 // (D327). Lift raises the chosen side along it (the other drops a little, with a natural tilt and small
 // secondary faults); Slide carries the chosen side 3–20 tiles along the fault's own direction where
 // each part of it lies (a straight fault's one heading; a curved one's, bending with it) while the
-// other bank stays, and
+// other bank stays (where level ground slides along level ground and nothing would show, the ground
+// splits along the fault instead, a level up and down, D356), and
 // a river that crossed the fault is joined again along it. Power sets the throw and the shaking's
 // reach; Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it
@@ -12,6 +13,7 @@
 // Planned in Rust (rust/forces, PLAN §20 D381; rust/bridge.ts); its showing (`revealQuake`), its brush and a
 // click's natural fault (`clickFault`) stay here. The TypeScript planner it replaced is tag `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import { snapshotMap, type FullForceMap } from "./force";
 import { clamp, hash } from "./random";
@@ -33,6 +35,8 @@ export interface QuakeIntent {
 
 export interface QuakeSettings {
   mode: "lift" | "slide";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   scarp: "sheer" | "stepped";

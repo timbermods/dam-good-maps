@@ -22,7 +22,7 @@ function wait(ms: number): void {
   for (const f of frames.splice(0)) f();
 }
 
-type Verb = ForceMoment["verb"];
+type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift effects belong to the page session.
 
 /** A moment of `verb` at (x, y). */
 function moment(verb: Verb, phase: string, x: number, y: number, progress = 0): ForceMoment {
@@ -114,6 +114,22 @@ describe("a force clicked quickly after another (D378)", () => {
     fx.set(moment("erupt", "rise", 10, 10, 0.5));
     expect(fx.showing().erupt).toMatchObject({ age: expect.closeTo(0.5, 3), cooling: 0 });
   });
+
+  for (const next of ["carve", "craterize", "quake", "glaciate", "erupt"] as const)
+    it(`an eruption's heat never shows again once ${next} has begun, nor when it is kept`, () => {
+      play(fx, "erupt", 10, 10);
+      expect(fx.heat(now)).not.toBeNull();
+      wait(500);
+      play(fx, next, 40, 30);
+      // (another eruption: only its own heat, from its own start)
+      const own = next === "erupt" ? { age: expect.closeTo(0.88 + 0.22, 3), cooling: expect.closeTo(0.22, 3) } : null;
+      expect(fx.heat(now)).toEqual(own);
+      for (let k = 0; k < 8; k++) {
+        wait(1000);
+        if (next !== "erupt") expect(fx.heat(now), `${k + 1} s after ${next} was kept`).toBeNull();
+      }
+      expect(fx.heat(now)).toBeNull();
+    });
 
   it("the last force's tail plays out when nothing follows it", () => {
     play(fx, "erupt", 10, 10);

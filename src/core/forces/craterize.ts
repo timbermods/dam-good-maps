@@ -5,13 +5,15 @@
 // levels: a morphology model, not a shock-physics solver. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
-// trees, their pose the editor's); other objects whose ground changed go; water sources keep their
-// ground and strength. It strikes wherever it is aimed, the start's ground too (the editor carries
-// the start to level ground, D257), and never adds water.
+// trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources
+// set to Clear takes those on ground it changed (clear.ts, D474); an aquifer keeps its ground; other
+// objects whose ground changed go. It strikes wherever it is aimed, the start's ground too (the editor
+// carries the start to level ground, D257), and never adds water.
 //
 // Planned in Rust (rust/forces, PLAN §20 D381; rust/bridge.ts): this file keeps its settings, its checks
 // and its anatomy's shape; the TypeScript planner it replaced is tag `ts-forces-final`.
 
+import type { SourcesRule } from "./clear";
 import * as portable from "../math/portable";
 import type { FullForceMap } from "./force";
 import { planInRust } from "./rust/bridge";
@@ -19,6 +21,8 @@ import { forceSettingsProblem } from "./settings";
 
 export interface CraterSettings {
   mode: "strike" | "aim";
+  /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
+  sources?: SourcesRule;
   /** 0–100. */
   power: number;
   /** The crater's diameter in tiles, 4–180, or null: it follows Power. */
@@ -91,8 +95,8 @@ export interface CraterAnatomy {
 }
 
 /** A crater planned on its own copy of the map, in Rust, in one call. `keep` adds ground it leaves alone
- *  (the land above the layer showing, an imported map's caves); the existing sources' ground is kept
- *  too, with their exact settings. Throws why it can't start. */
+ *  (the land above the layer showing, an imported map's caves); an aquifer's ground is kept too, while
+ *  sources and seeps ride the crater's ground (D474). Throws why it can't start. */
 export class ImpactPlan {
   readonly map: FullForceMap;
   readonly anatomy: CraterAnatomy;

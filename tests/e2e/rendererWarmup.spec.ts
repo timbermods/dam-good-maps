@@ -5,6 +5,7 @@
 // so the High look's programs are warmed and checked there too.)
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 test.beforeEach(async ({ page }) => {
@@ -18,10 +19,7 @@ test("a warmed renderer draws the first map without compiling a program, the sam
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   for (const look of ["high", "standard"] as const) {
     const out = await page.evaluate(async (lk) => {
       type R = import("../../src/render3d").MapRenderer;

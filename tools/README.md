@@ -12,17 +12,17 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
 - `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
-- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, and the probe's runner calls them itself before a batch); `ingame-files.ts` makes the files for the in-game checks.
+- `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, built with the generator's own steps, `places/place.ts` `buildFileFromHeights`; the probe's runner calls them itself before a batch and rewrites any map whose bytes changed); `ingame-files.ts` makes the files for the in-game checks.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 
 **Batches and measures**
-- `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `lip.ts` `measureLip`, `placeData.ts` (the writer half of a real place's data).
+- `lib/` holds core measuring code that only tools and tests run, moved out of `src/core/` so the Rust port does not carry it (the coherence review's G3): `metrics.ts` `measure`, `resources.ts` `measureResources`, `startPlanting.ts`, `glaciate.ts` (`measureGlaciate`, `makePlan`), `placeData.ts` (the writer half of a real place's data).
 - `batch.ts`, `batches.ts`: pass rates per theme and size. `settings-suite.ts`, `settings-batch.ts`: each setting's effect on its target.
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
 **Contact sheets and captures**
-- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps.
+- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).
 - `capture-*.ts`: before and after captures for Kyler's look rounds, taken in a real browser.
 
 **Data the game supplies**
@@ -36,7 +36,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `roadmap-canvas/` is a standalone planning page: what needs Kyler, what is in flight, the roadmap's steps as cards, the order of work, a map and the releases, read live from `dev`'s documents and GitHub (open its `index.html` from disk; its README says how). Not part of the site.
 - `retired-terms.json` lists retired features. `tests/unit/retired-terms.test.ts` fails when one reappears in the living documents or the editor code.
 
-**Tests**: most tools have none of their own; the oracle and the batches are the checks they run. `tests/unit/retired-terms.test.ts` covers `retired-terms.json`, `tests/unit/portable.test.ts` the maths guard, `tests/unit/smooth.test.ts` the smoothness gate and `tests/unit/ci-changes.test.ts` CI's change filter. Run `npx vitest run tests/unit/retired-terms.test.ts`.
+**Tests**: the measures in `lib/` have contract tests (`tests/contract/resources.test.ts`, `startPlanting.test.ts`, `glaciate.test.ts`, `glaciatePowerSize.test.ts`; `settings.test.ts` runs `settings-suite.ts`); `tests/unit/` covers `retired-terms.json`, the maths guard (`portable.test.ts`), the smoothness gate (`smooth.test.ts`), CI's change filter (`ci-changes.test.ts`) and `log-floor.ts`. The other scripts have none of their own: the oracle and the batches are the checks they run. Run one with `npx vitest run tests/unit/retired-terms.test.ts`.
 
 ## Machine setup
 
@@ -64,3 +64,16 @@ and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixt
 natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
 the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
 `npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.
+
+The Rust analysis (D391): the same for its six kernels: the committed Wasm `src/core/analysis/rust/analysisWasm.ts`,
+`analysis-batch`, and byte fixtures (`tools/rust/analysis-jobs.ts`) against `tools/rust/analysis-pins.json`, taken
+when the TypeScript kernels (tag `ts-analysis-final`) gave the same. A deliberate change to a kernel re-pins them:
+`npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`.
+
+The Rust checks (D465): the same for the map checks: the committed Wasm `src/core/validate/checksWasm.ts`,
+`checks-batch`, and byte fixtures (`tools/rust/checks-jobs.ts`, validations of the forces' studies) against
+`tools/rust/checks-pins.json`, taken when the TypeScript checks (tag `ts-checks-final`) gave the same. A deliberate
+change to a check re-pins them: `npx tsx tools/rust/checks-jobs.ts > tools/rust/checks-pins.json`. The data the
+checks share with the TypeScript (footprints, calibrated targets, names…) is generated into
+`rust/checks/src/tables.rs` by `npx tsx tools/rust/checks-tables.ts` (`tests/unit/checksTables.test.ts` fails when it
+is stale).

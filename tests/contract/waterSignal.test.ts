@@ -170,23 +170,28 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
     firesSomewhere(frames[frames.length - 1], settled!, "the settled water");
     fires(placed, settled!, spot, "the settled water, after the edit's answer");
 
-    // the weather's days: a drought stops the source and its water drains; the end is the map's own water
-    const days: TileFacts[] = [];
-    let end: TileFacts | null = null;
+    // the weather's days, held (Kyler, 2026-10-04): a drought's last day has the source's water drained; Day 0 is the
+    // map's own water again
+    let shown: TileFacts | null = null;
     ed.listen((e) => {
-      if (e.kind !== "weather") return;
+      if (e.kind !== "weather" || e.phase !== "day" || !e.water) return;
       m.frame(e.water, e.soil);
-      if (e.phase === "end") end = m.facts();
-      else days.push(m.facts());
+      shown = m.facts();
     });
-    ed.startWeather("drought");
-    await until(() => end !== null, 120_000);
+    const day = async (d: number | null): Promise<TileFacts> => {
+      shown = null;
+      ed.showWeatherDay("drought", d);
+      await until(() => shown !== null, 120_000);
+      return shown!;
+    };
+    const last = await day(null);
+    expect(readoutWaterChanged(settled!, last, sx, sy), "the drought's last day changes the source's water").toBe(true);
+    fires(settled!, last, spot, "a day of the drought");
+    const end = await day(0);
     ed.listen(null);
-    const dry = days.findIndex((f) => readoutWaterChanged(settled!, f, sx, sy));
-    expect(dry, "a day of the drought changes the source's water").toBeGreaterThanOrEqual(0);
-    fires(dry ? days[dry - 1] : settled!, days[dry], spot, "a day of the drought");
-    expect(words(end!, spot)).toBe(words(settled!, spot));
-    firesSomewhere(days[days.length - 1], end!, "the weather's end");
+    ed.stopWeather();
+    expect(words(end, spot)).toBe(words(settled!, spot));
+    firesSomewhere(last, end, "the weather's end");
 
     // an edit's answer: ground lowered under the water keeps its surface, so the water is deeper at once
     const [dx, dy] = at(deep);
@@ -217,6 +222,9 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
     m.open(ed.openProject(saved).view);
     const reopened = m.facts();
     fires(redoSettled, reopened, deep, "opening a map");
-    expect(words(reopened, deep)).toBe(words(undoSettled, deep));
+    // (saved before its canonical water, it opens on its saved base water; the canonical water follows)
+    const canonical = await ed.backgroundCheck();
+    if (canonical?.view) m.view(canonical.view);
+    expect(words(m.facts(), deep)).toBe(words(undoSettled, deep));
   }, 300_000);
 });

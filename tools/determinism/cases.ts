@@ -5,6 +5,7 @@
 // hashed as little-endian binary64, so signed zero and low bits count. `run.ts` runs the same cases in
 // Chromium, Firefox, WebKit and Node and compares them checkpoint by checkpoint.
 
+import { runStackFixture, stackFixtures } from "../rust/stack-fixtures";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
@@ -17,14 +18,16 @@ import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { QUAKE_DEFAULTS, clickFault } from "../../src/core/forces/quake";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
+import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
+import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { keptForceParams } from "../../src/core/forces/keep";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { VERBS } from "../../src/core/forces/op";
 import * as nature from "../../src/core/forces/nature";
 import { tree, waterSource } from "../../src/core/format/entities";
-import { WaterSim } from "../../src/core/sim/water";
+import { WaterSim, type WaterModel } from "../../src/core/sim/water";
 import { prefill } from "../../src/core/sim/prefill";
-import { badtideContamination } from "../../src/core/sim/weather";
+import { HazardRun } from "../../src/core/sim/weather";
 import { MapSession } from "../../src/core/doc/session";
 import { Rng } from "../../src/core/math/rng";
 import { randomOp } from "../../tests/contract/randomOps";
@@ -37,7 +40,7 @@ function fullMap(m: ForceMap): FullForceMap {
 
 export interface Case {
   id: string;
-  kind: "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling";
+  kind: "stacked-water" | "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling" | "water";
   n: number;
   [k: string]: any;
 }
@@ -130,7 +133,7 @@ function brush(n: number, tool: string, strength: number, size: number, k: numbe
   return { tool, strength, size, seed: 927 + k, ...(!target ? { level: 9 } : {}), dabs, ...(k % 2 ? { shape: "square" } : {}), ...(target ? { target: tool === "lower" ? 3 : 15 } : {}) } as any;
 }
 
-const verbs = ["carve", "craterize", "erupt", "quake", "glaciate"];
+const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
 
 function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
   const n = m.W;
@@ -146,6 +149,7 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
   let run: StagedRun & { planAll(): unknown };
   let settings: any;
   let intent: any;
+  const areaDepth = (verb === "rift" || verb === "deposit") && mode ? new Uint8Array(n*n).fill(2) : null;
   if (verb === "carve") {
     settings = nature.carveNature({ ...CARVE, mode: mode ? "aim" : "unleash", power, width: size === null ? null : Math.min(24, size / 4), seed, dry: mode === 2 } as any, ground);
     intent = { origin, ...(mode ? { end } : {}) };
@@ -165,6 +169,14 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     settings = nature.eruptNature({ ...ERUPT_DEFAULTS, mode: mode ? "fissure" : "vent", power, size, seed } as any, ground);
     intent = { origin, ...(mode ? { path } : {}) };
     run = new EruptRun(m, settings, intent);
+  } else if (verb === "deposit") {
+    settings = { ...DEPOSIT_DEFAULTS, power, size, seed };
+    intent = { path: mode ? path : [{ x, y }] };
+    run = new DepositRun(m, settings, intent, null, areaDepth);
+  } else if (verb === "rift") {
+    settings = { ...RIFT_DEFAULTS, power, size, seed };
+    intent = { path: mode ? path : [{ x, y }] };
+    run = new RiftRun(m, settings, intent, null, areaDepth);
   } else if (verb === "quake") {
     settings = nature.quakeNature({ ...QUAKE_DEFAULTS, mode: mode ? "slide" : "lift", power, seed } as any, ground);
     intent = { path, side: seed % 2 ? 1 : -1 };
@@ -175,14 +187,43 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     run = new GlaciateRun(m, settings, intent) as any;
   }
   run.planAll();
+  const frames: { stage: number; map: FullForceMap }[] = [];
+  if (verb === "rift" || verb === "deposit") {
+    while (!run.done) { run.step(); if ([1, Math.floor(run.total/2), run.total].includes(run.shown)) frames.push({ stage: run.shown, map: snapshotMap(run.map) }); }
+  }
   // (its record as the editor keeps it, from the request it would have sent: forces/keep.ts)
   const request = (
-    verb === "quake"
-      ? { verb, settings, path, side: intent.side, cut: null }
+    (verb === "quake" || verb === "rift" || verb === "deposit")
+      ? { verb, settings, path: intent.path, ...(verb === "quake" ? {side: intent.side} : {}), cut: null }
       : { verb, settings, origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path } : {}), cut: null }
   ) as ForceRequest;
   const kept = keptForceParams({ before: m, request, carve: null, staged: run });
-  return { map: run.final(), record: kept.ok ? kept.params : null };
+  return { map: run.final(), record: kept.ok ? kept.params : null, frames };
+}
+
+/** A water model on the fixture's ground, its water from dry: four sources (one badwater) spread over the map,
+ *  a seep one row high and a natural dam across the channel, so the multi-core water's strips meet every rule. */
+function waterModel(n: number): WaterModel {
+  const floor = new Float64Array(n * n);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const d = Math.abs(x - n * 0.5) + Math.abs(y - n * 0.4);
+      floor[y * n + x] = Math.max(2, Math.min(16, 15 - Math.floor(y / 24) - Math.floor(d / 18)));
+      if (Math.abs(x - n / 3) < 3) floor[y * n + x] = Math.max(1, 7 - Math.floor(y / 32));
+    }
+  const dam = new Float64Array(n * n).fill(-1);
+  const damRow = Math.floor(n * 0.6);
+  for (let x = Math.floor(n / 3) - 3; x <= Math.floor(n / 3) + 3; x++) dam[damRow * n + x] = 0.65;
+  const at = (fx: number, fy: number) => Math.floor(n * fy) * n + Math.floor(n * fx);
+  const seep = at(0.55, 0.5);
+  const emitters = [
+    { cells: [at(1 / 3, 0.04)], strength: 1.5, contamination: 0 },
+    { cells: [at(0.7, 0.04)], strength: 1.5, contamination: 1 },
+    { cells: [at(0.5, 0.45), at(0.5, 0.45) + 1], strength: 2, contamination: 0 },
+    { cells: [at(0.25, 0.8)], strength: 1, contamination: 0 },
+    { cells: [seep, seep + 1], strength: 0.5, contamination: 0, depthLimit: { anchor: seep, off: 0.8, on: 0.72 } },
+  ];
+  return { W: n, H: n, floor, dam, emitters };
 }
 
 function water(m: any, ticks = 24) {
@@ -197,12 +238,12 @@ function water(m: any, ticks = 24) {
  *  full list (nightly) runs every setting at both sizes, three seeds and long sequences. */
 export function cases(smoke = false): Case[] {
   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
-  const out: Case[] = [];
+  const out: Case[] = ["cave-valley", "lake-cave"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
   for (const n of [128, 256]) {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
     if (grid) for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
-    for (const verb of verbs)
+    for (const verb of verbs.filter(v => v !== "rift" && v !== "deposit"))
       for (const power of grid ? [10, 55, 100] : [55])
         for (const size of grid ? [null, 12, 48] : [null]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
     out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? (n === 128 ? 12 : 6) : 120 });
@@ -217,12 +258,24 @@ export function cases(smoke = false): Case[] {
     out.push({ id: `scheduling/${n}`, kind: "scheduling", n });
     for (const reserve of ["scarce", "plenty"]) if (grid) out.push({ id: `reserve/${n}/${reserve}`, kind: "generate", n, theme: "riverValley", seed: 37, reserve });
   }
+  // the water alone at the sizes the rest doesn't reach (the multi-core water's strips at 96² and 512²)
+  for (const n of [96, 512]) out.push({ id: `water/${n}`, kind: "water", n });
+  for (const verb of ["rift", "deposit"]) for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/${verb}/${power}/${mode}`, kind: "force", n: 64, verb, power, size: 22, mode });
   return out;
 }
 
 /** One case's checkpoints. */
 export async function runCase(c: Case, progress: (s: string) => void = () => {}): Promise<Row[]> {
   const rows: Row[] = [];
+  if (c.kind === "stacked-water") {
+    const f = stackFixtures.find(f => f.name === c.name);
+    if (!f) throw Error("Water fixture is unknown.");
+    const r = runStackFixture(f);
+    const components: Record<string,string> = { info: await sha(binary(r.info, "f64")) };
+    for (const [id, bytes] of r.fields.entries()) components["field"+id] = await sha(bytes);
+    for (const [id, expected] of Object.entries(f.fields)) if (components["field"+id] !== expected) throw Error(f.name+" differs from #71 field "+id);
+    return [{ label: c.id, hash: await sha(enc.encode(json(components))), components }];
+  }
   const add = async (label: string, m: any, record?: any, extra?: any) => void rows.push({ label, ...(await digest(m, record, extra)) });
   if (c.kind === "scheduling") {
     // a force's record must not depend on how fast it was planned (D366): the same run under a
@@ -256,16 +309,35 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
     rows[0].schedule = { calls, mapEqual: maps[0] === maps[1], recordEqual: json(records[0]) === json(records[1]), steps: records.map((r: any) => r?.steps) };
   } else if (c.kind === "weather") {
     const m = fixture(c.n);
-    const model = modelOf(m);
-    const sim = new WaterSim(model, m.water);
-    const clean = model.emitters.filter((e) => e.contamination === 0);
+    // (the editor's badtide, core/sim/weather.ts `HazardRun`, a day of 60 ticks)
+    const run = new HazardRun(modelOf(m), m.water, "badtide", 1.5, 60);
+    const sim = run.sim;
     for (let k = 0; k < c.count; k++) {
-      const contamination = badtideContamination(k / 60, 1.5);
-      for (const emitter of clean) emitter.contamination = contamination;
-      sim.run(1);
+      const contamination = run.step(1)!;
       m.water = { depth: sim.D.slice(), contamination: sim.C.slice() };
       await add(`${c.id}/${k}`, m, { contamination }, { momentum: await sha(binary(sim.out, "f64")) });
     }
+  } else if (c.kind === "water") {
+    // from dry: 240 ticks with the sources on, 120 of drought, then 60 of badtide from the clean sources
+    const model = waterModel(c.n);
+    const sim = new WaterSim(model);
+    const m = { W: c.n, H: c.n, heights: new Uint8Array(c.n * c.n), entities: [], water: { depth: sim.D, contamination: sim.C } };
+    const check = async (label: string) => {
+      m.water = { depth: sim.D.slice(), contamination: sim.C.slice() };
+      await add(`${c.id}/${label}`, m, null, { momentum: await sha(binary(sim.out, "f64")), sat: await sha(binary(sim.saturation(), "u8")) });
+    };
+    for (let k = 1; k <= 4; k++) {
+      sim.run(60);
+      await check(`on/${k * 60}`);
+    }
+    for (let k = 1; k <= 2; k++) {
+      sim.run(60, 0);
+      await check(`drought/${k * 60}`);
+    }
+    for (const e of model.emitters) if (e.contamination === 0) e.contamination = 0.5;
+    sim.run(60);
+    await check("badtide/60");
+    sim.dispose();
   } else if (c.kind === "generate") {
     const spec = makeSpec({ seed: c.seed, theme: c.theme, size: { x: c.n, y: c.n } });
     if (c.reserve) spec.settings.water.droughtReserve = c.reserve;
@@ -306,6 +378,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
           const f = force(m, c.verb ?? verbs[Math.floor(k / 3) % 5], c.power ?? [10, 55, 100][Math.floor(k / 3) % 3], c.kind === "mixed" ? [null, 12, 48][Math.floor(k / 3) % 3] : c.size, 701 + k, c.mode ?? k % 2);
           m = f.map;
           record = f.record;
+          if ("frames" in f && f.frames) for (const frame of f.frames) await add(`${c.id}/${k}/playback/${frame.stage}`, frame.map, record);
         } catch (e) {
           if (c.kind !== "mixed" || !String((e as Error).message).includes("uphill")) throw e;
           record = { rejected: (e as Error).message, seed: 701 + k };

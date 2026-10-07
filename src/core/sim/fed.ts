@@ -143,7 +143,7 @@ export function withoutUnfed(m: WaterModel, sim: WaterSim, opts: WaterSimOptions
   }
   if (!any) return null;
   const next = new WaterSim(m, state, opts);
-  next.out.set(out);
+  next.setOut(out);
   next.ticks = sim.ticks;
   return next;
 }

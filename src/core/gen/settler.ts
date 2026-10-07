@@ -14,9 +14,9 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
-import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from "../analysis/walk";
+import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
-import { coordinatesForMinCorner, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, ORIENTATIONS, rotate, type Orientation } from "../format/footprints";
 import type { Hydro } from "../land/hydro";
 import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
@@ -47,6 +47,23 @@ export type DroughtPolicy = "prefer" | "require";
  *  (in proportion to the map's area). */
 export const BANK_FOOT = 800;
 
+/** The least walk from a start's middle tile to a shore: its 5×5 stays dry (`start.dry`), so the
+ *  nearest shore stands 3 tiles out. */
+export const SHORE_WALK_LEAST = 3;
+/** The walk the generator aims the start's water within (the start's middle tile to its shore): the
+ *  Water without stairs rule less a margin of 2, never under the least a start can have (D471: the
+ *  rule at 4, its least, makes a map). */
+export function waterAim(rule: number): number {
+  return Math.max(rule - 2, Math.min(rule, SHORE_WALK_LEAST));
+}
+/** The settler's estimate's aim, read from the start's 3×3 (a tile nearer than its middle): the rule
+ *  less 5, never under the least a 3×3 can have (2). */
+function waterAim3(rule: number, exact = false): number {
+  // (a rescue round, D471, holds a rule under 7 to itself: the 3×3 stands a tile nearer than the
+  // start's middle the check walks from)
+  return exact && rule < 7 ? rule - 1 : Math.max(rule - 5, SHORE_WALK_LEAST - 1);
+}
+
 export interface SettlerOptions {
   /** Only for repeated picks before terrain/water changes; no cross-attempt cache. */
   prepared?: StartPreparation;
@@ -55,6 +72,15 @@ export interface SettlerOptions {
    *  and path to the shore); false on a shown land, where only a start that needs no levelling
    *  leaves the land as it was shown (D348), the levelled ones a last resort. */
   level?: boolean;
+  /** How far the levelled 5×5's ground may stand from the center's level (1; a rescue round, D471,
+   *  reaches further on land that has no flatter place, its middle 3×3 levelled too). */
+  levelReach?: number;
+  /** How far from the map's edges a start stands (8 tiles, or 8% of the side; a rescue round, D471,
+   *  lets a small map's start nearer). */
+  margin?: number;
+  /** A rescue round (D471): a Water without stairs rule under 7 is held to itself, without the
+   *  margin. */
+  waterExact?: boolean;
   /** Depth left after the first drought (analytic), for `drought`. */
   kept?: ArrayLike<number> | null;
   drought?: DroughtPolicy;
@@ -149,15 +175,7 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
-  const links: [number, number][] = [];
-  for (const s of slopes) {
-    const [dx, dy] = slopeHighSide(s.orientation);
-    const hx = s.x + dx;
-    const hy = s.y + dy;
-    if (hx < 0 || hy < 0 || hx >= W || hy >= H) continue;
-    links.push([s.y * W + s.x, hy * W + hx]);
-  }
-  const d = walkDistance(h, W, H, null, links, { x, y }, Math.max(20, rule));
+  const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
   let water = Infinity;
@@ -169,6 +187,14 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
 }
 
 const S2 = Math.SQRT2;
+
+/** The pumpable water `shoreWalkFrom` looks for: deeper, cleaner and nearer the shore's level than
+ *  the water rule's (analysis/walk.ts `PUMP_DEPTH` 0.3, `PUMP_CLEAN` 0.05, `PUMP_REACH` 2, which
+ *  `pumpShores` and the check read), a margin over the rule. They differ; making them one moves
+ *  starts (a re-pin). */
+const SHORE_DEPTH = 0.35;
+const SHORE_CLEAN = 0.03;
+const SHORE_REACH = 1.9;
 
 /** Walking distance on each level from that level's shores of pumpable water (no slopes). */
 export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): Float64Array {
@@ -185,7 +211,7 @@ export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
       const s = h[j] + D[j];
-      if (D[j] >= 0.35 && C[j] < 0.03 && s >= L - 1.9 && s <= L - 0.05) {
+      if (D[j] >= SHORE_DEPTH && C[j] < SHORE_CLEAN && s >= L - SHORE_REACH && s <= L - 0.05) {
         d[i] = 0;
         heap.push(0, i);
         break;
@@ -329,7 +355,8 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const margin = opts.margin ?? edgeMargin;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
     const x0 = Math.max(0, x - 40);
@@ -346,6 +373,7 @@ export function pickStart(
   const roomWant = opts.room ?? 900;
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
+  const reach = opts.levelReach ?? 1;
   const cands: { i: number; score: number; kind: string; o: Orientation; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
@@ -363,7 +391,7 @@ export function pickStart(
             const j = (y + dy) * W + x + dx;
             if (D[j] > 0.001 || hydro.water[j] === 1 || hydro.water[j] === 2) ok = false;
             else if (h[j] !== L) {
-              if (pass === 0 || Math.abs(h[j] - L) > 1 || Math.max(Math.abs(dx), Math.abs(dy)) <= 1) ok = false;
+              if (pass === 0 || Math.abs(h[j] - L) > reach || (reach === 1 && Math.max(Math.abs(dx), Math.abs(dy)) <= 1)) ok = false;
               uneven = true;
             }
           }
@@ -377,8 +405,8 @@ export function pickStart(
             w = Math.min(w, walk[(y + dy) * W + x + dx]);
             wa = Math.min(wa, walkAny[(y + dy) * W + x + dx]);
           }
-        const sameLevel = w <= waterRule - 5;
-        if (!sameLevel && !(wa <= waterRule - 5)) continue;
+        const sameLevel = w <= waterAim3(waterRule, opts.waterExact);
+        if (!sameLevel && !(wa <= waterAim3(waterRule, opts.waterExact))) continue;
         if (!sameLevel) w = wa;
         // the ground reached without stairs
         const foot = footAt(opts.foot, i);
@@ -449,7 +477,7 @@ export function pickStart(
         cands.push({ i, score, kind, o, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
-  if (!cands.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
+  if (!cands.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
   cands.sort((a, b) => b.score - a.score || a.i - b.i);
   // the best few, far enough apart that the choice matters
   const top: typeof cands = [];
@@ -465,13 +493,13 @@ export function pickStart(
       const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule);
       if (opts.moistWalk && sw.moist < opts.moistWalk.min) continue;
       if (!c.sameLevel) {
-        if (!(sw.water <= waterRule - 2)) continue;
+        if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) continue;
         c.walk = sw.water;
       }
     }
     top.push(c);
   }
-  if (!top.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid));
+  if (!top.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);
@@ -583,7 +611,14 @@ function bankStart(
   rng: Rng,
   margin: number,
   avoid: Uint8Array | null,
+  reach = 1,
 ): StartPick | null {
+  // (a rescue round, D471, levels from further and nearer the water: a pad on ground within a level
+  // more than the levelled 5×5 reaches, 4 to 6 tiles from it)
+  const padReach = reach > 1 ? reach + 1 : 2;
+  const offsets: readonly (readonly [number, number])[] = reach > 1
+    ? [[6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4], [4, 0], [-4, 0], [0, 4], [0, -4], [5, 0], [-5, 0], [0, 5], [0, -5], [3, 3], [-3, 3], [3, -3], [-3, -3]]
+    : [[6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4]];
   const N = W * H;
   const D = water.depth;
   const C = water.contamination;
@@ -596,7 +631,7 @@ function bankStart(
     const L = Math.floor(h[i] + D[i]) + 1;
     const wx = i % W;
     const wy = (i - wx) / W;
-    for (const [ox, oy] of [[6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4]] as const) {
+    for (const [ox, oy] of offsets) {
       const x = wx + ox;
       const y = wy + oy;
       if (x < margin || y < margin || x >= W - margin || y >= H - margin) continue;
@@ -606,7 +641,7 @@ function bankStart(
       for (let dy = -2; dy <= 2 && ok; dy++)
         for (let dx = -2; dx <= 2 && ok; dx++) {
           const j = (y + dy) * W + x + dx;
-          if (wet[j] || Math.abs(h[j] - L) > 2) ok = false;
+          if (wet[j] || Math.abs(h[j] - L) > padReach) ok = false;
         }
       if (!ok) continue;
       // ground at the pad's level round it: the colony's first land (a pad on a ledge joins little)

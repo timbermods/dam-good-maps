@@ -28,7 +28,7 @@ export interface WeirPlan {
 }
 
 /** A weir for this map, or null (half the maps try one; a map without a place for one has none). */
-export function planWeir(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers" | "water" | "arms">, seed: number, attempt: number, protect: Uint8Array | null): WeirPlan | null {
+export function planWeir(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "rivers" | "water" | "arms">, seed: number, attempt: number): WeirPlan | null {
   const rng = stream(seed, "weir", 0, attempt);
   if (rng.float() >= 0.5) return null;
   const N = W * H;
@@ -55,7 +55,7 @@ export function planWeir(h: Uint8Array, W: number, H: number, hy: Pick<Hydro, "r
     for (let at = Math.round(0.25 * L); at <= Math.round(0.75 * L); at++) {
       const flow = r.params.flow + joins.filter((j) => j.at < at - POOL).reduce((a, j) => a + j.flow, 0);
       if (joins.some((j) => j.at >= at - POOL && j.at <= at + TAIL)) continue;
-      const w = weirAt(h, W, H, hy.water, r, f, reach, byS, at, flow, nearArm, protect);
+      const w = weirAt(h, W, H, hy.water, r, f, reach, byS, at, flow, nearArm);
       if (w) found.push({ feature: weirFeature(seed, w.tiles, W), pool: w.pool });
     }
     if (found.length) return found[rng.int(0, found.length)];
@@ -79,7 +79,7 @@ function tributaries(r: RiverFeature, all: readonly RiverFeature[], W: number, H
   return out;
 }
 
-function weirAt(h: Uint8Array, W: number, H: number, water: Uint8Array, r: RiverFeature, f: PathField, reach: number, byS: readonly number[][], at: number, flow: number, nearArm: Uint8Array, protect: Uint8Array | null): { tiles: number[]; pool: number[] } | null {
+function weirAt(h: Uint8Array, W: number, H: number, water: Uint8Array, r: RiverFeature, f: PathField, reach: number, byS: readonly number[][], at: number, flow: number, nearArm: Uint8Array): { tiles: number[]; pool: number[] } | null {
   const p = r.params.bedProfile;
   const bed = bedAt(p, at);
   if (bedAt(p, at - POOL) !== bed || bedAt(p, at + TAIL) !== bed) return null;
@@ -98,7 +98,7 @@ function weirAt(h: Uint8Array, W: number, H: number, water: Uint8Array, r: River
   let y1 = -1;
   for (const i of near(at - 0.5, at + 0.5)) {
     if (Math.abs(f.s[i] - at) > 0.5 || h[i] > bed) continue;
-    if (h[i] !== bed || water[i] === 2 || nearArm[i] || protect?.[i]) return null;
+    if (h[i] !== bed || water[i] === 2 || nearArm[i]) return null;
     const x = i % W;
     const y = (i - x) / W;
     if (x < 3 || y < 3 || x > W - 4 || y > H - 4) return null;
@@ -129,7 +129,7 @@ function weirAt(h: Uint8Array, W: number, H: number, water: Uint8Array, r: River
     const i = queue[q];
     const x = i % W;
     const y = (i - x) / W;
-    if (water[i] === 2 || nearArm[i] || protect?.[i]) return null;
+    if (water[i] === 2 || nearArm[i]) return null;
     if (f.d[i] >= reach + 1) return null;
     if (f.s[i] > at + 0.5) return null;
     if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return null;

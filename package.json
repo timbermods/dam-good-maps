@@ -1,6 +1,6 @@
 {
   "name": "dam-good-maps",
-  "version": "0.8.0",
+  "version": "0.8.7",
   "private": true,
   "description": "Timberborn map generator: pick settings, preview the map, download a .timber file that plays in Timberborn 1.1.",
   "type": "module",
@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "try": "tsx tools/try.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:quick": "vitest run --project quick",
     "test:heavy": "vitest run --project heavy",
@@ -32,7 +32,7 @@
     "spike:check": "tsx tools/build-spike.ts && tsx tools/spike-check.ts"
   },
   "dependencies": {
-    "@preact/signals": "^2.11.2",
+    "@preact/signals": "^2.11.3",
     "comlink": "^4.4.2",
     "fflate": "^0.8.3",
     "preact": "^10.29.8",
@@ -41,14 +41,15 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@preact/preset-vite": "^2.10.6",
-    "@types/node": "^24.19.0",
+    "@types/node": "^26.6.4",
     "@types/three": "^0.186.0",
+    "@typescript/typescript6": "6.0.2",
     "ajv": "^8.20.0",
     "fake-indexeddb": "^6.2.5",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
   },
   "engines": {
     "node": ">=22"

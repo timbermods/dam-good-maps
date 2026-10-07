@@ -5,13 +5,11 @@
 // a negative or non-number inset is refused with its reason, nothing changed.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=9&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=9&z=96&d=n&t=riverValley");
   await page.waitForTimeout(600);
 }
 
@@ -89,6 +87,11 @@ test("the default view fits the map as drawn snugly into what the controls leave
 
 test("framing keeps the map clear of the page's controls; setting them never moves the camera", async ({ page }) => {
   await open(page);
+  // the page keeps the renderer's insets to its controls (Layout 2): all four set
+  const page2 = await page.evaluate(() => window.dgm3d!.renderer.frameInsets);
+  for (const k of ["top", "left", "bottom", "right"] as const) expect(page2[k], k).toBeGreaterThan(0);
+  // the renderer's own behaviour from here, from none
+  await page.evaluate(() => window.dgm3d!.renderer.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 }));
   expect(await page.evaluate(() => window.dgm3d!.renderer.frameInsets)).toEqual({ top: 0, left: 0, bottom: 0, right: 0 });
   // none set: framed whole and centred on the canvas, as before
   await page.evaluate(() => window.dgm3d!.renderer.resetView());

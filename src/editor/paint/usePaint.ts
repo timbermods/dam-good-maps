@@ -3,6 +3,7 @@
 // says while it works.
 
 import { proxy } from "comlink";
+import { cacheAfterEditable } from "../../platform/isolation";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { FixOp } from "../../core/validate/report";
@@ -43,7 +44,7 @@ export interface PaintSlice {
 export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   const {
     api, info, mirror, renderer, setTool, setShelf, setTurn, setPainted, setBusy, setMessage, setCheck, check,
-    setProgress, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
+    setProgress, setInfo, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
     setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, queue, infoRef, enqueue, run,
     draftWater, showWater, showSoil, applyUpdate
   } = ed;
@@ -177,6 +178,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
       setTool(null);
       pickShelf(null);
       setPicked(null);
+      // the brush takes the map's left button now, not a frame later: the very next press paints
+      brushToolRef.current = t;
+      const r = renderer.current;
+      const p = painter.current;
+      if (r && p) r.tool = p.tool;
     }
   }
 
@@ -205,36 +211,53 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     setCheck((c) => (c && c.version === info.version ? c : null));
     setProgress(null);
+    if (!ed.ready) return;
     let live = true;
-    const t = setTimeout(() => {
-      void api
-        .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
-        .then((r) => {
-          if (!r || !mounted.current) return;
-          // (a force at work shows its own water: the map's comes after it)
-          if (ed.forcer.current?.running) {
-            ed.deferred.current.push(r.view);
-            return;
-          }
-          // the exact settle's water ends the journey in progress (eased into), or shows at once.
-          // The worker put it in place and sends it once, so it shows even when the page moved on
-          // while the check ran (the check started as an edit went in): only the report waits
-          // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
-          // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
-          journey.current?.check(r);
-          if (!live || r.check.version !== infoRef.current.version) return;
-          setCheck(r.check);
-          setProgress(null);
-        })
-        .catch(() => {
-          // the check is advisory here: export runs it again
-        });
-    }, 700);
+    let t: ReturnType<typeof setTimeout> | undefined;
+    // Two frames give the fully drawn map and its installed handlers a chance to paint.
+    let first = 0, second = 0;
+    first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        void api.editorReady();
+        cacheAfterEditable();
+        t = setTimeout(() => {
+          void api
+            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
+            .then((r) => {
+              if (!r || !mounted.current) return;
+              // (a force at work shows its own water: the map's comes after it)
+              if (ed.forcer.current?.running) {
+                ed.deferred.current.push(r.view);
+                return;
+              }
+              // the exact settle's water ends the journey in progress (eased into), or shows at once.
+              // The worker put it in place and sends it once, so it shows even when the page moved on
+              // while the check ran (the check started as an edit went in): only the report waits
+              // (the worker says whether a settle still runs: when it does not, the journey ends here whether or
+              // not this answer carries water, so the bar never waits for frames that will not come, D345 B14)
+              journey.current?.check(r);
+              if (!live || r.check.version !== infoRef.current.version) return;
+              // Canonical water changes the saved project even without a new edit version.
+              // Tell Your maps so a save made during the preview is refreshed with its stored map.
+              infoRef.current = { ...infoRef.current, waterPending: r.info.waterPending };
+              setInfo(infoRef.current);
+              props.onChange(infoRef.current);
+              setCheck(r.check);
+              setProgress(null);
+            })
+            .catch(() => {
+              // the check is advisory here: export runs it again
+            });
+        }, 700);
+      });
+    });
     return () => {
       live = false;
       clearTimeout(t);
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
     };
-  }, [info.version]);
+  }, [info.version, ed.ready]);
 
   // the water layer on show: fetched again after every change of the map or its water
   useEffect(() => {
@@ -285,15 +308,34 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           draftWater.current = null;
           // an edit's water plays at a pace the eye can follow, and the settled water ends it
           journey.current?.news(e);
+          if (e.kind === "settled" && e.version === infoRef.current.version) {
+            infoRef.current = { ...infoRef.current, waterPending: e.info.waterPending };
+            setInfo(infoRef.current);
+            props.onChange(infoRef.current);
+          }
+          // (a held weather day: the journey isn't shown, so the settled water goes in place now and the day runs again
+          // from it)
+          if (e.kind === "settled" && weatherRef.current) player.current?.skip();
+          // (the water has settled: both hazards' days are worked out once Kyler is idle)
+          if (e.kind === "settled") ed.idlePrep();
         } else if (e.kind === "weather") {
-          const w = weatherRef.current;
-          if (!w) return;
-          const day = `day ${Math.max(1, Math.ceil(e.day))} of ${e.days}`;
-          const words = e.phase === "drought" ? `Drought: ${day}` : e.phase === "badtide" ? `Badtide: ${day}` : e.phase === "return" ? (w === "badtide" ? "The water runs clean again" : "The water comes back") : undefined;
-          const soil = e.soil;
-          const show = soil ? () => showSoil(soil) : undefined;
-          const final = e.phase === "end" ? () => (soil && showSoil(soil), setWeather(null)) : show;
-          player.current?.push({ water: e.water, done: e.phase === "return" || e.phase === "end" ? 0.5 : e.day / e.days / 2, ...(words ? { words } : {}), ...(final ? { final } : {}) });
+          // a held weather day (Kyler, 2026-10-04): the days before it counted while they are simulated, the map as it
+          // is meanwhile; then the day itself, its water and soil, and the readout reads it
+          if (e.hazard !== weatherRef.current) return;
+          // (the day box's fill: how far the day asked for is worked out)
+          if (e.phase === "computing") return void ed.setWeatherCounting(Math.min(1, e.day / Math.max(1, e.days)));
+          const want = ed.heldDay.current ?? e.days;
+          if (e.day !== want || !e.water) return;
+          ed.setWeatherCounting(null);
+          ed.setWeatherDay(e.day);
+          ed.setWeatherDays(e.days);
+          ed.heldDay.current = e.day;
+          showWater(e.water, false, true);
+          if (e.soil) {
+            mirror.current.daySoil = e.soil;
+            showSoil(e.soil);
+          }
+          ed.rehover();
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

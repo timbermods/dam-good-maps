@@ -13,6 +13,7 @@ The one build pipeline (PLAN §19.8): parametric features in, terrain and entiti
 - `build.ts` `build`, `buildMap`, `previewTerrain`; `schema.ts` (feature kinds; `features.schema.json`).
 - `raster/terrain.ts` (landforms, lakes, rivers, sculpt edits, the integrity pass), `raster/brush.ts`, `raster/resources.ts`.
 - `slopes.ts` (derived slopes, step 8), `edits.ts` (overlays from the log), `objects.ts`, `route.ts` (outflow channels).
-- `setpieces/`: one builder per kind, shared by the generator, the editor and Claude.
+- `setpieces/`: one builder per kind the generator makes (a second district's site, ruins on a rise, badwater hollows);
+  the editor's retired set pieces are dropped when a project opens (D462).
 
-**Tests**: `tests/contract/` (features, brush, objects, setpieces, narrows, ops, projects; reshape and rivers are heavy). Run `npx vitest run tests/contract/features.test.ts`.
+**Tests**: `tests/contract/` (features, brush, objects, ops, projects, document). Run `npx vitest run tests/contract/features.test.ts`.

@@ -13,6 +13,7 @@ import type { SavedView } from "../core/doc/document";
 import { viewBuffers } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
   return [r.heights, r.water, r.contamination, r.moisture, r.soilContamination, r.reach, r.timber, r.project].map((a) => a.buffer) as Transferable[];
@@ -42,12 +43,33 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
   if (e.kind === "instant") return [];
-  return viewBuffers(e.kind === "water" || e.kind === "weather" ? { water: e.water } : e.view) as Transferable[];
+  if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
+  return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
 ed.setAutoWater(true);
 
+// The checks worker joins once the map is editable (D367): a page that calls `deferChecks` before opening a map
+// keeps its replica (and the checks code it loads) out of the way until `editorReady`; a page that never calls it
+// has the checks worker from the start. Without one the checks run here, so export's full check never waits on it.
+let checksPort: MessagePort | null = null;
+let editable = true;
+let connected = false;
+let client: ed.ChecksWorker | null = null;
+function connectChecksWhenEditable() {
+  if (!editable || !checksPort || connected) return;
+  const port = checksPort;
+  if (!client) {
+    const c = wrap<ChecksApi>(port);
+    client = {
+      follow: (p) => c.follow(p),
+      check: (v, onProgress) => c.check(v, onProgress ? proxy(onProgress) : undefined),
+    };
+  }
+  connected = true;
+  ed.useChecksWorker(client);
+}
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -113,10 +135,30 @@ const api = {
   whenWaterSettles: () => ed.whenWaterSettles(),
   /** The checks worker (a port to it): the checks run there, on a replica of the open map. */
   connectChecks(port: MessagePort) {
-    const c = wrap<ChecksApi>(port);
-    ed.useChecksWorker({
-      follow: (p) => c.follow(p),
-      check: (v, onProgress) => c.check(v, onProgress ? proxy(onProgress) : undefined),
+    checksPort?.close();
+    checksPort = port;
+    client = null;
+    connected = false;
+    connectChecksWhenEditable();
+  },
+  /** Hold the checks worker back until `editorReady` (called before a map opens or generates). */
+  deferChecks() {
+    editable = false;
+    connected = false;
+    ed.useChecksWorker(null);
+  },
+  /** The map is drawn and the page's editing handlers are attached: the checks worker follows it from here. */
+  editorReady() {
+    editable = true;
+    connectChecksWhenEditable();
+  },
+  /** The water's helper threads (src/core/sim/parallel.ts), started by the page (platform/index.ts) so they start
+   *  while this worker is busy: its water runs on several threads where that helps. More are started from here
+   *  for bigger maps. The page sends them before anything else; the background search's worker gets none. */
+  waterHelpers(ports: MessagePort[]) {
+    installParallelWater({
+      helpers: ports.map(portHelper),
+      spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
     });
   },
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
@@ -128,17 +170,19 @@ const api = {
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
-  // the tools: plan (a preview), then apply; move and delete with planning again
-  planTool: (req: ed.ToolRequest, id: string) => ed.planTool(req, id),
+  // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
-  startWeather: (hazard: "drought" | "badtide") => ed.startWeather(hazard),
+  showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
+  prepareWeather: () => ed.prepareWeather(),
+  stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
   setViews: (views: SavedView[]) => ed.setViews(views),
+  setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
@@ -167,7 +211,6 @@ const api = {
     const r = await ed.settingsResponse();
     return transfer(r, responseBuffers(r));
   },
-  exportCheck: () => ed.exportCheck(),
   waterLayers() {
     const r = ed.waterLayers();
     return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
@@ -186,4 +229,6 @@ const api = {
 };
 
 export type GeneratorApi = typeof api;
+// a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran
+Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks }) });
 expose(api);

@@ -27,8 +27,8 @@ import { encode } from "./protocol";
 
 interface Exports {
   memory: WebAssembly.Memory;
-  water_alloc(len: number): number;
-  water_dealloc(ptr: number, len: number): void;
+  forces_alloc(len: number): number;
+  forces_dealloc(ptr: number, len: number): void;
   forces_create(ptr: number, len: number): number;
   forces_checkpoint(job: number): void;
   forces_descriptor(job: number): number;
@@ -79,9 +79,17 @@ const FORCE_ERRORS = [
   "a glacier's path is up to 128 tiles on the map",
   "a glacier's path moves on from each of its tiles to the next",
   "No room to rise here",
+  "Invalid Rift settings",
+  "Draw the Rift on the map",
+  "the Floor leaves no ground to drop here",
+  "Invalid Deposit settings",
+  "Draw Deposit on the map",
+  "the working area leaves nothing to take sediment from",
+  "the Floor leaves nothing to take sediment from",
+  "the map leaves no room for sediment here",
 ];
 
-export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate";
+export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit";
 
 /** A force to plan: which, the map it starts from, its settings and where (each verb's intent), the
  *  ground it leaves alone (`keep`, null for none), and a carve's own options (its source's id, the
@@ -92,6 +100,7 @@ export interface RustJob {
   settings: object;
   intent: object;
   keep: Uint8Array | null;
+  areaDepth?: Uint8Array | null;
   options?: { sourceId?: string; unleashed?: string | null; bad?: boolean };
 }
 
@@ -99,7 +108,7 @@ export interface RustJob {
  *  fixtures and the native batch binary take it whole. */
 export function jobBytes(job: RustJob): Uint8Array {
   const N = job.map.W * job.map.H;
-  return encode({ ...jobMetadata(job), map: { ...job.map, _plainEntities: plainEntities(job.map.entities) }, keep: job.keep ?? new Uint8Array(N) }, false);
+  return encode({ ...jobMetadata(job), map: { ...job.map, _plainEntities: plainEntities(job.map.entities) }, keep: job.keep ?? new Uint8Array(N), ...(job.areaDepth ? { areaDepth: job.areaDepth } : {}) }, false);
 }
 
 function jobMetadata(job: RustJob): Record<string, unknown> {
@@ -203,7 +212,13 @@ export interface CarveRecords {
 }
 
 /** What the Rust plans, by verb (records.ts), with `raw`: its map before the core's last touches. */
+export interface RiftRecords { raw: RustMap; fault: FaultShape; arrival: Float32Array; stats: { changed: number; drop: number; held: number; stepped: number; sheer: number; width: number }; }
+
+export interface DepositRecords { raw: RustMap; arrival: Float32Array; channel: Uint8Array; channelStages: Uint8Array[]; mouth: Point; direction: Point; reach: number; width: number; placement: "fan" | "slope" | "sheet" | "delta" | "hollow"; branches: Point[][]; stats: { changed: number; eroded: number; deposited: number; balance: number; maximumCut: number; maximumDeposit: number; channels: number; wet: number; buried: number; carried: number; donorRadius: number }; }
+
 export type RustPlan =
+  | ({ verb: "deposit" } & DepositRecords)
+  | ({ verb: "rift" } & RiftRecords)
   | ({ verb: "craterize" } & CraterRecords)
   | ({ verb: "erupt" } & EruptRecords)
   | ({ verb: "quake" } & QuakeRecords)
@@ -224,13 +239,13 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     },
     false,
   );
-  const p = x.water_alloc(metadata.length);
+  const p = x.forces_alloc(metadata.length);
   new Uint8Array(x.memory.buffer, p, metadata.length).set(metadata);
   let task = 0;
   try {
     task = x.forces_create(p, metadata.length);
   } finally {
-    x.water_dealloc(p, metadata.length);
+    x.forces_dealloc(p, metadata.length);
   }
   try {
     const descriptor = x.forces_descriptor(task);
@@ -246,6 +261,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     view(3, Float64Array).set(m.water.contamination);
     view(4, Float64Array).set(m.rockLayers);
     if (job.keep) view(5, Uint8Array).set(job.keep);
+    if (job.areaDepth) view(67, Uint8Array).set(job.areaDepth);
     x.forces_checkpoint(task);
     const error = x.forces_plan(task);
     if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
@@ -258,18 +274,18 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
 /** Runs a whole job (jobBytes) and returns its packed result (the identity check's, in Node's Wasm). */
 export function executeInRust(job: Uint8Array): Uint8Array {
   const x = rustForces();
-  const p = x.water_alloc(job.length);
+  const p = x.forces_alloc(job.length);
   new Uint8Array(x.memory.buffer, p, job.length).set(job);
-  const lenPtr = x.water_alloc(4);
+  const lenPtr = x.forces_alloc(4);
   try {
     const out = x.forces_execute(p, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const bytes = new Uint8Array(x.memory.buffer, out, len).slice();
-    x.water_dealloc(out, len);
+    x.forces_dealloc(out, len);
     return bytes;
   } finally {
-    x.water_dealloc(lenPtr, 4);
-    x.water_dealloc(p, job.length);
+    x.forces_dealloc(lenPtr, 4);
+    x.forces_dealloc(p, job.length);
   }
 }
 
@@ -380,6 +396,13 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
   const counted = <T>(count: number, read: () => T): T[] => Array.from({ length: count }, read);
   let plan: RustPlan;
   switch (job.verb) {
+    case "deposit": {
+      const mouth=point(), direction=point(), reach=n(), width=n(), placement=(["fan","slope","sheet","delta","hollow"] as const)[n()], count=n();
+      const branches=counted(count,()=>counted(n(),point));
+      const stages=view(25,Uint8Array).slice(); const N=raw.W*raw.H;
+      plan={verb:"deposit",raw,mouth,direction,reach,width,placement,branches,arrival:view(10,Float32Array).slice(),channel:view(11,Uint8Array).slice(),channelStages:[0,1,2].map(k=>stages.slice(k*N,(k+1)*N)),stats:named(view(12,Float64Array),["changed","eroded","deposited","balance","maximumCut","maximumDeposit","channels","wet","buried","carried","donorRadius"]) as DepositRecords["stats"]};
+      break;
+    }
     case "craterize": {
       const anatomy = named(counted(15, n), ["x", "y", "W", "H", "edgeInset", "radius", "a", "b", "angle", "glance", "diameter", "depth", "rim", "datum", "floor"]) as unknown as CraterRecords["anatomy"];
       anatomy.centre = (["auto", "bowl", "peak", "ring", "flat"] as const)[n()];
@@ -413,6 +436,7 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
       plan = { verb: "erupt", raw, anatomy, strength, stats: named(view(12, Float64Array), ["raised", "changed", "flattened", "erased", "hard"]) as EruptRecords["stats"], keep: view(11, Uint8Array).slice(), flows: view(10, Float32Array).slice(), heat: view(13, Uint8Array).slice() };
       break;
     }
+    case "rift":
     case "quake": {
       const fault = { length: n(), reach: n(), lift: n(), slide: n(), heading: point() } as QuakeRecords["fault"];
       n(); // (its stages: the core's QuakeRun counts them)
@@ -422,6 +446,10 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
       fault.points = counted(points, point);
       fault.segments = counted(segments, () => ({ a: point(), b: point(), dx: n(), dy: n(), length: n(), along: n() }));
       fault.directions = counted(directions, point);
+      if (job.verb === "rift") {
+        plan = { verb: "rift", raw, fault, arrival: view(10, Float32Array).slice(), stats: named(view(12, Float64Array), ["changed", "drop", "held", "stepped", "sheer", "width"]) as RiftRecords["stats"] };
+        break;
+      }
       plan = {
         verb: "quake",
         raw,

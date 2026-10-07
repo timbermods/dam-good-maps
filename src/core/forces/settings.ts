@@ -5,6 +5,7 @@
 // could give is refused with a one-line reason, never clamped. ops.schema.json's `forceResult.settings`
 // holds the union of these ranges (a test keeps it containing every force's own).
 
+import { SOURCES_RULES } from "./clear";
 import { floorProblem } from "./floor";
 import type { Verb } from "./op";
 
@@ -65,8 +66,8 @@ export interface ForceSettingsTable {
   details?: readonly SettingDetail[];
 }
 
-/** Every force's settings. Power (0–100), the seed (a whole number, 0–4294967295) and the Floor
- *  (floor.ts) are every force's. */
+/** Every force's settings. Power (0–100), the seed (a whole number, 0–4294967295), the Floor
+ *  (floor.ts) and Sources (clear.ts, D474: ride or clear; absent, clear) are every force's. */
 export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
   carve: {
     name: "a carve",
@@ -98,6 +99,8 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
     flags: [],
     ranges: [],
   },
+  rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
+  deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a deposit's size is 4 to 64 tiles, or null (it follows Power)" }] },
   glaciate: {
     name: "a glacier",
     choices: { mode: ["flow", "aim"] },
@@ -124,6 +127,7 @@ export function forceSettingsProblem(verb: Verb, s: Record<string, unknown>): st
   if (!(Number.isInteger(seed) && seed >= 0 && seed <= SEED_MAX)) return `${t.name}'s seed is a whole number from 0 to ${SEED_MAX}`;
   const floor = floorProblem(s.floor);
   if (floor) return floor;
+  if (s.sources !== undefined && !SOURCES_RULES.includes(s.sources as never)) return `${t.name}'s sources are ride or clear`;
   for (const r of t.ranges) {
     const v = s[r.key] as number;
     if ((v === null && r.empty !== "required") || (v === undefined && r.empty === "nullish")) continue;

@@ -8,7 +8,7 @@ import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
-import { counted, possessive } from "../../src/core/validate/words";
+import { counted, nameOf } from "../../src/core/validate/words";
 import type { JsonObject } from "../../src/core/format/json";
 
 describe("check messages read as player text", () => {
@@ -38,9 +38,9 @@ describe("check messages read as player text", () => {
     expect(placement.message).not.toMatch(/\bBlueberryBush\b|\(\d+,\d+/);
   });
 
-  it("counts take the right plural", () => {
-    expect(possessive(1, "source")).toBe("1 source's");
-    expect(possessive(3, "source")).toBe("3 sources'");
+  it("counts take the right plural, and objects their game names (the checks' own are rust/checks/src/words.rs)", () => {
+    expect(nameOf("UndergroundRuins")).toBe("Mine site");
+    expect(nameOf("RuinColumnH3")).toBe("Ruin");
     expect(counted(1, "mine site")).toBe("1 mine site");
     expect(counted(2, "mine site")).toBe("2 mine sites");
     expect(counted(2, "blueberry bush", "blueberry bushes")).toBe("2 blueberry bushes");

@@ -510,7 +510,8 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("a carve stopped early keeps what it cut, and a dry canyon keeps no source", () => {
-    const r = generate(makeSpec({ seed: 7, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 8 for 0.8.3's maps, D148: on seed 7's the dry carve runs into a lake before it is stopped)
+    const r = generate(makeSpec({ seed: 8, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const op = carveOp(s, { power: 60, dry: true }, farFromStart(s), 25);
@@ -528,13 +529,11 @@ describe("a carve in the document (breakage rule)", () => {
     // (48, 86) toward (48, 10); Canyon 96² seed 5 until M9b turned and replanned the land, seed 11
     // until its water took the game's rules, seed 22 until batch 5 raised the land on its floor, seed
     // 44 until D333's maps, where no Canyon seed to 400 seals one; Highlands 96² seed 8 with the carve's seed 4 since
-    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; the carve's
-    // seed 1 since the 96² round's flow moved the map, investigation/canyon-highlands-96, where seed 4
-    // seals none and seed 1 a lake of 104 tiles, D148)
-    const r = generate(makeSpec({ seed: 8, theme: "highlands", size: { x: 96, y: 96 } }));
+    // M9b's small starts and speed rounds, where seed 2 and Canyon seeds 1–6 seal none; Canyon 96² seed 4 with the carve's seed 5 since 0.8.1's maps, where Highlands 8 and Canyon 11 seal none; of Highlands and Canyon seeds 1–24 only Canyon 4 with seed 5 and Canyon 12 with seed 3 seal a lake that keeps evaporating, the rest settle whole and the quiet dot never shows; this lake is 111 tiles; Canyon 12 with the carve's seed 3 since the start's badwater distance became a rule, Kyler, 2026-10-05, and Canyon 4's map changed, D148; Highlands 96² seed 11 with the carve's seed 5 since badwater joins the main water, D476, D148: of Highlands and Canyon seeds 1–24 with the carve's seeds 3–5 only it seals a lake that keeps evaporating, 129 tiles; Highlands 96² seed 29 with the carve's seed 5 once the courses follow the land, D476, D148: the first found whose sealed lake keeps evaporating and the rest settles within the cap, 91 tiles)
+    const r = generate(makeSpec({ seed: 29, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 5, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
@@ -543,14 +542,15 @@ describe("a carve in the document (breakage rule)", () => {
     const deep = lake.tiles.filter((i) => s.built.water[i] > 1).length;
     expect(deep).toBeGreaterThan(lake.tiles.length / 2);
     // only the lake still changes, by evaporating: the water has settled (D222), the settle stops
-    // there, before its cap (D413), and the quiet dot says so (on M9b's Highlands 8 the rest of the
-    // water steadies after four days, 3,072 ticks; the cap is SETTLE_DAYS, D358)
+    // there, before its cap (D413), and the quiet dot says so (on 0.8.1's Canyon 4 the rest of the
+    // water steadies after 1,280 ticks; the cap is SETTLE_DAYS, D358)
     expect(s.built.settle.settled).toBe(false);
     expect(s.built.settle.steadyTicks).toBe(s.built.settle.ticks);
     expect(s.built.settle.ticks).toBeLessThan(SETTLE_DAYS * TICKS_PER_DAY);
     // the lake is stored with the water its carve kept (D413): it stopped draining before saving,
-    // and the game evaporates it from there. This carve kept it mid-flow (its surface 2 to 12 over a
-    // rim at 4), so it is stored at rest, levelled into its hollow up to its lowest rim (the release
+    // and the game evaporates it from there. A carve keeps it mid-flow (on 0.8.0's Highlands 8 its
+    // surface 2 to 12 over a rim at 4), so it is stored at rest, levelled into its hollow up to its
+    // lowest rim (the release
     // gate's bug hunt, D385: stored as kept, the game moved it by up to 8 levels at once)
     const floor = s.built.waterModel.floor;
     const surfaces = lake.tiles.filter((i) => s.built.water[i] > 0).map((i) => floor[i] + s.built.water[i]);
@@ -631,11 +631,10 @@ describe("a carve in the document (breakage rule)", () => {
 });
 
 describe("a carve at work in the editor's worker", () => {
-  // (Highlands 96² seed 22 since the 96² round moved the theme's small maps, investigation/canyon-highlands-96:
-  // from seed 21's far tile the carve now runs 30 steps and the cut's origin stands on ground the
-  // layer hides, D148)
   it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
+    // (seed 22 on 0.8.1's maps, D148: on seed 21 the carve is finished within the four seconds that
+    // stand for "part way", so keeping it there keeps the whole of it; seeds 23 and 26 do the same)
     await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const open = ed.sessionView();
@@ -712,7 +711,7 @@ describe("a carve at work in the editor's worker", () => {
 
   it("carves only the land showing: under a cut, the ground above it stays as it is (D207)", async () => {
     const W = 96;
-    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const ground = ed.sessionView().view.heights.slice();
     const s = MapSession.open(decodeProject(ed.project().bytes));

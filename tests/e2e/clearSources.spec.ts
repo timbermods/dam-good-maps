@@ -3,6 +3,8 @@
 // water drains away (D260).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
+import { startHintUp, toolInHand, toolPutAway } from "./helpers";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -42,10 +44,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=35&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (the water at its normal pace: the stroke's own water flows while it is painted, D197)
 
@@ -74,25 +73,33 @@ test("a stroke that clears sources takes their discs and their water at once (it
   expect(spot).not.toBeNull();
   const [x, y] = spot!;
   // level ground round it first: a Flatten from there
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
+  await toolInHand(page);
   await page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" }).fill("6");
   await stroke(page, x, y);
   await page.keyboard.press("Escape");
+  await toolPutAway(page);
+  // (a Flatten stroke leaves a "Move the start here" tag on this ground once the page is idle: picking the
+  // source from the shelf takes it away, so wait for it, or a late one sits under the strokes below)
+  await startHintUp(page);
 
-  for (const brush of [{ key: "3", name: "Flatten" }, { key: "4", name: "Smooth" }]) {
+  for (const brush of [{ key: "4", name: "Flatten" }, { key: "5", name: "Smooth" }]) {
     // a source there, and its water
     await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: /^Water source/ }).click();
+    await toolInHand(page);
     const p = await client(page, x, y);
     await page.mouse.move(p.x + 3, p.y);
     await page.mouse.click(p.x, p.y);
     await idle(page);
     await page.keyboard.press("Escape");
+    await toolPutAway(page);
     await expect.poll(async () => (await drawn(page)).some(([a, b]) => a === x && b === y)).toBe(true);
     await expect.poll(() => waterNear(page, x, y, 2), { timeout: 30_000 }).toBeGreaterThan(0.2);
 
     // the brush, clearing sources, over flat ground: a Flatten at the ground's own level and a
     // Smooth change no ground, yet the sources they pressed go (Kyler saw them stay, item 15)
     await page.keyboard.press(brush.key);
+    await toolInHand(page);
     const row = page.getByRole("group", { name: `${brush.name} options` });
     await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Clear" }).click();
     await row.getByRole("slider", { name: "Size" }).fill("2");
@@ -107,6 +114,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
     await expect.poll(() => waterNear(page, x, y, 4), { timeout: 30_000 }).toBeLessThan(0.05);
     await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" }).click();
     await page.keyboard.press("Escape");
+    await toolPutAway(page);
   }
   expect(errors).toEqual([]);
 });

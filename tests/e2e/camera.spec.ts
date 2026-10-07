@@ -5,6 +5,7 @@
 // here waits on the wall clock for a distance).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const view = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.getView());
 const glide = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.cameraGlide());
@@ -37,10 +38,14 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (from the map's middle, close in: held long enough on a slow machine, the view would otherwise reach the map's edge,
+  // where it stops by design; the pace follows the zoom, so close in a held key crosses fewer tiles)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    r.setView({ target: [m.W / 2, r.getView().target[1], -m.H / 2], distance: 24 });
+  });
 
   // D held: the target moves every frame, not in a few jumps
   const v0 = await view(page);
@@ -73,15 +78,15 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
 
   // typing in a field or choosing from a list moves nothing (a toggle just clicked does not hold the
   // keys: the camera moves on)
-  await page.keyboard.press("3");
-  const toggle = page.getByRole("group", { name: "Flatten options" }).getByLabel("Square");
+  await page.keyboard.press("4");
+  const toggle = page.getByRole("group", { name: "Flatten options" }).getByRole("group", { name: "Brush" }).getByRole("button", { name: "Square" });
   await toggle.focus();
   const t1 = (await view(page)).target;
   await page.keyboard.down("d");
   await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t1);
   await page.keyboard.up("d");
   await rests(page);
-  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("combobox", { name: "Target level" });
+  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Level", exact: true });
   await field.focus();
   const t0 = (await view(page)).target;
   await page.keyboard.down("d");

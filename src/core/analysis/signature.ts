@@ -22,6 +22,10 @@ import { polygonMask } from "../features/geometry";
 import * as portable from "../math/portable";
 import { N4 } from "../math/grid";
 
+/** How far a tile's water surface may stand from a lake's and still be that lake's water (a lake's
+ *  surface is level; a river falls away from it). */
+const LAKE_LEVEL = 0.1;
+
 export interface Signature {
   /** River Valley: the median width of the main river's valley floor, as a share of the side. */
   valley: number;
@@ -127,7 +131,9 @@ function median(v: number[]): number {
   return s[s.length >> 1];
 }
 
-export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<number>, features: readonly Feature[]): Signature {
+/** `held`: the water is settled, and a lake is read as it holds water, its wet tiles and those joined to
+ *  them at its surface; on the water as planned (the land screens), the planned lakes alone. */
+export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<number>, features: readonly Feature[], held = false): Signature {
   const N = W * H;
   const side = Math.min(W, H);
   const areaK = N / (128 * 128);
@@ -235,16 +241,41 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
     for (const f of features) {
       if (f.kind !== "lake") continue;
       const m = polygonMask(f.params.outline, W, H);
-      let n = 0;
+      // (the lake as it holds water: its wet tiles, and the wet tiles joined to them at its surface,
+      // where the settled lake stands wider than the lake planned: a big lake over a whole basin was
+      // read as half lake, #265's Lake Basin sibling 8)
+      const q: number[] = [];
+      const surf: number[] = [];
       for (let i = 0; i < N; i++)
         if (m[i] && wet(i)) {
-          n++;
-          if (!counted[i]) {
-            counted[i] = 1;
-            inLakes++;
-          }
+          q.push(i);
+          surf.push(h[i] + D[i]);
         }
-      if (n > bigLake) bigLake = n;
+      if (!q.length) continue;
+      surf.sort((a, b) => a - b);
+      const level = surf[surf.length >> 1];
+      const mine = new Uint8Array(N);
+      for (const i of q) mine[i] = 1;
+      for (let k = 0; held && k < q.length; k++) {
+        const c = q[k];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const [dx, dy] of N4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (mine[j] || !wet(j) || Math.abs(h[j] + D[j] - level) > LAKE_LEVEL) continue;
+          mine[j] = 1;
+          q.push(j);
+        }
+      }
+      for (const i of q)
+        if (!counted[i]) {
+          counted[i] = 1;
+          inLakes++;
+        }
+      if (q.length > bigLake) bigLake = q.length;
     }
   }
   // ---- the main system's mouths on the edge it leaves by

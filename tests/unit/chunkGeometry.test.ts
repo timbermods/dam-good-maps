@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { BufferAttribute, BufferGeometry } from "three";
+import { boundingSphereOf } from "../../src/render3d/bounds";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "../../src/render3d/chunkGeometry";
 import { meshChunk } from "../../src/render3d/mesh";
 
@@ -55,7 +56,7 @@ describe("a chunk's geometry kept between remeshes (R1)", () => {
     const own = new BufferGeometry();
     own.setAttribute("position", new BufferAttribute(smaller.positions, 3));
     own.computeBoundingSphere();
-    expect(g.boundingSphere!.radius).toBeCloseTo(own.boundingSphere!.radius, 6);
+    expect(g.boundingSphere!.radius).toBe(own.boundingSphere!.radius);
     expect(g.boundingSphere!.center.toArray()).toEqual(own.boundingSphere!.center.toArray());
     // a remesh too big for the room left is refused (the renderer makes new buffers)
     const big = { quads: Math.ceil(first.quads * 1.5) + 1, attributes: arraysOf(first).attributes.map((a) => ({ ...a, array: new (a.array.constructor as new (n: number) => Float32Array)((Math.ceil(first.quads * 1.5) + 1) * 4 * a.itemSize) })) };
@@ -67,5 +68,23 @@ describe("a chunk's geometry kept between remeshes (R1)", () => {
     const g = chunkGeometry(arraysOf(d));
     expect(refillChunk(g, { quads: 1, attributes: [{ name: "position", array: new Float32Array(12), itemSize: 3 }, { name: "wdata", array: new Float32Array(8), itemSize: 2 }] })).toBe(false);
     expect(refillChunk(g, { quads: 1, attributes: [{ name: "position", array: new Float32Array(12), itemSize: 3 }, { name: "normal", array: new Int8Array(12), itemSize: 3 }] })).toBe(false);
+  });
+
+  it("makes the same bounding sphere as three.js, number for number, with or without one made beforehand", () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const d = meshChunk(terrain(48, 40, seed), seed % 2, 0);
+      const own = new BufferGeometry();
+      own.setAttribute("position", new BufferAttribute(d.positions, 3));
+      own.computeBoundingSphere();
+      const s = boundingSphereOf(d.positions);
+      expect([s[0], s[1], s[2], s[3]]).toEqual([...own.boundingSphere!.center.toArray(), own.boundingSphere!.radius]);
+      // (a sphere made in a worker is the one drawn)
+      expect(chunkGeometry({ ...arraysOf(d), sphere: s }).boundingSphere).toEqual(chunkGeometry(arraysOf(d)).boundingSphere);
+    }
+    // no vertices: three.js's empty sphere
+    const none = new BufferGeometry();
+    none.setAttribute("position", new BufferAttribute(new Float32Array(0), 3));
+    none.computeBoundingSphere();
+    expect(Array.from(boundingSphereOf(new Float32Array(0)))).toEqual([...none.boundingSphere!.center.toArray(), none.boundingSphere!.radius]);
   });
 });

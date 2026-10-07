@@ -1,6 +1,6 @@
 // The brush, level lines and clear water kept in step with the renderer, and the problems' actions.
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { whereOf, type ItemActions } from "../panels";
 import type { Verb } from "../../core/forces/op";
 import { sizeMax } from "../brushes";
@@ -14,8 +14,9 @@ export interface ViewSyncSlice {
 export function useViewSync(ed: Ed): ViewSyncSlice {
   const { info, renderer, ready, tool, clearWater, brushTool, brush, brushRef, setBrush, painter, applyFix } = ed;
 
-  // a brush out takes the map's left button; put away, the brush under the cursor goes
-  useEffect(() => {
+  // a brush out takes the map's left button (set at once when it is picked, usePaint.ts pickBrush; here at the
+  // commit, never a frame later); put away, the brush under the cursor goes
+  useLayoutEffect(() => {
     const r = renderer.current;
     const p = painter.current;
     if (!r || !p) return;

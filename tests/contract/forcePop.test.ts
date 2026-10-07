@@ -32,10 +32,12 @@ interface Gesture {
 
 /** Run `g` to its end the page's way: every frame's land as shown, and the land kept (then taken
  *  back, so the next run starts from the same map). */
-async function run(g: Gesture, speed: ForceSpeed): Promise<{ frames: Uint8Array[]; kept: Uint8Array; before: Uint8Array }> {
+async function run(g: Gesture, speed: ForceSpeed): Promise<{ frames: Uint8Array[]; kept: Uint8Array; before: Uint8Array; after: number }> {
   const clock = new StepClock();
   const before = ed.terrainNow().heights.slice();
   const frames: Uint8Array[] = [];
+  /** Frames shown after the last one that changed the land. */
+  let after = 0;
   let queue: Promise<unknown> = Promise.resolve();
   const enqueue = <T>(fn: () => T): Promise<T> => {
     const next = queue.then(async () => {
@@ -57,7 +59,10 @@ async function run(g: Gesture, speed: ForceSpeed): Promise<{ frames: Uint8Array[
     drop: (gesture) => enqueue(() => void ed.forceCancel(gesture)),
     renderer: () => null,
     show: (f) => {
-      if (f.heights) frames.push(f.heights.slice());
+      if (f.heights) {
+        frames.push(f.heights.slice());
+        after = 0;
+      } else if (frames.length) after++;
     },
     changed: () => undefined,
     error: () => undefined,
@@ -81,7 +86,7 @@ async function run(g: Gesture, speed: ForceSpeed): Promise<{ frames: Uint8Array[
   const kept = ed.terrainNow().heights.slice();
   ed.undo();
   expect(Array.from(ed.terrainNow().heights).every((v, i) => v === before[i]), `${g.name}: undo`).toBe(true);
-  return { frames, kept, before };
+  return { frames, kept, before, after };
 }
 
 const changed = (a: Uint8Array, b: Uint8Array) => {
@@ -131,11 +136,13 @@ describe("nothing pops in after a force's animation (D368 (9))", () => {
 
   for (const speed of ["fast", "watch"] as const)
     for (const name of ["Carve, clicked, with Banks", "Carve, drawn, with Banks", "Craterize", "Quake, Slide", "Quake, Lift", "Quake, painted Lift", "Erupt, vent", "Erupt, fissure", "Glaciate, flowing", "Glaciate, drawn"])
-      it(`${name}, ${speed === "fast" ? "Fast" : "Slow forces"}: its last frame is the land it keeps, and changes no more than its busiest frame before`, async () => {
+      it(`${name}, ${speed === "fast" ? "Fast" : "Slow forces"}: its last frame is the land it keeps, the force is over with it, and it changes no more than its busiest frame before`, async () => {
         const g = gestures.find((k) => k.name === name)!;
-        const { frames, kept, before } = await run(g, speed);
+        const { frames, kept, before, after } = await run(g, speed);
         const last = frames.at(-1)!;
         expect(changed(last, kept), `${name}: the last frame differs from the land kept`).toBe(0);
+        // the moment the land is final the force is over: no frame is shown after it
+        expect(after, `${name}: frames shown after the land was final`).toBe(0);
         // (a painted Lift shows its whole result as it is painted: there is no animation after it)
         if (g.paint) return;
         expect(frames.length, name).toBeGreaterThan(2);

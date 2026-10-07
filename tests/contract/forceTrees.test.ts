@@ -19,7 +19,8 @@ const TREES = /^(Pine|Birch|Oak|BlueberryBush)$/;
 
 describe("trees after the forces (D321, item 7)", () => {
   it("heavy, repeated quakes, an impact and an eruption: every tree upright on its own tile; a knocked-down one only where its ground held", async () => {
-    await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
+    // (Highlands 1 for 0.8.1's maps, D148: seed 7 now keeps 10 trees after the crater and the eruption, seed 1 keeps 75)
+    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const run = (req: ed.ForceRequest) => {
       const before = MapSession.open(decodeProject(ed.project().bytes)).built.heights.slice();

@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
+import { buildMap } from "../../src/core/features/build";
+import { writeTimber } from "../../src/core/format/timber";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { canonicalSettle } from "../../src/core/sim/prefill";
@@ -84,9 +87,28 @@ describe("Max water depth (D264)", () => {
       for (const i of r.raised) expect(rv[i], `river tile ${i}`).toBeLessThan(1.6);
     }
   };
-  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(2));
-  // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): on M9b's River Valley 96²
-  // seed 3 the settle leaves the pit 0.07 over the 3, past the 0.06 the bound allows (the editor's water,
-  // for the milestone session); when it passes, `fails` comes off.
-  it.fails("seed 3: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(3));
+  // (seed 9 for 0.8.5's maps, D148: it has both halves, a dry spot for the pit and a river stretch the rule
+  // raises; seed 5's pit now shows the shortfall below. Seed 5 for 0.8.1's maps: seed 2's river had no stretch
+  // deeper than 1.2 that the rule raises, so the river half had nothing to apply)
+  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(9));
+  // An expected failure, kept on a seed that shows it (Kyler, 2026-10-02): the settle leaves the pit 0.07 over
+  // the 3, past the 0.06 the bound allows (the editor's water, for the milestone session); when it passes,
+  // `fails` comes off. M9b's River Valley 96² seed 3 caught it; on 0.8.5's maps seed 3's pit ends within the
+  // bound and seed 5's 0.07 over (D148, the same failure re-seeded).
+  it.fails("seed 5: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(5));
+
+  // Where no water is deeper than the number there is nothing to raise, and nothing is sent; an empty
+  // step reaching the session is refused with a reason, never a history entry (reading the history
+  // crashed on one).
+  it("with no water deeper than the number nothing is sent, and an empty step is refused, the history as it was", () => {
+    const S = 32;
+    const flat = buildMap({ W: S, H: S, seed: 1, features: [], base: { heights: new Uint8Array(S * S).fill(8), columns: new Map(), entities: [] } });
+    const s = MapSession.importMap(writeTimber(toTimberFile(makeSpec({ seed: 1, theme: "highlands", size: { x: S, y: S } }), flat)), "flat.timber");
+    const all = Array.from({ length: S * S }, (_, i) => i);
+    expect(depthLevels(all, s.built.heights, new Float64Array(S * S), s.built.heights, 2).size).toBe(0);
+    const r = s.applyAll([], "user", "Water no deeper than 2");
+    expect(r).toMatchObject({ ok: false, errors: ["nothing to change"] });
+    expect(s.history()).toEqual([]);
+    expect(s.canUndo).toBe(false);
+  });
 });

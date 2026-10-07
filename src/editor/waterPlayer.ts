@@ -6,10 +6,9 @@
 // (and the export's water after it), so what the player watches ends exactly where the map is. The
 // brushes never wait for it: frames only ever change the water shown.
 //
-// Pause, speed (slower, normal, faster, instant; D197: normal is brisk, a small edit settles nearby
-// in a second or two while a new river still flows visibly), skip to the result and replay (the
-// last journey again, from the water right after the edit). A weather run (a drought, then the
-// water coming back) plays the same way.
+// It plays with no controls (Kyler, 2026-10-04: undo and redo show a change again). Its speed (slower, normal, faster,
+// instant; D197: normal is brisk, a small edit settles nearby in a second or two while a new river still flows
+// visibly) is the tests'; the page skips to the result when a held weather day needs the settled water in place.
 
 import type { WaterView } from "../render3d/model";
 
@@ -19,8 +18,6 @@ export interface WaterFrame {
   done: number;
   /** The settled water, with what grows on it: shown last, and then the journey is over. */
   final?: () => void;
-  /** A weather run's words ("Drought: day 4 of 9"). */
-  words?: string;
 }
 
 export interface PlayerHost {
@@ -117,7 +114,6 @@ export class WaterPlayer {
    *  time, skipping frames when showing them is slow, as in software rendering). */
   private clockAt = 0;
   private clockT = 0;
-  paused = false;
   speedName: WaterSpeed = "normal";
   private get speed(): number {
     return RATE[this.speedName];
@@ -183,11 +179,6 @@ export class WaterPlayer {
     return this.at >= 0 ? this.frames[this.at].done : 0;
   }
 
-  /** The words of the frame on screen (a weather run's day), if any. */
-  get words(): string | null {
-    return this.at >= 0 ? (this.frames[this.at].words ?? null) : null;
-  }
-
   /** Whether there is a journey to end (an edit's water shown or on its way). */
   get hasJourney(): boolean {
     return this.frames.length > 0 && !this.weather;
@@ -200,20 +191,6 @@ export class WaterPlayer {
     if (this.weather) return null;
     for (let k = this.frames.length - 1; k >= 0; k--) if (this.frames[k].final) return this.frames[k].water;
     return null;
-  }
-
-  get canReplay(): boolean {
-    return this.frames.length > 1 && !this.playing;
-  }
-
-  pause(on: boolean): void {
-    this.paused = on;
-    if (on) this.stopTimer();
-    else {
-      this.restartClock();
-      this.kick();
-    }
-    this.host.changed();
   }
 
   setSpeed(speed: WaterSpeed): void {
@@ -235,18 +212,6 @@ export class WaterPlayer {
     this.host.changed();
   }
 
-  /** The last journey again, from the water right after its edit. */
-  replay(): void {
-    if (this.frames.length < 2) return;
-    this.stopTimer();
-    this.at = 0;
-    this.paused = false;
-    this.show(this.frames[0]);
-    this.restartClock();
-    this.kick();
-    this.host.changed();
-  }
-
   /** Forget the journey (a map opened, a weather run stopped). */
   clear(): void {
     this.stopTimer();
@@ -263,14 +228,13 @@ export class WaterPlayer {
   }
 
   private kick(): void {
-    if (this.timer || this.paused) return;
+    if (this.timer) return;
     if (this.at >= this.frames.length - 1) {
       this.host.changed();
       return;
     }
     this.timer = window.setTimeout(() => {
       this.timer = 0;
-      if (this.paused) return;
       // the frame the clock is at (at least the next one), and, behind the worker by more than a
       // few seconds, a little faster
       const last = this.frames.length - 1;

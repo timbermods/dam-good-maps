@@ -9,10 +9,8 @@
 // Exits non-zero when an edit takes longer than the budget (ms).
 
 import { MapSession } from "../src/core/doc/session";
-import { planObject } from "../src/core/doc/placing";
-import { planContextOf, planLake, planPiece, type PlannedEdit } from "../src/core/doc/tools";
+import { planEntity } from "../src/core/doc/placing";
 import type { EditOp } from "../src/core/doc/ops";
-import { pathField } from "../src/core/features/geometry";
 import type { RiverFeature } from "../src/core/features/schema";
 import { generate } from "../src/core/gen/generate";
 import { hypot } from "../src/core/math/portable";
@@ -44,8 +42,6 @@ function besideWater(s: MapSession): [number, number] | null {
   return null;
 }
 
-const ok = (p: PlannedEdit) => (p.ok ? p.ops : null);
-
 const EDITS: Edit[] = [
   {
     name: "lower ground beside water (7×7, 2 levels)",
@@ -58,48 +54,32 @@ const EDITS: Edit[] = [
     },
   },
   {
-    name: "a lake with its spring (9×9)",
+    name: "a water source from the shelf (strength 2)",
     ops: (s) => {
       const W = s.size.x;
       for (let y = 20; y < W - 20; y += 13)
         for (let x = 20; x < W - 20; x += 13) {
-          const outline: [number, number][] = [
-            [x - 4.5, y - 4.5],
-            [x + 4.5, y - 4.5],
-            [x + 4.5, y + 4.5],
-            [x - 4.5, y + 4.5],
-          ];
-          const p = planLake({ outline }, planContextOf(s), "7a1b2c3d-1111-4222-8333-444455556666");
+          const p = planEntity(s, { template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } }, "7a1b2c3d-1111-4222-8333-444455556666");
           if (p.ok) return p.ops;
         }
       return null;
     },
   },
   {
-    name: "a weir across the main river",
+    name: "a dam across the main river (its channel raised 3 levels)",
     ops: (s) => {
       const river = s.features.find((f): f is RiverFeature => f.kind === "river" && "edge" in f.params.entry && !f.params.badwater);
       if (!river) return null;
       const W = s.size.x;
-      const field = pathField(river.params.path, W, W);
-      let len = 0;
-      for (let i = 0; i < W * W; i++) if (s.built.channel[i] && field.d[i] < 1) len = Math.max(len, field.s[i]);
-      for (const u of [0.2, 0.3, 0.7, 0.8]) {
-        const ops = ok(planObject(s, { kind: "weir", river: { id: river.id, at: Math.round(u * len) } }, "7a1b2c3d-2222-4222-8333-444455556666"));
-        if (ops) return ops;
+      const half = Math.ceil(river.params.width / 2) + 2;
+      const start = s.built.start;
+      for (const [px, py] of river.params.path.slice(1, -1)) {
+        const [x, y] = [Math.round(px), Math.round(py)];
+        if (x - half < 2 || y - half < 2 || x + half > W - 3 || y + half > W - 3 || (start && hypot(x - start.x, y - start.y) < 24)) continue;
+        const cells: [number, number, number][] = [];
+        for (let yy = y - half; yy <= y + half; yy++) cells.push([yy, x - half, x + half]);
+        return [{ op: "sculpt", params: { mode: "raise", cells, amount: 3 } }];
       }
-      return null;
-    },
-  },
-  {
-    name: "a standalone waterfall (8 wide, drop 4)",
-    ops: (s) => {
-      const W = s.size.x;
-      for (let y = 24; y < W - 24; y += 17)
-        for (let x = 24; x < W - 24; x += 17) {
-          const ops = ok(planPiece(s, "waterfall", { mode: "standalone", lip: [x, y], facing: "north", width: 8, drop: 4 }, "7a1b2c3d-3333-4222-8333-444455556666"));
-          if (ops) return ops;
-        }
       return null;
     },
   },

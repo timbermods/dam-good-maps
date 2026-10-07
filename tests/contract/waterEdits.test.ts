@@ -24,7 +24,7 @@ function session(theme: "lakeBasin" | "riverValley", seed: number): MapSession {
 function gameDays(s: MapSession, days: number): Float64Array {
   const b = s.built;
   const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
-  if (b.settle.out) sim.out.set(b.settle.out);
+  if (b.settle.out) sim.setOut(b.settle.out);
   sim.run(days * TICKS_PER_DAY);
   return sim.D;
 }
@@ -75,11 +75,12 @@ describe("Remove unfed water (D387 (2))", () => {
   let fileBefore: Uint8Array;
 
   beforeAll(() => {
-    // Lake Basin 2 (1 before M9b's maps, D148: its 96² map has no dry plateau for the two pits): rows
+    // Lake Basin 3 (2 before Lake Basin round 3, 1 before M9b's maps, D148: their 96² maps have no dry
+    // plateau for the two pits): rows
     // of grouped sources (D314), two badwater sources, and two Fills, pools no source's water
     // reaches (the canonical settle's pre-fill left such pools in hollows until D385, which takes
     // that water from nowhere away; a stored lake is the unfed water a map keeps)
-    s = session("lakeBasin", 2);
+    s = session("lakeBasin", 3);
     for (const p of digPits(s, 2)) expect(s.apply(planFill(s, p.at[0], p.at[1], p.level).op!).errors).toEqual([]);
     before = s.built.water.slice();
     fedBefore = fedTiles(s.built.waterModel, before);
@@ -178,7 +179,8 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
   let pits: { at: [number, number]; level: number }[];
 
   beforeAll(() => {
-    s = session("riverValley", 2);
+    // (River Valley 7 on 0.8.1's maps, D148: River Valley 2's map has no dry plateau for the two pits)
+    s = session("riverValley", 7);
     pits = digPits(s, 2);
   });
 
@@ -221,7 +223,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     let days = 0;
     const b = s.built;
     const sim = new WaterSim(b.waterModel, { depth: b.water.slice(), contamination: b.contamination.slice() });
-    if (b.settle.out) sim.out.set(b.settle.out);
+    if (b.settle.out) sim.setOut(b.settle.out);
     const vol = () => lake.tiles.reduce((t, i) => t + sim.D[i], 0);
     let last = vol();
     while (vol() > 0 && days < 40) {
@@ -312,7 +314,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
   });
 
   it("the same edits give the same file, byte for byte, every time", () => {
-    const dug = session("riverValley", 2);
+    const dug = session("riverValley", 7);
     const p = digPits(dug, 2);
     const start = dug.project();
     const run = () => {

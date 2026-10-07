@@ -19,6 +19,10 @@ import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { optionProblems } from "./objectOps";
+import { paintParamProblems, type PaintParams } from "./paintParams";
+import { plainOf, type JsonValue } from "../format/json";
+import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
 import type { Feature, FeatureKind } from "../features/schema";
 import type { Runs } from "../math/grid";
@@ -62,11 +66,13 @@ export interface OpParams {
   pinSlope: { x: number; y: number; orientation: Orientation };
   removeSlope: { x: number; y: number };
   /** Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, as
-   *  the core question found it (doc/water.ts `unfedWater`). */
+   *  the core question found it (doc/waterEdits.ts `unfedWater`). */
   removeUnfedWater: RemoveUnfedWaterParams;
   /** Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source, stored
-   *  as a sealed oxbow lake's water is (D216; doc/water.ts `planFill`). */
+   *  as a sealed oxbow lake's water is (D216; doc/waterEdits.ts `planFill`). */
   fillHollow: FillHollowParams;
+  /** Explicit player placement; the log stores literal placed objects, never replans. */
+  paintObjects: PaintParams;
 }
 
 export interface RemoveUnfedWaterParams {
@@ -309,13 +315,15 @@ export function applyOp(state: DocState, op: AppliedOp): void {
 }
 
 /** A force's objects, as the entity edits the build applies (same seq): the objects that lost their
- *  ground go, the ones it carried move, the trees it knocked down die, and a carve's source is
- *  placed. Each is quiet: what the ground's resources placed again may have changed. */
+ *  ground go, and the sources it cleared (D474), the ones it carried move, the trees it knocked down
+ *  die, and a carve's source is placed. Each is quiet: what the ground's resources placed again may
+ *  have changed. */
 function forceEntityEdits(op: ForceOp): EntityOp[] {
   const { seq, origin } = op;
   const out: EntityOp[] = [];
   const p = op.params;
-  if (p.removed.length) out.push({ op: "deleteEntities", params: { entities: p.removed, quiet: true }, seq, origin });
+  const gone = p.cleared?.length ? [...p.removed, ...p.cleared.map((c) => c.id)] : p.removed;
+  if (gone.length) out.push({ op: "deleteEntities", params: { entities: gone, quiet: true }, seq, origin });
   for (const m of p.moved ?? []) out.push({ op: "moveEntity", params: { id: m.id, x: m.x, y: m.y, quiet: true }, seq, origin });
   for (const f of p.felled ?? []) out.push({ op: "setEntityProps", params: { id: f.id, components: { LivingNaturalResource: { IsDead: true } }, quiet: true }, seq, origin });
   // a carve's source, and since D314 the rest of its row; Glaciate's springs (D246)
@@ -430,6 +438,8 @@ export interface OpContext {
   heights?: ArrayLike<number>;
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
+  templateOf?: (id: string) => string | undefined;
+  componentsOf?: (id: string) => Record<string, unknown> | undefined;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -441,7 +451,7 @@ function componentProblem(components: Record<string, unknown>): string | null {
     if (!c || typeof c !== "object") return `${key} must be an object`;
     for (const field of ["SpecifiedStrength", "CurrentStrength"]) {
       const v = (c as Record<string, unknown>)[field];
-      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v) && v >= 0)) return `${key}.${field} must be a number, 0 or more`;
+      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v))) return `${key}.${field} must be a finite number`;
     }
   }
   return null;
@@ -456,6 +466,7 @@ export const PLACEABLE = new Set([
   "NaturalDam", "NaturalOverhang2x1", "NaturalOverhang3x1", "NaturalOverhang4x1", "Slope", "Thorns", "UnstableCore",
   "RuinColumnH1", "RuinColumnH2", "RuinColumnH3", "RuinColumnH4", "RuinColumnH5", "RuinColumnH6", "RuinColumnH7", "RuinColumnH8",
   "UndergroundRuins", "BadwaterSource", "WaterSource", "WaterSeep", "BadwaterSeep",
+  "Aquifer", "AncientAquiferDrill", "BadtideDrain", "ReservePile", "ReserveWarehouse", "ReserveTank",
 ]);
 
 /** The highest level a force may leave: the editor's one ceiling (D244). */
@@ -619,8 +630,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         for (const id of p.removed) if (!ctx.entityIds.has(id)) return [`entity ${id} does not exist`];
         for (const m of p.moved ?? []) if (!ctx.entityIds.has(m.id)) return [`entity ${m.id} does not exist`];
         for (const f of p.felled ?? []) if (!ctx.entityIds.has(f.id)) return [`entity ${f.id} does not exist`];
+        for (const c of p.cleared ?? []) if (!ctx.entityIds.has(c.id)) return [`there is no source ${c.id} to clear`];
       }
-      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
+      for (const id of [...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.cleared ?? []).map((c) => c.id)]) if (!GUID.test(id)) return [`${id} is not a lowercase GUID`];
       for (const src of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) {
         if (!GUID.test(src.id)) return [`${src.id} is not a lowercase GUID`];
         if (ctx.entityIds.has(src.id) || state.entityEdits.some((e) => e.op === "placeEntity" && e.params.id === src.id)) return [`an entity with the Id ${src.id} already exists`];
@@ -644,6 +656,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if ("BlockObject" in p.components) return ["BlockObject comes from the operation's position"];
         const bad = componentProblem(p.components);
         if (bad) return [bad];
+        const options = optionProblems(p.template, p.components);
+        if (options.length) return options;
       }
       // an object the game would delete on load is refused
       const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
@@ -667,12 +681,25 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if ("BlockObject" in op.params.components) return ["BlockObject changes through moveEntity"];
       const bad = componentProblem(op.params.components);
-      return bad ? [bad] : [];
+      if (bad) return [bad];
+      const template = ctx.templateOf?.(op.params.id);
+      if (!template) return [];
+      const current = ctx.componentsOf?.(op.params.id);
+      const components = current ? plainOf(mergeGame(current as JsonValue, op.params.components)) as Record<string, unknown> : op.params.components;
+      if (current) {
+        const missing = (REQUIRED[template] ?? []).filter((k) => !(k in components));
+        if (missing.length) return [`${template} needs the components ${missing.join(", ")}`];
+      }
+      return optionProblems(template, components);
     }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];
     case "removeSlope":
       return ctx.slopeTiles.has(op.params.y * W + op.params.x) ? [] : [`there is no slope at (${op.params.x}, ${op.params.y})`];
+    case "paintObjects": {
+      const errors = runsProblems(op.params.area, W, H, "the stroke's area");
+      return errors.length ? errors : paintParamProblems(op.params);
+    }
     case "removeUnfedWater": {
       const p = op.params;
       const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");
