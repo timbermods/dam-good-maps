@@ -152,9 +152,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
-    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148)
+    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148; river valley 8 for river valley 2, which River Valley round 2's maps, 0.8.5, leave without one)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 2], ["canyon", 4]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 8], ["canyon", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

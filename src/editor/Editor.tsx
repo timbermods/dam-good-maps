@@ -12,10 +12,13 @@
 // The code is in feature folders, one hook per feature (src/editor/README.md); this file only builds the bag
 // and calls them in order.
 
+import type { ComponentChildren } from "preact";
 import type { Remote } from "comlink";
+import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { Ed } from "./ed";
+import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
 import { useView } from "./view/useView";
@@ -30,6 +33,8 @@ import { useForceRun } from "./forces/useForceRun";
 import { useForcePointer } from "./forces/useForcePointer";
 import { useRows } from "./rows/useRows";
 import { useReady } from "./view/useReady";
+import { useBandLayout } from "./view/useBandLayout";
+import { useFrameInsets } from "./view/insets";
 import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
 import { useStart } from "./start/useStart";
@@ -38,18 +43,46 @@ import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
 import { editorView } from "./render/editorView";
 
+/** The map's land and water as the editor shows them, for Your maps' picture. */
+export interface MapPicture {
+  heights: Uint8Array;
+  W: number;
+  H: number;
+  water: ArrayLike<number> | null;
+}
+
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
-  /** "Back to settings" (generated maps) or "New map" (imported ones). */
-  onBack(info: SessionInfo): void;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
+  /** Finish queued edits before the page snapshots the outgoing worker session. */
+  onPendingEdits?(wait: () => Promise<void>): void;
+  /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */
+  replacing?: boolean;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
-  /** Another like this (D278 (1c)): the page makes a sibling and opens it here. */
-  onAnother?(info: SessionInfo): void;
+  /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
+  /** The page's own line (a save that failed, a version found), shown with the editor's notes above the bar. */
+  notice?: ComponentChildren;
+  /** The map's name as the page keeps it (renamed in the header's title through the core, D443). */
+  name: string;
+  /** Rename the map: null when the core stored it, else the core's reason (a blank name). */
+  onRename(name: string): Promise<string | null>;
+  /** The page asks the editor for the map's land and water as shown (Your maps' picture). */
+  onPicture?(get: () => MapPicture | null): void;
+  /** The map generator's panel and Your maps: what they show, whether each is open (one at a time), and their
+   *  switches (the page keeps them open across maps). */
+  drawer: GeneratorModel;
+  drawerOpen: boolean;
+  onDrawer(open: boolean): void;
+  mapsOpen: boolean;
+  onMaps(open: boolean): void;
+  placesOpen: boolean;
+  onPlaces(open: boolean): void;
+  /** The map opens with the view where it was (the same map back, after a Cancel). */
+  keepView?: boolean;
 }
 
 export default function Editor(props: EditorProps) {
@@ -74,6 +107,21 @@ export default function Editor(props: EditorProps) {
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  // the camera frames the map clear of the controls (setting it never moves the camera, D265)
+  useFrameInsets(ed.renderer, !!ed.ready);
+  useBandLayout(!!ed.ready);
+  useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
+  // one left panel at a time: Map Generator, Real places or Your maps opening closes History (Kyler, 2026-10-06)
+  useEffect(() => {
+    if (props.drawerOpen || props.mapsOpen || props.placesOpen) ed.setShowHistory(false);
+  }, [props.drawerOpen, props.mapsOpen, props.placesOpen]);
+  // Your maps' picture: the land and water as the view shows them
+  useEffect(() => {
+    props.onPicture?.(() => {
+      const m = ed.renderer.current?.mapState();
+      return m ? { heights: m.heights, W: m.W, H: m.H, water: m.surface.depth } : null;
+    });
+  }, []);
 
   return editorView(ed, props);
 }

@@ -192,6 +192,14 @@ export function useReady(ed: Ed): ReadySlice {
       // the water flows on the stroke while it is painted (D197)
       draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
       cancelDraft: () => void api.cancelDraft(),
+      // a Naturalize stroke's land, worked out in the worker (D422)
+      weather: {
+        begin: (settings, ground) => api.weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number])),
+        add: (dabs, pressure) => api.weatherAdd(dabs, pressure),
+        finish: (rigid) => api.weatherFinish(rigid),
+        end: () => api.weatherEnd(),
+        cancel: () => void api.weatherCancel(),
+      },
     });
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);

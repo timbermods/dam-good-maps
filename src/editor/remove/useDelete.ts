@@ -38,7 +38,11 @@ export function useDelete(ed: Ed): DeleteSlice {
         const w = m.water;
         return w && w.surface[i] === w.surface[i] && w.depth[i] > 0.001 ? { depth: w.depth[i], contamination: w.contamination[i] } : null;
       },
-      soil: (i) => (m.soil ? (m.soil.contamination[i] > 0 ? "contaminated" : m.soil.moisture[i] > 0 ? "moist" : "dry") : null),
+      // (a held weather day's soil while one is on, Kyler, 2026-10-04: the readout reports the day shown)
+      soil: (i) => {
+        const soil = m.daySoil ?? m.soil;
+        return soil ? (soil.contamination[i] > 0 ? "contaminated" : soil.moisture[i] > 0 ? "moist" : "dry") : null;
+      },
       objects: (i) =>
         (at.get(i) ?? []).map((k): TileObject => {
           const template = e.templates[e.template[k]];

@@ -4,6 +4,7 @@
 // stroke starts, and kept in its operation; each brush remembers its mode.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, setLevel, setWaterSpeed } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
@@ -18,12 +19,9 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=35&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("instant");
+  await setWaterSpeed(page, "instant");
 
   // a river tile with dry land two tiles to its north, away from the edges and the bars
   const spot = await page.evaluate(() => {
@@ -44,10 +42,10 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
 
   // Lower in Ground, from the dry land by the river, a level below it and deep enough to reach the
   // bed: the wet tiles stay, the banks stay at or above the water's surface
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   const row = page.getByRole("group", { name: "Lower options" });
   await row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Ground" }).click();
-  await row.getByRole("combobox", { name: "Target level" }).selectOption("0");
+  await setLevel(row, 0);
   const before = await state(page);
   const W = before.W;
   const p = await client(page, x, y - 3);
@@ -73,11 +71,11 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   for (const [by, x0, x1, level] of st.bank!) for (let bx = x0; bx <= x1; bx++) expect(after.heights[by * W + bx]).toBeGreaterThanOrEqual(Math.min(level, before.heights[by * W + bx]));
 
   // Water: a Flatten on the bed a level up reshapes only the wet tiles
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const frow = page.getByRole("group", { name: "Flatten options" });
   await frow.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Water" }).click();
   const bed = after.heights[y * W + x];
-  await frow.getByRole("combobox", { name: "Target level" }).selectOption(String(bed + 1));
+  await setLevel(frow, bed + 1);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const w0 = await state(page);
   const q = await client(page, x, y);
@@ -91,9 +89,9 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.mode).toBe("water");
 
   // each brush remembers its own mode; the others stay on Both
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   await expect(row.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Ground" })).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("1");
+  await page.keyboard.press("2");
   await expect(page.getByRole("group", { name: "Raise options" }).getByRole("group", { name: "Mode" }).getByRole("button", { name: "Both" })).toHaveAttribute("aria-pressed", "true");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}").modes);
   expect(saved).toMatchObject({ lower: "ground", flatten: "water", raise: "both" });

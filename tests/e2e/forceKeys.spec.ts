@@ -7,6 +7,7 @@
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -20,11 +21,8 @@ const note = (page: Page) => page.locator(".shape-note");
     when it timed out between them (it lasts about a second), and hang the poll that asked. */
 const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
-async function refine(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -52,7 +50,7 @@ async function spot(page: Page): Promise<[number, number]> {
       return out;
     });
   let clear = new Set(await grid());
-  for (const key of ["1", "4", "7", "8", "9", "0", "-"]) {
+  for (const key of ["2", "4", "7", "8", "9", "0", "-"]) {
     await page.keyboard.press(key);
     await page.waitForTimeout(150);
     const here = new Set(await grid());
@@ -74,16 +72,17 @@ async function spot(page: Page): Promise<[number, number]> {
   return best;
 }
 
-test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto as \"Auto (n)\"", async ({ page }) => {
-  await refine(page);
+test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back), { } and [ ] step Size and Power (D368 (1)), the number beside the pointer; both always numbers, Auto lit while Size follows Power", async ({ page }) => {
+  await openTopDown(page);
   const at = await spot(page);
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
-  const size = row.locator(".size-control output");
-  const power = row.locator(".slider-field").filter({ hasText: "Power" }).locator("output");
-  // numbers: Power's, and Size's on Auto as "Auto (n)"
+  const size = row.locator('.set:has(input[aria-label="Size"]) .set-value');
+  const power = row.locator('.set:has(input[aria-label="Power"]) .set-value');
+  // numbers: Power's, and Size's on Auto (its Auto lit) the number Power gives
   await expect(power).toHaveText(/^\d+$/);
-  await expect(size).toHaveText(/^Auto \(\d+\)$/);
+  await expect(size).toHaveText(/^\d+$/);
+  await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
   const p = await client(page, at[0], at[1]);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
@@ -124,15 +123,17 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await expect(power).toHaveText(String(Math.min(100, p0 + 5)));
   await page.keyboard.press("[");
   await expect(power).toHaveText(String(p0));
-  // back to Auto: "Auto (n)"
+  // back to Auto: Auto lit, the number Power gives
   await row.getByRole("button", { name: "Size follows Power" }).click();
-  await expect(size).toHaveText(/^Auto \(\d+\)$/);
+  await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
+  await expect(size).toHaveText(/^\d+$/);
 
   // Carve's Size is its width: F sizes it too
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   const carve = page.getByRole("group", { name: "Carve options" });
-  await expect(carve.locator(".size-control output")).toHaveText(/^Auto \([\d.]+\)$/);
-  await expect(carve.locator(".slider-field").filter({ hasText: "Power" }).locator("output")).toHaveText(/^\d+$/);
+  await expect(carve.locator('.set:has(input[aria-label="Size"]) .set-value')).toHaveText(/^[\d.]+$/);
+  await expect(carve.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
+  await expect(carve.locator('.set:has(input[aria-label="Power"]) .set-value')).toHaveText(/^\d+$/);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
@@ -141,11 +142,11 @@ test("A1, A2: F and the mouse size a force's ring on the map (Esc puts it back),
   await page.mouse.move(c.x, c.y, { steps: 6 });
   await expect(note(page)).toHaveText(/^size (9|10|11)$/);
   await page.keyboard.up("f");
-  await expect(carve.locator(".size-control output")).toHaveText(/^(9|10|11)$/);
+  await expect(carve.locator('.set:has(input[aria-label="Size"]) .set-value')).toHaveText(/^(9|10|11)$/);
 });
 
 test("A3, A4: every drawn gesture is a band of its width along the line with no ring, and Esc while it is drawn cancels it, nothing starting; a painted Lift goes back at once", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const before = await heights(page);
   const n0 = (await labels(page)).length;
@@ -164,10 +165,10 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
   };
   // Carve, Glaciate, Quake's Slide fault and Erupt's fissure: a band, no ring; Esc drops it
   for (const [key, name, mode] of [
-    ["7", "Carve", null],
-    ["-", "Glaciate", null],
-    ["9", "Quake", "Slide"],
-    ["0", "Erupt", null],
+    ["Shift+Digit1", "Carve", null],
+    ["Shift+Digit7", "Glaciate", null],
+    ["Shift+Digit5", "Quake", "Slide"],
+    ["Shift+Digit3", "Erupt", null],
   ] as const) {
     await page.keyboard.press(key);
     if (mode) await page.getByRole("group", { name: `${name} options` }).getByRole("button", { name: mode }).click();
@@ -194,11 +195,11 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
   expect(await heights(page)).toEqual(before);
 
   // a painted Lift, drawn: Esc takes it back at once, and letting go keeps nothing
-  await page.keyboard.press("9");
+  await page.keyboard.press("Shift+Digit5");
   await page.getByRole("group", { name: "Quake options" }).getByRole("button", { name: "Lift" }).click();
   await draw();
   await expect.poll(() => status(page)).not.toBeNull();
-  await expect(page.getByRole("group", { name: "Quake at work" }).locator(".force-keys")).toHaveText("Esc to cancel");
+  await expect(page.getByRole("group", { name: "Quake at work" }).getByRole("button", { name: "Revert" })).toHaveAttribute("title", "Take the fault back");
   await page.keyboard.press("Escape");
   await expect.poll(() => status(page)).toBeNull();
   await page.mouse.up();
@@ -215,10 +216,10 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
 });
 
 test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const before = await heights(page);
-  await page.keyboard.press("9");
+  await page.keyboard.press("Shift+Digit5");
   const row = page.getByRole("group", { name: "Quake options" });
   await row.getByRole("slider", { name: "Power" }).fill("0");
   const a = await client(page, at[0] - 12, at[1]);
@@ -246,7 +247,7 @@ test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it hig
   await expect.poll(() => heights(page)).toEqual(before);
 
   // Craterize at Power 10, then Try another at Power 90: a stronger impact
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const crater = page.getByRole("group", { name: "Craterize options" });
   await crater.getByRole("slider", { name: "Power" }).fill("10");
   const p = await client(page, at[0], at[1]);
@@ -265,7 +266,7 @@ test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it hig
 
 test("D368 (1): one key habit for every tool: F with the mouse and { } set Size; [ ] set Power on every force, strength on Smooth and Naturalize, and nothing on Raise, Lower and Flatten", async ({ page }) => {
   test.setTimeout(240_000);
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   const far = await client(page, at[0] + 7, at[1]);
@@ -288,11 +289,11 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
 
   // the brushes
   for (const [key, name, strength] of [
-    ["1", "Raise", false],
-    ["2", "Lower", false],
-    ["3", "Flatten", false],
-    ["4", "Smooth", true],
-    ["5", "Naturalize", true],
+    ["2", "Raise", false],
+    ["3", "Lower", false],
+    ["4", "Flatten", false],
+    ["5", "Smooth", true],
+    ["6", "Naturalize", true],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });
@@ -331,22 +332,22 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
 
   // the forces
   for (const [key, name] of [
-    ["7", "Carve"],
-    ["8", "Craterize"],
-    ["0", "Erupt"],
-    ["9", "Quake"],
-    ["-", "Glaciate"],
+    ["Shift+Digit1", "Carve"],
+    ["Shift+Digit2", "Craterize"],
+    ["Shift+Digit3", "Erupt"],
+    ["Shift+Digit5", "Quake"],
+    ["Shift+Digit7", "Glaciate"],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });
     const power = row.getByRole("slider", { name: "Power" });
     await power.fill("50");
     const hasSize = name !== "Quake";
-    const size = row.locator(".size-control output");
+    const size = row.locator('.set:has(input[aria-label="Size"]) .set-value');
     await point(false);
     if (hasSize) {
       // F with the mouse: its Size, off Auto
-      await expect(size).toHaveText(/^Auto/);
+      await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
       await fSize(false);
       await expect(size, `${name}: F sizes it`).toHaveText(/^[\d.]+$/);
       const s0 = Number(await size.textContent());
@@ -372,14 +373,14 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     await page.keyboard.press("[");
     await page.keyboard.press("[");
     await expect(power).toHaveValue("45");
-    if (hasSize) await expect(size, `${name}: [ ] leave its Size`).toHaveText(/^Auto/);
+    if (hasSize) await expect(row.getByRole("button", { name: "Size follows Power" }), `${name}: [ ] leave its Size`).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press(key);
   }
 });
 
 test("D368 (11): F held and the wheel set the strength: Power on every force, strength on Smooth and Naturalize, nothing on Raise, Lower and Flatten; the number beside the pointer; plain scroll still zooms", async ({ page }) => {
   test.setTimeout(240_000);
-  await refine(page);
+  await openTopDown(page);
   const at = await spot(page);
   const p = await client(page, at[0], at[1]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("dgm.brush") ?? "{}") as { size?: number; strength?: number });
@@ -421,11 +422,11 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
 
   // the brushes
   for (const [key, name, strength] of [
-    ["1", "Raise", false],
-    ["2", "Lower", false],
-    ["3", "Flatten", false],
-    ["4", "Smooth", true],
-    ["5", "Naturalize", true],
+    ["2", "Raise", false],
+    ["3", "Lower", false],
+    ["4", "Flatten", false],
+    ["5", "Smooth", true],
+    ["6", "Naturalize", true],
   ] as const) {
     await page.keyboard.press(key);
     await point();
@@ -449,11 +450,11 @@ test("D368 (11): F held and the wheel set the strength: Power on every force, st
 
   // the forces
   for (const [key, name] of [
-    ["7", "Carve"],
-    ["8", "Craterize"],
-    ["0", "Erupt"],
-    ["9", "Quake"],
-    ["-", "Glaciate"],
+    ["Shift+Digit1", "Carve"],
+    ["Shift+Digit2", "Craterize"],
+    ["Shift+Digit3", "Erupt"],
+    ["Shift+Digit5", "Quake"],
+    ["Shift+Digit7", "Glaciate"],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });

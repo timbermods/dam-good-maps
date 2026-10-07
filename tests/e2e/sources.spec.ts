@@ -4,11 +4,12 @@
 // however quickly the notches come.
 
 import { expect, test, type Page } from "@playwright/test";
+import { centreOn, openEditor } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 const ID = (k: number) => `00000000-0000-4000-8000-00000000000${k}`;
-/** The number in some words ("this source 0.5 · row 1.25 water/s": the first, this source's). */
+/** The number in some words ("0.5 of 1.25 water/s": the first, this source's). */
 const first = (t: string | null) => Number(/([\d.]+)/.exec(t ?? "")?.[1] ?? NaN);
 
 /** Two dry, level spots away from the start and every object, each with room for a row of three. */
@@ -38,15 +39,12 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 7 since 0.8.3's courses follow the land, D148: seed 6 has room for one row; seed 6 for 0.8.3's first maps: seed 8 has room for only one row since badwater joins the main water,
+  // (seed 4 since River Valley round 2, 0.8.5, D148: seed 7 has room for neither row; seed 7 since 0.8.3's courses follow the land, D148: seed 6 has room for one row; seed 6 for 0.8.3's first maps: seed 8 has room for only one row since badwater joins the main water,
   // D476; seed 8 for #265's maps, D148: seed 6 has room for only one row since the start's badwater distance
   // became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no room for either row since the badwater ditches
   // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
   // kept room for only one of the two rows)
-  await page.goto("./#s=7&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.waitForTimeout(500);
   const found = await spots(page);
@@ -80,6 +78,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     ["in a row", rx + 1, ry, 3],
   ] as const) {
     // the source picked: its row shows
+    await centreOn(page, x, y);
     const p = await client(page, x, y);
     await page.mouse.move(p.x + 3, p.y);
     await page.mouse.move(p.x, p.y);
@@ -100,7 +99,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     };
     const rowTotal = async () => {
       const t = await readout.textContent();
-      return n > 1 ? Number(/row ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
+      return n > 1 ? Number(/of ([\d.]+)/.exec(t ?? "")?.[1] ?? NaN) : first(t);
     };
     // at rest: one number everywhere
     await expect.poll(rowTotal).toBe(n);
@@ -123,7 +122,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
           return {
             label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
             own: num(words, /([\d.]+)/),
-            row: num(words, many > 1 ? /row ([\d.]+)/ : /([\d.]+)/),
+            row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
             select: Number((group?.querySelector('select[aria-label="Strength"]') as HTMLSelectElement | null)?.value),
             note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
           };
