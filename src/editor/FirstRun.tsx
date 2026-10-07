@@ -6,9 +6,9 @@ const KEY = "dgm.firstRun";
 export type FirstStep = "paint" | "place" | "water";
 
 const LINES: [FirstStep, string][] = [
-  ["paint", "Shape the land: pick Carve above and click the map, or pick a brush and drag."],
-  ["place", "Place things: pick one on the left, then click the map, or drag it there."],
-  ["water", "Add water: pick Water source on the left, then click where the water starts."],
+  ["paint", "Shape the land: pick Carve below and click the map, or pick a brush and drag."],
+  ["place", "Place things: pick one on the right, then click the map, or drag it there."],
+  ["water", "Add water: pick Water source on the right, then click where the water starts."],
 ];
 
 /** The steps done so far (all three when the hints are over). */
@@ -28,6 +28,21 @@ export function saveFirstRun(done: Set<FirstStep>): void {
   } catch {
     // the hints come back next time
   }
+}
+
+/** The hints with all three lines, unseen: the width the hints and every message above the bar share (Kyler,
+ *  2026-10-05), measured in the player's own font, whatever lines are left or whether the hints show at all. */
+export function FirstRunSizer() {
+  return (
+    <div class="map-note note-sizer" aria-hidden="true">
+      <ul>
+        {LINES.map(([k, words]) => (
+          <li key={k}>{words}</li>
+        ))}
+      </ul>
+      <span class="linkish">×</span>
+    </div>
+  );
 }
 
 export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {

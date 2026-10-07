@@ -1,6 +1,7 @@
 {
   "about": "Names of retired features (Kyler, D188 (3) in docs/decisions/how-we-work.md; docs/README.md, 'Retired terms'). tests/unit/retired-terms.test.ts, in CI's quick suite, fails when one reappears in a living document, the interface text or the editor code. Matching ignores case, ** and backticks, hyphens and underscores, and line breaks, splits camelCase, and takes simple plurals (tool, tools; brush, brushes). Add a term when a feature is retired.",
   "terms": [
+    { "term": "Pause water", "retired": "Kyler, 2026-10-04", "instead": "the water plays into place after every edit with no controls; undo and redo show a change again" },
     { "term": "landform tool", "retired": "D182", "instead": "the brushes: hills, plateaus, ridges and valleys come from painting" },
     { "term": "river tool", "retired": "D184", "instead": "smart Lower and the shelf's sources" },
     { "term": "lake tool", "retired": "D184", "instead": "lakes fill hollows by themselves" },
@@ -38,7 +39,10 @@
     { "term": "Discard edits", "retired": "D336", "instead": "Generate: the edited map stays saved beside the new one" },
     { "term": "lets you edit what the generator made", "retired": "D336", "instead": "an older map opens exactly as it was saved; no rebuild keeps its edits" },
     { "term": "rebuildWithCurrentGenerator", "retired": "D336", "instead": "edits never replay onto new land: an older map opens exactly as it was saved" },
+    { "term": "Refine this map", "retired": "D330", "instead": "the page opens every generated map in the editor at once; there is no step between making a map and shaping it" },
+    { "term": "Back to settings", "retired": "D330", "instead": "the map stays in the editor: New map in the header opens the drawer with the settings beside it" },
     { "term": "poisoned soil", "retired": "D334", "instead": "contaminated ground: the game's orange-red veins, in every look (the High look's dark stain and its switch are retired)" },
+    { "term": "Limits for this size", "retired": "Kyler, 2026-10-04", "instead": "the map generator shows every setting at once; each setting's guard (a drought reserve too big for the size is greyed) says what a size can hold" },
     { "term": "Maturity", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends; a carve saved with the setting opens as recorded" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",

@@ -54,6 +54,9 @@ declare global {
       sourceGlow(): number[];
       /** The Select tool's selection (the working area while it is open, D259), its tiles. */
       selection(): number[];
+      /** The water's pace after an edit (tests only: the page always plays it at Normal). */
+      waterSpeed(speed: "slower" | "normal" | "faster" | "instant"): void;
+      waterSettled(): boolean;
 
     };
   }

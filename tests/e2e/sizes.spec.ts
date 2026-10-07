@@ -5,45 +5,43 @@
 // Start, Pine, then the rest.
 
 import { expect, test, type Page } from "@playwright/test";
+import { choose, openEditor, setLevel, settingValue } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page) {
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page) {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
-test("the shelf's order; every brush's size in its row, up to half the map (D322); each force's size follows Power until it is set by hand (D226)", async ({ page }) => {
+test("the objects menu's order; every brush's size in its row, up to half the map (D322); each force's size follows Power until it is set by hand (D226)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await refine(page);
+  await openTopDown(page);
 
-  // the shelf: Water source, Badwater source, Start, Pine, then the rest
+  // the objects menu (Layout 2, Kyler, 2026-10-03): Start, Water source, Badwater source, Natural dam, Pine, then the rest
   const names = await page.getByRole("navigation", { name: "Place" }).getByRole("button").allTextContents();
-  expect(names.slice(0, 5).map((n) => n.trim())).toEqual(["Water source", "Badwater source", "Start", "Pine", "Birch"]);
+  expect(names.map((n) => n.trim())).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush", "Ruin", "Mine site", "Relic", "Slope", "Thorns", "Blockage", "Geothermal field"]);
 
   // every brush's row: its size, a number and a slider
   for (const [key, name] of [
-    ["1", "Raise"],
-    ["2", "Lower"],
-    ["3", "Flatten"],
-    ["4", "Smooth"],
-    ["5", "Naturalize"],
+    ["2", "Raise"],
+    ["3", "Lower"],
+    ["4", "Flatten"],
+    ["5", "Smooth"],
+    ["6", "Naturalize"],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: `${name} options` });
     await expect(row.getByRole("slider", { name: "Size" })).toBeVisible();
-    await expect(row.locator(".size-control output")).toHaveText(/^\d+(\.5)?$/);
+    await expect(settingValue(page, "Size")).toHaveText(/^\d+(\.5)?$/);
   }
   // set on Lower's slider, a stroke is that size
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
   const lower = page.getByRole("group", { name: "Lower options" });
   await lower.getByRole("slider", { name: "Size" }).fill("8");
-  await expect(lower.locator(".size-control output")).toHaveText("8");
+  await expect(settingValue(page, "Size")).toHaveText("8");
   const i = await page.evaluate(() => window.dgmEditor!.info());
   const a = await client(page, Math.round(i.W * 0.3), Math.round(i.H * 0.3));
   const b = await client(page, Math.round(i.W * 0.3) + 6, Math.round(i.H * 0.3));
@@ -55,13 +53,13 @@ test("the shelf's order; every brush's size in its row, up to half the map (D322
   expect((await page.evaluate(() => window.dgmEditor!.lastStroke()))!.size).toBe(8);
   // the largest brush reaches half the map's width (D322, item 42): a Flatten of the whole map in
   // one click from its middle, square
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   const flat = page.getByRole("group", { name: "Flatten options" });
   const big = String(Math.ceil(Math.max(i.W, i.H) / 2));
   await expect(flat.getByRole("slider", { name: "Size" })).toHaveAttribute("max", big);
   await flat.getByRole("slider", { name: "Size" }).fill(big);
-  await flat.getByLabel("Square").check();
-  await flat.getByRole("combobox", { name: "Target level" }).selectOption("6");
+  await choose(flat, "Brush", "Square");
+  await setLevel(flat, 6);
   const mid = await client(page, Math.floor(i.W / 2), Math.floor(i.H / 2));
   await page.mouse.click(mid.x, mid.y);
   await idle(page);
@@ -70,16 +68,16 @@ test("the shelf's order; every brush's size in its row, up to half the map (D322
   expect(hs.filter((h) => h === 6).length).toBeGreaterThan(hs.length * 0.95);
   await page.keyboard.press("Control+z");
   await idle(page);
-  await flat.getByLabel("Square").uncheck();
+  await choose(flat, "Brush", "Round");
   await flat.getByRole("slider", { name: "Size" }).fill("5");
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press("2");
+  await page.keyboard.press("3");
 
   // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back
   for (const [key, rowName, sizes] of [
-    ["7", "Carve options", ["Size"]],
-    ["8", "Craterize options", ["Size"]],
-    ["0", "Erupt options", ["Size"]],
+    ["Shift+Digit1", "Carve options", ["Size"]],
+    ["Shift+Digit2", "Craterize options", ["Size"]],
+    ["Shift+Digit3", "Erupt options", ["Size"]],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: rowName });
