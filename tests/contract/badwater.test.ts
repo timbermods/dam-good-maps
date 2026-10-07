@@ -90,9 +90,8 @@ describe("badwater on every map (D200)", () => {
     for (const theme of THEMES) {
       // (seed 22 since 0.8.0's water rules, D148: Highlands 96² seed 21 makes no map within its attempts;
       // Any 23 since Any took Islands' and Delta's new ranges, D416, D429: on Any 22's new land no start
-      // the settler's rules allow stands 15 tiles from badwater and its soil, so it misses the target;
-      // Islands 23 since Islands round 6: on its 22 the start stands 2 tiles from badwater)
-      const r = generate(makeSpec({ seed: theme === "any" || theme === "islands" ? 23 : 22, theme, size: { x: 96, y: 96 } }));
+      // the settler's rules allow stands 15 tiles from badwater and its soil, so it misses the target)
+      const r = generate(makeSpec({ seed: theme === "any" ? 23 : 22, theme, size: { x: 96, y: 96 } }));
       expect(r.report.passed, theme).toBe(true);
       const bad = r.built.entities.filter((e) => e.template === "BadwaterSource");
       expect(bad.length, theme).toBeGreaterThanOrEqual(1);

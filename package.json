@@ -1,6 +1,6 @@
 {
   "name": "dam-good-maps",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "private": true,
   "description": "Timberborn map generator: pick settings, preview the map, download a .timber file that plays in Timberborn 1.1.",
   "type": "module",
