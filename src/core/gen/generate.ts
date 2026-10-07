@@ -2607,6 +2607,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return fail(why, b, true);
     }
     if (why === "start.badwater" && !fixes.includes("start moved off badwater")) fixes.push("start moved off badwater");
+    // (a spring this start was given goes with it: the next start's layout is made afresh, and the
+    // field holds only what the map has)
+    for (const f of layout) if (f.kind === "river" && f.role === "river/startSpring") contains.delete(f.id);
     cur = again;
   }
   pick = cur;
