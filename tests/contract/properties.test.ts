@@ -15,6 +15,7 @@ import { generate } from "../../src/core/gen/generate";
 import { stream } from "../../src/core/math/rng";
 import { makeSpec, SIZE_PRESETS } from "../../src/core/spec/mapspec";
 import type { EditOp, OpName } from "../../src/core/doc/ops";
+import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { randomOp } from "./randomOps";
 
 /** Operations kept in the document's log and replayed on every generation. */
@@ -73,7 +74,56 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
       }
       return null;
     });
-    const draws: (() => EditOp | EditOp[] | null)[] = [...Array.from({ length: OPS[side] }, () => () => randomOp(s, rng)), ...sweep];
+    // If the unchanged draws leave no Fill/Remove target, make their precondition with an edit,
+    // rather than re-picking the map seed. These steps get the same rebuild/undo checks as the draws.
+    let hollow: { x: number; y: number; level: number; cells: [number, number, number][] } | null = null;
+    const waterCoverage: (() => EditOp | null)[] = [
+      () => {
+        if (kinds.has("fillHollow") && kinds.has("removeUnfedWater")) return null;
+        const { W, H, floor } = s.built.waterModel;
+        // A dry plateau with an 8×8 pit, as in waterEdits.test.ts: a real stored pool,
+        // separated from the sources, for both operations to act on after settling.
+        for (let y = 4; y + 12 < H - 4; y += 2) for (let x = 4; x + 12 < W - 4; x += 2) {
+          let dry = true;
+          let rim = 0;
+          for (let cy = y - 2; cy < y + 14 && dry; cy++) for (let cx = x - 2; cx < x + 14; cx++) {
+            const i = cy * W + cx;
+            if (s.built.water[i] > 0 || floor[i] < 2) { dry = false; break; }
+            rim = Math.max(rim, floor[i] + 1);
+          }
+          if (!dry || rim > 63) continue;
+          if (s.built.entities.some((e) => /^(StartingLocation|WaterSource|BadwaterSource)$/.test(e.template)
+            && e.x >= x - 2 && e.x < x + 14 && e.y >= y - 2 && e.y < y + 14)) continue;
+          const flat: [number, number, number][] = Array.from({ length: 12 }, (_, k) => [y + k, x, x + 11]);
+          const op: EditOp = { op: "sculpt", params: { mode: "flatten", cells: flat, level: rim, exact: true } };
+          if (s.check(op).length) continue;
+          hollow = { x: x + 5, y: y + 5, level: rim - 0.5, cells: Array.from({ length: 8 }, (_, k) => [y + 2 + k, x + 2, x + 9]) };
+          return op;
+        }
+        throw new Error("water-operation coverage needs a dry plateau away from sources and the start");
+      },
+      () => {
+        if (!hollow) return null;
+        return { op: "sculpt", params: { mode: "lower", cells: hollow.cells, amount: 2, exact: true } };
+      },
+      () => {
+        if (!hollow) return null;
+        const plan = planFill(s, hollow.x, hollow.y, hollow.level);
+        expect(plan.reason, "the coverage hollow must hold its Fill").toBeNull();
+        expect(plan.op).not.toBeNull();
+        return plan.op;
+      },
+      () => {
+        if (!hollow) return null;
+        const tile = hollow.y * s.size.x + hollow.x;
+        const take = unfedWater(s, [tile]);
+        expect(take.op, "the coverage Fill must make removable unfed water").not.toBeNull();
+        expect(take.op!.params.tiles).toContain(tile);
+        return take.op;
+      },
+    ];
+    const regularDraws: (() => EditOp | EditOp[] | null)[] = [...Array.from({ length: OPS[side] }, () => () => randomOp(s, rng)), ...sweep];
+    const draws = [...regularDraws, ...waterCoverage];
     let tools = 0;
     for (let step = 0; step < draws.length; step++) {
       const drawn = draws[step]();
@@ -86,9 +136,11 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
         rejected++;
         expect(res.errors.length, JSON.stringify(drawn)).toBeGreaterThan(0);
         expect(s.document.edits.length).toBe(before);
+        if (step >= regularDraws.length) expect(res.ok, "a coverage precondition edit must apply").toBe(true);
         continue;
       }
-      applied++;
+      // The added precondition cannot help the existing accepted-draw minimum pass.
+      if (step < regularDraws.length) applied++;
       if (Array.isArray(drawn)) tools++;
       for (const op of Array.isArray(drawn) ? drawn : [drawn]) kinds.add(op.op);
       const name = Array.isArray(drawn) ? `a tool's ${drawn.map((o) => o.op).join("+")}` : drawn.op;

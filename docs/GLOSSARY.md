@@ -29,13 +29,13 @@ The shared terms of Dam Good Maps, each defined once, with the decision that set
 
 **Slow forces.** One toggle in the view bar beside Sound. Off is Fast: the land is final in about two seconds. On plays each force out slowly, about four times as long; a new gesture, Esc or a click jumps it to the final land. Nothing to do with the water's pace. ([D321](decisions/README.md), [D268](decisions/README.md))
 
-**View bar.** The top row of the shelf: the view switches (Top-down, Level lines, Height colours, Markers and the like), with Sound and Slow forces. ([D184](decisions/editor.md), [D287](decisions/README.md), [D248](decisions/README.md))
+**Show column.** The view switches at the map's top left (Heights, Lines, Markers, Flow, See-through, Badwater, Legend), each a checkbox row; Top-down, Reset view, Slow forces and Sound are at the top right (Layout 2). ([D184](decisions/editor.md), [D287](decisions/README.md), [D248](decisions/README.md))
 
 **Shelf.** The controls around the map: the view bar, the tools, the forces, then the active tool's settings with More. Its left side places things (Water source, Badwater source, Start, trees and so on). The structure is item 9 (D323); the design pass styles it. ([D184](decisions/editor.md), [D226](decisions/README.md), [D323](decisions/README.md))
 
 **Checks dot.** The small quiet dot that reports the map's checks. It sits beside Save to Timberborn and offers the one-click fixes. ([D184](decisions/editor.md), [D330](decisions/editor.md))
 
-**Your maps.** The player's recent and starred edited maps, kept in the browser (the last 30; stars are kept for good). Each reopens as it was left. It lives in the side panel; replacing an edited map saves it there first. ([D234](decisions/README.md), [D330](decisions/editor.md))
+**Your maps.** The player's edited maps, kept in the browser until the player deletes them. Each reopens as it was left. It lives in the side panel; replacing an edited map saves it there first. ([D234](decisions/README.md), [D330](decisions/editor.md))
 
 **Sources: Placed · None.** A water setting carried in share links. None generates as usual, then removes every water and badwater source and its water, keeping the dry valleys, basins and pits; on a real place it also removes the water floor's spring. The checks dot says "No water source" as information. ([D330](decisions/editor.md), [D331](decisions/README.md))
 

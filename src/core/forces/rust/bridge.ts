@@ -27,8 +27,8 @@ import { encode } from "./protocol";
 
 interface Exports {
   memory: WebAssembly.Memory;
-  water_alloc(len: number): number;
-  water_dealloc(ptr: number, len: number): void;
+  forces_alloc(len: number): number;
+  forces_dealloc(ptr: number, len: number): void;
   forces_create(ptr: number, len: number): number;
   forces_checkpoint(job: number): void;
   forces_descriptor(job: number): number;
@@ -87,7 +87,6 @@ const FORCE_ERRORS = [
   "the working area leaves nothing to take sediment from",
   "the Floor leaves nothing to take sediment from",
   "the map leaves no room for sediment here",
-  "the Floor or kept ground leaves no room to age this river",
 ];
 
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit";
@@ -181,7 +180,6 @@ export interface GlaciateRecords {
  *  steps as shown (the last step's spread behind the head, D368 (9)), `goneSpread` when what stood there
  *  goes as shown. */
 export interface CarveRecords {
-  maturity?: { youngSteps:number; rounds:number; eroded:number; deposited:number; oxbows:number; bluffLimited:number; existingRiver:boolean; changed:number; original: {x:number;y:number}[] };
   raw: RustMap;
   map: RustMap;
   total: number;
@@ -241,13 +239,13 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     },
     false,
   );
-  const p = x.water_alloc(metadata.length);
+  const p = x.forces_alloc(metadata.length);
   new Uint8Array(x.memory.buffer, p, metadata.length).set(metadata);
   let task = 0;
   try {
     task = x.forces_create(p, metadata.length);
   } finally {
-    x.water_dealloc(p, metadata.length);
+    x.forces_dealloc(p, metadata.length);
   }
   try {
     const descriptor = x.forces_descriptor(task);
@@ -276,18 +274,18 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
 /** Runs a whole job (jobBytes) and returns its packed result (the identity check's, in Node's Wasm). */
 export function executeInRust(job: Uint8Array): Uint8Array {
   const x = rustForces();
-  const p = x.water_alloc(job.length);
+  const p = x.forces_alloc(job.length);
   new Uint8Array(x.memory.buffer, p, job.length).set(job);
-  const lenPtr = x.water_alloc(4);
+  const lenPtr = x.forces_alloc(4);
   try {
     const out = x.forces_execute(p, job.length, lenPtr);
     const len = new DataView(x.memory.buffer).getUint32(lenPtr, true);
     const bytes = new Uint8Array(x.memory.buffer, out, len).slice();
-    x.water_dealloc(out, len);
+    x.forces_dealloc(out, len);
     return bytes;
   } finally {
-    x.water_dealloc(lenPtr, 4);
-    x.water_dealloc(p, job.length);
+    x.forces_dealloc(lenPtr, 4);
+    x.forces_dealloc(p, job.length);
   }
 }
 
@@ -620,7 +618,6 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
         stepMetrics,
         stepObjectChanges,
         initialEntities: entityRows(view(45, Float64Array)),
-        ...(view(31,Float64Array).length ? {maturity:(() => {const a=view(31,Float64Array);return {...named(a,["youngSteps","rounds","eroded","deposited","oxbows","bluffLimited","existingRiver","changed"]),existingRiver:!!a[6],original:Array.from({length:(a.length-8)/2},(_,k)=>({x:a[8+2*k],y:a[9+2*k]}))} as CarveRecords["maturity"];})()} : {}),
         knobs: Array.from({ length: view(63, Float64Array).length / 3 }, (_, i) => {
           const k = view(63, Float64Array);
           return { x: k[i * 3], y: k[i * 3 + 1], radius: k[i * 3 + 2] };

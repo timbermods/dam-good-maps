@@ -36,32 +36,38 @@ const NAMED: [RegExp, string][] = [
   [/^Blockage$/, "blockage"],
 ];
 
-/** What a legend line stands for, from its words (the palette owns the words; unknown lines are
- *  kept, with nothing to point to). */
+/** What each legend line stands for, by its name (the palette owns the names; a marker line shares the key of
+ *  what it marks). Unknown lines are kept, with nothing to point to. */
+const KEYS: Record<string, string> = {
+  "Moist ground": "moist",
+  "Dry ground": "dry",
+  "Contaminated ground": "contaminated",
+  "Contamination edge": "contaminated",
+  "Ground height": "height",
+  "Mixed water": "mixed",
+  Water: "water",
+  Badwater: "badwater",
+  Walls: "walls",
+  "Level lines": "walls",
+  "Dead trees": "dead",
+  "Trees and bushes": "plants",
+  Start: "start",
+  Slope: "slope",
+  "Slope arrows": "slope",
+  Ruins: "ruin",
+  "Mine site": "mine",
+  "Mine site outline": "mine",
+  "Water source": "source",
+  "Badwater source": "badSource",
+  "Geothermal field": "geothermal",
+  Relic: "relic",
+  Thorns: "thorns",
+  Blockage: "blockage",
+  "Other objects": "other",
+};
+
 export function legendKey(label: string): string | null {
-  const l = label.toLowerCase();
-  if (l.startsWith("moist ground")) return "moist";
-  if (l.startsWith("dry ground")) return "dry";
-  if (l.startsWith("contaminated ground")) return "contaminated";
-  if (l.startsWith("ground by height")) return "height";
-  if (l.startsWith("water mixed with badwater")) return "mixed";
-  if (l.startsWith("water:") || l === "water") return "water";
-  if (l === "badwater" || l.startsWith("badwater:")) return "badwater";
-  if (l.startsWith("walls")) return "walls";
-  if (l.startsWith("bare pale trees")) return "dead";
-  if (l.startsWith("living trees")) return "plants";
-  if (l.startsWith("the start")) return "start";
-  if (l.startsWith("slopes")) return "slope";
-  if (l.startsWith("ruins")) return "ruin";
-  if (l.startsWith("mine site")) return "mine";
-  if (l.startsWith("water source")) return "source";
-  if (l.startsWith("badwater source")) return "badSource";
-  if (l.startsWith("geothermal")) return "geothermal";
-  if (l.startsWith("relic")) return "relic";
-  if (l.startsWith("thorns")) return "thorns";
-  if (l.startsWith("blockage")) return "blockage";
-  if (l.startsWith("other objects")) return "other";
-  return null;
+  return KEYS[label] ?? null;
 }
 
 /** The tiles of every key the map has (a key with no tiles is not on the map). */

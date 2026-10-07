@@ -5,6 +5,7 @@
 // and seed 7's made no map (the release-gate generator hunt's finding 1).
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
+import { PROMISES } from "../../src/core/gen/outcomes";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 
 function sibling(seed: number): { map: ReturnType<typeof generate>; sib: ReturnType<typeof generate> } {
@@ -30,7 +31,19 @@ describe("Another like this on a Lake Basin map (D278 (1c))", () => {
       (sib.outcomes?.promise ? kept : missed).push(seed);
     }
     // (10 of 12 with round 2 on every Lake Basin map, 5 and 12 missing, as River Valley's siblings keep
-    // theirs on 10 of 12; 6 of 12 while round 2 ran on the preset path only)
+    // theirs on 10 of 12; 6 of 12 while round 2 ran on the preset path only; 12 of 12 since #265 reads a
+    // lake as it holds water, where the settled lake stands wider than the lake planned)
     expect(kept.length, `siblings missing the promise: ${missed.join(", ")}`).toBeGreaterThanOrEqual(10);
   }, 1_200_000);
+
+  it("Lake Basin 128² seeds 12 and 15 have a big lake, and a wide river reach is no big lake (D464; Kyler, 2026-10-05)", () => {
+    // (on 0.8.3 seed 12's lake was planned over a hollow a mesa had filled, passed the land screen on
+    // the plan and drained; seed 15's widest water, a river reach at 4.8% of the map, kept the promise)
+    for (const seed of [12, 15]) {
+      const r = generate(makeSpec({ seed, theme: "lakeBasin", size: { x: 128, y: 128 } }));
+      expect(r.outcomes?.promise, `seed ${seed}`).toBe(true);
+      expect(r.outcomes!.signature.bigLake, `seed ${seed}`).toBeGreaterThanOrEqual(0.08);
+      expect(PROMISES.lakeBasin.holds({ ...r.outcomes!.signature, bigLake: 0.048 }, 128), `seed ${seed} at 4.8%`).toBe(false);
+    }
+  }, 600_000);
 });

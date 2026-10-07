@@ -432,7 +432,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)
-    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) {
+    if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
     }

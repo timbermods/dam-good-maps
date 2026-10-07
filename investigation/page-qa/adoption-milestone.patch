@@ -1,0 +1,28 @@
+diff --git a/src/core/format/world.ts b/src/core/format/world.ts
+index 49b4bf71..6b6818f0 100644
+--- a/src/core/format/world.ts
++++ b/src/core/format/world.ts
+@@ -171,6 +171,11 @@ export function numToken(v: number): string {
+   return formatFloat(Number(v.toPrecision(7)));
+ }
+
++/** Preserve the Single values sent to the view through a timber round trip (page-qa). */
++function waterToken(v: number): string {
++  return formatFloat(Number(Math.fround(v).toPrecision(9)));
++}
++
+ export interface SettledState {
+   /** Surface (water column floor) per tile. */
+   floor: Uint8Array;
+@@ -219,9 +224,9 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
+   for (let i = 0; i < n; i++) {
+     const d = st.depth[i];
+     if (d > 1e-6) {
+-      const ds = numToken(d);
++      const ds = waterToken(d);
+       const c = st.contamination[i];
+-      water[i] = `${ds}:${c > 1e-6 ? numToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
++      water[i] = `${ds}:${c > 1e-6 ? waterToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
+       if (flows) flows[i] = outflowToken(st.out!, i, sizeX);
+     } else {
+       water[i] = "0";

@@ -4,9 +4,10 @@
 // touches; then the ice advances for three seconds, the land under it taking its final levels as
 // the front passes (every height is the plan's before the retreat begins), and melts back for two.
 // The editor paces the stages (D321, item 29: Fast, or Slow forces); nothing changes before the ice reaches
-// it (item 30): the objects in its path go as the front passes, and the water stays as it was until
-// the land is final, when the valley's own water (its tarn, its meltwater river) takes over. What is
-// kept is always the plan's final map (the stages only show it), so the result never depends on the
+// it (item 30): the objects in its path go as the front passes; the stages carry the water as it was,
+// and the editor flows the map's water on each stage's land, the tarn and the meltwater river filling
+// from its springs once kept (worker/session.ts, D371). The force is over once its land is final, its
+// melt-back an effect on the page. What is kept is always the plan's final map (the stages only show it), so the result never depends on the
 // pace, the machine or the effects.
 
 import { prefill } from "../../sim/prefill";
@@ -152,9 +153,11 @@ export class GlaciateRun extends Staged implements StagedRun {
       this.map = snapshotMap(p.map);
       return;
     }
+    // After the first retreat stage only the cue changes, until the final water arrives.
+    if (stage > ADVANCE_STEPS + 1) return;
     const b = this.before;
     const f = p.map;
-    const m = snapshotMap(b);
+    const m = snapshotMap<FullForceMap>({ ...b, fallen: [] });
     const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
     const retreating = stage > ADVANCE_STEPS;
     for (let i = 0; i < m.heights.length; i++) {

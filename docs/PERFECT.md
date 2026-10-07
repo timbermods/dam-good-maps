@@ -54,7 +54,7 @@ Every generated map has:
 
 Players hate, so these are rules:
 * Land built at the bottom: the deepest riverbed stands at least 3 levels above the map's floor, so there is room to dig and terraform early.
-* Badwater reaching the start: the start keeps clean, pumpable water (D85); elsewhere badwater may join rivers and lakes (D469), and how much land it reaches is reported per theme.
+* Badwater reaching the start: the start keeps clean, pumpable water (D85); no badwater or its soil lies within the badwater distance of a generated map's start (Kyler, 2026-10-05); elsewhere badwater joins rivers and lakes (D469), and on most maps the theme's main water, as in the game: badwater that drains on its own is no challenge, and diverting it is part of the fun (D476). How much land it reaches is reported per theme.
 * Stairs in the early game: the start's wood, berries, water and first farmland are reachable on foot, counting natural slopes.
 * Heavy terraforming to get going: the start has enough level buildable land for its first buildings.
 

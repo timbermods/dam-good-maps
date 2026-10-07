@@ -1,4 +1,5 @@
 // Presentation only; the conserved cut/fill, branches and arrival tape are produced in Rust.
+import type { SourcesRule } from "./clear";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
 import { Staged, type StagedRun, type ForceCue } from "./runs";
@@ -8,9 +9,14 @@ import type { Point } from "./quake";
 import { smoothstep } from "../math/clamp";
 import { trimRock } from "./rock";
 
-export interface DepositSettings { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; floor: number; seed: number }
+export interface DepositSettings { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; floor: number; seed: number; sources?: SourcesRule }
 export interface DepositIntent { path: Point[] }
 export const DEPOSIT_DEFAULTS: DepositSettings = { mode: "fan", power: 70, size: null, channels: "auto", floor: 1, seed: 1 };
+/** Its Size's range, tiles across (core/forces/settings.ts). */
+export const DEPOSIT_SIZE_MIN = 4;
+export const DEPOSIT_SIZE_MAX = 64;
+/** A fan's breadth across, tiles, on Auto: what Power gives (rust/forces/src/deposit.rs). */
+export const depositWidth = (power: number): number => 14 + power * 0.34;
 export function validateDeposit(s: DepositSettings): void {
   const why = forceSettingsProblem("deposit", s as unknown as Record<string, unknown>);
   if (why) throw new Error(why);

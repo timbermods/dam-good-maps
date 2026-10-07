@@ -1,98 +1,84 @@
 # Status
 
-The current state, for Kyler. Rewritten at every step and stop; no history. The running log is the "Progress log" issue
-([#57](https://github.com/timbermods/dam-good-maps/issues/57)); messages between sessions are on the Coordination issue
-([#236](https://github.com/timbermods/dam-good-maps/issues/236)); how to start and how things are run is
-[HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top
-of [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
+The current state, for Kyler and for a session starting fresh. Rewritten at every step and stop; no history. The running log
+is the "Progress log" issue ([#57](https://github.com/timbermods/dam-good-maps/issues/57)); messages between sessions are on
+the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issues/236)); how to start and how things are run
+is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
+[ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
+
+As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
+session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
+chat (D117). The page session runs in a cloud container (not the `DamGoodMaps-page` worktree); the probe folder is
+`DamGoodMaps-probe`.
 
 ## Released
 
-Latest: `m9b-done` (2026-10-04; `main` at b407656, generator 0.8.0, deployed, live check passed). After it, two releases that
-changed `main` only: `roadmap-page-done` (the roadmap canvas at `/roadmap/`, noindex, live) and `needs-kyler-ping-done` (the
-label pings Kyler's phone). Before them, 2026-10-01: `forces-done` (D375), `map-look-2-done` (D378) and `licence-agpl-done`
-(D379). Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by what merged after the release.
+Latest: `m9b-done` (2026-10-04; `main` at b407656, generator 0.8.0). After it, two releases that changed `main` only:
+`roadmap-page-done` (the roadmap canvas at `/roadmap/`, noindex) and `needs-kyler-ping-done` (the label pings Kyler's phone).
+Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: the next release is Kyler's call.
 
 ## The sessions (D388, D398, D468, D470)
 
-- **The milestone session** (Opus 5.5, high; the dedicated machine) does everything except the page, merges, releases and
-  hands out decision numbers (next free: D473). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high; `C:UserskramscodeDamGoodMaps-page`, `feature/page`, PR #163) builds "The page is
-  the editor", then adds Rift and Deposit's controls and Carve's Maturity setting. The generator is built as Kyler's A (the sheet), with Layout 2 and the settings on `/preview/`; #163 is a
-  ready PR labelled `approved`, and the milestone session reviews it before it merges.
-- **The renderer session** (Kyler's PC; its own branches) builds the High look's and the renderer's fixes; its PRs merge on
-  green CI (D453).
-- **Codex** (Kyler's PC) builds investigations on `investigation/<name>`; the milestone session adopts them. Four new ones
-  are running, each with an adoption patch and no PR yet (rows below).
-- **Other Claude Code sessions Kyler starts:** the theme critique, the Islands rounds, and a new Canyon session (Opus 5.5,
-  #261) for one Canyon-only round; Highlands is approved.
+- **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
+  generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
+  decision numbers (**next free: D480**). It owns STATUS and HANDOFF.
+- **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
+  editor".
+- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
+  Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
+  jump), #312's worker part now the page part is on dev, and Deposit's outline (#341, on `fix/deposit-outline`; its Rust is a core
+  change, reviewed with a full CI run when its PR comes).
+- **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
+  eight-line report; Kyler decides each adoption; the milestone session adopts its part.
+- **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
 
-## In flight
+## Open pull requests
 
-Worktrees are beside the main clone (`C:\Users\krams\code\DamGoodMaps-<name>`). Merge order is the queue below. States are
-as of 2026-10-04 and move.
+Merge order and owner. Everything merges through the milestone session's review and green CI; human-facing ones need
+`approved` (D470); Rust and core PRs also need a full CI run by hand (`gh workflow run ci.yml --ref <branch>`), since a PR
+into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet.
 
-| Work | Branch | PR | State |
+| PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| The page | `feature/page` | #163 | Ready, labelled `approved` (Kyler to confirm); 5 CI checks failing; review and merge once green; then Rift and Deposit's controls and Carve's Maturity setting |
-| Badwater line, wave check, wider names | `fix/badwater-line-names` | #265 | `needs-kyler`; first of the generator queue (generator 0.8.1, one re-pin); waits on its session's fixes (the 0.8.0 carves project, version files, docs) and Kyler's look |
-| Canyon and Highlands height | `investigation/canyon-highlands-height` | #261 | `needs-kyler`; Highlands approved; a new Canyon session (Opus 5.5) does one Canyon-only round (seed 27's gorge, the round's start lakes); generator 0.9.0, renumbers if it merges second |
-| Every setting makes a map (D471) | `fix/every-setting-makes-a-map` | #277 | Open, with a byte fix; the milestone session's current item. Next: the three open every-setting combinations and the extreme seed's speed (it took 37 attempts) |
-| Forces end when their land is final | `fix/force-feedback` | #275 | `approved`; renderer session: two `forcesSitting` failures left to fix |
-| Basin highlight | `fix/basin-highlight` | #225 | Fails the palette test (a hard-coded colour); the renderer session fixes it |
-| Multi-core water | `feature/multicore-water` | #281 | Merged (38d4ee6b): #130's strips on the Rust water, byte-identical; the service worker's isolation (D397, caching still to come); /preview/ shows it once the page session merges it into `feature/page` |
-| Multi-core water, follow-ups | `fix/multicore-water-followups` | none yet | In flight, not yet on GitHub |
-| Core parity (D337–D339) | `feature/parity-core` | #269 | Merged; all four game-fidelity changes approved (#270) |
-| Rift and Deposit in Rust, the core half | `feature/rift-deposit` | #273 | Merged; the page adds the controls and effects |
-| Carve's Maturity in Rust, the core half | `feature/carve-maturity` | #278 | Merged (Young by default, every old pin unchanged; Mature and Auto); the page adds the setting to Carve's More |
-| Three core fixes | `fix/core-findings` | #274 | Merged: no force adds a source, no empty edit step, frozen mode keeps its slopes |
-| The second core hunt | `investigation/core-hunt-2` | #280 | Done, `needs-kyler`: three fixes in its PR; Deposit's pillars handed to Codex (below) |
-| Water speed | `investigation/water-speed` | none yet | Codex, Kyler's PC; adoption patch: the Rust water faster per core, byte-identical (simd128, the kernel's inner loops); builds on multi-core water (#281) |
-| Generation speed | `investigation/gen-speed` | none yet | Codex, Kyler's PC; adoption patch: the shared stages faster at 256², byte-identical; leaves the themes' shaping and `rust/water` alone; prompted by an extreme seed taking 37 attempts |
-| Forces speed | `investigation/forces-speed` | none yet | Codex, Kyler's PC (branch not yet pushed); adoption patch: the Rust forces faster at 256², byte-identical; leaves `deposit.rs` and `rust/water` alone |
-| Deposit's pillars | `investigation/deposit-pillars` | none yet | Codex, Kyler's PC (branch not yet pushed): Deposit's lone pillars and scattered tiles (the second core hunt's finding 4); not in the milestone session's queue |
-| Dam sketch round 3 | `investigation/dam-sketch-3` | #279 | Parked until its adoption after the Weather view; the engine on the Rust water (446c641a). Two doubts to settle then: "two stacked dams" holds exactly what one dam holds (18.207 m³, the same dry-out day), and every wall change restarts the worker instead of cancelling inside it. Its `rust/water` patch needs reconciling with multi-core and water speed |
-| Islands round 6 | `investigation/islands-round-3` | #235 | `needs-kyler`; a product change, re-pinned (D148); Kyler judges the sheets |
-| Roadmap canvas on a phone | `tools/roadmap-canvas-mobile` | #259 | `approved` |
-| Theme critique | `investigation/theme-critique` | #211 | The report; its badwater PR is #265 |
-| Islands round 2 | `investigation/islands-round-2` | #210 | The work continues in #235 |
-| Performance audit | `investigation/perf-audit` | #152 | Approved; guides the speed work |
-| Scaling | `investigation/scaling` | #132 | Draft; round 4 approved for adoption |
-| Parallel water | `investigation/parallel-water` | #130 | Approved; built by #281 |
-| Parity with the game's editor | `feature/parity` | #95 | Draft; superseded by #269 |
-| Drought and Badtide, day by day | `feature/weather-days` | #73 | Draft; parked for Kyler's sitting, after the page |
-| 3D terrain, step 1 | `feature/terrain3d-a` | #71 | Draft; parked as the reference; its stacked engine is in `rust/water` (#260, D448) |
-| Real places, round 2 | `feature/real-places-2` | #35 | Parked by Kyler (D319); CI red is expected |
-| Source groups, the rule | `feature/source-groups` | #79 | Draft; redundant (`sourceGroups.ts` is on `dev`); to close |
+| #342 | TypeScript 7.0.2 (D460) | milestone | Ready, hold lifted: dev merged in (67075f97; lock regenerated from dev's, libc kept; the page's pageHunt and savingReview tests read App.tsx through `@typescript/typescript6`). Full run 37597312248 and nightly 37597316171 going: merge when both are green |
+| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`. Real conflicts with dev now the page is on it (src/worker/session.ts against the held weather view, src/editor/waterPlayer.ts): forces play merges dev in (asked on #236). Then the checks, /preview/ once its build holds the page editor (D477), and a ping to Kyler; after his try, republish the page editor |
+| #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
+| #235 | Islands round 6 | Islands | `approved`; in the generator queue after River Valley round 2, re-pinned |
+| #303 | Codex page hunt (draft) | Codex | Running |
+| #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
+| #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
+| #73, #71, #35 | Weather days, 3D step 1, Real places 2 | parked drafts | Parked by Kyler |
 
-## Queued
+## Left for the next milestone session, in order
 
-1. The Rust order: the water (#212) and the forces (#254) are merged (`ts-water-final`, `ts-forces-final` tagged), and so
-   are the stacked water crate (#260, no wiring yet), Rift and Deposit (#273), Carve's Maturity (#278), parity core (#269) and
-   multi-core water (#281). Next: #277, then the three open every-setting combinations and the extreme seed's speed. Then
-   Codex's speed adoptions (water, generation, forces), and the dam sketch's (#279) after the Weather view, reconciled with
-   multi-core and water speed. The forces crate keeps its own copy of the water kernel, to be shared.
-2. The generator queue, one re-pin at a time: the badwater line (#265), then Delta arms round 2 (#233), Lake Basin round 3
-   (#234) and River Valley round 2 (#244), the last three merged as investigations and waiting to be adopted. Canyon and
-   Highlands height (#261) is back for another round; Islands round 6 (#235) waits on Kyler's eye (needs-kyler).
-3. The page (#163), then Rift and Deposit's controls, Carve's Maturity setting, the area brush's toggle (the brush, #227, is merged) and the page's startup half: a project
-   autosaved while its water is pending carries no stored map, so the page should autosave again once the water settles
-   (the "settled" event; D367, D455).
-4. The CI merge queue: the workflow side is merged (#238); the ruleset is Kyler's to create (none exists yet).
-5. After the release: the Dependabot majors (D460), "Designed for" removed (D449), byte-exact reopening's (a) (D455).
+1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26). Nothing else merges unless green
+   and approved.
+2. **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
+   River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
+   beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
+   Canyon and Highlands (#261), one re-pin each with sheets.
+3. **The page is on dev** (2026-10-07): #163 squashed as #347 (merge 59b4f1e9, from feature/page 5faf94d8), #163 closed. The
+   350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
+   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
+   fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
+4. **Then #329** (D477) and **TypeScript 7** (#342), as in the table.
+5. **Deposit (#341):** Kyler's answers to its three questions (a drag's changes inside its band; the smallest click's circle;
+   small fans in basins) are not yet on #341 or in the docs: ask Kyler, post them on #341, and record any rule.
+6. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
+   Weather view.
+
+Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-final`), #311, #265, #322, #324, #325, #275,
+#225, #323, #327, #328, #331, #333, #326 and #332 (records), #334, #336 (record), #337, #330 (D476), #338, #340, #339; Drought
+reserve held for settings round 2 and Designed for off that list (D466).
 
 ## Waiting for Kyler
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
-[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen). The defaults still open are in
-[decisions-pending.md](decisions-pending.md).
-
-## The release gate (D385–D387)
-
-Passed: M9b released as `m9b-done` (2026-10-04, [#217](https://github.com/timbermods/dam-good-maps/pull/217)). The coherence
-cleanup (D462, D463) is finished: groups 1–10 are merged, group 2 trimmed by Kyler's call on #243. Islands' known shortfall
-(12 of 30 seeds at 128² with no island to expand to) is fixed by a round after the release.
+[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
+#329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+set.
 
 ## Probe batches
 
-Run on this machine without asking (D218); each batch and its results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archive/status-2026-10-01.md), "Probe batches".
+Run on the dedicated machine without asking (D218); anywhere else only with Kyler's yes in chat (D117). Each batch and its
+results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archive/status-2026-10-01.md), "Probe batches".

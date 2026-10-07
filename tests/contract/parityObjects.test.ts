@@ -21,8 +21,8 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 
 const W = 96;
 
-function open(): MapSession {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+function open(seed = 3): MapSession {
+  const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;
@@ -357,7 +357,8 @@ describe("what a core will do is a plain question (D339)", () => {
   });
 
   it("water follows the new ground: a core beside a lake or river changes the water round its crater", () => {
-    const s = open();
+    // (seed 1 for 0.8.5's maps, D148: on seed 3 the first spot beside water is a crater the water never reaches)
+    const s = open(1);
     const g = paintGround(s);
     let found: [number, number] | null = null;
     for (let y = 8; y < W - 8 && !found; y++)

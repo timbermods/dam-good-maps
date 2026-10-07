@@ -81,7 +81,7 @@ describe("the contamination outline", () => {
     expect(shader).toContain("markers > 0.5 && n.y > 0.5");
     expect(shader).toContain("contamEdges");
     expect(lum(CONTAMINATION_OUTLINE.light) - lum(CONTAMINATION_OUTLINE.dark)).toBeGreaterThan(0.7);
-    const entry = objectLegend().find((l) => /outline where it ends/.test(l.label));
+    const entry = objectLegend().find((l) => l.label === "Contamination edge");
     expect(entry?.markers).toBe(true);
   });
 });

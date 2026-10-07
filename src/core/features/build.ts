@@ -225,6 +225,9 @@ export interface BuildOptions {
    *  is carried over to the new ground (`staleWater`, marked `stale` and `preview`) and the editor
    *  settles it in the background, so an edit never waits on the water. */
   water?: "canonical" | "preview" | "defer";
+  /** A cacheless editor open can carry the saved base water until its background canonical build.
+   *  Used only in defer mode; never accepted as canonical water. */
+  initialWater?: { model: WaterModel; water: CanonicalWater };
   /** Path and inward fields shared by the builds of one generated land (looked up there first; a
    *  full build without `prev` only). The result's own cache keeps the fields it used. */
   fieldCache?: FieldCache;
@@ -1061,7 +1064,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const fileWater = !!base && sameModelAsBase(base, model, W, H);
   const needWater = !fileWater || resourceFeatures.length > 0;
   let settle: CanonicalWater | null = null;
-  let settleEntry = prev?.settle ?? null;
+  const initial = opts.water === "defer" ? opts.initialWater : undefined;
+  let settleEntry = prev?.settle ?? (initial ? { model: initial.model, emitters: JSON.stringify(initial.model.emitters), water: { ...initial.water, preview: true } } : null);
   if (needWater) {
     const preview = opts.water === "preview" || opts.water === "defer";
     // the previous water serves when nothing that moves water changed; preview water only in a

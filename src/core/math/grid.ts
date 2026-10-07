@@ -1,6 +1,8 @@
 // Grid helpers shared by the build pipeline, analysis and validation. Arrays are row-major:
 // index = y * W + x, with x east and y north (the game's grid axes).
 
+import { analyze } from "../analysis/rust/bridge";
+
 export const N4: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 export const N8: readonly (readonly [number, number])[] = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
@@ -8,8 +10,14 @@ export const N8: readonly (readonly [number, number])[] = [
 
 const SQRT2 = Math.SQRT2;
 
-/** Chamfer (1, √2) distance in tiles from the nearest set tile; Infinity where none. */
+/** Chamfer (1, √2) distance in tiles from the nearest set tile; Infinity where none. In Rust
+ *  (analysis/rust/bridge.ts, D391). */
 export function distanceFrom(mask: Uint8Array, W: number, H: number): Float64Array {
+  return analyze("distanceFrom", W, H, [], [mask]);
+}
+
+/** `distanceFrom` in TypeScript, the same bytes: the outcomes and M9b's descriptive rows keep it (D391). */
+export function distanceFromInTs(mask: Uint8Array, W: number, H: number): Float64Array {
   const d = new Float64Array(W * H);
   for (let i = 0; i < d.length; i++) d[i] = mask[i] ? 0 : Infinity;
   for (let y = 0; y < H; y++) {

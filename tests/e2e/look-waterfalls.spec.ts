@@ -5,6 +5,7 @@
 // brings it back, with no fall left behind.
 
 import { expect, test } from "@playwright/test";
+import { openEditor } from "./open";
 
 test("the 3D view draws a map's falls, and they follow the water", async ({ page }) => {
   const errors: string[] = [];
@@ -13,10 +14,7 @@ test("the 3D view draws a map's falls, and they follow the water", async ({ page
     if (m.type() === "error") errors.push(m.text());
   });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=3&z=128&d=n&t=canyon");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 180_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d && window.dgm3d.renderer.size?.W === 128, null, { timeout: 120_000 });
+  await openEditor(page, "s=3&z=128&d=n&t=canyon");
   // (the background check may replace the water once)
   await page.waitForTimeout(1500);
   await page.evaluate(() => window.dgmEditor!.idle());

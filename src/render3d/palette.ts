@@ -330,15 +330,16 @@ function icon(body: string, ground = "#00000000"): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / 100% 100% no-repeat`;
 }
 
-/** What the 3D view's colours mean for the ground, the water and the walls, for its legend. */
+/** What the 3D view's colours mean for the ground, the water and the walls, for its legend. Every label is a
+ *  name on one line, with nothing of what it does in the game (Timberborn players know; Kyler, 2026-10-02). */
 export function legendEntries(mode: GroundMode): LegendEntry[] {
   const c = cssColor;
   const cracks = (base: Rgb, line: Rgb, w = 1.5) => `repeating-linear-gradient(60deg, ${c(base)} 0 4px, ${c(line)} 4px ${4 + w}px, ${c(base)} ${4 + w}px 10px)`;
   const ground: LegendEntry[] =
     mode === "moisture"
       ? [
-          { swatch: `linear-gradient(90deg, ${c(GROUND.moistLow)}, ${c(GROUND.moistHigh)})`, label: "Moist ground: plants grow" },
-          { swatch: cracks(GROUND.dry, GROUND.crack), label: "Dry ground: plants die" },
+          { swatch: `linear-gradient(90deg, ${c(GROUND.moistLow)}, ${c(GROUND.moistHigh)})`, label: "Moist ground" },
+          { swatch: cracks(GROUND.dry, GROUND.crack), label: "Dry ground" },
           {
             // orange-red veins over the ground, dry earth and grass alike
             swatch: icon(
@@ -346,19 +347,19 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
                 `<path d="M0 4 L5 6 L4 11 L9 13 M5 6 L11 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>` +
                 `<path d="M12 5 L17 7 L16 12 L22 14 M17 7 L23 3" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.3" fill="none"/>`,
             ),
-            label: "Contaminated ground: plants die",
+            label: "Contaminated ground",
           },
         ]
-      : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground by height: low to high" }];
+      : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground height" }];
   // walls: two levels of cobbled stone, one a shade darker
   const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${c(WALL.mortar)}" opacity="0.5"/>`).join("");
   const walls = icon(`<rect width="24" height="8" fill="${c(wallColor(11))}"/><rect y="8" width="24" height="8" fill="${c(wallColor(10))}"/>` + cobbles(0) + cobbles(9));
   return [
     ...ground,
-    { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water: darker is deeper" },
+    { swatch: `linear-gradient(90deg, ${c(WATER.foam)} 0 2px, ${c(WATER.shallow)} 2px, ${c(WATER.teal)} 45%, ${c(WATER.navy)})`, label: "Water" },
     { swatch: icon(`<path d="M0 7 Q6 4 12 7 T24 7" stroke="${c(WATER.badStreak)}" stroke-width="1.2" fill="none"/><circle cx="17" cy="11" r="1.3" fill="${c(WATER.badVein)}"/>`, c(WATER.bad)), label: "Badwater" },
-    { swatch: walls, label: "Walls: one band per level" },
-    { swatch: cssColor(DEAD_TREE), label: "Bare pale trees: dead" },
+    { swatch: walls, label: "Walls" },
+    { swatch: cssColor(DEAD_TREE), label: "Dead trees" },
   ];
 }
 
@@ -375,11 +376,11 @@ export function objectLegend(): LegendEntry[] {
       swatch:
         icon(`<circle cx="18" cy="6" r="1.1" fill="${c(WATER.badVein)}"/><circle cx="21.5" cy="11" r="1.1" fill="${c(WATER.badVein)}"/>`) +
         `, linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((share) => c(waterBody(BADWATER.shallow, share))).join(", ")})`,
-      label: "Water mixed with badwater: fades to murky brown",
+      label: "Mixed water",
     },
     {
       swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c([0.11, 0.28, 0.17])}"/>`, grass),
-      label: "Living trees and bushes",
+      label: "Trees and bushes",
     },
     {
       swatch: icon(
@@ -387,11 +388,11 @@ export function objectLegend(): LegendEntry[] {
           `<rect x="3" y="0" width="1" height="9" fill="#3a2a1c"/><rect x="4" y="0.5" width="6" height="3.5" fill="${c(START.banner)}" stroke="#000" stroke-width="0.5"/>`,
         dry,
       ),
-      label: "The start: district center",
+      label: "Start",
     },
     {
       swatch: icon(`<path d="M3 14 L12 3 L21 14Z" fill="${c(SLOPE.ramp)}"/><path d="M3 14 L21 14 L21 15 L3 15Z" fill="${c(SLOPE.side)}"/>`, dry),
-      label: "Slopes: stone ramps",
+      label: "Slope",
     },
     {
       // a rusty skeleton with beige panels, one askew, its top storey partly there
@@ -401,7 +402,7 @@ export function objectLegend(): LegendEntry[] {
           `<path d="M8 8.6 L16 1.5" stroke="${c(RUIN.rust)}" stroke-width="0.9"/>`,
         dry,
       ),
-      label: "Ruins: ruined scaffold towers, a storey per level",
+      label: "Ruins",
     },
     {
       // the rusty frame round the footprint, the pit filling it, pale platforms on the frame's
@@ -412,7 +413,7 @@ export function objectLegend(): LegendEntry[] {
           `<rect x="4" y="6.2" width="16" height="0.9" fill="${c(MINE.frame)}"/><rect x="4" y="8.9" width="16" height="0.9" fill="${c(MINE.frame)}"/>`,
         dry,
       ),
-      label: "Mine site: a pit in a rusty frame",
+      label: "Mine site",
     },
     {
       swatch: icon(`<circle cx="12" cy="8" r="6" fill="#77746d"/><circle cx="12" cy="8" r="4.2" fill="${c([0.32, 0.62, 0.95])}"/>`, dry) + `, ${dry}`,
@@ -424,24 +425,24 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(`<ellipse cx="12" cy="9" rx="10" ry="5" fill="${c(GEOTHERMAL_ROCK)}"/><circle cx="8" cy="8" r="1.6" fill="${c(GEOTHERMAL)}"/><circle cx="15" cy="10" r="1.6" fill="${c(GEOTHERMAL)}"/>`, dry),
-      label: "Geothermal field: dark rock with glowing vents",
+      label: "Geothermal field",
     },
     {
       swatch: icon(`<rect x="3" y="11" width="18" height="3" fill="${c(RELIC_STONE)}"/><rect x="6" y="3" width="3" height="8" fill="${c(RELIC_STONE)}"/><rect x="14" y="6" width="3" height="5" fill="${c(RELIC_STONE)}"/>`, dry),
-      label: "Relic: broken stone columns",
+      label: "Relic",
     },
-    { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${c(THORNS)}"/>`, dry), label: "Thorns: dark brambles" },
-    { swatch: icon(`<circle cx="9" cy="10" r="4" fill="#858380"/><circle cx="15" cy="11" r="3.5" fill="#6f6d6a"/><circle cx="12" cy="6" r="3" fill="#9a9894"/>`, dry), label: "Blockage: a heap of stones" },
-    { swatch: icon(`<rect x="7" y="4" width="10" height="9" fill="#858380"/>`, dry), label: "Other objects: blocks" },
+    { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${c(THORNS)}"/>`, dry), label: "Thorns" },
+    { swatch: icon(`<circle cx="9" cy="10" r="4" fill="#858380"/><circle cx="15" cy="11" r="3.5" fill="#6f6d6a"/><circle cx="12" cy="6" r="3" fill="#9a9894"/>`, dry), label: "Blockage" },
+    { swatch: icon(`<rect x="7" y="4" width="10" height="9" fill="#858380"/>`, dry), label: "Other objects" },
     // the information layer
     {
       swatch: icon(`<rect x="4" y="1" width="16" height="14" fill="${c(SLOPE.ramp)}"/><path d="M12 2 L18 8 L14.2 8 L14.2 14 L9.8 14 L9.8 8 L6 8Z" fill="${c(SLOPE.arrow)}" stroke="${c(SLOPE.rim)}" stroke-width="1.2"/>`, dry),
-      label: "Slopes: arrows point uphill",
+      label: "Slope arrows",
       markers: true,
     },
     {
       swatch: icon(`<rect width="24" height="16" fill="${c(wallColor(5))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
-      label: "Walls: a pale line at every level",
+      label: "Level lines",
       markers: true,
     },
     {
@@ -450,12 +451,12 @@ export function objectLegend(): LegendEntry[] {
           `<path d="M2 4 L8 6 L7 11" stroke="${c(CONTAMINATION.vein)}" stroke-width="1.1" fill="none"/>` +
           `<rect x="10" width="4" height="16" fill="${c(CONTAMINATION_OUTLINE.dark)}"/><rect x="11" width="2" height="16" fill="${c(CONTAMINATION_OUTLINE.light)}"/>`,
       ),
-      label: "Contaminated ground: an outline where it ends",
+      label: "Contamination edge",
       markers: true,
     },
     {
       swatch: icon(`<rect x="4" y="1" width="16" height="14" fill="${c(MINE.outlineDark)}"/><rect x="5" y="2" width="14" height="12" fill="${c(MINE.outline)}"/><rect x="7" y="4" width="10" height="8" fill="${c(MINE.outlineDark)}"/><rect x="8" y="5" width="8" height="6" fill="${c(MINE.pit)}"/>`, dry),
-      label: "Mine sites: an orange outline",
+      label: "Mine site outline",
       markers: true,
     },
   ];

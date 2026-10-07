@@ -26,22 +26,28 @@ Neither the page nor the milestone session touches the other's files: the page s
 interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
 (#236, D470); what waits for Kyler carries the `needs-kyler` label.
 
-**0. In flight now** (2026-10-04; each line is a PR or branch and the session that owns it)
+**0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
-- **The page** (#163, `feature/page`; the page session): ready, `approved`; CI red on the browser shards, then the milestone session's review and the queue. Next it adds Rift and Deposit's controls and Carve's Maturity setting.
-- **Every setting makes a map** (#277, `fix/every-setting-makes-a-map`, D471; milestone session): open, with a byte fix. Next after it: the three open every-setting combinations and the extreme seed's speed.
-- **Multi-core water** (done, #281, merged 38d4ee6b): its follow-ups are in flight on `fix/multicore-water-followups` (no PR yet).
-- **Merged since:** parity core (#269), Rift and Deposit's core half (#273), the three core fixes (#274) and Carve's Maturity (#278).
-- **The second core hunt** (#280, `investigation/core-hunt-2`): done, three fixes in its PR; Deposit's pillars and scattered tiles (finding 4) went to Codex.
-- **Forces end the moment their land is final** (#275, `fix/force-feedback`; renderer session): `approved`; two `forcesSitting` failures to fix.
-- **The badwater line** (#265, `fix/badwater-line-names`; theme critique session): generator 0.8.1, one re-pin, `needs-kyler`; its fixes first, then Kyler's look.
-- **Canyon and Highlands height** (#261, `investigation/canyon-highlands-height`): Highlands is approved; a new Canyon session (Opus 5.5) does one Canyon-only round (seed 27's gorge, the round's start lakes), generator 0.9.0.
-- **Islands round 4** (#235, `investigation/islands-round-3`; Islands session): on hold, for Kyler's look at the sheets and the 256² trade.
-- **A source's highlight reads under its water** (#225, `fix/basin-highlight`; renderer session): fails the palette test (a hard-coded colour); the renderer session fixes it. Its other PRs (#219, #240) are merged.
-- **Codex, on Kyler's PC, each with an adoption patch and no PR yet:** `investigation/water-speed` (the Rust water faster per core, byte-identical: simd128 and the kernel's inner loops; builds on #281), `investigation/gen-speed` (generation's shared stages faster at 256², byte-identical; leaves the themes' shaping and `rust/water` alone), `investigation/forces-speed` (the Rust forces faster at 256², byte-identical; leaves `deposit.rs` and `rust/water` alone) and `investigation/deposit-pillars` (Deposit's lone pillars and scattered tiles; Codex has it, not in the milestone session's queue).
-- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`, 446c641a): the engine on the Rust water, parked until its adoption after the Weather view; see its section.
-- **The generator queue's adoptions, waiting their turn** (milestone session, one re-pin at a time after #265): Delta arms round 2 (#233), Lake Basin round 3 (#234), River Valley round 2 (#244), each merged as an investigation and not yet adopted.
-- **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152), scaling (#132), parallel water (#130) and the parked drafts (#95, #79, #73, #71, #35); STATUS has each one's state.
+- **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
+  (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
+  next River Valley round 2 (#244, `feature/river-valley-2`, 0.8.5, waiting on Kyler's sheets), Islands round 6
+  (#235), Canyon and Highlands (#261).
+- **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
+  #225) and green CI.
+- **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
+  page part reaches dev with #163.
+- **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
+  (`investigation/gen-speed-3`), first load (`investigation/first-load`), the page hunt (#303).
+- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked until its adoption after the Weather view.
+- **Merged since:** every force plays smoothly (#311), the forces share rust/water's kernel (#304), the checks in Rust (#321),
+  the badwater line (#265, generator 0.8.1), Craterize clears and rides sources (#322), Naturalize rule 4 (#324), forces end
+  the moment their land is final (#275), a source's highlight under its water (#225), shared object models (#323), #313's
+  and #315's fixes (#319); before them Carve plays smoothly (#297), Carve's river follows its cut (#292) and Your maps keeps
+  every map (#298). Decided today: forces can clear sources (D474), no old-project compatibility until launch (D475), badwater
+  joins the main water (D476).
+- **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
+  scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
+- **Next, after the generator queue:** custom map sizes, then the dam sketch.
 
 **1. Released, and the coherence cleanup**
 
@@ -59,24 +65,45 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   computation in `rust/water`, no wiring yet).
 - **The Rust forces** (done, #254; #158, D400, D453): the planners are Rust (`rust/forces`), byte-identical to the TypeScript
   computation they replaced (tag `ts-forces-final`, then deleted); their byte fixtures run in CI's `rust` job. Rift and Deposit
-  (#273) and Carve's Maturity (#278) are adopted directly in Rust. Next: the analysis (#157) and the checks (#207), the
-  cleanup's groups 5 and 6 being in; Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
+  (#273) are adopted directly in Rust. The analysis' six kernels are Rust too (#157, D391), and the checks (done; #207,
+  D465): `rust/checks`, byte-identical to the TypeScript they replaced (tag `ts-checks-final`, then deleted), their byte
+  fixtures in CI's `rust` job. Codex's speed rounds (water, generation, forces) are byte-identical adoptions.
 
-**3. The generator queue**, one re-pin at a time (D148, D308)
+**3. The generator queue**, one re-pin at a time (D148, D308), each step with its sheets for Kyler
 
-1. **Badwater joins rivers and lakes** (done, #245, D469, amending D57): `water.badwater_contained` is information, the
-   start keeps clean, pumpable water (D85). The badwater line itself (#265, generator 0.8.1) is the first re-pin, in flight.
-2. **Delta arms round 2** (#233, merged as an investigation, waiting its turn; promise, water and straightness 30 of 30 at
-   128²): its patch is adopted with one new generator version and one re-pin.
-3. **Lake Basin round 3** (#234, merged as an investigation, waiting its turn; drowned valley outlines): its patch is
-   adopted third, one re-pin. River Valley round 2 (#244, merged, `needs-kyler` for its flood sheets) follows.
-4. **Islands round 4** (#235, on hold): Kyler judges its sheets and the 256² trade first. Round 2 is #210.
+1. **The badwater line** (done, #265, generator 0.8.1; D469): badwater joins rivers and lakes, the start keeps clean, pumpable
+   water (D85) and no badwater within 15 of it. Its Naturalize shortfalls are fixed (#324).
+2. **Delta arms round 2** (done, #325, generator 0.8.2): #233's arms, adopted on dev.
+3. **Badwater joins the main water** (done, #330, D476, generator 0.8.3): on most
+   maps a badwater course is routed into the theme's main water (Lake Basin's main lake; elsewhere `river/main`, Delta's
+   trunk, Islands' sea); about 15 in 100 drain where the land takes them. Replaces #265's clean main water and the
+   poisoned-main-river follow-up. Its sheets shade water by how bad it is. Every ditch follows the land as a stream does
+   (eight-way steps along valleys and low ground, round cliffs, corners rounded, no straight run over 9 tiles; Kyler's
+   verdict on #330). Seeds 1–20 at 128², badwater reaching the main water, dev → 0.8.3: River Valley 1 → 17, Delta
+   1 → 18, Lake Basin 5 → 18, Islands 16 → 19, Highlands 18 → 20, Canyon 19 → 19, Any 20 → 19; 27 of 140 starts moved
+   for it, never the land.
+4. **Lake Basin round 3** (done, #339, generator 0.8.4): drowned valley
+   outlines (an off-centre warped hollow cut after the uplands, bent drowned valleys into it, spurs between them). Seeds
+   12 and 15 had no lake on 0.8.3 yet passed (D464): Lake Basin's land screen now reads its lakes as the land holds them,
+   and a big lake is 8% of the map, not 4%. At 128², seeds 1–30, dev → 0.8.4: promise 29 → 30, readable water 27 → 30,
+   straightness 30 → 30; badwater reaches the lake on 18 of 20, as on dev.
+5. **River Valley round 2** (#244, `feature/river-valley-2`, generator 0.8.5, `needs-kyler` for its sheets): no flood
+   sheets. The default trunk enters from an edge and crosses at least half the map; it stays below its upstream bed
+   through a hollow; a lake the trunk drains keeps only its closed core; on a drawn cliff the hydrology tries two
+   courses and keeps the longer split. A spring given to a start that then gives way leaves the field too. At 128²,
+   seeds 1–30, dev → 0.8.5: promise 29 → 30, readable water 26 → 25 (every miss is clean water's reach, where
+   badwater runs down the main river, D476), flood sheets over 10% of the map 12 → 3, cliff splits kept (5: 88%,
+   27: 99%); badwater reaches the main river on 19 of 20 (17 on dev).
+6. **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands** (#261, `approved`).
 
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 
 - **Startup** part 1 (D367, D455): the core half is done (#222: a project carries its map and opens from it, with the replay
-  compared byte for byte) and so is the renderer's warm-up (#208). Left: the checks start after the first editable frame, and
-  the page autosaves again once the water settles (the page's half).
+  compared byte for byte) and so is the renderer's warm-up (#208). Codex's first-load round (#332) is adopted in two halves:
+  the milestone half is built (`feature/first-load`: the editor worker's `deferChecks`/`editorReady`, the checks worker
+  loading its replica on first use, the service worker's caching, `cacheAfterEditable`); the page half waits on its
+  `page.patch` in the page session (the checks start after the first editable frame, the renderer warms after the
+  worker's first answer, and the page autosaves again once the water settles).
 - **The page is the editor** (#163; D384, D388, D395): the page session, with Kyler's sittings at each checkpoint: the
   settings panel (option B) is built; the single-view generator waits on Kyler's pick between two mockups (`?gen=a`, `?gen=b`
   on `/preview/`); the area brush (#227, merged) joins Raise and Lower with the page's toggle. The `/preview/` slot is its (D396).
@@ -84,14 +111,14 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **The roadmap canvas** (done, #190, #251, #259): live at `/roadmap/`, one column on a phone.
 - **The post-release list**, then, in this order: the Dependabot majors (D460: TypeScript 7.0, @types/node 26, after M9b's
   release, with the nightly suite green); **"Designed for" removed from the core** (D449); byte-exact reopening's (a) with
-  startup part 1 (D455); Carve's river born as it cuts (D371, built for Carve, #199 and #257; the other forces' water remains); Glaciate in Fast (done, #203, D374); Shift+F resets what F changes; a
+  startup part 1 (D455); the land and its water change together under every force (done: D371, Carve #199 and #257, the rest #311); Glaciate in Fast (done, #203, D374); Shift+F resets what F changes; a
   Strength slider for Smooth and Naturalize (built in the page); trees on dried soil (D376); a Sources setting for every
-  force, after the forces' Rust port; batch jobs across all threads; startup part 2's service worker with multi-core
-  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching remains); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
+  force (done, D474, #308, #322); batch jobs across all threads; startup part 2's service worker with multi-core
+  water (D397; the multi-core water and the service worker's isolation are merged, #281; its caching is built with the
+  first-load round's milestone half, and registering it on hosts that send the headers waits on the page half); a Codex round on Canyon and Highlands at 96² (#232, merged, has its report; the round continues in #261). The renderer
   session's items on its own PRs: #219 the default view fits the map (done), #240 the High bake worker (done), #225 a
-  source's highlight reads under its water (in flight); then renderer R1 from the performance audit (#152).
-- **Open investigations** (the milestone session reads them; Kyler's yes adopts one): River Valley flood sheets (#244,
-  needs-kyler), theme critique (#211), the performance audit (#152, approved), scaling (#132), parallel water (#130). The
+  source's highlight reads under its water (done); then renderer R1 from the performance audit (#152).
+- **Open investigations** (the milestone session reads them; Kyler's yes adopts one): theme critique (#211), the performance audit (#152, approved), scaling (#132), parallel water (#130). The
   Codex adoptions are in their own section below.
 
 **5. Then, in order**
@@ -164,9 +191,11 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   (Chromium, Firefox and WebKit) at every size, with no corrected comparison against TypeScript; its TypeScript is tagged
   and deleted. Firefox's speed is not investigated and the Codex round on it is dropped (D440). Rust 1.90, the wasm32
   target and the Rust build join CI and the setup command first (item 3a).
-- **The Rust analysis** (#157, merged as an investigation through #160): approved, byte-identical everywhere (D391). Adopted
-  after M9b's release (D442 (d)) with its fixed six-kernel policy in every engine, Firefox included; the outcomes and M9b's
-  descriptive rows stay on TypeScript. No re-time and no batch comparison (D441): byte-identical in CI is the gate (D453).
+- **The Rust analysis** (done; #157, D391, D453): adopted (D442 (d)) with its fixed six-kernel policy in every engine,
+  Firefox included: `distanceFrom`, `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` run in Rust
+  (`rust/analysis`), byte-identical to the TypeScript they replaced (tag `ts-analysis-final`, then deleted); their byte
+  fixtures run in CI's `rust` job. The outcomes and M9b's descriptive rows stay on TypeScript (a TypeScript
+  `distanceFrom` kept for them).
 - **The Rust forces** (done, #254; #158, D400, D453): adopted (D442 (c)): the planners are Rust (`rust/forces`); the core keeps the
   request, Keep, the build's last touches, the record and the showing; the TypeScript computation is tag `ts-forces-final`
   and deleted. New forces (Erode first) are built directly in Rust on it, never in TypeScript first (D438). Round 1's lesson
@@ -188,14 +217,25 @@ Approved by Kyler (2026-10-01 and 2026-10-02); the milestone session handles the
   1–4 s, a single undo at any depth a few milliseconds or less. Adoption checks: a 100-step jump back (1.5–6 s today),
   memory over a long session, and native Safari storage.
 
-**Speed rounds (Codex, Kyler's PC; adoption patches, no PRs yet):** water speed (`investigation/water-speed`, byte-identical:
-simd128 and the kernel's inner loops, on multi-core water), generation speed (`investigation/gen-speed`, the shared stages at
-256², byte-identical, the themes' shaping and `rust/water` left alone) and forces speed (`investigation/forces-speed`, at
-256², byte-identical, `deposit.rs` and `rust/water` left alone). The milestone session adopts each in turn.
+**Speed rounds (done):** water speed (#290, the flow layout and the skipped wet-list rebuild, no SIMD) and forces speed half A
+(#289) are merged; generation speed (#291) was closed unadopted: generation gets faster with the generator's Rust port after
+the theme queue. Generation speed round 3 (#326, merged as a record) is not adopted: its patch saved 2.9% in total
+(median 1.1%, some themes slower). It found that failed layouts take about half the generation time, and the only large
+lever changes maps, so it belongs to a generator round if Kyler ever asks for one. Deposit's pillars (#301) and the merge review (#306), map switch speed (#316) and the saving review (#317) are
+merged. The dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279) is parked (see its
+section below).
 
-**Still with Codex:** Deposit's pillars (`investigation/deposit-pillars`, the second core hunt's finding 4; #280 has the
-other three fixes), and the dam sketch engine: rounds 1 (#159) and 2 (#166) are merged as investigations, round 3 (#279)
-is parked (see its section below).
+**Verdicts to adopt (Kyler, 2026-10-05; the reports are merged as records):**
+- **Page QA (#310):** F1 adopted, by the page session: saving and Download wait for a running force to finish and be kept.
+  F2 not adopted: Your maps keeps every edited map, and there is no undo across maps. F3 adopted, but only folded into the
+  next generator re-pin (the badwater rework's), never on its own.
+- **Force playback (#312):** all three parts adopted once #311 merges: renderer.patch and worker.patch to the renderer session
+  (forces play), page.patch to the page session; the page part lands before the worker part.
+- **Custom sizes (#313):** a record. Its fieldData width fix (src/core/gen/generate.ts) is adopted (done, #319).
+  Parked for when D357 starts: "every side from 4" conflicts with "absolutes never relax" (a 4-wide map can't hold a 5×5 mine
+  site; a 4×4 map can't reach 178 logs). Kyler decides it then.
+- **Long session (#315):** LS1 adopted (done, #319): backgroundCheck's unused canonical run is dropped
+  (src/worker/session.ts).
 
 ## Parity core (done, #269; D337–D339)
 
@@ -210,7 +250,8 @@ byte-identical in every engine, with their own contract tests. The page adds the
 ## Badwater line, wave check, wider names (#265, D469)
 
 The badwater line follows the land and joins rivers and lakes, a straightness check and wider names: generator 0.8.1, the
-first re-pin of the generator queue. Waits on its session's fixes and Kyler's look.
+first re-pin of the generator queue. Done (Kyler approved the reworked sheets, 2026-10-05); its follow-ups are in the
+generator queue above.
 
 ## Canyon and Highlands height (#261)
 
@@ -230,10 +271,10 @@ session fixes it. The renderer session also fixes #275's two `forcesSitting` fai
 
 The exact core moves to Rust in this order (adopted ahead of the post-release list, D442; byte-identical in CI, no timing gates, D441, D453), each port byte-identical and tagged
 before its TypeScript is deleted: (1) the water settle (above), and the stacked-column engine for terrain above terrain in the same crate (D448; adopted as computation only, wired in by Foundations); (2) the five released forces (their TypeScript tagged
-`ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift, Deposit and
-Carve's Maturity adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
+`ts-forces-final`, then deleted); (3) the forces' planning, the analysis and the checks; (4) the Rift and Deposit
+adopted directly in Rust, and every later force (Erode, future demos) built in Rust, each with a
 watch rebuild in the dev server and, from its first commit, the same bytes in every engine (in CI with D366's check) and
-its own contract tests (D444); (4b) the checks (#207, D465: after M9b, cleanup group 6 and the analysis; one-line refusals, no TypeScript fallback); (5) the
+its own contract tests (D444); (4b) the checks (done; #207, D465: `rust/checks`, tag `ts-checks-final`; one-line refusals, no TypeScript fallback); (5) the
 generator, after M9b's release; (6) the editor's operations and undo, if the performance audit shows the boundary cost
 justifies it. The interface and the rendering stay in TypeScript.
 
@@ -288,12 +329,17 @@ Codex's startup investigation (`investigation/startup`, #127), approved by Kyler
    as normal, otherwise it stops at the save point, never an approximate replay; the renderer warms its shaders and GPU state while the map
    loads; the checks start after the first editable frame, every gate unchanged. The core half (the stored map, the replay
    rule, the replica's comparison; `src/core/doc/stored.ts`) is built on `feature/startup-part1`; the renderer's half and
-   the page's start of the checks after the first editable frame are separate.
+   the page's start of the checks after the first editable frame are separate. Codex's first-load round (#332) gives the
+   checks' start: its milestone half (the editor worker's `deferChecks`/`editorReady`, the replica loaded on first use)
+   is built; its page half (`page.patch`) is the page session's to adopt.
 2. **Part 2**, split (D397): the page session builds the first-visit map picker and parallel loading, with "The page is the
    editor" (above); the milestone session builds the one service worker (the caching and multi-core water's isolation)
-   with multi-core water's adoption.
+   with multi-core water's adoption. The isolation is merged (#281) and the caching is built (first-load's milestone
+   half: content-hashed build files only, never `skipWaiting`); registering it on hosts that send the headers is called
+   by the page half.
 
-Both parts add the investigation's CI check (the service worker's, the milestone session's).
+The service worker's check is `tests/unit/serviceWorker.test.ts` (its cache) with `tests/e2e/isolation.spec.ts` (its
+isolation); no timing check (D453).
 
 ## Carve's river is born as it cuts (D371)
 
@@ -884,13 +930,11 @@ operation, D158, D342).
 
 **A Rift force** (Kyler, 2026-09-29, from the forces sitting; D344): land cracking open and dropping, a rift valley or a fissure going down, the opposite of Erupt's ridge. Codex builds a demo on `investigation/rift` (from `feature/forces`, a PR into `dev`): held for Kyler's look when green, as Erode was; on his yes only Codex's own commits merge as an investigation (as #90 did); adoption onto the forces row after the forces release, scheduled with Kyler (2026-09-30).
 
-**Carve: Maturity (Meander's engine)** (Kyler, 2026-09-30; D355): Carve gains a Maturity option in More (Young, Mature, Auto); Mature carves the river, then ages it with Meander's engine (wider bends, oxbows, a floodplain between the bluffs); Carve along an existing river matures it. From `investigation/meander` (#106, adopted into Carve); adopted after the forces release, passing the smoothness harness first.
-
 **A Deposit force** (Kyler, 2026-09-30): an alluvial fan at a valley's mouth, its material taken from upstream.
 
 Codex builds Deposit's demo on its own investigation branch (from `feature/forces`, a PR into `dev`): each held for Kyler's look when green, as the Rift was; on his yes only Codex's own commits merge as an investigation; adoption onto the forces row after the forces release, scheduled with Kyler.
 
-The Rift and Deposit's core half is adopted in Rust (#268, #273: `rust/forces`, `core/forces/rift.ts` and `deposit.ts`, operations and checks); the page adds their controls and effects next. Carve's Maturity's core half is adopted in Rust too (#276, #278); the page adds its setting to Carve's More.
+The Rift and Deposit's core half is adopted in Rust (#268, #273: `rust/forces`, `core/forces/rift.ts` and `deposit.ts`, operations and checks); the page adds their controls and effects next.
 
 **Difficulty through terrain, its own design** (Kyler, 2026-09-27; D276, deferred out of M9b).
 PERFECT's Challenge section (a harder map makes trees, easy land and easy dam sites hard to come by

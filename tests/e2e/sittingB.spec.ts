@@ -5,6 +5,7 @@
 // and every thing's hover readout (B11).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -13,10 +14,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function open(page: Page, hash = "s=9&z=96&d=n&t=riverValley") {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, hash);
   await page.waitForTimeout(600);
 }
 
@@ -49,12 +47,15 @@ const sourcesOn = (page: Page) =>
     return out;
   });
 
-test("B1 and B3: the map is centred in every view; the level control sits top right with Slow forces and Sound under it", async ({ page }) => {
+test("B1 and B3: the map is centred in every view, in what the controls leave of it; the level control sits top right under the camera group, with Slow forces and Sound beside it", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const centred = async () =>
     page.evaluate(() => {
-      const c = document.querySelector("canvas")!.getBoundingClientRect();
+      // (the part of the canvas the page's controls leave, setFrameInsets: Layout 2's camera frames the map there)
+      const r = document.querySelector(".view3d > canvas")!.getBoundingClientRect();
+      const ins = window.dgm3d!.renderer.frameInsets;
+      const c = { left: r.left + ins.left, top: r.top + ins.top, width: r.width - ins.left - ins.right, height: r.height - ins.top - ins.bottom };
       const m = window.dgm3d!.renderer.mapState()!;
       const pts = [[0, 0], [m.W - 1, 0], [0, m.H - 1], [m.W - 1, m.H - 1]].map(([x, y]) => window.dgmEditor!.tileToClient(x, y));
       const xs = pts.map((p) => p.x);
@@ -77,26 +78,23 @@ test("B1 and B3: the map is centred in every view; the level control sits top ri
     expect(c.w, `${step}: the whole map is in view`).toBeLessThan(c.cw);
     expect(c.h, `${step}: the whole map is in view`).toBeLessThan(c.ch);
   }
-  // the level control: top right, beside the compass, larger; Slow forces and Sound under it
+  // the level control: top right, under the camera group, as tall as the compass; Slow forces and Sound beside it
+  // (Layout 2; the grid's exact edges are viewAndHeader.spec's)
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const layer = await box(page.getByRole("group", { name: "Visible layers" }));
   const compass = await box(page.locator(".compass"));
-  const canvas = await box(page.locator("canvas"));
-  expect(layer.y).toBeLessThan(canvas.y + 70);
-  expect(layer.x + layer.width).toBeLessThanOrEqual(compass.x + 2);
-  expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(120);
-  expect(layer.height).toBeGreaterThanOrEqual(40);
+  const canvas = await box(page.locator(".view3d > canvas"));
+  expect(layer.y).toBeLessThan(canvas.y + 120);
+  expect(layer.y).toBeGreaterThanOrEqual(compass.y + compass.height);
+  expect(canvas.x + canvas.width - (layer.x + layer.width)).toBeLessThan(320);
+  expect(Math.abs(layer.height - compass.height)).toBeLessThanOrEqual(2);
   const watch = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
   const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
-  expect(watch.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
-  expect(sound.y).toBeGreaterThanOrEqual(layer.y + layer.height - 1);
-  expect(watch.x + watch.width).toBeGreaterThan(layer.x);
-  // aligned with the compass (D361, item 8): level control and compass on one line, the same height;
-  // Slow forces and the speaker under them, flush with the compass's right edge
-  expect(Math.abs(layer.y - compass.y)).toBeLessThanOrEqual(2);
-  expect(Math.abs(layer.height - compass.height)).toBeLessThanOrEqual(2);
+  expect(Math.abs(watch.y - layer.y)).toBeLessThanOrEqual(2);
+  expect(Math.abs(sound.y - layer.y)).toBeLessThanOrEqual(2);
+  expect(watch.x).toBeGreaterThan(layer.x + layer.width);
+  // the speaker under the compass, flush with its right edge (D361, item 8)
   expect(Math.abs(sound.x + sound.width - (compass.x + compass.width))).toBeLessThanOrEqual(2);
-  expect(sound.y).toBeGreaterThanOrEqual(compass.y + compass.height);
   // the speaker is an icon (a drawing, no word), crossed out when the sounds are off
   const speaker = page.getByRole("button", { name: "Sound", exact: true });
   await expect(speaker).toHaveText("");
@@ -116,7 +114,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
@@ -140,27 +138,37 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   expect((await labels(page)).filter((l) => l === "Place water source")).toHaveLength(1);
 });
 
-test("B7: X puts down what is held; the plain pointer picks an object and drags it", async ({ page }) => {
+/** A map with flat, dry, empty ground for B7's and B11's objects (seed 8 for #265's maps, D148: seed 9's
+ *  land has none since the start's badwater distance became a rule and River Valley's main river stays
+ *  clean; seed 7 for 0.8.3's maps, D476, D148: seed 8's has none, and seed 6's B11 hover lands on another thing, once the badwater courses follow the land; seed 4 for 0.8.5's maps, D148: seed 7's has no room for B7's 9 × 9). */
+const ROOMY = "s=4&z=96&d=n&t=riverValley";
+
+test("B7: X puts down what is held and Select stays in hand; a press picks an object and drags it", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  await open(page, ROOMY);
   await page.getByRole("button", { name: "Top-down" }).click();
   // a brush, a force and the shelf's object all go back with X
-  await page.getByRole("button", { name: "Raise brush (1)" }).click();
+  await page.getByRole("button", { name: "Raise brush (2)" }).click();
   await expect(page.getByRole("group", { name: "Raise options" })).toBeVisible();
   await page.keyboard.press("x");
   await expect(page.getByRole("group", { name: "Raise options" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   await page.keyboard.press("x");
-  await expect(page.getByRole("button", { name: "Carve (7)" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Carve (Shift+1)" })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" }).click();
   await page.keyboard.press("x");
   await expect(page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Mine site" })).toHaveAttribute("aria-pressed", "false");
-  // and Select, with its selection
-  await page.getByRole("button", { name: "Select (M)" }).click();
+  // and a selection: X clears it, and Select stays in hand
+  const select = page.getByRole("button", { name: "Select (1)" });
+  await expect(select).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "How to select" }).getByRole("button", { name: "Whole map" }).click();
+  expect((await page.evaluate(() => window.dgmEditor!.selection())).length).toBeGreaterThan(0);
   await page.keyboard.press("x");
-  await expect(page.getByRole("group", { name: "How to select" })).toHaveCount(0);
+  expect(await page.evaluate(() => window.dgmEditor!.selection())).toEqual([]);
+  await expect(select).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "How to select" })).toBeVisible();
 
-  // a mine site placed, then picked with a click and dragged with the plain pointer
+  // a mine site placed, then picked with a click and dragged (Select in hand: a press on an object picks it up)
   const spot = await flatDry(page, 4);
   expect(spot).not.toBeNull();
   const [mx, my] = spot!;
@@ -203,18 +211,29 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   test.setTimeout(240_000);
   await open(page);
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.getByRole("button", { name: "Select (M)" }).click();
+  await expect(page.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
   // Whole map is among the marking icons
   const modes = row.getByRole("group", { name: "How to select" });
   await expect(modes.getByRole("button", { name: "Whole map" })).toBeVisible();
+  // Deselect, greyed with nothing selected, clears a selection (Kyler, 2026-10-04: Esc and X do the same)
+  const deselect = row.getByRole("button", { name: "Deselect", exact: true });
+  await expect(deselect).toBeDisabled();
+  await modes.getByRole("button", { name: "Whole map" }).click();
+  await expect(deselect).toBeEnabled();
+  await deselect.click();
+  await expect(deselect).toBeDisabled();
   await modes.getByRole("button", { name: "Whole map" }).click();
   await expect(row.getByRole("button", { name: "Up 1" })).toBeVisible();
   await expect(row.getByRole("button", { name: "Down 1" })).toBeVisible();
-  // Ctrl+click on the land takes its level
+  // Ctrl+click on the land takes its level (dry land the map shows, clear of the controls over it)
   const target = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
-    for (let y = 20; y < m.H - 20; y++) for (let x = 20; x < m.W - 20; x++) if (m.surface.depth[y * m.W + x] <= 0 && m.heights[y * m.W + x] > 3) return { x, y, h: m.heights[y * m.W + x] };
+    const open = (x: number, y: number) => {
+      const c = window.dgmEditor!.tileToClient(x, y);
+      return document.elementFromPoint(c.x, c.y)?.tagName === "CANVAS";
+    };
+    for (let y = 20; y < m.H - 20; y++) for (let x = 20; x < m.W - 20; x++) if (m.surface.depth[y * m.W + x] <= 0 && m.heights[y * m.W + x] > 3 && open(x, y)) return { x, y, h: m.heights[y * m.W + x] };
     return null;
   });
   expect(target).not.toBeNull();
@@ -223,26 +242,26 @@ test("B8 and B9: Select takes a level with Ctrl+click and dials it with Shift+sc
   await page.keyboard.down("Control");
   await page.mouse.click(p.x, p.y);
   await page.keyboard.up("Control");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h));
   // Shift+scroll dials it
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, -120);
   await page.keyboard.up("Shift");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h + 1));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h + 1));
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, 120);
   await page.mouse.wheel(0, 120);
   await page.keyboard.up("Shift");
-  await expect(row.getByRole("spinbutton", { name: "Level", exact: true })).toHaveValue(String(target!.h - 1));
+  await expect(row.getByRole("slider", { name: "Level", exact: true })).toHaveValue(String(target!.h - 1));
   // the depth control's tooltip, when the selection holds deep water
-  const depth = row.getByRole("button", { name: "Max water depth" });
+  const depth = row.getByRole("button", { name: "Apply" });
   if (await depth.count()) await expect(depth).toHaveAttribute("title", "Make the water no deeper than this");
 });
 
 test("B11: hovering a thing names it and the ground under it, with any tool held", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  await open(page, ROOMY);
   await page.getByRole("button", { name: "Top-down" }).click();
   const spot = await flatDry(page, 4);
   const [gx, gy] = spot!;
@@ -258,7 +277,7 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await page.mouse.move(c.x, c.y);
   await expect(readout).toHaveText(/^Geothermal field · Height \d+, (dry|moist) soil$/);
   // a source says its strength, with a brush held
-  await page.getByRole("button", { name: "Flatten brush (3)" }).click();
+  await page.getByRole("button", { name: "Flatten brush (4)" }).click();
   const src = await page.evaluate(() => {
     const e = window.dgm3d!.renderer.mapState()!.entities;
     for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "WaterSource") return [e.x[k], e.y[k]];
@@ -276,44 +295,41 @@ test("B11: hovering a thing names it and the ground under it, with any tool held
   await expect(readout).toHaveText(/^Geothermal field · /);
 });
 
-test("B13: the forces row is in three groups by prominence: Carve, Craterize, Erupt · Quake, Glaciate; the hint points at Carve", async ({ page }) => {
+test("B13: the forces in the bar in their clusters' order of prominence (D352), after the tools' hairline: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate; the hint points at Carve", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   const row = page.getByRole("group", { name: "Forces" });
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Quake", "Glaciate"]);
-  // two clusters in one row today (the third group's forces are not adopted yet)
-  expect(await row.locator(".force-cluster").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["CarveCraterizeErupt", "QuakeGlaciate"]);
+  // (Layout 2's bar has one cell per force, the clusters' order kept, with no gap between clusters)
+  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
   await expect(page.getByRole("status", { name: "First steps" })).toContainText("Carve");
 });
 
-test("B14: after an undo, a redo and an edit the water bar reads the worker's real state, never stuck at flowing 0%", async ({ page }) => {
+test("B14: after an undo, a redo and an edit the water's state is the worker's real state, never stuck flowing", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
-  const status = page.getByRole("toolbar", { name: "Water time" }).getByRole("status");
-  await expect(status).toHaveText("Water settled", { timeout: 60_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
   // an edit that moves water: a source; it flows, then settles
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const p = await client(page, sx, sy);
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
   await idle(page);
   await page.keyboard.press("x");
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // undo: back to water that was settled
   await page.getByRole("button", { name: "Undo (Ctrl+Z)" }).click();
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
-  await expect(status).not.toContainText("0%");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // redo, and a second undo
   await page.getByRole("button", { name: "Redo (Ctrl+Y)" }).click();
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   await page.keyboard.press("z");
   await idle(page);
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
   // an edit that leaves the water as it is
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Relic" }).click();
   const q = await client(page, sx + 8, sy);
@@ -321,7 +337,7 @@ test("B14: after an undo, a redo and an edit the water bar reads the worker's re
   await page.mouse.click(q.x, q.y);
   await idle(page);
   await page.keyboard.press("x");
-  await expect(status).toHaveText("Water settled", { timeout: 90_000 });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 90_000 }).toBe(true);
 });
 
 test("D360 a: the plain pointer highlights, picks and drags a tree", async ({ page }) => {
@@ -348,12 +364,14 @@ test("D360 a: the plain pointer highlights, picks and drags a tree", async ({ pa
   });
   expect(tree).not.toBeNull();
   const at = await client(page, tree!.x, tree!.y);
-  const lit = () => page.evaluate(() => window.dgm3d!.renderer.overlayData()!.reduce((n, v, k) => (k % 4 === 3 && v ? n + 1 : n), 0));
+  // the tree's own tile lights (not a count of lit tiles: among dense trees the pointer's resting spot
+  // lights another tree's tile, sooner or later, and one lit tile is not more than one)
+  const lit = () => page.evaluate(([x, y]) => window.dgm3d!.renderer.overlayData()![4 * (y * window.dgm3d!.renderer.mapState()!.W + x) + 3] > 0, [tree!.x, tree!.y] as [number, number]);
   await page.mouse.move(at.x + 20, at.y + 20);
-  const before = await lit();
+  expect(await lit()).toBe(false);
   await page.mouse.move(at.x + 1, at.y);
   await page.mouse.move(at.x, at.y);
-  await expect.poll(lit).toBeGreaterThan(before);
+  await expect.poll(lit).toBe(true);
   await page.mouse.click(at.x, at.y);
   await expect(page.getByRole("group", { name: `${tree!.name}, selected` })).toBeVisible();
   const to = await client(page, tree!.x + 3, tree!.y);

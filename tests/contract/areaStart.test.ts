@@ -21,22 +21,25 @@ const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
 describe("a force leaves the locked land, and the ground above the layer showing, as they are (D254, D259, D207)", () => {
   // (on M9b's map, D148: its start stands at (19, 22), so the area lies east of it, across its west edge,
-  // and the Erupt 9 tiles from it)
-  it("Highlands 64², seed 3: an Erupt (Power 69) at (28, 22) inside a 27 × 12 area from (21, 16) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // and the Erupt 9 tiles from it; 25 tiles wide, not 27, for 0.8.1's map, D148: a derived slope at (46, 15)
+  // climbs to ground inside a 27-wide area, so the Erupt rightly drops it with that ground, and no force or lock
+  // touched anything outside the area; for 0.8.3's map, D148, its start at (21, 20): the area from (23, 14),
+  // 23 wide to keep off that slope, and the Erupt 5 tiles from the start, which carries it to (42, 22))
+  it("Highlands 64², seed 3: an Erupt (Power 69) at (27, 20) inside a 23 × 12 area from (23, 14) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 16; y < 28; y++) area.push([y, 21, 47]);
+    for (let y = 14; y < 26; y++) area.push([y, 23, 45]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
     // (the start stands across the area's west edge, partly inside it)
-    expect([start.x, start.y]).toEqual([19, 22]);
+    expect([start.x, start.y]).toEqual([21, 20]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [28, 22], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [27, 20], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;

@@ -81,7 +81,8 @@ const THEMES: ThemeId[] = ["any", "lakeBasin", "islands", "canyon", "highlands",
 /** The sweep: at each size the panel offers (its four presets and the smallest custom size), every
  *  setting at its minimum and at its maximum, and the pairs most likely to fight (wild land under
  *  the most water, flat dry land with the strictest walk to water, the most asked of a start that
- *  grows the least), on themes in turn; a long thin custom map at both extremes; and Kyler's map. */
+ *  grows the least), on themes in turn; the stacked combinations that once made no map on three
+ *  more seeds each; a long thin custom map at both extremes; and Kyler's map. */
 export function settingCases(): SettingCase[] {
   const out: SettingCase[] = [kylersMap()];
   const sizes = [48, 96, 128, 192, 256];
@@ -94,6 +95,12 @@ export function settingCases(): SettingCase[] {
     out.push(caseOf("flat, dry, water at 4", THEMES[(k + 2) % THEMES.length], "easy", size, seed, flatDry));
     out.push(caseOf("starved start", THEMES[(k + 4) % THEMES.length], "hard", size, seed, starvedStart));
   });
+  // (the stacked combinations that once made no map, on more seeds each, so a lucky seed hides no gap)
+  for (const seed of [1, 2, 3]) {
+    out.push(caseOf("all maximums", "any", "easy", { x: 48, y: 48 }, seed, allMax));
+    out.push(caseOf("starved start", "highlands", "hard", { x: 48, y: 48 }, seed, starvedStart));
+    out.push(caseOf("starved start", "delta", "hard", { x: 96, y: 96 }, seed, starvedStart));
+  }
   out.push(caseOf("all minimums", "any", "hard", { x: 256, y: 48 }, 111, allMin));
   out.push(caseOf("all maximums", "any", "easy", { x: 48, y: 256 }, 112, allMax));
   return out;

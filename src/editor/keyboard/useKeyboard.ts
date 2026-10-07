@@ -1,7 +1,6 @@
 // The keyboard.
 
 import { useEffect } from "preact/hooks";
-import { SHELF } from "../shelfItems";
 import { FORCES, forceShown } from "../TopBar";
 import { keyHabit } from "../forceSize";
 import { BRUSHES } from "../brushes";
@@ -22,6 +21,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
+      if (document.querySelector<HTMLElement>(".editor")?.inert) return;
       const target = ev.target as HTMLElement | null;
       // typing in a field or choosing from a list keeps its keys; a toggle just clicked does not
       const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);
@@ -57,18 +57,18 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
           return;
         }
         // (a new gesture's key in Slow forces: the force jumps to its final land first)
-        if (watching && !mod && (/^[0-9-]$/.test(ev.key) || ev.key.toLowerCase() === "m")) {
+        if (watching && !mod && !ev.altKey && /^Digit[1-7]$/.test(ev.code)) {
           void c.jump();
           return;
         }
-        if (mod || /^[0-9]$/.test(ev.key) || ["m", "x", "z", "c", "v", "r", "f", "delete", "backspace", "arrowup", "arrowdown"].includes(ev.key.toLowerCase())) return;
+        if (mod || /^Digit[0-9]$/.test(ev.code) || ["x", "z", "c", "v", "r", "f", "delete", "backspace", "arrowup", "arrowdown"].includes(ev.key.toLowerCase())) return;
       }
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
-      // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Shift+1–9 glides back
-      // to it (the number keys alone pick the brushes)
+      // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Alt+1–9 glides back to it (Kyler,
+      // 2026-10-06: Shift and a number pick a force; the number keys alone pick Select and the brushes)
       const digit = /^Digit([1-9])$/.exec(ev.code);
-      if (digit && ev.shiftKey && !ev.altKey) {
+      if (digit && ((mod && ev.shiftKey && !ev.altKey) || (ev.altKey && !mod && !ev.shiftKey))) {
         ev.preventDefault();
         const slot = Number(digit[1]);
         const r = renderer.current;
@@ -81,7 +81,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
             setInfo((cur) => ({ ...cur, views: i.views }));
             props.onChange({ ...infoRef.current, views: i.views });
           });
-          flashNote(`View ${slot} saved: Shift+${slot} comes back to it`);
+          flashNote(`View ${slot} saved: Alt+${slot} comes back to it`);
         } else {
           const b = infoRef.current.views.find((v) => v.slot === slot);
           if (b) r.glideTo(b);
@@ -89,27 +89,30 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         }
         return;
       }
-      // the brushes: 1–5 pick one (again: it stays out), { and } size it, Esc cancels a stroke,
-      // then puts it away
-      if (!mod && !ev.altKey && /^[1-5]$/.test(ev.key)) {
-        const b = BRUSHES[Number(ev.key) - 1].tool;
-        if (painter.current && brushToolRef.current !== b) pickBrush(b);
-        return;
+      // the tools by their place in the bar (Kyler, 2026-10-06), on the key's code so any keyboard layout works: 1 Select
+      // (again: its selection goes), 2–6 the brushes (again: it stays out), Shift+1–7 the forces in the bar's order
+      // (again: put it away); { and } size a brush, Esc cancels a stroke, then puts it away
+      const place = !mod && !ev.altKey ? /^Digit([1-7])$/.exec(ev.code) : null;
+      if (place && !ev.shiftKey) {
+        const n = Number(place[1]);
+        if (n === 1) {
+          if (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current) closeSelect();
+          else openSelect();
+          return;
+        }
+        const b = BRUSHES.find((x) => x.key === String(n))?.tool;
+        if (b && painter.current && brushToolRef.current !== b) pickBrush(b);
+        if (b) return;
       }
-      // 6: the shelf's Water source (D212); 7: Carve; M: the Select tool
-      if (!mod && !ev.altKey && ev.key === "6" && painter.current) {
-        pickShelf(shelfRef.current?.id === "water-source" ? null : SHELF.find((it) => it.id === "water-source")!);
-        return;
-      }
-      // 7, 8, 9, 0, -: Carve, Craterize, Quake, Erupt, Glaciate (again: put it away)
-      const forceKey = FORCES.find((f) => f.key === ev.key);
-      if (!mod && !ev.altKey && forceKey && painter.current && forceShown(forceKey.id)) {
+      const forceKey = place && ev.shiftKey ? FORCES.find((f) => f.key === `Shift+${place[1]}`) : undefined;
+      if (forceKey && painter.current && forceShown(forceKey.id)) {
+        ev.preventDefault();
         pickTop(toolRef.current === forceKey.id ? null : forceKey.id);
         return;
       }
-      if (!mod && !ev.altKey && ev.key.toLowerCase() === "m") {
-        if (selectingRef.current && !brushToolRef.current && !toolRef.current) closeSelect();
-        else openSelect();
+      // M: Markers on or off, as the Show row's toggle does it
+      if (!mod && !ev.altKey && !ev.shiftKey && ev.code === "KeyM") {
+        ed.markersToggle.current?.();
         return;
       }
       // Ctrl+A (D264): the whole map, in the Select tool or with any brush out
@@ -175,7 +178,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         pickShelf(null);
         return;
       }
-      if (ev.key === "Escape" && (selectingRef.current || selection.current.count)) {
+      if (ev.key === "Escape" && selection.current.count) {
         closeSelect();
         return;
       }
@@ -200,11 +203,17 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         void redo();
         return;
       }
-      // X puts down whatever is held (D345, B7): a brush, a force, the shelf's object, Select (and its
-      // selection), a picked source or object: a plain pointer is left
+      // X puts down whatever is held (D345, B7): a brush, a force, the shelf's object, the selection, a picked
+      // source or object: Select is left in hand (Kyler's choice at the v4 verdict)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && (brushToolRef.current || toolRef.current || shelfRef.current || selectingRef.current || selection.current.count || pickedRef.current || pickedObjectRef.current)) {
         ev.preventDefault();
         putDown();
+        return;
+      }
+      // ← and → while a weather day is held: a day back or on, as the stepper's arrows do (Kyler, 2026-10-04)
+      if (!mod && !ev.altKey && (ev.key === "ArrowLeft" || ev.key === "ArrowRight") && ed.weatherRef.current) {
+        ev.preventDefault();
+        ed.stepWeather(ev.key === "ArrowLeft" ? -1 : 1);
         return;
       }
       // Up and Down with a selection open: raise or lower it one level, as the buttons do (D323 item 6)

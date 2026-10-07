@@ -10,6 +10,7 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applyBrush, brushProblems, BrushStroke, type BrushParams, type BrushTool } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { ridingPieces } from "../../src/core/features/edits";
 import { padTile } from "../../src/core/features/raster/terrain";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
@@ -82,8 +83,11 @@ describe("a brush stroke is exact", () => {
       }
   });
 
-  /** What the page paints is what the operation builds, byte for byte, and replays to the same file. */
-  const exact = (theme: ThemeId, size: number, seed: number) => {
+  for (const [theme, size, seed] of [
+    ["riverValley", 96, 3],
+    ["islands", 96, 5],
+  ] as [ThemeId, number, number][])
+    it(`${theme} ${size}²: what the page paints is what the operation builds, byte for byte, and replays to the same file`, () => {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
@@ -97,9 +101,13 @@ describe("a brush stroke is exact", () => {
       const { dabs, ...settings } = p;
       const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
       for (let j = 0; j < dabs.length; j += 6) preview.add(dabs.slice(j, j + 6));
-      // the worker: the operation
+      // let go: a source of several tiles it tilted rides it whole (D249), as the page does
+      const rigid = preview.rides(ridingPieces(s.built.entities, W, W));
+      if (rigid.length) preview.finish(rigid);
+      // the worker: the operation (handed no pieces: the session finds the same ones itself)
       const u = s.apply({ op: "brush", params: p }, "user", "stroke");
       expect(u.errors).toEqual([]);
+      expect((u.applied[0].params as BrushParams).rigid ?? []).toEqual(rigid);
       expect(Array.from(shown), `${tool} stroke ${k}`).toEqual(Array.from(s.built.heights));
       expect(Array.from(preview.pre)).toEqual(Array.from(s.terrainState().pre));
     }
@@ -110,12 +118,7 @@ describe("a brush stroke is exact", () => {
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
     s.settleCanonical();
     expect(Buffer.from(s.exportTimber().bytes).equals(Buffer.from(again.exportTimber().bytes))).toBe(true);
-  };
-  it.each([
-    ["riverValley", 96, 3],
-    // (seed 1 since Islands round 4, D148)
-    ["islands", 96, 1],
-  ] as [ThemeId, number, number][])("%s %i²: what the page paints is what the operation builds, byte for byte, and replays to the same file", exact);
+  });
 });
 
 describe("the brush kit (D182) and smart Lower (D184)", () => {
@@ -376,8 +379,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
   // (a ramped stroke saved before D270, with no slopes of its own: the slope planner joins its rim, as
   // it did; since D270 the editor's strokes lay their own, rampedSlopes.test)
   it("on a map: a ramped flatten saved before D270 gets the planner's slopes on its rim, and the trees on it ride the ground", () => {
-    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148)
-    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148; seed 3 since 0.8.3's courses follow the land, D476, where seeds 1, 2 and 4–8 have none)
+    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");

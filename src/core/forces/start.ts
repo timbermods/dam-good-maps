@@ -11,6 +11,7 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { integrityAt } from "../features/raster/terrain";
 import { forceMapOf } from "./carve/result";
 import { CarveRun, type CarveIntent, type CarveSettings } from "./carve/run";
+import { SOURCES_DEFAULT } from "./clear";
 import { edgeAim } from "./carve/edge";
 import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
 import { DepositRun, type DepositSettings } from "./deposit";
@@ -139,6 +140,18 @@ export function buildTouches(state: TerrainState, ground: Uint8Array, owned?: ()
   };
 }
 
+/** A force's last touches inside the working area (D254): its final map eased to the locked land a level
+ *  a tile, as its keep eases it (keep.ts `featherForce`), so the land it shows ends on the land kept
+ *  (D368 (9)). */
+function feathered(touches: Finalize, before: Uint8Array, inside: Uint8Array | null): Finalize {
+  if (!inside) return touches;
+  return (m) => {
+    touches(m);
+    for (let i = 0; i < m.heights.length; i++) m.heights[i] = Math.max(before[i] - inside[i], Math.min(before[i] + inside[i], m.heights[i]));
+    trimRock(m);
+  };
+}
+
 /** What `planForce` is given: the map the force starts from, the request, the tiles an imported
  *  map's caves and overhangs stand on (a force leaves them as they are), the terrain the build's
  *  last steps start from (`buildTouches`), and where a carve's source id comes from (`newId`, the
@@ -173,14 +186,19 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   const refuse = (error: string): ForcePlan => ({ ok: false, error });
   const { W, H } = base;
   const N = W * H;
+  // (a fault needs a point to start from, before nature reads it)
+  if (req.verb === "quake" && !req.path?.length) return refuse("Draw a fault on the land");
   if (req.natural) req = natureOf(req, base);
+  // a new force clears the sources on the ground it changes unless its row says Ride (D474)
+  if (req.settings.sources === undefined) req = { ...req, settings: { ...req.settings, sources: SOURCES_DEFAULT } } as ForceRequest;
   // a Carve clicked where its water would run straight off the map carves inward (D360 (1a))
   if (req.natural && req.verb === "carve" && req.settings.mode === "unleash" && !req.source && !req.end) {
     const aim = edgeAim(base.heights, base.W, base.H, Math.round(req.origin[1]) * base.W + Math.round(req.origin[0]), req.settings.power);
     if (aim !== null) req = { ...req, settings: { ...req.settings, mode: "aim", defyGravity: true }, end: [aim % base.W, Math.floor(aim / base.W)] };
   }
   const cut = req.cut;
-  const inMap = (p: [number, number]) => p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
+  // (a point is a tile: a fraction or NaN is no spot on the map, never a reason about something else)
+  const inMap = (p: [number, number]) => Number.isInteger(p[0]) && Number.isInteger(p[1]) && p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
   // the ground no force touches here: above the layer showing, and an imported map's caves
   const keep = new Uint8Array(N);
@@ -190,10 +208,24 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
+  // a Rift or Deposit that found nothing to move says why: the Rust names the Floor (a Rift) or the
+  // working area (a Deposit) for any ground it may not touch, the layer showing's included
+  const blame = (why: string): string => {
+    if (req.verb === "deposit" && why.startsWith("the working area") && !inside) return hidden;
+    if (req.verb !== "rift" || !why.startsWith("the Floor")) return why;
+    // (ground above the Floor along its line, and ground it may not touch: that ground is why)
+    const floor = req.settings.floor ?? 1;
+    const above = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter((p) => inMap(p) && base.heights[at(p)] > floor);
+    if (!above.length || !keep.includes(1)) return why;
+    return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: Esc clears it" : hidden;
+  };
   const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
+  // a drawn line's points are the map's too (a fault, a rift, a fan's reach, a fissure)
+  const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erupt" ? req.path : undefined;
+  if (line?.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return refuse("Pick a spot on the map");
   let carve: CarveRun | null = null;
   let staged: StagedRun | null = null;
   let map = base;
@@ -218,6 +250,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
           const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
           try {
             carve = new CarveRun(base, settings, intent, { keep, sourceId: input.newId(), unleashed: e.id, bad: e.template === "BadwaterSource" });
+            carve.ease = inside;
           } catch (err) {
             // (a source's own water runs downhill: an unleashed source never cuts uphill)
             throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
@@ -228,6 +261,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         const via = aimed && req.via?.length ? req.via.map(at) : [];
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
         carve = new CarveRun(base, req.settings, intent, { keep, sourceId: input.newId() });
+        carve.ease = inside;
         break;
       }
       case "craterize": {
@@ -235,7 +269,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         const aimed = req.settings.mode === "aim" && req.end && (req.end[0] !== req.origin[0] || req.end[1] !== req.origin[1]) ? req.end : undefined;
         const settings: CraterSettings = { ...req.settings, mode: aimed ? "aim" : "strike" };
         staged = new CraterRun(map, settings, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}) }, keep);
-        staged.finalize = buildTouches(state, base.heights);
+        staged.finalize = feathered(buildTouches(state, base.heights), base.heights, inside);
         break;
       }
       case "erupt": {
@@ -244,7 +278,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         // the editor's fissure (D344, A6): its drawn shape sets its breadth; Size is for a vent's click
         const size = fissure && req.natural ? { size: fissureBreadth(req.settings, req.path!) } : {};
         staged = new EruptRun(map, { ...req.settings, mode: fissure ? "fissure" : "vent", ...size }, { origin: at(req.origin), ...(fissure ? { path: req.path } : {}) }, keep);
-        staged.finalize = buildTouches(state, base.heights);
+        staged.finalize = feathered(buildTouches(state, base.heights), base.heights, inside);
         break;
       }
       case "glaciate": {
@@ -259,7 +293,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         }
         while (stops.length && aimed && stops.at(-1)![0] === aimed[0] && stops.at(-1)![1] === aimed[1]) stops.pop();
         const run = new GlaciateRun(map, { ...req.settings, mode: aimed ? "aim" : "flow" }, { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(stops.length ? { via: stops.map(at) } : {}) }, keep);
-        run.finalize = buildTouches(state, base.heights, () => run.footprint());
+        run.finalize = feathered(buildTouches(state, base.heights, () => run.footprint()), base.heights, inside);
         staged = run;
         break;
       }
@@ -283,16 +317,31 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         const tap = req.natural && !req.painting && strokeLength(req.path) < TAP;
         const path = tap ? clickFault(base.heights, W, H, req.path[0], req.settings.power, req.settings.seed ?? 0) : req.path;
         const run = new QuakeRun(map, req.settings, { path, side: req.side }, keep);
-        run.finalize = buildTouches(state, base.heights);
+        run.finalize = feathered(buildTouches(state, base.heights), base.heights, inside);
+        run.ease = inside;
         if (req.painting) run.repaint({ path: req.path, side: req.side });
         staged = run;
         break;
       }
     }
   } catch (e) {
-    return refuse(refusal(e));
+    return refuse(blame(refusal(e)));
   }
+  // (the sources it clears are on the ground its operation keeps changed, the working area feathered: D474)
+  if (staged) staged.ease = inside;
   return { ok: true, request: req, carve, staged, before: map };
+}
+
+/** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail
+ *  shows its pick): a rift's walls, sheer or stepped by which most of them are (Auto steps them where the rock is
+ *  hard); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
+export function autoPicked(staged: StagedRun | null): Record<string, string> {
+  if (staged instanceof RiftRun) {
+    const { stepped, sheer } = staged.plan0.stats;
+    return staged.settings.walls === "auto" ? { walls: stepped > sheer ? "stepped" : "sheer" } : {};
+  }
+  if (staged instanceof DepositRun) return staged.settings.channels === "auto" ? { channels: staged.plan0.stats.channels >= 4 ? "many" : "few" } : {};
+  return {};
 }
 
 /** The seed after `seed` in a force's series (Try another): Glaciate's own series, the others'. */

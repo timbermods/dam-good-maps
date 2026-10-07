@@ -1,4 +1,4 @@
-// Carve (PLAN §20 D194, D199, D289), through the page: its row is Power, Size, Keep river or Dry
+// Carve (PLAN §20 D194, D199, D289), through the page: its settings are Power, Size, River or Dry
 // canyon and Try another path, nothing more; a click unleashes a river that runs visibly, a frame at
 // a time, and keeps itself as one undo step when it ends (the ground as it was shown; no Stop); undo
 // takes all of it back at once, Esc skips it to its end (D344, A4), while its row's hint says so; Try
@@ -8,6 +8,7 @@
 // the line's higher end to its lower, whichever way it was drawn.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -15,11 +16,8 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.carve());
 
-async function refine(page: Page, hash: string) {
-  await page.goto(`./#${hash}`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+async function openTopDown(page: Page, hash: string) {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
 }
 
@@ -60,24 +58,24 @@ async function highGround(page: Page): Promise<[number, number]> {
 }
 
 test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path replaces it", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
-  // its row: Power, Size, Keep river or Dry canyon (D289), a mode is the gesture, and a More button
-  // for its other settings (D309: wander, walls and depth, closed by default)
-  const carve = page.getByRole("button", { name: "Carve (7)" });
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
+  // its settings, every one always shown (Kyler's option B: no More): Power, Size, What it leaves (River or Canyon,
+  // D289), Wander, Walls, Canyon depth, River depth, Banks, the Floor and Try another; a mode is the gesture
+  const carve = page.getByRole("button", { name: "Carve (Shift+1)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row).toBeVisible();
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size"]);
-  expect(await row.getByRole("button").evaluateAll((els) => els.map((e) => e.textContent!.trim()))).toEqual(["Auto", "Keep river", "Dry canyon", "More"]);
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
+  await expect(row.getByRole("group", { name: "What it leaves" }).getByRole("button")).toHaveText(["River", "Canyon"]);
+  await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   await expect(row.getByRole("combobox")).toHaveCount(0);
-  await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
-  await expect(row.getByRole("button", { name: "Keep river" })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByRole("group", { name: "What it leaves" }).getByRole("button", { name: "River" })).toHaveAttribute("aria-pressed", "true");
   // (a long river first, so Esc still finds it running on a slow machine: which tile is picked
   // depends on the rows over the map, and a short creek there can end before Esc arrives)
   await row.getByRole("slider", { name: "Power" }).fill("60");
   // the other forces beside it, in the forces group (D216, D219)
-  for (const name of ["Craterize (8)", "Quake (9)", "Erupt (0)"]) await expect(page.getByRole("button", { name })).toBeVisible();
+  for (const name of ["Craterize (Shift+2)", "Quake (Shift+5)", "Erupt (Shift+3)"]) await expect(page.getByRole("button", { name })).toBeVisible();
 
   const before = await heights(page);
   const n0 = (await labels(page)).length;
@@ -94,14 +92,19 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
         if (!st || st.steps < 12) return false;
         const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
         const row = document.querySelector('[aria-label="Carve at work"]');
-        const hint = row?.querySelector(".force-keys")?.textContent ?? null;
+        // (the keys in Revert's tooltip: Ctrl+Z takes it back, Esc skips to its end; none written in the panel)
+        const revert = [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Revert");
+        const hint = revert?.getAttribute("data-keys") ?? null;
         window.dispatchEvent(new KeyboardEvent("keydown", { ...k, bubbles: true, cancelable: true }));
         return { cut, row: !!row, hint };
       },
       [before, key] as const,
       { timeout: 20_000 },
     );
-    expect(await seen.jsonValue()).toEqual({ cut: true, row: true, hint: "Esc to skip · Ctrl+Z to undo" });
+    const got = (await seen.jsonValue()) as { cut: boolean; row: boolean; hint: string | null };
+    expect({ cut: got.cut, row: got.row }).toEqual({ cut: true, row: true });
+    expect(got.hint).toMatch(/Ctrl\+Z/);
+    expect(got.hint).toMatch(/Esc skips to its end/);
     await expect.poll(() => status(page)).toBeNull();
     await idle(page);
   };
@@ -139,7 +142,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   expect(worker).toEqual(kept);
 
   // Try another path: the same carve, another way, replacing the first
-  const again = page.getByRole("button", { name: "Try another path" });
+  const again = page.getByRole("button", { name: "Try another", exact: true });
   await expect(again).toBeVisible();
   await again.click();
   await page.waitForFunction(() => (window.dgmEditor!.carve()?.seed ?? 0) === 1, null, { timeout: 20_000 });
@@ -157,22 +160,18 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await expect.poll(() => heights(page)).toEqual(before);
 });
 
-test("Carve's More (D309): closed by default; its details on Auto; pinning one keeps it through Try another", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+test("Carve's details (D309): always shown, each on Auto; pinning one keeps it through Try another", async ({ page }) => {
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
-  await expect(page.getByRole("group", { name: "Carve details" })).toHaveCount(0);
-  await row.getByRole("button", { name: "More" }).click();
-  const details = page.getByRole("group", { name: "Carve details" });
-  await expect(details).toBeVisible();
-  expect(await details.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
-  // River depth (D321 item 17) is 2 unless set, with Off beside it; it sits beside Canyon depth (item 25)
+  // (the details sit with the rest: More is gone)
+  const details = row;
+  // River depth (D321 item 17) is 2 unless set, Off at its slider's far end; it sits beside Canyon depth (item 25)
   await expect(details.getByRole("slider", { name: "River depth" })).toHaveValue("2");
-  await expect(details.getByRole("button", { name: "River depth off" })).toHaveAttribute("aria-pressed", "false");
-  await expect(details.getByRole("combobox", { name: "Walls" })).toBeVisible();
+  await expect(details.getByRole("group", { name: "Walls" })).toBeVisible();
   // every detail starts on Auto (D309); the land and the seed lean and vary them, tested at
   // tests/contract/forceNature.test.ts
-  for (const name of ["Wander follows the land", "Walls follows the land", "Canyon depth follows Power", "Banks follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  for (const name of ["Wander follows the land", "Walls follows the land", "Canyon depth follows the land", "Banks follows the land"]) await expect(details.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
 
   const at = await highGround(page);
   await row.getByRole("slider", { name: "Power" }).fill("15");
@@ -186,18 +185,16 @@ test("Carve's More (D309): closed by default; its details on Auto; pinning one k
   await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
 
   // Try another: the pinned Wander never moves, even though it replaces the carve with another one
-  await row.getByRole("button", { name: "Try another path" }).click();
+  await row.getByRole("button", { name: "Try another", exact: true }).click();
   await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
   expect((await labels(page)).at(-1)).toBe("Try another path");
   await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
-  // More stays open across it (D309: it remembers whether it was left open)
-  await expect(details).toBeVisible();
 });
 
 test("Carve: a drag draws its path, the line showing as it is drawn; on release the river carves along it from its higher end, whichever way it was drawn; undo while it runs takes it back", async ({ page }) => {
-  await refine(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Carve (7)" }).click();
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row.getByRole("button", { name: "Aim" })).toHaveCount(0);
   await expect(row.getByText("Defy gravity")).toHaveCount(0);

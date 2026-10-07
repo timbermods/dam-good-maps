@@ -11,7 +11,7 @@
 // course stands dry for a stretch cannot be followed.
 
 import type { Feature, RiverFeature } from "../features/schema";
-import { distanceFrom, N4 } from "../math/grid";
+import { distanceFromInTs, N4 } from "../math/grid";
 import { components } from "./regions";
 
 export interface WaterStory {
@@ -162,7 +162,8 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       if (!contamination || !(contamination[i] >= 0.05)) clean[i] = 1;
     } else dry++;
   }
-  const dist = distanceFrom(clean, W, H);
+  // (the outcomes stay in TypeScript, D391)
+  const dist = distanceFromInTs(clean, W, H);
   const R = REACH * Math.min(W, H);
   let near = 0;
   for (let i = 0; i < W * H; i++) if (!(depth[i] >= 0.05) && dist[i] <= R) near++;

@@ -2,6 +2,7 @@
 // cursor's ring and sizing.
 
 import type { ComponentChildren } from "preact";
+import { applyForceTerrain } from "../session/mirror";
 import { useEffect, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import type { EntityView } from "../../render3d/model";
 import type { EntityInfo, ForceFrame, ForceRequest, ViewUpdate } from "../../worker/session";
@@ -9,7 +10,9 @@ import { plain } from "../panels";
 import { ForceDriver, paceOf } from "../forceDriver";
 import { carveDetails, carveSettingsOf, DEFAULT_CARVE } from "../CarveRow";
 import { craterDetails, craterSettingsOf, eruptDetails, eruptSettingsOf, quakeDetails } from "../ForceRows";
-import { glaciateDetails, glaciateSettingsOf } from "../ForceRows";
+import { depositDetails, glaciateDetails, glaciateSettingsOf, riftDetails, type ForceSources } from "../ForceRows";
+import { depositWidth } from "../../core/forces/deposit";
+import { riftWidth } from "../../core/forces/rift";
 import { sizeOf as glacierSize } from "../../core/forces/glaciate/model";
 import { forceReach } from "../../core/forces/reach";
 import { MAX_PATH_POINTS } from "../../core/forces/carve/run";
@@ -17,7 +20,7 @@ import { bandTiles, FreehandPath } from "../freehand";
 import { downhillPath, pathLength, pathTiles, resamplePath, type PathPoint } from "../../core/forces/path";
 import type { Verb } from "../../core/forces/op";
 import type { ForceCue } from "../../core/forces/runs";
-import { ForceKeys } from "../TopBar";
+import { Words, type Group } from "../settings";
 import { FLOOR_DEFAULT } from "../../core/forces/floor";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "../forceSize";
 import { hasTarget, nextSize, sizeMax } from "../brushes";
@@ -34,7 +37,7 @@ export interface ForceRunSlice {
   unleash: (e: EntityInfo, end?: [number, number], via?: [number, number][]) => void;
   unleashAgain: (e: EntityInfo) => void;
   unleashDown: (ev: PointerEvent, e: EntityInfo) => void;
-  unleashRow: () => { label: string; content: ComponentChildren } | null;
+  unleashRow: () => { label: string; groups: Group[] } | null;
   startForce: (req: ForceRequest, painting?: boolean) => void;
   steerTiles: (path: readonly PathPoint[], downhill: boolean) => { origin: [number, number]; end: [number, number]; via: [number, number][]; reversed: boolean } | null;
   pathFrame: { current: number };
@@ -60,7 +63,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, localUndo, localRedo, painter,
     notePointer, sourcesChanged, pointerWords, flashNote, carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi,
     craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi,
-    glaciateUiRef, watchRef, floorRef, setForceTick
+    glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, watchRef, floorRef, setForceTick
   } = ed;
 
   /** The map's own views that came while a force was at work (the settled water, a check's): they
@@ -97,10 +100,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function showForceFrame(f: ForceFrame) {
     const r = renderer.current;
     const m = mirror.current;
-    if (f.heights && f.rect) {
-      m.heights = f.heights;
-      r?.updateTerrainRect(f.heights, f.rect);
-    }
+    if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);
     const v = forceView.current;
     if (f.entities) v.entities = f.entities;
     if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
@@ -181,9 +181,13 @@ export function useForceRun(ed: Ed): ForceRunSlice {
                     ? quakeDetails(quakeUiRef.current)
                     : verb === "glaciate"
                       ? glaciateDetails(glaciateUiRef.current)
-                      : undefined;
-          // (and the row's Power and Size as they are now, D361 (1): Try another answers them)
-          const now = verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {};
+                      : verb === "rift"
+                        ? riftDetails(riftUiRef.current)
+                        : verb === "deposit"
+                          ? depositDetails(depositUiRef.current)
+                          : undefined;
+          // (and the row's Power, Size and Sources as they are now, D361 (1), D474: Try another answers them)
+          const now = { ...(verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {}), ...(verb ? { sources: forceSourcesOf(verb) } : {}) };
           return api.forceAgain(pins && { ...pins, ...now, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
         }
         return api.forceStart({ ...q, gesture });
@@ -313,33 +317,48 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   }
 
   /** The row while an unleashed source's carve works: Carve's own controls. */
-  function unleashRow(): { label: string; content: ComponentChildren } | null {
+  function unleashRow(): { label: string; groups: Group[] } | null {
     const st = forcer.current?.status ?? null;
     if (!unleashing || !st) return null;
     return {
       label: "Unleash at work",
-      content: (
-        <>
-          <span class="bar-status" role="status">
-            {st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}
-          </span>
-          <button type="button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
-            {st.paused ? "Resume" : "Pause"}
-          </button>
-          <ForceKeys />
-          <button type="button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
-            Revert
-          </button>
-        </>
-      ),
+      groups: [
+        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
+        {
+          key: "pause",
+          row: 1,
+          at: 10,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
+              {st.paused ? "Resume" : "Pause"}
+            </button>
+          ),
+        },
+        {
+          key: "revert",
+          row: 1,
+          at: 12,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
+              Revert
+            </button>
+          ),
+        },
+      ],
     };
   }
 
-  /** The water's journey and a weather run give way to the force's own water. */
+  /** The water's journey gives way to the force's own water (a held weather day stays on screen and runs again once
+   *  the force's water has settled). */
   function clearForForce() {
     journey.current?.flush();
     player.current?.clear();
-    if (weatherRef.current) setWeather(null);
     setPicked(null);
     setShapeNote(null);
     setMessage(null);
@@ -402,11 +421,12 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The band's half width for the force picked, as drawn (D344 A3, amended by D361 (2)): the preview
    *  is the player's stroke, never what the force decides. Carve's and Glaciate's width is their Size,
-   *  the player's own; a fault or a fissure is its line, a narrow band about as wide as a fault's crack
-   *  (its reach, a fissure's breadth and the ground inside a loop are the force's, never drawn). */
+   *  the player's own, and a rift's too (its drawn fault opens at its Size); a fault, a fissure or a fan's
+   *  line is its line, a narrow band about as wide as a fault's crack (its reach, a fissure's breadth, a fan's
+   *  spread and the ground inside a loop are the force's, never drawn). */
   function bandRadius(): number {
     const verb = ed.toolRef.current;
-    if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
+    if (verb === "quake" || verb === "erupt" || verb === "deposit") return STROKE_RADIUS;
     return reachNow() ?? 0;
   }
 
@@ -436,6 +456,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
       case "glaciate":
         // (its width: where it goes depends on the land)
         return glacierSize(glaciateUiRef.current) / 2;
+      case "rift":
+        return (riftUiRef.current.size ?? Math.round(riftWidth(riftUiRef.current.power) / 2) * 2) / 2;
+      case "deposit":
+        return (depositUiRef.current.size ?? Math.round(depositWidth(depositUiRef.current.power) / 2) * 2) / 2;
       default:
         return null;
     }
@@ -465,7 +489,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const r = reachNow();
     if (r === null) setForceRing(null);
     else if (r !== ring.r) setForceRing({ ...ring, r });
-  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, tool]);
+  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, riftUi, depositUi, tool]);
 
   // A force's Size and Power from the keys, exactly as a brush's (D344, A1; forceSize.ts): hold F and
   // move the mouse to size its ring on the map, its size beside the pointer (a click or letting go keeps
@@ -523,22 +547,30 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The Size field of a force's row: a number, or null on Auto. */
   function forceSizeField(verb: SizedForce): number | null {
-    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : glaciateUiRef.current.size;
+    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : verb === "rift" ? riftUiRef.current.size : verb === "deposit" ? depositUiRef.current.size : glaciateUiRef.current.size;
   }
   function setForceSize(verb: SizedForce, size: number | null) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, width: size }));
     else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, size }));
     else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, size }));
+    else if (verb === "rift") setRiftUi({ ...riftUiRef.current, size });
+    else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, size });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, size }));
   }
+  /** A force's Sources as its row has it (D474). */
+  function forceSourcesOf(verb: Verb): ForceSources {
+    return (verb === "carve" ? carveUiRef : verb === "craterize" ? craterUiRef : verb === "erupt" ? eruptUiRef : verb === "quake" ? quakeUiRef : verb === "rift" ? riftUiRef : verb === "deposit" ? depositUiRef : glaciateUiRef).current.sources;
+  }
   function forcePowerOf(verb: Verb): number {
-    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : glaciateUiRef.current.power;
+    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : glaciateUiRef.current.power;
   }
   function setForcePower(verb: Verb, power: number) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, power }));
     else if (verb === "craterize") setCraterUi((craterUiRef.current = { ...craterUiRef.current, power }));
     else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, power }));
     else if (verb === "quake") setQuakeUi({ ...quakeUiRef.current, power });
+    else if (verb === "rift") setRiftUi({ ...riftUiRef.current, power });
+    else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, power });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, power }));
   }
 

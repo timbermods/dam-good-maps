@@ -102,9 +102,8 @@ describe("the legend", () => {
   it("keeps the lines that show only with Markers apart", () => {
     const all = [...legendEntries("moisture"), ...objectLegend()];
     const marked = all.filter((e) => e.markers).map((e) => e.label);
-    expect(marked).toContain("Slopes: arrows point uphill");
-    expect(marked.some((l) => /pale line at every level/.test(l))).toBe(true);
+    expect(marked).toEqual(["Slope arrows", "Level lines", "Contamination edge", "Mine site outline"]);
     const clean = all.filter((e) => !e.markers).map((e) => e.label);
-    for (const want of [/Moist/, /Dry/, /Contaminated/, /^Water: darker is deeper/, /^Badwater$/, /mixed with badwater/, /dead/, /Living trees/, /The start/, /Slopes: stone ramps/, /Ruins/, /Geothermal field/, /Relic/, /Thorns/]) expect(clean.some((l) => want.test(l)), String(want)).toBe(true);
+    for (const want of ["Moist ground", "Dry ground", "Contaminated ground", "Water", "Badwater", "Mixed water", "Dead trees", "Trees and bushes", "Start", "Slope", "Ruins", "Geothermal field", "Relic", "Thorns"]) expect(clean, want).toContain(want);
   });
 });

@@ -197,6 +197,8 @@ export class WaterSim {
   private threads: WaterThreads | null = null;
   /** The Rust simulation above holds the water as it stands (false once the threads ran last). */
   private singleFresh = true;
+  /** `D`, `C` or `out` were written directly: this simulation stays on one thread, its established bytes. */
+  private editedSingle = false;
 
   constructor(model: WaterModel, initial?: WaterState, opts: WaterSimOptions = {}) {
     this.rules = opts.rules ?? DEFAULT_WATER_RULES;
@@ -245,10 +247,26 @@ export class WaterSim {
     return this;
   }
 
+  /** Sets the stored outflows (`out`, the water's momentum): the way to change them, which keeps the multi-core
+   *  water in step. Writing `D`, `C` or `out` directly keeps this simulation on one thread from then on
+   *  (rebuilding the strips from such an edit would change the one-thread bytes). */
+  setOut(out: ArrayLike<number>): void {
+    this.freshSingle();
+    this.out.set(out);
+    this.rust.setOut(this.out);
+    this.threads?.invalidate();
+  }
+
   /** The run on several threads, when this thread has a pool and they take it (parallel.ts); the same water. */
   private runThreaded(n: number, scale: number): boolean {
+    if (this.editedSingle) return false;
     this.threads ??= waterThreads(this, this.model, { game: this.rules === "game", edgeSpill: this.edgeSpill });
     if (!this.threads) return false;
+    // a direct edit of the water since it last ran: the established one-thread bytes, on one thread from now on
+    if ((this.singleFresh && this.rust.waterChanged(this.D, this.C, this.out)) || this.threads.changed(this.D, this.C, this.out)) {
+      this.editedSingle = true;
+      return false;
+    }
     const ok = this.threads.run(this.model, this.D, this.C, this.out, n, scale, () => {
       if (!this.singleFresh) throw new Error("the multi-core water lost track of which thread ran last");
       return { dold: this.rust.dold(), seeps: this.rust.seeps(this.emitters.length) };
@@ -260,8 +278,10 @@ export class WaterSim {
   /** The Rust simulation takes over the water the threads ran last. */
   private freshSingle(): void {
     if (this.singleFresh || !this.threads) return;
-    const { dold, seeps } = this.threads.carry();
-    this.rust.adopt(this.model, this.D, this.C, this.out, dold, seeps);
+    const { dold, seeps, water } = this.threads.carry(this.D, this.C, this.out);
+    if (water) this.editedSingle = true;
+    // First restore bookkeeping from committed water; run/saturation then copies any public edit.
+    this.rust.adopt(this.model, water?.depth ?? this.D, water?.contamination ?? this.C, water?.out ?? this.out, dold, seeps);
     this.singleFresh = true;
   }
 

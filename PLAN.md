@@ -75,7 +75,11 @@ Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response heade
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
 cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
 `SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
-workers. A second build target, a single-file build for a
+workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
+scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
+anything with a query or range always come from the network. On a host that sends the headers itself the page registers
+it once the map is editable (`cacheAfterEditable`). A new version never takes over an open page (no `skipWaiting`): it
+waits until the old tabs close. A second build target, a single-file build for a
 Claude artifact (deferred with Claude, D277), swaps the platform adapters (§19.9): data is bundled, workers can be
 inlined, and libraries come from npm. The visual design is the org's Impeccable site flow and the timbermods design
 system (walnut lodge palette, `DESIGN.md`), done as its own step.
@@ -113,6 +117,16 @@ Node:
     it replaced (tag `ts-forces-final`); their byte fixtures give the same results natively, in Node and in
     each engine (CI's `rust` job). The request, Keep, the build's last touches, the record and the showing stay
     in TypeScript (`src/core/forces/README.md`).
+  - Six analysis kernels run in Rust (`rust/analysis`, D391): `distanceFrom`, `walkDistance`, `landRegions`,
+    `spillLevels`, `damSites` and `roomMap`, byte for byte the TypeScript they replaced (tag
+    `ts-analysis-final`), with byte fixtures in CI's `rust` job like the forces'. The outcomes and M9b's
+    descriptive rows keep a TypeScript `distanceFrom`.
+  - The checks run in Rust (`rust/checks`, D465): one call validates a map, the report and what the checks
+    measured byte for byte the TypeScript they replaced (tag `ts-checks-final`), with byte fixtures in CI's
+    `rust` job like the forces'. A map the checks cannot read as the map it claims to be (a broken character,
+    a position off the tile grid, a setting of the wrong kind, unreadable stored water) is refused with a
+    one-line reason. `rulesFor`, the colony's reach and the extras' bands stay in TypeScript for the
+    generator and the editor (`src/core/validate/README.md`).
   - Sorts keep their input order for ties (the language's sort is stable), and a comparator returns
     zero for equal keys.
   - Noise uses integer-hash value noise with a smoothstep fade.
@@ -248,7 +262,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Range | Default | Maps to |
 |---|---|---|---|
 | Badwater | No badwater, Low, Normal, High | Normal (Highlands and Islands: Low) | Every map has at least one badwater source, a late-game resource like the mine site, unless the player picks **No badwater** (a peaceful map: none is placed, badtides still turn every source bad; the share link `bw=0` and the description record it, D200). Sources and strength are the official maps' for the size (`official-baselines.json`: 1 / 2 / 4 / 3.5 sources and 1.25 / 3.5 / 5.5 / 6.5 strength for small / medium / large / max, joined in ln(area)), moved within the official typical range by the seed, then × 0.5 / 1 / 1.5 (sources) and × 0.5 / 1 / 1.75 (strength) for Low / Normal / High; each source 1–3 strong, a BadwaterSource 3×3 in a side basin (§9.5). Where fewer hollows fit than the budget asks, the ones placed share its total, each up to 3. |
-| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). The start rule "No badwater within" (§5.6) is the same value: the panel sets both, and validation uses the larger. A target with an advisory warning, never a reason to reject (D85). |
+| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). The start rule "No badwater within" (§5.6) is the same value: the panel sets both, and validation uses the larger. For a generated map it is a rule: a start with badwater or contaminated soil nearer, on the water as the file holds it or as its badwater comes to rest (run on up to six days where water near the start carries some), is never kept; another start is found on the same land (Kyler, 2026-10-05, #265). On an edited or imported map, an advisory warning (D85). |
 | Thorn belts | Off, Some | Some (Highlands, River Valley) | 1–3 belts of 13–40 thorns, each across the way from the start to a relic or a geothermal field, 5–8 tiles in front of it, 9–17 tiles across and 2–3 deep, every thorn 22+ tiles from the start; a belt that would cut the colony's land in two is left out. |
 | Unstable cores | Off, On | Off | Advanced. 1–4 cores, 40+ tiles from the start, countdown in cycle 5–12 (10.5 days in, the official value), radius 2–3, never within radius + 2 of each other or of a dam site. |
 
@@ -556,7 +570,10 @@ in tiles, and one a strait off the mainland, the game's reach (D429); its start 
 needs (D410, D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
-narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447).
+narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447). Each arm
+takes its own broad curved course from the apex, the low ground choosing its way inside it, so arms diverge, converge
+and now and then braid round an island on a flat reach; every channel shares one falling bed at each distance down the
+fan, cut from the lakes' actual floors (#233, generator 0.8.2).
 Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
 basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
 curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
@@ -646,7 +663,10 @@ where the land's own processes make them. The builder's limits still fix what a 
   joins the main river downstream of the start reach or runs to its own edge, keeping 12 tiles beyond the start's
   zone and 2 tiles clear of other rivers (D57, D62). **Counterplay:** a levee or dam across the outlet contains it
   (a source never stops, so only while the basin fills); thorn tiles along the rim block its soil contamination
-  (7-tile reach).
+  (7-tile reach). The ditch's course is found as a stream's (`land/hazards.ts`): the field's own drainage, else
+  eight-way steps along valleys and low ground, a terrace down at its lowest and round a cliff where it can, clear of
+  the edges of ground it keeps off; its corners rounded, then wound by the rivers' meander, never straight for more
+  than 9 tiles (#330).
 - **Where** (D200): every map has badwater (§5.4), as many basins as the official maps have sources for the size,
   each where the ground 4–6 tiles round its floor stands higher (a hollow or a side valley, as 84% of the official
   sources stand) before open ground, at the badwater distance + 14 tiles from the start. A map that asks for badwater
@@ -656,8 +676,13 @@ where the land's own processes make them. The builder's limits still fix what a 
   as it stands, at least the badwater distance + 14 tiles from the start, the water settled again with them, and a
   spring dropped when its badwater comes nearer the start than the badwater distance.
 - **Validated:** no badwater or contaminated soil within the badwater distance of the start; the start's pumpable
-  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater may join rivers and lakes
-  (D469; `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
+  water stays clean (contamination under 0.05); at least one clean river reach of 40+ tiles; badwater joins rivers and
+  lakes (D469), and on most maps the first basin's ditch joins the theme's main water (D476, `land/hazards.ts`
+  `mainWater`: Lake Basin's main lake, its largest planned lake, or water flowing into it; elsewhere the river named
+  `river/main` with its split arms, its lakes and the rivers joining it, on a delta its trunk and own channel, on
+  Islands the sea it drains), below the start's water where it can, else beyond the badwater distance with the start
+  then found by other clean water (`BadwaterAsk.join`); on about 15 maps in 100 (`OWN_DRAIN`, its own hash), and where
+  no join can be routed, the badwater drains where the land takes it ( `water.badwater_contained`, §11.3, only counts basins whose water leaves). **Badtide:** every clean source emits
   badwater, so only stored water stays clean (the map card says nothing about badtides, D472).
 
 ### 9.6 Plugged spillway, 9.8 Second district site, 9.9 Gorge
@@ -778,7 +803,7 @@ tiles from the start (`start.badwater`), and a lake beside a relic or mine site 
    water drained, and the water settles on from there, by the same test and limit; a map with none keeps its
    bytes. The Python oracle does the same (golden fixture `plateau_pit`). An imported map's own standing water that
    no source of its file feeds is a stored lake of the map (D457), kept like a Fill.
-3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, 7 significant digits, depths
+3. **The file** stores the settled depth and contamination (`depth:cont:0:floor:depth`, the Single to 9 significant places, #310 F3; depths
    under 1e-6 dry), outflows 0, soil moisture and contamination at steady state, and the evaporation modifiers of the
    settled water.
 
@@ -904,7 +929,7 @@ when a map misses one (D85).
 | `start.wood` | Requirement 2 (D164, D227): the logs of the grown trees within 20 tiles' walk (slopes allowed), alive or dead, by species ≥ Minimum starting wood (250 / 200 / 0); saplings' logs reported apart. | rejects |
 | `start.wood_floor` | The starting-logs floor (D224, D227): the same logs within about 40 tiles' walk (the pin's `withinWalk`) ≥ the floor (178 for 1.1.2.4), at every difficulty. Never approximate: counted over the ground and its slopes, never the water. Both validators. | rejects (the editor: on the quiet dot, never blocking export) |
 | `start.food` | Requirement 3: living berry bushes within 20 tiles' walk (slopes allowed) ≥ Minimum starting bushes (40 / 30 / 20). | rejects |
-| `start.badwater` | No badwater water or contaminated soil within the badwater distance (30 / 15 / 8). | advisory |
+| `start.badwater` | No badwater water or contaminated soil within the badwater distance (30 / 15 / 8). | blocking when generating (Kyler, 2026-10-05); advisory otherwise |
 | `start.reach` | Dry tiles walkable from the start (same level, plus slope links; blocked by Thorns, Blockage, NaturalDam, relics, cores, geothermal and mine sites) ≥ the buildable-land target (750 / 1,300 / 2,500). | advisory |
 | `start.ruins_clear` | No ruin column within 20 / 15 / 12. | advisory |
 | `plants.survive` | Every living tree and bush stands on moisture > 0, no water and clean soil; every living succulent on moisture 0. | rejects |

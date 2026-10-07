@@ -22,7 +22,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `official-baselines.ts`, `straight-reference.ts`, `edge-walls.ts`, `start-spread.ts`, `start-water-fed.ts`: measure the official maps, real channels and generated starts.
 
 **Contact sheets and captures**
-- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps.
+- `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).
 - `capture-*.ts`: before and after captures for Kyler's look rounds, taken in a real browser.
 
 **Data the game supplies**
@@ -64,3 +64,16 @@ and, with `--native`, `forces-batch`; `tools/rust/check.ts` runs their byte fixt
 natively, in Node's WebAssembly and in each engine against the pins in `tools/rust/forces-pins.json`, taken when
 the TypeScript forces (tag `ts-forces-final`) gave the same. A deliberate change to a force re-pins them:
 `npx tsx tools/rust/forces-jobs.ts > tools/rust/forces-pins.json`.
+
+The Rust analysis (D391): the same for its six kernels: the committed Wasm `src/core/analysis/rust/analysisWasm.ts`,
+`analysis-batch`, and byte fixtures (`tools/rust/analysis-jobs.ts`) against `tools/rust/analysis-pins.json`, taken
+when the TypeScript kernels (tag `ts-analysis-final`) gave the same. A deliberate change to a kernel re-pins them:
+`npx tsx tools/rust/analysis-jobs.ts > tools/rust/analysis-pins.json`.
+
+The Rust checks (D465): the same for the map checks: the committed Wasm `src/core/validate/checksWasm.ts`,
+`checks-batch`, and byte fixtures (`tools/rust/checks-jobs.ts`, validations of the forces' studies) against
+`tools/rust/checks-pins.json`, taken when the TypeScript checks (tag `ts-checks-final`) gave the same. A deliberate
+change to a check re-pins them: `npx tsx tools/rust/checks-jobs.ts > tools/rust/checks-pins.json`. The data the
+checks share with the TypeScript (footprints, calibrated targets, names…) is generated into
+`rust/checks/src/tables.rs` by `npx tsx tools/rust/checks-tables.ts` (`tests/unit/checksTables.test.ts` fails when it
+is stale).

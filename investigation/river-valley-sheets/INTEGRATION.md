@@ -49,3 +49,11 @@ Remove-Item Env:RV_MODE,Env:RV_CAPTURE_MODES,Env:RV_CAPTURE_SEEDS,Env:RV_SHEET_R
 To regenerate the original dev/round-1 image, capture modes `dev,round1` and seeds `12,19,5,21,22,26`, then run `sheets.py` without `RV_SHEET_ROUND=2`. Original round-1 evidence remains committed.
 
 Keep all bulk JSON, `.timber` maps, individual images, builds and rejected trials in gitignored `local/` (D195). Only the two round-2 JPEG sheets, small evidence, reports, patch and reproduction/regression tools are added. Tests are capped at four workers; generation and capture batches are sequential. Runtime is deliberately not measured. Push only `investigation/river-valley-sheets`, update only PR #244 into dev, and do not merge, approve or enable auto-merge.
+
+## Adopted (generator 0.8.5)
+
+The patch applied unchanged on dev at 0.8.4 (`feature/river-valley-2`). `run.cjs` no longer loads today's source (the
+Rust bridge is an ES module), so the measures were re-run with `batch.ts` under tsx, with no in-memory transform:
+`RV_MODE=dev npx tsx investigation/river-valley-sheets/batch.ts` on dev, again with `RV_MODE=after` once the patch
+was applied, then `npx tsx investigation/river-valley-sheets/compare.ts` for the outcomes, flood sheets and cliff
+splits, before and after.

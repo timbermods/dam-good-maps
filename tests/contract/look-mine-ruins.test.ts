@@ -17,8 +17,17 @@ import { ORIENTATION_NAMES, RUIN_VARIANT_IDS } from "../../src/render3d/model";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
-/** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as M9b
- *  makes it (generator 0.8.0: composition and variety, the game's water and soil rules, D308, D311;
+/** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
+ *  0.8.5 makes it (River Valley round 2, #244: this River Valley map's land and water unchanged, only the
+ *  version the file carries, D148); `b5dead43…` before it, as generator 0.8.4 made it (Lake Basin round 3,
+ *  #234: land and water unchanged, only the version); `5aa13f63…` before it, as generator 0.8.3 made it (badwater joins
+ *  the main water on most maps, D476, D148, the one re-pin of its step); `9c09b2e0…` before it, as generator 0.8.2 made it (Delta arms round 2, #233: this River Valley map's land and
+ *  water unchanged, only the version the file carries, D148); `94c2b753…` before it, as the
+ *  badwater line fix made it (generator 0.8.1, D148, the one re-pin of its step: the ditches
+ *  follow the land as the rivers do and may join rivers and lakes, Kyler 2026-10-03; wider names;
+ *  Kyler's verdicts of 2026-10-05: the theme's main water clean on most maps, the start's badwater
+ *  distance a rule read at rest; #310 F3's water tokens);
+ *  `80f7c5ef…` before it, as M9b made it (generator 0.8.0: composition and variety, the game's water and soil rules, D308, D311;
  *  batch 5, D325, D329: the land on the beds' floor, living trees only, two reachable mine sites,
  *  the start's land, badwater contained, the edge lip, the first map that passes; D333: the land
  *  kept once it passes, no flat level with the water, springs toward the land far from it; D348,
@@ -33,7 +42,7 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "80f7c5ef5388bedc68adbb0e33f671b6c0e5971a1e4c11b0d99fedc97b518f05";
+const LIVE_SHA = "498f0630b9854122467d8b926a07ee033c2d12c6fe2289e730b8208e6bb27818";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
