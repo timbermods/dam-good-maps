@@ -31,7 +31,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
   (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
   next River Valley round 2 (#244, `feature/river-valley-2`, 0.8.5, waiting on Kyler's sheets), Islands round 6
-  (#235, 0.8.7), Canyon and Highlands (#261).
+  (#235, 0.8.7), Canyon and Highlands (#261, 0.8.8).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
   #225) and green CI.
 - **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
@@ -263,7 +263,7 @@ generator queue above.
 
 ## Canyon and Highlands height (#261)
 
-The height the eye sees on the 96² round: generator 0.9.0, renumbered if it merges after #265. Highlands is approved; a new
+The height the eye sees on the 96² round: generator 0.8.8. Highlands is approved; a new
 Canyon session (Opus 5.5) does one Canyon-only round: seed 27's gorge and the round's start lakes.
 
 ## Islands round 6 (#235)

@@ -3,7 +3,7 @@
 Base: `dev`'s tip `79881e0b` (M9b released) with the 96² round's change (`investigation/canyon-highlands-96`,
 PR #224) applied first; Kyler keeps both rounds together. This round lands as a change to the product on this
 branch (Kyler, 2026-10-04): `land/canyon.ts`, `land/highlands.ts` and their call in `gen/generate.ts`, generator
-0.9.0, the contract tests re-pinned (D148), PLAN §8 and STATUS updated. Each theme's own shaping only; River Valley
+0.8.8 (0.9.0 on its first base), the contract tests re-pinned (D148), PLAN §8 and STATUS updated. Each theme's own shaping only; River Valley
 and Any are untouched; nothing is stamped.
 
 ## The camera
