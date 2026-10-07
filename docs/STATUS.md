@@ -40,9 +40,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (67075f97); full run 37597312248 green. Its nightly failed on dev's own Badwater experiment (#350). Once #350 is on dev: merge dev in, full run and nightly, merge when both are green |
-| #350 | Settings suite: the Badwater experiment runs 8 seeds | milestone | dev's nightly is red since River Valley round 2 (4 seeds move 0.57, bar 0.6; 8 seeds 0.71, as much as 0.8.4). Nightly 37603764242 on the branch: merge when it and the PR's checks are green |
-| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`. Real conflicts with dev now the page is on it (src/worker/session.ts against the held weather view, src/editor/waterPlayer.ts): forces play merges dev in (asked on #236). Then the checks, /preview/ once its build holds the page editor (D477), and a ping to Kyler; after his try, republish the page editor |
+| #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (bcd7fb9d, with #350's nightly fix). Full run 37609333532 and nightly 37609336620 going: merge when both are green |
+| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
+| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Its Rust is a core change: review with a full CI run before it merges |
 | #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
 | #235 | Islands round 6 | milestone | `approved` and `needs-kyler`: merged with dev and re-pinned (0.8.6, 62850d17; worktree `DamGoodMaps-islands-6`), but its measures on today's dev fall short of the approved round (all three outcomes at 96² 30 → 26, 128² 26 → 22, 256² 30 → 21) and startPlanting's ring test fails (0.442, bar 0.45). Kyler's choice on the PR: merge as it is with the test held, or another pass on sea maps' badwater and starts first |
 | #303 | Codex page hunt (draft) | Codex | Running |
