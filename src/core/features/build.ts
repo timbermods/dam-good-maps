@@ -55,6 +55,7 @@ import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
+import type { ColumnTerrain } from "../terrain/runs";
 
 export { BuildTarget } from "./target";
 export { assignRuinHeights } from "./raster/resources";
@@ -78,9 +79,11 @@ export interface PlacedSource {
 /** An imported map (or a generation's stored base, opened by a newer generator) under the
  *  features: its surface, its caves and overhangs, and its objects. */
 export interface BaseLayer {
+  /** Its terrain as runs per tile (D119). The tiles that are not a plain run from z = 0 are kept
+   *  exactly, left alone by every tool. */
+  terrain: ColumnTerrain;
+  /** Its surface, derived from the terrain (`terrain.heights()`). */
   heights: Uint8Array;
-  /** Columns that are not a plain run from z = 0: kept exactly, left alone by every tool. */
-  columns: ReadonlyMap<number, Uint8Array>;
   entities: readonly EntitySpec[];
   /** Features the base already contains (a stored generation): not rasterized again. */
   frozen?: ReadonlySet<string>;
@@ -620,7 +623,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     for (const [k, tiles] of watch) if (!slopeGone![k] && broken(tiles, heights)) slopeGone![k] = 1;
   };
   checkSlopes();
-  const caves = base && base.columns.size ? (i: number) => base.columns.has(i) : undefined;
+  const caves = base && !base.terrain.allPlain() ? (i: number) => !base.terrain.isPlain(i) : undefined;
   //    (a Keep stroke keeps its sources' ground as step 7 shows it, reading the tiles as it will)
   const shownLock = input.locked?.mask;
   const shown = {
@@ -633,8 +636,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     if (watch.length) checkSlopes();
   }
   //    an imported map's caves and overhangs are left exactly as they are
-  if (base) t.forEach((i) => {
-    if (base.columns.has(i)) {
+  if (base && caves) t.forEach((i) => {
+    if (caves(i)) {
       heights[i] = base.heights[i];
       protect[i] = 1;
     }
@@ -1332,7 +1335,7 @@ function markDifference(a: readonly number[], b: readonly number[], mask: Uint8A
 function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: number): EntitySpec {
   if (!e.raw) return e;
   const i = e.y * W + e.x;
-  if (i < 0 || i >= heights.length || base.columns.has(i)) return e;
+  if (i < 0 || i >= heights.length || !base.terrain.isPlain(i)) return e;
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;

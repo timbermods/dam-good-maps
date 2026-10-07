@@ -11,7 +11,7 @@ import { moistureBarrier, waterModel } from "../sim/model";
 import { toMapObject } from "../features/build";
 import { placementOf, type EntitySpec } from "../format/entities";
 import { plainOf, type JsonValue } from "../format/json";
-import { ColumnTerrain, TERRAIN_LAYERS } from "../terrain/runs";
+import type { ColumnTerrain } from "../terrain/runs";
 import type { MapSession } from "./session";
 
 export interface BlastInfo {
@@ -29,14 +29,8 @@ const componentsOf = (e: EntitySpec): Record<string, unknown> => (e.raw ? (e.raw
 
 /** The map's terrain as solid runs, and its objects as the blast sees them. */
 export function blastMap(s: MapSession): { terrain: ColumnTerrain; objects: BlastObject[] } {
-  const { x: W, y: H } = s.size;
   const b = s.built;
-  const terrain = ColumnTerrain.fromHeights(b.heights, W, H);
-  for (const [i, col] of s.columns) {
-    let m = 0;
-    for (let z = 0; z < col.length && z < TERRAIN_LAYERS; z++) if (col[z]) m |= 1 << z;
-    terrain.mask[i] = m >>> 0;
-  }
+  const terrain = s.terrain;
   const objects: BlastObject[] = [];
   for (const e of b.entities) {
     if (e.raw && !placementOf(e.raw)) continue;
@@ -85,9 +79,7 @@ export function explosionAfter(s: MapSession, id: string): ExplosionAfter {
   const columns = new Map<number, Uint8Array>();
   for (let i = 0; i < W * H; i++) {
     if (after.terrain.isPlain(i)) continue;
-    const col = new Uint8Array(TERRAIN_LAYERS);
-    for (let z = 0; z < TERRAIN_LAYERS; z++) if (after.terrain.solid(i, z)) col[z] = 1;
-    columns.set(i, col);
+    columns.set(i, after.terrain.column(i));
   }
   const entities = b.entities.filter((e) => !after.removed.has(e.id));
   const objects = entities.filter((e) => !e.raw || placementOf(e.raw)).map(toMapObject);
