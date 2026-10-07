@@ -549,7 +549,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
       label="Deposit options"
       groups={[
         { key: "power", row: 1, at: 1, span: 6, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
-        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How far the fan spreads", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How wide the fan is", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "channels",
           row: 2,

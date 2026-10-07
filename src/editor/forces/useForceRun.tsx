@@ -421,12 +421,12 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The band's half width for the force picked, as drawn (D344 A3, amended by D361 (2)): the preview
    *  is the player's stroke, never what the force decides. Carve's and Glaciate's width is their Size,
-   *  the player's own, and a rift's too (its drawn fault opens at its Size); a fault, a fissure or a fan's
-   *  line is its line, a narrow band about as wide as a fault's crack (its reach, a fissure's breadth, a fan's
-   *  spread and the ground inside a loop are the force's, never drawn). */
+   *  the player's own, and a rift's and a deposit's too (a drawn fault opens at its Size, a drawn fan is its
+   *  Size wide, #341); a fault or a fissure is its line, a narrow band about as wide as a fault's crack (its
+   *  reach, a fissure's breadth and the ground inside a loop are the force's, never drawn). */
   function bandRadius(): number {
     const verb = ed.toolRef.current;
-    if (verb === "quake" || verb === "erupt" || verb === "deposit") return STROKE_RADIUS;
+    if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
     return reachNow() ?? 0;
   }
 
