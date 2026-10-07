@@ -7,10 +7,12 @@
 
 import { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN } from "../core/forces/erupt";
 import { GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN } from "../core/forces/glaciate/model";
+import { RIFT_SIZE_MAX, RIFT_SIZE_MIN } from "../core/forces/rift";
+import { DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN } from "../core/forces/deposit";
 import type { Verb } from "../core/forces/op";
 
 /** The forces with a Size (Quake's drawn line is its length: it has none). */
-export type SizedForce = "carve" | "craterize" | "erupt" | "glaciate";
+export type SizedForce = "carve" | "craterize" | "erupt" | "glaciate" | "rift" | "deposit";
 
 /** Each Size's range and step, in tiles across (Carve's is its width), as its slider has it. */
 export const FORCE_SIZES: Readonly<Record<SizedForce, { min: number; max: number; step: number }>> = {
@@ -18,6 +20,8 @@ export const FORCE_SIZES: Readonly<Record<SizedForce, { min: number; max: number
   craterize: { min: 4, max: 180, step: 2 },
   erupt: { min: ERUPT_SIZE_MIN, max: ERUPT_SIZE_MAX, step: 2 },
   glaciate: { min: GLACIATE_SIZE_MIN, max: GLACIATE_SIZE_MAX, step: 2 },
+  rift: { min: RIFT_SIZE_MIN, max: RIFT_SIZE_MAX, step: 2 },
+  deposit: { min: DEPOSIT_SIZE_MIN, max: DEPOSIT_SIZE_MAX, step: 2 },
 };
 
 export const sized = (verb: Verb | string | null): verb is SizedForce => verb !== null && verb in FORCE_SIZES;

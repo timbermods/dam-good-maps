@@ -30,6 +30,10 @@ export const TRIM: Readonly<Record<string, number>> = Object.freeze({
   // the forces' -16.5: its own level, not re-measured by the round's calibration; Kyler's listening
   // check covers it with the others)
   glaciate: 1,
+  // (Rift's and Deposit's recipes are the page's, from the same bank: their own level until measured, Kyler's
+  // listening check covering them with the others)
+  rift: 1,
+  deposit: 1,
   undo: 2.5032,
   waterfall: 0.5741,
   stream: 0.9343,

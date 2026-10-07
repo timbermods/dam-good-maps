@@ -1,4 +1,4 @@
-// Export and save: the project file, the map for Timberborn, and the quiet notices.
+// Export and save: the project file and the map for Timberborn; an opened file's import flags for the quiet dot.
 
 import { proxy } from "comlink";
 import { saveFile, saveToTimberborn } from "../../platform";
@@ -7,15 +7,11 @@ import { plain } from "../panels";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
-/** What the editor says once the map's last badwater spring is gone (D213). */
-const NO_BADWATER_LINE = "No badwater: you removed the map's last badwater spring, so this is a peaceful map now. Badtides still come.";
-
 export interface SaveSlice {
   exportProject: () => Promise<void>;
   saveMap: (kind: "timberborn" | "download") => Promise<void>;
-  notices: string[];
+  /** An opened file's import flags, each with its fix: the quiet dot lists them (Kyler, 2026-10-03). */
   flags: ImportFlag[];
-  importChanges: number;
 }
 
 export function useSave(ed: Ed): SaveSlice {
@@ -24,7 +20,10 @@ export function useSave(ed: Ed): SaveSlice {
   // ------------------------------------------------------------------------------ export
 
   async function exportProject() {
-    const p = await api.project();
+    // (in the edits' queue, as the .timber download is: a stroke already shown is in it; a force at work is kept
+    // first, its land in the file as shown: investigation/page-qa F1)
+    await ed.forcer.current?.stop();
+    const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
   }
 
@@ -37,6 +36,8 @@ export function useSave(ed: Ed): SaveSlice {
     setSaving({ kind, progress: null });
     setMessage(null);
     try {
+      // (a force at work is kept first: its land lives outside the map until then, investigation/page-qa F1)
+      await ed.forcer.current?.stop();
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
       const r = await enqueue(() => api.exportTimber(true, onProgress));
       if (!r.ok) {
@@ -44,13 +45,15 @@ export function useSave(ed: Ed): SaveSlice {
         setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
         return;
       }
+      // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
+      const fileName = r.fileName;
       if (kind === "download") {
-        saveFile(r.bytes, r.fileName);
-        setMessage({ kind: "info", text: `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+        saveFile(r.bytes, fileName);
+        setMessage({ kind: "info", text: `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
         return;
       }
-      const v = await saveToTimberborn(r.bytes, r.fileName);
-      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? r.fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${r.fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+      const v = await saveToTimberborn(r.bytes, fileName);
+      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
     } finally {
@@ -58,10 +61,7 @@ export function useSave(ed: Ed): SaveSlice {
     }
   }
 
-  // D213: removing the map's last badwater spring makes it a No badwater map, said in a quiet line
-  const notices = [...(info.badwaterRemoved ? [NO_BADWATER_LINE] : []), ...info.notices, ...(info.importReport?.changes.filter((c) => c.level === "warning").map((c) => c.message) ?? [])];
   const flags = info.importReport?.flags ?? [];
-  const importChanges = info.importReport?.changes.length ?? 0;
 
-  return { exportProject, saveMap, notices, flags, importChanges };
+  return { exportProject, saveMap, flags };
 }

@@ -5,6 +5,7 @@
 // back); with Ctrl, Flatten picks the level under the pointer, on water the bed.
 
 import { expect, test, type Page } from "@playwright/test";
+import { centreOn, openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -58,10 +59,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // (seed 9 since D252's start planting, D148: seed 15, used since M9a's first maps, now has only one
   // stretch of flat, dry, empty ground 7 wide away from its start, and the test places two sources;
   // on 0.7.0's 4242 the river where the stroke starts has water on both sides of the line)
-  await page.goto("./#s=2&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   let i = await info(page);
   const W = i.W;
@@ -75,7 +73,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   const from: [number, number] = [Math.round(on[0]), Math.round(on[1])];
   const dir = from[1] < W / 2 ? 1 : -1;
   const line = Array.from({ length: 15 }, (_, k) => [from[0], from[1] + dir * k] as [number, number]);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   const far = await client(page, ...line[14]);
   await page.mouse.move(far.x, far.y);
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.brushCursorState?.water ?? false)).toBe(false);
@@ -133,7 +131,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   const spot = await flatDry(page, start, 3, [from]);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   const sp = await client(page, sx, sy);
   const wet1 = await wet(page);
   await page.mouse.move(sp.x + 3, sp.y);
@@ -191,9 +189,10 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.keyboard.press("Escape");
 
   // Flatten with Ctrl over the river: the level of its bed, and no other words
-  await page.getByRole("button", { name: "Flatten brush (3)" }).click();
+  await page.getByRole("button", { name: "Flatten brush (4)" }).click();
   const mid = path[Math.floor(path.length / 2)];
   const m = [Math.round(mid[0]), Math.round(mid[1])] as [number, number];
+  await centreOn(page, m[0], m[1]);
   const mp = await client(page, ...m);
   await page.mouse.move(mp.x + 4, mp.y);
   await page.keyboard.down("Control");
