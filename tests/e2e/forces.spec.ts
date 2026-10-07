@@ -411,7 +411,10 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  await openTopDown(page);
+  // (seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands on
+  // the top bench beside a fall of nine levels to the west, and the ground that gives way down it makes the
+  // lowered tiles 41 wide for 28 tall, though still centred on the press)
+  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
   await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");

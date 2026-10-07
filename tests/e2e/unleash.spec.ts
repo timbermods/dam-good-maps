@@ -35,13 +35,21 @@ test("Unleash: a selected source carves its own course, kept as one step when it
       const p = window.dgmEditor!.tileToClient(x, y);
       return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
     };
+    // (and no source of the map's own within six tiles: at this zoom a click that near one picks it instead
+    // of placing another, as on 0.8.8's Highlands 96² seed 4242, whose highest dry ground far from the start,
+    // (68, 26), lies three tiles from a spring's head at (66–67, 29), D148)
+    const e = m.entities;
+    const taken = (x: number, y: number) => {
+      for (let k = 0; k < e.count; k++) if (/Source$/.test(e.templates[e.template[k]]) && Math.abs(e.x[k] - x) <= 6 && Math.abs(e.y[k] - y) <= 6) return true;
+      return false;
+    };
     let best: { at: [number, number]; end: [number, number] } | null = null;
     let score = -Infinity;
     // (well inside the map, so its water has somewhere to run before an edge)
     for (let y = 26; y < m.H - 26; y += 3)
       for (let x = 26; x < m.W - 26; x += 3) {
         const h = m.heights[y * m.W + x];
-        if (m.surface.depth[y * m.W + x] > 0 || !onMap(x, y) || Math.hypot(x - st[0], y - st[1]) < 24) continue;
+        if (m.surface.depth[y * m.W + x] > 0 || !onMap(x, y) || Math.hypot(x - st[0], y - st[1]) < 24 || taken(x, y)) continue;
         let low: [number, number] | null = null;
         for (let yy = y - 20; yy <= y + 20; yy += 2)
           for (let xx = x - 20; xx <= x + 20; xx += 2) {
