@@ -48,7 +48,8 @@ function lakeCourse(theme: ThemeId, seed: number, size: number): { onLake: numbe
 describe("a river through a planned lake", () => {
   it("keeps its channel at its bed across the lake, continuous where the lake settles smaller than planned", () => {
     for (const [theme, seed] of [
-      ["riverValley", 5],
+      // (seed 7 for 0.8.5's maps, D148: River Valley round 2's trunk no longer crosses a planned lake on seed 5)
+      ["riverValley", 7],
       ["riverValley", 8],
       ["lakeBasin", 1],
     ] as const) {

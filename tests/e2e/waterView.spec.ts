@@ -1,5 +1,5 @@
 // Water is never an object, and the ways to see it (PLAN §20 D196, D197, D212): clicking water
-// picks nothing; the hover readout gives its depth, bed and badwater; T or Clear water make all of
+// picks nothing; the hover readout gives its depth, bed and badwater; T or See-through make all of
 // it see-through, and a brush over water clears the water round it (on dry land it stays as it
 // is); Alt+scroll and Alt+click cut the world into layers; Shift+scroll sets a soft brush's strength; a source is
 // always findable (its marker with a source picked on the shelf, and the sources feeding the water
@@ -7,6 +7,7 @@
 // the source; the water flows on a stroke while it is painted, and its speed is the player's.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -41,10 +42,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   // first third of seed 8 three source groups feed a spot; at 0.1 to 0.3 of its path, one does)
   // (at 5% of its river on 0.8.3's maps, D476, D148: a spring river now joins seed 8's above 10% of its
   // path, so from there two source groups feed the spot; above it one does)
-  await page.goto("./#s=8&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=8&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   const i = await info(page);
   const W = i.W;
@@ -70,10 +68,10 @@ test("water is never an object; clear water, layers, strength, sources findable 
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("t");
   await expect.poll(() => clear(page)).toBe(true);
-  await expect(page.getByRole("button", { name: "Clear water" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Clear water" }).click();
+  await expect(page.getByRole("checkbox", { name: "See-through" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("checkbox", { name: "See-through" }).click();
   await expect.poll(() => clear(page)).toBe(false);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   await page.mouse.move(mp.x + 2, mp.y);
   await page.mouse.move(mp.x, mp.y);
   await expect.poll(() => clearNear(page)).not.toBeNull();
@@ -86,7 +84,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   expect(await clear(page)).toBe(false);
   await page.keyboard.press("Escape");
   // the shelf's ghost over water clears the water under it too (placing on a bed)
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   await page.mouse.move(mp.x + 2, mp.y);
   await page.mouse.move(mp.x, mp.y);
   await expect.poll(() => clearNear(page)).not.toBeNull();
@@ -114,19 +112,22 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.keyboard.up("Alt");
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
   await expect(widget.locator("output")).toHaveText("∞");
-  // the widget: a step down, one up, and back to the whole world; Esc never resets it
+  // the widget (Kyler, 2026-10-03: ▾ value ▴ only): the first step down from the whole world goes to the map's highest
+  // ground less one, as the game steps, then one lower, one up, and a click on the value is back to the whole world;
+  // Esc never resets it
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await widget.getByRole("button", { name: "Lower the visible layer" }).click();
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 2);
   await widget.getByRole("button", { name: "Raise the visible layer" }).click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(top - 1);
-  await widget.getByRole("button", { name: "Show every layer" }).click();
+  await widget.locator("output").click();
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.slice)).toBe(null);
 
   // a source picked on the shelf: every source shows its marker with its strength
-  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source (6)" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
   await expect.poll(async () => page.locator(".source-marker").count()).toBeGreaterThan(0);
   // a new source on dry, empty, level ground (level 3 × 3: a badwater source stands on it below;
   // M9a's land is rarely level where the first dry tile is, D148)
@@ -170,12 +171,8 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await idle(page);
   await lastStep(page, "Remove a badwater source");
 
-  // the water's speed: normal by default, instant straight to the result
-  const speed = page.getByRole("combobox", { name: "Water speed" });
-  await expect(speed).toHaveValue("normal");
-  await speed.selectOption("instant");
-  await expect(speed).toHaveValue("instant");
-  await speed.selectOption("normal");
+  // no Speed in the water row (Kyler, 2026-10-04): the water after an edit always plays at Normal
+  await expect(page.getByRole("group", { name: "Water speed" })).toHaveCount(0);
 
   // the water flows on a stroke while it is painted (D197): a Lower stroke out of the river, and
   // water in its channel before the button comes up
@@ -185,7 +182,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const dir = from[1] < W / 2 ? 1 : -1;
   const channel = Array.from({ length: 6 }, (_, k) => (from[1] + dir * (4 + k)) * W + from[0]);
   const before = await depthAt(page, channel);
-  await page.getByRole("button", { name: "Lower brush (2)" }).click();
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
   // (the brush takes the map's left button once the page has drawn the click: pressed sooner, on a slow
   // page, the drag panned the camera, nothing was painted and the water never came. So the press waits
   // for the brush to be out: over the river it clears the water round it, D212)
@@ -204,7 +201,7 @@ test("water is never an object; clear water, layers, strength, sources findable 
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   // Shift+scroll sets a soft brush's strength (Smooth's), and says it beside the pointer (a height
   // brush's target, D322: brushKit.spec)
-  await page.keyboard.press("4");
+  await page.keyboard.press("5");
   // (the strength is said for 1.2 s, then the brush's own words come back: what the note said is kept as
   // it changes, so a slow page or a slow poll can't miss it, D341)
   await page.evaluate(() => {

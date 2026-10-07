@@ -87,13 +87,15 @@ describe("Max water depth (D264)", () => {
       for (const i of r.raised) expect(rv[i], `river tile ${i}`).toBeLessThan(1.6);
     }
   };
-  // (seed 5 for 0.8.1's maps, D148: seed 2's river has no stretch deeper than 1.2 that the rule raises, so the
-  // river half had nothing to apply; seeds 5 and 7 have both halves)
-  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(5));
-  // An expected failure, kept on the seed that caught it (Kyler, 2026-10-02): on M9b's River Valley 96²
-  // seed 3 the settle leaves the pit 0.07 over the 3, past the 0.06 the bound allows (the editor's water,
-  // for the milestone session); when it passes, `fails` comes off.
-  it.fails("seed 3: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(3));
+  // (seed 9 for 0.8.5's maps, D148: it has both halves, a dry spot for the pit and a river stretch the rule
+  // raises; seed 5's pit now shows the shortfall below. Seed 5 for 0.8.1's maps: seed 2's river had no stretch
+  // deeper than 1.2 that the rule raises, so the river half had nothing to apply)
+  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(9));
+  // An expected failure, kept on a seed that shows it (Kyler, 2026-10-02): the settle leaves the pit 0.07 over
+  // the 3, past the 0.06 the bound allows (the editor's water, for the milestone session); when it passes,
+  // `fails` comes off. M9b's River Valley 96² seed 3 caught it; on 0.8.5's maps seed 3's pit ends within the
+  // bound and seed 5's 0.07 over (D148, the same failure re-seeded).
+  it.fails("seed 5: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(5));
 
   // Where no water is deeper than the number there is nothing to raise, and nothing is sent; an empty
   // step reaching the session is refused with a reason, never a history entry (reading the history

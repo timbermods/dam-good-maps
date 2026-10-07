@@ -1,7 +1,7 @@
 // The minimap (PLAN §20 D205): a small top-down picture of the whole map in a corner, the Real
 // places look (`core/render/shade.ts`: height and a hillshade, water blue), drawn again when the
-// page is idle after an edit settles, never per frame; the outline is what the camera sees, and a
-// click or a drag on it moves the camera there.
+// page is idle after an edit settles, never per frame; a click or a drag on it moves the camera there. It draws no
+// outline of the view (Kyler, 2026-10-04: with the whole map on screen only one edge of it crossed the picture).
 
 import { useEffect, useRef } from "preact/hooks";
 import { shadeTiles } from "../core/render/shade";
@@ -16,8 +16,6 @@ export interface MinimapProps {
   depth(): ArrayLike<number> | null;
   /** Changes when the map's ground or water has settled after an edit: it is drawn again. */
   stamp: string;
-  /** Changes when the camera moves: the outline follows. */
-  viewTick: number;
 }
 
 /** The minimap's size on the page, in pixels (the map's longer side). */
@@ -59,9 +57,13 @@ export function Minimap(p: MinimapProps) {
     };
   }, [p.stamp, p.W, p.H]);
 
-  const outline = p.renderer ? p.renderer.groundFootprint() : [];
-  void p.viewTick;
-  const pts = outline.map(([x, y]) => `${(x * scale).toFixed(1)},${((p.H - y) * scale).toFixed(1)}`).join(" ");
+  // the view reads its height from --minimap-h: the readout and the coordinates stand on it (Layout 2)
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const view = box.current?.parentElement;
+    view?.style.setProperty("--minimap-h", `${h}px`);
+    return () => view?.style.removeProperty("--minimap-h");
+  }, [h]);
 
   /** Move the camera to the tile under a point of the minimap. */
   const moveTo = (ev: PointerEvent) => {
@@ -75,6 +77,7 @@ export function Minimap(p: MinimapProps) {
 
   return (
     <div
+      ref={box}
       class="minimap"
       role="img"
       aria-label="Minimap: the whole map from above; click or drag to move the camera there"
@@ -89,9 +92,6 @@ export function Minimap(p: MinimapProps) {
       onPointerCancel={() => void (drag.current = false)}
     >
       <canvas ref={canvas} width={p.W} height={p.H} />
-      <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
-        {pts ? <polygon points={pts} /> : null}
-      </svg>
     </div>
   );
 }

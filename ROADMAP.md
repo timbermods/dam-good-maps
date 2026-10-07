@@ -29,8 +29,9 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
-  (#325, 0.8.2) and badwater joins the main water (#330, D476, 0.8.3) are merged; next Lake Basin round 3 (#234, `feature/lake-basin-3`, with seeds 12 and 15 that have no lake, D464), River
-  Valley round 2 (#244), Islands round 6 (#235), Canyon and Highlands (#261).
+  (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
+  next River Valley round 2 (#244, `feature/river-valley-2`, 0.8.5, waiting on Kyler's sheets), Islands round 6
+  (#235), Canyon and Highlands (#261).
 - **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
   #225) and green CI.
 - **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
@@ -81,10 +82,19 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
    verdict on #330). Seeds 1–20 at 128², badwater reaching the main water, dev → 0.8.3: River Valley 1 → 17, Delta
    1 → 18, Lake Basin 5 → 18, Islands 16 → 19, Highlands 18 → 20, Canyon 19 → 19, Any 20 → 19; 27 of 140 starts moved
    for it, never the land.
-4. **Lake Basin round 3** (#234, `feature/lake-basin-3`, built and measured): drowned valley outlines; it also fixes seeds 12
-   and 15, which have no lake on dev yet pass the promise (D464).
-5. **River Valley round 2** (#244), **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands**
-   (#261, `approved`).
+4. **Lake Basin round 3** (done, #339, generator 0.8.4): drowned valley
+   outlines (an off-centre warped hollow cut after the uplands, bent drowned valleys into it, spurs between them). Seeds
+   12 and 15 had no lake on 0.8.3 yet passed (D464): Lake Basin's land screen now reads its lakes as the land holds them,
+   and a big lake is 8% of the map, not 4%. At 128², seeds 1–30, dev → 0.8.4: promise 29 → 30, readable water 27 → 30,
+   straightness 30 → 30; badwater reaches the lake on 18 of 20, as on dev.
+5. **River Valley round 2** (#244, `feature/river-valley-2`, generator 0.8.5, `needs-kyler` for its sheets): no flood
+   sheets. The default trunk enters from an edge and crosses at least half the map; it stays below its upstream bed
+   through a hollow; a lake the trunk drains keeps only its closed core; on a drawn cliff the hydrology tries two
+   courses and keeps the longer split. A spring given to a start that then gives way leaves the field too. At 128²,
+   seeds 1–30, dev → 0.8.5: promise 29 → 30, readable water 26 → 25 (every miss is clean water's reach, where
+   badwater runs down the main river, D476), flood sheets over 10% of the map 12 → 3, cliff splits kept (5: 88%,
+   27: 99%); badwater reaches the main river on 19 of 20 (17 on dev).
+6. **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands** (#261, `approved`).
 
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 

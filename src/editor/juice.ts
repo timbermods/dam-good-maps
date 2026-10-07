@@ -258,6 +258,16 @@ export class Juice {
         }
         break;
       }
+      case "rift":
+        // a low bed while the ground stirs and drops; the split once as it cracks open
+        if (cue.phase !== "done") hold("rift", "rumble", p);
+        if (cue.phase === "crack" || cue.phase === "done") once("crack", () => this.engine.play("rift", p, { id, phase: "crack" }));
+        break;
+      case "deposit":
+        // the muddy water once as the fan begins, its bed held while the sediment spreads, easing as it settles
+        once("advance", () => this.engine.play("deposit", p, { id, phase: "advance" }));
+        if (cue.phase !== "done") hold("deposit", "flow", { ...p, activity: 0.4 + 0.6 * (1 - cue.progress) });
+        break;
       case "erupt":
         // pressure as the ground stirs; the plume as it rises, its roar held while the volcano
         // swells, released for the cooling hiss when it is kept

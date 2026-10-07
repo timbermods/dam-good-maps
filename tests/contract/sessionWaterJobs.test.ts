@@ -35,14 +35,18 @@ afterEach(() => {
   uninstallParallelWater();
 });
 
-it("a cancelled Drought or Badtide view frees its simulation and its helper job (F5)", async () => {
+it("Drought and Badtide each keep one simulation while the map is open, and both are freed with it (F5)", async () => {
   const dispose = vi.spyOn(WaterSim.prototype, "dispose");
   for (let k = 0; k < 8; k++) {
-    ed.startWeather(k % 2 ? "drought" : "badtide");
-    ed.stopWeather();
+    ed.showWeatherDay(k % 2 ? "drought" : "badtide", 1);
     await vi.runAllTimersAsync();
+    ed.stopWeather();
   }
-  expect(dispose.mock.calls.length).toBe(8);
+  // (each hazard's days are kept until the map changes: switching back is instant, Kyler, 2026-10-04)
+  expect(dispose.mock.calls.length).toBe(0);
+  ed.closeSession();
+  await vi.runAllTimersAsync();
+  expect(dispose.mock.calls.length).toBe(2);
   expect(await jobs()).toBe(0);
 });
 

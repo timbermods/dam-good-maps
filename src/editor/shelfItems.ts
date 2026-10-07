@@ -21,14 +21,14 @@ export interface ShelfItem {
   hint: string;
   /** A water source: clean or bad (its strength in the options). */
   source?: "clean" | "bad";
-  /** Its key, when it has one. */
-  key?: string;
 }
 
+/** The objects menu's order (Layout 2, Kyler, 2026-10-03). */
 export const SHELF: readonly ShelfItem[] = [
-  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", key: "6", turns: false, hint: "where water starts" },
-  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "where badwater starts" },
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "where the colony starts" },
+  { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", turns: false, hint: "where water starts" },
+  { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "where badwater starts" },
+  { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
   { id: "Pine", name: "Pine", template: "Pine", fill: 0.8, turns: true, hint: "plant pines" },
   { id: "Birch", name: "Birch", template: "Birch", fill: 0.8, turns: true, hint: "plant birches" },
   { id: "Oak", name: "Oak", template: "Oak", fill: 0.8, turns: true, hint: "plant oaks" },
@@ -38,14 +38,30 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "a relic to demolish for science" },
   { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level" },
   { id: "Thorns", name: "Thorns", template: "Thorns", turns: true, hint: "blocks the way until cleared" },
-  { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
   { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel" },
   { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a spot for free power" },
 ];
 
-/** An item's tooltip (D368 (6)): what it is for, then its key and R's turn as key caps. */
+/** The legend's object lines and the objects menu's picture each shows (Kyler, 2026-10-03): the same pictures as
+ *  the menu. Trees and bushes shows the pine's. */
+export const LEGEND_TEMPLATES: Record<string, string> = {
+  "Trees and bushes": "Pine",
+  Start: "StartingLocation",
+  Slope: "Slope",
+  Ruins: "RuinColumnH3",
+  "Mine site": "UndergroundRuins",
+  "Water source": "WaterSource",
+  "Badwater source": "BadwaterSource",
+  "Geothermal field": "GeothermalField",
+  Relic: "SmallRelic",
+  Thorns: "Thorns",
+  Blockage: "Blockage",
+};
+
+/** An item's tooltip (D368 (6)): what it is for, nothing more (Kyler, 2026-10-06: no keys on the shelf, and R's turn
+ *  goes unsaid; R still turns a held item). */
 export function shelfTip(it: ShelfItem) {
-  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1), it.key, it.turns && "R turns it");
+  return tip(it.hint.charAt(0).toUpperCase() + it.hint.slice(1));
 }
 
 export interface ShelfOptions {

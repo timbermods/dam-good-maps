@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { describeObject, describeTile, describeTileOf, tileWords, type TileFacts } from "../../src/core/doc/describeTile";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { footprintTiles } from "../../src/core/format/footprints";
+import { footprintTiles, ORIENTATIONS } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
@@ -30,7 +30,8 @@ function spotFor(template: string, taken: Set<number>): [number, number] {
 
 describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
   it("each kind of thing the editor places is named, with its key fact and the ground under it", async () => {
-    // (seed 2 on M9b's maps, D148: the start's footprint is read at (+1, +1) of its anchor, which only holds for orientation Cw0, and seed 4's start now faces another way)
+    // (seed 2 on M9b's maps, D148, when the start's footprint was read at (+1, +1) of its anchor; it is read
+    // through its footprint, whichever way it faces, since 0.8.5's maps turned seed 2's start)
     await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     const taken = new Set<number>();
@@ -85,7 +86,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       if (t === "StartingLocation") start = k;
       if (t === "Slope" && slope < 0) slope = k;
     }
-    expect(ed.describeTileAt(e.x[start] + 1, e.y[start] + 1)!.objects.map((o) => o.text)).toContain("Start");
+    const startTiles = footprintTiles("StartingLocation", { template: "StartingLocation", x: e.x[start], y: e.y[start], z: e.z[start], orientation: ORIENTATIONS[e.orientation[start]], flipped: false });
+    const [sx, sy] = startTiles[Math.floor(startTiles.length / 2)];
+    expect(ed.describeTileAt(sx, sy)!.objects.map((o) => o.text)).toContain("Start");
     if (slope >= 0) expect(ed.describeTileAt(e.x[slope], e.y[slope])!.objects.map((o) => o.text)).toContain("Slope");
     const bare = ed.describeTileAt(1, 1)!;
     expect(bare.objects).toEqual([]);

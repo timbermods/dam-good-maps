@@ -14,7 +14,7 @@ export interface StartSlice {
   startReach: { check: StartCheck; fading: boolean } | null;
   hoverStart: (on: boolean) => void;
   startGrab: { current: { cancel(): void } | null };
-  grabObjectRef: { current: (hit: TileHit | null) => PointerTool | null };
+  grabObjectRef: { current: (hit: TileHit | null, pick?: boolean) => PointerTool | null };
   startCalls: { current: { grabStart: (hit: TileHit | null) => PointerTool | null } };
 }
 

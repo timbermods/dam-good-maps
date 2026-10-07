@@ -5,15 +5,16 @@ import { describe, expect, it } from "vitest";
 import { FORCE_GROUPS, FORCES } from "../../src/editor/TopBar";
 
 describe("the forces row's order (D352)", () => {
-  it("the groups: Carve, Craterize, Erupt · Rift, Quake, Glaciate · Erode, Deposit", () => {
+  // (Glaciate last: Kyler, 2026-10-06)
+  it("the groups: Carve, Craterize, Erupt · Rift, Quake, Deposit · Glaciate, Erode", () => {
     expect(FORCE_GROUPS).toEqual([
       ["carve", "craterize", "erupt"],
-      ["rift", "quake", "glaciate"],
-      ["erode", "deposit"],
+      ["rift", "quake", "deposit"],
+      ["glaciate", "erode"],
     ]);
   });
   it("the forces that exist follow it, and every one has a place in it", () => {
-    expect(FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "quake", "glaciate"]);
+    expect(FORCES.map((f) => f.id)).toEqual(["carve", "craterize", "erupt", "rift", "quake", "deposit", "glaciate"]);
     for (const f of FORCES) expect(FORCE_GROUPS.some((g) => g.includes(f.id))).toBe(true);
   });
 });

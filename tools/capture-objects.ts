@@ -15,7 +15,7 @@
 // the sheets to --out, each under about 400 KB, and poses.json (the cameras).
 //
 // Scenes, all our own:
-//   - map: River Valley, seed 4242, 256² (Normal), opened in the editor with **Refine this map**; the
+//   - map: River Valley, seed 4242, 256² (Normal), opened in the editor by the page; the
 //     first mine site close up (the game's default angle, a low angle, from above), a ruin field
 //     close up and low, and the whole map from the default camera with **Markers** off and on;
 //   - showcase: a flat test ground drawn by the renderer itself: moist grass in the west half, dry
@@ -36,6 +36,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { join } from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -157,9 +158,7 @@ function lineup(): SceneSpec {
 async function openMap(page: Page): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#s=4242&z=256&d=n&t=riverValley`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 300_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 180_000 });
+  await waitForEditor(page, 300_000);
   await page.mouse.move(2, 2);
   await page.keyboard.press("Escape");
   // wait for the background check (it may replace the water once)
@@ -172,9 +171,7 @@ async function openMap(page: Page): Promise<void> {
 async function openScene(page: Page, spec: SceneSpec): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley`);
-  await page.getByText(/checks passed|checks failed/).first().waitFor({ timeout: 180_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await waitForEditor(page, 240_000);
   await page.mouse.move(2, 2);
   await page.evaluate(`(${SCENE_JS})(${JSON.stringify(spec)})`);
   await page.addStyleTag({ content: ".view3d > :not(canvas) { visibility: hidden !important; }" });

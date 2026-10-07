@@ -1860,7 +1860,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       // (Canyon at 128² and under is screened above, before its other land checks: round 2)
       if (shown.theme !== "canyon" || N > 128 * 128) {
-        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
+        // (Lake Basin's promise on its lakes as the land holds them: a lake planned over a hollow
+        // the land does not hold drains when it settles, and passed on the plan with no lake left,
+        // 0.8.3's 128² seed 12)
+        const water = shown.theme === "lakeBasin" ? held : est;
+        const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
@@ -2603,6 +2607,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return fail(why, b, true);
     }
     if (why === "start.badwater" && !fixes.includes("start moved off badwater")) fixes.push("start moved off badwater");
+    // (a spring this start was given goes with it: the next start's layout is made afresh, and the
+    // field holds only what the map has)
+    for (const f of layout) if (f.kind === "river" && f.role === "river/startSpring") contains.delete(f.id);
     cur = again;
   }
   pick = cur;

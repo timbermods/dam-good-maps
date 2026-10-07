@@ -18,8 +18,10 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.8.3 makes it (badwater joins the main water on most maps, D476, D148, the one re-pin of its step);
- *  `9c09b2e0…` before it, as generator 0.8.2 made it (Delta arms round 2, #233: this River Valley map's land and
+ *  0.8.5 makes it (River Valley round 2, #244: this River Valley map's land and water unchanged, only the
+ *  version the file carries, D148); `b5dead43…` before it, as generator 0.8.4 made it (Lake Basin round 3,
+ *  #234: land and water unchanged, only the version); `5aa13f63…` before it, as generator 0.8.3 made it (badwater joins
+ *  the main water on most maps, D476, D148, the one re-pin of its step); `9c09b2e0…` before it, as generator 0.8.2 made it (Delta arms round 2, #233: this River Valley map's land and
  *  water unchanged, only the version the file carries, D148); `94c2b753…` before it, as the
  *  badwater line fix made it (generator 0.8.1, D148, the one re-pin of its step: the ditches
  *  follow the land as the rivers do and may join rivers and lakes, Kyler 2026-10-03; wider names;
@@ -40,7 +42,7 @@ import * as ed from "../../src/worker/session";
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
  *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "5aa13f63c731fbf4eaeb7592288766b789d88ca777d4b429b590080e96396b50";
+const LIVE_SHA = "498f0630b9854122467d8b926a07ee033c2d12c6fe2289e730b8208e6bb27818";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

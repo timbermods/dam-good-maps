@@ -571,25 +571,6 @@ code {
   padding-top: 4px;
 }
 
-.mix {
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  padding: 6px 8px;
-  margin: 0 0 10px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 8px;
-}
-
-.mix legend {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.mix .band {
-  grid-column: 1 / -1;
-}
-
 .row.two {
   gap: 8px;
 }

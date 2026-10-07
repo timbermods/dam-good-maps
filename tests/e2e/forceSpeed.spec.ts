@@ -8,6 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -17,12 +18,9 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function refine(page: Page, size: number) {
+async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
-  await page.goto(`./#s=4242&z=${size}&d=n&t=highlands`);
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+  await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
 }
@@ -62,11 +60,13 @@ async function spots(page: Page): Promise<{ high: [number, number]; low: [number
   });
 }
 
-/** Every slider of the force's row at its end (Power 100, its largest size). */
+/** Every slider of the force's row at its end (Power 100, its largest size), but the Floor: a rule, not a size, which
+ *  at its top would leave a force nothing to cut. */
 async function largest(page: Page, name: string) {
   const row = page.getByRole("group", { name: `${name} options` });
   await row.getByRole("slider").evaluateAll((els) =>
     els.forEach((e) => {
+      if (e.closest(".set")?.querySelector(".set-label")?.textContent === "Floor") return;
       const i = e as HTMLInputElement;
       i.value = i.max;
       i.dispatchEvent(new Event("input", { bubbles: true }));
@@ -99,15 +99,15 @@ async function kept(page: Page) {
 
 /** Each force's largest case: its key, its row's name, and its gesture. */
 const CASES: { name: string; key: string; mode?: string; go(page: Page, s: Awaited<ReturnType<typeof spots>>): Promise<void> }[] = [
-  { name: "Carve", key: "7", go: (page, s) => drag(page, s.high, s.low) },
-  { name: "Craterize", key: "8", go: (page, s) => click(page, s.mid) },
-  { name: "Quake", key: "9", mode: "Slide", go: (page, s) => drag(page, [s.mid[0] - 30, s.mid[1] - 12], [s.mid[0] + 30, s.mid[1] + 12]) },
-  { name: "Erupt", key: "0", go: (page, s) => click(page, s.mid) },
-  { name: "Glaciate", key: "-", go: (page, s) => click(page, s.high) },
+  { name: "Carve", key: "Shift+Digit1", go: (page, s) => drag(page, s.high, s.low) },
+  { name: "Craterize", key: "Shift+Digit2", go: (page, s) => click(page, s.mid) },
+  { name: "Quake", key: "Shift+Digit5", mode: "Slide", go: (page, s) => drag(page, [s.mid[0] - 30, s.mid[1] - 12], [s.mid[0] + 30, s.mid[1] + 12]) },
+  { name: "Erupt", key: "Shift+Digit3", go: (page, s) => click(page, s.mid) },
+  { name: "Glaciate", key: "Shift+Digit7", go: (page, s) => click(page, s.high) },
 ];
 
 test("Fast (the default): each force's land is final within about two seconds of its gesture; Slow forces play about four times as long, and a click jumps it to its final land as one step", async ({ page }) => {
-  await refine(page, 96);
+  await openTopDown(page, 96);
   const watch = page.getByRole("button", { name: "Slow forces", exact: true });
   await expect(watch).toHaveAttribute("aria-pressed", "false");
   const s = await spots(page);
@@ -134,7 +134,7 @@ test("Fast (the default): each force's land is final within about two seconds of
   // (The click comes in the page frame that sees it showing, so it finds it at work on any machine.)
   await watch.click();
   await expect(watch).toHaveAttribute("aria-pressed", "true");
-  await page.keyboard.press("7");
+  await page.keyboard.press("Shift+Digit1");
   const n0 = (await labels(page)).length;
   await drag(page, s.high, s.low);
   const seen = await page.waitForFunction(
@@ -165,7 +165,7 @@ test("the forces' Fast timings at 128² and 256² (DGM_BENCH_FORCES=1: informati
   test.setTimeout(900_000);
   const rows: string[] = [];
   for (const size of [128, 256]) {
-    await refine(page, size);
+    await openTopDown(page, size);
     const s = await spots(page);
     for (const c of CASES) {
       await page.keyboard.press(c.key);
