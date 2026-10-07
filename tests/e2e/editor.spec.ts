@@ -77,6 +77,13 @@ test("open → edit → Generate replaces the map without asking and Your maps k
           if (!bare) continue;
           let empty = true;
           for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) empty = false;
+          // clear of the sources on the screen too: a press within a few pixels of one selects it (D345), and at
+          // this zoom a few pixels are several tiles
+          for (let k = 0; k < e.count && empty; k++) {
+            if (!/WaterSource|BadwaterSource/.test(e.templates[e.template[k]])) continue;
+            const s = window.dgmEditor!.tileToClient(e.x[k], e.y[k]);
+            if (Math.hypot(s.x - c.x, s.y - c.y) < 24) empty = false;
+          }
           if (empty && m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1) return [x2, y] as [number, number];
         }
       return null;
