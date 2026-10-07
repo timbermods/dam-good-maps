@@ -1,7 +1,7 @@
 // The words beside the pointer, the footprint check, and the shelf: the ghost under the pointer,
 // placing, dropping and painting the picked object.
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { cornerFor } from "../../core/doc/tools";
 import { footprintTiles, startEntranceTile, type Orientation } from "../../core/format/footprints";
 import { ORIENTATION_NAMES } from "../../render3d/model";
@@ -167,8 +167,10 @@ export function useShelf(ed: Ed): ShelfSlice {
   function placeShelf(x: number, y: number) {
     const item = shelfRef.current;
     if (!item) return;
-    // (refused: the reason is beside the pointer already, once)
-    const f = ed.fitRef.current;
+    // (refused: the reason is beside the pointer already, once; a check left from the object held before, not yet
+    // cleared, is not this one's: the core checks the placement itself)
+    const own = ghostAt.current?.template === (item.id === "start" ? "StartingLocation" : templateOf(item, shelfOptionsRef.current));
+    const f = own ? ed.fitRef.current : null;
     if (f?.problem) return shelfWord(f.problem);
     if (item.id === "start") {
       // (a map without a start, D323 item 44: the Start places one)
@@ -237,8 +239,9 @@ export function useShelf(ed: Ed): ShelfSlice {
   const paintSeed = useRef((Math.random() * 0x7fffffff) | 0);
   const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });
   shelfCalls.current = { shelfHover, placeShelf, plantShelf };
-  // the shelf's object takes the map's left button while it is picked
-  useEffect(() => {
+  // the shelf's object takes the map's left button while it is picked (at once, when the pick is drawn: a click
+  // straight after picking must not reach the tool held before)
+  useLayoutEffect(() => {
     const r = renderer.current;
     if (!r || !shelf) return;
     const W = info.W;

@@ -195,10 +195,10 @@ describe("mine sites", () => {
     expect(block).toContain("0.25)");
     expect(block).toContain("length(fo)");
     expect(lum(MINE.outline) - lum(MINE.outlineDark)).toBeGreaterThan(0.4);
-    const legend = objectLegend().find((l) => /Mine sites: an orange outline/.test(l.label))!;
+    const legend = objectLegend().find((l) => l.label === "Mine site outline")!;
     expect(legend.markers).toBe(true);
     // no longer the bright orange frame of the clean view: the outline is the information layer's
-    expect(objectLegend().find((l) => /^Mine site:/.test(l.label))!.markers).toBeFalsy();
+    expect(objectLegend().find((l) => l.label === "Mine site")!.markers).toBeFalsy();
   });
 
   it("are a modest model, not grown from afar (their 5 × 5 footprint reads in a view of the whole map)", () => {
@@ -513,7 +513,7 @@ describe("ruins", () => {
     const ruins = swatch(/^Ruins/);
     expect(ruins).toContain(cssColor(RUIN.rust));
     expect(ruins).toContain(cssColor(RUIN.panel));
-    const mine = swatch(/^Mine site:/);
+    const mine = swatch(/^Mine site$/);
     for (const c of [MINE.pit, MINE.frame, MINE.wood]) expect(mine).toContain(cssColor(c));
   });
 });

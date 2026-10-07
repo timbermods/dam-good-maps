@@ -3,6 +3,7 @@
 // water drains away (D260).
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 import { startHintUp, toolInHand, toolPutAway } from "./helpers";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -43,10 +44,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("./#s=35&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (the water at its normal pace: the stroke's own water flows while it is painted, D197)
 
@@ -75,7 +73,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   expect(spot).not.toBeNull();
   const [x, y] = spot!;
   // level ground round it first: a Flatten from there
-  await page.keyboard.press("3");
+  await page.keyboard.press("4");
   await toolInHand(page);
   await page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Size" }).fill("6");
   await stroke(page, x, y);
@@ -85,7 +83,7 @@ test("a stroke that clears sources takes their discs and their water at once (it
   // source from the shelf takes it away, so wait for it, or a late one sits under the strokes below)
   await startHintUp(page);
 
-  for (const brush of [{ key: "3", name: "Flatten" }, { key: "4", name: "Smooth" }]) {
+  for (const brush of [{ key: "4", name: "Flatten" }, { key: "5", name: "Smooth" }]) {
     // a source there, and its water
     await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: /^Water source/ }).click();
     await toolInHand(page);

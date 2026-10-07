@@ -21,7 +21,7 @@ const DELAY = 450;
 
 /** A control's tooltip: `text`, then each key as a small key cap at the end. A key may carry a few words after
  *  it ("V flips it": a cap V, then "flips it"); keys that are null or false are left out. Spread it on the
- *  control: `<button {...tip("Carve a river", "7")}>`. */
+ *  control: `<button {...tip("Carve a river", "Shift+1")}>`. */
 export function tip(text: string, ...keys: (string | null | undefined | false)[]): { title: string; "data-keys"?: string } {
   const k = keys.filter((x): x is string => !!x);
   return k.length ? { title: text, "data-keys": k.join(KEY_SEP) } : { title: text };

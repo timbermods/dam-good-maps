@@ -16,6 +16,7 @@ import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -119,9 +120,7 @@ function views(s: Spot): { oblique: View; top: View; wide: View } {
 async function open(page: Page, c: Case, tr = 100): Promise<void> {
   await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/${fragment(c, tr)}`);
-  await page.getByText(/All \d+ checks passed/).first().waitFor({ timeout: 600_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction("!!window.dgmEditor && !!window.dgm3d", null, { timeout: 300_000 });
+  await waitForEditor(page, 600_000);
   await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
   await page.mouse.move(2, 2);
   await page.waitForTimeout(2500);

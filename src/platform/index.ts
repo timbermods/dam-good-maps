@@ -11,44 +11,59 @@ import { parallelWaterSupported, threadsFor } from "../core/sim/parallelPolicy";
  *  generator and the editor's map run in one worker; the editor's checks run in a second one, on
  *  a replica of the open map, and the two talk over a port of their own. */
 export function createGenerator(): Remote<GeneratorApi> {
+  return createGeneratorWorker().api;
+}
+
+/** The generator and its checks worker, with `stop`: both end at once (a map being made is cancelled, the page
+ *  then opens the map that was open in a new one). */
+export function createGeneratorWorker(): { api: Remote<GeneratorApi>; stop(): void } {
   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module" });
   const api = wrap<GeneratorApi>(worker);
+  let checks: Worker | null = null;
   // the water's helper threads (src/core/sim/parallel.ts), started here so they are ready by the first big map
-  const ports = waterHelpers();
+  const helpers = waterHelpers();
+  const ports = helpers.map((h) => h.port);
   if (ports.length) void api.waterHelpers(transfer(ports, ports));
   try {
-    const checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
+    checks = new Worker(new URL("../worker/checks.worker.ts", import.meta.url), { type: "module" });
     const ch = new MessageChannel();
     checks.postMessage({ checksPort: ch.port1 }, [ch.port1]);
     void api.connectChecks(transfer(ch.port2, [ch.port2]));
   } catch {
     // no second worker: the checks run in the first one
   }
-  return api;
+  return {
+    api,
+    stop: () => {
+      worker.terminate();
+      checks?.terminate();
+      for (const h of helpers) h.worker.terminate();
+    },
+  };
 }
 
 /** The multi-core water's helpers for the editor's worker, each reached through a port (none where it doesn't
  *  run: a page not cross-origin isolated, WebKit, fewer than four cores). The worker starts more for bigger maps. */
-function waterHelpers(): MessagePort[] {
+function waterHelpers(): { worker: Worker; port: MessagePort }[] {
   if (!parallelWaterSupported(true)) return [];
   const count = Math.min(threadsFor(256 * 256), (navigator.hardwareConcurrency || 4) - 1) - 1;
   if (count < 2) return [];
-  const ports: MessagePort[] = [];
-  const helpers: Worker[] = [];
+  const helpers: { worker: Worker; port: MessagePort }[] = [];
   try {
     for (let k = 0; k < count; k++) {
-      const helper = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
-      helpers.push(helper);
+      const worker = new Worker(new URL("../worker/waterStrip.worker.ts", import.meta.url), { type: "module" });
       const ch = new MessageChannel();
-      ports.push(ch.port2);
-      helper.postMessage({ waterPort: ch.port1 }, [ch.port1]);
+      helpers.push({ worker, port: ch.port2 });
+      worker.postMessage({ waterPort: ch.port1 }, [ch.port1]);
     }
   } catch {
-    for (const helper of helpers) helper.terminate();
-    for (const port of ports) port.close();
+    for (const h of helpers) {
+      h.worker.terminate();
+      h.port.close();
+    }
     return []; // helper creation is optional: keep the one-thread generator working
   }
-  return ports;
+  return helpers;
 }
 
 /** D329's background search: a generator worker of its own (no checks worker), so the editor's

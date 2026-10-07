@@ -70,7 +70,9 @@ export function Shelf(p: ShelfProps) {
   }
 
   return (
-    <nav class="shelf" aria-label="Place">
+    <nav class="shelf objects-menu" aria-label="Place">
+      {/* its title (Kyler, 2026-10-06): one row of the items' height, the names' inset */}
+      <h2 class="shelf-title">Items</h2>
       <div class="shelf-grid" role="toolbar" aria-label="Objects">
         {SHELF.map((it) => {
           const src = p.icon(it.template);
@@ -80,7 +82,7 @@ export function Shelf(p: ShelfProps) {
               key={it.id}
               class="shelf-item"
               aria-pressed={p.picked === it.id}
-              aria-label={it.key ? `${it.name} (${it.key})` : it.name}
+              aria-label={it.name}
               {...(p.loading ? tip("The map is still loading") : shelfTip(it))}
               disabled={p.loading}
               onPointerDown={(e) => down(e, it)}
@@ -93,7 +95,7 @@ export function Shelf(p: ShelfProps) {
                 p.onPick(p.picked === it.id ? null : it);
               }}
             >
-              {src ? <img src={src} alt="" width={48} height={48} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
+              {src ? <img src={src} alt="" width={28} height={28} draggable={false} /> : <span class="shelf-blank" aria-hidden="true" />}
               <span class="shelf-word">{it.name}</span>
             </button>
           );

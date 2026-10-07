@@ -4,6 +4,7 @@
 // accent; a force's sounds stop at once on Esc.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -17,10 +18,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   page.on("request", (r) => {
     if (/\/sounds\/juice-2\//.test(r.url())) fetched.push(r.url());
   });
-  await page.goto("./#s=4242&z=96&d=n&t=highlands");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.waitForTimeout(800);
   // (the editor open, nothing asked of it yet: no recording fetched)
   expect(fetched).toEqual([]);
@@ -34,7 +32,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const at: [number, number] = [start[0] < i.W / 2 ? Math.round(i.W * 0.75) : Math.round(i.W * 0.25), Math.round(i.H / 2)];
-  await page.getByRole("button", { name: "Raise brush (1)" }).click();
+  await page.getByRole("button", { name: "Raise brush (2)" }).click();
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);
   await idle(page);
@@ -55,9 +53,9 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   // an impact: its sounds as it strikes; Ctrl+Z takes it back and every sound of it stops at once
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 5_000 }).toBe(0);
   // (at the slowest pace, so Esc comes while it is still at work)
-  await page.getByRole("combobox", { name: "Water speed" }).selectOption("slower");
+  await setWaterSpeed(page, "slower");
   const kept = (await info(page)).history.filter((h) => h.applied).length;
-  await page.keyboard.press("8");
+  await page.keyboard.press("Shift+Digit2");
   const c = await client(page, at[0], at[1] + 8);
   await page.mouse.move(c.x + 3, c.y);
   await page.mouse.click(c.x, c.y);

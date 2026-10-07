@@ -1,12 +1,13 @@
-// The forces' gestures: Carve, Craterize, Erupt, Quake and Glaciate take the map's clicks and drags
-// while picked.
+// The forces' gestures: Carve, Craterize, Erupt, Quake, Glaciate, Rift and Deposit take the map's clicks
+// and drags while picked.
 
 import { useEffect, useRef } from "preact/hooks";
 import type { PointerTool, TileHit } from "../../render3d";
 import { craterSettingsOf, eruptSettingsOf, quakeSettingsOf } from "../ForceRows";
 import { eruptAnatomy } from "../../core/forces/erupt";
 import { eruptNature } from "../../core/forces/nature";
-import { glaciateSettingsOf } from "../ForceRows";
+import { depositSettingsOf, glaciateSettingsOf, riftSettingsOf } from "../ForceRows";
+import { pathLength, resamplePath } from "../../core/forces/path";
 import { sizeOf as glacierSize } from "../../core/forces/glaciate/model";
 import { FreehandPath } from "../freehand";
 import { forceCeiling } from "../../core/forces/force";
@@ -22,7 +23,7 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
   const {
     mirror, renderer, ready, tool, anchorRef, flipRef, repaintRef, forceEscRef, setForceStroke, setForceCursor,
     setForceRing, setShapeNote, infoRef, pointerAt, notePointer, craterUiRef, eruptUiRef, quakeUiRef, setQuakeUi,
-    glaciateUiRef, forceCalls, forcer, startForce, steerTiles, pathFrame, showPath, gestureTiles, bandRadius,
+    glaciateUiRef, riftUiRef, depositUiRef, forceCalls, forcer, startForce, steerTiles, pathFrame, showPath, gestureTiles, bandRadius,
     cursorFrame, showForceCursor, forceSizing, endForceSize
   } = ed;
 
@@ -137,7 +138,7 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
   // at all.
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !tool || tool === "carve" || tool === "glaciate") return;
+    if (!r || !tool || tool === "carve" || tool === "glaciate" || tool === "rift" || tool === "deposit") return;
     const verb = tool;
     let down: TileHit | null = null;
     let brush: FaultBrush | null = null;
@@ -380,6 +381,70 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
       cancelAnimationFrame(cursorFrame.current);
       cancelAnimationFrame(pathFrame.current);
       if (g.pressed && !forcer.current?.running) renderer.current?.clearForce();
+      setForceStroke(null);
+      setForceCursor(null);
+      setForceRing(null);
+    };
+  }, [tool, ready]);
+
+  // Rift and Deposit take the map's clicks and drags while picked (D352, D438): a click acts there (a short
+  // rupture; a fan at the valley's mouth), a drag draws the line freehand, its band showing as it is drawn (the
+  // rift's fault; the fan's direction and reach), and letting go starts it
+  useEffect(() => {
+    const r = renderer.current;
+    if (!r || (tool !== "rift" && tool !== "deposit")) return;
+    const verb = tool;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const g = new FreehandPath(W, H);
+    const point = (hit: TileHit) => ({ x: Math.max(0, Math.min(W - 1, hit.x)), y: Math.max(0, Math.min(H - 1, hit.y)) });
+    const go = (path: { x: number; y: number }[]) =>
+      startForce(verb === "rift" ? { verb, settings: riftSettingsOf(riftUiRef.current), path, cut: renderer.current?.slice ?? null } : { verb, settings: depositSettingsOf(depositUiRef.current), path, cut: renderer.current?.slice ?? null });
+    const t: PointerTool = {
+      surface: true,
+      down: (hit, ev) => {
+        if (ev.button !== 0 || !hit || forcer.current?.running) return false;
+        g.down(point(hit), ev.clientX, ev.clientY);
+        notePointer(ev);
+        showForceCursor(null);
+        return true;
+      },
+      move: (hit, ev) => {
+        notePointer(ev);
+        const path = g.move(hit ? point(hit) : null, ev.clientX, ev.clientY);
+        if (path) showPath(path, bandRadius());
+      },
+      up: (hit) => {
+        const end = g.up(hit ? point(hit) : null);
+        showPath(null);
+        if (!end) return;
+        if ("click" in end) return go([{ x: end.click.x, y: end.click.y }]);
+        // (a line too short to draw by is a click where it began)
+        if (pathLength(end.path) < 2) return go([{ x: Math.round(end.path[0].x), y: Math.round(end.path[0].y) }]);
+        go(resamplePath(end.path, 2, 256).map((q) => ({ x: Math.max(0, Math.min(W - 1, q.x)), y: Math.max(0, Math.min(H - 1, q.y)) })));
+      },
+      hover: (hit, ev) => {
+        notePointer(ev);
+        if (forceSizing.current || g.pressed) return;
+        showForceCursor(hit && !forcer.current?.running ? [hit.x, hit.y] : null);
+      },
+      cancel: () => {
+        g.cancel();
+        showPath(null);
+      },
+    };
+    r.tool = t;
+    forceEscRef.current = () => {
+      if (!g.pressed) return false;
+      g.cancel();
+      showPath(null);
+      return true;
+    };
+    return () => {
+      if (r.tool === t) r.tool = null;
+      forceEscRef.current = null;
+      cancelAnimationFrame(cursorFrame.current);
+      cancelAnimationFrame(pathFrame.current);
       setForceStroke(null);
       setForceCursor(null);
       setForceRing(null);

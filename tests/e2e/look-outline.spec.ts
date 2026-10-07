@@ -3,12 +3,13 @@
 // follows the soil when the soil updates.
 
 import { expect, test, type Page } from "@playwright/test";
+import { openEditor } from "./open";
 
 /** Pixels of the outline's light core in the canvas (its colour after the view's colour grade),
  *  counted in the page from a PNG screenshot. */
 async function outlinePixels(page: Page): Promise<number> {
   await page.evaluate(() => window.dgm3d!.renderer.renderNow());
-  const png = await page.locator(".view3d canvas").screenshot({ type: "png" });
+  const png = await page.locator(".view3d > canvas").screenshot({ type: "png" });
   return page.evaluate(async (b64) => {
     const img = new Image();
     img.src = `data:image/png;base64,${b64}`;
@@ -29,10 +30,7 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
-  await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
-  await page.getByRole("button", { name: "3D", exact: true }).click();
-  await page.waitForFunction(() => !!window.dgm3d, null, { timeout: 60_000 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
   // a dry, contaminated tile beside clean ground of the same height, seen from above, close
   const at = await page.evaluate(() => {
@@ -60,13 +58,13 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   // Markers off: no outline. The ground itself can hold a few pixels of the outline's colour (light
   // dry ground at this distance), so the counts are compared with the view's own: Markers off
   // counts what Markers on counts once the soil is clean
-  const markers = page.getByRole("button", { name: "Markers", exact: true });
-  await expect(markers).toHaveAttribute("aria-pressed", "false");
+  const markers = page.getByRole("checkbox", { name: "Markers", exact: true });
+  await expect(markers).toHaveAttribute("aria-checked", "false");
   const off = await outlinePixels(page);
 
   // Markers on: the outline
   await markers.click();
-  await expect(markers).toHaveAttribute("aria-pressed", "true");
+  await expect(markers).toHaveAttribute("aria-checked", "true");
   const on = await outlinePixels(page);
   expect(on - off).toBeGreaterThan(150);
 

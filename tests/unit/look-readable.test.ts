@@ -232,7 +232,7 @@ describe("objects from afar", () => {
 describe("the legend", () => {
   it("names every meaning the view draws", () => {
     const labels = [...legendEntries("moisture"), ...objectLegend()].map((e) => e.label);
-    for (const want of [/Moist/, /Dry/, /Contaminated/, /^Water: darker is deeper/, /^Badwater$/, /mixed with badwater/, /Walls/, /dead/, /Living trees/, /The start/, /Slopes: arrows point uphill/, /Ruins/, /Mine site/, /Geothermal field/, /Water source/, /Badwater source/, /blocks/])
+    for (const want of [/^Moist ground$/, /^Dry ground$/, /^Contaminated ground$/, /^Water$/, /^Badwater$/, /^Mixed water$/, /^Walls$/, /^Dead trees$/, /^Trees and bushes$/, /^Start$/, /^Slope arrows$/, /^Ruins$/, /^Mine site$/, /^Geothermal field$/, /^Water source$/, /^Badwater source$/, /^Other objects$/])
       expect(labels.some((l) => want.test(l)), String(want)).toBe(true);
     // no dam site is drawn (D287)
     expect(labels.some((l) => /dam site/i.test(l))).toBe(false);
