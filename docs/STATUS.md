@@ -43,7 +43,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 | #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (bcd7fb9d, with #350's nightly fix). Full run 37609333532 and nightly 37609336620 going: merge when both are green |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
+| #261 | Canyon and Highlands height | milestone | `approved` and `needs-kyler`: merged with dev locally, not pushed (worktree `DamGoodMaps-canyon-height`, c6d33bf2, generator 0.8.7, no re-pin yet; 12 quick tests wait on it, one of them `objects`' canyon three-mine-sites start, to investigate). The walls hold; all-three outcomes fall on today's dev (Canyon 256² 15 → 10 of 20) from badwater joining the main water (D476), the cause of Islands 6's shortfall too. Kyler's choice on the PR: merge as it is, a pass for Canyon's clean river, or one pass on D476 across themes |
 | #235 | Islands round 6 | milestone | `approved` and `needs-kyler`: merged with dev and re-pinned (0.8.6, 62850d17; worktree `DamGoodMaps-islands-6`), but its measures on today's dev fall short of the approved round (all three outcomes at 96² 30 → 26, 128² 26 → 22, 256² 30 → 21) and startPlanting's ring test fails (0.442, bar 0.45). Kyler's choice on the PR: merge as it is with the test held, or another pass on sea maps' badwater and starts first |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
@@ -76,7 +76,7 @@ reserve held for settings round 2 and Designed for off that list (D466).
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#235, #329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#235, #261, #329, #348). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches
