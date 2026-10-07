@@ -141,7 +141,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 4 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 5 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -224,8 +224,14 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // still fails (2,300 → 2,332), after passing on an intermediate build, so it is back on the list.
   // River Valley 6 (2,388 → 2,412 with rule 3) passes with rule 4 (2,299), whose shed measures the
   // slope from every cliff. With rule 4, River Valley 3 ends 2,079 → 2,298 and Lake Basin 1 2,300 →
-  // 2,315.
-  const fails = new Set(["riverValley 3", "lakeBasin 1"]);
+  // 2,315. Lake Basin 3 joined them with Lake Basin round 3 (#234, generator 0.8.4: 2,351 → 2,665): the
+  // drag only lowers ground (1,753 tiles lowered, 5 raised), cutting tall cliffs (4 to 8 levels) into
+  // small steps without raising their foot. Rule 5 (the scree builds up at a cliff's foot from what
+  // its top loses; a cliff standing in water keeps its top; one above farmland or a stream pulls back
+  // as before) clears River Valley 3 (2,008 → 1,944) and Lake Basin 1 (2,200 → 2,170) on 0.8.4.
+  // Lake Basin 3 still ends 2,351 → 2,458 (rule 4: 2,665), from cliffs above farmland pulling back
+  // (D418) and edges wandering at a terrace's moist rim; Kyler's call.
+  const fails = new Set(["lakeBasin 3"]);
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
@@ -360,7 +366,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 4, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 5, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
