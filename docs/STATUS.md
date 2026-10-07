@@ -6,9 +6,10 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-06, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
+As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
 session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page's worktree is `DamGoodMaps-page`, the probe folder `DamGoodMaps-probe`.
+chat (D117). The page session runs in a cloud container (not the `DamGoodMaps-page` worktree); the probe folder is
+`DamGoodMaps-probe`.
 
 ## Released
 
@@ -21,7 +22,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D480**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, PR #163) builds "The page is the
+- **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, PR #163) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
@@ -38,12 +39,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #344 | Naturalize rule 5: scree at a cliff's foot (D479) | milestone | `approved`; head 3e6900cd; its full run (37539643032) was queued at the handoff: merge when green. Lake Basin 3 stays held |
-| #343 | @types/node 26 (D460) | milestone | Full run 37539430764 and nightly 37539434456 on its head were running at the handoff: merge when both are green |
 | #342 | TypeScript 7.0.2 (D460) | milestone | `hold`, draft: one error in the page's src/editor/brushes.ts (TS7022), fixed by investigation/ts7/page.patch, which the page session carries. Once that is on dev: merge dev in, full run and nightly, merge |
-| #163 | The page is the editor | page | `approved`; red: forceOrder and release tests still check D352's old order and keys (Kyler moved Glaciate last and the forces to Shift+1–7), "on this map" retired by D184 in GeneratorPanel.tsx, and look-high needs dev's #335. When green: the squash (D478), below |
+| #347 | The page is the editor: #163 squashed (D478), with D352's amendment | milestone | `approved`; `feature/page` at 5faf94d8 (full run 37589532598 green) squashed onto dev; the 350 earlier captures are in the pre-release `page-design-2026-10-07`. Dev (River Valley round 2) merged in; merge on a green full run, then close #163, tell the page session and forces play on #236 |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`; dev merged in (26abfab5). Waits for #163 (D477): then merge dev in, publish at /preview/, tell Kyler; after his try, republish feature/page |
-| River Valley round 2 | #244's adoption, generator 0.8.5 | milestone | `feature/river-valley-2`, stopped at the handoff (see "Left for the next milestone session") |
 | #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; in the generator queue after River Valley round 2, re-pinned |
 | #303 | Codex page hunt (draft) | Codex | Running |
@@ -53,21 +51,11 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 ## Left for the next milestone session, in order
 
-1. **Merge what goes green:** #344 (approved, its full run), then #343 (full run and nightly). Nothing else merges unless green
+1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26). Nothing else merges unless green
    and approved.
-2. **River Valley round 2** (`feature/river-valley-2` at 24255f46; no PR, no CI yet; worktree
-   `.claude/worktrees/agent-a6665b87092f18e59` with its own node_modules). Done: #244's patch on 0.8.4, generator 0.8.5, a
-   generator fix (a start that gives way drops the spring it was given; exposed on Any 256² seed 7), the re-pin (LIVE_SHA; seed
-   re-picks in lakeCourse, maxWaterDepth, objects, parityObjects, projects, reopenChangedResources, versions, describeTile; e2e
-   editor, sittingB, sources), the sheets (`docs/sheets/river-valley-2.png`, `-floods.png`, `-all.png`). Measures, 128² seeds
-   1–30: promise 29 → 30, readable water 26 → 25 (each miss is clean water's reach, badwater in the main river under D476),
-   flood sheets over 10% of the map 12 → 3; badwater reaches the main river on 19 of 20. Left: `naturalizeNature`
-   "riverValley 6 at Terracing 100" fails (2,226 → 2,237), the cause rule 5 addresses: merge dev in once #344 is merged and
-   recheck; if it still fails, it's Kyler's call (hold like Lake Basin 3, or not). Also check maxWaterDepth: its expected
-   failure moved from seed 3 to seed 5 (the same 0.07 shortfall), which D341 frowns on: say so to Kyler in the PR. Then the
-   full quick project, the PR labelled `needs-kyler`, `gh workflow run ci.yml --ref feature/river-valley-2`, and #236. Tools:
-   `RV_MODE=after npx tsx investigation/river-valley-sheets/batch.ts` then `compare.ts`; `npx tsx tools/badwater-sheet.ts
-   --before .scratch/dev --theme riverValley --seeds 1-20 --workers 8` (not `--compare`). Then Islands round 6 (#235), then
+2. **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
+   River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
+   beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
    Canyon and Highlands (#261), one re-pin each with sheets.
 3. **#163's squash (D478),** once the page session has it green: make a GitHub Release (for example `page-design-2026-10-06`,
    marked pre-release, not latest) holding a zip of every image in `docs/design/` except the 8 `editor-build2-*` captures
@@ -91,7 +79,7 @@ reserve held for settings round 2 and Designed for off that list (D466).
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#163, #329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches

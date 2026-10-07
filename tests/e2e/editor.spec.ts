@@ -169,7 +169,9 @@ test("generate → refine → back to settings → Generate → back to editing 
 });
 
 test("a click picks no generated feature, and never water (D184, D196)", async ({ page }) => {
-  await page.goto("./#s=77&z=96&d=n&t=riverValley");
+  // (seed 84 for 0.8.5's maps, D148: seed 77's river now has its middle by the map's edge, where the click
+  // lands on no tile)
+  await page.goto("./#s=84&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 60_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });

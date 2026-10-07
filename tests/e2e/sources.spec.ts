@@ -38,12 +38,12 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   test.setTimeout(240_000);
   await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 7 since 0.8.3's courses follow the land, D148: seed 6 has room for one row; seed 6 for 0.8.3's first maps: seed 8 has room for only one row since badwater joins the main water,
+  // (seed 4 since River Valley round 2, 0.8.5, D148: seed 7 has room for neither row; seed 7 since 0.8.3's courses follow the land, D148: seed 6 has room for one row; seed 6 for 0.8.3's first maps: seed 8 has room for only one row since badwater joins the main water,
   // D476; seed 8 for #265's maps, D148: seed 6 has room for only one row since the start's badwater distance
   // became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no room for either row since the badwater ditches
   // follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere went, and
   // kept room for only one of the two rows)
-  await page.goto("./#s=7&z=96&d=n&t=riverValley");
+  await page.goto("./#s=4&z=96&d=n&t=riverValley");
   await expect(page.getByText(/All \d+ checks passed/)).toBeVisible({ timeout: 120_000 });
   await page.getByRole("button", { name: "Refine this map" }).click();
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 60_000 });
