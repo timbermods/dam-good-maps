@@ -467,7 +467,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level deep on the nearest free ground inside the circle. Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
-  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a narrow band),
+  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
   the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
   land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
