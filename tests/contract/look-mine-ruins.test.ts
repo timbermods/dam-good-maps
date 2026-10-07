@@ -18,9 +18,9 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.8.6 makes it (Islands round 6, #235: this River Valley map's land and water unchanged, only the
- *  version the file carries, D148); `498f0630…` before it, as generator 0.8.5 made it (River Valley round 2,
- *  #244: land and water unchanged, only the version); `b5dead43…` before it, as generator 0.8.4 made it (Lake Basin round 3,
+ *  0.8.6 makes it (the water story's reach counts the main water, D480: no map's land or water changed, only the
+ *  version the file carries, D148); `498f0630…` before it, as generator 0.8.5 made it (River Valley round 2, #244:
+ *  land and water unchanged, only the version); `b5dead43…` before it, as generator 0.8.4 made it (Lake Basin round 3,
  *  #234: land and water unchanged, only the version); `5aa13f63…` before it, as generator 0.8.3 made it (badwater joins
  *  the main water on most maps, D476, D148, the one re-pin of its step); `9c09b2e0…` before it, as generator 0.8.2 made it (Delta arms round 2, #233: this River Valley map's land and
  *  water unchanged, only the version the file carries, D148); `94c2b753…` before it, as the
