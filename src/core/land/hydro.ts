@@ -76,7 +76,7 @@ export interface HydroOptions {
 
 /** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
  *  analysis/story.ts `REACH`, a share of the map's side; D333 (3): the story asks for 35% of the dry
- *  land near clean water; the courses are lines, their water a little wider). */
+ *  land near water, D480; the courses are lines, their water a little wider). */
 const REACH_WANT = 0.45;
 
 const MIN_WIDTH = 2.4;
