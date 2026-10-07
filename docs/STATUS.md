@@ -22,11 +22,12 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D480**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, PR #163) builds "The page is the
+- **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
-  jump), #312's worker part once the page part reaches dev with #163, and Deposit's outline (#341, waiting on Kyler's answers).
+  jump), #312's worker part now the page part is on dev, and Deposit's outline (#341, on `fix/deposit-outline`; its Rust is a core
+  change, reviewed with a full CI run when its PR comes).
 - **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
@@ -39,9 +40,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #342 | TypeScript 7.0.2 (D460) | milestone | `hold`, draft: one error in the page's src/editor/brushes.ts (TS7022), fixed by investigation/ts7/page.patch, which the page session carries. Once that is on dev: merge dev in, full run and nightly, merge |
-| #347 | The page is the editor: #163 squashed (D478), with D352's amendment | milestone | `approved`; `feature/page` at 5faf94d8 (full run 37589532598 green) squashed onto dev; the 350 earlier captures are in the pre-release `page-design-2026-10-07`. Dev (River Valley round 2) merged in; merge on a green full run, then close #163, tell the page session and forces play on #236 |
-| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`; dev merged in (26abfab5). Waits for #163 (D477): then merge dev in, publish at /preview/, tell Kyler; after his try, republish feature/page |
+| #342 | TypeScript 7.0.2 (D460) | milestone | Ready, hold lifted: dev merged in (67075f97; lock regenerated from dev's, libc kept; the page's pageHunt and savingReview tests read App.tsx through `@typescript/typescript6`). Full run 37597312248 and nightly 37597316171 going: merge when both are green |
+| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`. Real conflicts with dev now the page is on it (src/worker/session.ts against the held weather view, src/editor/waterPlayer.ts): forces play merges dev in (asked on #236). Then the checks, /preview/ once its build holds the page editor (D477), and a ping to Kyler; after his try, republish the page editor |
 | #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
 | #235 | Islands round 6 | Islands | `approved`; in the generator queue after River Valley round 2, re-pinned |
 | #303 | Codex page hunt (draft) | Codex | Running |
@@ -57,14 +57,10 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
    beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
    Canyon and Highlands (#261), one re-pin each with sheets.
-3. **#163's squash (D478),** once the page session has it green: make a GitHub Release (for example `page-design-2026-10-06`,
-   marked pre-release, not latest) holding a zip of every image in `docs/design/` except the 8 `editor-build2-*` captures
-   (`git archive --format=zip -o page-design-captures.zip origin/feature/page <those paths>`); squash-merge #163 onto dev
-   without the other images (a branch from dev, `git merge --squash origin/feature/page`, `git rm` the 350 images, a
-   DESIGN.md line linking the Release, a PR, green CI, merge); close #163 with a note; ask the page session on #236 to
-   restart `feature/page` from dev, carrying over commits made after the squash point. Fold the page's decisions (DESIGN.md,
-   docs/progress/page.md) and the D352 amendment (Glaciate last, the forces on Shift+1–7; the page session states it on #236)
-   into docs/decisions/.
+3. **The page is on dev** (2026-10-07): #163 squashed as #347 (merge 59b4f1e9, from feature/page 5faf94d8), #163 closed. The
+   350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
+   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
+   fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
 4. **Then #329** (D477) and **TypeScript 7** (#342), as in the table.
 5. **Deposit (#341):** Kyler's answers to its three questions (a drag's changes inside its band; the smallest click's circle;
    small fans in basins) are not yet on #341 or in the docs: ask Kyler, post them on #341, and record any rule.
