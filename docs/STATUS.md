@@ -42,8 +42,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: as #235 (badwater's share at Canyon 256² 0.23 against 0.53), after Islands (0.8.8). Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
-| #235 | Islands round 6 | milestone | `approved`; Kyler, 2026-10-07: D476 stands; merge as it is after its re-pin if badwater's share of the water is at or below the official maps' (measuring). Badwater's share is at or below the official maps' (0.16–0.17 against 0.53), and the reach re-base is on dev (#351, D480, 0.8.6), and it is re-pinned on top as 0.8.7 (bdedc9d2; all three outcomes of 30: 96² 28, 128² 27, 256² 30; no map fails an absolute or lacks a start; the other five themes byte-identical to dev). Full run 37677631252 and nightly 37677635220 going: merge when both are green; startPlanting's ring test is held as a named gap (below). Branch at 62850d17, worktree `DamGoodMaps-islands-6` |
+| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands and badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8 on top of Islands round 6 (merged, #235, 0.8.7); a `build` agent is on the re-pin. Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -53,7 +52,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26). Nothing else merges unless green
    and approved.
-2. **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
+2. **Islands round 6 is merged** (#235, generator 0.8.7, 2026-10-07; all three outcomes of 30: 96² 28, 128² 27, 256² 30).
+   Generation takes more attempts than the round Kyler approved (96² mean 13.2 against 4.9): a look for later.
+   **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
    River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
    beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
    Canyon and Highlands (#261), one re-pin each with sheets.
@@ -81,7 +82,7 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 | naturalizeNature: Lake Basin 3 and River Valley 6 at Terracing 100 | Naturalize on cliffs whose foot can't rise (farmland, D418). Both come off together, the next time Naturalize gets real work, judged on a sheet; first check whether the level-edge count scores a stepped slope as younger than the tall cliff it came from (D479) | #339, #346 |
 | maxWaterDepth: seed 5's pit ends 0.07 over the number | The pit's water past the bound (seed 3 until 0.8.5, the same shortfall) | M9b |
 | draftWaterQuiet: Lake Basin seed 7's lake still fills at the four-day preview cap | A draft's water that never ends settled on that map | before 2026-10-07 (missed in this list's first version) |
-| startPlanting: "no two starts get the same ring" (0.442, bar 0.45) | Sea-map starts: two Any maps that roll a sea layout lean less. Held when Islands round 6 merges (Kyler, 2026-10-07) | #235, when merged |
+| startPlanting: "no two starts get the same ring" (0.442, bar 0.45) | Sea-map starts: two Any maps that roll a sea layout lean less. Kyler, 2026-10-07 | #235 |
 | settings experiments (nightly): Verticality, Drought reserve, Lakes and basins, Waterfalls | Settings round 2 (D466) | 2026-10-03 |
 
 ## Waiting for Kyler
