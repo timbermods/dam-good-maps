@@ -9,6 +9,10 @@
 // (a pond is smaller). The rivers' heads (edge inflows and springs) are counted by whether their
 // water joins the main system, and each river's course by how much of it holds water: a river whose
 // course stands dry for a stretch cannot be followed.
+//
+// The land's reach of water (D294, D480) counts clean water and the whole of the map's main water,
+// badwater or not: badwater joining the main water is the map's challenge, as asked for (D476),
+// while badwater standing or draining on its own waters no land.
 
 import type { Feature, RiverFeature } from "../features/schema";
 import { distanceFromInTs, N4 } from "../math/grid";
@@ -31,8 +35,10 @@ export interface WaterStory {
   /** The share of the main river's course that holds water, and the least of any river's. */
   mainWet: number;
   leastWet: number;
-  /** The share of the dry land within `REACH` of the map's side from clean water (D294: water that
-   *  sits in one corner leaves most of the land bare rock). */
+  /** The share of the dry land within `REACH` of the map's side from clean water or from the map's
+   *  main water, whatever badwater has joined it (D294: water that sits in one corner leaves most of
+   *  the land bare rock; D480: badwater in the main water is asked for, D476, and counts; badwater in
+   *  a system of its own does not). */
   reach: number;
   /** The water reads at a glance (D273 (1)). */
   readable: boolean;
@@ -42,7 +48,8 @@ export interface WaterStory {
 
 /** Limits a readable story keeps (information; the candidate choice prefers maps within them). */
 export const STORY = { mainShare: 0.72, systems: 3, heads: 7, separate: 1, mainWet: 0.85, riverWet: 0.6, reach: 0.35 } as const;
-/** How far from clean water land counts as within reach of it, as a share of the map's side. */
+/** How far from water (clean, or the main water's) land counts as within reach of it, as a share of
+ *  the map's side. */
 export const REACH = 0.14;
 
 /** The labels of the wet systems (−1 dry) and each system's tiles and volume. */
@@ -120,6 +127,35 @@ function courseTiles(r: RiverFeature, W: number, H: number): number[] {
   return out.slice(2, Math.max(2, out.length - 2));
 }
 
+/** The system most of a course's water lies in (−1: none of its tiles wet). */
+function courseSystem(tiles: readonly number[], labels: ArrayLike<number>): number {
+  const count = new Map<number, number>();
+  for (const i of tiles) {
+    const l = labels[i];
+    if (l >= 0) count.set(l, (count.get(l) ?? 0) + 1);
+  }
+  let s = -1;
+  let sn = 0;
+  for (const [l, n] of count) if (n > sn || (n === sn && l < s)) {
+    s = l;
+    sn = n;
+  }
+  return s;
+}
+
+/** The map's main water (D480), the water D476 steers badwater into, read from the map alone (an
+ *  imported map is read the same way): the system holding most of the main river's course's water;
+ *  on a map without a main river, or with its course dry, the system holding the most water. −1 on
+ *  a map without water. */
+function mainWaterOf(sys: ReturnType<typeof wetSystems>, features: readonly Feature[], W: number, H: number): number {
+  const trunk = features.find((f): f is RiverFeature => f.kind === "river" && f.role === "river/main" && !f.params.badwater);
+  let main = trunk ? courseSystem(courseTiles(trunk, W, H), sys.labels) : -1;
+  if (main < 0) sys.volume.forEach((v, k) => {
+    if (main < 0 || v > sys.volume[main]) main = k;
+  });
+  return main;
+}
+
 /** Whether the river's water stands at a tile of its course: the tile or one beside it wet (a
  *  course line runs within its channel, which may wander a tile off it). */
 function wetNear(i: number, W: number, H: number, depth: ArrayLike<number>): boolean {
@@ -154,12 +190,13 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       return false;
     });
   const sys = joinedOverPlugs(W, H, wetSystems(W, H, depth), plugTiles.size ? features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && pluggedAt(courseTiles(f, W, H))) : []);
-  // the land within reach of clean water
+  // the land within reach of clean water, or of the main water whatever has joined it (D480)
+  const mainWater = contamination ? mainWaterOf(sys, features, W, H) : -1;
   const clean = new Uint8Array(W * H);
   let dry = 0;
   for (let i = 0; i < W * H; i++) {
     if (depth[i] >= 0.05) {
-      if (!contamination || !(contamination[i] >= 0.05)) clean[i] = 1;
+      if (!contamination || !(contamination[i] >= 0.05) || sys.labels[i] === mainWater) clean[i] = 1;
     } else dry++;
   }
   // (the outcomes stay in TypeScript, D391)
@@ -206,24 +243,14 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   let leastWet = 1;
   for (const r of rivers) {
     const tiles = courseTiles(r, W, H);
-    const count = new Map<number, number>();
     let w = 0;
-    for (const i of tiles) {
-      if (wetNear(i, W, H, depth)) w++;
-      const l = sys.labels[i];
-      if (l >= 0) count.set(l, (count.get(l) ?? 0) + 1);
-    }
+    for (const i of tiles) if (wetNear(i, W, H, depth)) w++;
     const plugged = pluggedAt(tiles);
     const share = tiles.length && !plugged ? w / tiles.length : 1;
     if (r.role === "river/main") mainWet = share;
     if (share < leastWet) leastWet = share;
     // the system most of its course's water lies in
-    let s = -1;
-    let sn = 0;
-    for (const [l, n] of count) if (n > sn || (n === sn && l < s)) {
-      s = l;
-      sn = n;
-    }
+    const s = courseSystem(tiles, sys.labels);
     if (s === main) heads++;
     else if (s >= 0 && !bad[s] && sys.tiles[s] >= min) separate++;
   }
@@ -234,7 +261,7 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   if (systems > STORY.systems) why.push(`${systems} other water systems`);
   if (heads > STORY.heads) why.push(`${heads} heads feed the main system`);
   if (separate > STORY.separate) why.push(`${separate} rivers never join it`);
-  if (reach < STORY.reach) why.push(`only ${Math.round(reach * 100)}% of the land lies near clean water`);
+  if (reach < STORY.reach) why.push(`only ${Math.round(reach * 100)}% of the land lies near clean water or the main water`);
   if (mainWet < STORY.mainWet) why.push(`the main river holds water on ${Math.round(mainWet * 100)}% of its course`);
   else if (leastWet < STORY.riverWet) why.push(`a river holds water on ${Math.round(leastWet * 100)}% of its course`);
   return {

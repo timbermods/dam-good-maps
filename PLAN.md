@@ -518,8 +518,9 @@ candidate that passes the absolutes (plays exactly right, the starting-logs floo
 shown at once and never swapped. Its outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
 `analysis/signature.ts`, `gen/outcomes.ts`; a standout intention); when it misses the promise or readable water, a worker
 of its own looks for a sibling that meets all three (`gen/versions.ts`, up to 6), and only a missed promise gets a note
-naming what the version has (D333 (5)). Only true near-duplicates are rejected; resemblance is otherwise information
-(D223). Another like this makes one sibling per click (D278).
+naming what the version has (D333 (5)). The water story's reach, the share of the land near water, counts clean water
+and the main water whatever badwater has joined it (D480, D476). Only true near-duplicates are rejected; resemblance is
+otherwise information (D223). Another like this makes one sibling per click (D278).
 
 **The first land shown is the map** (D348, D370): a land is shown once it passes every check the land alone can judge,
 and is never replaced. Those checks: its courses; no inflow's head under water held downstream; the Rivers count; no
