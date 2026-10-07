@@ -40,7 +40,6 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (bcd7fb9d, with #350's nightly fix). Full run 37609333532 and nightly 37609336620 going: merge when both are green |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Its Rust is a core change: review with a full CI run before it merges |
 | #261 | Canyon and Highlands height | milestone | `approved` and `needs-kyler`: merged with dev locally, not pushed (worktree `DamGoodMaps-canyon-height`, c6d33bf2, generator 0.8.7, no re-pin yet; 12 quick tests wait on it, one of them `objects`' canyon three-mine-sites start, to investigate). The walls hold; all-three outcomes fall on today's dev (Canyon 256² 15 → 10 of 20) from badwater joining the main water (D476), the cause of Islands 6's shortfall too. Kyler's choice on the PR: merge as it is, a pass for Canyon's clean river, or one pass on D476 across themes |
@@ -62,7 +61,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
    1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
    fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
-4. **Then #329** (D477) and **TypeScript 7** (#342), as in the table.
+4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
+   `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
 5. **Deposit (#341):** Kyler's answers to its three questions (a drag's changes inside its band; the smallest click's circle;
    small fans in basins) are not yet on #341 or in the docs: ask Kyler, post them on #341, and record any rule.
 6. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
