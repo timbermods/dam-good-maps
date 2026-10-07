@@ -175,7 +175,9 @@ test("open → edit → Generate replaces the map without asking and Your maps k
 });
 
 test("a click picks no generated feature, and never water (D184, D196)", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=riverValley");
+  // (seed 84 for 0.8.5's maps, D148: seed 77's river now has its middle by the map's edge, where the click
+  // lands on no tile)
+  await openEditor(page, "s=84&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // a click on the start picks nothing (it is dragged, or picked on the shelf), and nothing is
   // listed: the generator's features are its plan, not objects (D184)
