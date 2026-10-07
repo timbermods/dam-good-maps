@@ -1,17 +1,17 @@
 diff --git a/src/core/gen/generate.ts b/src/core/gen/generate.ts
-index 6e702a24..6a439697 100644
+index fd37b7df..3943399e 100644
 --- a/src/core/gen/generate.ts
 +++ b/src/core/gen/generate.ts
 @@ -29,7 +29,7 @@ import { damWalls } from "../analysis/ridge";
  import { risenBasin, wearOutlet } from "../water/outletWear";
- import { WaterSim } from "../sim/water";
+ import { TICKS_PER_DAY, WaterSim } from "../sim/water";
  import { prefill, spillLevels } from "../sim/prefill";
 -import { seaLevel, standIslandsClear } from "../land/islands";
 +import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
  import { unit } from "../land/num";
  import { entityJson } from "../format/entities";
  import { mapObjects, type MapObject } from "../sim/model";
-@@ -160,7 +160,7 @@ export interface GenerationInfo {
+@@ -182,7 +182,7 @@ export interface GenerationInfo {
    preWet?: number;
    /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
     *  a readable water story), before its water settled: what the land-stage screen judged. */
@@ -20,7 +20,7 @@ index 6e702a24..6a439697 100644
    /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
    hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
    start: StartPick | null;
-@@ -331,6 +331,8 @@ interface LandStage {
+@@ -355,6 +355,8 @@ interface LandStage {
    hollows: Omit<Hazards, "heights"> | null;
  }
  
@@ -29,7 +29,7 @@ index 6e702a24..6a439697 100644
  /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
   *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
   *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
-@@ -508,6 +510,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
+@@ -554,6 +556,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
        g.flowDir = orientDir(g.flowDir, o);
        const E = orientField(F.E, W, H, o);
        land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
@@ -38,7 +38,7 @@ index 6e702a24..6a439697 100644
      } else replans++;
      const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
      if (a.stage) {
-@@ -1310,6 +1314,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1366,6 +1370,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
    // takes days to settle; the channel is as wide as the map's flow needs
    const channels = new Uint8Array(N);
    for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
@@ -53,7 +53,7 @@ index 6e702a24..6a439697 100644
    carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
    // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
    // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
-@@ -1336,7 +1348,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1392,7 +1404,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
    }
    // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
@@ -62,7 +62,7 @@ index 6e702a24..6a439697 100644
    if (g.seaLayout) {
      const isles = g.parts.filter((p) => p.isle).map((p) => {
        const o = (g.orientation ?? 0) as LandOrientation;
-@@ -1350,8 +1362,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
+@@ -1406,8 +1418,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed:
      });
      const keepI = new Uint8Array(N);
      for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
@@ -72,7 +72,7 @@ index 6e702a24..6a439697 100644
    }
    // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
    // shallower there)
-@@ -1793,6 +1804,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
+@@ -1871,6 +1882,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
            screened.count++;
            return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
          }
@@ -123,7 +123,7 @@ index 9699868c..6fb5759b 100644
      if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
      return tiles;
 diff --git a/src/core/land/field.ts b/src/core/land/field.ts
-index ebe1ee1f..72875e95 100644
+index ebe1ee1f..d65d8dfe 100644
 --- a/src/core/land/field.ts
 +++ b/src/core/land/field.ts
 @@ -21,7 +21,7 @@ import { bump, DIRS8, dist, unit } from "./num";
@@ -144,10 +144,30 @@ index ebe1ee1f..72875e95 100644
          U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
          if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
        });
-@@ -243,20 +243,49 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
+@@ -243,20 +243,69 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
        const major = p.size * portable.sqrt(aspect);
        const minor = p.size / portable.sqrt(aspect);
        const cell = Math.max(6, p.size * 0.55);
++      // (a hollow, Lake Basin's drowned basin (#234, `land/lakeBasin.ts`, the shape with a negative
++      // height), keeps the plain warped footprint and its broad flank: the lobes, coves and steep
++      // flank below are an island's in a sea, and would redraw every Lake Basin's lake)
++      if (p.height < 0) {
++        each((x, y, i) => {
++          const wx = 0.38 * p.size * fbm(s + 1, x, y, cell, 2);
++          const wy = 0.38 * p.size * fbm(s + 2, x, y, cell, 2);
++          const dx = x - cx + wx;
++          const dy = y - cy + wy;
++          const a = (dx * ux + dy * uy) / major;
++          const b = (-dx * uy + dy * ux) / minor;
++          const d = portable.sqrt(a * a + b * b) / (1 + 0.22 * fbm(s, x, y, Math.max(5, p.size * 0.35), 3));
++          if (d >= 1.15) return;
++          let n = fbm(s + 3, x, y, Math.max(5, p.size * 0.45), 3);
++          n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
++          const t = smoothstep((1.15 - d) / 0.4);
++          U[i] += p.height * t * (0.72 + 0.4 * n);
++        });
++        return;
++      }
 +      // (round 4: the coast's warp and wobble are a 14-tile island's at most, in tiles: grown with a
 +      // larger island, a 256² island's coast swung 9–14 tiles, past the strait of 4–7 its neighbours
 +      // and the shore keep, and joined them; the detail per tile stays as at 128²)
@@ -200,7 +220,7 @@ index ebe1ee1f..72875e95 100644
        });
        return;
      }
-@@ -303,24 +332,6 @@ export interface Field {
+@@ -303,24 +352,6 @@ export interface Field {
    hard: Float64Array;
  }
  
@@ -225,7 +245,7 @@ index ebe1ee1f..72875e95 100644
  /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
  export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
    const ls = landSeed(seed, g.variation);
-@@ -342,7 +353,9 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
+@@ -342,7 +373,9 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
        else {
          const du = x / (W - 1) - g.focus[0];
          const dv = y / (H - 1) - g.focus[1];
@@ -236,7 +256,7 @@ index ebe1ee1f..72875e95 100644
        }
        // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
        // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
-@@ -468,5 +481,16 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field
+@@ -468,5 +501,16 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field
    let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion);
    // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
    if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
@@ -1090,10 +1110,10 @@ index 00e51bc2..5b61ae73 100644
      for (let k = 0; k < -2 * dl; k++) {
        const at = g.parts.findIndex((q) => q.kind === "basin" && q.shape !== "sea");
 diff --git a/src/core/land/hydro.ts b/src/core/land/hydro.ts
-index a5ccca04..30ead81c 100644
+index 6791d056..8673fede 100644
 --- a/src/core/land/hydro.ts
 +++ b/src/core/land/hydro.ts
-@@ -340,6 +340,39 @@ interface Head {
+@@ -341,6 +341,39 @@ interface Head {
    flow: number;
  }
  
@@ -1130,10 +1150,10 @@ index a5ccca04..30ead81c 100644
 +  return sea;
 +}
 +
- export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
-   const N = W * H;
-   // River Valley has one default trunk; an explicit Rivers count stays the player's, 0 too (its main
-@@ -387,7 +420,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+ /** A Delta arm's course from the fan's apex to its mouth (#233, Delta arms round 2): the seeded apex
+  *  and mouth kept, the low ground choosing the way inside a broad curved corridor with its own
+  *  departure, phase and turning length, so neighbouring arms diverge, converge and braid rather than
+@@ -453,7 +486,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
    // count the player set may enter as a river of its own when no inflow can join. A few heads, never
    // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
    const owner = new Int32Array(N).fill(-1);
@@ -1149,7 +1169,7 @@ index a5ccca04..30ead81c 100644
    const areaK = N / (128 * 128);
    // A few fed tributaries read better than many shallow fragments at large sizes.
    // Explicit Rivers counts remain player-owned; every other theme keeps its cap.
-@@ -411,8 +451,14 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+@@ -477,8 +517,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
      let c = hd.cell;
      let joins = -1;
      const guard = new Set<number>();
@@ -1164,7 +1184,7 @@ index a5ccca04..30ead81c 100644
        if (owner[c] >= 0) {
          joins = owner[c];
          cells.push(c);
-@@ -437,7 +483,7 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+@@ -510,7 +556,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
      if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
      heads.push(hd);
      for (const i of cells) if (owner[i] < 0) owner[i] = k;
@@ -1173,7 +1193,7 @@ index a5ccca04..30ead81c 100644
      return true;
    };
    // edge inflows: low points of the upstream edges with long paths inland. When the player set the
-@@ -865,7 +911,10 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+@@ -938,7 +984,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
      let tiles = flood(seedCell, sill);
      // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
      // river begins (`maxSill`)
@@ -1185,7 +1205,7 @@ index a5ccca04..30ead81c 100644
        sill--;
        const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
        if (h[lowest] >= sill) return null;
-@@ -1206,7 +1255,8 @@ export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: numbe
+@@ -1282,7 +1331,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
      }
      exits.set(rid, { path, prof, L, n, width, half });
      const entry = hd.kind === "edge" ? { edge: hd.edge! } : { spring: [hx, hy] as Point };
@@ -1485,3 +1505,16 @@ index 4d64c40e..a9d03fa8 100644
 +  }
 +  return n;
 +}
+diff --git a/src/core/spec/mapspec.ts b/src/core/spec/mapspec.ts
+index 59784e53..2bb082bf 100644
+--- a/src/core/spec/mapspec.ts
++++ b/src/core/spec/mapspec.ts
+@@ -1,7 +1,7 @@
+ // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
+ // URL codec produce one. Complete, never a diff.
+ 
+-export const GENERATOR_VERSION = "0.8.5";
++export const GENERATOR_VERSION = "0.8.6";
+ 
+ /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
+  *  theme only leans the generator toward that kind of land. */

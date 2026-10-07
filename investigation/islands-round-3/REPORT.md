@@ -1,10 +1,36 @@
 # Islands, rounds 3 to 6: the coast, and islands that read as islands
 
-Rounds 2 to 6 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148).
+Rounds 2 to 6 are product code on this branch (Kyler, 2026-10-04), merged with dev and re-pinned (D148; generator 0.8.6).
 [islands.patch](islands.patch) is the whole change against dev's tip, Islands' own shaping only: `land/genome.ts`
 `addSea`, `rimKeep` and Islands' lake budget, the sea and isle cases in `land/field.ts`, the sea's rivers in
 `land/hydro.ts` and `land/courses.ts`, the Islands-gated blocks of `gen/generate.ts`, `land/islands.ts`. Every map is
 shaped before the first land is shown (D348, D370).
+
+## Round 6 on dev (generator 0.8.6, 2026-10-07)
+
+Merged with dev at 53a438ec (0.8.5: badwater joins the main water, D476; the start's badwater distance a rule, D469;
+every setting makes a map, D471; Lake Basin round 3; River Valley round 2). The tables below are round 6 before that
+merge. On the merged code, Islands seeds 1–30, with dev's own Islands (0.8.5) where it was measured:
+
+| Size | No island to expand to | Attempts, mean | Wet share, median | Ring maps | All three outcomes | Promise missed | Water story missed | Settle over 4 days |
+|---|---|---|---|---|---|---|---|---|
+| 96² | 9 (5, 6, 8, 9, 14, 22, 24, 28, 30) | 13.2 (dev 8.7) | 0.57 | 0 | 26 (dev 4) | 1 (dev 25) | 4 (dev 6) | 0 |
+| 128² | 0 | 6.2 (dev 5.3) | 0.59 | 1 (18) | 22 (dev 20) | 1 (dev 9) | 8 (dev 2) | 0 |
+| 256² | 1 (18) | 4.1 | 0.58 | 1 (7) | 21 | 0 | 9 | 7 |
+
+- **Water story:** 19 of the 21 misses are "only N% of the land lies near clean water": on most maps a badwater course
+  now joins the sea (D476), and the sea is most of the map. Before the merge the misses were 0, 3 and 0.
+- **Attempts:** the failed attempts new with the merge are `source in a flow` (64, 38 and 5 over the 30 seeds at 96²,
+  128² and 256²; none on dev's Islands) and `start.badwater` (66, 29, 23; 6 and 6 on dev's). On the seed traced (128²
+  seed 20) every `source in a flow` was the main river's own spring, a few tiles from the sea, reached on the pre-fill
+  with one badwater hollow planned; the main river can't leave, so the land is drawn again. Not fixed here.
+- **Lake Basin's hollow** (#234) is drawn with the island's shape at a negative height; round 6's island outline would
+  have redrawn every Lake Basin map, so a hollow keeps dev's footprint (`land/field.ts`). River Valley, Canyon,
+  Highlands, Delta and Lake Basin, seeds 1–8 at 96² and 128², are byte-identical to dev; of Any's 16, three change
+  (96² 4 and 5, 128² 4), each with a sea layout on one of its attempts.
+- **The second district's site** stands on Islands 128² seeds 10, 17, 21 and 23 only; seed 9's 56-tile site is gone.
+- Sheets on the merged code: [islands-6](../../docs/sheets/islands-6.png), [every theme](../../docs/sheets/islands-6-all.png).
+  The round 5 | round 6 sheets below are from before the merge.
 
 ## Round 6: what changed, and the fault each answers
 
