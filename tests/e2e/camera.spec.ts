@@ -39,12 +39,12 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  // (from the map's middle: held long enough on a slow machine, the view would otherwise reach the map's edge, where it
-  // stops by design)
+  // (from the map's middle, close in: held long enough on a slow machine, the view would otherwise reach the map's edge,
+  // where it stops by design; the pace follows the zoom, so close in a held key crosses fewer tiles)
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     const m = r.mapState()!;
-    r.setView({ target: [m.W / 2, r.getView().target[1], -m.H / 2] });
+    r.setView({ target: [m.W / 2, r.getView().target[1], -m.H / 2], distance: 24 });
   });
 
   // D held: the target moves every frame, not in a few jumps
