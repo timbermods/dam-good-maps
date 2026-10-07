@@ -21,7 +21,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D480**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D481**). It owns STATUS and HANDOFF.
 - **The page session** (Opus 5.5, high, D468; a cloud container, `feature/page`, restarted from dev after #347) builds "The page is the
   editor".
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
@@ -40,11 +40,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #342 | TypeScript 7.0.2 (D460) | milestone | Ready: dev merged in (bcd7fb9d, with #350's nightly fix). Full run 37609333532 and nightly 37609336620 going: merge when both are green |
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
-| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Its Rust is a core change: review with a full CI run before it merges |
-| #261 | Canyon and Highlands height | Canyon session | `approved`; in the generator queue after Islands round 6, re-pinned |
-| #235 | Islands round 6 | milestone | `approved` and `needs-kyler`: merged with dev and re-pinned (0.8.6, 62850d17; worktree `DamGoodMaps-islands-6`), but its measures on today's dev fall short of the approved round (all three outcomes at 96² 30 → 26, 128² 26 → 22, 256² 30 → 21) and startPlanting's ring test fails (0.442, bar 0.45). Kyler's choice on the PR: merge as it is with the test held, or another pass on sea maps' badwater and starts first |
+| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
+| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands and badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8 on top of Islands round 6 (merged, #235, 0.8.7); a `build` agent is on the re-pin. Local merge c6d33bf2 in `DamGoodMaps-canyon-height`, not pushed; 12 quick tests to re-pin. `objects`' Canyon three-mine-sites test is not a missing start: the map passes and has its start; only the thorn belt is left out on seed 3's new land (to confirm why at the re-pin) |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -54,7 +52,9 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26). Nothing else merges unless green
    and approved.
-2. **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
+2. **Islands round 6 is merged** (#235, generator 0.8.7, 2026-10-07; all three outcomes of 30: 96² 28, 128² 27, 256² 30).
+   Generation takes more attempts than the round Kyler approved (96² mean 13.2 against 4.9): a look for later.
+   **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
    River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
    beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
    Canyon and Highlands (#261), one re-pin each with sheets.
@@ -62,7 +62,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
    1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
    fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
-4. **Then #329** (D477) and **TypeScript 7** (#342), as in the table.
+4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
+   `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
 5. **Deposit (#341):** Kyler's answers to its three questions (a drag's changes inside its band; the smallest click's circle;
    small fans in basins) are not yet on #341 or in the docs: ask Kyler, post them on #341, and record any rule.
 6. Then, by the roadmap: custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
@@ -72,11 +73,23 @@ Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-fin
 #225, #323, #327, #328, #331, #333, #326 and #332 (records), #334, #336 (record), #337, #330 (D476), #338, #340, #339; Drought
 reserve held for settings round 2 and Designed for off that list (D466).
 
+## Expected failures, in one place
+
+Tests marked as expected failures, each a named gap. One comes off the list only when its gap is closed, never by moving it.
+
+| Test | Gap | Since |
+|---|---|---|
+| naturalizeNature: Lake Basin 3 and River Valley 6 at Terracing 100 | Naturalize on cliffs whose foot can't rise (farmland, D418). Both come off together, the next time Naturalize gets real work, judged on a sheet; first check whether the level-edge count scores a stepped slope as younger than the tall cliff it came from (D479) | #339, #346 |
+| maxWaterDepth: seed 5's pit ends 0.07 over the number | The pit's water past the bound (seed 3 until 0.8.5, the same shortfall) | M9b |
+| draftWaterQuiet: Lake Basin seed 7's lake still fills at the four-day preview cap | A draft's water that never ends settled on that map | before 2026-10-07 (missed in this list's first version) |
+| startPlanting: "no two starts get the same ring" (0.442, bar 0.45) | Sea-map starts: two Any maps that roll a sea layout lean less. Kyler, 2026-10-07 | #235 |
+| settings experiments (nightly): Verticality, Drought reserve, Lakes and basins, Waterfalls | Settings round 2 (D466) | 2026-10-03 |
+
 ## Waiting for Kyler
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#235, #329, #341). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#329, #348). Also his: Deposit's answers (#341). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches

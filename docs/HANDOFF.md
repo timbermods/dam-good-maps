@@ -170,7 +170,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D480**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D481**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
@@ -195,6 +195,12 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   free port (Playwright's `reuseExistingServer` once tested another agent's build).
 - **Sub-agents:** one Kyler stops can't be resumed: start a new one in the same worktree and tell it the exact state
   (running processes, last commit, what's left). Some hand back before their CI finishes; check the PR yourself.
+- **TypeScript 7 has no compiler API** (#342): code that transpiles or parses TypeScript imports `@typescript/typescript6`
+  (as `tools/portable-guard.ts` does). About thirty older investigation scripts still `require('typescript')` (the
+  theme rounds' `run.cjs`, the probe's `run.cjs` and `check.cjs`): they run only where a `typescript` 5 or 6 resolves,
+  for example after `npm --prefix investigation/probe ci`; change the import when one is next used.
+- **A step that changes generated maps or their measures gets a Nightly run too** (`gh workflow run nightly.yml --ref
+  <branch>`): the full CI run skips the heavy settings experiments, and River Valley round 2 turned dev's nightly red (#350).
 - **Merges between steps that change generated maps** conflict on the generator version and the pinned seed-4242 sha
   (`tests/contract/look-mine-ruins.test.ts`); re-pin per D148 and bump the version.
 

@@ -31,8 +31,8 @@ describe("the first map that passes is the map (D329)", () => {
   });
 
   it("the background search finds a sibling that meets all three, with its own share link", () => {
-    // (River Valley 96² seed 1 since D333's maps: seed 4's six siblings met all three on none; seed 2 since M9b's small starts and speed rounds, where seed 1's first map meets all three and needs no search; seed 9 since 0.8.1's maps, where seed 2 meets all three too and seeds 1–8 do, D148; seed 1 since River Valley round 2, 0.8.5, where seeds 2–12 meet all three)
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (River Valley 96² seed 1 since D333's maps: seed 4's six siblings met all three on none; seed 2 since M9b's small starts and speed rounds, where seed 1's first map meets all three and needs no search; seed 9 since 0.8.1's maps, where seed 2 meets all three too and seeds 1–8 do, D148; seed 1 since River Valley round 2, 0.8.5, where seeds 2–12 meet all three; seed 21 since the story's reach counts the main water, D480, 0.8.6, where seeds 1–20 meet all three)
+    const r = generate(makeSpec({ seed: 21, theme: "riverValley", size: { x: 96, y: 96 } }));
     const m = missesOf(r.outcomes!);
     expect(worthSearching(m)).toBe(true);
     const v = findVersion({ spec: r.spec, intentions: r.info.genome?.intentions ?? [], heights: r.built.heights });

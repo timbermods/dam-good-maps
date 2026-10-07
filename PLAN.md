@@ -518,8 +518,9 @@ candidate that passes the absolutes (plays exactly right, the starting-logs floo
 shown at once and never swapped. Its outcomes are measured (readable water, `analysis/story.ts`; the theme's promise,
 `analysis/signature.ts`, `gen/outcomes.ts`; a standout intention); when it misses the promise or readable water, a worker
 of its own looks for a sibling that meets all three (`gen/versions.ts`, up to 6), and only a missed promise gets a note
-naming what the version has (D333 (5)). Only true near-duplicates are rejected; resemblance is otherwise information
-(D223). Another like this makes one sibling per click (D278).
+naming what the version has (D333 (5)). The water story's reach, the share of the land near water, counts clean water
+and the main water whatever badwater has joined it (D480, D476). Only true near-duplicates are rejected; resemblance is
+otherwise information (D223). Another like this makes one sibling per click (D278).
 
 **The first land shown is the map** (D348, D370): a land is shown once it passes every check the land alone can judge,
 and is never replaced. Those checks: its courses; no inflow's head under water held downstream; the Rivers count; no
@@ -559,10 +560,15 @@ The presets are §6's; there is no per-theme layout planner and no table of name
 D278); the named premises that became intentions are in design version 2 §6 (`docs/archive/m9-design.md`) and D274.
 No dam ridge is built anywhere (D111). M9b brings Islands' archipelagos, chains and atolls and the crater and
 waterfall-lake intentions (D209). Islands and Delta are shaped by the same processes as every theme (D408): Islands
-draws one of D209's sea layouts, islands with relief of their own and springs on them, inside a rim whose line wanders,
-rounded at the corners; on three sea maps in four the sea lies off the middle and broad headlands break the land round
-it, an inland sea in a ring of land on the fourth; its start may stand on an island that holds what it needs (D410,
-D411), not required (D429). Delta's river
+draws one of D209's sea layouts, islands with relief of their own and springs on them. The sea is most of the map
+and runs to the map's edge on two or three sides, held there by a lip a tile or two wide at the very edge, a level over
+a shallow shelf (no edge wall, D151; Any's sea maps keep a lip of 6–10 tiles); a river that meets the sea ends there,
+never crossing the lip. The mainland stands on one side or two, its coast warped into bays and points at every scale;
+an inland sea in a ring of land on about one sea map in eleven (D423, D427). The sea is never cut to fit the lake
+budget (D432). Islands grow with the map and vary: a large one with arms and a long coast, smaller ones down from it in
+sizes drawn from a broad range, some long and thin, every outline lobed and coved, never an ellipse, their straits kept
+in tiles, and one a strait off the mainland, the game's reach (D429); its start may stand on an island that holds what it
+needs (D410, D411), not required (D429). Delta's river
 comes down from higher ground and splits into several channels, every one reaching the edge, across a fan whose place,
 direction and size vary by seed (D412, D416). The river's own course below the fan's apex is one of those channels, as
 narrow as an arm and falling as soon as they do, so it carries its share and never stands dry (D447). Each arm
