@@ -186,6 +186,9 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     let mut offers=vec![];let mut donors=vec![];let mut expected=0.0;
     let outline=outline(&map,&intent.path,drawn,radius);
     let room_at=|i:usize|if keep.get(i).copied().unwrap_or(0)!=0||outline[i]==0{0}else{area.get(i).copied().unwrap_or(255)};
+    // A fan's height, its least material and how deep it takes follow its length: one shorter than 12 tiles is in
+    // proportion, never a column by a pit (a Size 8 click at a cliff's foot stood seven levels high, 4 deep behind).
+    let lift=min(1.0,reach/12.0);
     for i in 0..n {
         if room_at(i)==0{continue;}let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
         let along=dx*dir.x+dy*dir.y;let cross=-dx*dir.y+dy*dir.x;let u=along/reach;
@@ -197,7 +200,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
             // (a small fan tapers over its own size: a fixed six tiles would leave it nothing)
             let taper=clamp(reach*0.4,1.0,6.0);
             let edge=smooth((half-(cross-offset).abs())/taper)*smooth((toe-along)/taper);
-            let datum=datum_h+1.7+power*if placement==2{3.0}else{7.0}-clamp(u,0.0,1.0)*(1.2+power*if placement==2{2.0}else{5.0});
+            let datum=datum_h+lift*(1.7+power*if placement==2{3.0}else{7.0}-clamp(u,0.0,1.0)*(1.2+power*if placement==2{2.0}else{5.0}));
             let relief=(noise(s.seed,along/17.0+cross/10.0,1400.0)-0.5)*1.35;
             let mut target=max(h as f64,min(map.ceiling,round(h as f64+max(0.0,datum+relief-h as f64)*edge))) as u8;
             if channel[i]!=0{target=if wet{target.min(h.max(mouth_h))}else{h.max(target.saturating_sub(1))};}
@@ -209,7 +212,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
         }
         let back=-along;let upstream=reach*1.5+12.0;let dw=4.0+min(15.0,width*0.27)*smooth(back/12.0);
         if back>2.0&&back<upstream&&cross.abs()<dw&&h>floor&&h>=mouth_h&&before.depth[i]<=0.05{
-            let want=0.6+power*4.4*(0.65+0.35*smooth((upstream-back)/15.0));let cut=(h-floor).min(want.ceil() as u8).min(room_at(i));
+            let want=0.6+power*4.4*(0.65+0.35*smooth((upstream-back)/15.0));let cut=(h-floor).min(max(1.0,(want*lift).ceil()) as u8).min(room_at(i));
             expected+=min(cut as f64,want);if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross.abs()/dw*0.18+hash(s.seed,i as f64+70000.0)*0.05});}
         }
     }
@@ -218,7 +221,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     // Only higher shoulders supplement upstream material; a flat still cuts its upstream banks.
     for i in 0..n{let h=before.heights[i];let d=hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y);
         if room_at(i)==0||used[i]||offered[i]||h<=floor.max(mouth_h)||d>max(48.0,width)||before.depth[i]>0.05{continue;}
-        let cut=(h-floor).min((0.6+power*4.4).ceil() as u8).min(room_at(i));if cut==0{continue;}
+        let cut=(h-floor).min(max(1.0,((0.6+power*4.4)*lift).ceil()) as u8).min(room_at(i));if cut==0{continue;}
         donors.push(Donor{i,target:h-cut,rank:1.5+d/max(48.0,width)+hash(s.seed,i as f64)*0.03});used[i]=true;expected+=cut as f64;
     }
     // Fully submerged terrain still has upstream sediment; prefer dry donors when available.
@@ -226,7 +229,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
         let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
         let back=-(dx*dir.x+dy*dir.y);let cross=(-dx*dir.y+dy*dir.x).abs();let upstream=reach*1.5+12.0;
         if room_at(i)==0||offered[i]||outlet[i]!=0||h<=floor||h<mouth_h||back<=2.0||back>=upstream||cross>4.0+min(15.0,width*0.27){continue;}
-        let cut=(h-floor).min((0.6+power*4.4).ceil() as u8).min(room_at(i));
+        let cut=(h-floor).min(max(1.0,((0.6+power*4.4)*lift).ceil()) as u8).min(room_at(i));
         if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross/max(1.0,width)*0.18});used[i]=true;expected+=cut as f64;}
     }}
     // At a map edge or capped sector, put the same sediment into the nearest lower hollow.
@@ -236,7 +239,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
             for j in 0..n{if used[j]||room_at(j)==0||outlet[j]!=0{continue;}let d=hypot((j%map.w) as f64-mouth.x,(j/map.w) as f64-mouth.y);let h=before.heights[j];let target=max(h as f64,min(map.ceiling,round(datum-d/radius*(1.0+power*3.0)))) as u8;let target=target.min(h.saturating_add(room_at(j)));if d<radius&&target>h{offers.push(Offer{i:j,target,rank:d/radius,u:d/radius});offered[j]=true;}}
         }
     }
-    let minimum=round(48.0+power*160.0) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
+    let minimum=round((48.0+power*160.0)*lift) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
     if room<minimum||offers.len()<min_area{
         let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0
             &&{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;dx*dir.x+dy*dir.y>=0.0}).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
@@ -247,7 +250,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
             offers.push(Offer{i,target,rank:d/max(12.0,reach),u:d/max(12.0,reach)});offered[i]=true;room+=(target-h) as usize;if room>=minimum&&offers.len()>=min_area{break;}
         }
     }
-    while room<minimum{let mut grew=false;for o in &mut offers{let h=before.heights[o.i];let cap=min(map.ceiling,min(h as f64+3.0+round(power*5.0),h as f64+room_at(o.i) as f64)) as u8;
+    while room<minimum{let mut grew=false;for o in &mut offers{let h=before.heights[o.i];let cap=min(map.ceiling,min(h as f64+max(1.0,round(lift*(3.0+power*5.0))),h as f64+room_at(o.i) as f64)) as u8;
         if o.target>=cap||channel[o.i]!=0||outlet[o.i]!=0{continue;}o.target+=1;room+=1;grew=true;if room>=minimum{break;}}
         if !grew{break;}
     }
@@ -259,7 +262,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
             (i,hypot(dx,dy)+if before.depth[i]>0.05{48.0}else{0.0}+if ahead{100.0}else{0.0})}).collect();
         candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));let mut missing=9-available;
         // (spread as its other donors are: shallow, over more ground)
-        let most=(0.6+power*4.4).ceil() as u8;
+        let most=max(1.0,((0.6+power*4.4)*lift).ceil()) as u8;
         for (i,_) in candidates{if missing==0{break;}let cut=(before.heights[i]-floor).min(room_at(i)).min(missing as u8).min(most);
             donors.push(Donor{i,target:before.heights[i]-cut,rank:3.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)/max(48.0,width)});missing-=cut as usize;
         }

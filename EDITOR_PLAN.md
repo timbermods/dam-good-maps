@@ -358,10 +358,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps); the page's row, stroke band, crack-and-drop effects and sounds are to come.
 - **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
-  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
-  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
-  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
-  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  of it paid for by ground taken from behind it and beside it (conserved; Keep, the Floor and the working area are
+  budgeted before it plays). Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a
+  drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
+  reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
+  behind More, **Channels** (Auto, Few, Many). A click never refuses (D356): where no fan fits, what it took lies a
+  level deep on the nearest free ground inside the circle. Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps); the
   page's row and its sediment-and-water effects are to come.
