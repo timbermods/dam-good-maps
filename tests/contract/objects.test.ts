@@ -78,9 +78,11 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // seed 3: a seed on which every theme places every kind of object (a thorn belt is left out where it
   // would cut the colony's land in two; seed 1 until 0.8.0, whose Delta had no room for one, then seed
   // 2, whose Lake Basin has none on D333's maps, D148; Islands seed 1 since badwater joins the main
-  // water, D476, D148: its seed 3 leaves the thorn belt out)
-  const everyObject = (theme: ThemeId) => {
-    const spec = makeSpec({ seed: theme === "islands" ? 1 : 3, size: { x: 96, y: 96 }, theme });
+  // water, D476, D148: its seed 3 leaves the thorn belt out; Canyon seed 1 for every kind since the Canyon
+  // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
+  // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" || theme === "canyon" ? 1 : 3, thorns = true) => {
+    const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
     spec.settings.resources.mineSites = 3;
@@ -90,14 +92,21 @@ describe("generated maps: every new object passes the placement emulation (ROADM
       const c = r.report.checks.find((x) => x.id === id)!;
       expect(c.ok, `${id}: ${c.message}`).toBe(true);
     }
+    expect(r.built.entities.filter((e) => e.template === "StartingLocation").length).toBe(1);
     const templates = new Set(r.built.entities.map((e) => e.template));
-    for (const t of ["UndergroundRuins", "GeothermalField", "UnstableCore", "Thorns"]) expect(templates.has(t), t).toBe(true);
+    for (const t of ["UndergroundRuins", "GeothermalField", "UnstableCore", ...(thorns ? ["Thorns"] : [])]) expect(templates.has(t), t).toBe(true);
     expect(["SmallRelic", "MediumRelic", "LargeRelic"].some((t) => templates.has(t))).toBe(true);
+    return r;
   };
-  it.each(themes.filter((t) => t !== "canyon"))("%s, every map object on, 96²", (theme) => everyObject(theme));
+  it.each(themes)("%s, every map object on, 96²", (theme) => void everyObject(theme));
   // (Canyon 96² seed 3 with every object on and three mine sites found no start on its shown land, an
-  // expected failure from 2026-10-02 until D471's rescue rounds made it a map)
-  it("canyon, every map object on, 96²: a start with three mine sites", () => everyObject("canyon"));
+  // expected failure from 2026-10-02 until D471's rescue rounds made it a map; it stays on seed 3: the
+  // map passes with its start, its three mine sites and every kind of object but the thorn belt, which
+  // the walk rule leaves out there since 0.8.8, see above)
+  it("canyon, every map object on, 96², seed 3: a start with three mine sites", () => {
+    const r = everyObject("canyon", 3, false);
+    expect(r.built.entities.filter((e) => e.template === "UndergroundRuins").length).toBe(3);
+  });
 });
 
 /** Walk regions from the start: same level, the built slopes, round the objects that block walking. */
@@ -120,8 +129,9 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // read that rule at rest and moves a start that breaks it on the same land: seed 3 has no site; canyon 8 for
     // canyon 3 since badwater joins the main water, D476, D148: of Canyon seeds 1–15 only 8 and 13 have one;
     // Islands 10 for 1 since Islands round 6, 0.8.7, D148: its sea is most of the map, and of Islands seeds 1–30
-    // only 10, 17, 21 and 23 have one)
-    for (const [theme, seed] of [["islands", 10], ["riverValley", 3], ["canyon", 8], ["riverValley", 4]] as [ThemeId, number][]) {
+    // only 10, 17, 21 and 23 have one; canyon 2 for canyon 8 since the Canyon and Highlands height round,
+    // 0.8.8, D148: of Canyon seeds 1–20 on the plateau, 1, 2, 5, 13 and 16 have one)
+    for (const [theme, seed] of [["islands", 10], ["riverValley", 3], ["canyon", 2], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -154,9 +164,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
   it("ruins on a rise: out of reach without stairs, one flight of stairs reaches them, and the rise is the land's own", () => {
     // nothing is stamped (M9a): the generator finds a rise the land already holds, on maps that
     // have one (generator 0.8.0; re-seeded for M9b's maps, for batch 5's, for D333's and for
-    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148; river valley 8 for river valley 2, which River Valley round 2's maps, 0.8.5, leave without one)
+    // D348–D360's, and for M9b's small starts and speed rounds, which left islands 1 and 4, highlands 4 and any 6 without a rise; canyon 4 for canyon 3, which 0.8.1's maps left without one, D148; river valley 8 for river valley 2, which River Valley round 2's maps, 0.8.5, leave without one;
+    // canyon 1, 5 and 18 for highlands 2 and 7 and canyon 4 since the Canyon and Highlands height round, 0.8.8,
+    // D148: no Highlands seed to 20 holds a rise on its tall terraces, and of Canyon's only these three)
     let seen = 0;
-    for (const [theme, seed] of [["highlands", 2], ["highlands", 7], ["riverValley", 8], ["canyon", 4]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 1], ["canyon", 5], ["riverValley", 8], ["canyon", 18]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -192,8 +204,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // re-seeded for M9b's maps, for batch 5's, for D333's and for M9b's small starts and speed rounds, which left canyon 10 and highlands 2 without a weir, D148;
     // canyon 3 for canyon 1, whose river after D447's bank rule takes no weir; canyon 4 for canyon 3, which
     // 0.8.1's maps left without one; canyon 19 for canyon 16 since the start's badwater distance became
-    // a rule, Kyler, 2026-10-05)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 4], ["canyon", 19], ["highlands", 1]] as [ThemeId, number][]) {
+    // a rule, Kyler, 2026-10-05; canyon 10 for canyon 19 and highlands 4 for highlands 1 since the Canyon and
+    // Highlands height round, 0.8.8, D148: neither map's river takes a weir now (highlands 2 has one, holding 0.65,
+    // on a spring river a second channel runs beside, which this reading would count with it))
+    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 4], ["canyon", 10], ["highlands", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

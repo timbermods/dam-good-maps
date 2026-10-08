@@ -9,6 +9,8 @@
 was restarted from dev and holds nothing of its own. The queue below is done: the saving review's page half, #310 F1 and
 #312's page part all went in with #347. Kyler retook nothing: the `title-*` captures stay in the Release.
 
+**Edits by the milestone session in the page's files** (Kyler's word, 2026-10-07, while the page session is stopped; #359): for 3D Foundations' stage 6 the opening notice on a map with caves and the "Under roofs" layer's name and words change (`src/editor/panels.tsx`, `src/editor/render/viewControls.tsx`, `src/ui/View3D.tsx`): the layer becomes "Caves and overhangs". Nothing else of the page's is touched.
+
 **Nothing is queued for the page.** The next page work is the Block tool's interface, when step 3 of terrain above
 terrain (ROADMAP.md) needs it; 3D's Foundations is the milestone session's. Start no page work without Kyler's yes.
 

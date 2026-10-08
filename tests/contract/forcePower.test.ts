@@ -21,7 +21,10 @@ const mid: [number, number] = [W >> 1, W >> 1];
 const fault = [{ x: 10, y: W * 0.4 }, { x: W - 10, y: W * 0.45 }];
 
 beforeAll(async () => {
-  const b = await openMap("highlands", W, 5);
+  // (River Valley 128² seed 1 since the height round, investigation/canyon-highlands-height, D148: on
+  // Highlands' tall terraces the gentlest crater, eruption or glacier at the largest Size fills a
+  // valley and moves more than a quarter of Power 100's on every seed tried, 5 to 10)
+  const b = await openMap("riverValley", W, 1);
   let best = -1;
   for (let y = 10; y < W - 10; y += 2)
     for (let x = 10; x < W - 10; x += 2) {

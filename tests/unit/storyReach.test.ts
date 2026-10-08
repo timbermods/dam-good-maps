@@ -27,6 +27,20 @@ describe("the water story's reach (D480)", () => {
     expect(waterStory(W, H, depth, [], joined).reach).toBe(clean.reach);
   });
 
+  it("keeps the main water in the story however much badwater has joined it (D480's extension)", () => {
+    const clean = waterStory(W, H, depth, [main], new Float64Array(W * H));
+    // (badwater from x 12 on: four fifths of the main river carries it)
+    const joined = new Float64Array(W * H);
+    for (let x = 12; x < W; x++) for (let y = 7; y <= 9; y++) joined[y * W + x] = 0.6;
+    const s = waterStory(W, H, depth, [main], joined);
+    expect(s.mainShare).toBe(clean.mainShare);
+    expect(s.wet).toBe(clean.wet);
+    // (a badwater pond of its own is still none of the story)
+    const pond = joined.slice();
+    for (let y = 54; y <= 60; y++) for (let x = 54; x <= 60; x++) pond[y * W + x] = 1;
+    expect(waterStory(W, H, depth, [main], pond).wet).toBe(clean.wet - 49);
+  });
+
   it("does not count badwater standing in a system of its own", () => {
     const clean = waterStory(W, H, depth, [main], new Float64Array(W * H));
     const pond = new Float64Array(W * H);
