@@ -19,8 +19,8 @@ INVENTORY.md is from 2026-09-25; since then M9a, M9b and the Rust ports moved a 
 - **Soil per run top:** `sim/soil3d.ts` on `sim/columns.ts`, the game's rules; the build already uses it on one run
   per tile (`sim/soil.ts` `gameSoil`). On a cave import the soil shown is still the file's (`session.storedSoil`).
 - **The engine:** `rust/water`'s `stack*.rs` and `columns.rs`, in the committed Wasm (`stack_create`, `stack_op`, …),
-  reached only by `tools/rust/stack-memory.ts` and the fixtures (`tests/golden/stacked-water.json`). No `src/` code
-  calls it.
+  reached, when this was surveyed, only by a tool and the fixtures (`tests/golden/stacked-water.json`); stage 4
+  gave the core its binding.
 - **The checks are Rust** (`rust/checks`, bound by `src/core/validate/rust.ts`; no TypeScript validator is left). They
   take the file's voxels. `terrain.supported` exists (`unsupported_voxels`) but runs only when some tile has two
   floors (`checks.rs`, `multi == 0.0`): INVENTORY's bug 1 stands. Slopes and the start read the top surface
@@ -60,7 +60,7 @@ Each leaves dev's behaviour intact unless it says otherwise, and merges on its o
    page's check list, so their wording is his (`needs-kyler`); the code can be built behind his answer.
 4. **The multi-slot writer and the T maps** (delivers 2's writer, 6). `src/core/format/world.ts` gains the stacked
    singletons (#71's `format/stacked.ts`: one slot's bytes exactly today's on a heightfield); a `src/core/sim`
-   binding to the Rust engine (from `tools/rust/stack-memory.ts`); `tools/terrain3d-maps.ts` ported onto them.
+   binding to the Rust engine; `tools/terrain3d-maps.ts` ported onto them. **Built**, see below.
    Checked by: the writer's bytes equal `settledSimulationSingletons`' on generated maps; the six T files rewritten
    byte for byte as the ones played in `terrain3d-20260927` and `-20260929` (then no new batch is needed; if a file
    differs, that map needs the batch again, see below).
@@ -112,3 +112,31 @@ changed. The milestone session asks Kyler (D117).
   can only come from a damaged project file; the mask now decides both (before, the stored heights and the stored
   column could disagree in memory). No file the app wrote has either.
 - **Checked:** see the PR.
+
+## Stage 4: the multi-slot writer, the engine's core binding, the T1–T6 writers (built 2026-10-07)
+
+On its own branch, `feature/3d-foundations-4`, so it merges apart from stage 2.
+- **The writer:** `format/world.ts` `stackedSimulationSingletons` (water, pressure, evaporation per water column
+  slot; moisture and contamination per run). A one-slot map is `settledSimulationSingletons` without its outflows,
+  byte for byte. Stacked outflows are written "0" (as the played T files were); stage 5 decides whether to write
+  them.
+- **The binding:** `sim/stackWater.ts` (`StackWater`, `STACK_FIELD`, `STACK_OP`, `STACK_INFO`, `stackObjectRows`,
+  `canonicalStackSettle` with a slice and a progress callback). It uses the water module's one instance
+  (`rustWater()`). `tools/rust/stack-memory.ts` is gone; the fixtures (`tools/rust/stack-fixtures.ts`, so
+  `stack-identity.ts` and the determinism check's stacked cases) and `tests/unit/stackedRust.test.ts` use it.
+- **The support rule as a core function:** `terrain/support.ts` `unsupportedVoxels`, moved out of the Unstable
+  Core's blast (`sim/explosion.ts`, unchanged in what it computes) and given the stackable objects' tops, because
+  T1's writer must say which voxels the game deletes. Stage 3's rule pass can call it.
+- **The T maps:** `tools/terrain3d-maps.ts` and `tools/probe-3d.ts`, on the Rust engine, dev's `soil3d` and the
+  writer above. Their scenes and their settled water are the fixtures' (`tests/contract/stackedWater.test.ts`).
+- **Against the files the game played** (`C:\dgm-probe\terrain3d\`): T1 and T2 are the same bytes. T3, T4, T5 and
+  T6 differ in one place only, `WaterMapNew.WaterColumns`: dev writes water with nine significant digits of the
+  value as a Single (#310 F3, after September), and the played files have seven. Everything else in them (terrain,
+  objects, soil, evaporation, thumbnail, metadata) is the same bytes, and with seven-digit tokens all six files come
+  out byte for byte as played (checked by a temporary change, not kept). The largest change to a depth is 6e-7.
+  The files as dev writes them now have not been played: whether that needs the Terrain 3D batch again is the
+  milestone session's to ask (D117).
+- **Stage 5 needs first:** `BuildResult` and `WaterModel` carrying the terrain's columns, then `prefill.ts`'s
+  canonical settle through `canonicalStackSettle`'s operations. No forbidden file if the generator and the forces
+  keep calling `WaterSim`.
+

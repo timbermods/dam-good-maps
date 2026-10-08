@@ -4,6 +4,7 @@
 
 import { F, formatFloat, isObject, num, parse, stringify, type JsonObject, type JsonValue } from "./json";
 import { evapModifier } from "../sim/moisture";
+import type { TerrainColumns, WaterColumns } from "../sim/columns";
 
 export const GAME_VERSION = "1.1.2.4-52e959e-sw";
 export const LAYERS = 23; // MaxGameTerrainHeight 22 + 1
@@ -245,6 +246,76 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
   const soilText = soil.join(" ");
   (s.SoilContaminationSimulator as JsonObject).ContaminationCandidates = { Array: soilText };
   (s.SoilContaminationSimulator as JsonObject).ContaminationLevels = { Array: soilText };
+  return s;
+}
+
+/** Settled water and soil on terrain above terrain, per slot (D120; FORMAT.md §4.3): what
+ *  `stackedSimulationSingletons` writes. */
+export interface StackedSettledState {
+  /** The water columns (sim/columns.ts `waterColumns`), and per column id (slot·N + tile) the settled
+   *  water: its depth, the pressure of a full cave (0 in the open), its contamination. */
+  cols: WaterColumns;
+  depth: ArrayLike<number>;
+  overflow: ArrayLike<number>;
+  contamination: ArrayLike<number>;
+  /** Cluster saturation per column id (for the evaporation modifiers). */
+  sat: ArrayLike<number>;
+  /** The terrain runs (sim/columns.ts `terrainColumns`), and per run id (slot·N + tile) the soil. */
+  runs: TerrainColumns;
+  moisture: ArrayLike<number>;
+  soilContamination: ArrayLike<number>;
+}
+
+/** Simulation singletons holding settled water and soil per slot, the way the game saves a map with
+ *  caves and overhangs (D120; FORMAT.md §4.3):
+ *  - `WaterMapNew.Levels` is the most water columns of any tile, and each (slot, tile) token is the
+ *    column's `depth:contamination:overflow:floor:depth`, "0" when dry or when the tile has no such
+ *    slot; `WaterEvaporationMap` has the same levels;
+ *  - `SoilMoistureSimulator` and `SoilContaminationSimulator` have `Size` = the most terrain runs of
+ *    any tile, one value per run top.
+ *  Outflows are all "0": the game rebuilds the flow within a few ticks (the T1–T6 probe maps were
+ *  played so). On a heightfield (one run and one water column per tile) this is
+ *  `settledSimulationSingletons` without its outflows, byte for byte: such a tile's token names its
+ *  terrain's surface as the floor, as that writer does (a Blockage lifts the column's floor above it;
+ *  the game recomputes the field on load), and every other tile its column's own floor. */
+export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: StackedSettledState): JsonObject {
+  const { cols, runs } = st;
+  const N = sizeX * sizeY;
+  if (cols.N !== N || runs.N !== N) throw new Error("the water columns and runs do not fit the map");
+  const L = cols.L;
+  const T = runs.T;
+  const s = emptySimulationSingletons(sizeX, sizeY, L);
+  const water: string[] = new Array(L * N).fill("0");
+  const evap: string[] = new Array(L * N).fill("1");
+  for (let i = 0; i < N; i++) {
+    const heightfield = cols.count[i] === 1 && runs.count[i] === 1;
+    for (let k = 0; k < cols.count[i]; k++) {
+      const c = k * N + i;
+      const d = st.depth[c];
+      if (d > 1e-6) {
+        const ds = waterToken(d);
+        const cn = st.contamination[c];
+        const o = st.overflow[c];
+        const floor = heightfield ? runs.ceil[i] : cols.floor[c];
+        water[c] = `${ds}:${cn > 1e-6 ? waterToken(cn) : "0"}:${o > 1e-6 ? waterToken(o) : "0"}:${floor}:${ds}`;
+      }
+      const sat = st.sat[c];
+      if (sat > 0) evap[c] = numToken(evapModifier(sat));
+    }
+  }
+  const moist: string[] = new Array(T * N).fill("0");
+  const soil: string[] = new Array(T * N).fill("0");
+  for (let i = 0; i < N; i++)
+    for (let k = 0; k < runs.count[i]; k++) {
+      const n = k * N + i;
+      moist[n] = numToken(st.moisture[n]);
+      soil[n] = numToken(st.soilContamination[n]);
+    }
+  (s.WaterMapNew as JsonObject).WaterColumns = { Array: water.join(" ") };
+  (s.WaterEvaporationMap as JsonObject).EvaporationModifiers = { Array: evap.join(" ") };
+  const soilText = soil.join(" ");
+  s.SoilMoistureSimulator = { Size: T, MoistureLevels: { Array: moist.join(" ") } };
+  s.SoilContaminationSimulator = { Size: T, ContaminationCandidates: { Array: soilText }, ContaminationLevels: { Array: soilText } };
   return s;
 }
 
