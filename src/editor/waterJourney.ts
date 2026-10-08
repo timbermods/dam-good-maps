@@ -62,9 +62,10 @@ export class WaterJourney {
   }
 
   /** The journey is about to be dropped for other water (an edit's answer, a stroke's, a force's): the parts of the
-   *  settled water still waiting to be shown are put in place first, never lost (D341). */
-  flush(): void {
-    this.player.flushFinals();
+   *  settled water still waiting to be shown are put in place first, never lost (D341). `water` false (a force
+   *  starting): all but their water, so the force's water starts from the water on screen, never a jump. */
+  flush(water = true): void {
+    this.player.flushFinals(water);
   }
 
   /** A frame or the settled water from the worker. */
@@ -85,8 +86,8 @@ export class WaterJourney {
     this.player.push({
       water: e.view.water ?? this.latestWater(),
       done: 1,
-      final: () => {
-        this.host.applyView(e.view);
+      final: (water = true) => {
+        this.host.applyView(water ? e.view : { ...e.view, water: undefined });
         this.host.settledInPlace();
       },
     });
@@ -105,7 +106,7 @@ export class WaterJourney {
     // carries water: the check may have put it in place and stopped the worker's own settle)
     if (r.waterSettled) this.settledVersion = this.version;
     if (this.player.playing && (r.view.water || r.waterSettled)) {
-      this.player.push({ water: r.view.water ?? this.latestWater(), done: 1, final: () => this.host.applyView(r.view) });
+      this.player.push({ water: r.view.water ?? this.latestWater(), done: 1, final: (water = true) => this.host.applyView(water ? r.view : { ...r.view, water: undefined }) });
     } else this.host.applyView(r.view);
   }
 }

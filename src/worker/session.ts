@@ -826,6 +826,9 @@ const weatherRuns: Partial<Record<Hazard, WeatherRun>> = {};
 /** The background work's token: a new one starts it, and an edit, a stroke or a force stops it (the page says so the
  *  moment Kyler acts). */
 let prepToken = 0;
+/** The map whose held weather day the page shows (from `showWeatherDay` until `stopWeather`), or null: its water is
+ *  that day's, not the map's. */
+let weatherShown: MapSession | null = null;
 
 /** A run still good for the map as it is. */
 function currentRun(run: WeatherRun): boolean {
@@ -852,6 +855,7 @@ function runFor(hazard: Hazard): WeatherRun {
 export function showWeatherDay(hazard: Hazard, day: number | null): void {
   const run = runFor(hazard);
   const target = Math.max(0, day ?? run.days);
+  weatherShown = run.session;
   for (const other of Object.values(weatherRuns)) if (other && other !== run) other.show = null;
   if (target < run.kept.length) {
     run.show = null;
@@ -941,6 +945,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
 /** Stop the weather view: the map's own water (each hazard's kept days stay, until the map changes). */
 export function stopWeather(): ViewUpdate {
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
+  weatherShown = null;
   const s = session;
   return s ? { water: waterOf(s) } : {};
 }
@@ -1919,9 +1924,11 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
   if (p ? p.run.settings.dry : !f.staged) return;
   const m = p ? p.map : f.staged!.map;
   const model = modelOf(m);
-  const depth = Float64Array.from(m.water.depth);
-  const contamination = Float64Array.from(m.water.contamination);
-  const flows = mapFlows(f.session, m.water.depth, flowing);
+  // (from the water on screen, when the page said which: its journey may run behind the worker's water)
+  const shown = shownByPage(f.session, m);
+  const depth = shown ? shown.depth : Float64Array.from(m.water.depth);
+  const contamination = shown ? shown.contamination : Float64Array.from(m.water.contamination);
+  const flows = shown ? shown.out : mapFlows(f.session, m.water.depth, flowing);
   const front = p ? carveFront(p, model, depth, contamination) : null;
   const sim = new WaterSim(model, { depth, contamination });
   // the map's water carries on as it flowed (its outflows), so only what the force does changes it: from
@@ -1932,6 +1939,45 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
   }
   forceWater = { force: f, sim, model, ground: m.heights.slice(), front, seen: new SeenWater(sim.D, sim.C), slide: null, emitters: emittersById(m.W, m.H, m.entities), objects: m.entities };
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
+}
+
+/** The water the page shows as a force starts (`forceShows`), for that map and version only. */
+let pageWater: { session: MapSession; version: number; view: WaterView } | null = null;
+
+/** The page says which water it shows, just before it starts a force (or Try another): the map's water
+ *  journey is played at the page's pace and may run behind the worker's, so the force's water starts
+ *  from the water on screen and its first frame never jumps from it. Only the force's water: its plan
+ *  and its result are the map's own. */
+export function forceShows(view: WaterView | null): void {
+  // (a Drought or Badtide shown: that day's water is not the map's, D180 (8))
+  pageWater = session && view && weatherShown !== session ? { session, version, view } : null;
+}
+
+/** The page's water (`forceShows`) as the force's water starts from it: a column a tile on the force's
+ *  ground, its outflows where it has them; null when it has none for this map as it is now (stored
+ *  water or caves, another version, other ground). Used once. */
+function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Array }): { depth: Float64Array; contamination: Float64Array; out: Float64Array | null } | null {
+  const p = pageWater;
+  pageWater = null;
+  if (!p || p.session !== s || p.version !== version || s.showsStoredWater || s.roofedTiles.size) return null;
+  const v = p.view;
+  const N = m.W * m.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  const seen = new Uint8Array(N);
+  for (let k = 0; k < v.count; k++) {
+    const t = v.tile[k];
+    if (t < 0 || t >= N || seen[t] || v.floor[k] !== m.heights[t]) return null;
+    seen[t] = 1;
+    depth[t] = v.depth[k];
+    contamination[t] = v.contamination[k];
+  }
+  let out: Float64Array | null = null;
+  if (v.outflow && v.outflow.length === 4 * v.count) {
+    out = new Float64Array(4 * N);
+    for (let k = 0; k < v.count; k++) for (let d = 0; d < 4; d++) out[4 * v.tile[k] + d] = v.outflow[4 * k + d];
+  }
+  return { depth, contamination, out };
 }
 
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
