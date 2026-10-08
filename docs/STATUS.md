@@ -8,7 +8,7 @@ is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/RE
 
 As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
 session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page session runs in the worktree `DamGoodMaps-page`; the probe folder is
+chat (D117). The page session is stopped (its worktree is `DamGoodMaps-page`); the probe folder is
 `DamGoodMaps-probe`.
 
 ## Released
@@ -22,8 +22,9 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
   decision numbers (**next free: D482**). It owns STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `DamGoodMaps-page`, `feature/page`, restarted from dev after #347) builds "The page is the
-  editor".
+- **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
+  nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
+  `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
 - **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
   jump), #312's worker part now the page part is on dev, and Deposit's outline (#348, on `fix/deposit-outline`; its Rust is a core
@@ -42,8 +43,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 |---|---|---|---|
 | #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
 | #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
-| (branch) | 3D, step 1: Foundations (D481, D280 (1)) | milestone | `feature/3d-foundations`, worktree `DamGoodMaps-3d-foundations`, `build` agents; the stages are in `docs/progress/3d-foundations.md`. **Stage 1 is merged** (#354, 2026-10-07: the terrain in memory as runs; 84 generated maps and all 22 official maps byte-identical through import, project, reopen, strokes and export). **Stage 2 in work:** the support check on every map and floor-aware slope and start checks in `rust/checks`. Then: 3 new check rows (their wording is Kyler's); 4 the multi-slot writer, the engine's binding, the T1–T6 writers; 5 the engine wired in on the one-column path; 6 cave imports on the engine (player-visible; needs the page's and the renderer's lines and a probe batch of 3–4 maps, about 15 minutes, asked under D117 then); 7 closing. It stays out of the generator's files and pinned tests until #261 is merged |
-| #261 | Canyon and Highlands height | milestone | `approved`; Kyler, 2026-10-07: D476 stands, badwater's share at Canyon 256² is 0.23 against the official maps' 0.53, so it merges as it is after its re-pin, as 0.8.8. Dev merged in locally (`DamGoodMaps-canyon-height`, f83c463a, not pushed); a `build` agent is on the 12 re-pins, the sheets and the checks. All three outcomes of 20 with D480: Canyon 14 / 15 / 13 (dev 14 / 16 / 16), Highlands 14 / 17 / 16 (dev 10 / 15 / 15); no map fails an absolute or lacks a start. The three-mine-sites test is not a missing start: the walk rule drops both thorn belts on Canyon 96² seed 3. Then a full run and a nightly, merge when green |
+| (branch) | 3D, step 1: Foundations (D481, D280 (1)) | milestone | `feature/3d-foundations`, worktree `DamGoodMaps-3d-foundations`, `build` agents; the stages are in `docs/progress/3d-foundations.md`. **Stage 1 is merged** (#354, 2026-10-07: the terrain in memory as runs; 84 generated maps and all 22 official maps byte-identical through import, project, reopen, strokes and export). **Stage 2 is PR #355** (`needs-kyler`: the support check on every map and floor-aware slope and start checks; generated maps' rows identical; on imports no check newly fails, and Slopes connect and the start's two checks turn from failing to passing on Cliffside and four workshop maps; full run 37708965440 green). **Stage 3** (four new check rows) waits for Kyler's word on the wording proposed on #355. **Stage 4 is merged** (#356, 2026-10-07: the multi-slot writer, the engine's core binding `src/core/sim/stackWater.ts`, the T1–T6 writers; nothing in the app calls them). T1 and T2 are byte for byte the files the game played; T3–T6 differ only in water tokens (nine digits since #310, seven in the played files; at most 6e-7), so they go into stage 6's probe batch. **Stage 5 is merged** (#357, 2026-10-08: the stacked engine behind one switch in the canonical settle, `WaterModel.stacked`; the terrain decides the path, and no map the app builds takes it yet; 84 generated and all 32 official, workshop and user maps byte-identical through export, a stroke, save and reopen). **Stage 6, first part, is merged** (#358) (`feature/3d-foundations-6`: a sink in the stacked engine, from the game's own code, not yet played; nothing a player sees; merged 2026-10-08). **Stage 6, the rest** (imported caves' water simulated: the build, the export, the checks, the editor's water and the worker's views, as one change; the plan is in the progress file) waits on Kyler's four choices in #359 (how the water shows while editing a cave map; what is refused at first; what Remove unfed water takes; the "Under roofs" layer and notice, and who edits the page's three files). The probe's Terrain 3D group is on dev (#360: predictions from the Rust engine; T3–T7 written to `C:\dgm-probe\terrain3d-2\`; the sink is the ninth identity fixture, marked not game-verified). **A batch is asked of Kyler (D117, chat and #361, 2026-10-08): 5 maps, about 12 minutes, launches Timberborn**; run it only on his yes in chat, from merged dev (`npm --prefix investigation/probe run batch -- --group "Terrain 3D" --keep-mods` prints the plan and a one-time code). A second batch (an edited Hollows and Canyon) follows #359. It stays out of the generator's files and pinned tests until #261 is merged |
+| #261 | Canyon and Highlands height | milestone | `approved`; re-pinned as generator 0.8.8 (b046d7be). Green: the nightly (37708658504), the full run's other jobs, the PR's other checks. **Blocked on one browser test,** look-high.spec.ts:297 (the eruption in High): on this round's Highlands 96² seed 4242 the eruption shows about 1,600 lava pixels on CI against the bar of 2,000 (about 13,000 on dev's map; it swings by spot: 8 from the top bench). The test and the look are the renderer session's: asked on #236 to say why and to choose the spot or seed, bar kept. Merge when green. All three outcomes of 20: Canyon 14 / 15 / 13, Highlands 14 / 17 / 16; no map fails an absolute or lacks a start |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -61,8 +62,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    Canyon and Highlands (#261), one re-pin each with sheets.
 3. **The page is on dev** (2026-10-07): #163 squashed as #347 (merge 59b4f1e9, from feature/page 5faf94d8), #163 closed. The
    350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
-   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
-   fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
+   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Folded into docs/decisions
+   (#362): the page's rules are amendments to D184, D205, D235, D330, D352 and D133; DESIGN.md stays the look's record.
 4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
    `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
 5. Then (D481): 3D Foundations first, in work; after it the Weather view, custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
@@ -88,10 +89,12 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
 [pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#329, #348, #352: whether the story should drop a main water that is mostly badwater). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
+#329, #348, #355, #359, #361 (the probe batch), #352: whether the story should drop a main water that is mostly badwater). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
 set.
 
 ## Probe batches
 
 Run on the dedicated machine without asking (D218); anywhere else only with Kyler's yes in chat (D117). Each batch and its
 results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archive/status-2026-10-01.md), "Probe batches".
+
+- **Asked, not run** (2026-10-08, #361): Terrain 3D, T3–T7, 5 maps, about 12 minutes; waits for Kyler's yes in chat.

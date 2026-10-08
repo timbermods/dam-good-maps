@@ -9,4 +9,6 @@ Terrain as solid runs per tile, the game's own form: each tile's solid intervals
 
 **Start from**: `runs.ts` `ColumnTerrain` (the terrain in memory: a voxel mask per tile, with `heights()`, `runs(i)`, `voxels()` and `toData()` derived from it; `fromHeights`, `fromVoxels`, `fromData` make one; `withSurface` is a build's terrain: its new surface with the base's caves and overhangs kept). `terrainData` and `terrainColumns` are format 3's terrain for the generator's field. `doc/base.ts` holds a stored base's terrain as one, the build's base layer (`features/build.ts` `BaseLayer.terrain`) reads it, and `doc/session.ts` `terrain` is the map's terrain as it stands, which export writes.
 
+`support.ts` `unsupportedVoxels` is the game's support rule (what the game deletes on load: nothing hangs more than 3 sideways from supported ground), used by the Unstable Core's blast and the probe's test maps; the checks have it in Rust.
+
 **Tests**: `tests/contract/terrainRuns.test.ts`; the document and import tests exercise it through the base (`tests/contract/document.test.ts`, `tests/contract/import.test.ts`). Run `npx vitest run tests/contract/terrainRuns.test.ts`.

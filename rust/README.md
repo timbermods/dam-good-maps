@@ -15,8 +15,10 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   holds the stacked-column water for terrain above terrain (D448; `columns`, `stack`, `stack_prefill`, `stack_engine`,
   `stack_memory`), ported from #71's reference, whose one-column path is today's water unchanged. It is computation
   only, not wired into the app yet (Foundations does that): `stack_*` exports take Rust-owned typed arrays, one call
-  per operation (the interface is in `investigation/rust-stacked/INTEGRATION.md` on PR #255). Its contracts are
-  `cargo test -p water`; `tools/rust/stack-identity.ts` runs #71's game-verified fixtures (`tests/golden/stacked-water.json`)
+  per operation (the interface is in `investigation/rust-stacked/INTEGRATION.md` on PR #255; the core's binding is
+  `src/core/sim/stackWater.ts`). Its contracts are
+  `cargo test -p water`; `tools/rust/stack-identity.ts` runs #71's game-verified fixtures and one sink case that is not
+  game-verified yet (`tests/golden/stacked-water.json`; `tools/rust/stack-sink-fixture.ts`)
   natively (the `stack-fixture` example) and in Node's WebAssembly; D366's check has two stacked-water cases.
 - `forces/`: the forces' planning, Carve, Craterize, Erupt, Quake and Glaciate (#158, D381; their TypeScript planners
   are tag `ts-forces-final`). Its Wasm is committed in `src/core/forces/rust/forcesWasm.ts` and bound by

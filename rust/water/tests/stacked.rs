@@ -235,3 +235,51 @@ fn clean_and_badwater_mix_inside_a_roofed_chamber() {
         assert_eq!(s.depth[144 + i], 0.0);
     }
 }
+// A sink (a negative strength, D337). In the open it is today's rule; under a roof it follows the game's
+// one task for every column (`UpdateWaterSourcesTask`, `WaterDepthSetter.SetWaterDepth`): from the game's
+// code, not yet played.
+#[test]
+fn a_sink_on_an_open_field_is_todays_rule() {
+    for game in [false, true] {
+        let m = columns::model(9, 7, &vec![7; 63], &[obj(7, 4, 3, 3, 2.0), obj(7, 6, 3, 3, -0.75), obj(8, 1, 1, 3, 1.0)]).unwrap();
+        let mut e = Engine::new(m.clone(), game).unwrap();
+        assert!(e.flat());
+        let mut today = sim::Sim::new(water::stack_engine::open_field(&m).unwrap(), None, None, Rules { game, edge_spill: game });
+        e.run(400, 1.0).unwrap();
+        today.run(400, 1.0);
+        let Flow::Flat(s) = &e.flow else { panic!() };
+        bits(&s.d, &today.d);
+        bits(&s.c, &today.c);
+    }
+}
+#[test]
+fn a_sink_under_a_roof_takes_pressure_first_and_never_goes_below_dry() {
+    // the sealed chamber, full and under pressure from its source
+    let mut full = Engine::new(sealed(), true).unwrap();
+    full.run(2304, 1.0).unwrap();
+    let before = full.state();
+    let volume = |s: &water::stack::State| (0..144).map(|c| s.depth[c] + s.overflow[c]).sum::<f64>();
+    assert!(before.overflow[5 * 12 + 5] > 0.0);
+    // the same chamber with a sink beside the source, weaker than it: it still fills, with less pressure
+    let mut mask = vec![(1 << 10) - 1; 144];
+    for y in 4..=7 {
+        for x in 4..=7 {
+            mask[y * 12 + x] &= !(7 << 3);
+        }
+    }
+    let m = columns::model(12, 12, &mask, &[obj(7, 5, 5, 3, 4.0), obj(7, 6, 6, 3, -1.0)]).unwrap();
+    let mut e = Engine::new(m, true).unwrap();
+    assert!(!e.flat());
+    e.run(2304, 1.0).unwrap();
+    let s = e.state();
+    assert!(volume(&s) > 0.0 && volume(&s) <= volume(&before));
+    assert!(s.depth.iter().chain(&s.overflow).chain(&s.contamination).all(|v| v.is_finite() && *v >= 0.0));
+    // a sink stronger than the source keeps the chamber from filling, and its own cell at or near dry
+    let m = columns::model(12, 12, &mask, &[obj(7, 5, 5, 3, 1.0), obj(7, 6, 6, 3, -8.0)]).unwrap();
+    let mut e = Engine::new(m, true).unwrap();
+    e.run(2304, 1.0).unwrap();
+    let s = e.state();
+    assert!(s.overflow.iter().all(|&o| o == 0.0));
+    assert!(s.depth[6 * 12 + 6] < 0.5);
+    assert!(s.depth.iter().chain(&s.contamination).all(|v| v.is_finite() && *v >= 0.0));
+}

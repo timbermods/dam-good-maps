@@ -2,7 +2,7 @@
 // the engine receives only Rust-owned typed arrays, one call per operation.
 import { gunzipSync } from 'fflate';
 import data from '../../tests/golden/stacked-water.json' with { type: 'json' };
-import { StackMemory } from './stack-memory';
+import { StackWater as StackMemory } from '../../src/core/sim/stackWater';
 export const stackFixtures = data.cases;
 export function inputBytes(f: typeof stackFixtures[number]) { return gunzipSync(Uint8Array.from(atob(f.inputGzip), c => c.charCodeAt(0))); }
 export function runStackFixture(f: typeof stackFixtures[number], slice = 10000000) {
