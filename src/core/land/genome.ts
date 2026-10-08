@@ -46,8 +46,8 @@ export interface Part {
   /** Softness of its edge in tiles (cliffs are sharp). */
   soft: number;
   /** Basins only: a round bowl (a pond, a crater lake), a valley-shaped lake (the default for large
-   *  basins), or an island sea. */
-  shape?: "round" | "valley" | "sea";
+   *  basins), an island sea, or a tarn (Canyon's lakes: a valley lake whose rim stands on one side). */
+  shape?: "round" | "valley" | "sea" | "tarn";
   /** An island of a sea layout (D350: the land stage keeps it apart from the shore). */
   isle?: boolean;
   /** An island sea only: the rim's broad lobes of mainland (round 4, D417; `rimLobe`). */

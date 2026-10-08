@@ -577,7 +577,7 @@ and now and then braid round an island on a flat reach; every channel shares one
 fan, cut from the lakes' actual floors (#233, generator 0.8.2).
 Lake Basin's default map (Normal, one colony, the preset's settings, square from 96² to 256²) draws one valley
 basin in a stronger radial catchment that brings several of the drainage's tributaries into it, a smaller lake with a
-curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453).
+curved outlet valley on large maps; any other Lake Basin spec keeps the shared path (`land/lakeBasin.ts`, D453). Canyon and Highlands have their own shaping too (`land/canyon.ts`, `land/highlands.ts`; the theme critique's height round, investigation/canyon-highlands-height): from 128² up a Canyon map is a plateau standing 8 over the map's floor (6 at 256²) that its one entering river, the main, crosses and cuts down to the beds' floor, walls of five to ten blocks for most of its course (at 128² a land whose main clips a corner unwalled is drawn again), a small lake for the start's shore (no lake over 4% of the map; every lake valley-shaped with arms, its rim on one side only and no caldera, never a round bowl) and the channel's floor kept within 3; a Highlands map stands in benches four levels apart (three from 192² up) over most of the land, leaning high, its lowest bench at 4 where a pump reaches the river. On a small map both themes keep only the 96² round's rules (few springs and a deeper incision for Canyon, a 128² map's flow for Highlands), since a plateau or few tall benches at 96² left no start or missed the promise.
 
 ---
 
