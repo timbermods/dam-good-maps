@@ -1,0 +1,13 @@
+import { execFileSync } from 'node:child_process';
+import { cpSync, mkdirSync, readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { homedir } from 'node:os';
+import { assertClean } from '../../tools/rust/guard.mjs';
+const folder=import.meta.dirname, root=resolve(folder,'../..'), kernel=join(folder,'local/kernel');
+mkdirSync(kernel,{recursive:true});
+cpSync(join(root,'rust'),join(kernel,'rust'),{recursive:true,filter:p=>!p.split(/[\\/]/).includes('target')});
+execFileSync('git',['apply','--directory=investigation/dam-sketch-3/local/kernel',join(folder,'kernel.patch')],{cwd:root,stdio:'inherit',windowsHide:true});
+const cargo=process.env.CARGO ?? join(homedir(),'.cargo/bin',process.platform==='win32'?'cargo.exe':'cargo');
+execFileSync(cargo,['build','--release','-j','4','-p','water','--lib','--target','wasm32-unknown-unknown'],{cwd:join(kernel,'rust'),stdio:'inherit',windowsHide:true});
+assertClean('wasm',readFileSync(join(kernel,'rust/target/wasm32-unknown-unknown/release/water.wasm')));
+console.log('Built the current water kernel with kernel.patch; all generated files are in local/.');

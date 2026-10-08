@@ -1,0 +1,548 @@
+diff --git a/rust/water/src/columns.rs b/rust/water/src/columns.rs
+index f6b734b8..b124dfb6 100644
+--- a/rust/water/src/columns.rs
++++ b/rust/water/src/columns.rs
+@@ -26,6 +26,7 @@ impl Columns {
+ }
+ /// Typed object codes: 0 inert, 1 blockage, 2 dam, 3/4/5 overhang 2/3/4,
+ /// 6 drain, 7 clean source, 8 bad source, 9 clean seep, 10 bad seep, 11 aquifer.
++/// 12 finished player dam, 13 finished floodgate (strength is selected height, 0..3).
+ /// Inert objects are deliberately classified by the caller; unknown codes refuse.
+ #[derive(Clone, Debug)]
+ pub struct Object {
+@@ -66,10 +67,13 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+     let n = dimensions(w, h, mask)?;
+     if objects
+         .iter()
+-        .any(|o| o.kind > 11 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
++        .any(|o| o.kind > 13 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
+     {
+         return Err("Water object is unknown or malformed.");
+     }
++    if objects.iter().any(|o| o.kind == 13 && (o.strength > 3.0 || o.z as f64 + o.strength > OPEN as f64)) {
++        return Err("Floodgate height is invalid.");
++    }
+     let mut gaps: Vec<Vec<(i16, i16)>> = mask
+         .iter()
+         .map(|&m| {
+@@ -95,10 +99,12 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+     let mut dir_limit = BTreeMap::new();
+     let mut horizontal = BTreeMap::new();
+     for o in objects {
+-        if [1, 3, 4, 5, 6].contains(&o.kind) {
++        // Selected gate levels use the same full-obstacle path as a levee.
++        let full = if o.kind == 13 { o.strength.floor() as i16 } else if [1, 3, 4, 5, 6].contains(&o.kind) { 1 } else { 0 };
++        for dz in 0..full {
+             if let Some(i) = o.tile(0, 0, w, h) {
+                 let c = &mut gaps[i];
+-                let z = o.z;
++                let z = o.z + dz;
+                 // Match #71: an obstacle already inside a solid cell is inert.
+                 if let Some(k) = c.iter().position(|&(f, t)| f <= z && z < t) {
+                     let (f, t) = c[k];
+@@ -117,14 +123,16 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
+                 }
+             }
+         }
+-        if o.kind == 2 {
++        if o.kind == 2 || o.kind == 12 || (o.kind == 13 && o.strength.fract() > 0.0) {
+             if let Some(i) = o.tile(0, 0, w, h) {
+-                height_limit.insert(o.z as usize * n + i, 0.65);
++                let (z, height) = if o.kind == 13 { (o.z + o.strength.floor() as i16, o.strength.fract()) } else { (o.z, 0.65) };
++                height_limit.insert(z as usize * n + i, height);
+             }
+         }
+         let planes: Vec<(i32, i16)> = match o.kind {
+             3..=5 => (0..o.kind as i32 - 1).map(|y| (y, o.z + 1)).collect(),
+             6 => vec![(1, o.z), (1, o.z + 1)],
++            12 | 13 => vec![(0, o.z)],
+             _ => vec![],
+         };
+         for (y, z) in planes {
+diff --git a/rust/water/src/stack_memory.rs b/rust/water/src/stack_memory.rs
+index 6241ec89..feb1fac5 100644
+--- a/rust/water/src/stack_memory.rs
++++ b/rust/water/src/stack_memory.rs
+@@ -68,7 +68,7 @@ impl Session {
+         }
+         let mut objects = Vec::new();
+         for p in self.objects.chunks_exact(8) {
+-            if !integer(p[0], 0.0, 11.0)
++            if !integer(p[0], 0.0, 13.0)
+                 || !integer(p[1], -1_048_576.0, 1_048_576.0)
+                 || !integer(p[2], -1_048_576.0, 1_048_576.0)
+                 || !integer(p[3], 0.0, 33.0)
+diff --git a/src/core/damSketch/kernel.ts b/src/core/damSketch/kernel.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/kernel.ts
+@@ -0,0 +1,67 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++/** The editor's typed Rust ABI. No physics lives in this binding. */
++export type WaterObject = readonly [kind:number,x:number,y:number,z:number,rotation:number,flipped:number,delayed:number,strength:number];
++interface ABI {
++ memory: WebAssembly.Memory;
++ stack_create(w:number,h:number,objects:number,retained:number):number;
++ stack_free(handle:number):number;
++ stack_ptr(handle:number,field:number):number;
++ stack_len(handle:number,field:number):number;
++ stack_op(handle:number,op:number,a:number,b:number):number;
++ stack_info(handle:number,field:number):number;
++ stack_error_ptr():number;
++ stack_error_len():number;
++}
++export interface State {
++ count: Uint8Array; floor: Int16Array; ceiling: Int16Array;
++ depth: Float64Array; overflow: Float64Array; contamination: Float64Array;
++ oldDepth: Float64Array; momentum: Float64Array;
++ start: Uint32Array; target: Int32Array; direction: Uint8Array; reverse: Int32Array;
++}
++export function loadKernel(bytes: BufferSource) {
++ const abi=new WebAssembly.Instance(new WebAssembly.Module(bytes),{}).exports as unknown as ABI;
++ if(typeof abi.stack_create!=='function') throw Error('The stacked Rust water ABI is required');
++ return { create(w:number,h:number,masks:Uint32Array,objects:readonly WaterObject[]) {return new RustWater(abi,w,h,masks,objects);} };
++}
++export type Kernel = ReturnType<typeof loadKernel>;
++type Vector = Uint8Array | Uint32Array | Int16Array | Int32Array | Float64Array;
++export class RustWater {
++ private handle:number;
++ private abi:ABI; readonly W:number; readonly H:number;
++ constructor(abi:ABI,W:number,H:number,masks:Uint32Array,objects:readonly WaterObject[]) {
++  this.abi=abi;this.W=W;this.H=H;
++  this.handle=abi.stack_create(W,H,objects.length,0);
++  if(!this.handle)throw this.error();
++  try {
++   this.write(0,masks);this.write(1,Float64Array.from(objects.flat()));this.op(0,0,0);
++  } catch(e){this.dispose();throw e;}
++ }
++ private error(){return Error(new TextDecoder().decode(new Uint8Array(this.abi.memory.buffer,this.abi.stack_error_ptr(),this.abi.stack_error_len())));}
++ private live(){if(!this.handle)throw Error('Water simulation disposed');}
++ private view(field:number):Vector {
++  this.live(); const a=this.abi, length=a.stack_len(this.handle,field),ptr=a.stack_ptr(this.handle,field);
++  const ctor=[0,11].includes(field)?Uint32Array:[3,13,16,17,20].includes(field)?Uint8Array:[4,5,18,19].includes(field)?Int16Array:[12,14].includes(field)?Int32Array:Float64Array;
++  return new ctor(a.memory.buffer,ptr,length);
++ }
++ write(field:number,data:ArrayLike<number>){const v=this.view(field);if(v.length!==data.length)throw Error(`Water field ${field} length differs`);v.set(Array.from(data));}
++ read(field:number){return this.view(field).slice();}
++ op(op:number,a=0,b=0){this.live();if(this.abi.stack_op(this.handle,op,a,b))throw this.error();}
++ info(field:number){this.live();return this.abi.stack_info(this.handle,field);}
++ run(ticks:number,scale=1){this.op(1,ticks,scale);}
++ state():State {
++  return {count:this.read(3) as Uint8Array,floor:this.read(4) as Int16Array,ceiling:this.read(5) as Int16Array,
++   depth:this.read(6) as Float64Array,overflow:this.read(7) as Float64Array,contamination:this.read(8) as Float64Array,
++   oldDepth:this.read(9) as Float64Array,momentum:this.read(10) as Float64Array,
++   start:this.read(11) as Uint32Array,target:this.read(12) as Int32Array,direction:this.read(13) as Uint8Array,reverse:this.read(14) as Int32Array};
++ }
++ setState(state:Pick<State,'depth'|'overflow'|'contamination'|'oldDepth'|'momentum'>){
++  this.write(6,state.depth);this.write(7,state.overflow);this.write(8,state.contamination);this.write(9,state.oldDepth);this.write(10,state.momentum);this.op(5);
++  // sync rebuilds active lists and resets old depth; restore the supplied temporal state.
++  this.write(9,state.oldDepth);
++ }
++ force(strengths:readonly number[],contamination:readonly number[]){
++  const p=this.read(15);if(p.length!==strengths.length*4||contamination.length!==strengths.length)throw Error('Weather emitter count differs');
++  strengths.forEach((v,i)=>{p[i*4]=v;p[i*4+1]=contamination[i];});this.write(15,p);
++ }
++ dispose(){if(this.handle){this.abi.stack_free(this.handle);this.handle=0;}}
++}
+diff --git a/src/core/damSketch/wall.ts b/src/core/damSketch/wall.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/wall.ts
+@@ -0,0 +1,93 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++import type { State, WaterObject } from './kernel';
++
++export type Piece={kind:'dam'}|{kind:'levee'}|{kind:'floodgate';maxHeight:1|2|3;height:number};
++export interface Stroke {path:readonly (readonly [number,number])[];stack:readonly Piece[];baseZ?:number}
++export interface Occupant {id:string;tiles:readonly number[];z:number;height:number;stackable:boolean}
++export interface Snapshot {
++ W:number;H:number;masks:Uint32Array;objects:readonly WaterObject[];
++ water?:Pick<State,'depth'|'overflow'|'contamination'|'oldDepth'|'momentum'>;
++ occupants?:readonly Occupant[];start?:readonly {tile:number;z:number}[];
++ farmland?:readonly {tile:number;z:number}[];
++}
++export function waterFootprint(o:WaterObject,W:number,H:number):number[] {
++ const kind=o[0],shape=kind>=3&&kind<=5?Array.from({length:kind-1},(_,y)=>[0,y]):kind===6?[[0,0],[0,1]]:kind===8?Array.from({length:9},(_,i)=>[Math.floor(i/3),i%3]):[9,10].includes(kind)?[[0,0],[0,1],[1,0],[1,1]]:kind===11?[[0,0],[0,1],[1,0],[1,1]]:[[0,0]];
++ return shape.flatMap(([x,y])=>{if(o[5]&&[9,10].includes(kind))x=1-x;const [dx,dy]=o[4]===0?[x,y]:o[4]===1?[y,-x]:o[4]===2?[-x,-y]:[-y,x],xx=o[1]+dx,yy=o[2]+dy;return xx>=0&&yy>=0&&xx<W&&yy<H?[yy*W+xx]:[];});
++}
++export function compileWall(map:Snapshot,strokes:readonly Stroke[]) {
++ const objects:WaterObject[]=map.objects.map(o=>[...o]),pieces:Array<{tile:number;x:number;y:number;z:number;piece:Piece}>=[];
++ const stacks=new Map<number,string>(),counts={dam:0,levee:0,floodgate1:0,floodgate2:0,floodgate3:0};
++ const height=(p:Piece)=>p.kind==='floodgate'?p.maxHeight+2:1;
++ for(const s of strokes){
++  if(!s.stack.length)throw Error('Explicit pieces are required');
++  for(const [k,p] of s.stack.entries()){
++   if(!['dam','levee','floodgate'].includes(p.kind))throw Error('Unknown wall piece');
++   if(p.kind==='floodgate'&&(![1,2,3].includes(p.maxHeight)||!Number.isFinite(p.height)||p.height<0||p.height>p.maxHeight||k<s.stack.length-1))throw Error('Invalid or unsupported floodgate stack');
++  }
++  for(const tile of raster(s.path,map.W,map.H)){
++   const x=tile%map.W,y=Math.floor(tile/map.W),ground=map.masks[tile]?32-Math.clz32(map.masks[tile]):0;
++   let z=s.baseZ??ground;
++   if(!Number.isInteger(z)||z<0||z>=34)throw Error('Invalid wall foundation');
++   const supported=z===0||z<=23&&(map.masks[tile]&(1<<(z-1)))!==0||(map.occupants??[]).some(o=>o.stackable&&o.tiles.includes(tile)&&o.z+o.height===z);
++   if(!supported)throw Error('Wall foundation is unsupported; no support is inferred');
++   const key=JSON.stringify([z,s.stack]);if(stacks.has(tile)){if(stacks.get(tile)!==key)throw Error('Conflicting stacks');continue;}stacks.set(tile,key);
++   for(const p of s.stack){
++    const h=height(p);if(z+h>34)throw Error('Piece exceeds game height 34');
++    for(let k=z;k<Math.min(23,z+h);k++)if(map.masks[tile]&(1<<k))throw Error('Wall intersects terrain');
++    if((map.occupants??[]).some(o=>o.tiles.includes(tile)&&z<o.z+o.height&&o.z<z+h))throw Error('Wall intersects an existing object');
++    // Require footprint records for existing water objects, including emitters.
++    if(map.objects.some(o=>o[0]!==0&&waterFootprint(o,map.W,map.H).includes(tile)&&z<o[3]+(o[0]===13?5:1)&&o[3]<z+h))throw Error('Wall intersects a water object');
++    pieces.push({tile,x,y,z,piece:{...p}});
++    const kind=p.kind==='dam'?12:p.kind==='levee'?1:13;
++    objects.push([kind,x,y,z,0,0,0,p.kind==='floodgate'?p.height:0]);
++    if(p.kind==='floodgate')counts[`floodgate${p.maxHeight}` as 'floodgate1']++;else counts[p.kind]++;
++    z+=h;
++   }
++  }
++ }
++ return {objects,pieces,tiles:[...stacks.keys()],counts};
++}
++export function remapWater(from:State,to:State,W:number,H:number):State {
++ const N=W*H;
++ for(let i=0;i<N;i++)for(let k=0;k<to.count[i];k++){
++  const c=k*N+i;let mass=0,identical=-1;
++  for(let s=0;s<from.count[i];s++){const old=s*N+i;if(to.floor[c]===from.floor[old]&&to.ceiling[c]===from.ceiling[old]){identical=old;break;}}
++  if(identical>=0){to.depth[c]=from.depth[identical];to.overflow[c]=from.overflow[identical];to.contamination[c]=from.contamination[identical];to.oldDepth[c]=from.oldDepth[identical];continue;}
++  for(let s=0;s<from.count[i];s++){
++   const old=s*N+i,amount=Math.max(0,Math.min(to.ceiling[c],from.floor[old]+from.depth[old])-Math.max(to.floor[c],from.floor[old]));
++   to.depth[c]+=amount;mass+=amount*from.contamination[old];
++   if(to.floor[c]===from.floor[old]&&to.ceiling[c]===from.ceiling[old]){to.overflow[c]=from.overflow[old];to.oldDepth[c]=from.oldDepth[old];}
++  }
++  to.contamination[c]=to.depth[c]?mass/to.depth[c]:0;to.oldDepth[c]=to.depth[c];
++ }
++ // Preserve momentum only where both complete endpoint columns and the edge still exist.
++ const identity=(c:number)=>{const i=c%N;for(let k=0;k<from.count[i];k++){const old=k*N+i;if(from.floor[old]===to.floor[c]&&from.ceiling[old]===to.ceiling[c])return old;}return -1;};
++ const edges=(s:State)=>{
++  const m=new Map<string,number>();
++  if(s.start.length){for(let c=0;c<s.depth.length;c++)for(let e=s.start[c];e<s.start[c+1];e++)m.set(c+'/'+s.target[e]+'/'+s.direction[e],e);}
++  else for(let c=0;c<N;c++){const x=c%W,y=Math.floor(c/W),t=[y>0?c-W:-1,x>0?c-1:-1,y<H-1?c+W:-1,x<W-1?c+1:-1];for(let d=0;d<4;d++)m.set(c+'/'+t[d]+'/'+d,c*4+d);}
++  return m;
++ };
++ const oldEdges=edges(from),nextEdges=edges(to);
++ for(const [key,e] of nextEdges){const [c,t,d]=key.split('/').map(Number),old=identity(c),target=t<0?t:identity(t);if(old<0||t>=0&&target<0)continue;const oe=oldEdges.get(old+'/'+target+'/'+d);if(oe!==undefined)to.momentum[e]=from.momentum[oe];}
++
++ return to;
++}
++
++export function raster(path: Stroke['path'], W: number, H: number): number[] {
++  if (!path.length) throw Error('A stroke needs at least one point');
++  for (const [x, y] of path) if (!Number.isInteger(x) || !Number.isInteger(y) ||
++    x < 0 || y < 0 || x >= W || y >= H) throw Error('Stroke point outside the tile grid');
++  const tiles = new Set<number>();
++  let [x, y] = path[0]; tiles.add(y * W + x);
++  for (const [tx, ty] of path.slice(1)) {
++    const dx = Math.abs(tx - x), dy = Math.abs(ty - y), sx = Math.sign(tx - x), sy = Math.sign(ty - y);
++    let ix = 0, iy = 0;
++    while (ix < dx || iy < dy) {
++      if (ix < dx && (iy === dy || (2 * ix + 1) * dy <= (2 * iy + 1) * dx)) { x += sx; ix++; }
++      else { y += sy; iy++; }
++      tiles.add(y * W + x);
++    }
++  }
++  return [...tiles];
++}
+diff --git a/src/core/damSketch/spill.ts b/src/core/damSketch/spill.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/spill.ts
+@@ -0,0 +1,37 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++import type { State, WaterObject } from './kernel';
++/** A graph spill label identifies columns, never creates water or estimates capacity. */
++export function spillLabels(W:number,H:number,state:State,objects:readonly WaterObject[]):Float64Array {
++ const N=W*H,M=state.depth.length,reverse:Array<Array<[number,number]>>=Array.from({length:M},()=>[]);
++ const limits=new Map<number,number>(), sourceTiles=new Set<number>();
++ const tile=(o:WaterObject,x=0,y=0)=>{if(o[5]&&[9,10].includes(o[0]))x=1-x;const [dx,dy]=o[4]===0?[x,y]:o[4]===1?[y,-x]:o[4]===2?[-x,-y]:[-y,x];const xx=o[1]+dx,yy=o[2]+dy;return xx>=0&&yy>=0&&xx<W&&yy<H?yy*W+xx:-1;};
++ for(const o of objects){
++  const i=tile(o);if(i>=0){if(o[0]===2||o[0]===12)limits.set(o[3]*N+i,.65);if(o[0]===13&&o[7]%1)limits.set((o[3]+Math.floor(o[7]))*N+i,o[7]%1);}
++  const shape=o[0]===7?[[0,0]]:o[0]===8?Array.from({length:9},(_,i)=>[Math.floor(i/3),i%3]):[9,10].includes(o[0])?[[0,0],[0,1],[1,0],[1,1]]:o[0]===11?[[1,1]]:o[0]===6?[[0,1]]:[];
++  for(const [x,y] of shape){const t=tile(o,x,y);if(t>=0)sourceTiles.add(t);}
++ }
++ const labels=new Float64Array(M).fill(Infinity),heap:Array<[number,number]>=[];
++ const push=(c:number,v:number)=>{if(v>=labels[c])return;labels[c]=v;heap.push([c,v]);let k=heap.length-1;while(k>0){const p=(k-1)>>1;if(heap[p][1]<=v)break;heap[k]=heap[p];k=p;}heap[k]=[c,v];};
++ const pop=()=>{const first=heap[0],last=heap.pop()!;if(heap.length){let k=0;while(k*2+1<heap.length){let c=k*2+1;if(c+1<heap.length&&heap[c+1][1]<heap[c][1])c++;if(heap[c][1]>=last[1])break;heap[k]=heap[c];k=c;}heap[k]=last;}return first;};
++ const edge=(c:number,t:number)=>{
++  if(t<0){push(c,state.floor[c]);return;}
++  let crest=Math.max(state.floor[c],state.floor[t]);
++  for(let z=crest;z<Math.min(state.ceiling[c],state.ceiling[t]);z++){const l=limits.get(z*N+t%N);if(l!==undefined)crest=Math.max(crest,z+l);}
++  reverse[t].push([c,crest]);
++ };
++ if(state.start.length){
++  for(let c=0;c<M;c++)for(let e=state.start[c];e<state.start[c+1];e++){
++   const t=state.target[e],dir=state.direction[e];
++   const limiter=(id:number)=>{for(const o of objects)if(o[0]===6&&tile(o,0,1)===id%N&&o[3]===state.floor[id])return [2,3,0,1][o[4]];return undefined;};
++   const own=limiter(c),other=t<0?undefined:limiter(t);
++   if((other===undefined||other===dir)&&(own===undefined||own===dir||own===(dir+2)%4))edge(c,t);
++  }
++ } else {
++  for(let i=0;i<N;i++){
++   const x=i%W,y=Math.floor(i/W),targets=[y>0?i-W:-1,x>0?i-1:-1,y<H-1?i+W:-1,x<W-1?i+1:-1];
++   for(const t of targets)if(t>=0||!sourceTiles.has(i))edge(i,t);
++  }
++ }
++ while(heap.length){const [c,v]=pop();if(labels[c]!==v)continue;for(const [from,crest] of reverse[c])push(from,Math.max(v,crest));}
++ return labels;
++}
+diff --git a/src/core/damSketch/engine.ts b/src/core/damSketch/engine.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/engine.ts
+@@ -0,0 +1,91 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++import type { Kernel, State } from './kernel';
++import { compileWall, remapWater, type Snapshot, type Stroke } from './wall';
++import { spillLabels } from './spill';
++export const TICKS_PER_DAY=768;
++export interface Options {
++ fillTicks?:number;
++ /** Explicit observed drought forcing, in the Rust model's emitter order. No random weather. */
++ drought?:{ticks:number;provenance:string;strengths:readonly number[];contamination:readonly number[]};
++}
++export function createJob(kernel:Kernel,input:Snapshot,strokes:readonly Stroke[],options:Options={}) {
++ const map=structuredClone(input),opts=structuredClone(options),N=map.W*map.H;
++ if(!Number.isInteger(map.W)||!Number.isInteger(map.H)||map.W<1||map.H<1||N>1048576||map.masks.length!==N)throw Error('Invalid map dimensions');
++ const fillTicks=opts.fillTicks??6*TICKS_PER_DAY;
++ if(!Number.isInteger(fillTicks)||fillTicks<128||fillTicks%128)throw Error('Fill budget must be a positive multiple of 128 ticks');
++ for(const o of map.occupants??[])if(!o.id||!Number.isInteger(o.z)||!Number.isInteger(o.height)||o.z<0||o.height<1||o.z+o.height>34||o.tiles.some(i=>!Number.isInteger(i)||i<0||i>=N))throw Error('Invalid occupancy record');
++ const wall=compileWall(map,strokes),control=kernel.create(map.W,map.H,map.masks,map.objects);
++ let sim:ReturnType<Kernel['create']>|undefined;
++ try {
++  if(map.water)control.setState(map.water);
++  sim=kernel.create(map.W,map.H,map.masks,wall.objects);
++  sim.setState(remapWater(control.state(),sim!.state(),map.W,map.H));
++ }catch(e){sim?.dispose();control.dispose();throw e;}
++ try {
++  const drought=opts.drought;
++  if(drought&&(!Number.isInteger(drought.ticks)||drought.ticks<1||!drought.provenance||drought.strengths.some(s=>!Number.isFinite(s)||s<0||s>1000000)||drought.contamination.some(c=>!Number.isFinite(c)||c<0||c>1)||drought.strengths.length*4!==sim.read(15).length||drought.contamination.length!==drought.strengths.length))throw Error('Invalid explicit drought forcing');
++  for(const p of [...map.start??[],...map.farmland??[]])if(!Number.isInteger(p.tile)||p.tile<0||p.tile>=N||!Number.isInteger(p.z)||p.z<0||p.z>=34)throw Error('Invalid exposure point');
++ }catch(e){sim!.dispose();control.dispose();throw e;}
++ const active=sim;
++ const before=control.state(),after=active.state(),oldSpill=spillLabels(map.W,map.H,before,map.objects),newSpill=spillLabels(map.W,map.H,after,wall.objects);
++ const wallTiles=new Set(wall.tiles),reservoirColumns:number[]=[];
++ for(let i=0;i<N;i++)if(!wallTiles.has(i))for(let k=0;k<after.count[i];k++){
++  const c=k*N+i;
++  for(let s=0;s<before.count[i];s++){const old=s*N+i;if(before.floor[old]<=after.floor[c]&&before.ceiling[old]>=after.ceiling[c]&&newSpill[c]>oldSpill[old]){reservoirColumns.push(c);break;}}
++ }
++ let phase:'filling'|'drought'|'complete'|'cancelled'='filling',fill:{ticks:number;settled:boolean;capped:boolean}|null=null;
++ let previous=after.depth.map((d,i)=>d+after.overflow[i]),previousVolume=volume(after),dryTicks=0,firstDry:number|null=null,stored:number[]=[];
++ let released=false;
++ const held=(s:State,columns=reservoirColumns)=>columns.reduce((sum,c)=>sum+s.depth[c]+s.overflow[c],0);
++ function volume(s:State){return s.depth.reduce((sum,d,i)=>sum+d+s.overflow[i],0);}
++ function result(){
++  const water=sim!.state(),baseline=control.state();
++  const tileWet=(s:State,i:number)=>{for(let k=0;k<s.count[i];k++)if(s.depth[k*N+i]+s.overflow[k*N+i]>0)return true;return false;};
++  const wetAt=(i:number,z:number)=>{for(let k=0;k<water.count[i];k++){const c=k*N+i;if(water.floor[c]<=z&&z<water.ceiling[c]&&water.floor[c]+water.depth[c]>z)return true;}return false;};
++  const wet:number[]=[],newlyWet:number[]=[];for(let i=0;i<N;i++){if(tileWet(water,i))wet.push(i);if(tileWet(water,i)&&!tileWet(baseline,i))newlyWet.push(i);}
++  const pools=reservoirColumns.filter(c=>water.depth[c]+water.overflow[c]>0).map(c=>({column:c,tile:c%N,floor:water.floor[c],ceiling:water.ceiling[c],surface:water.floor[c]+water.depth[c],volumeM3:water.depth[c]+water.overflow[c]}));
++  return {phase,ticks:sim!.info(0),backend:sim!.info(1)===0?'rust-flat':'rust-stacked',fill:fill&&{...fill},
++   wall:{tiles:[...wall.tiles],pieces:structuredClone(wall.pieces),counts:{...wall.counts}},water,
++   waterHeldM3:held(water),reservoirColumns:[...reservoirColumns],reservoir:pools,
++   totalWaterM3:volume(water),controlWaterM3:volume(baseline),additionalWaterM3:volume(water)-volume(baseline),
++   floods:{wet,newlyWet,start:(map.start??[]).filter(p=>wetAt(p.tile,p.z)),farmland:map.farmland?.filter(p=>wetAt(p.tile,p.z))??null,
++    objects:(map.occupants??[]).map(o=>({id:o.id,tiles:o.tiles.filter(i=>wetAt(i,o.z))})).filter(o=>o.tiles.length)},
++   drought:opts.drought?{provenance:opts.drought.provenance,coveredDays:(firstDry??dryTicks)/TICKS_PER_DAY,observedDays:dryTicks/TICKS_PER_DAY,exhausted:firstDry!==null,censored:firstDry===null,started:fill!==null}:null};
++ }
++ let cached:ReturnType<typeof result>|null=null;
++ const publish=()=>cached?structuredClone(cached):result();
++ const release=()=>{if(!released){cached=result();sim!.dispose();control.dispose();released=true;}};
++ function advance(budget:number){
++  if(!Number.isInteger(budget)||budget<1)throw Error('Positive integer tick budget required');
++  if(released)return publish();
++  while(budget--&&(phase==='filling'||phase==='drought')){
++   // One exact kernel tick is the smallest atomic water operation.
++   sim!.run(1);control.run(1);
++   if(phase==='filling'&&sim!.info(0)%128===0){
++    const s=sim!.state(),v=volume(s);let moved=0;
++    for(let c=0;c<s.depth.length;c++)if(Math.abs(s.depth[c]+s.overflow[c]-previous[c])>.005)moved++;
++    const settled=Math.abs(v-previousVolume)/Math.max(v,1e-9)<.002&&moved<=.005*N;
++    previous=s.depth.map((d,i)=>d+s.overflow[i]);previousVolume=v;
++    if(settled||sim!.info(0)===fillTicks){
++     fill={ticks:sim!.info(0),settled,capped:!settled};
++     stored=reservoirColumns.filter(c=>s.depth[c]+s.overflow[c]>0);
++     if(opts.drought){phase='drought';firstDry=held(s,stored)===0?0:null;sim!.force(opts.drought.strengths,opts.drought.contamination);control.force(opts.drought.strengths,opts.drought.contamination);}
++     else phase='complete';
++    }
++   }else if(phase==='drought'){
++    dryTicks++;if(firstDry===null&&held(sim!.state(),stored)===0)firstDry=dryTicks;
++    if(firstDry!==null||dryTicks===opts.drought!.ticks)phase='complete';
++   }
++  }
++  const r=result();if(phase==='complete')release();return r;
++ }
++ return {advance,result:publish,cancel(){if(!released){phase='cancelled';release();}return publish();},dispose(){if(phase==='filling'||phase==='drought')phase='cancelled';release();}};
++}
++export type Job=ReturnType<typeof createJob>;
++export type Result=ReturnType<Job['result']>;
++/** Cooperative runner. Each publication is a detached plain-data snapshot. */
++export async function fillProgressively(job:Job,publish:(result:Result)=>void,signal?:AbortSignal){
++ const cancel=()=>job.cancel();signal?.addEventListener('abort',cancel,{once:true});
++ try {if(signal?.aborted)job.cancel();while(['filling','drought'].includes(job.result().phase)){publish(job.advance(8));await new Promise<void>(resolve=>setTimeout(resolve,0));}return job.result();}
++ finally {signal?.removeEventListener('abort',cancel);}
++}
+diff --git a/src/core/damSketch/worker.ts b/src/core/damSketch/worker.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/worker.ts
+@@ -0,0 +1,15 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++import { loadKernel } from './kernel';
++import { createJob, fillProgressively, type Options } from './engine';
++import type { Snapshot, Stroke } from './wall';
++export interface Request {bytes:Uint8Array;map:Snapshot;strokes:readonly Stroke[];options?:Options}
++const scope=self as unknown as DedicatedWorkerGlobalScope;
++scope.onmessage=async ({data}:{data:Request})=>{
++ let job:ReturnType<typeof createJob>|undefined;
++ try {
++  job=createJob(loadKernel(new Uint8Array(data.bytes)),data.map,data.strokes,data.options);
++  scope.postMessage({kind:'result',result:job.result()});
++  await fillProgressively(job,result=>scope.postMessage({kind:'result',result}));
++ }catch(error){scope.postMessage({kind:'error',message:error instanceof Error?error.message:String(error)});}
++ finally{job?.dispose();}
++};
+diff --git a/src/core/damSketch/worker-client.ts b/src/core/damSketch/worker-client.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/damSketch/worker-client.ts
+@@ -0,0 +1,19 @@
++// Dam sketch (D383), adopted from investigation/dam-sketch-3.
++import type { Result } from './engine';
++import type { Request } from './worker';
++export interface WorkerPort {
++ postMessage(value:Request):void;terminate():void;
++ onmessage:((event:{data:{kind:'result';result:Result}|{kind:'error';message:string}})=>void)|null;
++ onerror:((event:{message:string})=>void)|null;
++}
++/** Replacing a wall terminates its worker before starting the next fill. */
++export function createWorkerSession(factory:()=>WorkerPort,publish:(id:number,result:Result)=>void,fail:(id:number,message:string)=>void){
++ let generation=0,worker:WorkerPort|null=null;
++ const cancel=()=>{generation++;worker?.terminate();worker=null;};
++ return {replace(request:Request){
++  cancel();const id=generation,current=factory();worker=current;
++  current.onmessage=({data})=>{if(id!==generation||current!==worker)return;if(data.kind==='result')publish(id,data.result);else fail(id,data.message);};
++  current.onerror=event=>{if(id===generation&&current===worker)fail(id,event.message);};
++  current.postMessage(request);return id;
++ },cancel,dispose:cancel};
++}
+diff --git a/tests/fixtures/damSketch.ts b/tests/fixtures/damSketch.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/fixtures/damSketch.ts
+@@ -0,0 +1,18 @@
++import type { Snapshot, Stroke } from '../../src/core/damSketch/wall';
++/** Original scene: four-tile channel, terrain banks, a source, and the player's wall. */
++export function channel(feed=true,head=0):Snapshot {
++ const W=16,N=W*W,masks=new Uint32Array(N).fill(127);
++ for(let y=2;y<W;y++)for(let x=6;x<=9;x++)masks[y*W+x]=1;
++ const depth=new Float64Array(N);for(let y=2;y<9;y++)for(let x=6;x<=9;x++)depth[y*W+x]=head;
++ return {W,H:W,masks,objects:feed?[[7,7,3,1,0,0,0,.1]]:[],
++  water:{depth,overflow:new Float64Array(N),contamination:new Float64Array(N),oldDepth:depth.slice(),momentum:new Float64Array(4*N)},
++  start:[{tile:7*W+7,z:1}],farmland:[{tile:7*W+8,z:1}]};
++}
++export const scenes:Array<{id:string;stroke:Stroke;crest:number}>=[
++ {id:'dam',stroke:{path:[[6,9],[9,9]],stack:[{kind:'dam'}]},crest:1.65},
++ {id:'levee',stroke:{path:[[6,9],[9,9]],stack:[{kind:'levee'}]},crest:2},
++ {id:'gate-1.5',stroke:{path:[[6,9],[9,9]],stack:[{kind:'floodgate',maxHeight:2,height:1.5}]},crest:2.5},
++ {id:'stacked-dams',stroke:{path:[[6,9],[9,9]],stack:[{kind:'dam'},{kind:'dam'}]},crest:1.65},
++ {id:'levee-dam',stroke:{path:[[6,9],[9,9]],stack:[{kind:'levee'},{kind:'dam'}]},crest:2.65}
++];
++export const drought={ticks:90*768,provenance:'Explicit source-off hydrological observation; no consumption',strengths:[0],contamination:[0]};
+diff --git a/tests/unit/damSketch.test.ts b/tests/unit/damSketch.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/damSketch.test.ts
+@@ -0,0 +1,94 @@
++import {test} from 'vitest';
++import assert from 'node:assert/strict';
++import {loadKernel,type State,type WaterObject} from '../../src/core/damSketch/kernel';
++import {createJob,fillProgressively} from '../../src/core/damSketch/engine';
++import {compileWall,raster} from '../../src/core/damSketch/wall';
++import {createWorkerSession,type WorkerPort} from '../../src/core/damSketch/worker-client';
++import {channel,scenes,drought} from '../fixtures/damSketch';
++import {WATER_WASM} from '../../src/core/sim/waterWasm';
++const bytes=Buffer.from(WATER_WASM,'base64');
++const kernel=loadKernel(bytes);
++const equalBytes=(a:State,b:State)=>{for(const key of Object.keys(a) as Array<keyof State>)assert.deepEqual(Buffer.from(a[key].buffer),Buffer.from(b[key].buffer),key);};
++function finishFill(job:ReturnType<typeof createJob>){let r=job.result();while(r.phase==='filling')r=job.advance(128);return r;}
++
++test('round-2 pulse is initially present, drains and evaporates; the source-fed stacked scene retains water',()=>{
++ const old=createJob(kernel,channel(false,1.9),[scenes[3].stroke]);
++ assert.equal(old.result().water.depth[119],1.9);
++ const r=finishFill(old);assert.equal(r.waterHeldM3,0);assert.equal(r.totalWaterM3,0);
++ const fixed=createJob(kernel,channel(),[scenes[3].stroke]);const filled=finishFill(fixed);
++ assert.ok(filled.waterHeldM3>18);assert.ok(Math.abs(filled.water.floor[119]+filled.water.depth[119]-1.65)<.02);
++ assert.equal(filled.water.count[150],2);assert.equal(filled.water.floor[150],1);assert.equal(filled.water.ceiling[150],2);
++ assert.equal(filled.water.floor[256+150],2); // lower gap was not filled as a levee
++});
++for(const scene of scenes)test(`${scene.id}: crest, held water, construction tiles, floods and source-off drought`,()=>{
++ const job=createJob(kernel,channel(),[scene.stroke],{drought});let r=finishFill(job);
++ assert.equal(r.fill?.settled,true);assert.ok(Math.abs(r.water.floor[119]+r.water.depth[119]-scene.crest)<.02);
++ assert.equal(r.wall.tiles.length,4);assert.equal(r.wall.pieces.length,4*scene.stroke.stack.length);
++ assert.equal(r.reservoirColumns.length,28);assert.ok(r.waterHeldM3>0);
++ assert.deepEqual(r.floods.start,[{tile:119,z:1}]);assert.equal(r.floods.farmland?.length,1);
++ const filled=r.waterHeldM3;
++ while(r.phase==='drought')r=job.advance(128);
++ assert.equal(r.drought?.exhausted,true);assert.equal(r.drought?.censored,false);assert.ok(r.drought!.coveredDays>0);assert.equal(r.waterHeldM3,0);
++ assert.ok(filled>18);
++});
++test('direct kernel and sliced sketch publish identical bytes for the same land and finished objects',()=>{
++ const snapshot=channel();
++ for(const scene of scenes){
++  const objects:WaterObject[]=[...snapshot.objects];
++  // Independent explicit objects, rather than using the wall compiler as the oracle.
++  for(let x=6;x<=9;x++){
++   if(scene.id==='dam')objects.push([12,x,9,1,0,0,0,0]);
++   if(scene.id==='levee')objects.push([1,x,9,1,0,0,0,0]);
++   if(scene.id==='gate-1.5')objects.push([13,x,9,1,0,0,0,1.5]);
++   if(scene.id==='stacked-dams')objects.push([12,x,9,1,0,0,0,0],[12,x,9,2,0,0,0,0]);
++   if(scene.id==='levee-dam')objects.push([1,x,9,1,0,0,0,0],[12,x,9,2,0,0,0,0]);
++  }
++  const direct=kernel.create(16,16,snapshot.masks,objects),sketch=createJob(kernel,snapshot,[scene.stroke]);
++  for(const ticks of [1,7,65,55]){direct.run(ticks);equalBytes(direct.state(),sketch.advance(ticks).water);}
++  direct.dispose();sketch.dispose();
++ }
++});
++test('existing editor objects retain every water byte with the unmodified embedded kernel, flat and roofed',()=>{
++ const editor=loadKernel(Buffer.from(WATER_WASM,'base64'));
++ for(const roof of [false,true]){
++  const map=channel();map.objects=[...map.objects,[2,6,9,1,0,0,0,0]];
++  if(roof)map.masks[119]=1|(1<<4); // independent lower and upper columns
++  const direct=editor.create(16,16,map.masks,map.objects),sketch=createJob(kernel,{...map,water:undefined},[]);
++  for(const ticks of [8,65,55]){direct.run(ticks);equalBytes(direct.state(),sketch.advance(ticks).water);}
++  assert.equal(sketch.result().waterHeldM3,0);direct.dispose();sketch.dispose();
++ }
++});
++test('warm water, contamination, overflow and momentum survive unchanged topology',()=>{
++ const map=channel();map.masks[119]=1|(1<<4);
++ const original=kernel.create(16,16,map.masks,map.objects);original.run(73);
++ map.water=original.state();const sketch=createJob(kernel,map,[]);
++ original.run(19);equalBytes(original.state(),sketch.advance(19).water);
++ original.dispose();sketch.dispose();
++});
++test('unknown drought stays unknown, finite horizon is censored and snapshots are detached',()=>{
++ const noWeather=createJob(kernel,channel(),[scenes[0].stroke]);assert.equal(finishFill(noWeather).drought,null);
++ const job=createJob(kernel,channel(),[scenes[0].stroke],{drought:{...drought,ticks:8}});let r=finishFill(job);r.water.depth.fill(999);r=job.advance(8);
++ assert.ok(r.waterHeldM3<100);assert.equal(r.drought?.coveredDays,8/768);assert.equal(r.drought?.censored,true);assert.equal(r.drought?.exhausted,false);
++});
++test('game construction limits and four-connected raster refuse unsupported walls',()=>{
++ const map=channel();assert.deepEqual(raster([[6,9],[7,10]],16,16),[150,151,167]);
++ assert.throws(()=>compileWall(map,[{...scenes[0].stroke,baseZ:3}]),/unsupported/);
++ assert.throws(()=>compileWall(map,[{path:[[6,9]],stack:[{kind:'floodgate',maxHeight:1,height:2}]}]),/floodgate/);
++ assert.throws(()=>compileWall(map,[{path:[[6,9]],stack:[{kind:'floodgate',maxHeight:1,height:1},{kind:'dam'}]}]),/floodgate/);
++ assert.throws(()=>compileWall(map,[{path:[[7,3]],stack:[{kind:'dam'}]}]),/water object/);
++ assert.throws(()=>compileWall(map,[{path:[[6,9]],stack:Array.from({length:34},()=>({kind:'levee' as const}))}]),/height/);
++});
++test('progress publishes partial fills; abort freezes the cancelled job',async()=>{
++ const job=createJob(kernel,channel(),[scenes[1].stroke]),abort=new AbortController();let frames=0;
++ const r=await fillProgressively(job,frame=>{frames++;assert.equal(frame.phase,'filling');if(frames===2)abort.abort();},abort.signal);
++ assert.equal(frames,2);assert.equal(r.phase,'cancelled');assert.equal(r.ticks,16);assert.equal(job.advance(128).ticks,16);
++});
++test('a changed wall terminates its worker immediately and discards already queued packets',()=>{
++ const ports:Array<WorkerPort&{terminated:boolean}>=[],seen:number[]=[];
++ const session=createWorkerSession(()=>{const p={terminated:false,postMessage(){},terminate(){this.terminated=true;},onmessage:null,onerror:null};ports.push(p);return p;},id=>seen.push(id),()=>assert.fail('worker error'));
++ const request={bytes,map:channel(),strokes:[scenes[0].stroke]};
++ const first=session.replace(request),old=ports[0],late=old.onmessage!;
++ const second=session.replace({...request,strokes:[scenes[1].stroke]});assert.ok(old.terminated);
++ const job=createJob(kernel,channel(),[]),r=job.result();late({data:{kind:'result',result:r}});ports[1].onmessage!({data:{kind:'result',result:r}});
++ assert.notEqual(first,second);assert.deepEqual(seen,[second]);session.dispose();assert.ok(ports[1].terminated);job.dispose();
++});

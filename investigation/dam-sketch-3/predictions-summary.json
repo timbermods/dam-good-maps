@@ -1,0 +1,132 @@
+[
+  {
+    "id": "dam",
+    "fillTicks": 1024,
+    "settled": true,
+    "crest": 1.65,
+    "waterHeldM3": 18.207484556984745,
+    "tiles": [
+      150,
+      151,
+      152,
+      153
+    ],
+    "pieces": {
+      "dam": 4,
+      "levee": 0,
+      "floodgate1": 0,
+      "floodgate2": 0,
+      "floodgate3": 0
+    },
+    "surfaceRange": [
+      1.650041874517152,
+      1.650419928507468
+    ],
+    "dryDays": 9.725260416666666,
+    "recipeSha256": "71fb6af967223c525241c1a9a018aabaf3ce95c056ac0d54ab73987155710e8b"
+  },
+  {
+    "id": "levee",
+    "fillTicks": 768,
+    "settled": true,
+    "crest": 2,
+    "waterHeldM3": 28.19667581087412,
+    "tiles": [
+      150,
+      151,
+      152,
+      153
+    ],
+    "pieces": {
+      "dam": 0,
+      "levee": 4,
+      "floodgate1": 0,
+      "floodgate2": 0,
+      "floodgate3": 0
+    },
+    "surfaceRange": [
+      2.0069205299093658,
+      2.0071335811549362
+    ],
+    "dryDays": 15.373697916666666,
+    "recipeSha256": "91ebaf5bf60c696676370944e2e126b3dff78444112783c40cb5aa89b6bbed97"
+  },
+  {
+    "id": "gate-1.5",
+    "fillTicks": 1024,
+    "settled": true,
+    "crest": 2.5,
+    "waterHeldM3": 41.96579882906575,
+    "tiles": [
+      150,
+      151,
+      152,
+      153
+    ],
+    "pieces": {
+      "dam": 0,
+      "levee": 0,
+      "floodgate1": 0,
+      "floodgate2": 4,
+      "floodgate3": 0
+    },
+    "surfaceRange": [
+      2.4982489308902847,
+      2.499471911039236
+    ],
+    "dryDays": 23.109375,
+    "recipeSha256": "5c6abe1145608555068925df76963fd6ad96d78baf9ac9794f8d70ccbb15b480"
+  },
+  {
+    "id": "stacked-dams",
+    "fillTicks": 1024,
+    "settled": true,
+    "crest": 1.65,
+    "waterHeldM3": 18.207484556984745,
+    "tiles": [
+      150,
+      151,
+      152,
+      153
+    ],
+    "pieces": {
+      "dam": 8,
+      "levee": 0,
+      "floodgate1": 0,
+      "floodgate2": 0,
+      "floodgate3": 0
+    },
+    "surfaceRange": [
+      1.650041874517152,
+      1.650419928507468
+    ],
+    "dryDays": 9.725260416666666,
+    "recipeSha256": "cf208f428a6307fbe1df2c197dd98dd0091cd296c52062d9b947f64b1dbad671"
+  },
+  {
+    "id": "levee-dam",
+    "fillTicks": 1152,
+    "settled": true,
+    "crest": 2.65,
+    "waterHeldM3": 46.139110104148145,
+    "tiles": [
+      150,
+      151,
+      152,
+      153
+    ],
+    "pieces": {
+      "dam": 4,
+      "levee": 4,
+      "floodgate1": 0,
+      "floodgate2": 0,
+      "floodgate3": 0
+    },
+    "surfaceRange": [
+      2.6475480554291244,
+      2.6483716922480007
+    ],
+    "dryDays": 25.411458333333332,
+    "recipeSha256": "7c6a5f4b64a81b5b9477397d30d934caf0d6837c3bafc9a28681c74a1ac40f9c"
+  }
+]
