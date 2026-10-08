@@ -56,8 +56,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    and approved.
 2. **Canyon and Highlands is merged** (#261, generator 0.8.8, 2026-10-08): the main river's walls at Canyon 128² a median 6.3
    levels (2.8 before); all three outcomes of 20 at 96² / 128² / 256²: Canyon 14 / 15 / 13, Highlands 14 / 17 / 16. The
-   generator queue is empty. Next there: D480's extension (the main water never dropped from the story for being mostly
-   badwater), as 0.8.9. **Islands round 6 is merged** (#235, generator 0.8.7, 2026-10-07; all three outcomes of 30: 96² 28, 128² 27, 256² 30).
+   generator queue is empty. D480's extension is merged too (#366, generator 0.8.9: the main water is never dropped from the
+   story for being mostly badwater; no map's land or water changed). **Islands round 6 is merged** (#235, generator 0.8.7, 2026-10-07; all three outcomes of 30: 96² 28, 128² 27, 256² 30).
    Generation takes more attempts than the round Kyler approved (96² mean 13.2 against 4.9): a look for later.
    **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
    River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
