@@ -62,8 +62,8 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
    Canyon and Highlands (#261), one re-pin each with sheets.
 3. **The page is on dev** (2026-10-07): #163 squashed as #347 (merge 59b4f1e9, from feature/page 5faf94d8), #163 closed. The
    350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
-   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Still to
-   fold into docs/decisions/: the page's other decisions in DESIGN.md and docs/progress/page.md.
+   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Folded into docs/decisions
+   (#362): the page's rules are amendments to D184, D205, D235, D330, D352 and D133; DESIGN.md stays the look's record.
 4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
    `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
 5. Then (D481): 3D Foundations first, in work; after it the Weather view, custom map sizes (D357; #313's "every side from 4" question is Kyler's then), the dam sketch after the
