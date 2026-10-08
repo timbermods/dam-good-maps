@@ -1,4 +1,4 @@
-// The DGM Probe's test maps for terrain above terrain, T1–T6 (investigation/terrain3d/DESIGN.md §8;
+// The DGM Probe's test maps for terrain above terrain, T1–T7 (investigation/terrain3d/DESIGN.md §8;
 // PLAN §20 D127, D279): small deterministic maps, each built round what it tests, with the 3D
 // foundations' own modules (the stacked water's canonical settle, soil per run, the multi-slot writer,
 // the support rule), for a probe batch the milestone session runs (never launched from here).
@@ -25,6 +25,8 @@
 // - T5 plants and objects: pines, birches and bushes under roofs 1, 2 and 3 above them, and the start
 //   under a roof at z + 5.
 // - T6 heights: the investigation's high-verticality landscape at 256² (relief 3–22).
+// - T7 sinks: a source and a weaker sink in a sealed cave, a cave its sink keeps from filling, and the pair in
+//   the open (the sink under a roof is from the game's code, not yet played).
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

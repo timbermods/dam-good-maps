@@ -7,8 +7,10 @@ reference TypeScript is #71 (`origin/feature/terrain3d-a`, never adopted, D448);
 
 ## Now (2026-10-07)
 
-Stages 1 and 4 are on dev (#354, #356). Stage 2 is #355, waiting on Kyler, and stage 3 on his word for its rows'
-wording. Stage 5 is built (below). Next: stage 6, which a player sees. Nothing a player sees has changed yet.
+Stages 1, 4 and 5 are on dev (#354, #356, #357). Stage 2 is #355, waiting on Kyler, and stage 3 on his word for its
+rows' wording. Stage 6 is begun: its first part, the sink rule in the stacked engine and the probe's map for it, is
+built (below); switching cave imports onto the engine is not, and its plan and open questions are below. Nothing a
+player sees has changed yet.
 
 ## What dev already has (surveyed 2026-10-07 at 498eb620, against INVENTORY.md)
 
@@ -176,4 +178,62 @@ On `feature/3d-foundations-5`. Nothing a player sees changes, and no map the app
 - **Not done here, for stage 6:** the editor's live water after an edit (`sim/preview.ts`, `fed.ts`, `weather.ts`
   and the worker's jobs run `WaterSim` directly) on stacked terrain; soil per run top and the multi-slot writer in
   the build and export; the checks' water.
+
+## Stage 6, first part: a sink in the stacked engine (built 2026-10-07)
+
+On `feature/3d-foundations-6`. Nothing a player sees changes: no map the app builds reaches the stacked engine yet.
+- **The rule** (`rust/water/src/stack.rs`, the emit step; the input checks in `columns.rs`, `stack_memory.rs`,
+  `stack.rs` and `stack_engine.rs` now take a strength down to −1,000,000): a sink takes its share off each of its
+  columns. In the open, with no pressure, it is the heightfield rule (`sim.rs`, D337) in the same arithmetic. Under a
+  roof it follows the game's one task for every column, `UpdateWaterSourcesTask.Run` with
+  `WaterDepthSetter.SetWaterDepth` and `UpdateContaminationFromWaterChange` (Timberborn 1.1.2.4, read, not copied):
+  the change comes off depth plus pressure together, floored at dry, with the pressure capped as ever, and the
+  badwater share is weighed on depth plus pressure × 8 before and after. **From the game's code, not yet played.**
+- **Checked:** an open field with a sink through the engine is today's settle bit for bit (Rust and
+  `tests/contract/stackEncoder.test.ts`); a sealed cave with a source and a sink (`rust/water/tests/stacked.rs`);
+  the new test map T7's settled water pinned (`tests/contract/stackedWater.test.ts`). No golden fixture has a sink,
+  and all eight still pass natively and in Node's WebAssembly.
+- **Remove unfed water on stacked terrain stays refused.** The heightfield rule names tiles and takes the water no
+  source feeds on them; on a tile with several water columns it does not say which column a removal takes (the one
+  seen from above, or every one), and "fed" has to be worked out on the column graph. That needs a decision before
+  it is built.
+- **The probe's maps** (`npx tsx tools/probe-3d.ts --out .scratch/terrain3d-6`): T3–T6 as dev writes them (nine-digit
+  water tokens) and T7 (48², three sink cases: a sealed cave with a weaker sink, a cave its sink keeps from
+  filling, the pair in the open). The Terrain 3D group that plays them (`investigation/probe/runner/terrain3d.ts`,
+  DGM Probe 0.3.0) is on #71's branch only, and it works out what to expect with #71's TypeScript engine, which has
+  no sink rule: T7's water check needs that runner moved onto `sim/stackWater.ts` first.
+
+## Stage 6, the rest: what switching cave imports on takes (surveyed, not built)
+
+It has to land as one change: with only the settle switched, the editor's live water and the views would still be
+the heightfield's, and a cave map would show water that is not what gets exported.
+1. **The build** (`features/build.ts`, the water steps): `stackedModel(model, base.terrain.withSurface(heights),
+   objects)`, and the same in `baseModelOf` so an unedited import still compares equal and keeps the file's own
+   water (the byte-for-byte export rests on `waterFromFile`). Soil from `soil3d` per run top; `BuildResult.moisture`
+   and `soilContamination` stay per tile (each tile's top run) for the plants, with the per-run arrays beside the
+   settle. A project stores the build result, so a cave import's project grows these fields; heightfield projects
+   do not change.
+2. **Export** (`doc/session.ts` `exportFile`, `gen/pack.ts` `worldOf`, which is the generator queue's file this
+   week): `stackedSimulationSingletons` from the settle's `stack` and the per-run soil, in place of
+   `mixedSimulationSingletons` and `roofed`.
+3. **The checks** (`validate/rust.ts`; `rust/checks/src/mechanics.rs`): the settled water passed is each tile's top
+   column; the cave share stops being a reason for "approximate" (D98). "The start is under a roof" stays a
+   reason until stage 3's floor graph.
+4. **The editor's live water** (`sim/preview.ts`, `fed.ts`, `weather.ts`; the worker's water jobs): all step a
+   `WaterSim` on one column per tile. The honest first version on stacked terrain is the canonical stacked settle
+   in slices after each edit, with no warm start, shown when done; Drought and Badtide on stacked terrain and Fill
+   and Remove unfed water on it are refused with one line until they have rules.
+5. **The worker's views** (`src/worker/session.ts` `waterOf`, `soilOf`, the layers' `roofed`): every column from
+   `CanonicalWater.stack`; clear of #329's regions (the weather runs and `startForceWater`).
+6. **The page and the renderer** (not this session's files): the "Under roofs" layer (`src/editor/panels.tsx`
+   lines 27, 36–37; `src/editor/render/viewControls.tsx` line 12; `src/ui/View3D.tsx`) and its violet tiles go or
+   change meaning; `src/render3d/model.ts` `WaterView` already takes several columns per tile.
+7. **Wording a player reads** (Kyler's): the opening notice (`doc/session.ts`: "This map has caves or overhangs.
+   Water under them keeps the map's own: the preview is approximate there. "Under roofs" in the view bar marks
+   them." → proposed "This map has caves or overhangs. The tools leave them as they are."); the layer ("Water under
+   roofs", "Violet tiles: under caves or overhangs, their water approximate", "No caves or overhangs on this map." →
+   removed, or kept as "Caves and overhangs" with "Violet tiles: caves or overhangs, which the tools leave as they
+   are"); the checks' reason "caves or overhangs cover N% of the map" → gone.
+8. **Questions to settle first:** what Remove unfed water takes on a tile with several columns; whether live water
+   without a warm start is acceptable on cave maps; whether the layer goes or is renamed.
 

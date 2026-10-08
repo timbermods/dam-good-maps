@@ -16,7 +16,7 @@ import { gameSoil } from "../../src/core/sim/soil";
 import { canonicalStackSettle, stackedModel, stackObjectRows } from "../../src/core/sim/stackWater";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
 import { inputBytes, stackFixtures } from "../../tools/rust/stack-fixtures";
-import { build, t1Support, t2Walking, t3CaveWater, t4Soil, t5Plants } from "../../tools/terrain3d-maps";
+import { build, t1Support, t2Walking, t3CaveWater, t4Soil, t5Plants, t7Sink } from "../../tools/terrain3d-maps";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytesOf = (a: Float64Array) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
@@ -169,5 +169,26 @@ describe("the canonical settle's two paths (3D Foundations, stage 5)", () => {
     const terrain = new ColumnTerrain(W, H, m.scene.mask);
     const model = stackedModel(waterModel(W, H, terrain.heights(), objects), terrain, objects);
     expect(() => canonicalSettle({ ...model, drained: [5] })).toThrow(/not worked out for a map with caves/);
+  });
+});
+
+describe("a sink under a roof (D337; from the game's code, not yet played)", () => {
+  it("takes pressure first, never goes below dry, and settles to the pinned water", () => {
+    const b = build(t7Sink());
+    const W = 48;
+    const at = (x: number, y: number) => y * W + x;
+    const { depth, overflow, contamination } = b.arrays;
+    expect(b.settled).toEqual({ settled: true, ticks: 896 });
+    // the sealed cave with the weaker sink fills (3 high) and stays under pressure, below the cap of 3.5
+    expect(depth[at(10, 10)]).toBe(3);
+    expect(overflow[at(10, 10)]).toBeGreaterThan(3);
+    expect(overflow[at(10, 10)]).toBeLessThan(3.5);
+    // the cave whose sink is the stronger never fills: dry at the sink, no pressure anywhere in it
+    expect(depth[at(30, 10)]).toBe(0);
+    expect(depth[at(28, 8)]).toBeLessThan(0.5);
+    expect(overflow[at(28, 8)]).toBe(0);
+    for (const a of [depth, overflow, contamination]) expect(a.every((v) => Number.isFinite(v) && v >= 0)).toBe(true);
+    // pinned: a change to the engine's sink rule shows here (the game has not confirmed these numbers)
+    expect([sha(bytesOf(depth)).slice(0, 16), sha(bytesOf(overflow)).slice(0, 16)]).toEqual(["e7069066869678fe", "55c4f65e03727714"]);
   });
 });
