@@ -6,6 +6,7 @@
 
 import * as portable from "../math/portable";
 import type { Difficulty } from "../spec/mapspec";
+import { CAVE_REFUSALS } from "./stackWater";
 import { TICKS_PER_DAY, WaterSim, type Emitter, type WaterModel, type WaterState } from "./water";
 
 export type Hazard = "drought" | "badtide";
@@ -49,6 +50,12 @@ export function badtideContamination(sinceStart: number, days: number): number {
  *  give). A drought stops every source; a badtide gives each clean source `badtideContamination` for
  *  the time it has run, set before each step. `ticksPerDay` is the game's (TICKS_PER_DAY) unless a
  *  check runs it faster (the determinism cases). The caller paces the steps and shows the frames. */
+/** Why a map's water has no Drought or Badtide to show, in one plain line, or null: terrain above
+ *  terrain has no rule for either yet (the runs below step one water column a tile). */
+export function hazardRefusal(model: WaterModel): string | null {
+  return model.stacked ? CAVE_REFUSALS.weather : null;
+}
+
 export class HazardRun {
   readonly sim: WaterSim;
   /** Ticks run so far. */
@@ -62,6 +69,8 @@ export class HazardRun {
     readonly days: number,
     readonly ticksPerDay = TICKS_PER_DAY,
   ) {
+    const refusal = hazardRefusal(model);
+    if (refusal) throw new Error(refusal);
     const own: WaterModel = { ...model, emitters: model.emitters.map((e) => ({ ...e })) };
     this.clean = own.emitters.filter((e) => e.contamination === 0);
     this.sim = new WaterSim(own, water);

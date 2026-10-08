@@ -4,9 +4,10 @@
 // settler's first guess, on water the hydrology only planned, keeps the fast approximation
 // (sim/moisture.ts, sim/contamination.ts).
 
-import { heightMasks, waterColumns } from "./columns";
-import { columnSaturation, soil3d } from "./soil3d";
+import { heightMasks, waterColumns, type VoxelMasks, type WaterColumns } from "./columns";
+import { columnSaturation, soil3d, soilBarrierCells, type Soil3d } from "./soil3d";
 import type { MapObject } from "./model";
+import type { StackSettle } from "./stackWater";
 
 export interface Soil {
   moisture: Float64Array;
@@ -43,4 +44,29 @@ export function gameSoil(W: number, H: number, heights: ArrayLike<number>, depth
   const out = soil3d(masks, wc, { depth: d, contamination: c, sat: s ?? columnSaturation(wc, d) }, objects);
   // one run per tile: the first N values are the tiles'
   return { moisture: out.moisture.length === N ? out.moisture : out.moisture.slice(0, N), contamination: out.contamination.length === N ? out.contamination : out.contamination.slice(0, N) };
+}
+
+const stackSoils = new WeakMap<StackSettle, { barrier: string; soil: Soil3d }>();
+
+/** The soil of a map with terrain above terrain, per run top (D120): from the water on its stacked
+ *  columns (`stack`, a settle of `t` and `objects`, or water carried over to them). Worked out once
+ *  per settle: the build takes each tile's top run for its plants, the export writes every run. */
+export function stackedSoil(t: VoxelMasks, cols: WaterColumns, stack: StackSettle, objects: readonly MapObject[]): Soil3d {
+  const cells = soilBarrierCells(t.W, t.H, objects);
+  const barrier = cells ? [...cells].sort((a, b) => a - b).join() : "";
+  const hit = stackSoils.get(stack);
+  if (hit && hit.barrier === barrier) return hit.soil;
+  // (a settle carries its cluster saturation; water carried over has none of its own)
+  const soil = soil3d(t, cols, { depth: stack.depth, contamination: stack.contamination, sat: stack.ticks > 0 ? stack.sat : columnSaturation(cols, stack.depth) }, objects);
+  stackSoils.set(stack, { barrier, soil });
+  return soil;
+}
+
+/** Each tile's top run of a per-run soil array (`Soil3d`): the ground seen from above. */
+export function topRuns(soil: Soil3d, values: Float64Array): Float64Array {
+  const { N, count } = soil.runs;
+  if (soil.runs.T === 1) return values.length === N ? values : values.slice(0, N);
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) out[i] = values[(count[i] - 1) * N + i];
+  return out;
 }

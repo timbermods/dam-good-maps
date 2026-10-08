@@ -310,6 +310,10 @@ export function sameMap(a: BuildResult, b: BuildResult): boolean {
     [a.settle.contamination, b.settle.contamination],
     [a.settle.sat, b.settle.sat],
     [a.settle.out, b.settle.out],
+    // (terrain above terrain: the settle on every water column)
+    [a.settle.stack?.depth, b.settle.stack?.depth],
+    [a.settle.stack?.overflow, b.settle.stack?.overflow],
+    [a.settle.stack?.contamination, b.settle.stack?.contamination],
   ];
   for (const [x, y] of arrays) if (!sameBytes(x, y)) return false;
   if (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview) return false;

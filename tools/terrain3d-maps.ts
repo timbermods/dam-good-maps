@@ -409,7 +409,7 @@ export interface Built {
 
 /** The cells (z·N + tile) holding the top of a stackable object's block: the voxel above each counts
  *  as standing on ground (a NaturalOverhang holds the rock over it). */
-function stackableTops(W: number, H: number, entities: readonly EntitySpec[]): number[] {
+export function stackableTops(W: number, H: number, entities: readonly EntitySpec[]): number[] {
   const out: number[] = [];
   for (const e of entities) {
     const fp = FOOTPRINTS[e.template];

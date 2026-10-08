@@ -45,7 +45,7 @@ export interface View3DProps {
   viewButtons?: ComponentChildren;
   /** A water overlay's caption while it is on (the key under Legend). */
   caption?: ComponentChildren;
-  /** A toggle beside Legend, at its left (Under roofs, on a map with roofs). */
+  /** A toggle beside Legend, at its left (Caves and overhangs, on a map that has them). */
   besideLegend?: ComponentChildren;
   /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
    *  switches (Slow forces, Sound). */

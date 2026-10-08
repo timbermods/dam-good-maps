@@ -19,7 +19,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -31,11 +31,14 @@ import { ColumnTerrain, terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
+import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
+import { stackedSoil } from "../sim/soil";
+import { CAVE_REFUSALS, storedStack } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { storedOutflows, storedSoil, storedWater } from "../format/world";
+import { stackedSimulationSingletons, storedOutflows, storedSoil, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
@@ -205,7 +208,9 @@ export class MapSession {
       this.cur = buildMap(this.input(), { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
-      this.notices.push("This map has caves or overhangs. Water under them keeps the map's own: the preview is approximate there. \"Under roofs\" in the view bar marks them.");
+      this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
+      // (a removal an older project stored: it has no rule for water in caves yet and takes nothing)
+      if (this.cur.waterModel.stacked && this.log.some((o) => o.op === "removeUnfedWater")) this.notices.push(CAVE_REFUSALS.removeUnfed);
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -225,6 +230,9 @@ export class MapSession {
     if (!storedFits(doc.stored, this.log.length, this.seqNext) || this.gen.base.world === null) return null;
     const b = restoreBuilt(doc.stored, this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0);
     if (!b) return null;
+    // a map with caves or overhangs stored before its water was the stacked-column engine's (D120):
+    // it is built again, as every project was before maps were stored
+    if (this.mode !== "live" && !b.waterModel.stacked && !this.baseStuff().terrain.terrain.allPlain()) return null;
     const input = this.input();
     const slopes = input.generatedSlopes ?? null;
     const list = b.cache.terrain.slopeList;
@@ -338,6 +346,12 @@ export class MapSession {
     this.cur = rebuild(this.cur, this.input(), { settleCache: cache });
     for (const [k, b] of this.snaps) if (b === before) this.snaps.set(k, this.cur);
     return true;
+  }
+
+  /** The map's own canonical settle when `model` is the water model it ran on, else null: a caller
+   *  that built the model another way (from the exported file) need not settle it again. */
+  settledFor(model: WaterModel): CanonicalWater | null {
+    return !this.waterPending && !this.cur.waterFromFile && sameWaterModel(model, this.cur.waterModel) ? this.cur.settle : null;
   }
 
   /** Settle the water canonically now, when the map shows the preview's. */
@@ -479,8 +493,8 @@ export class MapSession {
     return this.log.length;
   }
 
-  /** Whether the map's water is the file's own (an unedited import, or one with caves, whose
-   *  water export keeps): the 3D view then draws `storedWater()`, not `built.water`. */
+  /** Whether the map's water is the file's own (an unedited import, whose water export keeps): the
+   *  3D view then draws `storedWater()`, not `built.water`. */
   get showsStoredWater(): boolean {
     if (this.mode === "live") return false;
     return this.cur.waterFromFile;
@@ -494,8 +508,9 @@ export class MapSession {
     return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
   }
 
-  /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
-   *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
+  /** An imported map's tiles with a cave, tunnel or overhang, which every tool leaves as they are
+   *  (the "Caves and overhangs" layer marks them). Their water is simulated with the rest of the
+   *  map's (D120). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
     return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
   }
@@ -910,12 +925,12 @@ export class MapSession {
     const terrain = baseTerrain(this.gen.base);
     const file = fileFromBase(this.gen.base, terrain);
     const owners = this.gen.base.owners;
-    const layer: BaseLayer = {
-      terrain: terrain.terrain,
-      heights: terrain.heights,
-      entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
-      water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
-    };
+    const entities = file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import"));
+    const water = topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights);
+    // with caves or overhangs: the file's water on every column, for the view and the water carried
+    // over to the first edit's ground (sim/stackWater.ts)
+    if (!terrain.terrain.allPlain()) water.stack = storedStack(waterColumns(terrain.terrain, entities.map(toMapObject)), storedWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY));
+    const layer: BaseLayer = { terrain: terrain.terrain, heights: terrain.heights, entities, water };
     this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
   }
@@ -1142,10 +1157,23 @@ export class MapSession {
     const { x: W, y: H } = this.size;
     const w = b.file.world;
     const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
-    // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
-    // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
-    const roofed = b.terrain.columns.size ? new Set(b.terrain.columns.keys()) : null;
-    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: b.terrain.terrain.withSurface(built.heights).voxels(), roofed });
+    // the settled water is written, unless the file's own still stands
+    const terrain = b.terrain.terrain.withSurface(built.heights);
+    const stack = built.waterFromFile ? undefined : built.settle.stack;
+    let world = worldOf(W, H, built.heights, built.entities, built.waterFromFile || stack ? null : builtWater(built), { world: w, voxels: terrain.voxels(), roofed: null });
+    if (stack) {
+      // a map with caves or overhangs: the settle on every water column and the soil on every run
+      // (D120), the way the game saves such a map (world.ts `stackedSimulationSingletons`)
+      const objects = built.entities.map(toMapObject);
+      const cols = waterColumns(terrain, objects);
+      if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
+      const soil = stackedSoil(terrain, cols, stack, objects);
+      const s = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });
+      const singletons: JsonObject = {};
+      for (const k in w.singletons) singletons[k] = WATER_SINGLETONS.includes(k) ? s[k] : w.singletons[k];
+      for (const k of WATER_SINGLETONS) if (!(k in singletons)) singletons[k] = s[k];
+      world = { ...world, singletons };
+    }
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
     let metadata = parse(this.gen.base.metadata) as JsonObject;
@@ -1288,6 +1316,10 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   if (a.dam && b.dam) for (let i = 0; i < a.dam.length; i++) if (a.dam[i] !== b.dam[i]) return false;
   return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameKeptWater(a, b);
 }
+
+/** The singletons an export rewrites with the settled water (gen/pack.ts keeps the same list for a
+ *  heightfield's): every other singleton stays as the file has it. */
+const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
 
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;

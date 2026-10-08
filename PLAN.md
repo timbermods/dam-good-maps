@@ -815,9 +815,10 @@ has run for a day, and maps are written pre-filled with it, as official maps are
 stacked-column rules (sideways flow between overlapping gaps, pressure (overflow × 8), the overflow cap of (34 −
 ceiling)/8, and roofs); on heightfields it moves no wet tile; on the official cave maps wet columns agree at IoU ≥ 0.99
 on 17 of 19 (Oasis and Spillage hold aquifer and seep water no steady state shows); the pre-fill is a priority flood
-over the graph of gaps. Imported maps can still have water the port cannot show (Cliffside 24 wet cells under roofs,
-Canyon 180, Terraces 473): there the editor keeps the file's saved water and marks the preview approximate
-(EDITOR_PLAN.md, Checks and water). Only the steady state is used. The port was also checked against a game save
+over the graph of gaps. An imported map with caves or overhangs is settled by that engine once it is edited, on
+every water column (`sim/stackWater.ts`, the Rust engine; D448), in the background, and its file gets the settle
+slot by slot with the soil per run top; unedited, it keeps its file's own water (EDITOR_PLAN.md, Checks and
+water). Only the steady state is used. The port was also checked against a game save
 written with mods active (none known to touch water); in-game check B confirms the result on vanilla.
 
 **Drought.** Sources ramp to 0 for the whole drought. The drought check is analytic (`sim/drought.ts`, D29): water

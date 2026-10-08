@@ -189,7 +189,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
   and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Under roofs** (where the map has roofed water, beside Legend; each with its caption under Legend while on);
+  and **Caves and overhangs** (where the map has them, beside Legend; each with its caption under Legend while on);
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
@@ -987,11 +987,14 @@ opened, are listed but never blamed on the player's edits and do not block its e
   lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal
   edit operation, applied live and undoable.
 - **Water preview:** the settled water of the port of the game's rules (`PLAN.md` §10).
-  - **Exact on heightfield terrain**, which covers every generated map and most edited ones; **approximate under
-    roofs** (imported caves, tunnels, overhang bridges, badtide drains): there the editor keeps the water the file
-    stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
-    tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
-    **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
+  - **Exact on heightfield terrain**, which covers every generated map. **An imported map with caves or
+    overhangs** (tunnels, overhang bridges; D120, D280) is simulated too, on every water column, by the
+    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
+    last water stays on show while the canonical settle runs in the background, in slices, the dot saying
+    "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
+    on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
+    refused there with one plain line each until each has its rule for water in caves. The **Caves and
+    overhangs** view button marks the tiles the tools leave as they are (D40).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
@@ -1021,7 +1024,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's, except under roofs.
+    settle's (a map with caves or overhangs has no preview: the canonical settle itself, in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the

@@ -17,14 +17,15 @@ import { CHECKS_WASM } from "./checksWasm";
 import { placementOf } from "../format/entities";
 import { ORIENTATIONS } from "../format/footprints";
 import { isObject, JsonFloat, num, type JsonObject, type JsonValue } from "../format/json";
-import { storedWater, surfaceOf } from "../format/world";
+import { storedWater } from "../format/world";
 import type { TimberFile } from "../format/timber";
 import type { Feature, MapObjectFeature } from "../features/schema";
 import { objectTiles } from "../features/objects";
 import { storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { growthOf } from "../analysis/wood";
-import { isDelayed, mapObjects, specifiedStrength, waterModel } from "../sim/model";
+import { isDelayed, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import { seenThroughRoofs, worldWaterModel } from "../sim/stackWater";
 import type { WaterModel } from "../sim/water";
 import { EXTRA_BANDS, type PlayabilityAnalysis } from "./playability";
 import type { ValidationReport } from "./report";
@@ -194,7 +195,9 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
   let model: WaterModel | null = null;
   let water: CanonicalWater | null = null;
   if (!loadOnly) {
-    model = opts.water?.model ?? waterModel(X, Y, surfaceOf(w), mapObjects(w));
+    // (a file with caves or overhangs settles in the stacked-column engine, D120; the water the
+    // checks read is then the map seen through its roofs, each tile's highest wet column)
+    model = opts.water?.model ?? worldWaterModel(w);
     water = opts.water?.settled ?? canonicalSettle(model);
     m.u32(model.emitters.length);
     for (const em of model.emitters) {
@@ -283,8 +286,9 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
     if (opts.mineCutAtOpen) m.f64s([...opts.mineCutAtOpen]);
     inputs[FLOOR] = f64Bytes(model.floor);
     inputs[DAM] = f64Bytes(model.dam);
-    inputs[DEPTH] = f64Bytes(water.depth);
-    inputs[CONTAMINATION] = f64Bytes(water.contamination);
+    const seen = water.stack?.stacked ? seenThroughRoofs(water.stack) : water;
+    inputs[DEPTH] = f64Bytes(seen.depth);
+    inputs[CONTAMINATION] = f64Bytes(seen.contamination);
   }
   inputs[META] = m.bytes();
   return { inputs, model, water };

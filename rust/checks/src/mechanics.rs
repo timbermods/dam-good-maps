@@ -6,7 +6,6 @@ use crate::input::Entity;
 use crate::js::{num, round};
 use crate::json::{arr, b, n, obj, s, Json};
 
-pub const CAVE_SHARE: f64 = 0.05;
 pub const DELAYED_SHARE: f64 = 0.25;
 pub const SEEP_SHARE: f64 = 0.5;
 pub const DISAGREE_SHARE: f64 = 0.1;
@@ -75,9 +74,8 @@ pub fn mechanics_of(objects: &[&Entity], floors: &[u8], surface: &[u8], w: usize
     }
     let clean = clean_running + clean_delayed + aquifers + seeps;
     let mut reasons = vec![];
-    if cave_share >= CAVE_SHARE {
-        reasons.push(format!("caves or overhangs cover {} of the map", pct(cave_share)));
-    }
+    // (caves and overhangs are no cause any more, D98 with D120: water under them is simulated; their share
+    // stays as information)
     if clean > 0.0 && clean_delayed >= DELAYED_SHARE * clean {
         reasons.push(format!("sources that turn on later carry {} of the clean water", pct(clean_delayed / clean)));
     }
@@ -216,7 +214,9 @@ mod tests {
         for v in caves.iter_mut().take(N / 20) {
             *v = 2;
         }
-        assert!(reasons(&[source(2.0, false, "WaterSource"), start()], &caves, &surface).contains("caves or overhangs cover 5%"));
+        // caves are no cause: water under them is simulated (D98 with D120)
+        assert_eq!(reasons(&[source(2.0, false, "WaterSource"), start()], &caves, &surface), "");
+        assert_eq!(mechanics_of(&[&source(2.0, false, "WaterSource"), &start()], &caves, &surface, W, H).cave_share, 0.05);
         let mut roofed = surface.clone();
         roofed[10 * W + 10] = 7; // the start's middle is under a roof: its top surface is higher
         let objects = [source(2.0, false, "WaterSource"), start()];

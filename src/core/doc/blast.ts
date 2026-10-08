@@ -64,7 +64,7 @@ export interface ExplosionAfter {
   moisture: Float64Array;
   soilContamination: Float64Array;
   info: BlastInfo & { removedVoxels: number; fellVoxels: number };
-  /** Tiles whose column is not plain: the water there is the heightfield model's, approximate under roofs. */
+  /** Tiles whose column is not plain: the water there is the heightfield model's, the map from above. */
   roofed: number;
 }
 
