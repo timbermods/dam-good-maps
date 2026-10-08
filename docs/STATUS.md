@@ -8,7 +8,7 @@ is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/RE
 
 As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
 session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page session runs in the worktree `DamGoodMaps-page`; the probe folder is
+chat (D117). The page session is stopped (its worktree is `DamGoodMaps-page`); the probe folder is
 `DamGoodMaps-probe`.
 
 ## Released
