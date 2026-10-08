@@ -347,6 +347,43 @@ export async function t6Heights(): Promise<Terrain3dMap> {
   };
 }
 
+/** T7: sinks (a water source with a strength below 0, D337). Under a roof the engine follows the game's
+ *  code (`UpdateWaterSourcesTask`, `WaterDepthSetter.SetWaterDepth`), which no probe run has played yet:
+ *  this map is for that. Not one of the fixtures' scenes. */
+export function t7Sink(): Terrain3dMap {
+  const s = new Scene(48, 48, 8);
+  s.start(40, 40, 8);
+  // (a) a sealed cave with a source and a weaker sink: it fills and comes under pressure, less than without
+  s.box(6, 6, 11, 11, 3, 6, false);
+  s.source("sealed cave", 8, 8, 3, 1);
+  s.source("sealed cave sink", 10, 10, 3, -0.4);
+  // (b) a sealed cave whose sink is the stronger: it never fills
+  s.box(26, 6, 31, 11, 3, 6, false);
+  s.source("drained cave", 28, 8, 3, 0.5);
+  s.source("drained cave sink", 30, 10, 3, -1.5);
+  // (c) the same pair in the open, for comparison: a basin (floor 5) that spills east at 7 to the map edge
+  s.box(20, 24, 30, 34, 5, 8, false);
+  s.box(31, 29, 47, 29, 7, 8, false);
+  s.source("open basin", 22, 26, 5, 2);
+  s.source("open basin sink", 28, 32, 5, -1);
+  return {
+    id: "t7-sink",
+    title: "T7 · Sinks: a source and a sink in a sealed cave, a cave its sink keeps from filling, and the pair in the open",
+    tests: "A water source with a negative strength takes water away. Under a roof it takes pressure first, then depth, never below dry (from the game's code, not yet played); in the open it is the rule the editor already uses.",
+    scene: s,
+    days: 3.2,
+    snapshots: [1, 3],
+    checks: ["t3d-load", "t3d-support", "t3d-objects", "t3d-water", "t3d-shots"],
+    focus: [
+      { id: "sealed-cave", x: 8, y: 8, z: 4, side: true },
+      { id: "drained-cave", x: 28, y: 8, z: 4, side: true },
+      { id: "open-basin", x: 25, y: 29, z: 6 },
+    ],
+    samples: [[8, 8], [10, 10], [28, 8], [30, 10], [22, 26], [28, 32], [40, 29]],
+    water: "settled",
+  };
+}
+
 // ------------------------------------------------------------------------------------------ build
 
 export interface Built {
@@ -479,5 +516,5 @@ export function checkPlacements(m: Terrain3dMap): string[] {
   return out;
 }
 
-/** Every map, in order. T6 builds the investigation's 256² landscape (a few seconds). */
-export const TERRAIN3D_MAPS: (() => Terrain3dMap | Promise<Terrain3dMap>)[] = [t1Support, t2Walking, t3CaveWater, t4Soil, t5Plants, t6Heights];
+/** Every map, in order (T1–T6 are the scenes the game played in September; T7 is new). T6 builds the investigation's 256² landscape (a few seconds). */
+export const TERRAIN3D_MAPS: (() => Terrain3dMap | Promise<Terrain3dMap>)[] = [t1Support, t2Walking, t3CaveWater, t4Soil, t5Plants, t6Heights, t7Sink];

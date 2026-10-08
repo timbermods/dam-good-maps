@@ -157,8 +157,8 @@ const ROTATIONS: Record<string, number> = { Cw0: 0, Cw90: 1, Cw180: 2, Cw270: 3 
 
 /** The map's objects as the engine takes them, in file order: eight numbers each (kind, x, y, z,
  *  rotation, flipped, delayed, strength). Objects that neither shape a water column nor emit are
- *  left out. An emitter whose strength is not a number emits nothing; a sink (a strength below 0)
- *  has no stacked form yet and is refused. */
+ *  left out. An emitter whose strength is not a number emits nothing; a strength below 0 is a sink
+ *  (D337), which takes water away. */
 export function stackObjectRows(objects: readonly MapObject[]): Float64Array {
   const rows: number[] = [];
   for (const o of objects) {
@@ -166,7 +166,6 @@ export function stackObjectRows(objects: readonly MapObject[]): Float64Array {
     if (kind === undefined) continue;
     let strength = kind >= 7 ? specifiedStrength(o.components) : 0;
     if (!Number.isFinite(strength)) strength = 0;
-    if (strength < 0) throw new Error(`${o.template} at (${o.x}, ${o.y}) takes water away, which stacked water does not model yet`);
     rows.push(kind, o.x, o.y, o.z, ROTATIONS[o.orientation] ?? 0, o.flipped ? 1 : 0, isDelayed(o.components) ? 1 : 0, strength);
   }
   return Float64Array.from(rows);

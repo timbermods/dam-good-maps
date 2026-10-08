@@ -76,7 +76,7 @@ impl Session {
                 || !integer(p[5], 0.0, 1.0)
                 || !integer(p[6], 0.0, 1.0)
                 || !p[7].is_finite()
-                || !(0.0..=1_000_000.0).contains(&p[7])
+                || !(-1_000_000.0..=1_000_000.0).contains(&p[7])
             {
                 return Err("Water object is unknown or malformed.");
             }

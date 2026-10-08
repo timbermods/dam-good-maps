@@ -12,7 +12,7 @@ import type { Orientation } from "../../src/core/format/footprints";
 import { heightMasks } from "../../src/core/sim/columns";
 import { waterModel } from "../../src/core/sim/model";
 import { canonicalSettle } from "../../src/core/sim/prefill";
-import { canonicalStackSettle, stackObjectRows } from "../../src/core/sim/stackWater";
+import { canonicalStackSettle } from "../../src/core/sim/stackWater";
 
 const W = 20;
 const H = 16;
@@ -78,7 +78,9 @@ describe("water objects through the stacked engine on one-column maps", () => {
     }
   });
 
-  it("a sink is refused in one line: stacked water has no rule for it yet", () => {
-    expect(() => stackObjectRows([toMapObject(waterSource({ id: id(10), owner, x: 5, y: 5, z: 3, strength: -1 }))])).toThrow(/takes water away/);
+  it("a sink (a strength below 0, D337), clean or badwater, beside running water", () => {
+    same([feed, waterSource({ id: id(10), owner, x: 12, y: 10, z: 3, strength: -0.75 })]);
+    same([feed, waterSource({ id: id(11), owner, x: 12, y: 10, z: 3, strength: -0.5, bad: true })]);
+    same([waterSource({ id: id(12), owner, x: 8, y: 8, z: 3, strength: -2 })], false);
   });
 });

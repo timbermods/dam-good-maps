@@ -170,7 +170,7 @@ impl Engine {
             Flow::Flat(s) => {
                 for p in s.params.chunks_exact(4) {
                     if p.iter().any(|v| !v.is_finite())
-                        || !(0.0..=1_000_000.0).contains(&p[0])
+                        || !(-1_000_000.0..=1_000_000.0).contains(&p[0])
                         || !(0.0..=1.0).contains(&p[1])
                         || p[3] < 0.0
                         || p[2] < p[3]
