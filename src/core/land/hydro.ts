@@ -563,6 +563,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // Rivers setting, that many rivers enter (PLAN §5.3): if the first search finds too few, shorter
   // paths and closer heads are taken (a stream of its own, so other maps are as they were)
   if (g.hydro.inflows > 0) {
+    // (Canyon from 128² up prefers the mouth with the longest way across, so the main river crosses
+    // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27)
+    const lengthWeight = g.theme === "canyon" && side >= 128 ? 0.06 : 0.012;
     const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean, separate = false): number => {
       const cands: [number, number][] = [];
       for (let i = 0; i < N; i++) {
@@ -574,7 +577,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         const span = e === "west" || e === "east" ? H : W;
         if (along < 12 || along > span - 13) continue;
         if (downLen[i] < minLen * side || (relaxed && owner[i] >= 0)) continue;
-        cands.push([-E[i] + 0.012 * downLen[i] + 1.5 * r.float(), i]);
+        cands.push([-E[i] + lengthWeight * downLen[i] + 1.5 * r.float(), i]);
       }
       cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       let n = n0;

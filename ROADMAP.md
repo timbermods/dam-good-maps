@@ -267,7 +267,7 @@ generator queue above.
 
 ## Canyon and Highlands height (#261)
 
-The height the eye sees on the 96² round: generator 0.9.0, renumbered if it merges after #265. Highlands is approved; a new
+The height the eye sees on the 96² round: generator 0.8.8. Highlands is approved; a new
 Canyon session (Opus 5.5) does one Canyon-only round: seed 27's gorge and the round's start lakes.
 
 ## Islands round 6 (#235)

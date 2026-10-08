@@ -23,6 +23,7 @@
 // the map is the same on every machine).
 
 import * as portable from "../math/portable";
+import { walledRun } from "../analysis/signature";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
@@ -50,6 +51,8 @@ import { lakeRise, shallowSheet } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
+import { shapeCanyon } from "../land/canyon";
+import { shapeHighlands } from "../land/highlands";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { mainWater, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -355,6 +358,15 @@ interface LandStage {
   hollows: Omit<Hazards, "heights"> | null;
 }
 
+/** The main river's course within the map, in tiles (0 when `entering` and it rises from a spring). */
+function mainCourse(main: RiverFeature, W: number, H: number, entering: boolean): number {
+  if (entering && !("edge" in main.params.entry)) return 0;
+  const path = main.params.path;
+  const inside = ([x, y]: [number, number]) => x >= 0 && y >= 0 && x < W && y < H;
+  let len = 0;
+  for (let k = 1; k < path.length; k++) if (inside(path[k - 1]) && inside(path[k])) { const dx = path[k][0] - path[k - 1][0]; const dy = path[k][1] - path[k - 1][1]; len += portable.sqrt(dx * dx + dy * dy); }
+  return len;
+}
 /** An island to expand to (D429): the dry tiles it needs at 128², by area (`islandToExpandTo`). */
 const EXPAND_TILES = 150;
 /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
@@ -544,6 +556,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       if (specIn.theme === "lakeBasin") shapeLakeBasin(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
+      shapeCanyon(g, W, H, seed, genomes);
+      shapeHighlands(g, W, H);
       genomes++;
       replans = 0;
       // (every theme's land from the field's processes: D370's Islands and Delta templates are
@@ -1814,7 +1828,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (shown.theme === "canyon" && N <= 128 * 128) {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
-        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
+        // (and from 128² up the gorge is the main river's: it enters on an edge and crosses the map,
+        // or its own walled stretch is twice the promise's line; a main clipping a corner unwalled
+        // left a creek and a lake to carry the gorge, Canyon 128² seed 27, Kyler's look at #261)
+        const main = hy.rivers.find((r) => r.role === "river/main");
+        const gorged = W < 128 || (!!main && (mainCourse(main, W, H, !g.hydro.noInflows) >= 0.75 * Math.min(W, H) || walledRun(main, W, H, hLand, est).best >= 2 * Math.max(16, 0.16 * 128 * portable.sqrt(Math.min(W, H) / 128))));
+        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H)) && gorged;
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // A rejected Canyon course can be incised on the same shaped field.

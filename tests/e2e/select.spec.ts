@@ -18,8 +18,8 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selection());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function openTopDown(page: Page) {
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
+  await openEditor(page, hash);
   await page.getByRole("button", { name: "Top-down" }).click();
   await setWaterSpeed(page, "instant");
 }
@@ -71,7 +71,10 @@ async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = fal
 }
 
 test("Select: its button and shapes; a circle set to a level changes exactly its tiles, one step; Ctrl+click takes a level; the working area keeps a stroke inside, with the row a chip", async ({ page }) => {
-  await openTopDown(page);
+  // (seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the first dry land is a
+  // slope at levels 6 to 9 whose stroke starts seven tiles west on level 4, so Raise's target, a level above
+  // where a stroke starts (D322), is 5 and rightly lifts nothing in the circle)
+  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
   const bar = page.getByRole("toolbar", { name: "Tools" });
   await expect(bar.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });
