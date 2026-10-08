@@ -27,7 +27,7 @@ import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
-import { terrainColumns } from "../terrain/runs";
+import { ColumnTerrain, terrainColumns } from "../terrain/runs";
 import { storedWetMask } from "../analysis/mechanics";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
@@ -48,7 +48,7 @@ import { GENERATOR_VERSION, type MapSpec } from "../spec/mapspec";
 import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
-import { baseFromFile, baseTerrain, fileFromBase, joinTerrain, type BaseMap, type BaseTerrain } from "./base";
+import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -449,6 +449,19 @@ export class MapSession {
     return { x: this.gen.base.sizeX, y: this.gen.base.sizeY };
   }
 
+  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, with an imported
+   *  map's caves and overhangs kept exactly. A fresh copy. */
+  get terrain(): ColumnTerrain {
+    const { x: W, y: H } = this.size;
+    return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
+  }
+
+  /** Whether a tile is one plain run from the bottom: no cave or overhang, so the tools may shape it.
+   *  Every tile of a generated map. */
+  plainAt(i: number): boolean {
+    return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
+  }
+
   /** An imported map's columns with caves or overhangs (tile index → its 23 voxels), for the voxel
    *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
@@ -529,15 +542,9 @@ export class MapSession {
    *  view's ground colours (Map look, D86). */
   storedSoil(): ReturnType<typeof storedSoil> {
     const b = this.baseStuff();
-    const cols = b.terrain.columns;
+    const t = b.terrain.terrain;
     // a tile's top column is its last run of solid voxels
-    const topSlot = (i: number): number => {
-      const c = cols.get(i);
-      if (!c) return 0;
-      let runs = 0;
-      for (let z = 0; z < c.length; z++) if (c[z] && (z === 0 || !c[z - 1])) runs++;
-      return Math.max(0, runs - 1);
-    };
+    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - 1);
     return storedSoil(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, topSlot);
   }
 
@@ -904,8 +911,8 @@ export class MapSession {
     const file = fileFromBase(this.gen.base, terrain);
     const owners = this.gen.base.owners;
     const layer: BaseLayer = {
+      terrain: terrain.terrain,
       heights: terrain.heights,
-      columns: terrain.columns,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
       water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
     };
@@ -1138,7 +1145,7 @@ export class MapSession {
     // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
     // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
     const roofed = b.terrain.columns.size ? new Set(b.terrain.columns.keys()) : null;
-    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: joinTerrain(W, H, built.heights, b.terrain.columns), roofed });
+    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: b.terrain.terrain.withSurface(built.heights).voxels(), roofed });
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
     let metadata = parse(this.gen.base.metadata) as JsonObject;
