@@ -9,7 +9,7 @@ import { LAYER_NAMES, LayerLegend, type LayerKind } from "../panels";
 import type { Ed } from "../ed";
 
 /** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Under roofs" };
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs" };
 
 export function levelLinesButton(ed: Ed) {
   const { brush, brushRef, setBrush } = ed;
@@ -45,13 +45,13 @@ export function viewButtons(ed: Ed) {
   );
 }
 
-/** Under roofs, on a map with roofed water: beside Legend at the top right (at 1920×1080 the Show row has no room for
+/** Caves and overhangs, on a map that has them: beside Legend at the top right (at 1920×1080 the Show row has no room for
  *  it before the water row). */
 export function roofsButton(ed: Ed) {
   return ed.waterLayers?.roofed.length ? overlayRow(ed, "roofed") : null;
 }
 
-/** The water overlay's caption while one is on (Badwater, Under roofs), for the key under the Show column. */
+/** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */
 export function layerCaption(ed: Ed) {
   const { waterLayers, layer } = ed;
   return layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;

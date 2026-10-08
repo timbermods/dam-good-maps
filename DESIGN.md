@@ -134,7 +134,7 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
   and above the bottom bars, for the layout as it is when a map opens or Reset view is pressed. Collapsing or opening
   the panel never moves the camera by itself (D265).
 
-At 1366×768 the rows end 19px short of Save's plate. A map with roofed water adds an Under roofs toggle, which
+At 1366×768 the rows end 19px short of Save's plate. A map with caves or overhangs adds a Caves and overhangs toggle, which
 doesn't fit on the line there: the plate stops 12px short of Save and the view bar takes a second line. Checked at
 checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was on the machine.
 
@@ -304,7 +304,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
   128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
-  Markers, Flow, See-through, Badwater (Under roofs added when a map has roofs), then **Legend**, last. Each row has a
+  Markers, Flow, See-through, Badwater (Caves and overhangs added when a map has them), then **Legend**, last. Each row has a
   14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
   Timberborn's settings; the row itself is never lit, and a click anywhere on it toggles it; several can be on. An
@@ -346,7 +346,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
 
 Where it doesn't fit, and what the mockups do:
 - **The Legend at 1920×1080** has 16px to spare on River Valley 4242 (21 lines). A map with more lines (Mixed
-  water, Blockage, Other objects, Under roofs' row in the column) passes the room and scrolls inside the panel; each
+  water, Blockage, Other objects, Caves and overhangs' row in the column) passes the room and scrolls inside the panel; each
   line more takes 20px.
 - **The objects menu** clears everything at both sizes, panel open or closed, with Raise's settings too: it starts
   168px right of the bar and its settings at 1920×1080 with the panel open (344px closed; 488px and 664px at
@@ -369,7 +369,7 @@ Where it doesn't fit, and what the mockups do:
 refinements and what the mockups left open:
 - **The legend** shows each object with the objects menu's own picture (Trees and bushes with the pine's); the ground
   colours, the water and the markers keep their swatches. Its rows are one height on every map, 17px: the fullest
-  legend (20 lines, "Markers on:" and its 4 lines, with Under roofs added to the Show column) needs 437px at
+  legend (20 lines, "Markers on:" and its 4 lines, with Caves and overhangs added to the Show column) needs 437px at
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
@@ -419,17 +419,17 @@ refinements and what the mockups left open:
   Slow forces, the sound) is 36px too.
 - **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
-  names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Under roofs** (only on a map
-  with roofed water) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
+  names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
+  that has them) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
   the camera controls, the water row, the objects list and its window, and the bar at both sizes. The fullest
   legend fits. Where the room is short (1300 and 1280 wide) Legend and its legend move left together, the legend 8px
   clear of the corner's second row (`docs/design/legend-open-1300x900`, `legend-open-1280x800`).
-- **The overlays' keys** (what Heights, Badwater and Under roofs show; Lines, Markers, Flow and See-through need
+- **The overlays' keys** (what Heights, Badwater and Caves and overhangs show; Lines, Markers, Flow and See-through need
   none) sit in the legend's place under Legend: with Legend off, a small key (190px) holds Heights' "Ground height"
-  with the ramp and the map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the
+  with the ramp and the map's lowest and highest level, and Badwater's or Caves and overhangs' caption; with Legend ticked, the
   overlay's caption heads the legend (which holds Heights' own line).
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
 - **The bottom-left group** (Kyler, 2026-10-04): the minimap at the foot, on the page's 10px margin, its bottom level

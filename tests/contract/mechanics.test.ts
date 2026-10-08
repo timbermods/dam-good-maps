@@ -1,13 +1,15 @@
 // ROADMAP M8 (from the workshop study, D87; PLAN §11, D98; decisions-pending #36): maps whose water
 // a steady state cannot show report their water and start checks as approximate, with the reason,
-// in both validators. A cause (caves on 5%+ of tiles, sources that turn on later or aquifers
-// carrying a quarter of the clean water, seeps half of the running water, a start under a roof)
+// in both validators. A cause (sources that turn on later or aquifers
+// carrying a quarter of the clean water, seeps half of the running water, a start under a roof;
+// caves are no cause since their water is simulated, D120)
 // counts only with evidence that the settle disagrees with the map's own water. The rule's parts are
 // tested where they run, in Rust (rust/checks/src/mechanics.rs, `cargo test -p checks`, D465); here,
 // through validateMap.
 //
-// On the official maps (local only): Hollows, Pressure, Oasis and Nomads are approximate; every
-// other map has no approximate check. The oracle (npm run oracle) checks the Python validator agrees.
+// On the official maps (local only): none has an approximate check (Hollows, Pressure and Nomads had, for
+// their caves, and Oasis, whose seep the stacked pre-fill filled to its pit's rim). The Python validator has
+// no stacked engine (D279) and still names caves.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -80,7 +82,7 @@ const OFFICIAL = "investigation/raw/builtin";
 const official = existsSync(OFFICIAL) ? readdirSync(OFFICIAL).filter((n) => n.endsWith(".timber") && !n.startsWith("_")).sort() : [];
 
 describe("the official maps (local only)", () => {
-  it.skipIf(official.length !== 19)("Hollows, Pressure, Oasis and Nomads report their water and start checks as approximate, with the reason; the other 15 have none", () => {
+  it.skipIf(official.length !== 19)("none of the 19 reports approximate checks: their caves' water is simulated and the settle agrees with each map's own water (D98 with D120)", () => {
     const flagged: string[] = [];
     for (const n of official) {
       const v = validateMap(readTimber(new Uint8Array(readFileSync(join(OFFICIAL, n)))), { profile: "import", designedFor: "normal" });
@@ -96,6 +98,6 @@ describe("the official maps (local only)", () => {
       // every water check that applies is approximate
       for (const c of v.report.checks) if (c.id.startsWith("water.") && c.applicable !== false) expect(c.approximate, `${n} ${c.id}`).toBeTruthy();
     }
-    expect(flagged).toEqual(["Hollows", "Nomads", "Oasis", "Pressure"]);
+    expect(flagged).toEqual([]);
   });
 });

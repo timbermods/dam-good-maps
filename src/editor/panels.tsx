@@ -24,7 +24,7 @@ export type LayerKind = "none" | "badwater" | "roofed";
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
   badwater: "Badwater",
-  roofed: "Water under roofs",
+  roofed: "Caves and overhangs",
 };
 
 /** What the water layer on the map shows, in a line or two. */
@@ -33,7 +33,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
   if (kind === "badwater") text = "Badwater: dark brown · Contaminated soil: light brown";
   else if (kind === "roofed")
     text = layers.roofed.length
-      ? "Violet tiles: under caves or overhangs, their water approximate"
+      ? "Violet tiles: caves or overhangs, which the tools leave as they are"
       : "No caves or overhangs on this map.";
   return (
     <div class="layer-legend" role="status">

@@ -19,9 +19,11 @@ import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHig
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { gameSoil } from "../sim/soil";
+import { gameSoil, stackedSoil, topRuns } from "../sim/soil";
 import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import { waterColumns } from "../sim/columns";
+import { stackedModel, staleStack } from "../sim/stackWater";
 import { previewSettle, staleWater } from "../sim/preview";
 import { composeKept, sameKeptWater, type KeptWater, type RetainedWater, type WaterModel } from "../sim/water";
 import { isForce } from "../forces/op";
@@ -679,6 +681,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const N = W * H;
   const base = input.base ?? null;
   const frozen = base?.frozen;
+  // the base's terrain when it has caves or overhangs (null: a heightfield)
+  const caves = base ? cavesOf(base) : null;
   const live = (f: Feature) => !frozen?.has(f.id);
   const features = input.features;
   const fields: FieldCache = prev ? prev.fields : opts.fieldCache ? sharedFields(opts.fieldCache) : new Map();
@@ -1031,7 +1035,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   });
   if (opts.stopBeforeWater) {
     const none = new Float64Array(N);
-    const model = waterModel(W, H, heights, []);
+    const model = caves ? stackedModel(waterModel(W, H, heights, []), caves.withSurface(heights), []) : waterModel(W, H, heights, []);
     return {
       ...partial,
       water: none,
@@ -1048,7 +1052,12 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 
   // 10. the canonical water settle (PLAN §19.7), then soil moisture and contamination on it
   const objects = entities.map(toMapObject);
-  const model = waterModel(W, H, heights, objects);
+  // an imported map's caves and overhangs (D120): its water is the stacked-column engine's, on the
+  // terrain as it stands (the surface the edits made, the other tiles kept); a heightfield's model is
+  // the one it always was
+  const stackTerrain = caves ? caves.withSurface(heights) : null;
+  const model = stackTerrain ? stackedModel(waterModel(W, H, heights, objects), stackTerrain, objects) : waterModel(W, H, heights, objects);
+  const cols = model.stacked ? waterColumns(stackTerrain!, objects) : null;
   // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater), and so do the
   // Fills; Remove unfed water drains its tiles: all in the order of their operations
   const kept: (KeptWater & { seq: number })[] = [];
@@ -1066,7 +1075,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
   const keptWater = composeKept(kept);
   if (keptWater.retained) model.retained = keptWater.retained;
-  if (keptWater.drained) model.drained = keptWater.drained;
+  // (Remove unfed water has no rule for water in caves yet: the operation is refused there, ops.ts,
+  // and one stored by an older project takes nothing)
+  if (keptWater.drained && !model.stacked) model.drained = keptWater.drained;
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
@@ -1085,7 +1096,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       let carried = false;
       if (!settle) {
         const warm = settleEntry && settleEntry.model.W === W && settleEntry.model.H === H;
-        if (opts.water === "defer" && warm) {
+        if (cols && preview && warm) {
+          // terrain above terrain has no warm-started preview: the last water is carried over, every
+          // column of it, and the canonical settle follows in the background (sim/stackWater.ts)
+          settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
+          settle.stack = staleStack(settleEntry!.water.stack, cols, settle.depth, settle.contamination);
+          delete settle.out;
+          carried = true;
+        } else if (opts.water === "defer" && warm) {
           // the last settled water on the new ground; the entry stays the last settled state, so
           // the background settle (and an undo back to it) start from there
           settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
@@ -1119,10 +1137,17 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     moist = prev!.moisture!;
     soil = prev!.soil!;
   } else {
-    // the soil rules (D298: the game's own)
-    const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
-    moist = s.moisture;
-    soil = s.contamination;
+    // the soil rules (D298: the game's own); on terrain above terrain per run top, each tile's top
+    // run here (the plants' ground) and every run in the file (doc/session.ts `exportFile`)
+    if (cols && settle.stack) {
+      const s = stackedSoil(stackTerrain!, cols, settle.stack, objects);
+      moist = topRuns(s, s.moisture);
+      soil = topRuns(s, s.contamination);
+    } else {
+      const s = gameSoil(W, H, heights, water, contamination, objects, settle.sat);
+      moist = s.moisture;
+      soil = s.contamination;
+    }
   }
   const settleOut: CanonicalWater = settle ?? { settled: true, ticks: 0, depth: none, contamination: none, sat: new Uint8Array(N) };
   const withWater = {
@@ -1357,10 +1382,24 @@ function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: nu
 
 const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string }>();
 
+const baseCaves = new WeakMap<BaseLayer, ColumnTerrain | null>();
+/** A base's terrain when some tile of it is not one plain run from the bottom (a cave, an overhang),
+ *  else null. */
+function cavesOf(base: BaseLayer): ColumnTerrain | null {
+  let c = baseCaves.get(base);
+  if (c === undefined) {
+    c = base.terrain && !base.terrain.allPlain() ? base.terrain : null;
+    baseCaves.set(base, c);
+  }
+  return c;
+}
+
 function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel; emitters: string } {
   let bm = baseModels.get(base);
   if (!bm) {
-    const m = modelOf({ W, H, heights: base.heights, entities: base.entities });
+    const flat = modelOf({ W, H, heights: base.heights, entities: base.entities });
+    // (with its caves and overhangs, as every build of the map has them)
+    const m = cavesOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }
