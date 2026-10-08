@@ -451,7 +451,8 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     fps = load_footprints()
     spec, features = load_project(path)
     stackable_tops.clear()
-    generated = spec is not None
+    # a map with a project file beside it is a generated one (the generate profile), any other an import
+    generated = spec is not None or features is not None
     check_file(m, rep, raw)
     check_terrain(m, rep, generated)
     occupied = check_entities(m, rep, fps)

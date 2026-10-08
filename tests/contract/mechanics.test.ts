@@ -20,7 +20,8 @@ import type { CanonicalWater } from "../../src/core/sim/prefill";
 import { validateMap } from "../../src/core/validate/checks";
 
 /** The checks a steady state's water cannot answer for: the water checks and the start's. */
-const approximateId = (id: string) => id.startsWith("water.") || /^start\.(dry|water|badwater|reach|food|wood|ruins_clear)$/.test(id);
+// (water.sealed_source is read off the terrain, not the settled water: it is never approximate)
+const approximateId = (id: string) => (id.startsWith("water.") && id !== "water.sealed_source") || /^start\.(dry|water|badwater|reach|food|wood|ruins_clear)$/.test(id);
 
 const W = 20;
 const H = 20;
@@ -93,8 +94,8 @@ describe("the official maps (local only)", () => {
         expect(c.message).toMatch(/^Approximate \(/);
         expect(c.approximate!.length).toBeGreaterThan(20);
       }
-      // every water check that applies is approximate
-      for (const c of v.report.checks) if (c.id.startsWith("water.") && c.applicable !== false) expect(c.approximate, `${n} ${c.id}`).toBeTruthy();
+      // every water check that applies, and reads the water, is approximate
+      for (const c of v.report.checks) if (c.id.startsWith("water.") && approximateId(c.id) && c.applicable !== false) expect(c.approximate, `${n} ${c.id}`).toBeTruthy();
     }
     expect(flagged).toEqual(["Hollows", "Nomads", "Oasis", "Pressure"]);
   });
