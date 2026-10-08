@@ -8,7 +8,7 @@ kept concise and easy to find).
 A finding worth keeping gets a line here (HANDOFF, "How things are run here"). A finding that a later one replaces moves, verbatim, to
 "Stale findings" at the end of [archive/README.md](archive/README.md). Where two sources disagree, both are listed and
 the current one is marked.
-Game facts are for Timberborn 1.1.2.4-52e959e-sw. The game's files are never committed; the notes describe its rules
+Game facts are for Timberborn 1.1.2.4-52e959e-sw; the game on Kyler's PC updated to 1.1.2.7-2c14458-sw on or before 2026-10-08 and nothing here is re-verified against it yet, except where a line says so. The game's files are never committed; the notes describe its rules
 in our own words.
 
 Short names: **WS** = [water and soil notes](../investigation/notes/water_and_soil.md), **FMT** = [format notes](../investigation/notes/format_1_1.md),
@@ -110,7 +110,7 @@ Short names: **WS** = [water and soil notes](../investigation/notes/water_and_so
   entrance, the game spawns no beavers; a second start is silently removed. BLK §3.
 - 13 beavers (9 adults, 4 children); starting food 300 / 130 / 90 and water 250 / 0 / 0 on Easy / Normal / Hard.
   On Normal and Hard the first deaths come about 5.7 days without water. NAV §11.
-- **The starting-logs floor (D224, amended D227): 178 logs for 1.1.2.4.** Grown trees by species yield, reachable on foot
+- **The starting-logs floor (D224, amended D227): 178 logs for 1.1.2.4, and the same on 1.1.2.7.** Grown trees by species yield, reachable on foot
   within about 40 tiles; never configurable below. Minimum starting wood counts within 20 tiles (Easy 250, Normal 200, Hard
   nothing above the floor). The worst route to a Forester is Iron Teeth without flowing water (Folktails: 88).
   `tools/log-floor.ts` recomputes it whenever the game version changes. PLAN §20 D224, D227.
