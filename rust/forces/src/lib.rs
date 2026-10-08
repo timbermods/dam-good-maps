@@ -9259,12 +9259,15 @@ fn eruption(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u
             } else {
                 1.0 - smooth(r / 0.22)
             };
+            // (its lava glows where its flows run, with ridges or without: Ridges shapes the land, never
+            // whether lava shows, D356)
+            let lava = min(1.0, flows[i] as f64 / 1.7);
             let hot = max(
                 vent,
                 if boolean(s0, "ridges") {
-                    min(1.0, flows[i] as f64 / 1.7)
+                    lava
                 } else {
-                    max(0.0, 1.0 - r) * 0.14
+                    max(lava, max(0.0, 1.0 - r) * 0.14)
                 },
             );
             heat[i * 4] = round(255.0 * hot) as u8;
