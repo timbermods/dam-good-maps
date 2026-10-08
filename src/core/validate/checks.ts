@@ -2,8 +2,11 @@
 // severity; profiles decide what a class does (report.ts). The checks run in Rust (rust/checks, D465;
 // their TypeScript is tag `ts-checks-final`), bound by rust.ts: the load class (§11.1–11.2: what the game
 // would crash on, silently drop, or break at start), the design class (terrain.max_height,
-// terrain.single_floor, water.source_in_flow), the principles terrain.edge_wall and terrain.dam_wall, and
-// the playability class (playability.ts's rules) on the map's canonically settled water. A map the checks
+// water.source_in_flow; terrain.single_floor on an imported map only), the principles terrain.edge_wall and
+// terrain.dam_wall, and the playability class (playability.ts's rules) on the map's canonically settled
+// water, with the two rows read off the floor graph (D122) and the air: walk.levels (information) and
+// water.sealed_source (a warning). A check's class can depend on the map's kind: `slopes.connect` blocks on a
+// generated map and only warns on an imported one (D482). A map the checks
 // cannot read as the map it claims to be is refused with a one-line reason (D342): `validateMap` throws it.
 
 import type { TimberFile } from "../format/timber";
@@ -62,6 +65,9 @@ export interface ValidateOptions {
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
    *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */
   mineCutAtOpen?: ReadonlySet<number>;
+  /** What the build's support pass removed, in blocks of ground (D121): given for a generated map,
+   *  `terrain.dropped` reports it, and a generated map must have none. No caller passes it yet. */
+  dropped?: number;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
   /** The map's own water, as its wet tiles: by default the file's; an edited import passes the

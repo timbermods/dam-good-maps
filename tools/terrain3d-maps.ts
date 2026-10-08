@@ -17,6 +17,7 @@ import { thumbnailJpeg } from "../src/core/render/shade";
 import { terrainColumns, waterColumns, type VoxelMasks } from "../src/core/sim/columns";
 import { soil3d } from "../src/core/sim/soil3d";
 import { canonicalStackSettle } from "../src/core/sim/stackWater";
+import { PLANT_CLEARANCE, plantsWithoutRoom } from "../src/core/terrain/clearance";
 import { ColumnTerrain } from "../src/core/terrain/runs";
 import { unsupportedVoxels } from "../src/core/terrain/support";
 
@@ -85,8 +86,8 @@ export class Scene {
   }
 }
 
-/** Air a plant needs above its floor (GAME_RULES.md §5): its blocks. */
-export const CLEARANCE: Record<string, number> = { Pine: 3, Oak: 3, Birch: 2, Succulent: 2, BlueberryBush: 1 };
+/** Air a plant needs above its floor (GAME_RULES.md §5): its blocks. The rule is the core's. */
+export const CLEARANCE = PLANT_CLEARANCE;
 
 // ------------------------------------------------------------------------------------------ the maps
 
@@ -478,14 +479,7 @@ export function build(m: Terrain3dMap): Built {
     extraFiles: [],
   });
   // plants whose blocks do not fit under the rock above them
-  const plantsRemoved: Built["plantsRemoved"] = [];
-  for (const e of s.entities) {
-    const need = CLEARANCE[e.template];
-    if (need === undefined) continue;
-    let air = 0;
-    while (e.z + air < TOP && !(support.kept[e.y * W + e.x] & (1 << (e.z + air)))) air++;
-    if (air < need) plantsRemoved.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, air });
-  }
+  const plantsRemoved: Built["plantsRemoved"] = plantsWithoutRoom({ W, H, mask: support.kept }, s.entities).map(({ plant: e, air }) => ({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, air }));
   let wetColumns = 0;
   let roofedWetColumns = 0;
   let pressurised = 0;

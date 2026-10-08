@@ -43,7 +43,10 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   call per validation (`checks_run`), the report as JSON text and the analysis' layers typed. Its kernels are
   `analysis/`'s (`kernels` feature), linked without its Wasm exports; the data it shares with the TypeScript
   (footprints, the log floor, the calibrated targets, the difficulty rules, the emitters, the objects' names, the
-  components the load needs) is generated into `src/tables.rs` by `tools/rust/checks-tables.ts`. An input it
+  components the load needs, the room a plant needs, the size of a region that earns a slope) is generated into
+  `src/tables.rs` by `tools/rust/checks-tables.ts`. `floors.rs` is the floor graph of terrain above terrain (D122):
+  the checks read it for `walk.levels`, and `checks_floors` gives it to the core as a plain function
+  (`src/core/terrain/floors.ts`), on the same retained buffers. An input it
   cannot read as the map it claims to be is refused with a one-line reason (D342), which `validateMap` throws: a
   string with a broken character, a position that is not a whole tile, a setting of the wrong kind, an object
   facing outside Cw0–Cw270 on a full validation, stored water that cannot be read when the approximate-water rule
