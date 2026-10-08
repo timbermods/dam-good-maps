@@ -154,7 +154,13 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 - **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
   byte-identity checks run in CI; a real check before anything is reported done stays.
 - **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after
-  Kyler's yes in chat for that batch (CLAUDE.md, D117). **On this machine D218 lifts the ask:** run a batch whenever the plan
+  Kyler's yes in chat for that batch (CLAUDE.md, D117).
+  **What a batch plays (D483):** A probe batch plays only what players get: maps the current generator makes, and edited maps as the app exports them, on the current game version.
+  A map already played is never replayed unless what the game reads from it changed in a way that could change play.
+  Hand-made test maps are only for a rule that has never been played.
+  A batch is asked for when it is worth it, with its maps named (for example: whether the current generator's maps and an exported edited map play right on a new game version).
+  On a new game version the runner asks for a smoke run before a batch (`--smoke`, then `--allow-new-version`): that is
+  two launches, so the ask names both. **On this machine D218 lifts the ask:** run a batch whenever the plan
   calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed, the machine quiet).
   Every probe runs from the dedicated worktree `C:\Users\krams\code\DamGoodMaps-probe`, checked out detached at the branch to
   probe (`git checkout --detach origin/<branch>`), with `npm ci` at the root and in `investigation/probe` if the lockfiles
@@ -170,7 +176,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D483**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D484**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
