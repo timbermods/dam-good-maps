@@ -10,7 +10,8 @@ and Any are untouched; nothing is stamped.
 
 Merged with dev at 0104b950 (0.8.7: badwater joins the main water, D476; the start's badwater distance a rule,
 D469; every setting makes a map, D471; the water story's reach counts the main water, D480; Lake Basin round 3,
-River Valley round 2, Islands round 6; TypeScript 7). The sections below are the round before that merge. First
+River Valley round 2, Islands round 6; TypeScript 7), and again at 3a87fc61 (3D Foundations stage 1, #354, which
+changes no map: Canyon and Highlands seeds 1–8 at 96² and 128² hash the same before and after). The sections below are the round before that merge. First
 maps meeting all three outcomes, seeds 1–20 at 96² / 128² / 256² (`measure.ts`):
 
 | | approved, on its old base | merged before D480 | on dev now (0.8.8) | dev's own today (0.8.7) |
