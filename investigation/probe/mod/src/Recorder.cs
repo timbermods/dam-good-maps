@@ -52,7 +52,8 @@ namespace DGMProbe
 
         private bool Inside(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
 
-        // Every water column of a tile, bottom up: floor, depth, contamination.
+        // Every water column of a tile, bottom up: floor, depth, contamination and overflow (a full cave's
+        // pressure, 0 in the open).
         public List<float[]> WaterColumns(int x, int y)
         {
             List<float[]> columns = new List<float[]>();
@@ -66,7 +67,7 @@ namespace DGMProbe
             {
                 int i3 = i2 + c * _index.VerticalStride;
                 ReadOnlyWaterColumn col = _water.WaterColumns[i3];
-                columns.Add(new[] { (float)col.Floor, col.WaterDepth, col.Contamination });
+                columns.Add(new[] { (float)col.Floor, col.WaterDepth, col.Contamination, col.Overflow });
             }
             return columns;
         }
@@ -91,9 +92,33 @@ namespace DGMProbe
             return i >= 0 ? _soilContamination.Contamination(i) : 0f;
         }
 
+        // Every terrain column of a tile, bottom up: floor, ceiling (its top, where plants stand), and the soil
+        // moisture and contamination the game keeps for it.
+        public List<float[]> TerrainRuns(int x, int y)
+        {
+            List<float[]> runs = new List<float[]>();
+            if (!Inside(x, y))
+            {
+                return runs;
+            }
+            int i2 = _index.CellToIndex(new Vector2Int(x, y));
+            int n = _terrain.GetColumnCount(i2);
+            for (int c = 0; c < n; c++)
+            {
+                int i3 = i2 + c * _index.VerticalStride;
+                runs.Add(new[] { (float)_terrain.GetColumnFloor(i3), _terrain.GetColumnCeiling(i3), _moisture.SoilMoisture(i3), _soilContamination.Contamination(i3) });
+            }
+            return runs;
+        }
+
         public TileSample Sample(int x, int y)
         {
-            return new TileSample { X = x, Y = y, Columns = WaterColumns(x, y), Moisture = Moisture(x, y), SoilContamination = SoilContamination(x, y) };
+            TileSample s = new TileSample { X = x, Y = y, Columns = WaterColumns(x, y), Moisture = Moisture(x, y), SoilContamination = SoilContamination(x, y) };
+            if (Inside(x, y) && _terrain.GetColumnCount(_index.CellToIndex(new Vector2Int(x, y))) > 1)
+            {
+                s.Runs = TerrainRuns(x, y);
+            }
+            return s;
         }
 
         public MapSnapshot Snapshot(string momentId, double day, int tick, string weather)
@@ -133,6 +158,10 @@ namespace DGMProbe
                     int tc = _terrain.GetColumnCount(i2);
                     s.TerrainColumns[t] = tc;
                     s.Terrain[t] = tc > 0 ? _terrain.GetColumnCeiling(i2 + (tc - 1) * _index.VerticalStride) : 0;
+                    if (tc > 1)
+                    {
+                        s.TerrainLayered.Add(new LayeredRuns { X = x, Y = y, Runs = TerrainRuns(x, y) });
+                    }
                 }
             }
             foreach (EntityRecord e in Entities())

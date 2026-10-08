@@ -318,8 +318,13 @@ export function t5Plants(): Terrain3dMap {
 }
 
 export async function t6Heights(): Promise<Terrain3dMap> {
-  // the investigation's prototype landscape (its operators keep the support rule by construction)
   const { gen3d } = await import("../investigation/terrain3d/proto/gen3d");
+  return t6HeightsFrom(gen3d);
+}
+
+/** T6 from the investigation's prototype landscape generator (investigation/terrain3d/proto/gen3d.ts `gen3d`; its
+ *  operators keep the support rule by construction). */
+export function t6HeightsFrom(gen3d: (size: number, verticality: "high", seed: number) => { vx: { v: ArrayLike<number> }; entities: EntitySpec[] }): Terrain3dMap {
   const r = gen3d(256, "high", 1);
   const s = new Scene(256, 256, 0);
   for (let z = 0; z < LAYERS; z++) for (let i = 0; i < s.N; i++) if (r.vx.v[z * s.N + i]) s.mask[i] |= 1 << z;

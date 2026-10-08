@@ -238,7 +238,7 @@ function water(m: any, ticks = 24) {
  *  full list (nightly) runs every setting at both sizes, three seeds and long sequences. */
 export function cases(smoke = false): Case[] {
   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
-  const out: Case[] = ["cave-valley", "lake-cave"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
+  const out: Case[] = ["cave-valley", "lake-cave", "t7-sink"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
   for (const n of [128, 256]) {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
