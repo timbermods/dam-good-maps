@@ -197,11 +197,7 @@ On `feature/3d-foundations-6`. Nothing a player sees changes: no map the app bui
   source feeds on them; on a tile with several water columns it does not say which column a removal takes (the one
   seen from above, or every one), and "fed" has to be worked out on the column graph. That needs a decision before
   it is built.
-- **The probe's maps** (`npx tsx tools/probe-3d.ts --out .scratch/terrain3d-6`): T3–T6 as dev writes them (nine-digit
-  water tokens) and T7 (48², three sink cases: a sealed cave with a weaker sink, a cave its sink keeps from
-  filling, the pair in the open). The Terrain 3D group that plays them (`investigation/probe/runner/terrain3d.ts`,
-  DGM Probe 0.3.0) is on #71's branch only, and it works out what to expect with #71's TypeScript engine, which has
-  no sink rule: T7's water check needs that runner moved onto `sim/stackWater.ts` first.
+- **The probe's maps and group:** see "The probe batch" below.
 
 ## Stage 6, the rest: what switching cave imports on takes (surveyed, not built)
 
@@ -236,4 +232,28 @@ the heightfield's, and a cave map would show water that is not what gets exporte
    are"); the checks' reason "caves or overhangs cover N% of the map" → gone.
 8. **Questions to settle first:** what Remove unfed water takes on a tile with several columns; whether live water
    without a warm start is acceptable on cave maps; whether the layer goes or is renamed.
+
+## The probe batch: the Terrain 3D group on the Rust engine (ready to ask for, 2026-10-07)
+
+On `feature/3d-foundations-probe`. Nothing in the app changes.
+- **The group** (`investigation/probe/runner/terrain3d.ts`, from #71, with DGM Probe's records of each water
+  column's pressure and every run's soil; the mod is 0.3.1 and compiles) is in dev's runner, with its writer
+  (`tools/probe-maps/terrain3d.ts`, `GROUP_WRITERS`), so `--group "Terrain 3D"` writes its maps before it plans.
+  What the game should show is worked out from each file by the app's own engine: the terrain the support rule
+  keeps (`terrain/support.ts`), the water run from the file's own (`sim/stackWater.ts`, rust/water), soil per run
+  (`sim/soil3d.ts`). #71's TypeScript engine is not used.
+- **The maps:** T3, T4, T5 and T6 as dev writes them now, and T7 (sinks), into `C:\dgm-probe\terrain3d-2\`.
+  `C:\dgm-probe\terrain3d\` keeps the files September's runs played; T1 and T2 there are still what dev writes,
+  so they are not played again. The edited Hollows and Canyon join when stage 6 can export them; the writer says
+  so in one line until then.
+- **The plan** (a dry run, nothing launched): 5 maps, about 12 minutes by the runner's own estimate, with the
+  installed mods kept (`--keep-mods`). To ask for it: `npm --prefix investigation/probe run batch -- --group
+  "Terrain 3D" --keep-mods` prints the plan and a one-time code; the launch is the same command with the code,
+  after Kyler's yes (D117).
+- **The sink in the identity fixtures:** `tests/golden/stacked-water.json` has a ninth case, `t7-sink`
+  (`tools/rust/stack-sink-fixture.ts` writes it), marked in the file as from the game's code and not yet played.
+  `tools/rust/stack-identity.ts` and the determinism check's stacked cases run it; the eight #71 cases are
+  unchanged.
+- **Not covered by this group now:** the support rule's own check ran on T1 (`t3d-support` still runs on every
+  map, but no map here has voxels that fall), and walking and pumps stay not measurable, as in September.
 

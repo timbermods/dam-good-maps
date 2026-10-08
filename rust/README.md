@@ -17,7 +17,8 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   only, not wired into the app yet (Foundations does that): `stack_*` exports take Rust-owned typed arrays, one call
   per operation (the interface is in `investigation/rust-stacked/INTEGRATION.md` on PR #255; the core's binding is
   `src/core/sim/stackWater.ts`). Its contracts are
-  `cargo test -p water`; `tools/rust/stack-identity.ts` runs #71's game-verified fixtures (`tests/golden/stacked-water.json`)
+  `cargo test -p water`; `tools/rust/stack-identity.ts` runs #71's game-verified fixtures and one sink case that is not
+  game-verified yet (`tests/golden/stacked-water.json`; `tools/rust/stack-sink-fixture.ts`)
   natively (the `stack-fixture` example) and in Node's WebAssembly; D366's check has two stacked-water cases.
 - `forces/`: the forces' planning, Carve, Craterize, Erupt, Quake and Glaciate (#158, D381; their TypeScript planners
   are tag `ts-forces-final`). Its Wasm is committed in `src/core/forces/rust/forcesWasm.ts` and bound by
