@@ -64,7 +64,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   for (const blk of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z, orientation: p.orientation, flipped: !!p.flipped })) {
     if (blk.x < 0 || blk.y < 0 || blk.x >= W || blk.y >= H || blk.z >= 33) return "it does not fit on the map";
     const i = blk.y * W + blk.x;
-    if (s.columns.has(i)) return "there is a cave or overhang there";
+    if (!s.plainAt(i)) return "there is a cave or overhang there";
     const top = b.heights[i];
     const other = taken.get(i);
     if (pool) {
@@ -235,7 +235,7 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
       }
     }
     for (const j of next) {
-      if (s.columns.has(j) || held.has(j) || water[j] > 0) continue;
+      if (!s.plainAt(j) || held.has(j) || water[j] > 0) continue;
       const hv = h[j];
       const want = hv > level ? Math.min(hv, level + d) : Math.max(hv, level - d);
       const room = biggest - d + 1;

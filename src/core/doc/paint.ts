@@ -22,7 +22,7 @@ export function paintGround(s: MapSession): PaintGround {
   const free = new Uint8Array(W * H).fill(1);
   const depth = waterDepth(s);
   for (let i = 0; i < W * H; i++) if (depth[i] > 0.05) free[i] = 0;
-  for (const i of s.columns.keys()) free[i] = 0;
+  for (let i = 0; i < W * H; i++) if (!s.plainAt(i)) free[i] = 0;
   for (const e of b.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) free[y * W + x] = 0;
   return { W, H, heights: b.heights, free };
 }

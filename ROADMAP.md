@@ -531,6 +531,7 @@ that.
 
 On its own branch `feature/3d-foundations`, from `dev`, alongside the generator queue (D481; the new modules were built on
 `feature/terrain3d-a`, #71, D280 (1), D286 (1)–(3)).
+Its stages and where each stands are in [docs/progress/3d-foundations.md](docs/progress/3d-foundations.md).
 
 **Done already:** the stacked-column engine in `rust/water` (`stack*.rs`, D448, #260), #71's eight game-verified fixtures
 (`tests/golden/stacked-water.json`: T1–T6 and two cave cases) checked natively and in Node's WebAssembly on every push, and
