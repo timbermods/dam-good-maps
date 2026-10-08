@@ -192,6 +192,9 @@ On `feature/3d-foundations-3`. A player sees it: three new rows in the checks li
   passes on all 32. `water.sealed_source` warns on Hollows (a source on the floor of a closed cave, 146, 129, 0),
   Nomads (two sources that turn on later, each in a one-block pocket, 164, 46–47, 6) and Beavers Endgame (a
   badwater source, 137, 122, 2). `walk.levels` reads from "Every level…" (Diorama) to 48 areas (Oasis).
+- **Tests that followed the rows** (D148): `tests/contract/features.test.ts` lists `water.sealed_source` among a
+  generated map's advisory rows; `tests/contract/mechanics.test.ts` asks every water row that reads the water to be
+  approximate, which `water.sealed_source` does not. The new rows' own tests are `tests/contract/floorRows.test.ts`.
 - **Not done here:** the playability checks still walk the top surface (`walk_world`, the analysis kernels), and
   `start.dry` has no floor rule under roofs: they move onto the floor graph with stage 6, when a cave map's water
   is the engine's. First-run placement beyond what `entities.placement` already checks is unchanged.
