@@ -49,7 +49,9 @@ async function openMap(page: Page, theme: ThemeId, seed: number): Promise<{ chec
   const close = page.getByRole("button", { name: /close|dismiss|×/i }).first();
   if (await close.isVisible().catch(() => false)) await close.click().catch(() => undefined);
   await page.waitForTimeout(2500);
-  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .editor-view canvas { visibility: visible !important; }" });
+  await page.addStyleTag({ content: "body * { visibility: hidden !important; } .editor-view canvas[aria-label^=\"3D view\"] { visibility: visible !important; }" });
+  // (the map framed as the renderer frames a map alone: the page's insets, for its panels, move the camera)
+  await page.evaluate("window.dgm3d.renderer.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 })");
   await page.evaluate("window.dgmEditor.idle()");
   return { checks, blocked: false };
 }

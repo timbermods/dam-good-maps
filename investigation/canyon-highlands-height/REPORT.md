@@ -53,10 +53,21 @@ No map fails an absolute and none is without a start, at any size (all 120 repor
   oxbow on Highlands 96² seed 8 with the carve's seed 1), `editsPlaceNothing` (seed 1's three-spring row at
   (65–67, 58)), `glaciatePowerSize` (Power's comparison from (14, 46), Size's from (62, 14), no bar moved),
   `unleash` (the course takes two inflow sources it runs over, D474, and the count allows for exactly those),
-  `look-mine-ruins` (the file's sha with generator 0.8.8; River Valley's land is untouched).
+  `look-mine-ruins` (the file's sha with generator 0.8.8; River Valley's land is untouched). Of the browser
+  specs on Highlands 96² (20 files run), four tests moved: the click-only crater and Select's working area to
+  seed 4244 (on 4242 the crater's spot stands beside a nine-level fall, and Select's first dry land is a slope
+  above where its Raise stroke starts, so Raise's target rightly lifts nothing); Unleash's spot keeps six tiles
+  from the map's own sources (a click three tiles from a spring picked the spring); the eruption in High starts
+  from ground at level 8 or lower.
+- **An eruption without lava showing, a finding for the look:** in High, an Erupt at Power 70 from the top bench
+  of Highlands 96² seed 4242 (level 15) ends with no lava in its last frame (8 lava-coloured pixels more than
+  without it; 3,900 from level 6 on the same map). Dev's own code does the same on its Highlands 96² seed 4244
+  from level 13 (114) while its seed 4242 from level 14 shows 13,000, so it is not this round's and not the
+  height alone. Not looked into further; the test keeps its bar of 2,000 from lower ground.
 - Sheets on the merged code: [Canyon and Highlands](../../docs/sheets/canyon-highlands-height.png),
-  [every theme](../../docs/sheets/canyon-highlands-height-all.png); the sheets under "The outcome" are made again
-  on it, dev's tip (0104b950) on the left.
+  [every theme](../../docs/sheets/canyon-highlands-height-all.png); the sheets under "The outcome" and the two
+  pitch sheets are made again on it, dev's tip (0.8.7) on the left. The 3D captures frame the map as the renderer
+  does alone (`capture-pitch.ts` clears the page's insets, which make room for its panels).
 
 ## The camera
 
@@ -218,5 +229,6 @@ python investigation/canyon-highlands-height/sheet-pairs.py canyon <before dir> 
 
 For Kyler's second look the Canyon 3D sheet's before side was cut from the previous sheet (dev's tip is unchanged)
 and its after side captured with `capture-pitch.ts` (its 70° shot); the pitch sheet is `sheet-pitch.py` on the same
-captures. The 3D captures need a headed Chrome and about 6 s a map; `capture-3d.ts` is the theme critique's (PR
+captures. On dev (0.8.8) both sides of the 3D sheets are `capture-pitch.ts`'s 70° shots, the before side from
+a worktree of dev's tip under `local/` with the tool copied in. The 3D captures need a headed Chrome and about 6 s a map; `capture-3d.ts` is the theme critique's (PR
 #211), copied into a worktree of each side. The variant switches the experiments used are not in the code.

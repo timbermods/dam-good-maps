@@ -37,9 +37,12 @@ def fit(im, cell):
         return Image.new("RGB", (cell, cell), (60, 60, 60))
     w, h = im.size
     if w != h:
-        # the opening camera frames a 128² map in about the middle 700 px of a 1105×733 capture
-        bx, by, bw = round(w * 0.17), round(h * 0.04), round(w * 0.66)
-        im = im.crop((bx, by, bx + bw, by + bw))
+        # the renderer's own framing (no page insets) puts a 128² map in the middle of the capture, a little
+        # wider than the capture is tall (1280×733: about 760 px): that middle, on a square of the sky's blue
+        side = min(w, round(h * 1.05))
+        mid = im.crop(((w - side) // 2, 0, (w - side) // 2 + side, h))
+        im = Image.new("RGB", (side, side), (48, 96, 150))
+        im.paste(mid, (0, (side - h) // 2))
     return im.resize((cell, cell), Image.LANCZOS if im.size[0] > cell else Image.NEAREST)
 
 
