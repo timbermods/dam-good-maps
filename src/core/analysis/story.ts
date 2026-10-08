@@ -205,14 +205,15 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
   let near = 0;
   for (let i = 0; i < W * H; i++) if (!(depth[i] >= 0.05) && dist[i] <= R) near++;
   const reach = dry > 0 ? near / dry : 1;
-  // (D333: the story is the clean water's; a system that is mostly badwater, which item 47 keeps
-  // apart from the clean water, is none of it)
+  // (D333: a system that is mostly badwater and stands apart from the main water is none of the
+  // story. The main water itself never is, however much badwater has joined it: that join is asked
+  // for, D476, D480)
   const bad = new Uint8Array(sys.tiles.length);
   if (contamination) {
     const n = new Int32Array(sys.tiles.length);
     for (let i = 0; i < W * H; i++) if (sys.labels[i] >= 0 && contamination[i] >= 0.5) n[sys.labels[i]]++;
     sys.tiles.forEach((t, k) => {
-      if (2 * n[k] >= t) bad[k] = 1;
+      if (k !== mainWater && 2 * n[k] >= t) bad[k] = 1;
     });
   }
   let wet = 0;
