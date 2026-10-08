@@ -66,7 +66,7 @@ pub fn water_columns(w: usize, h: usize, mask: &[u32], objects: &[Object]) -> Re
     let n = dimensions(w, h, mask)?;
     if objects
         .iter()
-        .any(|o| o.kind > 11 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite() || o.strength < 0.0)
+        .any(|o| o.kind > 11 || o.rotation > 3 || o.z < 0 || o.z >= OPEN || !o.strength.is_finite())
     {
         return Err("Water object is unknown or malformed.");
     }

@@ -40,6 +40,13 @@ once, and only for the plan it was printed for.
     against the file's settled water (our model); frame times with a camera pan over the whole map at normal speed, the
     fastest and the probe's speed (`size-smooth`, against the 256² map); the time to load (`size-load-time`). The run's
     `summary.md` has a table of both. The plan estimates about 36 minutes for the six maps.
+  - `Terrain 3D` (caves, overhangs and water under roofs, PLAN §20 D127, D279, D481): T3–T6 as dev writes them now
+    and T7, the sink map, in `C:\dgm-probe\terrain3d-2\` (`tools/probe-maps/terrain3d.ts`; by hand,
+    `npx tsx tools/probe-3d.ts`). What the game should show is worked out from each file by the app's own stacked
+    engine (`src/core/sim/stackWater.ts`, rust/water). Needs DGM Probe 0.3.0 or later (water columns' pressure, soil
+    on every run). `C:\dgm-probe\terrain3d\` keeps the files runs `terrain3d-20260927` and `-20260929` played (T1
+    and T2 there are still what dev writes). The edited Hollows and Canyon join the group once Foundations' stage 6
+    can export them. Play with `--keep-mods`.
 - The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
   worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
