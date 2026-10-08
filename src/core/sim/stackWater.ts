@@ -8,13 +8,16 @@
 // view is a window into the module's memory: read or fill it at once and ask again after any
 // operation, since memory may have moved. Every refusal is the engine's own one line (D342).
 //
-// Nothing in the app calls this yet: Foundations' next stage wires it in. Its results on the eight
+// The canonical settle of a model with terrain above terrain runs here (prefill.ts, `WaterModel.stacked`);
+// no map the app builds has such a model yet (an imported map's caves keep the file's water until
+// Foundations' stage 6), and a heightfield never comes here. Its results on the eight
 // game-verified fixtures (tests/golden/stacked-water.json) are checked natively and in WebAssembly on
 // every push (tools/rust/stack-identity.ts), and in every browser engine (tools/determinism).
 
 import type { VoxelMasks } from "./columns";
 import { isDelayed, specifiedStrength, type MapObject } from "./model";
 import { rustWater } from "./rustWater";
+import type { RetainedWater, StackedTerrain, WaterModel } from "./water";
 
 interface Exports {
   memory: { buffer: ArrayBuffer };
@@ -71,6 +74,9 @@ const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, 
 
 export type StackView = Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array;
 
+/** Frees a map the caller dropped without closing (a settle a newer edit replaced). */
+const dropped = typeof FinalizationRegistry === "undefined" ? null : new FinalizationRegistry<{ wasm: Exports; handle: number }>((m) => m.wasm.stack_free(m.handle));
+
 /** One map in the engine. `close` it when done: the engine holds at most 64. */
 export class StackWater {
   private readonly wasm: Exports;
@@ -87,6 +93,7 @@ export class StackWater {
     this.wasm = rustWater() as unknown as Exports;
     this.handle = this.wasm.stack_create(W, H, objects, retained);
     if (!this.handle) throw new Error(this.error());
+    dropped?.register(this, { wasm: this.wasm, handle: this.handle }, this);
   }
 
   private error(): string {
@@ -125,6 +132,7 @@ export class StackWater {
 
   close(): void {
     if (this.open) {
+      dropped?.unregister(this);
       this.wasm.stack_free(this.handle);
       this.open = false;
     }
@@ -189,43 +197,93 @@ export interface StackSettle {
  *  with); an open field's is today's 6. */
 export const STACK_SETTLE_DAYS = 4;
 
-/** The canonical settle of a map by the game's rules: the pre-fill, then ticks until the water stands
- *  still or the days run out. It runs `slice` ticks at a time and tells `progress` the ticks so far
- *  and the most there can be, so a caller can show it and stay responsive. */
-export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[], opts: { slice?: number; progress?: (ticks: number, max: number) => void } = {}): StackSettle {
-  const rows = stackObjectRows(objects);
-  const m = new StackWater(t.W, t.H, rows.length / 8, 0);
+/** A water model with its terrain above terrain: `model` (the map from above, sim/model.ts) with the
+ *  terrain's masks and the objects' rows when some tile is not one plain run from the bottom; the
+ *  model itself, unchanged, on a heightfield. */
+export function stackedModel(model: WaterModel, terrain: VoxelMasks, objects: readonly MapObject[]): WaterModel {
+  const mask = terrain.mask;
+  let plain = true;
+  for (let i = 0; i < mask.length && plain; i++) if ((mask[i] & (mask[i] + 1)) !== 0) plain = false;
+  return plain ? model : { ...model, stacked: { mask, objects: stackObjectRows(objects) } };
+}
+
+/** The most ticks one `advance` may be asked for (the engine's own limit). */
+const MAX_ADVANCE = 10_000_000;
+
+/** The canonical settle of terrain above terrain by the game's rules, in slices: the pre-fill, then
+ *  ticks until the water stands still or the days run out. `advance` runs at most the ticks it is
+ *  given and returns the settle once it is done; `ticks` over `maxTicks` is how far it is, for a
+ *  caller to show. `retained` is water sealed basins keep (water.ts `RetainedWater`). */
+export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
+  const kept: number[] = [];
+  for (const r of retained) for (let k = 0; k < r.tiles.length; k++) kept.push(r.tiles[k], r.floor[k], r.depth[k], r.contamination[k]);
+  const m = new StackWater(W, H, t.objects.length / 8, kept.length / 4);
+  let done: StackSettle | null = null;
+  let ticks = 0;
+  let maxTicks = 1;
+  let stacked = true;
   try {
     (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
-    (m.view(STACK_FIELD.objects) as Float64Array).set(rows);
+    (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
+    (m.view(STACK_FIELD.retained) as Float64Array).set(kept);
     m.op(STACK_OP.build, 0);
-    const stacked = m.info(STACK_INFO.stacked) === 1;
+    stacked = m.info(STACK_INFO.stacked) === 1;
     m.op(STACK_OP.settleBegin, stacked ? STACK_SETTLE_DAYS : 6);
-    const slice = opts.slice ?? 10_000_000;
-    while (m.info(STACK_INFO.settle) === 0) {
-      m.op(STACK_OP.advance, slice);
-      opts.progress?.(m.info(STACK_INFO.ticks), m.info(STACK_INFO.maxTicks));
-    }
-    m.op(STACK_OP.saturation);
-    const count = m.copy(STACK_FIELD.count) as Uint8Array;
-    let L = 1;
-    for (let i = 0; i < count.length; i++) if (count[i] > L) L = count[i];
-    return {
-      W: t.W,
-      H: t.H,
-      L,
-      stacked,
-      count,
-      floor: m.copy(STACK_FIELD.floor) as Int16Array,
-      ceil: m.copy(STACK_FIELD.ceil) as Int16Array,
-      depth: m.copy(STACK_FIELD.depth) as Float64Array,
-      overflow: m.copy(STACK_FIELD.overflow) as Float64Array,
-      contamination: m.copy(STACK_FIELD.contamination) as Float64Array,
-      sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
-      settled: m.info(STACK_INFO.settle) === 1,
-      ticks: m.info(STACK_INFO.ticks),
-    };
-  } finally {
+    maxTicks = Math.max(1, m.info(STACK_INFO.maxTicks));
+  } catch (e) {
     m.close();
+    throw e;
   }
+  return {
+    advance(budget: number): StackSettle | null {
+      if (done) return done;
+      try {
+        if (m.info(STACK_INFO.settle) === 0) {
+          m.op(STACK_OP.advance, Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget))));
+          ticks = m.info(STACK_INFO.ticks);
+          maxTicks = Math.max(maxTicks, m.info(STACK_INFO.maxTicks));
+        }
+        if (m.info(STACK_INFO.settle) === 0) return null;
+        m.op(STACK_OP.saturation);
+        const count = m.copy(STACK_FIELD.count) as Uint8Array;
+        let L = 1;
+        for (let i = 0; i < count.length; i++) if (count[i] > L) L = count[i];
+        done = {
+          W,
+          H,
+          L,
+          stacked,
+          count,
+          floor: m.copy(STACK_FIELD.floor) as Int16Array,
+          ceil: m.copy(STACK_FIELD.ceil) as Int16Array,
+          depth: m.copy(STACK_FIELD.depth) as Float64Array,
+          overflow: m.copy(STACK_FIELD.overflow) as Float64Array,
+          contamination: m.copy(STACK_FIELD.contamination) as Float64Array,
+          sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
+          settled: m.info(STACK_INFO.settle) === 1,
+          ticks: m.info(STACK_INFO.ticks),
+        };
+        ticks = done.ticks;
+        m.close();
+        return done;
+      } catch (e) {
+        m.close();
+        throw e;
+      }
+    },
+    get ticks() {
+      return ticks;
+    },
+    get maxTicks() {
+      return maxTicks;
+    },
+  };
+}
+
+/** The canonical settle of a map by the game's rules, whole (`canonicalStackRun` to its end). */
+export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[]): StackSettle {
+  const run = canonicalStackRun(t.W, t.H, { mask: t.mask, objects: stackObjectRows(objects) });
+  let r = run.advance(MAX_ADVANCE);
+  while (!r) r = run.advance(MAX_ADVANCE);
+  return r;
 }

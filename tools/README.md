@@ -15,6 +15,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `check-maps.ts` checks a folder of `.timber` files as a probe batch's maps are checked; `probe-tall.ts` and `probe-sizes.ts` make the probe's tall and size test maps by hand (the writers are in `probe-maps/`, built with the generator's own steps, `places/place.ts` `buildFileFromHeights`; the probe's runner calls them itself before a batch and rewrites any map whose bytes changed); `ingame-files.ts` makes the files for the in-game checks.
 - `map-hashes.ts` hashes generated maps' land, water, objects, file and project (every theme and Any, seeds 1–6, 96² and 128² by default): run it on dev and on a branch and diff, to show a change left generated maps alone.
 - `probe-3d.ts` writes the DGM Probe's six test maps for terrain above terrain, T1–T6 (their scenes and build are `terrain3d-maps.ts`), to `.scratch/terrain3d/`; `--out C:\dgm-probe\terrain3d --check` compares a fresh build with the files the game played.
+- `import-hashes.ts` hashes a folder's maps through import, one sculpt stroke, the project file, reopening and export: run it on dev and on a branch and diff, to show a change left imported maps alone.
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 

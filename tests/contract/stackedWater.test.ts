@@ -10,10 +10,10 @@ import { stringify } from "../../src/core/format/json";
 import { toMapObject } from "../../src/core/features/build";
 import { waterSource } from "../../src/core/format/entities";
 import { heightMasks, terrainColumns, waterColumns } from "../../src/core/sim/columns";
-import { canonicalSettle } from "../../src/core/sim/prefill";
+import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
 import { waterModel } from "../../src/core/sim/model";
 import { gameSoil } from "../../src/core/sim/soil";
-import { canonicalStackSettle, stackObjectRows } from "../../src/core/sim/stackWater";
+import { canonicalStackSettle, stackedModel, stackObjectRows } from "../../src/core/sim/stackWater";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
 import { inputBytes, stackFixtures } from "../../tools/rust/stack-fixtures";
 import { build, t1Support, t2Walking, t3CaveWater, t4Soil, t5Plants } from "../../tools/terrain3d-maps";
@@ -120,5 +120,54 @@ describe("the stacked engine through the core's binding", () => {
     }
     // T1: the game deleted exactly these 24 voxels (probe run terrain3d-20260927)
     expect(build(t1Support()).dropped.length).toBe(24);
+  });
+});
+
+describe("the canonical settle's two paths (3D Foundations, stage 5)", () => {
+  it("a heightfield's model is the model itself: today's simulation, the same code path", () => {
+    const { W, H, heights, objects } = valley();
+    const model = waterModel(W, H, heights, objects);
+    expect(stackedModel(model, heightMasks(W, H, heights), objects)).toBe(model);
+    expect(canonicalSettle(model).stack).toBeUndefined();
+  });
+
+  it("terrain above terrain settles in the stacked engine, in slices with progress, to the verified water", () => {
+    const m = t3CaveWater();
+    const f = stackFixtures.find((x) => x.name === m.id)!;
+    const { W, H, N } = m.scene;
+    const objects = m.scene.entities.map(toMapObject);
+    const terrain = new ColumnTerrain(W, H, m.scene.mask);
+    const model = stackedModel(waterModel(W, H, terrain.heights(), objects), terrain, objects);
+    expect(model.stacked).toBeDefined();
+    const whole = canonicalSettle(model);
+    expect([whole.settled, whole.ticks]).toEqual([f.settle!.settled, f.settle!.ticks]);
+    expect(sha(bytesOf(whole.stack!.depth)).slice(0, 16)).toBe(f.hashes.depth);
+    // from above: each tile's top column
+    for (const i of [0, 9 * W + 9, N - 1]) expect(whole.depth[i]).toBe(whole.stack!.depth[(whole.stack!.count[i] - 1) * N + i]);
+    // in slices: the same water, with progress that only grows
+    const run = canonicalRun(model);
+    let last = 0;
+    let slices = 0;
+    let r = run.advance(300);
+    while (!r) {
+      const done = run.ticks / run.maxTicks;
+      expect(done).toBeGreaterThanOrEqual(last);
+      expect(done).toBeLessThanOrEqual(1);
+      last = done;
+      slices++;
+      r = run.advance(300);
+    }
+    expect(slices).toBeGreaterThan(3);
+    expect(r.stack!.depth).toEqual(whole.stack!.depth);
+    expect(r.depth).toEqual(whole.depth);
+  });
+
+  it("refuses what it has no rule for, in one line", () => {
+    const m = t3CaveWater();
+    const { W, H } = m.scene;
+    const objects = m.scene.entities.map(toMapObject);
+    const terrain = new ColumnTerrain(W, H, m.scene.mask);
+    const model = stackedModel(waterModel(W, H, terrain.heights(), objects), terrain, objects);
+    expect(() => canonicalSettle({ ...model, drained: [5] })).toThrow(/not worked out for a map with caves/);
   });
 });
