@@ -23,9 +23,7 @@
 import { CORE } from "../data/parity";
 import { FOOTPRINTS, rotate, type Orientation } from "../format/footprints";
 import { ColumnTerrain, TERRAIN_LAYERS } from "../terrain/runs";
-
-/** How far terrain support reaches sideways in a layer. */
-export const MAX_SUPPORT_DISTANCE = 3;
+import { unsupportedVoxels as unsupported } from "../terrain/support";
 
 export interface BlastObject {
   id: string;
@@ -103,50 +101,6 @@ export interface Explosion {
   fellVoxels: number;
   /** The tiles whose column changed. */
   tiles: number[];
-}
-
-/** Solid voxels that are not supported (see the file's header), by their tile and layer. */
-function unsupported(t: ColumnTerrain): Uint8Array {
-  const { W, H, N } = t;
-  const Z = TERRAIN_LAYERS;
-  const best = new Int8Array(Z * N).fill(99);
-  const queue: number[] = [];
-  for (let i = 0; i < N; i++)
-    if (t.solid(i, 0)) {
-      best[i] = 0;
-      queue.push(i);
-    }
-  for (let head = 0; head < queue.length; head++) {
-    const v = queue[head];
-    const s = best[v];
-    const z = Math.floor(v / N);
-    const i = v - z * N;
-    const x = i % W;
-    const y = (i - x) / W;
-    if (z + 1 < Z && t.solid(i, z + 1) && best[v + N] > 0) {
-      best[v + N] = 0;
-      queue.push(v + N);
-    }
-    if (s < MAX_SUPPORT_DISTANCE) {
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const j = ny * W + nx;
-        const n = z * N + j;
-        if (t.solid(j, z) && best[n] > s + 1) {
-          best[n] = s + 1;
-          queue.push(n);
-        }
-      }
-    }
-  }
-  const out = new Uint8Array(Z * N);
-  for (let v = 0; v < Z * N; v++) {
-    const z = Math.floor(v / N);
-    if (t.solid(v - z * N, z) && best[v] === 99) out[v] = 1;
-  }
-  return out;
 }
 
 /** Set off the named cores (`first`: their ids) on a copy of the terrain and the objects, and follow the chain.
