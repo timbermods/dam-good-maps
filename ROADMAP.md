@@ -36,7 +36,8 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
   (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
   River Valley round 2 (#346, 0.8.5), the story's reach (#351, D480, 0.8.6) and Islands round 6 (#235, 0.8.7) are merged
-  too; next Canyon and Highlands (#261, 0.8.8).
+  too, and Canyon and Highlands (#261, 0.8.8) and the story keeping a main water that is mostly badwater (D480's
+  extension, 0.8.9). The queue is empty.
 - **The page** (`feature/page`; the page session): "The page is the editor" is on dev (#347, #163's squash).
 - **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
   page part reaches dev with #163.
