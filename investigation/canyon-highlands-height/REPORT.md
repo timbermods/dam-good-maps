@@ -59,12 +59,15 @@ No map fails an absolute and none is without a start, at any size (all 120 repor
   seed 4244 (on 4242 the crater's spot stands beside a nine-level fall, and Select's first dry land is a slope
   above where its Raise stroke starts, so Raise's target rightly lifts nothing); Unleash's spot keeps six tiles
   from the map's own sources (a click three tiles from a spring picked the spring); the eruption in High starts
-  from ground at level 8 or lower.
+  from ground at level 6 or lower, its Ridges and Flows set by hand.
 - **An eruption without lava showing, a finding for the look:** in High, an Erupt at Power 70 from the top bench
   of Highlands 96² seed 4242 (level 15) ends with no lava in its last frame (8 lava-coloured pixels more than
   without it; 3,900 from level 6 on the same map). Dev's own code does the same on its Highlands 96² seed 4244
   from level 13 (114) while its seed 4242 from level 14 shows 13,000, so it is not this round's and not the
-  height alone. Not looked into further; the test keeps its bar of 2,000 from lower ground.
+  height alone. The cause (the forces play session, 2026-10-08): the heat on the ground follows the lava flows only
+  when Ridges is on; on Auto the land and the seed draw Ridges, and with it off the ground gets a faint disc and no
+  lava (about 140 pixels at any level). The test sets Ridges on and Flows heavy and keeps its bar of 2,000; the
+  look's fix is its own PR into dev.
 - Sheets on the merged code: [Canyon and Highlands](../../docs/sheets/canyon-highlands-height.png),
   [every theme](../../docs/sheets/canyon-highlands-height-all.png); the sheets under "The outcome" and the two
   pitch sheets are made again on it, dev's tip (0.8.7) on the left. The 3D captures frame the map as the renderer

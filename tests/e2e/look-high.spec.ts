@@ -304,13 +304,14 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   expect(await look(page)).toBe("high");
   await page.keyboard.press("Shift+Digit3");
   await page.getByRole("group", { name: "Erupt options" }).getByRole("slider", { name: "Power" }).fill("70");
-  // dry ground in the middle of the view, clear of the controls over the map; at level 6 or lower since 0.8.8's
-  // maps (the Canyon and Highlands height round, D148): the middle of this map is its top bench now, level 15,
-  // and from there the frame the test reads shows no lava at all (8 pixels more than without it; the same on
-  // dev's own Highlands 96² seed 4244 from level 13, 114 more, where its seed 4242 from level 14 shows 13,000;
-  // from the first spot at level 6 or lower here, about 4,000 on this PC; at level 8 or lower the first spot
-  // gives 2,300 here and 1,600 on CI's renderer, under the bar, and at 5 or lower 860). Why an eruption from
-  // some ground ends with little or no lava showing is the look's question, not this test's
+  // its lava is the test's subject, so Ridges and Flows are set by hand: on Auto the land and the seed draw them
+  // (D309), and with Ridges off the heat on the ground is a faint disc, no lava at all (about 140 pixels; on 0.8.8's
+  // Highlands the middle of this map drew that, which read as "no lava from high ground": the level was never
+  // the cause)
+  const row = page.getByRole("group", { name: "Erupt options" });
+  for (const [detail, choice] of [["Ridges", "On"], ["Flows", "Heavy"]]) await row.getByRole("group", { name: detail, exact: true }).getByRole("button", { name: choice, exact: true }).click();
+  // dry ground in the middle of the view, clear of the controls over the map, at level 6 or lower: the middle of
+  // 0.8.8's map is its top bench, level 15, where the cone has seven levels of room and half the lava in frame
   const at = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
     const below = (document.querySelector(".view3d-corner")?.getBoundingClientRect().bottom ?? 120) + 20;
@@ -319,7 +320,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       for (const [x, y] of [[m.W / 2 + d, m.H / 2 + d], [m.W / 2 - d, m.H / 2 + d], [m.W / 2 + d, m.H / 2 - d], [m.W / 2 - d, m.H / 2 - d]].map(([a, b]) => [Math.round(a), Math.round(b)])) {
         const p = window.dgmEditor!.tileToClient(x, y);
         if (m.heights[y * m.W + x] > 6 || m.surface.depth[y * m.W + x] > 0 || p.y < below || p.y > above || document.elementFromPoint(p.x, p.y)?.tagName !== "CANVAS") continue;
-        return p;
+        return { ...p, tile: [x, y] };
       }
     return null;
   });
@@ -361,7 +362,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   expect(glow.cooling!).toBeLessThan(0.5);
   expect(glow.look).toBe("high");
   // (a few hundred such pixels elsewhere on the map without it; thousands more with its lava)
-  expect(glow.hot - glow.cold, JSON.stringify(glow)).toBeGreaterThan(2000);
+  expect(glow.hot - glow.cold, JSON.stringify({ ...glow, at })).toBeGreaterThan(2000);
   expect(glow.hot, JSON.stringify(glow)).toBeGreaterThan(5 * glow.cold);
   expect(errors).toEqual([]);
 });
