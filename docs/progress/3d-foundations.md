@@ -7,8 +7,8 @@ reference TypeScript is #71 (`origin/feature/terrain3d-a`, never adopted, D448);
 
 ## Now (2026-10-07)
 
-Stages 1, 4 and 5 are on dev (#354, #356, #357). Stage 2 is #355, waiting on Kyler, and stage 3 on his word for its
-rows' wording. Stage 6 is begun: its first part, the sink rule in the stacked engine and the probe's map for it, is
+Stages 1, 2, 4 and 5 are on dev (#354, #355, #356, #357). Stage 3 is built (below), with the wording Kyler approved
+(D280's amendment) and D482. Stage 6 is begun: its first part, the sink rule in the stacked engine and the probe's map for it, is
 built (below); switching cave imports onto the engine is not, and its plan and open questions are below. Nothing a
 player sees has changed yet.
 
@@ -53,7 +53,8 @@ Each leaves dev's behaviour intact unless it says otherwise, and merges on its o
    by: `tools/rust/checks-pins.json` unchanged (`checks-jobs.ts` builds its maps from heights, so no report may move), small
    contract tests on hand-made cave maps (an arch cut to z = 0 that the game would drop; a slope and a start under a
    roof), `cargo test -p checks`, `tools/rust/check.ts`. Needs nothing outside the allowed files, no probe.
-3. **The new check rows and the floor graph** (the rest of delivers 4): `walk.levels`, `terrain.dropped`,
+3. **The new check rows and the floor graph. Built**, see below; what it leaves is listed there. As planned
+   (the rest of delivers 4): `walk.levels`, `terrain.dropped`,
    `water.sealed_source`, plant clearance and first-run placement, the floor graph in the playability walk (D122),
    `start.dry`'s floor rule under roofs, `terrain.single_floor` retired for generated maps; the build's rule pass
    (D121: a call that drops nothing on plain terrain). `rust/checks` (`playability.rs`, `checks.rs`, `words.rs`), the
@@ -142,6 +143,58 @@ In `rust/checks/src/checks.rs`, with `src/core/validate/checksWasm.ts` rebuilt; 
   looked at one by one.
 - **Not done here:** the Python validator's slope and start checks (`prototype/validate.py`) still read the top
   surface; they run on generated maps only, where it is the same test. Stage 3 mirrors the floor graph there.
+- **Checked:** see the PR.
+
+## Stage 3: four check rows, the floor graph, Slopes connect warns on imports (built 2026-10-07)
+
+On `feature/3d-foundations-3`. A player sees it: three new rows in the checks list, and one row's weight changed.
+- **The floor graph** (D122): `rust/checks/src/floors.rs`, with `src/core/terrain/floors.ts` `floorGraph` as its
+  plain face (the checks' Wasm, `checks_floors`). A floor is air on solid ground, or on the map's bottom, at any level
+  of a tile; floors of neighbouring tiles join at the same level; a Slope joins its own tile's floor to the floor
+  one level up on its high side (the links the heightfield walk has); no headroom rule. Areas are numbered in the
+  order of their first floor. `open_air` in the same file is the air joined to the sky or the map's edge.
+- **`walk.levels`** (playability class, always passing: information). The areas the start does not reach, each of
+  400 or more dry floors open to the sky or the edge (`SLOPE_RULES.bigRegion`, the size of a region that earns a
+  slope, generated into the Rust's tables). "Every level can be walked to from the start" · "3 areas need stairs to
+  reach, the highest at level 14" (one area: "1 area needs stairs to reach, at level 14"). Not applicable without
+  one start. The 400 is this stage's choice, not Kyler's: with it the 84 sample maps read from "Every level…"
+  (9 maps) to 8 areas; at 9 floors a sample of 42 read 23 to 156.
+- **`water.sealed_source`** (playability class, advisory: a warning that never blocks). A water source, badwater
+  source or seep with a strength above 0 whose own air cells join neither the sky nor the edge. One line per source:
+  "Water source sealed inside rock · X 23 · Y 45 · Z 5".
+- **`plants.clearance`** (load class, as `entities.placement`: the game removes the plant). A plant on good ground
+  whose upper block is in rock; it is counted here and no longer in `entities.placement`. The rule and its table are
+  `src/core/terrain/clearance.ts` (`PLANT_CLEARANCE`, `plantsWithoutRoom`), which `tools/terrain3d-maps.ts` (T5) now
+  uses; the Rust reads the same table. Its fix is the existing "Remove the objects the game would delete".
+- **`terrain.dropped`** (design class: blocks in `generate`, warns on a generated map being edited, absent on an
+  import). The row is in the checks behind `ValidateOptions.dropped`, tested, and **no map shows it yet**: the
+  build has no support pass that could report a count, and the generator's own validations are in
+  `src/core/gen/generate.ts` (lines 1641, 2790, 2810, 2901 and 2935), which this stage may not edit. The follow-up:
+  the build's rule pass (`terrain/support.ts` on the build's terrain, a call that drops nothing on plain terrain)
+  reports its count, and those five calls and `MapSession.validate` pass `dropped`. D115 calls 0 dropped voxels a
+  principle; the principle class would block the export of an edited map for ground the build already removed,
+  so the row is design class until Kyler says otherwise.
+- **D482:** `slopes.connect` carries `advisory` on an imported map (`ValidateOptions.external`, which
+  `MapSession.validate` sets for every map that was not generated), so it is a warning in every profile and never
+  in the export gate's blocking list; a generated map's row is unchanged (an error that blocks). On an import it no
+  longer shows among the instant problems after an edit (`checkItems` lists failing checks only); the full check
+  lists it with its fix.
+- **`terrain.single_floor`** is an imported map's row only: absent in `generate` and on a generated map in the
+  editor.
+- **The Python validator** (`prototype/validate.py`): slopes and the start read the floor they stand on
+  (dev's oracle disagreed on Cliffside since stage 2), the support rule runs on every map that is not plain,
+  `plants.clearance` is computed, `terrain.single_floor` is an import's row, `slopes.connect` is advisory on an
+  import. `walk.levels` and `water.sealed_source` are reported without being computed (D279: no Python copy of the
+  3D rules), marked `information`, and `tools/oracle.ts` does not compare their verdicts.
+- **Real maps** (`tools/check-rows.ts`, 22 official, 9 workshop, 1 user; dev against this branch): every map gains
+  the three rows; `slopes.connect` turns from an error into a warning on Hollows, Beavers Canyons, Beavers Endgame,
+  Cozy Secret Valley, Lost Underground, Lost Valley and Tower of Beaverlon; nothing else changes. `plants.clearance`
+  passes on all 32. `water.sealed_source` warns on Hollows (a source on the floor of a closed cave, 146, 129, 0),
+  Nomads (two sources that turn on later, each in a one-block pocket, 164, 46–47, 6) and Beavers Endgame (a
+  badwater source, 137, 122, 2). `walk.levels` reads from "Every level…" (Diorama) to 48 areas (Oasis).
+- **Not done here:** the playability checks still walk the top surface (`walk_world`, the analysis kernels), and
+  `start.dry` has no floor rule under roofs: they move onto the floor graph with stage 6, when a cave map's water
+  is the engine's. First-run placement beyond what `entities.placement` already checks is unchanged.
 - **Checked:** see the PR.
 
 ## Stage 4: the multi-slot writer, the engine's core binding, the T1–T6 writers (built 2026-10-07)

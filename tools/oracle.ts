@@ -11,7 +11,9 @@
 // 2. Validator parity (M2): for the --parity-seeds (default: the --seeds), the map of seed k at
 //    size sizes[k mod n] is validated in full by both validators, the TypeScript one re-reading the
 //    written file and its project file (as the Python one does), and their verdicts must agree
-//    check by check: pass, fail, not applicable or approximate (PLAN §11, D98).
+//    check by check: pass, fail, not applicable or approximate (PLAN §11, D98). The rows of the 3D
+//    rules the Python validator does not compute (walk.levels, water.sealed_source; D279) must be in
+//    both reports, and their verdicts are not compared.
 //    The first parity map is also written once more with WaterSimulationMigrator.IsMigrated false
 //    (the audit's A1): both validators must fail its file.singletons, and agree on the rest.
 // 3. The same parity on the official maps in investigation/raw/builtin (import profile, default
@@ -127,6 +129,9 @@ interface PyCheck {
   na: boolean;
   advisory: boolean;
   approx?: string;
+  /** A 3D rule the Python validator does not compute (D279: no Python copy of the 3D rules): the row
+   *  must be there, and its verdict is not compared. */
+  information?: boolean;
   detail: string;
   value: unknown;
 }
@@ -146,6 +151,7 @@ function compare(label: string, ts: CheckResult[], pyChecks: PyCheck[]): string[
       out.push(`${label}: ${id} only in ${x ? "TypeScript" : "Python"}`);
       continue;
     }
+    if (y.information) continue;
     if (tsVerdict(x) !== pyVerdict(y)) {
       out.push(`${label}: ${id} TypeScript ${tsVerdict(x)} (${x.value ?? ""} ${x.message}) vs Python ${pyVerdict(y)} (${String(y.value ?? "")} ${y.detail})`);
     }

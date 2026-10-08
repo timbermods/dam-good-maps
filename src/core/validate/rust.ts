@@ -116,7 +116,7 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
   const N = X * Y;
   const m = new Meta();
   m.u32(0x434d4744);
-  m.u32(2);
+  m.u32(3);
   m.u32(X);
   m.u32(Y);
   m.u32(w.layers);
@@ -125,6 +125,8 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
   m.bool(opts.editing === true);
   const loadOnly = !!opts.loadOnly;
   m.bool(loadOnly);
+  m.bool(opts.dropped !== undefined);
+  if (opts.dropped !== undefined) m.f64(opts.dropped);
   m.str(w.gameVersion);
   m.str(file.versionTxt);
   // what checkFile reads of the singletons
@@ -296,6 +298,7 @@ interface Exports {
   memory: WebAssembly.Memory;
   checks_input(kind: number, bytes: number): number;
   checks_run(): number;
+  checks_floors(w: number, h: number, layers: number): number;
   checks_output(kind: number): number;
   checks_output_len(kind: number): number;
 }
@@ -334,6 +337,25 @@ export function runChecks(inputs: readonly Uint8Array[]): ChecksOutput {
     out.push(n ? new Uint8Array(x.memory.buffer, x.checks_output(k), n).slice() : new Uint8Array(0));
   }
   return { status, out };
+}
+
+/** The floor graph in Rust (rust/checks/src/floors.rs; terrain/floors.ts `floorGraph` is its plain face):
+ *  the terrain's voxels as a file holds them and the map's slopes as (x, y, level, facing 0–3) quadruples;
+ *  one (tile, level, area) triple per floor, tile by tile and bottom to top in each. */
+export function floorsInRust(W: number, H: number, layers: number, voxels: Uint8Array, slopes: Int32Array): Int32Array {
+  const x = rustChecks();
+  const put = (kind: number, bytes: Uint8Array) => {
+    const p = x.checks_input(kind, bytes.length);
+    // (a view taken after the call: the memory may have grown)
+    new Uint8Array(x.memory.buffer, p, bytes.length).set(bytes);
+  };
+  put(VOXELS, voxels);
+  put(META, new Uint8Array(slopes.buffer, slopes.byteOffset, slopes.byteLength));
+  const status = x.checks_floors(W, H, layers);
+  const read = (kind: number) => new Uint8Array(x.memory.buffer, x.checks_output(kind), x.checks_output_len(kind)).slice();
+  if (status !== STATUS.ok) throw new Error(`The floor graph could not read the terrain: ${new TextDecoder().decode(read(OUT_REFUSAL))}`);
+  const out = read(OUT_REPORT);
+  return new Int32Array(out.buffer, 0, out.length >> 2);
 }
 
 const text = (b: Uint8Array): string => new TextDecoder().decode(b);
