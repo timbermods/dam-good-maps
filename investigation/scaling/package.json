@@ -1,0 +1,13 @@
+{
+  "name": "scaling",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:before": "node build.mjs before",
+    "build:after": "node proposal.mjs && node build.mjs after",
+    "test": "node test.mjs && node typecheck.mjs after",
+    "run:before": "node run.mjs before",
+    "run:after": "node run.mjs after"
+  },
+  "dependencies": {"playwright": "1.58.2"}
+}
