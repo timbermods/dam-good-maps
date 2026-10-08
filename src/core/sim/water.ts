@@ -98,6 +98,20 @@ export interface WaterModel {
    *  on from there (prefill.ts `canonicalRun`), as the game's own would from a file without it. Water
    *  a source feeds is never taken. */
   drained?: readonly number[];
+  /** The map's terrain as runs and its objects as the stacked engine takes them, when some tile is
+   *  not one plain run from the bottom (a cave, an overhang; D120): the canonical settle then runs
+   *  the stacked-column engine on them (prefill.ts, stackWater.ts), and the fields above describe the
+   *  map from above (each tile's top column). Absent on a heightfield, whose water is this file's
+   *  simulation, unchanged. */
+  stacked?: StackedTerrain;
+}
+
+/** A water model's terrain above terrain (`WaterModel.stacked`). */
+export interface StackedTerrain {
+  /** Bit z of `mask[i]` set: voxel z of tile i is solid (terrain/runs.ts `ColumnTerrain.mask`). */
+  mask: Uint32Array;
+  /** The objects that shape water columns or emit, eight numbers each (stackWater.ts `stackObjectRows`). */
+  objects: Float64Array;
 }
 
 /** One stored change to a map's water, in the order its operations stand in the log: a lake that
@@ -136,12 +150,21 @@ export function composeKept(list: readonly KeptWater[]): { retained?: RetainedWa
 }
 
 /** Two models keep the same stored water: their lakes (`retained`) and their drained tiles. */
-export function sameKeptWater(a: Pick<WaterModel, "retained" | "drained">, b: Pick<WaterModel, "retained" | "drained">): boolean {
-  if (!sameRetained(a.retained, b.retained)) return false;
+export function sameKeptWater(a: Pick<WaterModel, "retained" | "drained" | "stacked">, b: Pick<WaterModel, "retained" | "drained" | "stacked">): boolean {
+  if (!sameRetained(a.retained, b.retained) || !sameStacked(a.stacked, b.stacked)) return false;
   const x = a.drained ?? [];
   const y = b.drained ?? [];
   if (x.length !== y.length) return false;
   for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return false;
+  return true;
+}
+
+/** Two models have the same terrain above terrain (none on both, a heightfield, is the same). */
+function sameStacked(a: StackedTerrain | undefined, b: StackedTerrain | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.mask.length !== b.mask.length || a.objects.length !== b.objects.length) return false;
+  for (let i = 0; i < a.mask.length; i++) if (a.mask[i] !== b.mask[i]) return false;
+  for (let i = 0; i < a.objects.length; i++) if (a.objects[i] !== b.objects[i]) return false;
   return true;
 }
 

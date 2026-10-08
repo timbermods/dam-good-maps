@@ -7,7 +7,8 @@ reference TypeScript is #71 (`origin/feature/terrain3d-a`, never adopted, D448);
 
 ## Now (2026-10-07)
 
-Stage 1 is built (below). Next: stage 2. Nothing a player sees has changed.
+Stages 1 and 4 are on dev (#354, #356). Stage 2 is #355, waiting on Kyler, and stage 3 on his word for its rows'
+wording. Stage 5 is built (below). Next: stage 6, which a player sees. Nothing a player sees has changed yet.
 
 ## What dev already has (surveyed 2026-10-07 at 498eb620, against INVENTORY.md)
 
@@ -139,4 +140,40 @@ On its own branch, `feature/3d-foundations-4`, so it merges apart from stage 2.
 - **Stage 5 needs first:** `BuildResult` and `WaterModel` carrying the terrain's columns, then `prefill.ts`'s
   canonical settle through `canonicalStackSettle`'s operations. No forbidden file if the generator and the forces
   keep calling `WaterSim`.
+
+## Stage 5: the engine behind the canonical settle (built 2026-10-07)
+
+On `feature/3d-foundations-5`. Nothing a player sees changes, and no map the app builds takes the new path yet.
+- **The switch** is in `sim/prefill.ts` `canonicalRun` (and so `canonicalSettle`): a model with `stacked`
+  (`sim/water.ts` `WaterModel.stacked`: the terrain's masks and the objects' rows) settles in the stacked engine
+  (`stackedRun` → `sim/stackWater.ts` `canonicalStackRun`); a model without it runs the lines that were there, the
+  same code path as before. `stackedModel(model, terrain, objects)` adds `stacked` only when some tile is not one
+  plain run from the bottom, and returns the very same model on a heightfield. So the terrain decides, not the
+  objects: a heightfield with a badtide drain or a natural overhang keeps today's water.
+- **Nobody passes `stacked` yet.** The build still makes an import's model from its surface (`waterModel`), so a
+  map with caves behaves exactly as today (D100's and D98's exceptions in force). Stage 6 turns it on with one
+  call in `features/build.ts` (`stackedModel(model, base.terrain.withSurface(heights), objects)`).
+- **Progress** needs nothing new: the stacked run has `canonicalRun`'s shape (`advance(ticks)`, `ticks`,
+  `maxTicks`), which the worker already slices and reports (`src/worker/session.ts`, `onProgress({ stage: "water",
+  done: run.ticks / run.maxTicks })`). The result is a `CanonicalWater` whose per-tile fields are the map from
+  above (each tile's top column) and whose `stack` holds every column.
+- **`BuildResult` does not carry the terrain.** A project stores the whole build result (`doc/stored.ts`), so a new
+  field would change every saved project's bytes. The terrain stays derived (`session.terrain`); the model's
+  `stacked` appears only on maps with caves, so heightfield projects keep their bytes.
+- **Sinks** (a water object with a strength below 0, which the editor's object settings and the game allow, D337):
+  the heightfield simulation has the game's rule and keeps it. The stacked engine refuses one in its input checks
+  (`rust/water/src/columns.rs`, `stack_memory.rs`, `stack.rs`, `stack_engine.rs`: each wants a strength of 0 or
+  more) and its emit step in `stack.rs` has no sink branch,
+  and `stackObjectRows` refuses it first with a
+  plain line. Reachable only once stage 6 runs a cave map through the engine, and then only if the player sets a
+  sink on it. Giving the engine the rule is a Rust change with a new fixture; it changes no golden fixture (none
+  has a sink). The game's rule on one column is known (D337); a sink under a roof has not been checked in the game.
+- **Also refused on stacked terrain for now:** the tiles of Remove unfed water (`drained`; the engine takes them
+  on open fields only). Retained water (a Fill, a carve's lake) is passed through.
+- **Covered:** every water object the app can place, on one-column maps, through the engine against today's
+  settle, bit for bit, in every facing (`tests/contract/stackEncoder.test.ts`); the two paths, slices and progress
+  (`tests/contract/stackedWater.test.ts`).
+- **Not done here, for stage 6:** the editor's live water after an edit (`sim/preview.ts`, `fed.ts`, `weather.ts`
+  and the worker's jobs run `WaterSim` directly) on stacked terrain; soil per run top and the multi-slot writer in
+  the build and export; the checks' water.
 
