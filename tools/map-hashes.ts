@@ -3,8 +3,8 @@
 //   npx tsx tools/map-hashes.ts [--themes any,riverValley] [--seeds 1-6] [--sizes 96,128] [--out file.tsv]
 //
 // One line per map: theme, size, seed, then the first 16 hex digits of the sha256 of its surface
-// heights, its settled water (depth and contamination), its objects, its .timber bytes and its
-// project file (the stored base, whose terrain is runs). Run it on dev and on the branch and diff
+// heights, its settled water (depth and contamination), its objects, its .timber bytes, its
+// project file (the stored base, whose terrain is runs) and its check rows (ids, results, messages). Run it on dev and on the branch and diff
 // the two outputs: a map whose land is the same but whose water moved shows in the water column
 // only. Defaults: every theme and Any, seeds 1–6, 96² and 128² (the sample ROADMAP's 3D steps ask for).
 
@@ -47,7 +47,7 @@ for (const theme of themes)
     for (const seed of seeds) {
       const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
       const b = r.built;
-      const row = [theme, size, seed, sha(b.heights), sha(bytesOf(b.water), bytesOf(b.contamination)), sha(JSON.stringify(b.entities)), sha(r.bytes), sha(encodeProject(generatedDocument(r)))].join("\t");
+      const row = [theme, size, seed, sha(b.heights), sha(bytesOf(b.water), bytesOf(b.contamination)), sha(JSON.stringify(b.entities)), sha(r.bytes), sha(encodeProject(generatedDocument(r))), sha(JSON.stringify(r.report.checks))].join("\t");
       rows.push(row);
       console.log(row);
     }

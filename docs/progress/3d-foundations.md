@@ -7,7 +7,8 @@ reference TypeScript is #71 (`origin/feature/terrain3d-a`, never adopted, D448);
 
 ## Now (2026-10-07)
 
-Stage 1 is built (below). Next: stage 2. Nothing a player sees has changed.
+Stage 1 is on dev (#354). Stage 2 is built (below). Next: stage 3 once Kyler has settled its rows' wording (proposed
+under stage 3), or stage 4, which waits on nothing.
 
 ## What dev already has (surveyed 2026-10-07 at 498eb620, against INVENTORY.md)
 
@@ -58,6 +59,15 @@ Each leaves dev's behaviour intact unless it says otherwise, and merges on its o
    for the floor graph, `features/build.ts` for the rule pass. Checked by: the pins re-pinned for the new rows only
    (every existing row's bytes the same), contract tests, the 84 maps. **Needs Kyler:** the new rows appear in the
    page's check list, so their wording is his (`needs-kyler`); the code can be built behind his answer.
+   Proposed wording (a row is its one line; passing first, then failing, in the existing rows' style):
+   - `walk.levels` (information, never fails): "Every level can be walked to from the start" · "3 areas need stairs
+     to reach, the highest at level 14".
+   - `terrain.dropped` (generated maps only): "No ground had to be removed" · "12 blocks of ground removed: nothing
+     held them up".
+   - `water.sealed_source` (a warning): "No water source is sealed in" · "Water source sealed inside rock · X 23 ·
+     Y 45 · Z 5".
+   - `plants.clearance`: "Every plant has room above it" · "5 plants have no room under the rock above them; the
+     game removes them".
 4. **The multi-slot writer and the T maps** (delivers 2's writer, 6). `src/core/format/world.ts` gains the stacked
    singletons (#71's `format/stacked.ts`: one slot's bytes exactly today's on a heightfield); a `src/core/sim`
    binding to the Rust engine (from `tools/rust/stack-memory.ts`); `tools/terrain3d-maps.ts` ported onto them.
@@ -111,4 +121,22 @@ changed. The milestone session asks Kyler (D117).
 - **One behaviour to know:** a stored run that names a plain tile, or a height that disagrees with its tile's runs,
   can only come from a damaged project file; the mask now decides both (before, the stored heights and the stored
   column could disagree in memory). No file the app wrote has either.
-- **Checked:** see the PR.
+- **Checked:** see #354.
+
+## Stage 2: the support check on every map, floor-aware slope and start checks (built 2026-10-07)
+
+In `rust/checks/src/checks.rs`, with `src/core/validate/checksWasm.ts` rebuilt; `tools/rust/checks-pins.json` unchanged.
+- **`terrain.supported`** runs on every map with a tile that is not one plain run from the bottom (`all_plain`),
+  where it ran only when some tile had two floors. The rule itself (`unsupported_voxels`) is unchanged.
+- **`slopes.connect`, `start.flat`, `start.entrance`** read the floor at the object's own level (`floor_at`: air
+  there, solid just below, or the map's bottom), where they compared with the tile's top surface. So a slope or a
+  start under a roof or on a ledge is judged on the ground it stands on. On a heightfield the two are the same test.
+- **Real maps** (`tools/check-rows.ts` on the 22 official maps, the 9 workshop maps and the one user map in
+  `investigation/raw`, before and after): no check newly fails anywhere, and `terrain.supported` changes on none.
+  `slopes.connect` now passes on Cliffside, Beavers Rift and Beavertopia and reports fewer slopes on Hollows (2 → 1),
+  Beavers Endgame, Lost Underground, Lost Valley and Tower of Beaverlon; `start.flat` and `start.entrance` now pass
+  on Beavers Rift and Lost Underground (starts under roofs). Hollows' remaining slope (165, 45, 8) stands on open
+  ground with its foot a level above its low side, reported as before; the other maps' remaining slopes were not
+  looked at one by one.
+- **Not done here:** the Python validator's slope and start checks (`prototype/validate.py`) still read the top
+  surface; they run on generated maps only, where it is the same test. Stage 3 mirrors the floor graph there.

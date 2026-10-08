@@ -230,7 +230,9 @@ fn check_terrain(m: &Map, c: &mut Collector, surface: &[u8], stack_tops: &[i64],
         ("limit", n(0.0)),
         ("message", s(if multi != 0.0 { format!("Caves or overhangs on {}", counted(multi, "tile")) } else { "One floor per tile".into() })),
     ]);
-    let unsupported = if multi == 0.0 { 0.0 } else { unsupported_voxels(m, stack_tops) as f64 };
+    // every map with a tile that is not one plain run from z = 0, whatever its count of floors: a run
+    // floating over air down to z = 0 has one floor, and the game deletes it all the same
+    let unsupported = if all_plain(m, surface) { 0.0 } else { unsupported_voxels(m, stack_tops) as f64 };
     c.add(vec![
         ("id", s("terrain.supported")),
         ("class", s("load")),
@@ -361,6 +363,24 @@ fn check_dam_wall(w: usize, h: usize, surface: &[u8], depth: &[f64], c: &mut Col
         r.push(("where", obj(vec![("tiles", tiles(&walls.iter().map(|q| (q.x, q.y)).collect::<Vec<_>>()))])));
     }
     c.add(r);
+}
+
+/// Whether every tile is one plain run from z = 0 (a heightfield): then nothing can fall.
+fn all_plain(m: &Map, surface: &[u8]) -> bool {
+    let plane = m.w * m.h;
+    (0..plane).all(|i| (0..surface[i] as usize).all(|z| m.voxels[z * plane + i] != 0))
+}
+
+/// Whether tile `i` has a floor at `z`: air there, on solid ground (or on the map's bottom). An object
+/// at `z` stands on it, whatever is above: on a heightfield it is the surface, under a roof the cave's
+/// floor, on a ledge the ledge's top.
+fn floor_at(m: &Map, i: usize, z: i64) -> bool {
+    let plane = m.w * m.h;
+    if z < 0 || z as usize > m.layers {
+        return false;
+    }
+    let z = z as usize;
+    (z == m.layers || m.voxels[z * plane + i] == 0) && (z == 0 || m.voxels[(z - 1) * plane + i] != 0)
 }
 
 /// Solid voxels not reachable from z = 0 going up, or by at most 3 sideways steps since the last upward step;
@@ -638,7 +658,7 @@ fn check_entities(m: &Map, c: &mut Collector) -> EntityScan {
 
 // ---------------------------------------------------------------------------------- slopes and start
 
-fn check_slopes(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
+fn check_slopes(m: &Map, c: &mut Collector, scan: &EntityScan) {
     let (xs, ys) = (m.w as i64, m.h as i64);
     let slopes: Vec<&Entity> = scan.placements.iter().map(|&k| &m.entities[k]).filter(|e| e.template == "Slope").collect();
     let mut at: HashMap<i64, &Entity> = HashMap::new();
@@ -652,9 +672,11 @@ fn check_slopes(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
         let (dx, dy) = slope_high_side(sl.orientation);
         let (hx, hy) = (sl.x + dx, sl.y + dy);
         let (lx, ly) = (sl.x - dx, sl.y - dy);
-        let high_ok = inb(hx, hy) && surface[(hy * xs + hx) as usize] as i64 == sl.z + 1;
+        // the step it joins, read at the slope's own level: a floor one up on its high side, a floor
+        // at its foot (or a slope below it) on its low side, whatever roof or cave is above or below
+        let high_ok = inb(hx, hy) && floor_at(m, (hy * xs + hx) as usize, sl.z + 1);
         let chained = at.get(&(ly * xs + lx));
-        let low_ok = inb(lx, ly) && (surface[(ly * xs + lx) as usize] as i64 == sl.z || chained.is_some_and(|q| q.z == sl.z - 1));
+        let low_ok = inb(lx, ly) && (floor_at(m, (ly * xs + lx) as usize, sl.z) || chained.is_some_and(|q| q.z == sl.z - 1));
         if !high_ok || !low_ok {
             bad.push(object_line("Slope", "joins no step", sl.x, sl.y, sl.z));
             if inb(sl.x, sl.y) {
@@ -693,7 +715,7 @@ fn check_slopes(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
     c.add(r);
 }
 
-fn check_start(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
+fn check_start(m: &Map, c: &mut Collector, scan: &EntityScan) {
     let (xs, ys) = (m.w as i64, m.h as i64);
     let starts: Vec<&Entity> = scan.placements.iter().map(|&k| &m.entities[k]).filter(|e| e.template == "StartingLocation").collect();
     let k = starts.len() as f64;
@@ -712,7 +734,7 @@ fn check_start(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
     }
     let p = Placement::of(starts[0]);
     let fp = footprint("StartingLocation").unwrap();
-    let flat = world_blocks(fp, &p).iter().filter(|bl| bl.local_z == 0).all(|bl| bl.x >= 0 && bl.x < xs && bl.y >= 0 && bl.y < ys && surface[(bl.y * xs + bl.x) as usize] as i64 == p.z);
+    let flat = world_blocks(fp, &p).iter().filter(|bl| bl.local_z == 0).all(|bl| bl.x >= 0 && bl.x < xs && bl.y >= 0 && bl.y < ys && floor_at(m, (bl.y * xs + bl.x) as usize, p.z));
     c.add(vec![
         ("id", s("start.flat")),
         ("class", s("load")),
@@ -721,7 +743,7 @@ fn check_start(m: &Map, c: &mut Collector, surface: &[u8], scan: &EntityScan) {
     ]);
     let (ex, ey) = start_entrance_tile(p.x, p.y, p.orientation);
     let plane = xs * ys;
-    let free = ex >= 0 && ex < xs && ey >= 0 && ey < ys && surface[(ey * xs + ex) as usize] as i64 == p.z && !scan.occupied.contains_key(&(p.z * plane + ey * xs + ex)) && !scan.occupied.contains_key(&((p.z + 1) * plane + ey * xs + ex));
+    let free = ex >= 0 && ex < xs && ey >= 0 && ey < ys && floor_at(m, (ey * xs + ex) as usize, p.z) && !scan.occupied.contains_key(&(p.z * plane + ey * xs + ex)) && !scan.occupied.contains_key(&((p.z + 1) * plane + ey * xs + ex));
     c.add(vec![
         ("id", s("start.entrance")),
         ("class", s("load")),
@@ -758,8 +780,8 @@ pub fn validate_map(m: &Map) -> Result<Validation, Refusal> {
     let surface = surface_of(m);
     let scan = check_entities(m, &mut c);
     check_terrain(m, &mut c, &surface, &scan.stack_tops, m.editing);
-    check_slopes(m, &mut c, &surface, &scan);
-    check_start(m, &mut c, &surface, &scan);
+    check_slopes(m, &mut c, &scan);
+    check_start(m, &mut c, &scan);
     let mut analysis = None;
     let mut mech = None;
     if let Some(play) = &m.play {
