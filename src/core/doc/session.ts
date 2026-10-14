@@ -135,13 +135,14 @@ export interface DocOrphan {
 }
 
 /** Built maps kept for undo and redo: every step's within reach of where the history stands (undo and
- *  redo put the map back as it was, a copy, never a rebuild: D158, D453), and one every few steps
- *  further back. A kept build holds about 92 bytes a tile beyond the builds round it (6 MB at 256²):
- *  `NEAR_TILES` keeps 16 steps either side at 256², 64 at 128², about 96 MB at most. */
+ *  redo put the map back as it was, a copy, never a rebuild: D158, D453), and one every eight steps
+ *  further back (at most eight of those). A kept build holds about 92 bytes a tile beyond the builds
+ *  round it (6 MB at 256²): `NEAR_TILES` keeps 8 steps either side at 256² (about 50 MB with the
+ *  history at its latest step, 100 MB at most, half way back), 32 at 128², 2 at 512². */
 const SNAPSHOT_EVERY = 8;
 const MAX_SNAPSHOTS = 8;
-const NEAR_TILES = 16 * 256 * 256;
-const MIN_NEAR = 8;
+const NEAR_TILES = 8 * 256 * 256;
+const MIN_NEAR = 2;
 
 export class MapSession {
   private gen: Generation;

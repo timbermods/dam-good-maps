@@ -944,7 +944,7 @@ can save the map again, now with its stored map. A
 project saved by another version of the app opens by rebuilding.
 
 **Undo and redo** run over the operation list and put back the map each step kept (`MapSession`: every step's
-within 16 steps of where the history stands at 256², 64 at 128², about 96 MB at most, and one every eight steps
+within 8 steps of where the history stands at 256² (about 6 MB a step), 32 at 128², and one every eight steps
 further back), its own water with it, never rebuilding it; an edit's answer, and undo's and redo's, go to the page
 before the water's settle is even set up, and the water follows in the background (D158, D453). A log another
 session follows (the checks replica, collaborative editing's peers) is rebuilt from where the map stood, as an
