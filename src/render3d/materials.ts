@@ -650,19 +650,20 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
         return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
       }
-      /** The sun on a point under a roof: a ray marched toward the sun through the volume's cells; rock
-       *  stops it, and once it is out in open air the baked shadow there decides (as on the ground
-       *  before a cave's mouth, so the light carries on across the roof line); a ray still under roofs
-       *  after its run takes the volume's own sun. */
+      /** The sun on a point under a roof: a ray marched toward the sun through the voxels (open air and
+       *  roofed air alike, so it passes under an overhang as the light does); rock stops it, and once it is
+       *  over the map's highest ground the baked shadow there decides (the objects' shadows); a ray still
+       *  among the land after its run takes the volume's own sun. */
       float caveSunMarch(vec3 world, vec3 n, float fallback) {
         vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
         vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02;
-        for (int k = 0; k < 40; k++) {
-          q += dir * 0.2;
+        float clear = min(heightRange.y + 0.5, caveSize.z);
+        for (int k = 0; k < 80; k++) {
+          q += dir * 0.3;
+          if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;
+          if (q.z >= clear) return sunLit(q.xy, q.z);
           vec3 cell = floor(q);
-          if (cell.x < 0.0 || cell.y < 0.0 || cell.x >= caveSize.x || cell.y >= caveSize.y || cell.z >= caveSize.z) return 1.0;
-          if (cell.z >= heightOf(tileAt(cell.xy))) return sunLit(q.xy, q.z);
-          if (texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
+          if (cell.z < heightOf(tileAt(cell.xy)) && texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
         }
         return fallback;
       }
@@ -677,22 +678,35 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           float here = texelFetch(caveTex, ivec3(c), 0).r;
           float best = here;
           vec2 to = vec2(0.0);
+          // (of the open sides, the one nearest the face's point)
+          vec2 p = clamp(q.xy, c.xy, c.xy + 1.0);
+          float near = 9.0;
+          vec2 side = vec2(0.0);
+          float sideTop = 0.0;
           for (int d = 0; d < 4; d++) {
             vec2 o = d == 0 ? vec2(1.0, 0.0) : d == 1 ? vec2(-1.0, 0.0) : d == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
             vec3 nc = c + vec3(o, 0.0);
             if (nc.x < 0.0 || nc.y < 0.0 || nc.x >= caveSize.x || nc.y >= caveSize.y) continue;
             float top = heightOf(tileAt(nc.xy));
             if (nc.z >= top) {
-              vec2 p = clamp(q.xy, c.xy, c.xy + 1.0);
-              if (o.x != 0.0) p.x = c.x + 0.5 + o.x * 0.52;
-              else p.y = c.y + 0.5 + o.y * 0.52;
-              return vec4(p.x, max(top, c.z), -p.y, 1.0);
+              float dist = o.x > 0.5 ? c.x + 1.0 - p.x : o.x < -0.5 ? p.x - c.x : o.y > 0.5 ? c.y + 1.0 - p.y : p.y - c.y;
+              if (dist < near) {
+                near = dist;
+                side = o;
+                sideTop = top;
+              }
+              continue;
             }
             float r = texelFetch(caveTex, ivec3(nc), 0).r;
             if (r > best) {
               best = r;
               to = o;
             }
+          }
+          if (near < 9.0) {
+            if (side.x != 0.0) p.x = c.x + 0.5 + side.x * 0.52;
+            else p.y = c.y + 0.5 + side.y * 0.52;
+            return vec4(p.x, max(sideTop, c.z), -p.y, 1.0);
           }
           if (best <= here) break;
           c += vec3(to, 0.0);

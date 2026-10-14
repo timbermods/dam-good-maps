@@ -45,11 +45,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face takes
   `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
   `light.ts` stands. `caveLightOf` carries the light on from the open ground at the roof line the air opens by
-  (`caveMouth`, walked toward the brightest neighbour; over a drop, at the cave's own level): the sky never below
-  0.30, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's ambient field, never more than at the point); the sun the open ground's
-  at the line, fading over 0.6 of a tile to the cave's own and never above the line's (`caveSun`: Standard marches
-  the ray through the volume until rock or the open sky's baked shadow, High uses its soft shadow of the real
-  meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the roof
+  (`caveMouth`, walked toward the brightest neighbour, the open side nearest the face; over a drop, at the cave's
+  own level): the sky never below 0.30, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's
+  ambient field, never more than at the point); the sun the open ground's at the line, fading over 0.6 of a tile
+  to the cave's own and never above the line's (`caveSun`: Standard marches the ray through the voxels, under
+  overhangs too, until rock or the map's highest ground, then the baked shadow; High uses its soft shadow of the
+  real meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the roof
   above is not a wall at its level). Water and objects under roofs are not lit by it yet (part 4, and item 7).
 - **Equivalence:** a map with no column that is not plain builds no volume (`caveSize` 0: the shader returns before
   reading it). `tests/unit/caveLight.test.ts` builds the volume anyway on seven generated maps (all six themes and
