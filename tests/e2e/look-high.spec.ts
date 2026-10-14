@@ -466,3 +466,39 @@ test("every basin source's highlight reads, under its own water too, in High as 
   expect(result.back).toBeLessThanOrEqual(8);
   expect(errors).toEqual([]);
 });
+
+test("High's visible seasons: a held drought or badtide day withers the plants whose ground dried or was poisoned; Standard and Day 0 do not (D250)", async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
+  expect(await look(page)).toBe("high");
+  const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
+  const day = bar.locator(".day-label");
+  expect(await withered()).toBe(0);
+  for (const hazard of ["Drought", "Badtide"]) {
+    await bar.getByRole("button", { name: hazard }).click();
+    await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+    await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+    const last = await withered();
+    // Standard stays as it is, and High again draws the same plants withered
+    await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+    expect(await withered()).toBe(0);
+    await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+    expect(await withered()).toBe(last);
+    // Day 0 is the map's own ground: nothing withers
+    await day.dblclick();
+    await bar.getByRole("textbox", { name: "Day" }).fill("0");
+    await bar.getByRole("textbox", { name: "Day" }).press("Enter");
+    await expect(day).toHaveText("Day 0");
+    await expect.poll(withered, { timeout: 60_000 }).toBe(0);
+    // back out of the view: every plant as the map has it
+    await bar.getByRole("button", { name: hazard }).click();
+    await expect(bar.getByRole("button", { name: hazard })).toHaveAttribute("aria-pressed", "false");
+    expect(await withered()).toBe(0);
+  }
+  expect(errors).toEqual([]);
+});

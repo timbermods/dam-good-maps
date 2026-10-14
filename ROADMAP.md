@@ -375,7 +375,7 @@ Not yet scheduled.
   widen abruptly. Pending #83: the new trees in Standard, only if they cost little on real hardware (D241). Optional, later:
   richer or higher-resolution textures, softened block edges and grass lips, full-resolution rendering and anti-aliasing, more
   detailed bush and ruin models, dry contaminated ground's cracks a little more visible from far away. Visible seasons
-  (#67's stage, with D250's badtide withering) join the Weather view, so they aren't drawn twice (D286 (4)).
+  (#67's stage, with D250's badtide withering) are built with the Weather view, so they aren't drawn twice (D286 (4)).
 
 ---
 
@@ -732,6 +732,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
+   **Built: High's visible seasons.** On a held Drought or Badtide day, in High only, the plants (pines, birches, oaks, berry
+   bushes) that live on the map's own ground but not on the day's (dry in a drought, poisoned in a badtide, the generator's
+   own rule: moist and clean) are drawn withered, as the dead trees and bushes of dry ground; succulents and the map's
+   own plants are never changed, Day 0 and Standard show the map as it is. `render3d/seasons.ts` (pure,
+   `tests/unit/seasons.test.ts`), `MapRenderer.setSeasons`, and a check in `tests/e2e/look-high.spec.ts`.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).

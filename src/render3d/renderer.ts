@@ -67,6 +67,7 @@ import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { flagsDigest, witheredCount, witheredEntities } from "./seasons";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
@@ -280,6 +281,11 @@ export class MapRenderer {
    *  and ruins follow the ground painted or dragged over theirs (live editing). */
   private objectGround: Uint8Array | null = null;
   private objectsMoved = false;
+  /** The map's own soil while a drought or badtide day is held (the visible seasons, D250), or null; and a digest of the
+   *  withered plants drawn now ("" for none), so a day that withers the same plants builds nothing again. */
+  private seasonOwn: SoilView | null = null;
+  private seasonSig = "";
+  private seasonCount = 0;
   private overlay: DataTexture | null = null;
   private marks: DataTexture | null = null;
   /** Where the contamination outline runs (**Markers**): `contaminationEdges` of the tile data. */
@@ -792,6 +798,7 @@ export class MapRenderer {
       this.ghost = null;
     }
     this.governor?.hold(performance.now());
+    this.refreshSeasons();
     this.requestRender();
     if (was !== tier) this.tellLook();
   }
@@ -1279,7 +1286,11 @@ export class MapRenderer {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
+    // (the High look's visible seasons: the plants a held day's soil withers are drawn dead, the map's own never changed)
+    const shown = this.seasonal(e);
+    this.seasonSig = shown === e ? "" : flagsDigest(shown.flags);
+    this.seasonCount = shown === e ? 0 : witheredCount(shown, e);
+    const { group, instances } = buildEntities(shown, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -1290,7 +1301,7 @@ export class MapRenderer {
     this.showMarkerObjects();
     const m = this.map!;
     m.entities = e;
-    this.high?.objectsBuilt(group, e);
+    this.high?.objectsBuilt(group, shown);
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
     const old = m.source.cutout ?? new Map<number, number>();
@@ -1547,8 +1558,40 @@ export class MapRenderer {
     if (!m) return;
     m.soil = soil;
     this.bakeTiles();
+    this.refreshSeasons();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** The Weather view's visible seasons (D250 (1), D286 (4)): while a drought or a badtide day is held, `own` is the map's
+   *  own soil, and the plants that live on it but not on the day's soil (the soil shown now) are drawn withered, in the High
+   *  look only (Standard stays as it is). Null puts every plant back. */
+  setSeasons(own: SoilView | null): void {
+    this.seasonOwn = own;
+    this.refreshSeasons();
+  }
+
+  /** How many plants are drawn withered by the held day now (the tests read it). */
+  get witheredPlants(): number {
+    return this.seasonCount;
+  }
+
+  /** The objects as drawn: the map's own, or with the withered plants flagged dead. */
+  private seasonal(e: EntityView): EntityView {
+    const m = this.map;
+    if (!this.seasonOwn || !m?.soil || !this.high || this.lookNow === "standard" || this.lookNow === "light") return e;
+    return witheredEntities(e, this.seasonOwn, m.soil, m.W);
+  }
+
+  /** Draw the objects again when the withered plants (or the look) changed. */
+  private refreshSeasons(): void {
+    const m = this.map;
+    if (!m) return;
+    const shown = this.seasonal(m.entities);
+    if ((shown === m.entities ? "" : flagsDigest(shown.flags)) === this.seasonSig) return;
+    this.setEntitiesInner(m.entities);
+    this.bakeShadows(true);
+    this.requestRender();
   }
 
   updateEntities(e: EntityView): void {

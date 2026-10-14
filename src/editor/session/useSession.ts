@@ -504,6 +504,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       journey.current?.flush();
       player.current?.skip();
       setWeather(hazard);
+      // (the High look's visible seasons: the plants the day's soil withers, against the map's own soil)
+      renderer.current?.setSeasons(mirror.current.soil ?? null);
       heldDay.current = null;
       setWeatherDay(null);
       // (working from the click until the day shows: the box's fill starts empty)
@@ -518,6 +520,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(null);
       setWeatherTarget(null);
       mirror.current.daySoil = null;
+      renderer.current?.setSeasons(null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
