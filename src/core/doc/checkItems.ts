@@ -84,7 +84,28 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
     for (const e of s.built.entities) if (want.has(e.id)) tiles.push([e.x, e.y]);
     if (tiles.length) where = { ...where, tiles };
   }
-  return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
+  return { id: c.id, class: c.class, message: rowWords(c.id, c.message), ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
+}
+
+/** A row's words as the editor lists them, the same on every map: the berry rows say which bushes each
+ *  counts (the food row the thriving ones within 20 tiles' walk, the drought row every bush within 20
+ *  tiles, so the two never read as contradicting), and the edge wall names its edges once. */
+export function rowWords(id: string, message: string): string {
+  if (id === "start.food") return message.replace(/\bliving blueberry bush(es)?\b/, "thriving blueberry bush$1");
+  if (id === "plants.drought") return message.replace(/ near the start /, " within 20 tiles of the start ");
+  if (id === "terrain.edge_wall") {
+    const edges = [...message.matchAll(/(south|north|west|east) edge \((\d+)%\)/g)].map((m) => ({ side: m[1], share: Number(m[2]) }));
+    if (!edges.length) return message;
+    if (edges.length === 4) {
+      const lo = Math.min(...edges.map((e) => e.share));
+      const hi = Math.max(...edges.map((e) => e.share));
+      return `Walls hold back water on all four edges (${lo === hi ? lo : `${lo}–${hi}`}%)`;
+    }
+    const named = edges.map((e) => `${e.side} (${e.share}%)`);
+    if (named.length === 1) return `A wall holds back water on the ${named[0].replace(" ", " edge ")}`;
+    return `Walls hold back water on the ${named.slice(0, -1).join(", ")} and ${named.at(-1)} edges`;
+  }
+  return message;
 }
 
 /** The failing checks as items; with `region`, those in it (a tile of the problem within a tile of the
@@ -166,7 +187,7 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
     if (place) {
       if (c.class === "load") out.blocking.push(checkItem(s, c));
       else if (!c.advisory && PLACE_WARNING_CHECKS.has(c.id)) out.warnings.push(checkItem(s, c));
-      else out.advisory.push({ ...checkItem(s, c), message: informationMessage(c.message) });
+      else out.advisory.push(informationItem(checkItem(s, c)));
     } else if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
     else if (c.advisory) out.advisory.push(checkItem(s, c));
     else if (blocks("export", c)) out.blocking.push(checkItem(s, c));
@@ -175,6 +196,14 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
   // (a place's start with no clean water says so once: its store-water row repeats the warning)
   if (place && out.warnings.some((c) => c.id === "start.water")) out.advisory = out.advisory.filter((c) => c.id !== "water.storage_possible");
   return out;
+}
+
+/** A row as information (a real place's Good to know): its words a fact (`informationMessage`), and a
+ *  planting fix without the count that aimed at the target the fact no longer shows ("Plant oaks near
+ *  the start"). */
+function informationItem(item: CheckItem): CheckItem {
+  const fix = item.fix?.map((op, k) => (k === 0 ? { ...op, label: op.label.replace(/^Plant (\d+) (.+?) (for the starting logs|near the start)$/, (_, n: string, what: string) => `Plant ${n === "1" ? (/^[aeiou]/.test(what) ? "an " : "a ") : ""}${what} near the start`) } : op));
+  return { ...item, message: informationMessage(item.message), ...(fix ? { fix } : {}) };
 }
 
 /** A row's words where it is information (a real place's Good to know, D245): the fact without the

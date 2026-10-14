@@ -5,7 +5,7 @@
 // same file opened as a plain import keeps D3's rule (its own problems listed apart).
 
 import { describe, expect, it } from "vitest";
-import { groupChecks, informationMessage, PLACE_WARNING_CHECKS } from "../../src/core/doc/checkItems";
+import { groupChecks, informationMessage, PLACE_WARNING_CHECKS, rowWords } from "../../src/core/doc/checkItems";
 import { decodeProject, encodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
@@ -45,6 +45,12 @@ describe("a real place's check summary", () => {
   it("its information rows read as facts, without a target that reads failed", () => {
     const { groups } = opened("near-aso-caldera", true);
     for (const c of groups.advisory) expect(c.message).not.toMatch(/at least|aim for|needed|allows/);
+    // (its planting fixes carry no count aimed at a target the fact no longer shows)
+    for (const c of groups.advisory) for (const op of c.fix ?? []) expect(op.label).not.toMatch(/\d/);
+    expect(rowWords("terrain.edge_wall", "Wall along the south edge (70%), north edge (81%), west edge (98%), east edge (82%) holds back water")).toBe("Walls hold back water on all four edges (70–98%)");
+    expect(rowWords("terrain.edge_wall", "Wall along the west edge (98%), east edge (82%) holds back water")).toBe("Walls hold back water on the west (98%) and east (82%) edges");
+    expect(rowWords("start.food", "24 living blueberry bushes within 20 tiles' walk of the start (at least 30)")).toBe("24 thriving blueberry bushes within 20 tiles' walk of the start (at least 30)");
+    expect(rowWords("plants.drought", "53 blueberry bushes near the start dry out in a 9-day drought")).toBe("53 blueberry bushes within 20 tiles of the start dry out in a 9-day drought");
     expect(informationMessage("0 of 0 mine sites reachable from the start, at least 2 needed")).toBe("No mine sites");
     expect(informationMessage("124 logs within 20 tiles' walk of the start, all pine (at least 200)")).toBe("124 logs within 20 tiles' walk of the start, all pine");
   });
