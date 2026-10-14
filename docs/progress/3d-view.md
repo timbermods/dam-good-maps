@@ -39,8 +39,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   masks the mesher draws) with a 3D DDA and lands on the first solid voxel's face. A `TileHit` now also says its
   `face` (`top`, `bottom` or `side`, with `side` the way a wall faces), its `run` (`bottom` and `top`: the solid
   run of the column the face belongs to; the map's floor under air at the bottom is the empty run at level 0) and
-  its `level` (the run's top). So the cursor, the brushes, the forces and Select aim at what the player sees: a
-  cave's floor through its mouth, a ledge under an overhang, a run's underside, never a face behind a wall.
+  its `level` (the run's top). So Select and the hover highlight aim at what the player sees: a cave's floor
+  through its mouth, a ledge under an overhang, a run's underside, never a face behind a wall. Every other tool (the
+  brushes, forces, shelf, start and sources) picks the tile's top exactly as the heightfield picker did
+  (`pickEditing`: the same ray walk over plain columns, heights clamped by the cut) until step 3 (D484): through a cave's
+  mouth they get the tile in front, where the pointer is, since their stroke changes that tile's top. A tool says
+  `voxel: true` to be given the ground seen (only Select does).
   Under a layer cut the walk lands on the cut (voxels at or above it are air); the per-pick copy of every height
   that cut used to make is gone. `pickHeightfield` stays as the reference (and for the investigations).
 - **Equivalence** (`tests/unit/pickTerrain.test.ts`): on seven generated maps (all themes, 96² to 128²) over a grid
@@ -57,7 +61,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   mask is rebuilt from its 23 bytes at each cell; a mask array from the worker, seam 1 above, would make it a lookup).
 - **Captures:** `docs/sheets/3d-view-picking.jpg` (official map with caves, a cave floor through its mouth and a
   ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
-  Chrome on the RTX 2070 SUPER): dev's cursor and drag land on the wall or roof in front, this branch's on the floor.
+  Chrome on the RTX 2070 SUPER): dev's hover highlight and drag land on the wall or roof in front, this branch's (Select) on the floor. The editing
+  tools' cursors are not in the sheet: they stay where dev's are.
   The selection's tint still covers the whole tile (roof, walls and floor), since the overlay is per tile.
 - **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
   Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
