@@ -500,7 +500,9 @@ cluster saturation). The game's code (1.1.2.7: `DroughtWaterStrengthModifier`,
 `BadtideWaterSourceContaminationController`, `WaterParametersUpdateTask`) acts per source and per column, with
 nothing about roofs, so the heightfield's rules are the stacked ones. One Rust change: a seep in the stacked
 engine starts off, as the heightfield's and the game's do (`WaterDepthStrengthModifier._isEnabled` starts false,
-unsaved); no golden fixture has a seep. An unedited import's stored water now carries its full caves' pressure
+unsaved); no golden fixture has a seep. The 19 official maps' canonical settle against their own water is unchanged
+by it (every overlap and soil match as in the table above; Oasis settles at 2,944 ticks instead of 1,152, still
+matching its file exactly), and the game starts a seep off both at load and so at a hazard's day 0. An unedited import's stored water now carries its full caves' pressure
 (`storedWater`'s `overflow`, into `storedStack`): without it Pressure's start lost 2,005 blocks over 4,610 columns.
 The drought line reads both days on the column standing on the map's ground (`surfaceWater`), so water under a
 NaturalOverhang is never a false bed.
