@@ -72,44 +72,55 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
         </span>
       </button>
       {open ? (
-        <div class="menu" id="look-menu" role="group" aria-label="Look">
-          {CHOICES.map((c) => (
-            <div key={c.key}>
-              <label title={c.note}>
-                <input
-                  type="radio"
-                  name="look"
-                  checked={choice === c.key}
-                  onChange={() => {
-                    r.setLookChoice(c.key);
-                    setTick((n) => n + 1);
-                  }}
-                />{" "}
+        <div class="menu look-menu" id="look-menu" role="group" aria-label="Look">
+          {/* the page's own controls: a segmented choice (the chosen cell lit as the page's choices are) and checkbox
+              rows as the Show column's, a wrapped word hanging under its own first letter */}
+          <div class="look-choices" role="radiogroup" aria-label="Drawing">
+            {CHOICES.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                role="radio"
+                aria-checked={choice === c.key}
+                title={c.note}
+                onClick={() => {
+                  r.setLookChoice(c.key);
+                  setTick((n) => n + 1);
+                }}
+              >
                 {c.label}
-              </label>
-            </div>
-          ))}
+              </button>
+            ))}
+          </div>
           <p class="note" role="status">
             {lookWords(choice, look)}
           </p>
           {high
             ? PARTS.map((p) => {
                 const keys = HIGH_EFFECTS.filter((e) => e.from === p.from).map((e) => e.key);
+                const on = keys.every((k) => effects[k]);
                 return (
-                  <div key={p.from}>
-                    <label title={`Turn High's ${p.label.toLowerCase()} on or off`}>
-                      <input
-                        type="checkbox"
-                        checked={keys.every((k) => effects[k])}
-                        onChange={(ev) => {
-                          const on = (ev.target as HTMLInputElement).checked;
-                          for (const k of keys) r.setHighEffect(k, on);
-                          setTick((n) => n + 1);
-                        }}
-                      />{" "}
-                      {p.label}
-                    </label>
-                  </div>
+                  <button
+                    key={p.from}
+                    type="button"
+                    role="checkbox"
+                    class="look-part"
+                    aria-checked={on}
+                    title={`Turn High's ${p.label.toLowerCase()} on or off`}
+                    onClick={() => {
+                      for (const k of keys) r.setHighEffect(k, !on);
+                      setTick((n) => n + 1);
+                    }}
+                  >
+                    <span class={`cb${on ? " on" : ""}`} aria-hidden="true">
+                      {on ? (
+                        <svg viewBox="0 0 12 12">
+                          <path d="M2.5 6.2l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span class="cb-word">{p.label}</span>
+                  </button>
                 );
               })
             : null}

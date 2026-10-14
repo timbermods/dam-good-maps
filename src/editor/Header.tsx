@@ -63,7 +63,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   const c = p.check;
   return (
     <span class="checks-dot-wrap" ref={wrap}>
-      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
+      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} {...tip("What to fix before playing")} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
         {d.count ? (
           <span class="dot-count" aria-hidden="true">
@@ -138,6 +138,59 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   );
 }
 
+/** How many lines `text` takes in a line `width` wide, its words broken where the browser breaks them; Infinity when one
+ *  word is wider than the line. `measure` gives a string's width. */
+function linesIn(text: string, width: number, measure: (t: string) => number): number {
+  let lines = 1;
+  let line = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    if (measure(word) > width) return Infinity;
+    const next = line ? `${line} ${word}` : word;
+    if (measure(next) <= width) line = next;
+    else {
+      lines++;
+      line = word;
+    }
+  }
+  return lines;
+}
+
+/** Whether a name fits the two lines the header keeps for it where its room is narrowest: 13px, between the two groups
+ *  at 1280 wide (DESIGN: every name Rename allows fits two lines there). */
+function fitsTwoLines(field: HTMLInputElement, name: string): boolean {
+  const bar = field.closest("header");
+  const get = (n: string) => parseFloat(bar?.style.getPropertyValue(n) ?? "") || 0;
+  const room = Math.max(60, Math.min(bar?.clientWidth ?? 1280, 1280) - get("--side-l") - get("--side-r") - 24);
+  const pen = document.createElement("canvas").getContext("2d");
+  if (!pen) return true;
+  const cs = getComputedStyle(field);
+  pen.font = `${cs.fontStyle} ${cs.fontWeight} 13px ${cs.fontFamily}`;
+  return linesIn(name, room, (t) => Math.ceil(pen.measureText(t).width) + 1) <= 2;
+}
+
+/** A name typed in Rename stops at what fits two lines, as Your maps' does (Kyler, 2026-10-05): a key past them does
+ *  nothing, a paste keeps what fits. */
+function fitTwoLines(field: HTMLInputElement, was: string): string {
+  const v = field.value;
+  if (fitsTwoLines(field, v)) return v;
+  const at = field.selectionStart ?? v.length;
+  let kept = was;
+  if (v.length !== was.length + 1) {
+    let lo = 0;
+    let hi = v.length;
+    while (lo < hi) {
+      const m = (lo + hi + 1) >> 1;
+      if (fitsTwoLines(field, v.slice(0, m))) lo = m;
+      else hi = m - 1;
+    }
+    kept = v.slice(0, lo);
+  }
+  field.value = kept;
+  const caret = Math.min(kept.length, kept === was ? at - 1 : at);
+  field.setSelectionRange(caret, caret);
+  return kept;
+}
+
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
@@ -207,7 +260,7 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
           aria-label="Map name"
           title="Rename"
           size={1}
-          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onInput={(e) => setText(fitTwoLines(e.target as HTMLInputElement, text))}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -311,21 +364,7 @@ export function Header(p: HeaderProps) {
         title.style.setProperty("--title-max", `${room}px`);
         const two = wide > room;
         // (how many lines its words take at full size in that room, broken where the browser breaks them)
-        const linesAt = (w: number) => {
-          if (!pen) return 3;
-          let lines = 1;
-          let line = "";
-          for (const word of text.split(/\s+/).filter(Boolean)) {
-            if (Math.ceil(pen.measureText(word).width) + 1 > w) return Infinity;
-            const next = line ? `${line} ${word}` : word;
-            if (Math.ceil(pen.measureText(next).width) + 1 <= w) line = next;
-            else {
-              lines++;
-              line = word;
-            }
-          }
-          return lines;
-        };
+        const linesAt = (w: number) => (pen ? linesIn(text, w, (t) => Math.ceil(pen.measureText(t).width) + 1) : 3);
         title.classList.toggle("two-lines", two);
         title.classList.toggle("small", two && linesAt(room) > 2);
         title.classList.toggle("no-facts", two || room < facts.scrollWidth);

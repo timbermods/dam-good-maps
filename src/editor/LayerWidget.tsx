@@ -42,7 +42,7 @@ export function LayerWidget(p: LayerWidgetProps) {
   };
   return (
     <span class={`layer-widget${at ? " quiet" : ""}`} role="group" aria-label="Visible layers">
-      <button type="button" aria-label="Lower the visible layer" {...tip("Cut the world a layer lower", "Alt+scroll down")} onClick={() => step(-1)} disabled={p.level === 0}>
+      <button type="button" aria-label="Lower the visible layer" {...tip("Show a layer less", "Alt+scroll down")} onClick={() => step(-1)} disabled={p.level === 0}>
         ▾
       </button>
       <output

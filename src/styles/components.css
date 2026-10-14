@@ -650,6 +650,11 @@ button.pick-line[aria-pressed="true"] {
   transform: translateY(-100%);
 }
 
+/* to the left of its control, level with its middle (the speaker's, so the volume under it stays in view) */
+.tip.beside {
+  transform: translateY(-50%);
+}
+
 .tip-key {
   display: inline-flex;
   align-items: center;

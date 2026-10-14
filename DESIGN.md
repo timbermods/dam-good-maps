@@ -829,3 +829,21 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+
+## The header and top-right controls (polish audit, 2026-10-14)
+
+- **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
+  header's room is narrowest (1280 wide), the same 80-character ceiling; a key past it does nothing, a paste keeps what
+  fits. So no name is ever three lines, at any width.
+- **The compass is a button, Face north** (as in Timberborn): the round plate keeps its place and size; a click glides the
+  view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
+  mockups' "an indicator, not a control".
+- **The speaker's tooltip sits to its left,** level with its middle, so the volume that opens under it is never covered
+  (`data-tip-side="left"`, the shared tooltip layer).
+- **The Look menu uses the page's own controls:** the three looks a segmented choice (the chosen cell filled as the
+  settings' choices are), High's parts checkbox rows of the Show column's 14px box, a name that wraps hanging under its
+  first letter. No browser radios or checkboxes.
+- **Tooltips:** the layer arrows are "Show a layer less" and "Show a layer more"; the checks pill's is "What to fix before
+  playing" (its words are already on it).
+- **The checks' list and the Legend:** the list closes an open Legend while it is shown (the Legend's box keeps its tick
+  and the panel returns when the list closes); the two never overlap. Captures `docs/design/polish-header-*`.
