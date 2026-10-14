@@ -209,9 +209,9 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
   const hidden = cut !== null ? "That ground is above the layer showing: show it to change it" : "A force leaves caves and overhangs as they are";
   // a Rift or Deposit that found nothing to move says why: the Rust names the Floor (a Rift) or the
-  // working area (a Deposit) for any ground it may not touch, the layer showing's included
+  // working area or Keep (a Deposit) for any ground it may not touch, the layer showing's included
   const blame = (why: string): string => {
-    if (req.verb === "deposit" && why.startsWith("the working area") && !inside) return hidden;
+    if (req.verb === "deposit" && why.includes("the working area leaves nothing") && !inside) return hidden;
     if (req.verb !== "rift" || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;

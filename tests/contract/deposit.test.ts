@@ -78,6 +78,16 @@ describe("Rust Deposit",()=>{
   for(let i=0;i<h.length;i++){const d=run.map.heights[i]-h[i];if(d>0)raised++;if(d<0)lowered++;if(d!==0&&Math.hypot(i%64-path[0].x,Math.floor(i/64)-path[0].y)>4)outside++;}
   expect(raised).toBeGreaterThan(0);expect(lowered).toBe(0);expect(outside).toBe(0);
  });
+ test("an outline with only a sliver above the Floor still lays at least the least fan (D356; review of #348)",()=>{
+  // (a fan's own tiles never give: one tile a level above a flat at the Floor once left a click refused)
+  const m=plain(),at=path[0].y*64+path[0].x,h0=m.heights[at];m.heights.fill(h0);m.heights[at]=h0+1;
+  for(const [power,size] of [[70,8],[100,8],[100,30]]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:h0,power,size},{path:[path[0]]});run.finishAll();
+   let changed=0,outside=0;
+   for(let i=0;i<h.length;i++){if(run.map.heights[i]!==h[i]){changed++;if(Math.hypot(i%64-path[0].x,Math.floor(i/64)-path[0].y)>size/2)outside++;}}
+   expect(changed,`Power ${power} Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
+  }
+ });
  test("one-line refusals leave all input bytes unchanged",()=>{
   const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
   expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");

@@ -272,9 +272,10 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     // (an outline with no ground above the Floor to take, a lake's bed or the map's lowest ground: the water brings
     // the fan's sediment, a small one, so the click is never refused (D356) and nothing outside the outline changes,
     // #341; conserved whenever the outline has ground to give)
-    // (only the land itself: ground above the Floor that Keep or the working area holds refuses, below)
-    let bare=!(0..n).any(|i|outline[i]!=0&&before.heights[i]>floor);
-    let brought=donor_capacity==0&&bare;
+    // (only the land itself: where the outline's donors fall short of the least fan and Keep or the working area
+    // holds no ground above the Floor in it, the water makes up the rest; where they hold some, it refuses, below)
+    let held=(0..n).any(|i|outline[i]!=0&&before.heights[i]>floor&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0)));
+    let brought=donor_capacity<9&&!held;
     let budget=if brought{capacity.max(9).min(minimum)}else{capacity.max(9).min(supply).min(donor_capacity)};
     let mut bed=before.heights.clone();let mut remaining=budget;
     for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);bed[d.i]-=cut as u8;remaining-=cut;}
@@ -299,7 +300,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
     stats[3]=stats[2]-stats[1];debug_assert!(brought||stats[3]==0.0);
     // (nothing laid: the player's Keep or working area holds the whole outline, or the map has no room there)
-    if deposited==0{map.error=if !bare||(0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
+    if deposited==0{map.error=if held||(0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};
