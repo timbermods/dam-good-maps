@@ -42,6 +42,7 @@ import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
 import { editorView } from "./render/editorView";
+import { followFocus, putUiBack, takeUi, type UiState } from "./tour/uiState";
 
 /** The map's land and water as the editor shows them, for Your maps' picture. */
 export interface MapPicture {
@@ -88,6 +89,10 @@ export interface EditorProps {
   /** This editor is the tour's, on a temporary copy of the player's map: the tour plays over it, and `onEnd` brings
    *  the player's own map back (src/editor/tour/). */
   tour?: { onEnd(): void };
+  /** The page asks the editor for its own state (the tool in hand, the selection, what is open...) before the tour, and
+   *  hands it back to the editor that returns (D377). */
+  onUiState?(get: () => UiState): void;
+  restore?: UiState;
 }
 
 export default function Editor(props: EditorProps) {
@@ -116,6 +121,13 @@ export default function Editor(props: EditorProps) {
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);
   useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
+  // (the state a tour will put back: read from this render's bag)
+  props.onUiState?.(() => takeUi(ed));
+  useEffect(() => (props.tour ? undefined : followFocus(() => ed.renderer.current?.canvas ?? null)), []);
+  // the editor that comes back after the tour finds the player's own state again, once it is ready
+  useEffect(() => {
+    if (props.restore && ed.ready) putUiBack(ed, props.restore);
+  }, [!!ed.ready]);
   // one left panel at a time: Map Generator, Real places or Your maps opening closes History (Kyler, 2026-10-06)
   useEffect(() => {
     if (props.drawerOpen || props.mapsOpen || props.placesOpen) ed.setShowHistory(false);

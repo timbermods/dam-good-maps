@@ -39,6 +39,7 @@ import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { putPrefsBack, takePrefs, type Prefs } from "../editor/tour/prefs";
+import type { UiState } from "../editor/tour/uiState";
 import type { Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
 
@@ -185,7 +186,7 @@ export function App() {
   /** What a link said (made by another generator version, or with settings it couldn't keep). */
   const [note, setNote] = useState<string | null>(init.note ?? null);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean } | null>(null);
+  const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean; restore?: UiState } | null>(null);
   /** A map being made over the open one (Generate, Surprise me, Another like this): the modal says so, and nothing
    *  else can be clicked or started; "back" while Cancel puts the open map back; the words when it failed. */
   const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
@@ -230,7 +231,9 @@ export function App() {
    *  there; the map the player has is not touched (its worker keeps it, its history and all) and comes back when the
    *  tour ends. While it plays the editor is the tour's, and nothing it does is saved. */
   const [tour, setTour] = useState<{ key: number; data: SessionOpen; api: Remote<GeneratorApi>; stop(): void } | null>(null);
-  const tourState = useRef<{ starting: boolean; prefs: Prefs | null; count: number }>({ starting: false, prefs: null, count: 0 });
+  const tourState = useRef<{ starting: boolean; prefs: Prefs | null; count: number; ui: UiState | null }>({ starting: false, prefs: null, count: 0, ui: null });
+  /** The open editor's own state, asked for before the tour (what it holds in its hand, what is open). */
+  const uiState = useRef<(() => UiState) | null>(null);
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
   const keeping = useRef(true);
   /** The player chose to close a map Your maps isn't keeping ("Close it"): the next replacement goes ahead. */
@@ -693,6 +696,8 @@ export function App() {
     const t = tourState.current;
     if (tour || t.starting || !opened || replacingMap || making || confirm) return;
     t.starting = true;
+    // (as it is the moment it is asked for: the focus is still where the click left it)
+    t.ui = uiState.current?.() ?? null;
     let w: ReturnType<typeof createGeneratorWorker> | null = null;
     try {
       await pendingEdits.current?.();
@@ -727,7 +732,7 @@ export function App() {
       await generator.stopWeatherPrep();
       await generator.stopWeather();
       const data = await generator.sessionView();
-      setOpened((o) => (o ? { key: o.key + 1, data, keepView: true } : o));
+      setOpened((o) => (o ? { key: o.key + 1, data, keepView: true, ...(tourState.current.ui ? { restore: tourState.current.ui } : {}) } : o));
     } catch (e) {
       setError(`Your map could not be shown again: ${words(e)}`);
     }
@@ -1063,6 +1068,8 @@ export function App() {
           onPlaces={(o) => setPanel(o ? "places" : null)}
           keepView={opened.keepView}
           onTour={() => void startTour()}
+          onUiState={(get) => (uiState.current = get)}
+          restore={opened.restore}
           notice={message}
         />
       )}

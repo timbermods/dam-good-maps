@@ -40,6 +40,47 @@ async function withHistory(page: Page) {
   await expect(page.getByRole("button", { name: "Redo (Ctrl+Y)" })).toBeEnabled();
 }
 
+/** The editor as the player sees and holds it: what is pressed (the tools, the Show row, History), the options row's words
+ *  and values, the selection, the water row (a held Drought day), and what has the focus. */
+async function uiSignature(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const named = (b: Element) => (b.getAttribute("aria-label") ?? b.textContent ?? "").trim().replace(/\s+/g, " ");
+    return {
+      pressed: [...document.querySelectorAll("[aria-pressed]")].map((b) => `${named(b)}:${b.getAttribute("aria-pressed")}`),
+      checked: [...document.querySelectorAll<HTMLInputElement>('.editor input[type="checkbox"]')].map((c) => `${c.closest("label")?.textContent?.trim() ?? c.getAttribute("aria-label")}:${c.checked}`),
+      options: [...document.querySelectorAll(".tool-settings .set")].map((s) => `${s.textContent?.trim().replace(/\s+/g, " ")}|${[...s.querySelectorAll("input")].map((i) => i.value).join(",")}`),
+      selection: window.dgmEditor!.selection().length,
+      water: document.querySelector(".water-bar")?.textContent?.trim().replace(/\s+/g, " ") ?? "",
+      focus: el === window.dgm3d!.renderer.canvas ? "map" : el ? `${el.tagName}:${named(el)}` : "",
+    };
+  });
+}
+
+/** Set the editor up the way a player might have it: a selection drawn, the Raise brush sized, Carve in hand with its Power
+ *  set, See-through on, History open and a Drought day held, the focus on the map. */
+async function setUpUi(page: Page) {
+  const tl = await page.evaluate(() => window.dgmEditor!.tileToClient(44, 50));
+  const br = await page.evaluate(() => window.dgmEditor!.tileToClient(56, 60));
+  await page.mouse.move(tl.x, tl.y);
+  await page.mouse.down();
+  await page.mouse.move(br.x, br.y, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(20);
+  await page.keyboard.press("Digit2");
+  await page.keyboard.press("Shift+BracketRight");
+  await page.keyboard.press("Shift+BracketRight");
+  await page.keyboard.press("Shift+Digit1");
+  await page.keyboard.press("BracketRight");
+  await page.keyboard.press("BracketRight");
+  await page.keyboard.press("BracketRight");
+  await page.keyboard.press("t");
+  await page.getByRole("button", { name: "History" }).click();
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(page.locator(".water-bar")).toContainText(/Day \d/, { timeout: 120_000 });
+  await page.evaluate(() => window.dgm3d!.renderer.canvas.focus());
+}
+
 /** Remember every caption and key the tour shows from here on. */
 async function watchCaptions(page: Page) {
   await page.evaluate(() => {
@@ -68,17 +109,20 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("File → Watch a 20-second tour plays through on a copy: the keys are shown, and the map, its history and its view are as they were", async ({ page }) => {
-  test.setTimeout(240_000);
+test("File → Watch a 20-second tour plays through on a copy: the keys are shown, and the map, its history, its view and the editor as the player has it are as they were", async ({ page }) => {
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await openEditor(page, SPEC);
   await withHistory(page);
   // (the player's own choices of brush and force, set before: the tour sizes brushes and forces itself)
   await page.evaluate(() => localStorage.setItem("dgm.brush", JSON.stringify({ size: 9, strength: 7, modes: {}, sources: {} })));
+  await setUpUi(page);
   const before = await state(page);
   expect(before.canUndo).toBe(true);
   expect(before.canRedo).toBe(true);
+  const ui = await uiSignature(page);
+  expect(ui.pressed.some((p) => /^Carve.*:true$/.test(p))).toBe(true);
 
   await startFromMenu(page);
   await watchCaptions(page);
@@ -97,6 +141,8 @@ test("File → Watch a 20-second tour plays through on a copy: the keys are show
 
   // the player's map, exactly as it was
   expect(await state(page)).toEqual(before);
+  // (and the editor itself: the tool in hand and its settings, the selection, what is open, the Drought day, the focus)
+  await expect.poll(() => uiSignature(page), { timeout: 60_000 }).toEqual(ui);
   await expect(page.getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Redo (Ctrl+Y)" })).toBeEnabled();
   // and it works as before: redo brings the undone step back
@@ -106,10 +152,12 @@ test("File → Watch a 20-second tour plays through on a copy: the keys are show
 });
 
 test("Esc ends the tour at any moment, and everything is as it was", async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   await openEditor(page, SPEC);
   await withHistory(page);
+  await setUpUi(page);
   const before = await state(page);
+  const ui = await uiSignature(page);
 
   await startFromMenu(page);
   await watchCaptions(page);
@@ -120,6 +168,7 @@ test("Esc ends the tour at any moment, and everything is as it was", async ({ pa
   await expect(page.locator(".tour")).toHaveCount(0, { timeout: 30_000 });
   await waitForEditor(page);
   expect(await state(page)).toEqual(before);
+  await expect.poll(() => uiSignature(page), { timeout: 60_000 }).toEqual(ui);
 
   // (it can be watched again, and Esc at its very start ends it too)
   await startFromMenu(page);
