@@ -381,8 +381,8 @@ refinements and what the mockups left open:
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
   at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; each gap between plates lines
-  up with a gap in the other row or a plate there spans it (Rift, Deposit and Quake, with a wide Floor, only at their
-  Sources, Try another and Power). **Power is always
+  up with a gap in the other row or a plate there spans it (Rift and Deposit share none and Quake only cell 9,
+  because of their wide Floor). **Power is always
   cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
   setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
   Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
