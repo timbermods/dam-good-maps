@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://timbermods.github.io/dam-good-maps/schema/ops-v1.json",
   "title": "Dam Good Maps edit operation v1",
-  "description": "One edit operation (EDITOR_PLAN.md §3), the envelope the validation report's fixes also use. Features are checked against the feature schema, and every bound that depends on the map (its size, what exists on it) is checked by the operations engine.",
+  "description": "One edit operation (EDITOR_PLAN.md §3), the envelope the validation report's fixes also use. Features are checked against the feature schema, and every bound that depends on the map (its size, what exists on it) is checked by the operations engine. Coordinates and tile indices here are the widest any map can need (a side of 512, D357); the engine refuses what is past this map's edge.",
   "type": "object",
   "additionalProperties": false,
   "required": ["op", "params"],
@@ -34,12 +34,12 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
     "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
-    "coordinate": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "coordinate": { "type": "integer", "minimum": 0, "maximum": 511 },
     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
     "runs": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
     },
     "brush": {
       "description": "A terrain brush stroke (live editing): the brush, and its dabs as quarter-tile pairs [x0, y0, x1, y1, ...]. Its dabs must lie on the map; the engine checks that.",
@@ -53,16 +53,16 @@
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "target": { "type": "integer", "minimum": 0, "maximum": 22 },
         "mode": { "enum": ["ground", "water"] },
-        "wet": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "bank": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "wet": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "bank": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
         "weathers": { "const": true },
         "weathering": { "enum": [2, 3, 4, 5] },
         "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
-        "shore": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
-        "pools": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "moist": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "shore": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
+        "pools": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "moist": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square", "area"] },
         "precise": { "type": "boolean" },
@@ -73,14 +73,14 @@
         "slopes": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
-        "keep": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "area": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
         "walkable": { "type": "boolean" },
         "edges": { "enum": ["ramped"] },
         "pressure": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 255 } },
-        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } }
+        "dabs": { "type": "array", "minItems": 2, "maxItems": 80000, "items": { "type": "integer", "minimum": 0, "maximum": 2047 } }
       }
     },
     "addFeature": {
@@ -178,7 +178,7 @@
           "properties": {
             "origin": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
             "end": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
-            "path": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 255 } } },
+            "path": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 511 } } },
             "side": { "enum": [1, -1] },
             "source": { "type": "string" }
           }
@@ -186,33 +186,33 @@
         "cut": { "type": "integer", "minimum": 0, "maximum": 40 },
         "steps": { "type": "integer", "minimum": 0 },
         "reason": { "type": "string" },
-        "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-        "heights": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+        "heights": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
         "rock": {
           "type": "object",
           "additionalProperties": false,
           "required": ["tiles", "bits"],
           "properties": {
-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "bits": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
           }
         },
-        "removed": { "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } },
+        "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
         "cleared": {
           "description": "Sources set to clear (D474): each source it cleared and the step of its showing that took it.",
           "type": "array",
           "minItems": 1,
-          "maxItems": 65536,
+          "maxItems": 262144,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "step"], "properties": { "id": { "$ref": "#/$defs/guid" }, "step": { "type": "integer", "minimum": 0 } } }
         },
         "moved": {
           "type": "array",
-          "maxItems": 65536,
+          "maxItems": 262144,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "x", "y"], "properties": { "id": { "$ref": "#/$defs/guid" }, "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" } } }
         },
         "felled": {
           "type": "array",
-          "maxItems": 65536,
+          "maxItems": 262144,
           "items": { "type": "object", "additionalProperties": false, "required": ["id", "dx", "dy"], "properties": { "id": { "$ref": "#/$defs/guid" }, "dx": { "type": "number", "minimum": -1.5, "maximum": 1.5 }, "dy": { "type": "number", "minimum": -1.5, "maximum": 1.5 } } }
         },
         "sources": {
@@ -236,10 +236,10 @@
           "additionalProperties": false,
           "required": ["tiles", "floor", "depth", "contamination"],
           "properties": {
-            "tiles": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
-            "contamination": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 32 } },
+            "contamination": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 1 } }
           }
         },
         "replaces": { "type": "integer", "minimum": 1 }
@@ -274,7 +274,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["entities"],
-      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/guid" } } }
+      "properties": { "entities": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } } }
     },
     "setEntityProps": {
       "type": "object",
@@ -294,7 +294,7 @@
       "additionalProperties": false,
       "required": ["tiles"],
       "properties": {
-        "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
+        "tiles": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
         "area": { "$ref": "#/$defs/runs" },
         "pools": { "type": "integer", "minimum": 0 }
       }
@@ -312,10 +312,10 @@
           "additionalProperties": false,
           "required": ["tiles", "floor", "depth", "contamination"],
           "properties": {
-            "tiles": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 65535 } },
-            "floor": { "type": "array", "maxItems": 65536, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
-            "depth": { "type": "array", "maxItems": 65536, "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 } },
-            "contamination": { "type": "array", "maxItems": 65536, "items": { "const": 0 } }
+            "tiles": { "type": "array", "minItems": 1, "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "floor": { "type": "array", "maxItems": 262144, "items": { "type": "number", "minimum": 0, "maximum": 64 } },
+            "depth": { "type": "array", "maxItems": 262144, "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 } },
+            "contamination": { "type": "array", "maxItems": 262144, "items": { "const": 0 } }
           }
         }
       }

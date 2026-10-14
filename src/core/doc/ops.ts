@@ -472,8 +472,9 @@ export const PLACEABLE = new Set([
 /** The highest level a force may leave: the editor's one ceiling (D244). */
 const FORCE_MAX_LEVEL = CEILING;
 
-/** Largest number of tiles one operation may touch. */
-export const MAX_OP_TILES = 256 * 256;
+/** Largest number of tiles one operation may touch: the whole map (D357: tied to the map's area, so a selection or
+ *  a force may cover a 512² map as it covers a 128² one, and never more than the map has). */
+export const maxOpTiles = (W: number, H: number): number => W * H;
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OPS_SCHEMA = opsSchema as Record<string, unknown>;
@@ -485,7 +486,7 @@ function runsProblems(runs: Runs, W: number, H: number, what: string): string[] 
     n += x1 - x0 + 1;
   }
   if (n === 0) return [`${what} is empty`];
-  if (n > MAX_OP_TILES) return [`${what} covers ${n} tiles, more than one operation may change`];
+  if (n > maxOpTiles(W, H)) return [`${what} covers ${n} tiles, more than one operation may change`];
   return [];
 }
 

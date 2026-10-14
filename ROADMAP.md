@@ -745,6 +745,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
+   **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
+   core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
+   temperate days, drawn from the difficulty's range, so it is a range: a core at cycle 5 and 10.5 days, goes off
+   "2 to 7 days before cycle 5's drought or badtide" on Normal), lit while the day shown is one it may go off on. `core/sim/coreMoment.ts`
+   (pure; `tests/unit/coreMoment.test.ts`). **Open:** the held day is drawn as the map is now, never after the explosion;
+   a core placed by hand with other days is read at the game's default days until the page's core options exist.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -919,11 +925,27 @@ reported. PLAN §20 D357 has the whole decision.
 
 - **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
   references. Our file writer and both validators' other load checks handle every size and shape already.
-- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
-  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
-  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
-  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
-  "4–256 per axis".
+- **Part 1 (done, `feature/custom-sizes`):** any width and height from 4 to 512 is accepted and carried exactly: the MapSpec
+  schema and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/`), share links (`z=WxH`; old links decode as before), the size boxes
+  (`src/editor/generator/fields.tsx`; beyond 256 a side the boxes turn the warning colour and their tooltip says Timberborn's own editor can't open the map), the load check `file.size` (4–512) in both
+  validators (`rust/checks`, `prototype/validate.py`) and FORMAT.md. `tools/size-smoke.ts` generates once per shape and
+  theme. The generator refuses a side under 48 with a one-line reason (`generatorSizeRefusal`, `src/core/spec/mapspec.ts`)
+  until part 2 shapes for thin maps; the larger shapes generate unchanged. The generated standard maps are byte-identical.
+  Smoke (seed 1, every theme): 64×512, 128×512, 512×256 and 512×512 all generate; 64×512 and 128×512 take 5–109 s,
+  512×256 18–67 s, 512×512 2.3–17 min (Lake Basin slowest), which part 2 should bring down (`tools/size-smoke.ts`).
+- **Editor limits (done in part 1):** a 512-side map is editable everywhere it can be made. The schemas take coordinates to
+  511, dabs to 2047 quarter-tiles, tile indices to 262143 and tile lists to 262144 (`ops.schema.json`,
+  `features.schema.json`); outline points may lie a map side past either edge (-512 to 1023). One operation may cover the
+  whole map: `maxOpTiles(W, H)` is the map's area (`src/core/doc/ops.ts`), tied to the area rather than a larger constant
+  because the whole map is the most one operation can touch, and it scales to every shape. A stroke's run lists, a force's
+  cleared sources and the flood selection are bounded by the area too. Anything past this map's own edge is still refused
+  with its one-line reason (`tests/contract/editLimits.test.ts`). The Rust forces check no coordinates, so none changed.
+  The brush radius ladder stays at 128.
+- **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
+  and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
+  side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs
+  floor, a start with its water), refused below that with its one-line reason; the size stays choosable from 4 for a map
+  shaped by hand (D357). 512² may take minutes to generate (D357), but the page never freezes and shows progress (D453).
 
 ## The dam sketch tool (D383)
 

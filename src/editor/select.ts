@@ -135,14 +135,14 @@ export function outlineTiles(points: readonly [number, number][], W: number, H: 
 }
 
 /** The ground at the clicked tile's level joined to it (four neighbours), at most `limit` tiles. */
-export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = 65536): number[] {
+export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = W * H): number[] {
   const level = heights[y * W + x];
   return levelTiles((j) => heights[j] === level, W, H, x, y, limit);
 }
 
 /** The tiles joined to tile (x, y) (four neighbours) for which `has` holds: the Wand's ground when the
  *  click was on a run under an overhang (a cave's floor), where `has` asks for a top at that level. */
-export function levelTiles(has: (i: number) => boolean, W: number, H: number, x: number, y: number, limit = 65536): number[] {
+export function levelTiles(has: (i: number) => boolean, W: number, H: number, x: number, y: number, limit = W * H): number[] {
   const start = y * W + x;
   const seen = new Uint8Array(W * H);
   const out = [start];
