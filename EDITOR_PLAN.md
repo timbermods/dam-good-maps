@@ -467,8 +467,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
   behind More, **Channels** (Auto, Few, Many). A click never refuses (D356): where no fan fits, what it took lies a
   level deep on the nearest free ground inside the circle, and where its outline has no ground above the Floor to
-  take (a lake's bed, the map's lowest ground), the water brings a small fan's sediment instead; only a Keep or
-  working area holding the whole outline refuses. Wet outlets keep their bed; objects ride or are buried,
+  take (a lake's bed, the map's lowest ground), the water brings a small fan's sediment instead; ground above the
+  Floor that Keep or the working area holds refuses ("Keep or the working area leaves nothing to take sediment from"). Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
   page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
