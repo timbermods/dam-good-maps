@@ -29,6 +29,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).
+- `droughtLine.ts` `mapDroughtLine`: the open map's drought line (D133; `sim/droughtLine.ts`) from the Drought view's last day.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

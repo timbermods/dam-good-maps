@@ -22,7 +22,8 @@ says are the core's (D342).
 - `api.ts`: a generation (`runGenerate`), D329's background search (`runFindVersion`) and the page's view of a
   built map (`responseOf`; the map card's facts are `core/validate/facts.ts` `mapFacts`).
 - `session.ts`: the editor's open map: opening, edits, undo, the live water (D133, D197), weather runs
-  (`core/sim/weather.ts` `HazardRun`), the instant and background checks, export, the forces' runs.
+  (`core/sim/weather.ts` `HazardRun`) and the drought line read from the drought's last day (`watchDroughtLine`),
+  the instant and background checks, export, the forces' runs.
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
   `replicaCheck`).
 

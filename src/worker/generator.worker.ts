@@ -176,6 +176,11 @@ const api = {
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
   prepareWeather: () => ed.prepareWeather(),
+  /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
+   *  one. (Small, and the worker keeps its own: copied, not taken over.) */
+  watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
+    return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
+  },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),

@@ -697,7 +697,7 @@ Once M9b has settled (D280 (4)).
 
 ---
 
-## Weather view (parked, D349)
+## Weather view (in work, D349)
 
 Closes step 1 of D349's order, after "The page is the editor" and the parity batch (Kyler, 2026-09-25; PLAN §20 D133, D253;
 **slimmed by D285 (2)**: the separate timeline and its plain-language summary are dropped; the strategy axes are information
@@ -715,6 +715,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    the last day of a drought (the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed;
    the start's water is marked a little more strongly. It updates in the background after each edit, like the checks, and
    never blocks: feedback from the land itself, not a readout (D184).
+   **Built (core and worker):** `core/sim/droughtLine.ts` `droughtLine` reads the line from the settled water and the
+   Drought view's own last day (the worker's kept run), so the two agree tile for tile: the shore tiles of the water
+   left with their dry sides and the level it stands at, the beds it uncovers (and whether each whole body dries out),
+   and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
+   `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
+   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
+   instead ("The drought line isn't worked out for maps with caves yet"). **Next:** the drawing (the forces play
+   session): the faint shore line, the faint dry tint over beds that dry out, the start's water a little stronger.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
