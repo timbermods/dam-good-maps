@@ -89,7 +89,8 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - Kyler reviews nothing now (D484). The milestone session reviews every diff and judges what players see, hear and feel
   itself: the page in a real browser, a separate reviewer agent for looks, probe batches for the game.
 - PR labels: `hold`, and `needs-kyler` only for design questions and account-only items; `approved` is no longer needed.
-  PRs merge on review and green CI. Theme rounds are real PRs into dev, re-pin included; Codex stays on investigation branches.
+  PRs merge on review and green CI. The owning session judges, a different session merges (the milestone session, after
+  a "ready to merge" post on #236). Theme rounds are real PRs into dev, re-pin included; Codex stays on investigation branches.
 - Sessions talk on the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issues/236)), not through Kyler.
   Kyler only decides what a player sees, hears or feels, new direction, rules, adopting Codex work, releases, probe batches,
   spending usage, and anything unsure. Pings reach his phone too.

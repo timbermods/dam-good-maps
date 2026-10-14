@@ -28,6 +28,8 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
   looks, and probe batches for the game).
 - `hold`: never merge. `needs-kyler` holds only design-direction questions (one issue each: the question, 2–4 options, a
   recommended default that work proceeds on) and the things only Kyler's account can do. Each session labels its own PRs.
+- An owning session judges its PR; a different session merges it (D484): post "ready to merge" on #236 with your verdict
+  and captures on the PR; the milestone session checks them and green CI, then merges.
 - Sessions talk on the pinned Coordination issue (#236), not through Kyler.
 
 ## How to work

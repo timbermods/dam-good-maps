@@ -65,6 +65,10 @@ maps the documents.
   performance, order inside a step and "is this good enough" are ours. One issue per question, labelled `needs-kyler`:
   the question in plain words, 2–4 options (a capture or mockup where it helps) and the recommended default. Never block:
   build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
+- **An owning session judges, a different session merges (D484):** never approve or merge your own PR. Post "ready to
+  merge" on #236 with your verdict comment and captures on the PR (and an independent reviewer agent's pass for a look or
+  interaction change); the milestone session checks those and green CI, then merges. Its own PRs get a fresh sub-agent's
+  review first.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
