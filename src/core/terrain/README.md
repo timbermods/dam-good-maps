@@ -11,4 +11,8 @@ Terrain as solid runs per tile, the game's own form: each tile's solid intervals
 
 `support.ts` `unsupportedVoxels` is the game's support rule (what the game deletes on load: nothing hangs more than 3 sideways from supported ground), used by the Unstable Core's blast and the probe's test maps; the checks have it in Rust.
 
-**Tests**: `tests/contract/terrainRuns.test.ts`; the document and import tests exercise it through the base (`tests/contract/document.test.ts`, `tests/contract/import.test.ts`). Run `npx vitest run tests/contract/terrainRuns.test.ts`.
+`floors.ts` `floorGraph` is where beavers can stand and what they reach on foot (D122): a floor is air on solid ground at any level of a tile, floors join at the same level, and levels are joined only by the map's slopes; no headroom rule. It runs in Rust (`rust/checks/src/floors.rs`); the checks' `walk.levels` row reads the same graph.
+
+`clearance.ts` `plantsWithoutRoom` is the room a plant needs above its floor (its blocks' height); the checks' `plants.clearance` row has the rule in Rust, from the same table.
+
+**Tests**: `tests/contract/terrainRuns.test.ts`; `tests/contract/floorRows.test.ts` (the floor graph and the plants' room); the document and import tests exercise it through the base (`tests/contract/document.test.ts`, `tests/contract/import.test.ts`). Run `npx vitest run tests/contract/terrainRuns.test.ts`.

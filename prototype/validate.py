@@ -13,8 +13,16 @@ download, gzip JSON) is checked with its spec's thresholds and its planned lakes
 `generate` profile does; any other map with the defaults for --difficulty, as an import.
 --profile export checks a map as the editor's export does: sources go anywhere (D184), so
 water.source_in_flow does not apply.
-A check that does not apply to the map is reported as passing with "na"; the one advisory check
-(plants.drought) never fails the map.
+A check that does not apply to the map is reported as passing with "na"; an advisory check never fails
+the map.
+
+Terrain above terrain (caves, overhangs, ledges): the load checks read it as the game does (the support
+rule, the floor a slope or the start stands on, the room over a plant). The rows that need the floor graph
+or the air inside the rock, walk.levels and water.sealed_source, are not computed here: there is no Python
+copy of the 3D rules (PLAN section 20, D279: 3D is verified against the game, not against a second
+implementation kept in step). They are reported as information, marked "information", and the oracle does
+not compare their verdicts; the same holds for water under roofs, which the playability checks see from
+above. On the heightfield maps the generator makes, each of these rows passes by construction.
 
 Check ids and thresholds are documented in PLAN.md ("Validation"); the evidence behind them is
 in investigation/notes/*.md and investigation/REPORT.md.
@@ -70,6 +78,7 @@ class Check:
     na: bool = False
     advisory: bool = False
     approx: str = ""        # why the result is only approximate (the water a steady state cannot show)
+    information: bool = False   # a 3D rule this validator does not compute (D279): reported, never compared
 
 
 @dataclass
@@ -77,8 +86,8 @@ class Report:
     path: str
     checks: list = field(default_factory=list)
 
-    def add(self, id, ok, detail="", value=None, limit=None, na=False, advisory=False):
-        self.checks.append(Check(id, bool(ok), detail, value, limit, bool(na), bool(advisory)))
+    def add(self, id, ok, detail="", value=None, limit=None, na=False, advisory=False, information=False):
+        self.checks.append(Check(id, bool(ok), detail, value, limit, bool(na), bool(advisory), "", bool(information)))
 
     @property
     def passed(self):
@@ -173,7 +182,7 @@ def check_file(m: TimberMap, rep: Report, raw_zip: dict):
     rep.add("file.thumbnail", thumb_ok, "960x540 JPEG" if thumb_ok else "missing or wrong size")
 
 
-def check_terrain(m: TimberMap, rep: Report):
+def check_terrain(m: TimberMap, rep: Report, generated=False):
     h = m.surface()
     # up to 22 (D172 (1), after probe run 20260925-tall); the in-game map editor edits only up to 16
     rep.add("terrain.max_height", h.max() <= LIMITS["game_max_height"],
@@ -181,8 +190,10 @@ def check_terrain(m: TimberMap, rep: Report):
     rep.add("terrain.top_layer_free", not m.voxels[-1].any(), "layer 22 must stay empty")
     # design: the water model covers one floor per tile (caves and overhangs are approximated on
     # the top surface); imported maps report it as information
-    multi = int((m.floors() > 1).sum())
-    rep.add("terrain.single_floor", multi == 0, f"{multi} columns with caves or overhangs", multi, 0)
+    # (an imported map's row only: retired for generated maps, which may have caves and overhangs)
+    if not generated:
+        multi = int((m.floors() > 1).sum())
+        rep.add("terrain.single_floor", multi == 0, f"{multi} columns with caves or overhangs", multi, 0)
     # a principle (D151, extending D111): no wall raised along a map edge to hold water
     Y, X = h.shape
     if X < 2 * (EDGE_BAND + EDGE_INSIDE) or Y < 2 * (EDGE_BAND + EDGE_INSIDE):
@@ -222,7 +233,7 @@ def terrain_unsupported(m: TimberMap, object_tops=()) -> int:
     most 3 sideways steps through solid voxels since the last upward step. The top of a
     stackable object (natural overhang, badtide drain body) also supports the voxel above it."""
     v = m.voxels.astype(bool)
-    if (m.floors() <= 1).all():
+    if (first_column_top(v) == m.surface()).all():
         return 0                                  # plain heightmap: every column stands on z=0
     Z, Y, X = v.shape
     best = np.full(v.shape, 99, dtype=np.int16)   # fewest sideways steps used
@@ -262,6 +273,7 @@ def check_entities(m: TimberMap, rep: Report, fps: dict):
         return z < 0 or (z < Z and v[z, y, x])
 
     ids, problems = set(), []
+    cramped = 0                   # plants on good ground whose upper blocks meet the rock above them
     unknown, bad_enum, missing_comp, dup = [], [], [], 0
     occupied = {}                 # (x, y, z) -> flags
     below_claims = set()          # (x, y) columns claimed by OccupyAllBelow
@@ -296,6 +308,7 @@ def check_entities(m: TimberMap, rep: Report, fps: dict):
     for i, t, p, fp in placements:
         cells = world_blocks(fp, p)
         why = None
+        no_room = False
         for (x, y, z, below, flags, oab, stack, lz) in cells:
             if flags == 0:
                 continue                  # e.g. the Aquifer's empty plus-shape corners
@@ -303,7 +316,12 @@ def check_entities(m: TimberMap, rep: Report, fps: dict):
                 why = "outside the map"
                 break
             if solid(x, y, z):
-                why = f"inside terrain at ({x},{y},{z})"
+                # a plant needs its blocks' height in air: one whose own floor is free and whose
+                # upper block is in rock has no room (plants.clearance), and the game removes it
+                if t in COMMON_NATURAL and lz > 0:
+                    no_room = True
+                else:
+                    why = f"inside terrain at ({x},{y},{z})"
                 break
             if flags & occupied.get((x, y, z), 0):
                 why = f"overlaps another object at ({x},{y},{z})"
@@ -326,6 +344,9 @@ def check_entities(m: TimberMap, rep: Report, fps: dict):
         if why:
             problems.append(f"{t} at ({p.x},{p.y},{p.z}): {why}")
             continue
+        if no_room:
+            cramped += 1
+            continue
         for (x, y, z, below, flags, oab, stack, lz) in cells:
             if flags == 0:
                 continue
@@ -342,6 +363,8 @@ def check_entities(m: TimberMap, rep: Report, fps: dict):
     rep.add("entities.placement", not problems, "; ".join(problems[:6]) + (f" (+{len(problems) - 6} more)" if len(problems) > 6 else "")
             if problems else "every object would load", len(problems), 0)
     rep.add("start.clear", not overlap_start, f"{len(overlap_start)} start cells covered by objects" if overlap_start else "nothing overlaps the start")
+    rep.add("plants.clearance", cramped == 0, f"{cramped} plants have no room under the rock above them" if cramped else "every plant has room above it",
+            cramped, 0)
     return occupied
 
 
@@ -354,20 +377,32 @@ def first_column_top(v: np.ndarray) -> np.ndarray:
     return run.sum(axis=0)
 
 
-def check_slopes(m: TimberMap, rep: Report, ents):
-    h = m.surface()
+def floor_at(v: np.ndarray, x: int, y: int, z: int) -> bool:
+    """Whether the tile has a floor at z: air there, on solid ground (or on the map's bottom). An object at
+    z stands on it whatever is above: the surface on a heightfield, a cave's floor, a ledge's top."""
+    Z = v.shape[0]
+    if z < 0 or z > Z:
+        return False
+    return (z == Z or not v[z, y, x]) and (z == 0 or bool(v[z - 1, y, x]))
+
+
+def check_slopes(m: TimberMap, rep: Report, ents, generated=False):
+    v = m.voxels.astype(bool)
     bad = []
     slopes = {(placement(e).x, placement(e).y): placement(e) for e in ents.get("Slope", [])}
     for (x, y), p in slopes.items():
         dx, dy = SLOPE_HIGH[p.orientation]
         hx, hy, lx, ly = x + dx, y + dy, x - dx, y - dy
         inb = lambda a, b: 0 <= a < m.size_x and 0 <= b < m.size_y
-        high_ok = inb(hx, hy) and h[hy, hx] == p.z + 1
-        low_ok = inb(lx, ly) and (h[ly, lx] == p.z or ((lx, ly) in slopes and slopes[(lx, ly)].z == p.z - 1))
+        # read at the slope's own level: a floor one up on its high side, a floor at its foot (or a
+        # slope below it) on its low side, whatever roof or cave is above or below
+        high_ok = inb(hx, hy) and floor_at(v, hx, hy, p.z + 1)
+        low_ok = inb(lx, ly) and (floor_at(v, lx, ly, p.z) or ((lx, ly) in slopes and slopes[(lx, ly)].z == p.z - 1))
         if not (high_ok and low_ok):
             bad.append(f"({x},{y},{p.z}) {p.orientation}")
+    # a warning on an imported map (D482: the game loads real maps with such slopes); a generated map's must join
     rep.add("slopes.connect", not bad, f"slopes that do not join a 1-voxel step: {bad[:5]}" if bad else f"{len(slopes)} slopes join level z to z+1",
-            len(bad), 0)
+            len(bad), 0, advisory=not generated)
 
 
 def check_start(m: TimberMap, rep: Report, ents, occupied):
@@ -376,13 +411,13 @@ def check_start(m: TimberMap, rep: Report, ents, occupied):
     if len(starts) != 1:
         return None
     p = placement(starts[0])
-    h = m.surface()
+    v = m.voxels.astype(bool)
     fp_cells = [(p.x + a, p.y + b) for a, b in [ROT[p.orientation](x, y) for x in range(3) for y in range(3)]]
-    flat = all(0 <= x < m.size_x and 0 <= y < m.size_y and h[y, x] == p.z for x, y in fp_cells)
+    flat = all(0 <= x < m.size_x and 0 <= y < m.size_y and floor_at(v, x, y, p.z) for x, y in fp_cells)
     rep.add("start.flat", flat, "3x3 district center footprint is flat ground at the start level" if flat else "footprint is not flat")
     ex, ey = START_ENTRANCE[p.orientation]
     ex, ey = p.x + ex, p.y + ey
-    ent_ok = 0 <= ex < m.size_x and 0 <= ey < m.size_y and h[ey, ex] == p.z and not any(
+    ent_ok = 0 <= ex < m.size_x and 0 <= ey < m.size_y and floor_at(v, ex, ey, p.z) and not any(
         (ex, ey, z) in occupied for z in range(p.z, p.z + 2))
     rep.add("start.entrance", ent_ok, f"entrance tile ({ex},{ey}) must be free ground at level {p.z} or no beavers spawn")
     cx = sum(x for x, _ in fp_cells) / 9
@@ -416,18 +451,25 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     fps = load_footprints()
     spec, features = load_project(path)
     stackable_tops.clear()
+    # a map with a project file beside it is a generated one (the generate profile), any other an import
+    generated = spec is not None or features is not None
     check_file(m, rep, raw)
-    check_terrain(m, rep)
+    check_terrain(m, rep, generated)
     occupied = check_entities(m, rep, fps)
     unsupported = terrain_unsupported(m, stackable_tops)
     rep.add("terrain.supported", unsupported == 0, f"{unsupported} voxels float more than 3 tiles from support", unsupported, 0)
     ents = by_template(m)
-    check_slopes(m, rep, ents)
+    check_slopes(m, rep, ents, generated)
     start = check_start(m, rep, ents, occupied)
     if load_only:
         return rep
     from playability import check_playability
     check_playability(m, rep, fps, difficulty, spec, features, water, profile, water_rules, soil_rules)
+    # the rows of the floor graph and the air inside the rock: not computed here (D279, see the top)
+    note = "not computed in Python: 3D rules are verified against the game (D279)"
+    starts = len(ents.get("StartingLocation", []))
+    rep.add("walk.levels", True, note if starts == 1 else f"needs one start, the map has {starts}", na=starts != 1, information=True)
+    rep.add("water.sealed_source", True, note, advisory=True, information=True)
     return rep
 
 
