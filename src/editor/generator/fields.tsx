@@ -10,6 +10,7 @@ import { SIZE_PRESETS, THEME_NAMES, THEMES, type SizePreset, type Settings, type
 import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, highestMax, LAKE_CHOICES, OFF_SOME, reserveGuard, RESERVES, setVerticality, SOURCES, STYLES, type Choice } from "../../ui/settingsModel";
 import { tip } from "../../ui/Tooltip";
 import { ChoiceSetting, NumberSetting } from "../settings";
+import type { MapCounts } from "../features";
 import { HINT, tipOf, type SettingsProps } from "./hints";
 
 /** What each theme leans toward, for its option's tooltip. */
@@ -28,6 +29,9 @@ const THEME_TIPS: Record<ThemeId, string> = {
 function opts<T extends string>(choices: Choice<T>[], label: string, words: Partial<Record<T, string>> = {}): [T, string, string, string | false][] {
   return choices.map((c) => [c.value, words[c.value] ?? c.label, `${label}: ${words[c.value] ?? c.label}`, c.disabled ?? false]);
 }
+
+/** What a setting reads when the open map is a file and has none. */
+const DASH = "–";
 
 /** The keys of every generator setting, as the panel places them. */
 export type FieldKey =
@@ -51,7 +55,7 @@ export const GROUPS: readonly { name: GroupName; keys: readonly FieldKey[] }[] =
 
 /** Every setting's control, by key. */
 export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
-  const { spec } = p;
+  const { spec, blank = false } = p;
   const s = spec.settings;
   const W = spec.size.x;
   const H = spec.size.y;
@@ -61,10 +65,10 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     p.onSettings(c);
   };
   const num = (id: string, label: string, value: number, min: number, max: number, onChange: (v: number) => void, o: { step?: number; unit?: string; bandKey?: string } = {}) => (
-    <NumberSetting line label={label} title={tipOf(id, o.bandKey ? band(o.bandKey, spec) : undefined)} value={value} min={min} max={max} step={o.step ?? 1} words={`${value}${o.unit ?? ""}`} onChange={onChange} />
+    <NumberSetting line label={label} title={tipOf(id, o.bandKey ? band(o.bandKey, spec) : undefined)} value={value} min={min} max={max} step={o.step ?? 1} words={blank ? DASH : `${value}${o.unit ?? ""}`} onChange={onChange} />
   );
   const pick = <T extends string>(id: string, label: string, value: T, options: [T, string, string, string | false][], onChange: (v: T) => void, bandKey?: string) => (
-    <ChoiceSetting<T> line fit label={label} title={tipOf(id, bandKey ? band(bandKey, spec) : undefined)} value={value} options={options} onChange={onChange} />
+    <ChoiceSetting<T> line fit label={label} title={tipOf(id, bandKey ? band(bandKey, spec) : undefined)} value={blank ? null : value} options={options} onChange={onChange} />
   );
   const reserves = RESERVES.map((c) => (reserveGuard(spec.designedFor, c.value, W, H).fits ? c : { ...c, disabled: "too big for this map size" }));
   const preset = (Object.entries(SIZE_PRESETS).find(([, v]) => v === W && v === H)?.[0] as SizePreset | undefined) ?? "custom";
@@ -75,7 +79,7 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
         fit
         label="Theme"
         title="The kind of land the map leans toward"
-        value={spec.theme}
+        value={blank ? null : spec.theme}
         options={THEMES.map((t) => [t, THEME_NAMES[t], THEME_TIPS[t]] as const)}
         onChange={p.onTheme}
       />
@@ -113,16 +117,16 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     cores: pick("cores", "Unstable cores", s.hazards.unstableCores, opts(CORES, "Unstable cores"), (v) => set((c) => (c.hazards.unstableCores = v)), "unstableCores"),
     forest: num("forest", "Forest density", s.resources.forestDensity, 50, 200, (v) => set((c) => (c.resources.forestDensity = v)), { step: 5, unit: "%", bandKey: "forestDensity" }),
     groves: pick("groves", "Grove size", s.resources.groveSize, opts(GROVES, "Grove size"), (v) => set((c) => (c.resources.groveSize = v)), "groveSize"),
-    mix: <MixSetting mix={s.resources.speciesMix} onChange={(m) => set((c) => (c.resources.speciesMix = m))} />,
-    berriesStart: num("berries-start", "Berries near start", s.resources.berriesNearStart, 20, 100, (v) => set((c) => (c.resources.berriesNearStart = v)), { bandKey: "berriesNearStart" }),
+    mix: <MixSetting blank={blank} mix={s.resources.speciesMix} onChange={(m) => set((c) => (c.resources.speciesMix = m))} />,
+    berriesStart: num("berries-start", "Berries near start", s.resources.berriesNearStart, 20, 100, (v) => set((c) => (c.resources.berriesNearStart = v)), { unit: " bushes", bandKey: "berriesNearStart" }),
     berries: num("berries", "Berry bushes elsewhere", s.resources.berryBushes, 50, 300, (v) => set((c) => (c.resources.berryBushes = v)), { step: 5, unit: "%", bandKey: "berryBushes" }),
     ruins: num("ruins", "Ruins and scrap", s.resources.ruins, 25, 300, (v) => set((c) => (c.resources.ruins = v)), { step: 5, unit: "%", bandKey: "ruins" }),
     relics: pick("relics", "Relics", s.resources.relics, opts(OFF_SOME, "Relics"), (v) => set((c) => (c.resources.relics = v)), "relics"),
     geothermal: pick("geothermal", "Geothermal fields", s.resources.geothermal, opts(OFF_SOME, "Geothermal fields"), (v) => set((c) => (c.resources.geothermal = v)), "geothermal"),
     mines: num("mines", "Mine sites", s.resources.mineSites, 2, 4, (v) => set((c) => (c.resources.mineSites = v)), { bandKey: "mineSites" }),
-    wood: num("rule-wood", "Starting wood", s.start.rules.woodWithin20, 0, 800, (v) => set((c) => (c.start.rules.woodWithin20 = v)), { bandKey: "woodWithin20" }),
-    walk: num("rule-water", "Max walk to water", s.start.rules.waterWithin, 4, 40, (v) => set((c) => (c.start.rules.waterWithin = v)), { bandKey: "waterWithin" }),
-    bushes: num("rule-bushes", "Starting berries", s.start.rules.bushesWithin20, 0, 200, (v) => set((c) => (c.start.rules.bushesWithin20 = v)), { bandKey: "bushesWithin20" }),
+    wood: num("rule-wood", "Starting wood", s.start.rules.woodWithin20, 0, 800, (v) => set((c) => (c.start.rules.woodWithin20 = v)), { unit: " logs", bandKey: "woodWithin20" }),
+    walk: num("rule-water", "Max walk to water", s.start.rules.waterWithin, 4, 40, (v) => set((c) => (c.start.rules.waterWithin = v)), { unit: " tiles", bandKey: "waterWithin" }),
+    bushes: num("rule-bushes", "Starting berries", s.start.rules.bushesWithin20, 0, 200, (v) => set((c) => (c.start.rules.bushesWithin20 = v)), { unit: " bushes", bandKey: "bushesWithin20" }),
     area: pick("start-area", "Start area", s.start.area, opts(AREAS, "Start area", { small: "Tight", large: "Roomy" }), (v) => set((c) => (c.start.area = v))),
     ruinsWithin: num("rule-ruins", "No ruins within", s.start.rules.ruinsWithin, 0, 60, (v) => set((c) => (c.start.rules.ruinsWithin = v)), { unit: " tiles", bandKey: "ruinsWithin" }),
   };
@@ -135,7 +139,7 @@ function SeedSetting(p: SettingsProps) {
       <label class="set-label" for="seed">
         Seed
       </label>
-      <input id="seed" class="set-text" value={p.seedText} maxLength={24} autoComplete="off" spellcheck={false} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} />
+      <input id="seed" class="set-text" value={p.blank ? "" : p.seedText} placeholder={p.blank ? DASH : undefined} maxLength={24} autoComplete="off" spellcheck={false} onInput={(e) => p.onSeed((e.target as HTMLInputElement).value)} />
       <button type="button" class="set-toggle" aria-pressed={p.seedPinned} {...tip(p.seedPinned ? "Generate makes this map again" : "Keep this seed for the next Generate")} onClick={() => (p.seedPinned ? p.onUnpinSeed() : p.onPinSeed())}>
         Keep
       </button>
@@ -200,7 +204,7 @@ const SPECIES_NAMES = { pine: "Pine", birch: "Birch", oak: "Oak", succulent: "Su
 /** The species mix: one bar of four shares, dragged at the three edges between them (or nudged with the arrow keys);
  *  each share's name and number under it. The generator reads the four as weights, so shares that sum to 100 make the
  *  same forests. */
-export function MixSetting(p: { mix: Settings["resources"]["speciesMix"]; onChange(m: Settings["resources"]["speciesMix"]): void }) {
+export function MixSetting(p: { mix: Settings["resources"]["speciesMix"]; blank?: boolean; onChange(m: Settings["resources"]["speciesMix"]): void }) {
   const total = SPECIES.reduce((a, k) => a + p.mix[k], 0) || 1;
   // whole shares summing to 100 (the last takes what rounding leaves)
   const raw = SPECIES.map((k) => Math.round((p.mix[k] / total) * 100));
@@ -255,7 +259,7 @@ export function MixSetting(p: { mix: Settings["resources"]["speciesMix"]; onChan
         {SPECIES.map((k, i) => (
           <span key={k}>
             <i class={`mix-dot mix-${k}`} />
-            {SPECIES_NAMES[k]} <b>{shares[i]}</b>
+            {SPECIES_NAMES[k]} <b>{p.blank ? DASH : shares[i]}</b>
           </span>
         ))}
       </div>
@@ -263,14 +267,14 @@ export function MixSetting(p: { mix: Settings["resources"]["speciesMix"]; onChan
   );
 }
 
-/** What is on the open map: picture, number, name. */
-export function onThisMap(features: { kind: string; params: unknown }[], trees: number): [string, string, number][] {
-  const count = (pred: (f: { kind: string; params: unknown }) => boolean) => features.filter(pred).length;
+/** What is on the open map: picture, number, name, counted from the map's own objects (a generated map's, an opened
+ *  file's and the player's edits alike). */
+export function onThisMap(c: MapCounts): [string, string, number][] {
   return [
-    ["UndergroundRuins", "Mine sites", count((f) => f.kind === "mapObject" && (f.params as { kind?: string }).kind === "mineSite")],
-    ["RuinColumnH3", "Ruin fields", count((f) => f.kind === "ruinField")],
-    ["BlueberryBush", "Berry patches", count((f) => f.kind === "berryPatch")],
-    ["Pine", "Trees", trees],
-    ["WaterSource", "Rivers", count((f) => f.kind === "river")],
+    ["UndergroundRuins", "Mine sites", c.mines],
+    ["RuinColumnH3", "Ruins", c.ruins],
+    ["BlueberryBush", "Berry bushes", c.bushes],
+    ["Pine", "Trees", c.trees],
+    ["WaterSource", "Water sources", c.sources],
   ];
 }

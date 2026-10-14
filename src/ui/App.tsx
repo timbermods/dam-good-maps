@@ -32,6 +32,7 @@ import {
 import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture } from "../editor/Editor";
+import type { LoadingFrameProps } from "../editor/LoadingFrame";
 import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
@@ -194,6 +195,10 @@ export function App() {
   const cancelling = useRef(false);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
   const [opening, setOpening] = useState<string | null>(null);
+  /** What the progress dialog says while a map opens over the open one (a real place), in place of the generator's stage. */
+  const [makingWords, setMakingWords] = useState<string | null>(null);
+  /** The open map is a file: it has no generator settings, so the panel reads "–" for them until one is set. */
+  const [blank, setBlank] = useState(false);
   // the map generator's panel, Real places or Your maps, one at a time
   const [panel, setPanel] = useState<"generator" | "places" | "maps" | null>(null);
   /** The open map's name and its row in Your maps. */
@@ -203,6 +208,8 @@ export function App() {
   const [saveState, setSaveState] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
+  /** The editor's frame, shown while the first map is made. */
+  const [FrameMod, setFrameMod] = useState<ComponentType<LoadingFrameProps> | null>(null);
 
   const entry = useRef<YourMapEntry | null>(null);
   /** The open map's land and water as the editor shows it, for Your maps' picture. */
@@ -250,6 +257,7 @@ export function App() {
   // the editor's chunk loads with the page, beside the first map being made
   useEffect(() => {
     void import("../editor/Editor").then((m) => setEditorMod(() => m.default as ComponentType<EditorProps>));
+    void import("../editor/LoadingFrame").then((m) => setFrameMod(() => m.LoadingFrame));
   }, []);
 
   const spec = useMemo(
@@ -268,7 +276,28 @@ export function App() {
     return same(of) !== same(spec) || (seedPinned && of.seed !== spec.seed);
   }, [session, spec, seedPinned]);
 
+  /** The player sets a generator setting: the panel stops reading "–" and the settings are the next map's. */
+  function unblank() {
+    if (!blank) return;
+    setBlank(false);
+    setSeedText((t) => (t.trim() ? t : String(randomSeed())));
+  }
+
+  /** A file is the open map: the generator's settings start again from the Any theme's own, at the file's size (a
+   *  Generate then makes a new map of that size), and the panel reads "–" for them until one is set. */
+  function settingsOfFile(info: SessionInfo) {
+    const z = { x: Math.max(48, Math.min(256, info.W)), y: Math.max(48, Math.min(256, info.H)) };
+    setBlank(true);
+    setSeedText("");
+    setSeedPinned(false);
+    setSibling(null);
+    setTheme("any");
+    setSize(z);
+    setSettings(defaultSettings("any", difficulty, z));
+  }
+
   function showSpec(s: MapSpec) {
+    setBlank(false);
     setSeedText(String(s.seed));
     setSize(s.size);
     setTheme(s.theme);
@@ -278,11 +307,13 @@ export function App() {
 
   // a theme pre-fills every setting (PLAN §6), at Normal's start rules; a size sets the default number of mine sites
   function chooseTheme(t: ThemeId) {
+    unblank();
     setSibling(null);
     setTheme(t);
     setSettings(defaultSettings(t, difficulty, size));
   }
   function chooseSize(z: { x: number; y: number }) {
+    unblank();
     setSibling(null);
     setSize(z);
     setSettings((s) => ({ ...s, resources: { ...s.resources, mineSites: mineSitesForSize(z.x, z.y) } }));
@@ -341,6 +372,7 @@ export function App() {
     setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
     const link = data.info.kind === "generated" && data.info.spec ? "#" + encodeSpecFragment(data.info.spec) : place ? `#place=${place}` : "";
     if (data.info.kind === "generated" && data.info.spec) showSpec(data.info.spec);
+    else settingsOfFile(data.info);
     history.replaceState(null, "", link || location.pathname + location.search);
     noteCurrent(e.id, link);
     kept.current = !isNew && origin.kept !== false;
@@ -561,29 +593,37 @@ export function App() {
 
   /** The latest run: a result from an older one is never shown over it. */
   const runId = useRef(0);
-  async function run(s: MapSpec, tries = 0): Promise<GenerateResponse | null> {
+
+  /** The open map's project, which Cancel opens again while a map is made or opened over it: kept in memory, and saved
+   *  first when Your maps keeps it. False when a later run has taken over meanwhile. */
+  async function holdBack(id: number, before: string): Promise<boolean> {
+    const was = kept.current;
+    back.current = null;
+    backReady.current = snapshot().then((s) => ({ entry: s.entry, bytes: s.project, kept: was }));
+    const b = await backReady.current;
+    if (was) {
+      saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
+      await saver.flush();
+      if (!keeping.current && !discardAllowed.current) throw new Error(`Your map was not saved. Download the project before ${before}.`);
+    }
+    if (id !== runId.current) return false;
+    back.current = b;
+    return true;
+  }
+
+  async function run(s: MapSpec, tries = 0, keepError = false): Promise<GenerateResponse | null> {
     const id = ++runId.current;
     stopBackground();
     setBusy(true);
-    setError(null);
+    if (!keepError) setError(null);
     const over = !!session;
-    if (over) setMaking("making");
+    if (over) {
+      setMakingWords(null);
+      setMaking("making");
+    }
     performance.mark("dgm:generate");
     try {
-      // the open map's project, which Cancel opens again: kept in memory, and saved first when Your maps keeps it
-      if (over && entry.current && tries === 0) {
-        const was = kept.current;
-        back.current = null;
-        backReady.current = snapshot().then((s) => ({ entry: s.entry, bytes: s.project, kept: was }));
-        const b = await backReady.current;
-        if (was) {
-          saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
-          await saver.flush();
-          if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before generating another.");
-        }
-        if (id !== runId.current) return null;
-        back.current = b;
-      }
+      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -617,7 +657,7 @@ export function App() {
           const seed = randomSeed();
           setSeedText(String(seed));
           setSeedPinned(false);
-          return run({ ...s, seed }, tries + 1);
+          return run({ ...s, seed }, tries + 1, true);
         }
         // (no map to show after all: the warm renderer goes)
         discardPreparedRenderer();
@@ -659,6 +699,9 @@ export function App() {
       // (the old worker lives until the open map's project has come from it: ended sooner, the call never answers and
       // the editor is left on a worker that is gone; investigation/page-hunt)
       const b = back.current ?? (backReady.current ? await backReady.current : null);
+      // (a map being opened in the old worker never answers: the swap it began is over, and the editor takes edits again)
+      switching.current = false;
+      setReplacingMap(false);
       const old = gen;
       gen = createGeneratorWorker();
       generator = gen.api;
@@ -767,24 +810,48 @@ export function App() {
     })();
   }, []);
 
-  /** Open a real place: its .timber is built in the worker and imported. */
+  /** Open a real place: its .timber is built in the worker and imported. Over an open map it takes seconds, so the
+   *  progress dialog says so, with Cancel (the open map comes back as it was); before any map, the editor's frame says
+   *  so. */
   async function openPlace(id: string) {
+    const run_ = ++runId.current;
+    stopBackground();
     setError(null);
     setBusy(true);
-    if (!session) setOpening("Opening the map…");
+    const over = !!session;
+    if (over) {
+      setMakingWords("Opening the map…");
+      setMaking("making");
+    } else setOpening("Opening the map…");
+    const say = (w: string) => (over ? setMakingWords(w) : setOpening(w));
     try {
+      if (over && entry.current && !(await holdBack(run_, "opening a real place"))) return;
       const found = (await fetchIndex()).places.find((p) => p.id === id);
       if (!found) throw new Error(`there is no real place called "${id}"`);
-      if (!session) setOpening(`Opening ${found.name}…`);
-      const data = await replacing(async () => generator.openPlace(await fetchPlace(id)));
+      say(`Opening ${found.name}…`);
+      const bytes = await fetchPlace(id);
+      if (run_ !== runId.current) return;
+      const data = await replacing(async () => generator.openPlace(bytes));
+      if (run_ !== runId.current) return;
       enterEditor(data, { kind: "place" }, id);
+      back.current = null;
+      setMaking(null);
     } catch (e) {
-      // (a map made instead, then the words: making it clears the page's message)
-      if (!session) await run(init.spec);
-      setError(`The real place could not be opened: ${words(e)}`);
+      if (run_ !== runId.current) return;
+      const problem = `The real place could not be opened: ${words(e)}`;
+      if (over) setMaking({ failed: problem });
+      else {
+        // (the words at once, and a map made instead: it never leaves the page without one)
+        setError(problem);
+        setOpening(null);
+        await run(init.spec, 0, true);
+      }
     } finally {
-      setOpening(null);
-      setBusy(false);
+      if (run_ === runId.current) {
+        discardAllowed.current = false;
+        setOpening(null);
+        setBusy(false);
+      }
     }
   }
 
@@ -810,17 +877,31 @@ export function App() {
   const drawer: GeneratorModel = {
     spec,
     seedText,
+    blank,
     onSeed: (t) => {
+      setBlank(false);
       setSeedText(t);
       setSeedPinned(t.trim() !== "");
     },
     seedPinned,
-    onUnpinSeed: () => setSeedPinned(false),
-    onPinSeed: () => setSeedPinned(true),
+    onUnpinSeed: () => {
+      unblank();
+      setSeedPinned(false);
+    },
+    onPinSeed: () => {
+      unblank();
+      setSeedPinned(true);
+    },
     onSize: chooseSize,
     onTheme: chooseTheme,
-    onSettings: setSettings,
-    onReset: () => setSettings(defaultSettings(theme, difficulty, size)),
+    onSettings: (s) => {
+      unblank();
+      setSettings(s);
+    },
+    onReset: () => {
+      unblank();
+      setSettings(defaultSettings(theme, difficulty, size));
+    },
     busy,
     changed,
     onGenerate: () => guard(() => generate(), "Generating a new map"),
@@ -875,7 +956,7 @@ export function App() {
     <div class="dialog-backdrop making-backdrop">
       <div class="dialog making-dialog" role={typeof making === "object" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="making-words">
         <p id="making-words" role="status">
-          {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : stageText(progress)}
+          {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
         </p>
         <footer>
           {typeof making === "object" ? (
@@ -950,12 +1031,29 @@ export function App() {
   ) : null;
 
   if (!opened || !EditorMod) {
-    // the first visit, before any map exists: the first look of the map being made
+    // before any map is on show (a link, a reload, a place opened first): the editor's frame, still, with the first look
+    // of the land in the map's place and the progress dialog over it (no Cancel: there is no map to go back to)
+    const words = opening ?? (opened ? "Opening the editor…" : stageText(progress));
     return (
       <>
-        <div class="placeholder page-wait" role="status">
-          {progress ? <FirstLook progress={progress} /> : <p>{opening ?? (opened ? "Opening the editor…" : "Generating…")}</p>}
-        </div>
+        {FrameMod ? (
+          <FrameMod name="Your map" subtitle={progress ? `${size.x}×${size.y}` : ""}>
+            <FirstLook progress={progress} quiet />
+          </FrameMod>
+        ) : (
+          <div class="placeholder page-wait" role="status">
+            <p>{words}</p>
+          </div>
+        )}
+        {FrameMod ? (
+          <div class="dialog-backdrop making-backdrop">
+            <div class="dialog making-dialog" role="dialog" aria-modal="true" aria-labelledby="making-words">
+              <p id="making-words" role="status">
+                {words}
+              </p>
+            </div>
+          </div>
+        ) : null}
         {message}
         {confirmDialog}
       </>

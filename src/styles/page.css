@@ -1691,10 +1691,11 @@
   color: var(--muted);
 }
 
-/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them) */
+/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them); the
+   value column holds "30 bushes" whole (62px) */
 .set.plate.line {
   display: grid;
-  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 52px);
+  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 62px);
   align-items: center;
   column-gap: 8px;
   height: var(--line, 25px);
@@ -1799,6 +1800,19 @@
 .gen-name .set-text {
   width: 100%;
   font-weight: 700;
+  /* (a name longer than the box ends in "…" until the field is in hand, never cut mid-letter) */
+  text-overflow: ellipsis;
+}
+
+/* an opened file has no generator settings: they read "–", their controls quiet until one is set */
+.gen.blank .set-range,
+.gen.blank .species-mix .mix-bar {
+  opacity: 0.35;
+}
+
+.gen.blank .set-text::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 /* the species mix: one bar of four shares, dragged at the three edges between them; each share's name and number
@@ -2337,4 +2351,20 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* the editor's frame while the first map is made (LoadingFrame.tsx): the header, bar and shelf held still, the land's
+   first look in the map's place, the progress dialog over it */
+.loading-frame .loading-view {
+  display: grid;
+  place-items: center;
+  background: var(--map-bg);
+}
+
+.loading-frame .first-look {
+  min-height: 0;
+}
+
+.loading-frame .first-look-map {
+  width: min(512px, 56vh);
 }
