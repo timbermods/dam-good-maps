@@ -1118,7 +1118,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the
   timbermods organization (`PLAN.md` §2).
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
-  chunks only; a voxel mesher only for columns with more than one solid run; instanced trees, bushes and ruins;
+  chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
+  merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
   picking against the heightfield and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
