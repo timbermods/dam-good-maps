@@ -667,7 +667,7 @@ Make a valley, drop a source, and there's a river.
   tint over its bed; the start's water (the lakes and rivers its pumps draw from) is marked a little more strongly.
   It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
   comes in the background with the drought's days after each edit, never blocking. None on a map with caves yet.
-  The core and the worker's channel (`watchDroughtLine`) are built; the drawing is next. The map card says nothing about droughts or badtides (D472).
+  The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`: an amber waterline at the last day's level along the shore, flat and upright by the bank, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
 

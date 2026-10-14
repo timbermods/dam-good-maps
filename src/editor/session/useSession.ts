@@ -585,6 +585,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (a held weather day: an edit whose water is already settled runs it again at once; otherwise the settled water
     // does, once it is in place)
     if (u.ok && weatherRef.current && u.waterSettled) requestHeldDay();
+    // (an edit that left the water settled has no settling to wait for: its drought line is worked out now)
+    else if (u.ok && u.waterSettled) idlePrep();
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
