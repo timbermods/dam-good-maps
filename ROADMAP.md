@@ -884,6 +884,10 @@ to Later.
 
 **Effort:** high.
 
+**Built:** **Report a problem**, **Keyboard shortcuts** (also ?) and **Help** at the end of the File menu; the shortcuts
+panel is generated from the editor's own tool lists (EDITOR_PLAN §7, "The File menu's help entries"); README's "Install a
+map" section (with the artifact edition's extract step). Left in M13: the accessibility pass and the final performance pass.
+
 ---
 ---
 
