@@ -727,8 +727,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
    `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
    drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
-   instead ("The drought line isn't worked out for maps with caves yet"). **Next:** the drawing (the forces play
-   session): the faint shore line, the faint dry tint over beds that dry out, the start's water a little stronger.
+   instead ("The drought line isn't worked out for maps with caves yet").
+   **Built (the drawing):** `render3d/droughtLine.ts` (geometry in `droughtLineGeometry.ts`, set by the page through
+   `renderer.setDroughtLine`): a faint amber line along each shore side at the last day's water level (a thin strip flat
+   at that height and one upright on the bank, so it reads from above and from the side, through today's water where
+   that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
+   water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
+   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing. **Next:** the
+   refusal's words on the page, and the line on maps with caves.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
@@ -737,6 +743,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
+   **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
+   core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
+   temperate days, drawn from the difficulty's range, so it is a range: a core at cycle 5 and 10.5 days, goes off
+   "2 to 7 days before cycle 5's drought or badtide" on Normal), lit while the day shown is one it may go off on. `core/sim/coreMoment.ts`
+   (pure; `tests/unit/coreMoment.test.ts`). **Open:** the held day is drawn as the map is now, never after the explosion;
+   a core placed by hand with other days is read at the game's default days until the page's core options exist.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -944,6 +956,8 @@ its stacked-dams scene (which predicts dry) is fixed first, and its calibration 
 ## Collaborative editing (D349)
 
 Ships complete (D486): all of the brief, nothing cut, tested between real peers over the real relay, with reconnects, conflicts and a dropped peer.
+
+**Built:** part 1, the host-ordered log and replicas (`src/core/collab/`, [docs/progress/collab.md](docs/progress/collab.md)): the ordered log with literal operations, forces as gestures planned on the settled water, records with literal patches, the water settling in the background and compared at the sequence the host names, rejoin from a checkpoint plus its records and the entries since, whole-map changes the host's alone, one seam for claims; headless, no page yet.
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
 (step 3 of D349's order); nothing is built before then. Two players edit one map live, sharing one ordered list of

@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
+import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -195,12 +195,16 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   // the header's File menu, the history, the checks dot, the legend, the minimap and the water bar
   await openFileMenu(page);
   await check("the File menu");
-  await page.keyboard.press("Escape");
+  await closeFileMenu(page);
   // (its help entries' dialogs)
   for (const name of ["Keyboard shortcuts", "Help"]) {
     await (await openFileMenu(page)).getByRole("menuitem", { name, exact: true }).click();
     await check(`the ${name} dialog`);
-    await page.keyboard.press("Escape");
+    // (Esc is heard once the dialog's key listener is set, a moment after it shows: press until it is gone)
+    await expect(async () => {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 500 });
+    }).toPass({ timeout: 15_000 });
   }
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await check("the history");
