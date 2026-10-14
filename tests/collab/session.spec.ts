@@ -146,6 +146,8 @@ test("a killed browser pauses the other, read-only; a new code with the same ses
     await killPeer(guest);
     await waitFor(host.page, "paused", 1, 40_000);
     expect(await events(host.page, "paused")).toEqual([expect.objectContaining({ type: "paused", name: "Bo", message: "Bo has left. Waiting to reconnect." })]);
+    // the player who stays has Bo’s cursor and stroke taken away at once
+    expect(await events(host.page, "presence-cleared")).toHaveLength(1);
     // read-only meanwhile, and the host keeps their own copy
     expect(await call(host.page, "submit", await sc(host.page, "raise", 20, 20))).toEqual({ ok: false, reason: "Bo has left. Waiting to reconnect." });
     expect(await call<{ length: number } | null>(host.page, "project")).not.toBeNull();
@@ -249,6 +251,72 @@ test("the host opens another map: the guest hears first and both keep the previo
     } finally {
       await closePeer(lone);
     }
+  } finally {
+    await closePeer(host);
+    await closePeer(guest);
+  }
+});
+
+test("a killed host: a new browser reopens the kept project, hosts the same session, and the waiting guest carries on", async () => {
+  const host = await launch("chromium");
+  const guest = await launch("other");
+  let host2: Peer | null = null;
+  try {
+    for (const p of [host, guest]) await sc(p.page, "init", stack.workerUrl, { heartbeatMs: 500, deadAfterMs: 3000 });
+    await sc(host.page, "generate", 6, "highlands", 48);
+    const invite = await call<{ code: string; sessionId: string }>(host.page, "startHosting", { name: "Ada" });
+    await call(guest.page, "join", invite.code, { name: "Bo" });
+    await waitFor(host.page, "joined");
+    // the guest has asked a few times, so its numbers are well past a restarted host’s
+    for (const [x, y] of [[10, 10], [30, 30], [12, 36]]) expect(await call(guest.page, "submit", await sc(guest.page, "raise", x, y))).toMatchObject({ ok: true });
+    await expectIdentical(host.page, guest.page, "before the host is killed");
+    const kept = await sc<number[]>(host.page, "projectBytes");
+    expect(kept.length).toBeGreaterThan(1000);
+
+    await killPeer(host);
+    await waitFor(guest.page, "paused", 1, 40_000);
+    expect(await events(guest.page, "presence-cleared")).toHaveLength(1);
+
+    // the host’s page is reloaded: the map is reopened from the project it kept, and the same session is hosted again
+    host2 = await launch("chromium");
+    await sc(host2.page, "init", stack.workerUrl);
+    await sc(host2.page, "openProject", kept);
+    const again = await call<{ code: string; sessionId: string }>(host2.page, "startHosting", { name: "Ada", sessionId: invite.sessionId });
+    expect(again.sessionId).toBe(invite.sessionId);
+    await call(guest.page, "join", again.code, { name: "Bo" });
+    await waitFor(guest.page, "resumed");
+    await waitFor(host2.page, "joined");
+    await expectIdentical(host2.page, guest.page, "after the host restarted");
+    // the guest carries on (before the fix its old request number was refused for good), and so does the host
+    const [a, b] = await Promise.all([call(guest.page, "submit", await sc(guest.page, "raise", 34, 12)), call(host2.page, "submit", await sc(host2.page, "raise", 8, 8))]);
+    expect(a).toMatchObject({ ok: true });
+    expect(b).toMatchObject({ ok: true });
+    await expectIdentical(host2.page, guest.page, "after carrying on");
+    expect(await events(guest.page, "desync")).toEqual([]);
+  } finally {
+    await closePeer(host).catch(() => undefined);
+    await closePeer(guest);
+    if (host2) await closePeer(host2);
+  }
+});
+
+test("a 256² map travels to the guest (in chunks) and both edit it identically", async () => {
+  test.setTimeout(900_000);
+  const host = await launch("chromium");
+  const guest = await launch("other");
+  try {
+    for (const p of [host, guest]) await sc(p.page, "init", stack.workerUrl);
+    await sc(host.page, "generate", 5, "highlands", 256);
+    const invite = await call<{ code: string }>(host.page, "startHosting", { name: "Ada" });
+    await call(guest.page, "join", invite.code, { name: "Bo" });
+    await waitFor(host.page, "joined", 1, 180_000);
+    expect((await sc<{ W: number }>(guest.page, "fingerprint")).W).toBe(256);
+    await expectIdentical(host.page, guest.page, "on joining at 256²");
+    const [a, b] = await Promise.all([call(host.page, "submit", await sc(host.page, "raise", 40, 40)), call(guest.page, "submit", await sc(guest.page, "raise", 200, 200))]);
+    expect(a).toMatchObject({ ok: true });
+    expect(b).toMatchObject({ ok: true });
+    await expectIdentical(host.page, guest.page, "after two edits at 256²");
+    expect(await events(guest.page, "desync")).toEqual([]);
   } finally {
     await closePeer(host);
     await closePeer(guest);

@@ -27,14 +27,11 @@ import type { Command, ForceGesture, LogEntry, Reject, Snapshot } from "./types"
 import { describeWaterNote, waterNotes, type WaterNote } from "./waterNotes";
 import { BUSY } from "./transaction";
 import { settledHash } from "./water";
+import { PresenceChannel, type PresenceEvent, type PresenceIn } from "./presence";
 import {
   GUEST_ID,
   HOST_ID,
   MAX_DISPLAY_NAME,
-  MAX_PACKET_POINTS,
-  MAX_STROKE_POINTS,
-  PLAYER_COLOURS,
-  PRESENCE_HZ,
   SESSION_VERSION,
   decode,
   encode,
@@ -42,11 +39,11 @@ import {
   incompatible,
   roleOfId,
   type Payload,
-  type Presence,
-  type View,
   type Welcome,
   type Wire,
 } from "./wire";
+
+export type { PresenceIn } from "./presence";
 
 /** Where the peer sends: whole messages in order (`send`), and presence that may be lost (`sendPresence`). */
 export interface Link {
@@ -85,10 +82,7 @@ export type PeerEvent =
   /** The other player came back; the session carries on. */
   | { type: "resumed"; name: string }
   | { type: "paused"; name: string; message: string; reason: string }
-  /** Where the other player is: only what changed is set (a null cursor hides it). The page fades it a second after the last one. */
-  | { type: "presence"; who: Role; name: string; colour: string; at: number; cursor?: [number, number] | null; tool?: string | null; view?: View | null }
-  /** A stroke being drawn by the other player: the points new since the last event (in tiles), `fresh` when it is a new stroke. */
-  | { type: "stroke"; who: Role; name: string; colour: string; id: number; fresh: boolean; points: [number, number][]; ended: boolean; gap: boolean }
+  | PresenceEvent
   | { type: "presence-cleared" }
   | { type: "claims"; by: Role; command: ClaimCommand; changed: number; offer?: ClaimOffer; revision: number }
   /** The other player's edits changed the water in your area. */
@@ -99,7 +93,7 @@ export type PeerEvent =
   | { type: "opening"; name: string; message: string }
   | { type: "new-map"; name: string }
   /** The session as a normal project, for Your maps: at a pause, at the end, and the old map when the host opens another. */
-  | { type: "keep"; reason: KeepReason; project: Uint8Array; name: string; sessionId: string; role: Role; seq: number }
+  | { type: "keep"; reason: KeepReason; project: Uint8Array; name: string; sessionId: string; role: Role; seq: number; epoch: number }
   /** This copy differs from the host's, or the other's does from the host's. Loud. */
   | { type: "desync"; reason: string; seq: number; by: Role }
   | { type: "settled"; seq: number }
@@ -122,14 +116,6 @@ export interface PeerOptions {
   checkpointEvery?: number;
   /** A request answered "busy" (the water is still settling) is asked again after the next settle, up to this many times. */
   busyRetries?: number;
-}
-
-export interface PresenceIn {
-  cursor?: [number, number] | null;
-  tool?: string | null;
-  view?: View | null;
-  /** The stroke being drawn: its id, the points since the last call (tiles), and whether it just ended. */
-  stroke?: { id: number; points: [number, number][]; end?: boolean } | null;
 }
 
 interface PendingRequest {
@@ -171,18 +157,13 @@ export class CollabPeer {
   private claimsThen: ClaimsState | null = null;
   private dirty = false;
   private announced = false;
-  // presence
-  private outN = 0;
-  private lastSent = -Infinity;
-  private wanted: PresenceIn | null = null;
-  private strokeQueue: [number, number][] = [];
-  private strokePart = 0;
-  private strokeId = 0;
-  private strokeEnd = false;
-  private strokeDirty = false;
-  private strokeCancel = false;
-  private inN = -1;
-  private inStroke: { id: number; part: number } | null = null;
+  private readonly presenceCh: PresenceChannel;
+  /** The host: how its last requests from the guest were answered (a seq, or 0 and why not), told to a rejoining guest whose answer was lost. */
+  private answered = new Map<number, { seq: number; reason?: string }>();
+  /** The host: the guest said hello on this connection already. */
+  private helloSeen = false;
+  /** The host: the guest has said its copy is out of step, so a request to send the map again is a fair one. */
+  private guestDesynced = false;
 
   constructor(opts: PeerOptions) {
     this.role = opts.role;
@@ -194,6 +175,14 @@ export class CollabPeer {
     this.now = opts.now ?? (() => Date.now());
     this.checkpointEvery = opts.checkpointEvery;
     this.busyRetries = opts.busyRetries ?? 40;
+    this.presenceCh = new PresenceChannel({
+      role: opts.role,
+      now: this.now,
+      active: () => !!this.link && this.state === "live",
+      send: (payload, reliable) => (reliable ? this.link?.send(payload) : this.link?.sendPresence(payload)),
+      emit: (e) => this.emit(e),
+      otherName: () => this.otherName,
+    });
   }
 
   // ------------------------------------------------------------------------------ names and views
@@ -213,6 +202,18 @@ export class CollabPeer {
   /** The sequence of the last entry applied, or 0. */
   get seq(): number {
     return this.host?.seq ?? this.replica?.seq ?? 0;
+  }
+
+  /** The map's epoch (it changes when the host opens another map). */
+  get epoch(): number {
+    return this.host?.epoch ?? this.replica?.epoch ?? 0;
+  }
+
+  /** Why a direct edit of the map is refused now (one line), or null: paused, out of step, loading, and (once a session is on) every
+   *  edit that does not go through the session. The worker checks it before it applies anything itself. */
+  editBlocked(): string | null {
+    if (this.state === "idle" || this.state === "ended") return null;
+    return this.readOnly() ?? "Edits in a shared session go through the session";
   }
 
   /** The hash of what the players made directly (the log's, as the host announces it), or "" before there is a map. */
@@ -274,8 +275,8 @@ export class CollabPeer {
   attach(link: Link): void {
     this.link = link;
     this.expectProject = null;
-    this.inN = -1;
-    this.inStroke = null;
+    this.presenceCh.reset();
+    this.helloSeen = false;
     if (this.state === "ended") return;
     if (this.role === "host") {
       if (!this.host) this.startHosting();
@@ -295,28 +296,52 @@ export class CollabPeer {
       this.setState("idle");
       return;
     }
+    // (a reconnect that failed: the session was paused already, and the project kept then)
+    if (this.state === "joining") {
+      this.setState("paused");
+      return;
+    }
+    const wasLive = this.state === "live";
     const left = this.otherName || (this.role === "host" ? "The other player" : "The host");
-    this.dropPending("The connection dropped before this was confirmed");
+    // (a request already sent to the host is held: the snapshot of the rejoin says whether the host ordered it)
+    this.dropWaiting("The connection dropped before this was confirmed");
     this.setState("paused");
     this.emit({ type: "presence-cleared" });
     this.emit({ type: "paused", name: left, message: CHECK_LINE(left), reason });
-    this.keep("pause");
+    if (wasLive) this.keep("pause");
   }
 
   /** Leave on purpose: the other player is told at once, and the session is kept as a normal project (§8). */
   leave(): void {
     if (this.state === "ended") return;
     if (this.link) this.send({ kind: "bye" });
-    this.dropPending("You left the session");
+    this.dropWaiting("You left the session");
+    this.dropHeld("You left the session");
     this.emit({ type: "presence-cleared" });
     this.keep("end");
     this.link = null;
     this.setState("ended");
   }
 
-  private dropPending(reason: string): void {
+  private dropHeld(reason: string): void {
     for (const [, p] of this.pending) p.resolve({ ok: false, reason });
     this.pending.clear();
+  }
+
+  /** The guest's requests that were sent when the connection dropped, answered from what the host says of them (the answered list, and
+   *  how many requests of this guest it received). */
+  private settleHeld(received: number, answered: readonly { counter: number; seq: number; reason?: string }[]): void {
+    for (const [counter, p] of this.pending) {
+      const a = answered.find((x) => x.counter === counter);
+      if (a) p.resolve(a.seq > 0 ? { ok: true, seq: a.seq } : { ok: false, reason: a.reason ?? "The host did not take it" });
+      else if (counter > received) p.resolve({ ok: false, reason: "The connection dropped before this was confirmed" });
+      else p.resolve({ ok: false, reason: "The connection dropped. Look at the map to see whether this went through" });
+    }
+    this.pending.clear();
+    this.dropWaiting("The map was reloaded from the host before this was confirmed");
+  }
+
+  private dropWaiting(reason: string): void {
     for (const p of this.waiting) p.resolve({ ok: false, reason });
     this.waiting = [];
     for (const [, r] of this.claimPending) r({ ok: false, reason });
@@ -325,10 +350,11 @@ export class CollabPeer {
 
   /** The session as a normal project, handed to the page for Your maps (§8): at a pause, when it ends, and the old map when the
    *  host opens another. */
-  private keep(reason: KeepReason, project?: Uint8Array, name?: string): void {
+  private keep(reason: KeepReason, project?: Uint8Array, of?: { name: string; seq: number; epoch: number }): void {
     const s = this.mySession;
     if (!s && !project) return;
-    this.emit({ type: "keep", reason, project: project ?? s!.project(6), name: name ?? s!.meta.name, sessionId: this.sessionId ?? "", role: this.role, seq: this.seq });
+    const at = of ?? { name: s!.meta.name, seq: this.seq, epoch: this.epoch };
+    this.emit({ type: "keep", reason, project: project ?? s!.project(6), name: at.name, sessionId: this.sessionId ?? "", role: this.role, seq: at.seq, epoch: at.epoch });
   }
 
   /** The session's map as a project now (a copy to save while paused, or to leave with). */
@@ -345,7 +371,7 @@ export class CollabPeer {
   private sendWelcome(): void {
     const host = this.host!;
     const { project, ...header } = host.snapshot();
-    const welcome: Welcome = { kind: "welcome", v: SESSION_VERSION, sessionId: this.sessionId ?? "", hostName: this.hostName, guestName: this.guestName, snapshot: { kind: "snapshot", ...header }, claims: this.claims.toSnapshot() };
+    const welcome: Welcome = { kind: "welcome", v: SESSION_VERSION, sessionId: this.sessionId ?? "", hostName: this.hostName, guestName: this.guestName, snapshot: { kind: "snapshot", ...header }, claims: this.claims.toSnapshot(), answered: [...this.answered].map(([counter, a]) => ({ counter, seq: a.seq, ...(a.reason ? { reason: a.reason.slice(0, 300) } : {}) })) };
     this.send(welcome);
     // (a copy: the link may take the bytes over, and the host keeps the checkpoint)
     this.link?.send(project.slice());
@@ -358,14 +384,34 @@ export class CollabPeer {
   /** A message from the other player's link. A problem with it comes back as one line (and as an `error` event). */
   receive(payload: Payload): string | null {
     if (this.state === "ended") return null;
-    if (typeof payload !== "string") return this.receiveProject(payload);
-    if (this.expectProject) {
-      this.expectProject = null;
-      return this.fail("The map did not arrive");
+    try {
+      if (typeof payload !== "string") return this.receiveProject(payload);
+      if (this.expectProject) {
+        this.expectProject = null;
+        return this.fail("The map did not arrive");
+      }
+      const d = decode(payload);
+      if (!d.ok) return this.fail(d.reason);
+      return this.dispatch(d.message);
+    } catch (e) {
+      return this.broke(e, typeof payload === "string" ? payload : null);
     }
-    const d = decode(payload);
-    if (!d.ok) return this.fail(d.reason);
-    return this.dispatch(d.message);
+  }
+
+  /** A message that could not be used because something threw: never silent. The guest's copy can no longer be trusted (a desync); the
+   *  host answers a request with a refusal so the player is not left waiting. */
+  private broke(e: unknown, payload: string | null): string {
+    const reason = `The message could not be used: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300);
+    if (this.role === "guest") return this.desync(reason);
+    let counter = 0;
+    try {
+      const m = JSON.parse(payload ?? "{}") as { kind?: string; counter?: unknown };
+      if (m.kind === "request" && Number.isInteger(m.counter)) counter = m.counter as number;
+    } catch {
+      /* not a request */
+    }
+    if (counter > 0) this.send({ kind: "reject", counter, reason });
+    return this.fail(reason);
   }
 
   private fail(message: string): string {
@@ -389,6 +435,9 @@ export class CollabPeer {
       case "ready":
         return this.onReady();
       case "resync":
+        // (the whole map goes again only when the guest has said its copy is out of step, once for each time)
+        if (!this.guestDesynced) return "The map was not asked for";
+        this.guestDesynced = false;
         if (this.host && this.link) this.sendWelcome();
         return null;
       case "welcome":
@@ -407,6 +456,7 @@ export class CollabPeer {
         return null;
       }
       case "desync":
+        if (this.role === "host") this.guestDesynced = true;
         this.emit({ type: "desync", reason: `${this.otherName || "The other player"}'s map differs from the host's: ${m.reason}`, seq: m.seq, by: this.role === "host" ? "guest" : "host" });
         return null;
       case "bye":
@@ -414,7 +464,7 @@ export class CollabPeer {
         this.detach("left");
         return null;
       case "presence":
-        return this.onPresence(m);
+        return this.presenceCh.accept(m, true);
       default:
         return this.fail("The message is not one the session knows");
     }
@@ -428,6 +478,9 @@ export class CollabPeer {
       this.emit({ type: "error", message: bad });
       return bad;
     }
+    // (the map goes once for each connection: a guest that says hello again on the same one is refused)
+    if (this.helloSeen) return "The guest already said hello on this connection";
+    this.helloSeen = true;
     if (!this.host) this.startHosting();
     this.otherName = cleanName(m.name) || "Guest";
     this.sendWelcome();
@@ -448,6 +501,8 @@ export class CollabPeer {
     const host = this.host;
     if (!host) return this.fail("No map is being hosted");
     const answer = host.submit(GUEST_ID, m);
+    this.answered.set(m.counter, answer.kind === "commit" ? { seq: answer.entry.seq } : { seq: 0, reason: answer.reason });
+    if (this.answered.size > 64) this.answered.delete(this.answered.keys().next().value as number);
     this.send(answer);
     if (answer.kind === "commit") {
       this.afterEntry(answer.entry);
@@ -459,17 +514,17 @@ export class CollabPeer {
   private onClaimAsk(m: Extract<Wire, { kind: "claim" }>): string | null {
     const parsed = parseCommand(m.command);
     if (!parsed.ok) {
-      this.send({ kind: "claim-reject", id: m.id, reason: parsed.reason });
+      this.send({ kind: "claim-reject", id: m.id, reason: parsed.reason.slice(0, 300) });
       return null;
     }
     const paused = this.readOnly();
     if (paused) {
-      this.send({ kind: "claim-reject", id: m.id, reason: paused });
+      this.send({ kind: "claim-reject", id: m.id, reason: paused.slice(0, 300) });
       return null;
     }
     const r = this.claims.apply("guest", parsed.command, this.playerNames());
     if (!r.ok) {
-      this.send({ kind: "claim-reject", id: m.id, reason: r.reason });
+      this.send({ kind: "claim-reject", id: m.id, reason: r.reason.slice(0, 300) });
       return null;
     }
     this.send({ kind: "claims", by: "guest", id: m.id, command: parsed.command, revision: this.claims.revision });
@@ -522,7 +577,7 @@ export class CollabPeer {
     this.baseline = null;
     // (the tail the snapshot carried is applied, its water not yet settled here)
     this.dirty = true;
-    this.dropPending("The map was reloaded from the host before this was confirmed");
+    this.settleHeld(w.snapshot.counters[GUEST_ID] ?? 0, w.answered ?? []);
     this.port.adopt(s);
     const first = !this.everJoined;
     this.everJoined = true;
@@ -536,7 +591,8 @@ export class CollabPeer {
     return {
       opening: (e: { author: string; name: string }) => this.emit({ type: "opening", name: e.name, message: `${this.otherName || "The host"} is opening a new map` }),
       newMap: (e: { name: string; previousProject: Uint8Array }) => {
-        this.keep("new-map", e.previousProject, undefined);
+        // (the commit that opens the new map has taken its sequence already: the old map's log stood one before)
+        this.keep("new-map", e.previousProject, { name: this.mySession?.meta.name ?? "", seq: this.seq - 1, epoch: this.epoch });
         this.emit({ type: "new-map", name: e.name });
       },
       applied: (entry: LogEntry, record: TransactionRecord) => {
@@ -550,6 +606,7 @@ export class CollabPeer {
   }
 
   private desync(reason: string): string {
+    reason = reason.slice(0, 300);
     this.setState("desynced");
     this.send({ kind: "desync", reason, seq: this.seq });
     this.emit({ type: "desync", reason, seq: this.seq, by: this.role });
@@ -701,7 +758,7 @@ export class CollabPeer {
   /** Give a claims command (claim, release, offer, accept, decline): ordered by the host with the log. */
   claim(command: ClaimCommand): Promise<ClaimOutcome> {
     const parsed = parseCommand(command);
-    if (!parsed.ok) return Promise.resolve({ ok: false, reason: parsed.reason });
+    if (!parsed.ok) return Promise.resolve({ ok: false, reason: parsed.reason.slice(0, 300) });
     const why = this.readOnly();
     if (why) return Promise.resolve({ ok: false, reason: why });
     if (this.role === "host") {
@@ -854,9 +911,11 @@ export class CollabPeer {
     if (!host || !session) throw new Error("no map is being hosted");
     live(session);
     const wasAnnounced = this.announced;
+    // (the map being left: its name, where its log stood and its epoch, before the host opens the new one)
+    const previous = { name: host.session.meta.name, seq: host.seq, epoch: host.epoch };
     const { opening, commit, previousProject } = host.openMap(name, session);
     this.announced = false;
-    this.keep("new-map", previousProject, undefined);
+    this.keep("new-map", previousProject, previous);
     this.claims = new ClaimsState(session.size.x, session.size.y);
     this.batch = [];
     this.dirty = false;
@@ -871,126 +930,21 @@ export class CollabPeer {
 
   // ------------------------------------------------------------------------------ presence
 
-  /** Say where this player is and what they are doing. Throttled to `PRESENCE_HZ` a second, latest wins; a stroke's points are
-   *  queued (its start and its end go on the ordered channel, so they are not lost). Call `tick` while a packet may be waiting. */
+  /** Say where this player is and what they are doing (see presence.ts; the page runs its own channel on the main thread, this one is
+   *  for headless use). Throttled; call `tick` while a packet may be waiting. */
   presence(p: PresenceIn, now = this.now()): void {
-    if (!this.link || this.state !== "live") return;
-    if (p.cursor !== undefined || p.tool !== undefined || p.view !== undefined) {
-      const w = (this.wanted ??= {});
-      if (p.cursor !== undefined) w.cursor = p.cursor;
-      if (p.tool !== undefined) w.tool = p.tool;
-      if (p.view !== undefined) w.view = p.view;
-    }
-    if (p.stroke === null) {
-      this.strokeCancel = this.strokeId > 0;
-      this.strokeId = 0;
-      this.strokeQueue = [];
-      this.strokeEnd = false;
-      this.strokeDirty = false;
-    } else if (p.stroke) {
-      if (p.stroke.id !== this.strokeId) {
-        this.strokeId = p.stroke.id;
-        this.strokePart = 0;
-        this.strokeQueue = [];
-        this.strokeEnd = false;
-      }
-      for (const pt of p.stroke.points) this.strokeQueue.push(pt);
-      // (a long stroke keeps what the other can still draw)
-      if (this.strokeQueue.length > MAX_STROKE_POINTS) this.strokeQueue.splice(0, this.strokeQueue.length - MAX_STROKE_POINTS);
-      if (p.stroke.end) this.strokeEnd = true;
-      this.strokeDirty = true;
-    }
-    this.tick(now);
+    this.presenceCh.presence(p, now);
   }
 
-  /** Send the waiting presence if it is time (a stroke's end goes at once). True while something is still waiting. */
+  /** Send the waiting presence if it is time. True while something is still waiting. */
   tick(now = this.now()): boolean {
-    const waiting = this.wanted !== null || this.strokeDirty || this.strokeCancel;
-    if (!waiting) return false;
-    if (!this.link || this.state !== "live") {
-      this.wanted = null;
-      this.strokeDirty = this.strokeCancel = false;
-      return false;
-    }
-    const due = now - this.lastSent >= 1000 / PRESENCE_HZ;
-    if (!due && !(this.strokeDirty && this.strokeEnd && this.strokeQueue.length <= MAX_PACKET_POINTS)) return true;
-    this.lastSent = now;
-    const w = this.wanted ?? {};
-    this.wanted = null;
-    const msg: Presence = { kind: "presence", n: ++this.outN };
-    if (w.cursor !== undefined) msg.cursor = w.cursor === null ? null : [quarter(w.cursor[0]), quarter(w.cursor[1])];
-    if (w.tool !== undefined) msg.tool = w.tool === null ? null : w.tool.replace(/[^A-Za-z0-9 _.+-]/g, "").slice(0, 40) || null;
-    if (w.view !== undefined) msg.view = w.view && finiteView(w.view) ? w.view : null;
-    let reliable = false;
-    if (this.strokeCancel) {
-      msg.stroke = null;
-      this.strokeCancel = false;
-      reliable = true;
-    } else if (this.strokeDirty) {
-      const take = this.strokeQueue.splice(0, MAX_PACKET_POINTS);
-      const end = this.strokeEnd && this.strokeQueue.length === 0;
-      const part = this.strokePart++;
-      msg.stroke = { id: this.strokeId, part, pts: take.flatMap(([x, y]) => [quarter(x), quarter(y)]), ...(end ? { end: true } : {}) };
-      reliable = end || part === 0;
-      this.strokeDirty = this.strokeQueue.length > 0;
-      if (end) {
-        this.strokeId = 0;
-        this.strokeEnd = false;
-      }
-    }
-    if (reliable) this.send(msg);
-    else this.link.sendPresence(encode(msg));
-    return this.wanted !== null || this.strokeDirty;
+    return this.presenceCh.tick(now);
   }
 
-  /** A presence packet from the other player (either channel). Refused with a line when it is not one; never edits the map. */
+  /** A presence packet from the other player on the channel that may lose packets. Refused with a line when it is not one. */
   receivePresence(payload: string): string | null {
-    if (this.state === "ended") return null;
-    const d = decode(payload);
-    if (!d.ok) return d.reason;
-    if (d.message.kind !== "presence") return "Only presence travels on this channel";
-    return this.onPresence(d.message);
+    return this.state === "ended" ? null : this.presenceCh.receive(payload, false);
   }
-
-  private onPresence(m: Presence): string | null {
-    // packets over the unordered channel may arrive out of order: the older is dropped
-    if (m.n <= this.inN) return null;
-    this.inN = m.n;
-    const who: Role = this.role === "host" ? "guest" : "host";
-    const name = this.otherName || (who === "host" ? "Host" : "Guest");
-    const colour = PLAYER_COLOURS[who];
-    if (m.stroke) {
-      const s = m.stroke;
-      const fresh = !this.inStroke || this.inStroke.id !== s.id;
-      const gap = !fresh && s.part !== this.inStroke!.part + 1;
-      this.inStroke = { id: s.id, part: s.part };
-      const points: [number, number][] = [];
-      for (let i = 0; i + 1 < s.pts.length; i += 2) points.push([s.pts[i] / 4, s.pts[i + 1] / 4]);
-      this.emit({ type: "stroke", who, name, colour, id: s.id, fresh, points, ended: !!s.end, gap });
-      if (s.end) this.inStroke = null;
-    } else if (m.stroke === null) this.inStroke = null;
-    if (m.cursor !== undefined || m.tool !== undefined || m.view !== undefined) {
-      this.emit({
-        type: "presence",
-        who,
-        name,
-        colour,
-        at: this.now(),
-        ...(m.cursor !== undefined ? { cursor: m.cursor && ([m.cursor[0] / 4, m.cursor[1] / 4] as [number, number]) } : {}),
-        ...(m.tool !== undefined ? { tool: m.tool } : {}),
-        ...(m.view !== undefined ? { view: m.view } : {}),
-      });
-    }
-    return null;
-  }
-}
-
-function quarter(v: number): number {
-  return Math.max(-64, Math.min(20000, Math.round((Number.isFinite(v) ? v : 0) * 4)));
-}
-
-function finiteView(v: View): boolean {
-  return [v.x, v.y, v.z, v.dist, v.yaw, v.pitch].every((n) => Number.isFinite(n));
 }
 
 function cleanName(name: string): string {

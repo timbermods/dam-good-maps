@@ -8,7 +8,7 @@
 // applying it to the map itself; the answer is the map changing, as an `update` event, once the host has ordered it.
 
 import { transfer } from "comlink";
-import { CollabPeer, type ClaimCommand, type Command, type ForceGesture, type PeerEvent, type PresenceIn, type Role } from "../core/collab";
+import { CollabPeer, type ClaimCommand, type Command, type ForceGesture, type PeerEvent, type Role } from "../core/collab";
 import type { EditOp } from "../core/doc/ops";
 import { viewBuffers } from "../render3d/model";
 import * as ed from "./session";
@@ -18,8 +18,6 @@ export type CollabWorkerEvent =
   | PeerEvent
   /** Send this to the other player (the transport's ordered channel). */
   | { type: "send"; payload: string | Uint8Array }
-  /** Send this on the transport's presence channel (may be lost). */
-  | { type: "send-presence"; payload: string }
   /** The map changed (an entry applied, the water settled): the page takes the update like an edit's answer. */
   | { type: "update"; update: ed.SessionUpdate }
   /** A whole other map is open (a guest's copy of the host's map, or the host's after a rejoin): the page takes it as it takes an opened map. */
@@ -33,7 +31,6 @@ const SLICE_TICKS = 20;
 let peer: CollabPeer | null = null;
 let listener: ((e: CollabWorkerEvent) => void) | null = null;
 let pumpTimer: ReturnType<typeof setTimeout> | null = null;
-let presenceTimer: ReturnType<typeof setTimeout> | null = null;
 let updateQueued = false;
 
 function buffersOf(e: CollabWorkerEvent): Transferable[] {
@@ -76,12 +73,6 @@ function pace(): void {
       pace();
     }, 0);
   }
-  if (!presenceTimer && p.tick()) {
-    presenceTimer = setTimeout(() => {
-      presenceTimer = null;
-      pace();
-    }, 70);
-  }
 }
 
 function need(): CollabPeer {
@@ -113,6 +104,8 @@ export const collabApi = {
       },
       events: (e) => emit(e),
     });
+    // (a direct edit of the map would diverge from the host's log: the session says when the map is read-only or edited only through it)
+    ed.collabGate(() => peer?.editBlocked() ?? null);
     if (role === "host") peer.startHosting();
     return { ok: true, sessionId: peer.sessionId };
   },
@@ -121,7 +114,8 @@ export const collabApi = {
   attach(): void {
     need().attach({
       send: (payload) => emit({ type: "send", payload }),
-      sendPresence: (payload) => emit({ type: "send-presence", payload }),
+      // (presence runs on the page's thread beside the transport, src/collab/client.ts: nothing of it comes through here)
+      sendPresence: () => undefined,
     });
     pace();
   },
@@ -136,10 +130,6 @@ export const collabApi = {
     const line = need().receive(payload);
     pace();
     return line;
-  },
-
-  receivePresence(payload: string): string | null {
-    return need().receivePresence(payload);
   },
 
   async submit(command: Command) {
@@ -177,12 +167,6 @@ export const collabApi = {
 
   previewForce: (gesture: ForceGesture) => need().previewForce(gesture),
 
-  /** Where this player is and what they are doing (throttled; latest wins). */
-  presence(p: PresenceIn): void {
-    need().presence(p);
-    pace();
-  },
-
   /** The host: tell the guest a new map is coming (before it is generated or loaded). */
   announceNewMap: (name: string) => need().announceNewMap(name),
 
@@ -215,9 +199,9 @@ export const collabApi = {
 
 function stop(): void {
   if (pumpTimer) clearTimeout(pumpTimer);
-  if (presenceTimer) clearTimeout(presenceTimer);
-  pumpTimer = presenceTimer = null;
+  pumpTimer = null;
   peer = null;
+  ed.collabGate(null);
 }
 
 export type CollabApi = typeof collabApi;

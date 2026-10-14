@@ -99,7 +99,8 @@ export class CollabReplica {
     this.records.restoreFences(N, snapshot.fences);
     this.epoch = snapshot.epoch;
     this.seq = snapshot.checkpointSeq;
-    this.counter = snapshot.counters[this.playerId] ?? this.counter;
+    // (a host that restarted counts from nothing: a guest that kept its old number would be refused for good)
+    this.counter = snapshot.counters[this.playerId] ?? 0;
     this.status = "live";
     this.opening = null;
     // (the checkpoint's water is settled: the project was saved only so)

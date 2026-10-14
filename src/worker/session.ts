@@ -1118,7 +1118,20 @@ export function openProject(bytes: Uint8Array): SessionOpen {
   return opened(s);
 }
 
-// the collaboration layer (worker/collab.ts) reaches the open map through these three; nothing else here knows it exists
+// the collaboration layer (worker/collab.ts) reaches the open map through these four; nothing else here knows it exists
+let editGate: (() => string | null) | null = null;
+
+/** While a shared session is on, a direct edit would diverge from the host's log: the layer says when the map is read-only
+ *  (paused, out of step) or edited only through the session. Null clears it. */
+export function collabGate(gate: (() => string | null) | null): void {
+  editGate = gate;
+}
+
+/** The reason a direct edit is refused now (one line), or null. */
+function gated(): string | null {
+  return editGate?.() ?? null;
+}
+
 /** The open map, or null. */
 export function collabSession(): MapSession | null {
   return session;
@@ -1129,9 +1142,18 @@ export function collabOpen(s: MapSession): SessionOpen {
   return opened(s);
 }
 
-/** The collaboration layer applied entries to (or settled the water of) the open map: the page's update. */
+/** The collaboration layer applied entries to (or settled the water of) the open map: the page's update. The layer settles the
+ *  water itself (the canonical settle, in the background), so no preview water runs beside it: that would double the work. */
 export function collabChanged(): SessionUpdate {
-  return changed(need(), true, [], performance.now());
+  const t0 = performance.now();
+  const s = need();
+  version++;
+  lastCheck = null;
+  stopWater();
+  const view = viewUpdate(s);
+  const instant = !checks ? instantCheck(s) : null;
+  syncChecks();
+  return { ok: true, errors: [], info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending };
 }
 
 export function closeSession(): void {
@@ -1152,6 +1174,8 @@ export function hasSession(): boolean {
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const refused = newRampedStroke(op);
   if (refused) return changed(s, false, [refused], t0);
   const r = s.apply(op, origin, label);
@@ -1170,6 +1194,8 @@ const STEP_JOIN_MS = 1500;
 export function applyStep(op: EditOp, label: string, key: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const n = s.history().filter((h) => h.applied).length;
   const joins = lastStep && lastStep.session === s && lastStep.key === key && lastStep.length === n && performance.now() - lastStep.at < STEP_JOIN_MS;
   if (joins) s.undo();
@@ -1182,6 +1208,8 @@ export function applyStep(op: EditOp, label: string, key: string): SessionUpdate
 export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
   return changed(s, r.ok, r.errors, t0);
@@ -1190,6 +1218,8 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
 export function undo(): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const ok = s.undo();
   // (refused at the save point of a map opened from its stored map: the reason, D455)
   const stopped = ok ? null : s.undoStopped;
@@ -1199,6 +1229,8 @@ export function undo(): SessionUpdate {
 export function redo(): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   return changed(s, s.redo(), [], t0);
 }
 
@@ -1206,6 +1238,8 @@ export function redo(): SessionUpdate {
 export function jump(index: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   let applied = s.history().filter((h) => h.applied).length - 1;
   let moved = false;
   while (applied > index && s.undo()) {
@@ -1843,6 +1877,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
 /** Start a force on the map as it stands: a new series, at its seed. */
 export function forceStart(req: ForceRequest): ForceStarted {
   const s = need();
+  const blocked = gated();
+  if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }

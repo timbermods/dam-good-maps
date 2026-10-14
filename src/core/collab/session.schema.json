@@ -27,7 +27,17 @@
         "hostName": { "$ref": "#/$defs/name" },
         "guestName": { "$ref": "#/$defs/name" },
         "snapshot": { "type": "object" },
-        "claims": { "type": "object" }
+        "claims": { "type": "object" },
+        "answered": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["counter", "seq"],
+            "properties": { "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 }, "seq": { "$ref": "#/$defs/count" }, "reason": { "type": "string", "maxLength": 300 } }
+          }
+        }
       }
     },
     "ready": {
@@ -56,14 +66,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "id", "reason"],
-      "properties": { "kind": { "const": "claim-reject" }, "id": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" } }
+      "properties": { "kind": { "const": "claim-reject" }, "id": { "type": "integer", "minimum": 0 }, "reason": { "type": "string", "maxLength": 300 } }
     },
     "desync": {
       "description": "Either side: this copy of the map differs from the host's (the replica found it); the other side is told so both pages can say so.",
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "reason", "seq"],
-      "properties": { "kind": { "const": "desync" }, "reason": { "type": "string" }, "seq": { "$ref": "#/$defs/count" } }
+      "properties": { "kind": { "const": "desync" }, "reason": { "type": "string", "maxLength": 300 }, "seq": { "$ref": "#/$defs/count" } }
     },
     "resync": {
       "description": "The guest to the host: send the map again (after a desync).",

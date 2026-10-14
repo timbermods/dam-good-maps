@@ -284,6 +284,22 @@ describe("presence", () => {
     rig.host.receivePresence(older);
     expect(rig.eventsOf("host", "presence").map((e) => (e as { cursor: unknown }).cursor)).toEqual([[2, 2]]);
   });
+
+  test("a stroke\u2019s end on the ordered channel is never dropped as late, and a point that follows it is not a new stroke", () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const strokes = () => rig.eventsOf("host", "stroke") as Extract<PeerEvent, { type: "stroke" }>[];
+    // the end (number 6, ordered) arrives after a later cursor packet (number 7, lossy) and before an earlier point (number 5, lossy)
+    rig.host.receivePresence(JSON.stringify({ kind: "presence", n: 7, cursor: [8, 8] }));
+    expect(rig.host.receive(JSON.stringify({ kind: "presence", n: 6, stroke: { id: 4, part: 1, pts: [4, 4], end: true } }))).toBeNull();
+    expect(strokes()).toHaveLength(1);
+    expect(strokes()[0]).toMatchObject({ id: 4, ended: true });
+    rig.host.receivePresence(JSON.stringify({ kind: "presence", n: 5, stroke: { id: 4, part: 0, pts: [1, 1] } }));
+    // (dropped as late, and had it not been, a point of an ended stroke is not drawn as a new one)
+    expect(strokes()).toHaveLength(1);
+    rig.host.receivePresence(JSON.stringify({ kind: "presence", n: 9, stroke: { id: 4, part: 2, pts: [2, 2] } }));
+    expect(strokes()).toHaveLength(1);
+  });
 });
 
 describe("a player leaves or the connection drops", () => {
@@ -302,7 +318,6 @@ describe("a player leaves or the connection drops", () => {
     // and a request has left the guest but not reached the host
     const lost = rig.guest.submit(raise(20, 38));
     rig.cut("timeout");
-    expect(await lost).toEqual({ ok: false, reason: "The connection dropped before this was confirmed" });
     // the host is paused for Bo; the guest for Ada
     expect(rig.eventsOf("host", "paused")).toEqual([{ type: "paused", name: "Bo", message: "Bo has left. Waiting to reconnect.", reason: "timeout" }]);
     expect(rig.eventsOf("guest", "paused")).toEqual([{ type: "paused", name: "Ada", message: "Ada has left. Waiting to reconnect.", reason: "timeout" }]);
@@ -323,6 +338,8 @@ describe("a player leaves or the connection drops", () => {
     const hashBefore = rig.host.hash();
     // a new room code: the same session, the host's map plus the edits since
     rig.connect();
+    // (the host never got it: the rejoin says so, and the request is answered then)
+    expect(await lost).toEqual({ ok: false, reason: "The connection dropped before this was confirmed" });
     expect(rig.host.state).toBe("live");
     expect(rig.guest.state).toBe("live");
     expect(rig.eventsOf("host", "resumed")).toEqual([{ type: "resumed", name: "Bo" }]);
@@ -347,8 +364,9 @@ describe("a player leaves or the connection drops", () => {
     expect(rig.host.seq).toBe(1);
     // the commit is on its way back when the connection drops
     rig.cut("connection-failed");
-    expect((await sent).ok).toBe(false);
     rig.connect();
+    // (held across the drop and answered by the rejoin: the host did order it)
+    expect(await sent).toEqual({ ok: true, seq: 1 });
     expect(rig.guest.seq).toBe(1);
     rig.identical("with the lost answer's edit");
     const next = rig.guest.submit(raise(14, 36));
@@ -456,4 +474,209 @@ describe("the host changes the whole map (§9)", () => {
     expect(await r).toEqual({ ok: false, reason: "Only the host can open a new map" });
     expect(() => rig.guest.announceNewMap("x")).toThrow(/only the host/);
   });
+});
+
+describe("the session survives what goes wrong", () => {
+  test("a host that restarts (its map reopened from the kept project) carries a rejoining guest on: its numbers start again", async () => {
+    const rig = makeRig(bytes, { sessionId: "restart" });
+    rig.connect();
+    for (const [x, y] of [[10, 10], [34, 30], [12, 36]]) {
+      const r = rig.guest.submit(raise(x, y));
+      rig.drain();
+      expect(await r).toMatchObject({ ok: true });
+    }
+    rig.settle();
+    rig.cut("closed");
+    rig.restartHost();
+    rig.connect();
+    expect(rig.guest.state).toBe("live");
+    expect(rig.host.seq).toBe(0);
+    rig.identical("after the host restarted");
+    // the guest\u2019s old counter (3) would have been refused for good as “an earlier request is missing”
+    const next = rig.guest.submit(raise(30, 12));
+    const hosts = rig.host.submit(raise(8, 30));
+    rig.drain();
+    expect(await next).toMatchObject({ ok: true, seq: 2 });
+    expect(await hosts).toMatchObject({ ok: true, seq: 1 });
+    rig.identical("after carrying on");
+  }, 120_000);
+
+  test("the previous map is kept under its own name, where its log stood and its epoch, on both sides", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const e = rig.guest.submit(raise(30, 30));
+    rig.drain();
+    await e;
+    const nameBefore = rig.hostMap.session!.meta.name;
+    const epochBefore = rig.host.epoch;
+    rig.hostMap.session = openProject(mapProject(7, "highlands", SIZE));
+    rig.host.newMap("Lakeside");
+    rig.drain();
+    for (const who of ["host", "guest"] as const) {
+      const keeps = (rig.eventsOf(who, "keep") as Extract<PeerEvent, { type: "keep" }>[]).filter((k) => k.reason === "new-map");
+      expect(keeps, who).toHaveLength(1);
+      expect(keeps[0], who).toMatchObject({ name: nameBefore, seq: 1, epoch: epochBefore });
+    }
+    expect(rig.host.epoch).toBe(epochBefore + 1);
+  }, 120_000);
+
+  test("a message that throws is never swallowed: the guest says its copy is out of step, the host answers a request with a refusal", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const welcome = [...rig.sent.toGuest].reverse().find((m) => typeof m === "string" && m.startsWith('{"kind":"welcome"')) as string;
+    // a map that will not open
+    expect(rig.guest.receive(welcome)).toBeNull();
+    const line = rig.guest.receive(new Uint8Array([1, 2, 3, 4]));
+    expect(line).toMatch(/^The message could not be used/);
+    expect(rig.guest.state).toBe("desynced");
+    expect(rig.eventsOf("guest", "desync")).toHaveLength(1);
+    rig.drain();
+    expect(rig.eventsOf("host", "desync")).toHaveLength(1);
+    // and it can ask for the map again
+    rig.guest.resync();
+    rig.drain();
+    expect(rig.guest.state).toBe("live");
+    rig.events.host.length = 0;
+    rig.events.guest.length = 0;
+    rig.identical("after the broken map");
+  });
+
+  test("the whole map is sent again only for a new connection and for a guest that said it is out of step", () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const count = () => rig.sent.toGuest.filter((m) => typeof m !== "string").length;
+    const before = count();
+    expect(rig.host.receive(JSON.stringify({ kind: "hello", v: 1, name: "Bo" }))).toBe("The guest already said hello on this connection");
+    expect(rig.host.receive(JSON.stringify({ kind: "resync" }))).toBe("The map was not asked for");
+    expect(count()).toBe(before);
+    // a reason is bounded
+    expect(wireProblem({ kind: "desync", reason: "x".repeat(301), seq: 1 })).toMatch(/at most 300/);
+    expect(wireProblem({ kind: "claim-reject", id: 1, reason: "x".repeat(301) })).toMatch(/at most 300/);
+  });
+
+  test("a reconnect that fails while joining does not keep the session a second time", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    rig.cut();
+    const keeps = () => rig.eventsOf("guest", "keep").length;
+    expect(keeps()).toBe(1);
+    rig.guest.attach({ send: () => undefined, sendPresence: () => undefined });
+    expect(rig.guest.state).toBe("joining");
+    rig.guest.detach("connect-failed");
+    expect(rig.guest.state).toBe("paused");
+    expect(keeps()).toBe(1);
+    expect(rig.eventsOf("guest", "paused")).toHaveLength(1);
+  });
+
+  test("a paused or out-of-step session refuses a direct edit in the core, and says why", async () => {
+    const rig = makeRig(bytes);
+    expect(rig.host.editBlocked()).toBeNull();
+    rig.connect();
+    expect(rig.guest.editBlocked()).toBe("Edits in a shared session go through the session");
+    rig.cut();
+    expect(rig.guest.editBlocked()).toBe("Ada has left. Waiting to reconnect.");
+    expect(rig.host.editBlocked()).toBe("Bo has left. Waiting to reconnect.");
+    rig.connect();
+    expect(rig.host.editBlocked()).toBe("Edits in a shared session go through the session");
+    rig.guestMap.session!.apply({ op: "brush", params: { tool: "raise", size: 5, strength: 10, dabs: [100, 100, 120, 100] } } as EditOp, "user");
+    const e = rig.host.submit(raise(30, 30));
+    rig.drain();
+    await e;
+    expect(rig.guest.editBlocked()).toMatch(/out of step with the host/);
+  }, 120_000);
+});
+
+describe("races", () => {
+  test("two players paint the same tiles at once: both are ordered, each in a place, and the maps are identical", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const a = rig.host.submit(raise(20, 20, 6));
+    const b = rig.guest.submit(lower(21, 20));
+    const c = rig.guest.submit(raise(20, 21, 6));
+    const d = rig.host.submit(lower(22, 21));
+    rig.drain();
+    const done = await Promise.all([a, b, c, d]);
+    for (const r of done) expect(r).toMatchObject({ ok: true });
+    expect(new Set(done.map((r) => (r as { seq: number }).seq)).size).toBe(4);
+    rig.identical("after four overlapping strokes");
+  }, 120_000);
+
+  test("both claim the same ground at once: the host’s order decides, the loser is told whose it is, and both agree", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const mine = rig.host.claim({ kind: "claim", runs: square(10, 10, 24, 24) });
+    const theirs = rig.guest.claim({ kind: "claim", runs: square(20, 20, 34, 34) });
+    rig.drain();
+    expect(await mine).toMatchObject({ ok: true });
+    expect(await theirs).toEqual({ ok: false, reason: "That includes Ada’s area".replace("’", "'") });
+    // the guest’s own view could not know: its refusal came from the host (the claims it holds are the host’s after the drain)
+    rig.identical("after the claim race");
+    expect(rig.guest.claimsView().guest).toEqual([]);
+    // and the free part of what the loser wanted is still hers to take
+    const rest = rig.guest.claim({ kind: "claim", runs: square(25, 20, 34, 34) });
+    rig.drain();
+    expect(await rest).toMatchObject({ ok: true });
+    rig.identical("after the second claim");
+  }, 120_000);
+
+  test("an undo races an edit made on top of it: the host orders them, the undo is refused with the edit named, and nothing diverges", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    const g1 = rig.guest.submit(raise(30, 30));
+    rig.drain();
+    await g1;
+    // the host builds on it while the guest asks to take it back, in the same breath
+    const onTop = rig.host.submit(raise(31, 30));
+    const undo = rig.guest.undo();
+    rig.drain();
+    expect(await onTop).toMatchObject({ ok: true });
+    const u = await undo;
+    // (the guest asked before it heard of the host’s edit: the host decides on the log as it stood, and refuses what is built on)
+    expect(u.ok).toBe(false);
+    if (!u.ok) expect(u.reason).toMatch(/is on top of this|Raise/);
+    rig.identical("after the race");
+    // freed once the edit on top is taken back
+    const free = rig.host.undo();
+    rig.drain();
+    expect(await free).toMatchObject({ ok: true });
+    const again = rig.guest.undo();
+    rig.drain();
+    expect(await again).toMatchObject({ ok: true });
+    rig.identical("after both undos");
+  }, 120_000);
+
+  test("the connection drops while a force waits for the water (host) and while one is in flight (guest): neither is left hanging, and both carry on", async () => {
+    const rig = makeRig(bytes);
+    rig.connect();
+    rig.settle();
+    // the host asks for a force while its water is still settling: it waits
+    const first = rig.host.submit(raise(10, 10));
+    rig.drain();
+    await first;
+    const waiting = rig.host.submit(crater(34, 34, 8));
+    rig.cut("timeout");
+    expect(await waiting).toEqual({ ok: false, reason: "The connection dropped before this was confirmed" });
+    rig.connect();
+    rig.settle();
+    rig.identical("after the host’s waiting force was dropped");
+    // the guest’s force leaves it and the connection drops before the host hears
+    const gesture = (crater(20, 20, 9) as Extract<Command, { kind: "force" }>).gesture;
+    const shown = rig.guest.previewForce(gesture);
+    expect(shown.ok).toBe(true);
+    if (!shown.ok) return;
+    const inFlight = rig.guest.submit({ kind: "force", gesture: { ...gesture, preview: shown.preview } });
+    rig.cut("timeout");
+    rig.connect();
+    expect(await inFlight).toEqual({ ok: false, reason: "The connection dropped before this was confirmed" });
+    rig.identical("after the guest’s force in flight was dropped");
+    // and asked again it goes through
+    rig.settle();
+    const again = rig.guest.previewForce(gesture);
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    const f = rig.guest.submit({ kind: "force", gesture: { ...gesture, preview: again.preview } });
+    rig.drain();
+    expect(await f).toMatchObject({ ok: true });
+    rig.identical("after the force again");
+  }, 180_000);
 });

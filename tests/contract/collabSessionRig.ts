@@ -11,6 +11,10 @@ import { openProject, projectDiff } from "./collabFixtures";
 export interface Rig {
   host: CollabPeer;
   guest: CollabPeer;
+  /** The host’s page was reloaded and its map reopened from the project it had kept (the session id is the same): call after `cut`. */
+  restartHost(): void;
+  /** Everything either side ever put on its link, in order (for a test that wants to hand-deliver or corrupt one). */
+  sent: { toHost: (string | Uint8Array)[]; toGuest: (string | Uint8Array)[] };
   hostMap: { session: MapSession | null; changes: number; adopted: number };
   guestMap: { session: MapSession | null; changes: number; adopted: number };
   events: { host: PeerEvent[]; guest: PeerEvent[] };
@@ -46,10 +50,12 @@ export function makeRig(bytes: Uint8Array, options: { sessionId?: string; checkp
   });
   const events = { host: [] as PeerEvent[], guest: [] as PeerEvent[] };
   const sessionId = options.sessionId ?? "test-session";
-  const host = new CollabPeer({ role: "host", name: NAMES.host, port: port(hostMap), sessionId, events: (e) => events.host.push(e), checkpointEvery: options.checkpointEvery });
+  const makeHost = () => new CollabPeer({ role: "host", name: NAMES.host, port: port(hostMap), sessionId, events: (e) => events.host.push(e), checkpointEvery: options.checkpointEvery });
+  let host = makeHost();
   const guest = new CollabPeer({ role: "guest", name: NAMES.guest, port: port(guestMap), sessionId: null, events: (e) => events.guest.push(e) });
   const queue: Rig["queue"] = { toHost: [], toGuest: [], presenceToHost: [], presenceToGuest: [] };
   let epoch = 0;
+  const sent: Rig["sent"] = { toHost: [], toGuest: [] };
 
   const deliverToHost = () => {
     const my = epoch;
@@ -77,7 +83,11 @@ export function makeRig(bytes: Uint8Array, options: { sessionId?: string; checkp
   };
   const linkFor = (to: "toHost" | "toGuest", presence: "presenceToHost" | "presenceToGuest", mine: number): Link => ({
     send: (p) => {
-      if (mine === epoch) queue[to].push(typeof p === "string" ? p : p.slice());
+      if (mine === epoch) {
+        const copy = typeof p === "string" ? p : p.slice();
+        queue[to].push(copy);
+        sent[to].push(copy);
+      }
     },
     sendPresence: (p) => {
       if (mine === epoch) queue[presence].push(p);
@@ -115,6 +125,14 @@ export function makeRig(bytes: Uint8Array, options: { sessionId?: string; checkp
   const rig: Rig = {
     host,
     guest,
+    sent,
+    restartHost() {
+      const kept = host.project();
+      if (!kept) throw new Error("no map to reopen");
+      hostMap.session = openProject(kept);
+      host = makeHost();
+      rig.host = host;
+    },
     hostMap,
     guestMap,
     events,

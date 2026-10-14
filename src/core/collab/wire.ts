@@ -44,6 +44,8 @@ export interface Welcome {
   /** The map's snapshot header; its project bytes are the next message. */
   snapshot: SnapshotHeader;
   claims: ClaimsSnapshot;
+  /** How the host answered the guest's last requests (a seq, or 0 and why not), for a rejoining guest whose answer was lost. */
+  answered?: { counter: number; seq: number; reason?: string }[];
 }
 export interface Ready {
   kind: "ready";

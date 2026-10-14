@@ -91,7 +91,7 @@ await collab.leave();                                           // the other is 
 settles), `reachRefusal(ops)` (the line shown before release: "Reaches into Ada's area") and `reachBand(ops)` (the tiles to
 draw in the other's colour while a stroke is drawn), `plan(redo)` (what Undo does and the blocked ones it skips, each named),
 `claimsView()` (runs of each player's ground and the offers waiting), `presence({ cursor, tool, view, stroke })` in tiles
-(throttled to 15 a second in the worker; a stroke is `{ id, points, end }`, `stroke: null` cancels), `resync()` (the guest, after a
+(runs on the page’s thread beside the transport, never through the worker, so a cursor does not wait behind a force or an edit; throttled to 15 a second; a stroke is `{ id (new for each stroke), points, end }`, `stroke: null` cancels), `resync()` (the guest, after a
 `desync`), `project()` (a copy to save while paused) and `state()`. Every answer is the host's: `{ ok: true, seq }` or
 `{ ok: false, reason }` in one plain line (with `busy` while the water settles: the client asks again after the settle by itself,
 `block` naming what is in the way of an undo). The map then changes: the `update` event is an edit's answer; `open` is a whole
@@ -107,7 +107,7 @@ guest at once), then, once the new map is open in the editor, `newMap(name)` (or
 | `code` | an Invite was made | the short code |
 | `joined`, `resumed` | the other is in; they came back | "Bo joined" |
 | `paused` | the other left or the connection dropped (`message`) | "Bo has left. Waiting to reconnect." The map is read-only; every `submit` and `claim` answers with the same line until `resumed` |
-| `keep` | at a pause, at Leave, and the old map on a whole-map change (`project`, `name`, `sessionId`, `role`, `seq`) | puts the project in Your maps (below) |
+| `keep` | at a pause (when the session was live), at Leave, and the old map on a whole-map change (`project`, `name`, `sessionId`, `role`, `seq`, `epoch`: the name, log position and epoch of the map being kept, so two keeps can be told apart) | puts the project in Your maps (below) |
 | `presence`, `stroke`, `presence-cleared` | the other's cursor, tool, camera and stroke before release (name and colour included) | their cursor; fades a second after the last; "Go to" reads `view` |
 | `claims` | a claim, release, offer, accept or decline stood (`by`, `command`, `offer`) | the outlines; an offer to answer |
 | `note` | the other's edits changed the water in your area (`note.centre` is where "See it" goes, `text` the words) | a quiet note |
@@ -127,8 +127,9 @@ a session is one entry that keeps updating (the old map of a whole-map change ge
 **Pausing and rejoining (§7).** A drop pauses both sides, read-only. The host calls `startHosting` again (same session id, a new
 code); the guest `join`s with the new code (and its `sessionId` if its page was reloaded). The guest always gets the host's latest
 checkpoint, its records and claims, and the entries since, never the history, whether it is the same browser or a new one.
-A request that had not been answered when the connection dropped is answered `{ ok: false, reason: "The connection dropped before
-this was confirmed" }`; if the host had ordered it, it is in the map after the rejoin.
+A request sent when the connection dropped is held and answered by the rejoin from what the host says of it: `{ ok: true, seq }` if it ordered it,
+the host’s reason if it refused it, "The connection dropped before this was confirmed" if it never arrived. A host that restarted (its
+map reopened from Your maps, the same session id) counts from nothing: the guest’s numbers start again with the new map.
 
 **What the page must do** (the page piece): route every edit, Select action, force, undo and redo through `submit`/`undo`/`redo`
 while `state()` is not null (a session exists, even while the host waits for the guest); show the events; put `keep` projects in Your maps; fade presence; draw claims.

@@ -65,6 +65,12 @@ const session = {
     return await f.apply(client, args);
   },
 
+  /** The session's map as a project (what the page would keep in Your maps), as plain numbers. */
+  async projectBytes() {
+    const bytes = await client!.project();
+    return bytes ? Array.from(bytes) : null;
+  },
+
   events(type?: string): Logged[] {
     return type ? log.filter((e) => e.type === type) : log.slice();
   },

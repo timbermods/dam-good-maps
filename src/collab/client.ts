@@ -12,7 +12,7 @@
 // Everything the page needs of a session is a method here or an event (README.md in this folder).
 
 import { proxy, transfer, type Remote } from "comlink";
-import type { ClaimCommand, ClaimOutcome, Command, ForceGesture, PeerEvent, PresenceIn, Role, SubmitResult } from "../core/collab";
+import { PresenceChannel, type ClaimCommand, type ClaimOutcome, type Command, type ForceGesture, type PeerEvent, type PresenceIn, type Role, type SubmitResult } from "../core/collab";
 import type { EditOp } from "../core/doc/ops";
 import type { SessionOpen, SessionUpdate } from "../worker/session";
 import type { CollabApi, CollabWorkerEvent } from "../worker/collab";
@@ -63,6 +63,12 @@ export class CollabClient extends Emitter<ClientEvents> {
   private sessionId: string | null = null;
   private begun = false;
   private listening = false;
+  // presence never touches the map, so it runs here beside the transport and not through the worker: a cursor does not wait behind
+  // a force's plan or an edit being applied
+  private presenceCh: PresenceChannel | null = null;
+  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private live = false;
+  private otherName = "";
 
   constructor(
     private readonly worker: Remote<CollabApi>,
@@ -91,12 +97,31 @@ export class CollabClient extends Emitter<ClientEvents> {
       case "send":
         void this.transport?.send(e.payload).catch(() => undefined);
         return;
-      case "send-presence":
-        this.transport?.sendPresence(e.payload);
-        return;
       default:
+        this.noticed(e);
         this.fire(e.type as keyof ClientEvents, e as never);
     }
+  }
+
+  /** What the worker says that the page-thread presence needs to know: whether the session is live, and the other's name. */
+  private noticed(e: CollabWorkerEvent): void {
+    if (e.type === "state") this.live = e.state === "live";
+    else if (e.type === "joined" || e.type === "resumed" || e.type === "paused") this.otherName = e.name;
+    if (e.type === "paused" || (e.type === "state" && e.state !== "live")) this.presenceCh?.reset();
+  }
+
+  private makePresence(role: Role): void {
+    this.presenceCh = new PresenceChannel({
+      role,
+      now: () => Date.now(),
+      active: () => this.live && !!this.transport,
+      send: (payload, reliable) => {
+        if (reliable) void this.transport?.send(payload).catch(() => undefined);
+        else this.transport?.sendPresence(payload);
+      },
+      emit: (e) => this.fire(e.type, e as never),
+      otherName: () => this.otherName,
+    });
   }
 
   private unavailable(): CollabError {
@@ -109,12 +134,20 @@ export class CollabClient extends Emitter<ClientEvents> {
     this.transport = t;
     // (a message that outlives the session, after Leave, finds no one to take it: nothing to do)
     const quiet = (p: Promise<unknown>) => void p.catch(() => undefined);
-    t.on("connected", () => quiet(this.worker.attach()));
+    t.on("connected", () => {
+      this.presenceCh?.reset();
+      quiet(this.worker.attach());
+    });
     t.on("message", (p) => {
+      // (presence on the ordered channel: a stroke's start and end; it stays on this thread)
+      if (typeof p === "string" && p.startsWith('{"kind":"presence"')) {
+        this.presenceCh?.receive(p, true);
+        return;
+      }
       quiet(typeof p === "string" ? this.worker.receive(p) : this.worker.receive(transfer(p, [p.buffer as ArrayBuffer])));
     });
     t.on("presence", (p) => {
-      if (typeof p === "string") quiet(this.worker.receivePresence(p));
+      if (typeof p === "string") this.presenceCh?.receive(p, false);
     });
     t.on("dropped", ({ reason }: { reason: DropReason }) => {
       if (this.transport === t) quiet(this.worker.detach(reason));
@@ -146,6 +179,7 @@ export class CollabClient extends Emitter<ClientEvents> {
       throw new CollabError("closed", started.reason);
     }
     this.role = "host";
+    this.makePresence("host");
     this.begun = true;
     this.sessionId = t.sessionId;
     const c = await code;
@@ -165,6 +199,7 @@ export class CollabClient extends Emitter<ClientEvents> {
       if (!started.ok) throw new CollabError("closed", started.reason);
     }
     this.role = "guest";
+    this.makePresence("guest");
     this.begun = true;
     const t = joinSession(code, { ...this.options.transport, baseUrl: this.baseUrl, name: opts.name, ...(sessionId ? { sessionId } : {}) });
     this.wire(t);
@@ -239,8 +274,19 @@ export class CollabClient extends Emitter<ClientEvents> {
     return this.worker.previewForce(gesture);
   }
   /** Cursor, tool, camera and the stroke being drawn, in tiles; throttled to 15 a second in the worker. */
-  presence(p: PresenceIn) {
-    return this.worker.presence(p);
+  presence(p: PresenceIn): void {
+    const ch = this.presenceCh;
+    if (!ch) return;
+    ch.presence(p);
+    if (!this.presenceTimer && ch.tick()) this.pacePresence();
+  }
+
+  /** (a packet waiting for its time goes when it comes) */
+  private pacePresence(): void {
+    this.presenceTimer = setTimeout(() => {
+      this.presenceTimer = null;
+      if (this.presenceCh?.tick()) this.pacePresence();
+    }, 70);
   }
   /** The host: tell the guest a new map is coming ("<name> is opening a new map"); call it before generating or loading one. */
   announceNewMap(name: string) {
