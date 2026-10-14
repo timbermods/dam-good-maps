@@ -83,7 +83,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Where the
+  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). This session never ends its turn while work is left (D484, "Never idle"): it keeps
+  a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
   - *Review:* Kyler reviews no PR or code, except for design, taste or human-facing behaviour. This session reviews every

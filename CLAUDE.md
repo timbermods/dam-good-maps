@@ -76,6 +76,10 @@ maps the documents.
 - **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back: all 12
   threads, Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
   the work needs; say on #236 when a probe batch holds the game.
+- **Never idle (D484):** nobody types to you. Never end your turn while work is left in the order: while waiting on CI, a
+  probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
+  it fires, and do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
+  Kyler can unblock every piece of work (said on #236).
 - **Resuming:** after every merge, the milestone session's #236 post says where it is and what's next, so "Resume from
   #236" restarts it. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
   steps, one line to Kyler.
