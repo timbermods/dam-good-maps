@@ -554,8 +554,13 @@ test("High's seasons: a held drought draws dry ground and the heat shimmer, a ba
   expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
   expect(await now()).toEqual({ dry: 1, heat: 1, sickly: 0 });
-  // Day 0 is the map's own ground and water: the effects are still on, but nothing is dry that was not
-  // (the mask reads the day's soil; checked by the unit tests), and the badtide has the sky
+  // Day 0 is the map as it is: nothing is drawn for the season
+  await day.dblclick();
+  await bar.getByRole("textbox", { name: "Day" }).fill("0");
+  await bar.getByRole("textbox", { name: "Day" }).press("Enter");
+  await expect(day).toHaveText("Day 0");
+  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  // and the badtide has the sky
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
   await expect.poll(async () => (await now()).sickly, { timeout: 30_000 }).toBeGreaterThan(0);

@@ -177,20 +177,29 @@ export function terrainHooks(): ShaderHooks {
 `),
     // the seasons (#67 stage 4): the held day's mask (R: dry ground with no water on it, A: grass the map's own soil had),
     // read at the tile itself, never blended across a moist one. The heat shimmer moves the ground's own pattern by under
-    // half a pixel over dry ground (no pass of its own: D334's crisp map)
+    // half a pixel over dry ground (no pass of its own: D334's crisp map); its waves run in screen space, so they never
+    // alias however many tiles a pixel spans, and the pixel size is taken outside the branch (derivatives need every
+    // pixel of a quad)
     groundStart: /* glsl */ `
         vec2 gTile = g;
         if (hlHeat > 0.5) {
+          float px = max(fwidth(g.x), fwidth(g.y));
           vec4 shim = texture2D(hlSeasonMask, (floor(g) + 0.5) / hlSeasonSize);
           if (shim.r > 0.5) {
-            float px = max(fwidth(g.x), fwidth(g.y));
-            g += vec2(sin(g.y * 31.0 + time * 1.1) * sin(g.x * 9.0 - time * 0.73), sin(g.x * 27.0 - time * 1.3) * sin(g.y * 11.0 + time * 0.9)) * px * 0.45;
+            vec2 sp = gl_FragCoord.xy;
+            g += vec2(sin(sp.y * 0.9 + time * 1.1) * sin(sp.x * 0.35 - time * 0.73), sin(sp.x * 0.8 - time * 1.3) * sin(sp.y * 0.4 + time * 0.9)) * px * 0.45;
           }
         }
 `,
-    // pale dusty earth over dry ground, its cracks kept, straw where grass stood (before contamination's veins are laid
-    // over, so they stay as they are)
-    groundEnd: /* glsl */ `
+    skyLight: "ambientVisibility(vWorld, n) * ",
+    // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
+    // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
+    moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
+    bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
+    // colour variation (#65): two broad world scales on the ground's colour, not its soil
+    groundVariation: /* glsl */ `
+        // pale dusty earth over dry ground (the seasons, #67 stage 4), its cracks kept, straw where grass stood: laid on the
+        // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
         if (hlDry > 0.5) {
           vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
           if (season.r > 0.5) {
@@ -203,14 +212,6 @@ export function terrainHooks(): ShaderHooks {
             c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
           }
         }
-`,
-    skyLight: "ambientVisibility(vWorld, n) * ",
-    // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
-    // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
-    moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
-    bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
-    // colour variation (#65): two broad world scales on the ground's colour, not its soil
-    groundVariation: /* glsl */ `
         if (hlVariation > 0.5) {
           float broad = vnoise(g * 0.043 + vec2(12.0, 33.0)) - 0.5;
           float mottling = vnoise(g * 0.317 + vec2(21.0, 8.0)) - 0.5;

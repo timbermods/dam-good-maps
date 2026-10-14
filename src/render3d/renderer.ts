@@ -1096,6 +1096,7 @@ export class MapRenderer {
     this.withered = null;
     this.drawnObjects = null;
     this.witheredCount = 0;
+    this.season = null;
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
