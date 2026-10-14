@@ -41,6 +41,13 @@ describe("the host refuses, and nothing changes", () => {
     expect(t.host.seq).toBe(0);
     expect(t.host.hash()).toBe(hash);
     expect(t.refused.every((r) => !r.includes("\n"))).toBe(true);
+    // a group whose later operation is refused burns no operation numbers: the peers' stay the same
+    const group: Command = { kind: "edit", label: "Two", ops: [{ op: "brush", params: { tool: "raise", size: 4, strength: 10, dabs: [60, 60, 80, 70] } }, { op: "sculpt", params: { mode: "raise", cells: [[10, 10, 12]], amount: 40 } }] };
+    const n0 = t.host.session.nextSeq;
+    expect(reason(act(t, HOST, group))).toMatch(/amount: must be <= 22/);
+    expect(t.host.session.nextSeq).toBe(n0);
+    expect(act(t, HOST, brush()).kind).toBe("commit");
+    expect(t.host.session.nextSeq).toBe(t.guests.get(GUEST)!.session.nextSeq);
   });
 
   test("a refused request never strands the player: every request is counted, through a replica", () => {

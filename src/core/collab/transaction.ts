@@ -44,7 +44,7 @@ export interface TransactionRecord {
 }
 
 export type Applied =
-  | { ok: true; record: TransactionRecord; hash: string; state: MapState; applied?: EditOp[] }
+  | { ok: true; record: TransactionRecord; hash: string; state: MapState; applied?: EditOp[]; needsWater: boolean }
   | { ok: false; reason: string; busy?: boolean; stale?: boolean };
 
 /** The JSON form of a record (masks as runs of tile indices). */
@@ -63,16 +63,15 @@ const plainOps = (s: MapSession): EditOp[] => s.lastStepOps().map((o) => ({ op: 
 const weathering = (o: EditOp): boolean => o.op === "brush" && o.params.tool === "naturalize" && o.params.weathers === true;
 const readsWaterOp = (o: EditOp): boolean => o.op === "paintObjects" || o.op === "removeUnfedWater" || o.op === "fillHollow" || weathering(o);
 
-/** Whether the host needs the water settled to apply a command. */
-export function hostNeedsWater(c: Command): boolean {
-  return c.kind === "force" || c.kind === "select" || (c.kind === "edit" && c.ops.some(readsWaterOp));
-}
+/** The objects an operation names (the ones it moves, changes or removes). */
+const targets = (o: EditOp): string[] => (o.op === "moveEntity" || o.op === "setEntityProps" ? [o.params.id] : o.op === "deleteEntities" ? o.params.entities : []);
 
-/** Whether a replica needs the water settled to apply an entry: a force plans on it; Remove unfed water and Fill
- *  are checked against it; a weathering stroke reads it. Every other entry is applied from its literal operations. */
-function replicaNeedsWater(e: Pick<LogEntry, "command" | "applied">): boolean {
-  if (e.command.kind === "force" || e.command.kind === "select") return true;
-  return (e.applied ?? []).some((o) => o.op === "removeUnfedWater" || o.op === "fillHollow" || weathering(o));
+/** Whether the host needs the water settled to apply a command: it plans on it (a force, a Select action, a placement
+ *  stroke, Remove unfed water, Fill, a weathering stroke), or it names a resource object (`derived`: a generated tree or
+ *  bush), whose existence follows from the settled water, so the check on every peer must see the same ones. */
+export function hostNeedsWater(c: Command, derived?: ReadonlySet<string>): boolean {
+  if (c.kind === "force" || c.kind === "select") return true;
+  return c.kind === "edit" && c.ops.some((o) => readsWaterOp(o) || (!!derived && targets(o).some((id) => derived.has(id))));
 }
 
 export interface ApplyOptions {
@@ -103,12 +102,14 @@ export class MapApplier {
     return stateHash(this.state());
   }
 
-  apply(entry: Pick<LogEntry, "seq" | "epoch" | "author" | "command" | "applied">, opts: ApplyOptions): Applied {
+  apply(entry: Pick<LogEntry, "seq" | "epoch" | "author" | "command" | "applied" | "water">, opts: ApplyOptions): Applied {
     const s = this.session;
     const command: Command = entry.command;
     const host = opts.role === "host";
     if (command.kind === "newMap") return { ok: false, reason: "A whole-map change is the host's, and arrives as a new map" };
-    if (host ? hostNeedsWater(command) : replicaNeedsWater(entry)) {
+    // (a replica goes by the host: it settles for every entry the host held for the settled water)
+    const needsWater = host ? hostNeedsWater(command, new Set(this.state().derived.map((d) => d[0]))) : entry.water === true || hostNeedsWater(command);
+    if (needsWater) {
       if (!this.water.settled) {
         if (host) return { ok: false, reason: BUSY, busy: true };
         this.water.settleNow();
@@ -177,6 +178,6 @@ export class MapApplier {
       }
       throw new Error("A refused step could not be taken back");
     }
-    return { ok: true, record, hash: stateHash(after), state: after, ...(applied ? { applied } : {}) };
+    return { ok: true, record, hash: stateHash(after), state: after, needsWater, ...(applied ? { applied } : {}) };
   }
 }

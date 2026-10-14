@@ -7,7 +7,7 @@ import { expect } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { CollabHost, CollabReplica, hostNeedsWater, planKeptForce, settledHash, stable, type Command, type Commit, type ForceGesture, type PlayerId, type Reject, type Settled } from "../../src/core/collab";
+import { captureState, CollabHost, CollabReplica, hostNeedsWater, planKeptForce, settledHash, stable, type Command, type Commit, type ForceGesture, type PlayerId, type Reject, type Settled } from "../../src/core/collab";
 import type { BrushTool } from "../../src/core/features/raster/brush";
 import { generate } from "../../src/core/gen/generate";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -101,19 +101,26 @@ export function deliver(t: Table, message: Commit | Reject | Settled | { kind: "
   }
 }
 
-/** The background settle, run to its end on every peer: the host announces it and each replica compares its own. */
-export function settle(t: Table): void {
+/** The host's background settle, run to its end: it announces it to the replicas, which compare it when their own settle is done. */
+export function settleHost(t: Table): void {
   const announced = t.host.pumpWater();
   if (announced) deliver(t, announced);
+}
+
+/** The background settle, run to its end on every peer: the host announces it and each replica compares its own. */
+export function settle(t: Table): void {
+  settleHost(t);
   for (const g of t.guests.values()) g.pumpWater();
 }
 
 /** `author` asks for `command` at their view; the host orders it and every replica applies it. A command that plans on the
  *  settled water waits for the settle first, as the page's worker would, and a force carries its author's preview. */
 export function act(t: Table, author: PlayerId, command: Command, opts: { preview?: boolean } = {}): Commit | Reject {
-  if (hostNeedsWater(command)) settle(t);
+  // (the host's water settles before an entry that plans on it; the replicas settle on their own, as the page's will)
+  if (hostNeedsWater(command, new Set(captureState(t.host.session).derived.map((d) => d[0])))) settleHost(t);
   let c = command;
   if (c.kind === "force" && opts.preview !== false && c.gesture.preview === undefined) {
+    if (author !== HOST) t.guests.get(author)!.pumpWater();
     const shown = author === HOST ? planKeptForce(t.host.session, c.gesture) : t.guests.get(author)!.previewForce(c.gesture);
     const hash = "plan" in shown ? shown.plan.hash : "preview" in shown ? shown.preview : undefined;
     if (hash) c = { kind: "force", gesture: { ...c.gesture, preview: hash } };
@@ -273,6 +280,7 @@ export function expectIdentical(t: Table, where: string) {
   for (const g of t.guests.values()) {
     expect(g.status, where).toBe("live");
     expect(g.seq, where).toBe(t.host.seq);
+    expect(g.session.nextSeq, `${g.playerId} operation numbers ${where}`).toBe(t.host.session.nextSeq);
     expect(g.hash(), `${g.playerId} direct hash ${where}`).toBe(t.host.hash());
     expect(settledHash(g.session), `${g.playerId} settled hash ${where}`).toBe(settledHash(t.host.session));
     expect(Buffer.compare(g.session.exportTimber().bytes, exported), `${g.playerId} .timber ${where}`).toBe(0);

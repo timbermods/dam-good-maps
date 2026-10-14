@@ -742,6 +742,7 @@ export class MapSession {
           this.log.pop();
         }
         if (done.length) this.cur = this.rebuilt();
+        this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
       done.push(this.applyChecked(op, origin, label));

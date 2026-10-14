@@ -114,7 +114,8 @@
         "baseSeq": { "$ref": "#/$defs/count" },
         "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
         "command": { "$ref": "#/$defs/command" },
-        "applied": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/opEnvelope" } }
+        "applied": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/opEnvelope" } },
+        "water": { "const": true }
       }
     },
     "request": {

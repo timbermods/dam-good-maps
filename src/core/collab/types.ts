@@ -46,6 +46,8 @@ export interface LogEntry {
    *  Naturalize stroke is the stroke as sent: its rim, shore and kept ground are worked out on the settled map.
    *  Absent for a force and a Select action, which every peer plans on the settled map. */
   applied?: EditOp[];
+  /** The host held this entry for the settled water (it planned on it, or named a generated tree or bush): a replica settles before it applies it. */
+  water?: true;
 }
 
 export interface Request {

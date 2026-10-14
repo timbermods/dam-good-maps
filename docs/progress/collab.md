@@ -10,7 +10,7 @@ Part 1 is built: `src/core/collab/` (README there), headless, with `tests/contra
 `collabProtocol.test.ts` and the nightly `collabSoak.heavy.test.ts`. Nothing in the page, the worker or the renderer has
 changed. One small change in `src/core/doc/session.ts`: `takeBack` now also restores the next operation number, as its
 comment says it leaves everything "exactly as it was" (the claims seam takes a refused step back and the peers must keep
-the same numbers).
+the same numbers), and `applyAll`'s refusal path resets it (a group whose later operation fails burned numbers no replica sees).
 
 ## Pieces
 
@@ -24,7 +24,7 @@ the same numbers).
 4. **Presence**: cursor, tool, stroke, camera, Go to.
 5. **The transport and the room-code function**: the managed TURN relay and the Worker (D431), reconnects, a dropped peer
    (the session pauses read-only, brief §7).
-6. **The page**: Invite, join, claims, outlines, notes, presence, Your maps, the force preview on `previewForce`'s basis.
+6. **The page**: Invite, join, claims, outlines, notes, presence, Your maps, the force preview on `previewForce`'s basis. **Its first task: busy windows at 256².** Forces, Select, placement strokes, Fill, Remove unfed water and weathering strokes (and any edit naming a generated tree or bush) wait for the settled water, a from-scratch settle (about 9 s) after any water-changing entry, so they stay busy while the other player paints. Measure it with two painters. If they starve, the author's page records the water and trees it showed (as single-player does for shore, pools and moist, with `weatherKeep` skipping when `keep` is given), so only forces wait.
 7. **Two-browser tests over the real relay** (D486): separate browser instances, reconnects, conflicts, a dropped peer.
 
 ## What part 1 settled
@@ -46,6 +46,7 @@ the same numbers).
   literally: the single-player step takes the start carry by applying, undoing and applying again, which leaves a gap in the
   operations' numbers a literal replay would not reproduce. A weathering stroke is applied again for the same reason (its
   kept ground comes from the objects standing).
+- **A replica goes by the host.** The host marks an entry `water` when it held it for the settled water (it planned on it, or it names a generated tree or bush, whose existence follows from the water); a replica settles before applying it, so the checks see the same objects. A rejoin settles fully before each such entry in its tail.
 - **Forces.** `forceStep.ts` runs a gesture the way the worker's `startForce` and `forceStop` do, from core code only, on
   the canonical water of the entry before it. `previewForce` gives the author's preview that same basis and a hash of the
   operation; the host refuses a force whose operation, planned on its map, differs (the map changed under it). That is

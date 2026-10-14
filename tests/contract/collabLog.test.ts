@@ -9,7 +9,7 @@ import { applyPatch, captureState, cloneState, recordFromJson, recordToJson, sta
 import { startMiddle } from "../../src/core/doc/start";
 import type { EditOp } from "../../src/core/doc/ops";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
-import { act, BRUSH_KINDS, CHEAP_KINDS, expectIdentical, FORCE_KINDS, GUEST, GUID, HOST, KINDS, mapProject, settle, sit, Stream, type Kind, type Table } from "./collabFixtures";
+import { act, BRUSH_KINDS, CHEAP_KINDS, expectIdentical, FORCE_KINDS, GUEST, GUID, HOST, KINDS, mapProject, settleHost, sit, Stream, type Kind, type Table } from "./collabFixtures";
 
 const SIZE = 48;
 
@@ -93,12 +93,13 @@ describe("a host and a replica on a generated map", () => {
     const s = t.host.session;
     let n = 0;
     const edit = (kind: string, author: string, ops: EditOp[]) => {
-      settle(t);
+      settleHost(t);
       const before = captureState(s);
       const answer = act(t, author, { kind: "edit", ops, label: kind });
       expect(answer.kind === "reject" ? answer.reason : "ordered", kind).toBe("ordered");
       if (answer.kind === "commit") expectRecord(t, answer.entry.seq, author, kind, before, tally);
       n++;
+      return answer;
     };
     // a weathering Naturalize stroke: its rim, shore and kept ground are worked out on the settled map by every peer
     const dabs = [60, 60, 80, 70, 100, 80, 120, 90, 140, 100, 80, 120];
@@ -114,6 +115,13 @@ describe("a host and a replica on a generated map", () => {
       { op: "brush", params: { tool: "lower", size: 3, strength: 10, dabs: [120, 120, 130, 126] } } as EditOp,
     ]);
     expect(t.host.records.get(t.host.seq)!.ops.length).toBe(2);
+    // a generated tree: whether it stands follows from the settled water, so the host holds the entry for it and a
+    // replica that has not settled does so before it checks the same object
+    settleHost(t);
+    const tree = captureState(s).derived[0]?.[0];
+    expect(tree, "the map has a generated tree").toBeTruthy();
+    const removedTree = edit("deleteEntities", GUEST, [{ op: "deleteEntities", params: { entities: [tree] } } as EditOp]);
+    expect(removedTree.kind === "commit" && removedTree.entry.water).toBe(true);
     // features: add, change, reorder and delete one
     const box: [number, number, number][] = [];
     for (let y = 8; y < 13; y++) box.push([y, 8, 16]);
@@ -126,7 +134,7 @@ describe("a host and a replica on a generated map", () => {
     edit("deleteFeature", HOST, [{ op: "deleteFeature", params: { id } } as EditOp]);
     // slopes
     edit("pinSlope", GUEST, [{ op: "pinSlope", params: { x: 24, y: 24, orientation: "Cw0" } } as EditOp]);
-    settle(t);
+    settleHost(t);
     const slope = s.built.entities.find((e) => e.template === "Slope" && e.x === 24 && e.y === 24);
     expect(slope, "the pinned slope stands").toBeTruthy();
     edit("removeSlope", HOST, [{ op: "removeSlope", params: { x: 24, y: 24 } } as EditOp]);
@@ -151,7 +159,7 @@ describe("a host and a replica on a generated map", () => {
     const crater = act(t, HOST, { kind: "force", gesture: { id: GUID(901), request: { verb: "craterize", settings: { mode: "strike", power: 80, size: 20, walls: "terraced", centre: "auto", debris: "heavy", rays: false, seed: 5 }, origin: [startAt().x, startAt().y], cut: null, natural: true } } });
     expect(crater.kind === "reject" ? crater.reason : "ordered").toBe("ordered");
     // Unleash: a source the players placed carves its own river
-    settle(t);
+    settleHost(t);
     let placed: string | null = null;
     for (let tries = 0; tries < 30 && !placed; tries++) {
       const id = GUID(1000 + tries);
@@ -172,7 +180,7 @@ describe("a host and a replica on a generated map", () => {
   test("Fill and Remove unfed water, which are checked against the settled water on every peer", () => {
     const t = sit(bytes, {}, [GUEST]);
     const s = t.host.session;
-    settle(t);
+    settleHost(t);
     const { W } = s.built;
     // a stepped pit on a plateau: flatten high ground, lower a 5x5 patch a level and a 3x3 patch in it a level more, then fill to the inner pit's rim
     let top = 0;
@@ -189,13 +197,13 @@ describe("a host and a replica on a generated map", () => {
       const dug = act(t, HOST, { kind: "select", label, ops: [op] });
       expect(dug.kind === "reject" ? dug.reason : "ordered", label).toBe("ordered");
     }
-    settle(t);
+    settleHost(t);
     const plan = planFill(s, cx, cy, level - 1);
     expect(plan.reason).toBeNull();
     const fill = plan.op;
     const filled = act(t, GUEST, { kind: "edit", label: "Fill", ops: [fill!] });
     expect(filled.kind === "reject" ? filled.reason : "ordered").toBe("ordered");
-    settle(t);
+    settleHost(t);
     const unfed = unfedWater(s).op;
     expect(unfed, "the fill's water has no source").toBeTruthy();
     const removed = act(t, HOST, { kind: "edit", label: "Remove unfed water", ops: [unfed!] });

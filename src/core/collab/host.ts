@@ -132,6 +132,7 @@ export class CollabHost implements HostView {
     if (!done.ok) return refuse(done.reason, done.busy);
     this.seq = entry.seq;
     if (done.applied) entry.applied = done.applied;
+    if (done.needsWater) entry.water = true;
     this.tail.push(entry);
     this.records.add(done.record);
     if (done.record.changed) this.changedAt = entry.seq;
