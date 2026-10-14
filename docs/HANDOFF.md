@@ -15,8 +15,8 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 
 ## 1. Starting a session
 
-1. Start in the main clone (`C:\Users\Kyler\code\DamGoodMaps` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
-   machine) at Opus 5.5, high, so `.claude/agents/` load.
+1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`, the dedicated machine, §7) at Opus 5.5, high, so
+   `.claude/agents/` load.
 2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
    the plan's worktrees and the probe folder `-probe` beside the clone, installs their dependencies, writes the probe allow
    rules into `.claude/settings.local.json`, checks the tools and Timberborn's folders, and prints what's ready and what's
@@ -35,13 +35,13 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
   water, the generator, the Rust order (D381), the Codex adoptions and the documents. It reviews every PR, merges, releases,
   and owns the decisions' numbering, STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`, PR #163) does only the page and its
-  design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
+- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
+  the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
   `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
-- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played them. The old
-  renderer session is closed; its #275 and #225 have no owner until Kyler says (STATUS).
-- **Codex** runs on both machines, each task in its own clone, never in a session's worktree. It delivers investigations
+- **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives
+  every force Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played
+  them.
+- **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
   `dev`; this session reviews and merges them.
@@ -82,22 +82,25 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 5. How things are run here
 
+- **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
+  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). This session never ends its turn while work is left (D484, "Never idle"): it keeps
+  a background watch on #236 and the PRs' checks and works on meanwhile. Where the
+  points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
-  - *Review:* Kyler reviews no PR or code, except for design, taste or human-facing behaviour. This session reviews every
-    PR's diff before it merges (correctness, scope, ownership of files); its own PRs that touch the core or the water get a
-    review from a fresh sub-agent that didn't write them.
-  - *Merging:* labels `hold` (never merge), `needs-kyler` (waiting on his eye; never merge while on) and `approved` (he
-    approved the human-facing result); each session sets them on its own PRs. This session merges, through the merge queue,
-    any green PR that isn't hold or needs-kyler. A PR that changes what a player sees, hears or feels (a theme, a force, the
-    page, sound, wording) needs approved; one with nothing human-facing (internals, CI, Rust ports, cleanup, docs,
-    investigations) merges on review and green CI.
-  - *At every merge pass:* anything that no longer needs Kyler loses `needs-kyler`; a PR this session adopts or supersedes
-    is closed with a line saying why; an answered question's issue is closed.
-  - *A Codex PR Kyler sends back for another round* loses `needs-kyler` until Codex pushes that round; then it gets the
-    label again for his verdict.
+  - *Review:* Kyler reviews nothing (D484). This session reviews every PR's diff before it merges (correctness, scope,
+    ownership of files); its own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
+    or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
+    interaction change's captures).
+  - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
+    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; this session
+    checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
+    with a full CI run by hand first for core and Rust changes).
+  - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
+    question's issue is closed.
+  - *Codex's investigations* are adopted or sent back for another round by this session (D484).
   - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
-    collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
-    its branches, it doesn't use the issue.
+    collide on pins, this session re-pins the later one. Codex stays on investigation branches; read its branches, it
+    doesn't use the issue.
   - *The Coordination issue* ([#236](https://github.com/timbermods/dam-good-maps/issues/236), pinned): messages between Claude Code
     sessions, each comment starting "To milestone:", "To page:", "To renderer:" or "To <session name>:". Read it at the start of
     a task, before pushing and at the end; answer there.
@@ -153,15 +156,15 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 - **Fixes for dev's own failing tests go to dev**, never only onto a feature branch: as a PR through the queue (a repository admin's direct push bypasses it, and has no CI run, so release only commits that went through the queue).
 - **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
   byte-identity checks run in CI; a real check before anything is reported done stays.
-- **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after
-  Kyler's yes in chat for that batch (CLAUDE.md, D117).
+- **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn: on the dedicated
+  machine whenever a batch decides something (D218, D484); anywhere else only after Kyler's yes in chat (CLAUDE.md, D117).
   **What a batch plays (D483):** A probe batch plays only what players get: maps the current generator makes, and edited maps as the app exports them, on the current game version.
   A map already played is never replayed unless what the game reads from it changed in a way that could change play.
   Hand-made test maps are only for a rule that has never been played.
   A batch is asked for when it is worth it, with its maps named (for example: whether the current generator's maps and an exported edited map play right on a new game version).
   On a new game version the runner asks for a smoke run before a batch (`--smoke`, then `--allow-new-version`): that is
   two launches, so the ask names both. **On this machine D218 lifts the ask:** run a batch whenever the plan
-  calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed, the machine quiet).
+  calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed; D484: no need for a quiet machine, only a line on #236 while the batch holds the game).
   Every probe runs from the dedicated worktree `C:\Users\krams\code\DamGoodMaps-probe`, checked out detached at the branch to
   probe (`git checkout --detach origin/<branch>`), with `npm ci` at the root and in `investigation/probe` if the lockfiles
   changed. Build the mod with `run build-mod -- --no-install`; make a settings backup first (`--backup-settings`) and pass it
@@ -176,7 +179,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D484**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D485**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
@@ -212,39 +215,41 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 7. The machine
 
-**Kyler's PC (since 2026-10-05):** Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
-Python 3.13, gh. Under `C:\Users\Kyler\code`:
+**Everything runs on the dedicated machine** (since 2026-10-14, on Kyler's new account; D218): the milestone session and
+the renderer session "forces play", each with its own usage. Kyler's PC is idle. The computer is kept for this work: always
+on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; under
+`C:\Users\krams\code`:
 
-- `DamGoodMaps`: the main clone, where the milestone session runs;
-- `DamGoodMaps-page`: the page session's worktree, on `feature/page`;
+- `DamGoodMaps`: the main clone, on `dev`, where the milestone session runs;
+- `DamGoodMaps-forces-play`: the renderer session's worktree (made detached at `origin/dev`; it makes its own branches);
+- `DamGoodMaps-page`: the page session's worktree, on `feature/page` (the session is stopped);
 - `DamGoodMaps-probe`: the probe folder, detached;
-- `DamGoodMaps-forces-play`: the renderer session's worktree;
-- about 50 older `DamGoodMaps-*` worktrees from released work: leave them alone.
+- about 65 older `DamGoodMaps-*` worktrees and folders from released work: leave them alone.
 
-Codex works in `C:\Users\Kyler\Documents\ChatGPT`. Every folder that isn't the milestone session's belongs to another
-session or to Codex: never touch it, and check no session is working in a folder before installing or checking out there.
-The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
-**Probe batches need Kyler's yes in chat, every time** (D117; D218 lifts the ask only on the dedicated machine).
+Each worktree has its own `node_modules`: run `npm ci` in one only if its `package-lock.json` changed. Every folder that
+isn't the milestone session's belongs to another session or to Codex: never touch it, and check no session is working in a
+folder before installing or checking out there. The machine is the two sessions' own (D484): nobody else uses it, so test and probe without asking or holding back (all
+12 threads, Timberborn whenever it helps), within D483 for what a probe plays; split the threads with forces play as the
+work needs, and say on #236 when a probe batch holds the game.
 
-**On any new computer:** clone the repository, run `npm run setup:machine` (it installs the dependencies, makes the page
-worktree, writes the probe allow rules into `.claude/settings.local.json` and checks the tools; restart the session after it
-adds allow rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`. The section below
-describes the dedicated machine.
-
-The computer kept for this work (D218): always on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; the repository and its worktrees (one per branch, each with its own
-`node_modules`: run `npm ci` in one only if its `package-lock.json` changed) are under `C:\Users\krams\code\`.
-
-- **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Python 3.12.10 (numpy and
-  pillow from `prototype/requirements.txt`); the .NET 8 SDK (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide
-  `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd; gh.
-- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game version `1.1.2.4-52e959e-sw`, the build the repository
-  was verified against (FORMAT.md). Keep Steam running; Timberborn stays closed unless the probe launches it.
+- **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Rust 1.90 with
+  `wasm32-unknown-unknown`; Python 3.12.10 (numpy and pillow from `prototype/requirements.txt`); the .NET 8 SDK
+  (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd; gh.
+- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game version `1.1.2.7-2c14458-sw` (Steam updates it). Keep
+  Steam running; Timberborn stays closed unless the probe launches it.
 - **Official maps** are in `.scratch/official/`, deliberately not in `investigation/raw/builtin/` (its local-only tests also
-  expect the workshop copies). **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`; work that needs them waits
-  for Kyler's main PC.
+  expect the workshop copies). **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`; work that needs them
+  waits for Kyler.
 - **DGM Probe:** results in `C:\dgm-probe\`; settings backup `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\Timberborn-settings.reg`.
-- **Restarts** (automatic updates are off): start a session in the repository folder, read this page, start the keep-awake
-  script (it ends with the session that started it), check `git worktree list`, and if a probe batch was running, run `npm --prefix investigation/probe run restore`
-  before anything else.
+- **Restarts** (automatic updates are off): start a session in the repository folder, read this page, run
+  `npm run setup:machine`, start the keep-awake script (it ends with the session that started it), check
+  `git worktree list`, and if a probe batch was running, run `npm --prefix investigation/probe run restore` before
+  anything else.
 - **When the game updates:** recompute the starting-logs floor (D224) with `npx tsx tools/log-floor.ts --check` (then
-  `--write`; record the new floor in `docs/decisions/`); regenerate `investigation/decompiled/`; note it in STATUS.
+  `--write`; record the new floor in `docs/decisions/`); regenerate `investigation/decompiled/` (move the old folder away
+  first: the script skips files that exist); note it in STATUS.
+
+**Kyler's PC** (idle since 2026-10-14): Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
+Python 3.13, gh; the clone `C:\Users\Kyler\code\DamGoodMaps` and its worktrees, Codex in `C:\Users\Kyler\Documents\ChatGPT`.
+On any other new computer: clone the repository, run `npm run setup:machine` (restart the session after it adds allow
+rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`.

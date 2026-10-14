@@ -23,10 +23,13 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 
 ## Labels and Kyler
 
-- `hold`: never merge. `needs-kyler`: waits on Kyler; never merge while it's on. `approved`: Kyler approved the
-  human-facing result. Each session labels its own PRs.
-- Everything that needs Kyler carries `needs-kyler`: the PR, or a small issue with the question in a few lines.
-- Kyler never reviews code, only what players see, hear or feel. Claude sessions review code.
+- Kyler is done testing and giving feedback (D484, 2026-10-14): Claude completes the project without him. Claude
+  sessions review code and judge what players see, hear and feel (in a real browser, with a separate reviewer agent for
+  looks, and probe batches for the game).
+- `hold`: never merge. `needs-kyler` holds only design-direction questions (one issue each: the question, 2–4 options, a
+  recommended default that work proceeds on) and the things only Kyler's account can do. Each session labels its own PRs.
+- An owning session judges its PR; a different session merges it (D484): post "ready to merge" on #236 with your verdict
+  and captures on the PR; the milestone session checks them and green CI, then merges.
 - Sessions talk on the pinned Coordination issue (#236), not through Kyler.
 
 ## How to work
