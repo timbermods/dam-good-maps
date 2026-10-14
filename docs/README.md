@@ -24,6 +24,7 @@ how things are and what is next, not how they got there.
 | [README.md](../README.md) | The player-facing text (written by CLAUDE.md's rules for README and website text). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 | [COLLAB-BRIEF.md](COLLAB-BRIEF.md) | Kyler's collaborative editing brief: what gets built at that milestone (D362). |
+| [collab-worker/README.md](../collab-worker/README.md), [src/collab/README.md](../src/collab/README.md) | Collaborative editing's connection: the room-code function and the browser side (D431, D486). |
 | [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance. |
 | [GLOSSARY.md](GLOSSARY.md) | The shared terms (force, working area, candidate, the absolutes and the rest), each defined once with the decision that set it. |
 | [decisions-pending.md](decisions-pending.md) | The open pending defaults only: choices the session made while Kyler was away, with the next pending number. |

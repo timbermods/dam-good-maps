@@ -591,6 +591,12 @@ Python check exactly as today.
 ### 2. The view (tag `3d-view-done`)
 
 After the High look is adopted (Map look 2, released), so there is only one mesher to build (D280 (2)).
+Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/3d-view.md).
+
+**Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
+without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
+runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
+per column, 3D picking, the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -721,11 +727,22 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
    `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
    drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
-   instead ("The drought line isn't worked out for maps with caves yet"). **Next:** the drawing (the forces play
-   session): the faint shore line, the faint dry tint over beds that dry out, the start's water a little stronger.
+   instead ("The drought line isn't worked out for maps with caves yet").
+   **Built (the drawing):** `render3d/droughtLine.ts` (geometry in `droughtLineGeometry.ts`, set by the page through
+   `renderer.setDroughtLine`): a faint amber line along each shore side at the last day's water level (a thin strip flat
+   at that height and one upright on the bank, so it reads from above and from the side, through today's water where
+   that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
+   water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
+   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing. **Next:** the
+   refusal's words on the page, and the line on maps with caves.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
+   **Built: the Badtide view's veins.** A held Badtide day sends the page its own soil (the ground its water poisons, with
+   no moisture where badwater lies), and the ground shader draws the game's orange-red veins on every contaminated tile
+   of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
+   pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
+   capture is `tools/capture-weather.ts`.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -877,6 +894,10 @@ to Later.
 **In-game check:** none.
 
 **Effort:** high.
+
+**Built:** **Report a problem**, **Keyboard shortcuts** (also ?) and **Help** at the end of the File menu; the shortcuts
+panel is generated from the editor's own tool lists (EDITOR_PLAN §7, "The File menu's help entries"); README's "Install a
+map" section (with the artifact edition's extract step). Left in M13: the accessibility pass and the final performance pass.
 
 ---
 ---
