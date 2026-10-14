@@ -35,6 +35,9 @@ features share is a member of it.
 - `keyboard/` the keyboard.
 - `testHook/` `window.dgmEditor` for the browser tests.
 - `save/` export and save.
+- `tour/` the 20-second tour (D377): the stored gestures (`script.ts`), the hands that replay them through the real
+  input paths (`conductor.ts`), where it works on the land (`spots.ts`), the camera (`camera.ts`) and the layer over
+  the editor (`TourLayer.tsx`); the page runs it on a copy of the map in a worker of its own (`src/ui/App.tsx`).
 - `prefs/` what the viewer last used, kept in `localStorage`.
 - `render/` the markup.
 - `juice/` the sounds and the land's effects. The files beside this one (`brushes.ts`, `select.ts`, `features.ts`,

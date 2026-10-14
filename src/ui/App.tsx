@@ -38,6 +38,9 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { putPrefsBack, takePrefs, type Prefs } from "../editor/tour/prefs";
+import type { Remote } from "comlink";
+import type { GeneratorApi } from "../worker/generator.worker";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
@@ -223,6 +226,11 @@ export function App() {
    *  editor's queue of edits already made, which the capture waits for. */
   const [replacingMap, setReplacingMap] = useState(false);
   const pendingEdits = useRef<(() => Promise<void>) | null>(null);
+  /** The 20-second tour (D377): the player's map is copied into a worker of its own and the editor plays the tour
+   *  there; the map the player has is not touched (its worker keeps it, its history and all) and comes back when the
+   *  tour ends. While it plays the editor is the tour's, and nothing it does is saved. */
+  const [tour, setTour] = useState<{ key: number; data: SessionOpen; api: Remote<GeneratorApi>; stop(): void } | null>(null);
+  const tourState = useRef<{ starting: boolean; prefs: Prefs | null; count: number }>({ starting: false, prefs: null, count: 0 });
   /** Whether the last save into Your maps worked (if not, replacing an edited map asks first). */
   const keeping = useRef(true);
   /** The player chose to close a map Your maps isn't keeping ("Close it"): the next replacement goes ahead. */
@@ -680,6 +688,54 @@ export function App() {
     }
   }
 
+  /** Watch the tour: the open map's project opened in a second worker, the editor shown on that copy. */
+  async function startTour() {
+    const t = tourState.current;
+    if (tour || t.starting || !opened || replacingMap || making || confirm) return;
+    t.starting = true;
+    let w: ReturnType<typeof createGeneratorWorker> | null = null;
+    try {
+      await pendingEdits.current?.();
+      const p = await generator.project(1);
+      w = createGeneratorWorker();
+      void w.api.deferChecks();
+      const data = await w.api.openProject(p.bytes);
+      t.prefs = takePrefs();
+      // (the map's picture for Your maps is the player's: while the editor shows the copy, a save keeps the one it has)
+      picture.current = null;
+      const made = w;
+      setTour({ key: ++t.count, data, api: made.api, stop: made.stop });
+    } catch (e) {
+      w?.stop();
+      setError(`The tour could not start: ${words(e)}`);
+    } finally {
+      t.starting = false;
+    }
+  }
+
+  /** The tour is over (it played through, or Esc): the player's own map comes back as it was, the same worker, its
+   *  history untouched, the view where it was, their saved choices as they were; the copy is dropped. */
+  async function endTour() {
+    const t = tour;
+    if (!t) return;
+    if (tourState.current.prefs) putPrefsBack(tourState.current.prefs);
+    tourState.current.prefs = null;
+    try {
+      // (its water was settling when the editor left it: it has finished by now, so the view taken is the settled one)
+      await Promise.race([generator.whenWaterSettles(), new Promise((r) => setTimeout(r, 4000))]);
+      // (a weather day held when the tour began was shown by the worker: it is let go, as the page lets it go)
+      await generator.stopWeatherPrep();
+      await generator.stopWeather();
+      const data = await generator.sessionView();
+      setOpened((o) => (o ? { key: o.key + 1, data, keepView: true } : o));
+    } catch (e) {
+      setError(`Your map could not be shown again: ${words(e)}`);
+    }
+    setTour(null);
+    // (after the editor on the copy has gone: its worker ends)
+    setTimeout(t.stop, 0);
+  }
+
   /** Another like this (D278 (1c)): a sibling of the map open, the same theme, settings and intentions on
    *  different land, with its own share link; never a clone of the map it came from (a sibling whose land
    *  matches it is passed over for the next). A version the background search kept quietly is shown at once. */
@@ -964,28 +1020,52 @@ export function App() {
 
   return (
     <>
-      <EditorMod
-        key={opened.key}
-        api={generator}
-        opened={opened.data}
-        onChange={onEditorChange}
-        replacing={replacingMap}
-        onPendingEdits={(wait) => (pendingEdits.current = wait)}
-        onOpenFile={openFile}
-        saveState={saveState}
-        name={name}
-        onRename={rename}
-        onPicture={(get) => (picture.current = get)}
-        drawer={drawer}
-        drawerOpen={panel === "generator"}
-        onDrawer={(o) => setPanel(o ? "generator" : null)}
-        mapsOpen={panel === "maps"}
-        onMaps={(o) => setPanel(o ? "maps" : null)}
-        placesOpen={panel === "places"}
-        onPlaces={(o) => setPanel(o ? "places" : null)}
-        keepView={opened.keepView}
-        notice={message}
-      />
+      {tour ? (
+        // the tour's editor: the copy of the map in a worker of its own, its changes saved nowhere, no panel open
+        <EditorMod
+          key={`tour-${tour.key}`}
+          api={tour.api}
+          opened={tour.data}
+          onChange={() => undefined}
+          onOpenFile={() => undefined}
+          saveState=""
+          name={name}
+          onRename={async () => "Not while the tour plays"}
+          drawer={drawer}
+          drawerOpen={false}
+          onDrawer={() => undefined}
+          mapsOpen={false}
+          onMaps={() => undefined}
+          placesOpen={false}
+          onPlaces={() => undefined}
+          keepView
+          tour={{ onEnd: () => void endTour() }}
+        />
+      ) : (
+        <EditorMod
+          key={opened.key}
+          api={generator}
+          opened={opened.data}
+          onChange={onEditorChange}
+          replacing={replacingMap}
+          onPendingEdits={(wait) => (pendingEdits.current = wait)}
+          onOpenFile={openFile}
+          saveState={saveState}
+          name={name}
+          onRename={rename}
+          onPicture={(get) => (picture.current = get)}
+          drawer={drawer}
+          drawerOpen={panel === "generator"}
+          onDrawer={(o) => setPanel(o ? "generator" : null)}
+          mapsOpen={panel === "maps"}
+          onMaps={(o) => setPanel(o ? "maps" : null)}
+          placesOpen={panel === "places"}
+          onPlaces={(o) => setPanel(o ? "places" : null)}
+          keepView={opened.keepView}
+          onTour={() => void startTour()}
+          notice={message}
+        />
+      )}
       {confirmDialog}
       {makingDialog}
     </>

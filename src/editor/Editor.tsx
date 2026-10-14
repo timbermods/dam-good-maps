@@ -83,6 +83,11 @@ export interface EditorProps {
   onPlaces(open: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
+  /** Start the 20-second tour (D377): the page opens a copy of the map and plays the tour there. */
+  onTour?(): void;
+  /** This editor is the tour's, on a temporary copy of the player's map: the tour plays over it, and `onEnd` brings
+   *  the player's own map back (src/editor/tour/). */
+  tour?: { onEnd(): void };
 }
 
 export default function Editor(props: EditorProps) {

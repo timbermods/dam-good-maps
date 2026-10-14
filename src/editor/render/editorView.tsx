@@ -18,6 +18,7 @@ import { WaterBar } from "../WaterBar";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
+import { TourLayer } from "../tour/TourLayer";
 import { header } from "./header";
 import { topBar } from "./topBar";
 import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, roofsButton, viewButtons } from "./viewControls";
@@ -105,6 +106,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         </section>
       </div>
       <DropTarget onFile={props.onOpenFile} />
+      {props.tour ? <TourLayer ed={ed} onEnd={props.tour.onEnd} /> : null}
     </div>
     </ForceFloor.Provider>
   );

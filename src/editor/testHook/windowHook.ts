@@ -12,6 +12,8 @@ export {};
 
 declare global {
   interface Window {
+    /** Test hook: the 20-second tour's pace (the default is quicker than 1). */
+    dgmTourPace?: number;
     /** Test hook: the open editor (tests/e2e). */
     dgmEditor?: {
       info: () => SessionInfo;

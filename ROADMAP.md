@@ -856,6 +856,11 @@ In step 3, polish, with M13's help. A ghost cursor performs about 20 seconds of 
 - The same sequence is recorded once as a GIF and video for the website, the workshop page and posts.
 - No click-Next walkthrough, and no second "More forces" tour. Per-tool "Show me" demos can come later on the same machinery.
 
+**Built:** the tour plays in the editor (`src/editor/tour/`, EDITOR_PLAN §8), offered by the first visit's hints and **File → Watch a 20-second tour**,
+about 21 seconds with the forces' own time. It plays on a copy of the open map in a worker of its own, so the player's map,
+its history, its view and its saved choices are exactly as they were when it ends or Esc ends it (`tests/e2e/tour.spec.ts`).
+Spots are chosen from the land by rules (`tests/unit/tourSpots.test.ts`). The recording for the website is not built.
+
 ## M13. Problem reports, shortcuts and help, a final performance pass
 
 **Design** (D176): M13's new interface is built to the design records, with the finish review on the new screens; no second
