@@ -1823,6 +1823,15 @@
 }
 
 /* (no knobs: they would sit at the Any theme's defaults and read as the file's values) */
+.gen.blank .set-range {
+  --fill: 0% !important;
+}
+
+/* (the species mix, one even colour: no shares to read) */
+.gen.blank .mix-share {
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
 .gen.blank .set-range::-webkit-slider-thumb {
   visibility: hidden;
 }
@@ -2388,6 +2397,14 @@
 
 .loading-frame .first-look {
   min-height: 0;
+}
+
+/* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is
+   never left low under empty space */
+.loading-frame .first-look-empty {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
 }
 
 .loading-frame .first-look-map {

@@ -99,7 +99,11 @@ export function FirstLook({ progress, quiet = false }: { progress: Progress | nu
   }, [shown]);
   return (
     <div class="first-look">
-      {shown ? <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "Your map, its water settled" : "The land so far, before its water is settled"} /> : null}
+      {shown ? (
+        <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "Your map, its water settled" : "The land so far, before its water is settled"} />
+      ) : quiet ? (
+        <div class="first-look-map first-look-empty" aria-hidden="true" />
+      ) : null}
       {quiet ? null : (
         <p role="status" class="first-look-stage">
           {progressText(progress)}

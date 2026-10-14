@@ -642,11 +642,12 @@ export function App() {
         seedWord,
       );
       if (id !== runId.current) return null;
-      // (a test can make the first maps fail: window.__dgmForceFail counts them down)
-      const forced = Number((window as unknown as { __dgmForceFail?: number }).__dgmForceFail ?? 0);
-      if (forced > 0) (window as unknown as { __dgmForceFail?: number }).__dgmForceFail = forced - 1;
+      // (the end-to-end build lets a test make the first maps fail: window.__dgmForceFail counts them down)
+      const hook = window as unknown as { __dgmForceFail?: number };
+      const forced = import.meta.env.MODE === "e2e" ? Number(hook.__dgmForceFail ?? 0) : 0;
+      if (forced > 0) hook.__dgmForceFail = forced - 1;
       if (!r.passed || forced > 0) {
-        const failed = `No valid map after ${r.attempts} attempts. Try another seed.`;
+        const failed = `No valid map after ${r.attempts} attempts.${session ? " Try another seed." : ""}`;
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
         if (session) {
