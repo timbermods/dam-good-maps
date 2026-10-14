@@ -87,6 +87,44 @@ function surfaceNear(h: ArrayLike<number>, D: ArrayLike<number>, W: number, H: n
   return Number.isFinite(s) ? s : h[Math.min(H - 1, Math.max(0, cy)) * W + Math.min(W - 1, Math.max(0, cx))];
 }
 
+/** A river's longest stretch, in tiles of its course, whose ground rises 3+ levels over its water
+ *  on both sides within a few tiles of its banks (from the first dry tile out, as wide as the water
+ *  is: a wide river's walls stand beyond a narrow one's; Codex's Canyon audit, D370), and the tiles
+ *  of its course inside the map. */
+export function walledRun(r: RiverFeature, W: number, H: number, h: ArrayLike<number>, D: ArrayLike<number>): { best: number; of: number } {
+  const wet = (i: number) => D[i] >= 0.05;
+  const reach = Math.round(0.3 * Math.min(W, H));
+  const S = samples(r, W, H);
+  let run = 0;
+  let best = 0;
+  for (const { x, y, dx, dy } of S) {
+    const surf = surfaceNear(h, D, W, H, x, y);
+    let sides = 0;
+    for (const sgn of [-1, 1]) {
+      let top = -Infinity;
+      // (out past the water to its bank, then the ground within five tiles of it)
+      let bank = -1;
+      for (let t = 2; t <= reach && bank < 0; t++) {
+        const xx = Math.round(x - sgn * dy * t);
+        const yy = Math.round(y + sgn * dx * t);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+        if (!wet(yy * W + xx)) bank = t;
+      }
+      if (bank < 0) continue;
+      for (let t = bank; t <= bank + 4; t++) {
+        const xx = Math.round(x - sgn * dy * t);
+        const yy = Math.round(y + sgn * dx * t);
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+        if (h[yy * W + xx] > top) top = h[yy * W + xx];
+      }
+      if (top >= surf + 3) sides++;
+    }
+    run = sides === 2 ? run + 1 : 0;
+    if (run > best) best = run;
+  }
+  return { best, of: S.length };
+}
+
 function median(v: number[]): number {
   if (!v.length) return 0;
   const s = v.slice().sort((a, b) => a - b);
@@ -128,39 +166,11 @@ export function signatureOf(W: number, H: number, h: Uint8Array, D: ArrayLike<nu
   //      water is: a wide river's walls stand beyond a narrow one's; Codex's Canyon audit, D370)
   let canyon = 0;
   let canyonShare = 0;
-  const reach = Math.round(0.3 * side);
   for (const r of rivers) {
-    const S = samples(r, W, H);
-    let run = 0;
-    let best = 0;
-    for (const { x, y, dx, dy } of S) {
-      const surf = surfaceNear(h, D, W, H, x, y);
-      let sides = 0;
-      for (const sgn of [-1, 1]) {
-        let top = -Infinity;
-        // (out past the water to its bank, then the ground within five tiles of it)
-        let bank = -1;
-        for (let t = 2; t <= reach && bank < 0; t++) {
-          const xx = Math.round(x - sgn * dy * t);
-          const yy = Math.round(y + sgn * dx * t);
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-          if (!wet(yy * W + xx)) bank = t;
-        }
-        if (bank < 0) continue;
-        for (let t = bank; t <= bank + 4; t++) {
-          const xx = Math.round(x - sgn * dy * t);
-          const yy = Math.round(y + sgn * dx * t);
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-          if (h[yy * W + xx] > top) top = h[yy * W + xx];
-        }
-        if (top >= surf + 3) sides++;
-      }
-      run = sides === 2 ? run + 1 : 0;
-      if (run > best) best = run;
-    }
+    const { best, of } = walledRun(r, W, H, h, D);
     if (best > canyon) {
       canyon = best;
-      canyonShare = S.length ? best / S.length : 0;
+      canyonShare = of ? best / of : 0;
     }
   }
   // ---- highlands: dry land well over the rivers, cliffs, plateaus

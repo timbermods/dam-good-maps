@@ -159,6 +159,13 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
       seen.add(r.id);
       return exitsOf(to, seen);
     }
+    // (round 6: a river that ends in a basin, an island sea, leaves the map where that basin's water
+    // does)
+    if ("basin" in e) {
+      const x = Math.min(W - 1, Math.max(0, Math.round(e.basin[0])));
+      const y = Math.min(H - 1, Math.max(0, Math.round(e.basin[1])));
+      return out[y * W + x] >= 0 ? [out[y * W + x]] : [];
+    }
     const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
     if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
     return tiles;
@@ -244,6 +251,11 @@ export function closeSideEdges(h: Uint8Array, W: number, H: number, rivers: read
       if (!to || seen.has(to.id)) return [];
       seen.add(r.id);
       return exitsOf(to, seen);
+    }
+    if ("basin" in e) {
+      const x = Math.min(W - 1, Math.max(0, Math.round(e.basin[0])));
+      const y = Math.min(H - 1, Math.max(0, Math.round(e.basin[1])));
+      return out[y * W + x] >= 0 ? [out[y * W + x]] : [];
     }
     const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
     if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));

@@ -26,14 +26,19 @@ Neither the page nor the milestone session touches the other's files: the page s
 interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
 (#236, D470); what waits for Kyler carries the `needs-kyler` label.
 
-**0. In flight now** (2026-10-05; each line is a PR or branch and the session that owns it)
+**0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
+
+- **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
+  started ahead of the Weather view, custom map sizes and the dam sketch, alongside the generator queue (the queue's step
+  keeps first place; the two never edit the same files at once). Its new modules are already on dev (the Rust
+  stacked-column engine and #71's eight game-verified fixtures in CI); what remains is "Terrain above terrain", step 1.
 
 - **The generator queue** (milestone session, one re-pin at a time, each with its sheets for Kyler): Delta arms round 2
   (#325, 0.8.2), badwater joins the main water (#330, D476, 0.8.3) and Lake Basin round 3 (#339, 0.8.4) are merged;
-  next River Valley round 2 (#244, `feature/river-valley-2`, 0.8.5, waiting on Kyler's sheets), Islands round 6
-  (#235), Canyon and Highlands (#261).
-- **The page** (#163, `feature/page`; the page session): waits on Kyler's sitting on `/preview/` (the forces, Craterize, #275,
-  #225) and green CI.
+  River Valley round 2 (#346, 0.8.5), the story's reach (#351, D480, 0.8.6) and Islands round 6 (#235, 0.8.7) are merged
+  too, and Canyon and Highlands (#261, 0.8.8) and the story keeping a main water that is mostly badwater (D480's
+  extension, 0.8.9). The queue is empty.
+- **The page** (`feature/page`; the page session): "The page is the editor" is on dev (#347, #163's squash).
 - **Forces play** (renderer session, worktree `DamGoodMaps-forces-play`): the lake-jump fix, then #312's worker part once the
   page part reaches dev with #163.
 - **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
@@ -47,7 +52,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   joins the main water (D476).
 - **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
   scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
-- **Next, after the generator queue:** custom map sizes, then the dam sketch.
+- **Next, after Foundations** (D481): the Weather view, custom map sizes, then the dam sketch.
 
 **1. Released, and the coherence cleanup**
 
@@ -94,7 +99,15 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
    seeds 1–30, dev → 0.8.5: promise 29 → 30, readable water 26 → 25 (every miss is clean water's reach, where
    badwater runs down the main river, D476), flood sheets over 10% of the map 12 → 3, cliff splits kept (5: 88%,
    27: 99%); badwater reaches the main river on 19 of 20 (17 on dev).
-6. **Islands round 6** (#235, `approved`; round 2 is #210), then **Canyon and Highlands** (#261, `approved`).
+6. **Islands round 6** (#235, `investigation/islands-round-3`, generator 0.8.7, `approved`; round 2 is #210): the sea
+   runs to the map's edge behind a lip of two tiles, a river that meets the sea ends there, the mainland's coast bends
+   in bays and points, and no island is an ellipse. Lake Basin's hollow keeps its own shape (it shares the island's),
+   so only Islands' maps and Any's sea maps change. Seeds 1–30 on 0.8.7, at 96², 128² and 256²: no island to expand
+   to (D429) on 9, 0 and 1 (0.8.6's Islands: 21, 10 and 9); all three outcomes on 28, 27 and 30 (0.8.6's: 4, 21
+   and 23); readable water missed on 2, 2 and 0, one of them the reach, now that it counts the main water (D480);
+   attempts 13.2, 6.2 and 4.1 on average (0.8.6's: 8.7, 5.3 and 3.4), most of the new ones `source in a flow` and
+   `start.badwater`. A named gap: sea-map starts (the start planting's lean, held as an expected failure).
+   Sheets: `docs/sheets/islands-6.png`, `islands-6-all.png`. Then **Canyon and Highlands** (#261, `approved`).
 
 **4. Startup and the post-release list** (D367, D378, D380, D381)
 
@@ -255,12 +268,12 @@ generator queue above.
 
 ## Canyon and Highlands height (#261)
 
-The height the eye sees on the 96² round: generator 0.9.0, renumbered if it merges after #265. Highlands is approved; a new
+The height the eye sees on the 96² round: generator 0.8.8. Highlands is approved; a new
 Canyon session (Opus 5.5) does one Canyon-only round: seed 27's gorge and the round's start lakes.
 
-## Islands round 4 (#235)
+## Islands round 6 (#235)
 
-On hold: Kyler judges the sheets and the 256² trade first. Round 2 is #210.
+Approved by Kyler; in the generator queue (step 3, item 6). Its report is `investigation/islands-round-3/REPORT.md`. Round 2 is #210.
 
 ## Basin highlight (#225)
 
@@ -500,7 +513,7 @@ keep their terrain, water and objects; each tall map's description notes that th
 
 ---
 
-## Terrain above terrain (parked, D448): Foundations, the view, creating them, generation
+## Terrain above terrain: Foundations (in work, D481), the view, creating them, generation
 
 Carving is a brush, live from the start (D179, D182; EDITOR_PLAN.md Part 1, §9).
 
@@ -517,7 +530,13 @@ that.
 
 ### 1. Foundations (tag `3d-foundations-done`)
 
-On its own branch `feature/terrain3d-a`, alongside M9b (M9a and M9b keep the machine first, D280 (1), D286 (1)–(3)).
+On its own branch `feature/3d-foundations`, from `dev`, alongside the generator queue (D481; the new modules were built on
+`feature/terrain3d-a`, #71, D280 (1), D286 (1)–(3)).
+Its stages and where each stands are in [docs/progress/3d-foundations.md](docs/progress/3d-foundations.md).
+
+**Done already:** the stacked-column engine in `rust/water` (`stack*.rs`, D448, #260), #71's eight game-verified fixtures
+(`tests/golden/stacked-water.json`: T1–T6 and two cave cases) checked natively and in Node's WebAssembly on every push, and
+the probe batches that verified them in the game (`terrain3d-20260927`, `terrain3d-20260929`).
 
 **First, new modules only, no existing module changed** (D286 (3)), so it doesn't collide with the water and generator code
 that M9b is changing: the stacked-column water engine as its own module (on #71 in TypeScript, kept as the reference and

@@ -73,7 +73,7 @@ pub(crate) fn validate_params(params: &[f64], count: usize) -> Result<(), Refusa
     }
     for p in params.chunks_exact(4) {
         if p.iter().any(|v| !v.is_finite())
-            || !(0.0..=1_000_000.0).contains(&p[0])
+            || !(-1_000_000.0..=1_000_000.0).contains(&p[0])
             || !(0.0..=1.0).contains(&p[1])
             || p[3] < 0.0
             || p[2] < p[3]
@@ -556,6 +556,53 @@ impl Stack {
                 continue;
             }
             let add = (DT * src.strength * scale) / src.cols.len() as f64;
+            if add < 0.0 {
+                // A sink (a negative strength, D337): the game's one task for every column
+                // (`UpdateWaterSourcesTask` with `WaterDepthSetter.SetWaterDepth`). The change comes off the
+                // column's water and pressure together, floored at dry, and the badwater share follows
+                // `UpdateContaminationFromWaterChange` on depth plus pressure × 8. In the open, with no
+                // pressure, this is the heightfield rule (sim.rs), in its own arithmetic.
+                for &c in &src.cols {
+                    let c = c as usize;
+                    let d0 = self.d[c];
+                    let o0 = self.o[c];
+                    if !(d0 > 0.0) && !(o0 > 0.0) {
+                        continue;
+                    }
+                    if self.game {
+                        self.dold[c] = d0;
+                    }
+                    let cap = (self.cols.ceil[c] - self.cols.floor[c]) as f64;
+                    if o0 == 0.0 {
+                        let d1 = d0 + add;
+                        if d1 > 0.0 {
+                            self.c[c] = clamp((self.c[c] * d0 + src.contamination * add) / d1, 0.0, 1.0);
+                            self.d[c] = d1;
+                        } else {
+                            self.c[c] = 0.0;
+                            self.d[c] = 0.0;
+                        }
+                        continue;
+                    }
+                    let before = d0 + o0 * PRESSURE;
+                    let tot = d0 + o0 + add;
+                    if tot < 0.0 {
+                        self.d[c] = 0.0;
+                        self.o[c] = 0.0;
+                    } else if tot > cap {
+                        self.d[c] = cap;
+                        let max_o = (OPEN - self.cols.ceil[c]) as f64 / PRESSURE;
+                        let o = tot - cap;
+                        self.o[c] = if o > max_o { max_o } else { o };
+                    } else {
+                        self.d[c] = tot;
+                        self.o[c] = 0.0;
+                    }
+                    let after = self.d[c] + self.o[c] * PRESSURE;
+                    self.c[c] = if after != 0.0 { clamp((self.c[c] * before + src.contamination * (after - before)) / after, 0.0, 1.0) } else { 0.0 };
+                }
+                continue;
+            }
             if !(add > 0.0) {
                 continue;
             }
@@ -662,7 +709,7 @@ impl Model {
         }
         for e in &self.emitters {
             if !e.strength.is_finite()
-                || !(0.0..=1_000_000.0).contains(&e.strength)
+                || !(-1_000_000.0..=1_000_000.0).contains(&e.strength)
                 || !e.contamination.is_finite()
                 || !(0.0..=1.0).contains(&e.contamination)
                 || e.tiles.iter().any(|&i| i as usize >= n)

@@ -19,10 +19,14 @@ const SY = [0, 0, 1, -1];
 
 describe("the flow over a fall's lip, with the settle's outflows", () => {
   // (on M9b's maps, D148: a lip over the map's edge is rare, rivers leaving at their own level; these two
-  // hold one each, Highlands 5's the finding above; dev's Highlands 8 and Delta 4 and 2 hold none)
+  // hold one each, Highlands 5's the finding above; dev's Highlands 8 and Delta 4 and 2 hold none.
+  // Re-pinned for the height round (investigation/canyon-highlands-height), whose tall terraces and
+  // plateau moved every map from 128² up: Highlands 5's edge lip is at (27, 0) (at (37, 127) before the
+  // round's fixes for Kyler's look) and Canyon 2 holds none, Canyon 5 one at (0, 18), still the only one
+  // in Canyon's seeds to 20 after Canyon's gorge and lakes for Kyler's second look)
   it.each([
-    ["highlands", 5, [86, 127]],
-    ["canyon", 2, [127, 58]],
+    ["highlands", 5, [27, 0]],
+    ["canyon", 5, [0, 18]],
   ] as [ThemeId, number, [number, number]][])("%s %i: every lip, the map's edge included, pours the settle's outflow", (theme, seed, [ex, ey]) => {
     const W = 128;
     const b = generate(makeSpec({ seed, theme, size: { x: W, y: W } })).built;

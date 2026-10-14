@@ -3,7 +3,7 @@
 // (The store's own cases, two tabs among them, are in tests/contract/yourMaps.test.ts.)
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
-import * as ts from "typescript";
+import ts from "@typescript/typescript6";
 import { expect, test } from "vitest";
 
 const compile = (code: string) => ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;

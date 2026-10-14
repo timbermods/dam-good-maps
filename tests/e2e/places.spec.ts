@@ -148,7 +148,10 @@ test("a real place replaces the open map without asking, and the replaced map st
   await page.evaluate(() => window.dgmEditor!.idle());
   await page.keyboard.press("Escape");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().edits)).toBe(1);
-  await page.waitForTimeout(2500);
+  // (the save itself, not a time: the edited map is in Your maps once it is written. Leaving before that,
+  // the browser asks first and the test's navigation goes ahead without it; 2.5 s was enough only while
+  // seed 1's background search kept the page busy, until 0.8.6, D480)
+  await expect((await openYourMaps(page)).locator(".ym-tile")).toHaveCount(1, { timeout: 30_000 });
   await page.goto("./real-places/");
   await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
 
