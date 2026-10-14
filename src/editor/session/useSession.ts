@@ -467,6 +467,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
   const soilTimer = useRef(0);
+  // (a map opened while the soil still grows: this map's colours never land on the next one)
+  useEffect(() => () => clearTimeout(soilTimer.current), []);
   function growSoil(r: MapRenderer, from: SoilView, to: SoilView) {
     clearTimeout(soilTimer.current);
     const t0 = performance.now();

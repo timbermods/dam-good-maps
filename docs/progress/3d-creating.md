@@ -47,11 +47,22 @@ takes the new one as the worker answers. The page may later show `StrokePreview.
 A step refused this way costs no full build: a stroke or force is checked on its terrain alone first
 (`MapSession.fallsAhead`), the build's check after it covering the rest.
 
-**Judged in the browser** (D484; `docs/sheets/3d-strokes-on-runs.jpg`): Hollows, a Raise and two Lowers on a floating
-ledge show its new shape at once (its column 4–10 → 4–11 → 4–9), a Lower by a roof is refused with "1 block of
-ground would fall: nothing would hold it up" and nothing changes; a generated map's stroke as before; light and dark,
-1280 and 1920. Seen in passing, not from this change: strokes painted back to back, before the worker's answer,
-sometimes differ from the worker's map (the page's own warning), on a generated map too.
+**Judged in the browser** (D484; `docs/sheets/3d-strokes-on-runs.jpg`, light and dark, 1280, 1920 and 2560): on
+Hollows' floating ledge at x 176–177, y 80–83 (rock over open air, seen from below against the sky), Raise grows its
+top (column 9–12 → 9–14) and Lower brings it down a level (9–13), at once; a Lower to its last layer is refused
+("3 blocks of ground would fall: nothing would hold them up"), and cutting the cliff behind it too (47); the line has
+the existing refusals' style; a generated map's Raise as before. No stroke left the page's map different from the
+worker's.
+
+**Found while judging, fixed here:** (1) plants standing on a roof did not ride its new top (`build.ts`
+`snapToGround` left every column that is not plain alone), so a Raise buried them and the checks marked them red
+("Succulent inside terrain"); an object on a roof's top now rides it, one in the cave stays. (2) An imported map's
+water carried to new ground before its first settle had no saturation (`session.ts` `topWater`), so its soil read
+dry everywhere until the settle landed; it now has the file water's. (3) The page: the soil's two-second growth of
+the map left was still running when another map opened and painted the old map's colours over it
+(`useSession.ts`, the timer is cleared when the editor closes). Not from this change, seen in passing: after the
+background settle, Hollows' soil and water are the app's heightfield settle's, not the file's (9,163 tiles' wet or dry
+differ outside roofs); that is stage 6's (the stacked engine).
 
 **Checked:**
 - On a map without caves, byte for byte: `tools/stroke-hashes.ts` (480 strokes, every brush, sizes ½ to 9, soft,

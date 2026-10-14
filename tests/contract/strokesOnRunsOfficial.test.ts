@@ -46,6 +46,8 @@ describe("the brushes on the official maps with caves (local only)", () => {
       const fell = unsupportedVoxels(base);
       const roofs = [...s.roofedTiles];
       expect(roofs.length).toBeGreaterThan(100);
+      const roofSet = new Set(roofs);
+      const onTop = new Set(s.built.entities.filter((e) => roofSet.has(e.y * W + e.x) && e.z === base.surface(e.y * W + e.x)).map((e) => e.id));
       const rand = mulberry(name.length * 97);
       const states: Uint32Array[] = [base.mask.slice()];
       let refused = 0;
@@ -73,6 +75,12 @@ describe("the brushes on the official maps with caves (local only)", () => {
         for (const i of roofs) {
           expect(under(t, i), `${k} tile ${i}`).toEqual(under(base, i));
           if (t.surface(i) !== base.surface(i)) shaped++;
+        }
+        // what stood on a roof's top rides it (D487); what stands in the cave stays
+        for (const e of s.built.entities) {
+          const i = e.y * W + e.x;
+          if (!roofSet.has(i) || !onTop.has(e.id)) continue;
+          expect(e.z, `${k} ${e.template} at ${e.x}, ${e.y}`).toBe(t.surface(i));
         }
         // nothing falls that the map held
         const now = unsupportedVoxels(t);

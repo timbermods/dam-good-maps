@@ -31,6 +31,7 @@ import { ColumnTerrain, terrainColumns } from "../terrain/runs";
 import { fallsReason, newFalls, stackableTops } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
+import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { rawEntity } from "../format/entities";
@@ -1367,7 +1368,11 @@ function topWater(singletons: JsonObject, W: number, H: number, heights: Uint8Ar
     depth[i] = w.depth[k];
     contamination[i] = w.contamination[k];
   }
-  return { settled: true, ticks: 0, depth, contamination, sat: new Uint8Array(N), preview: true };
+  // (its saturation, as the settle's own is worked out from where water stands: the soil the build
+  // makes from this water before its first settle is the file's water's, not a dry map)
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0 ? 1 : 0;
+  return { settled: true, ticks: 0, depth, contamination, sat: clusterSaturation(wet, W, H), preview: true };
 }
 
 /** Whether two water models are the same map for the water (floors, obstacles and emitters). */

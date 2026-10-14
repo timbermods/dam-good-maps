@@ -1367,11 +1367,13 @@ function markDifference(a: readonly number[], b: readonly number[], mask: Uint8A
 }
 
 /** An imported object stays where it was, unless an edit changed the surface of its tile and it
- *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). */
+ *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). On a
+ *  roof that is the roof's top, which the brushes shape (D487); an object under the roof, in the
+ *  cave, stands below the surface and stays. */
 function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: number): EntitySpec {
   if (!e.raw) return e;
   const i = e.y * W + e.x;
-  if (i < 0 || i >= heights.length || (base.terrain && !base.terrain.isPlain(i))) return e;
+  if (i < 0 || i >= heights.length) return e;
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;
