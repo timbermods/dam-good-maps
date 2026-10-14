@@ -196,6 +196,12 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await openFileMenu(page);
   await check("the File menu");
   await page.keyboard.press("Escape");
+  // (its help entries' dialogs)
+  for (const name of ["Keyboard shortcuts", "Help"]) {
+    await (await openFileMenu(page)).getByRole("menuitem", { name, exact: true }).click();
+    await check(`the ${name} dialog`);
+    await page.keyboard.press("Escape");
+  }
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await check("the history");
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();

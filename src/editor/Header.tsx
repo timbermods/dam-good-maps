@@ -10,6 +10,7 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../work
 import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
+import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
@@ -442,6 +443,21 @@ export function Header(p: HeaderProps) {
                   About
                 </button>
               </li>
+              <li role="none" class="menu-rule">
+                <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
+                  Keyboard shortcuts
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" {...tip("How to make a map and save it")} onClick={pick(() => showHelpPanel("help"))}>
+                  Help
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" {...tip(REPORT_TIP)} onClick={pick(reportProblem)}>
+                  Report a problem
+                </button>
+              </li>
             </ul>
           ) : null}
           <input
@@ -461,6 +477,7 @@ export function Header(p: HeaderProps) {
         </div>
       </div>
       {about ? <About onClose={() => setAbout(false)} /> : null}
+      <HelpPanels />
     </header>
   );
 }
