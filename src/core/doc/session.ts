@@ -462,7 +462,8 @@ export class MapSession {
     return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
   }
 
-  /** Whether a tile is one plain run from the bottom: no cave or overhang, so the tools may shape it.
+  /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
+   *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map. */
   plainAt(i: number): boolean {
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
