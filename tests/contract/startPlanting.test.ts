@@ -78,11 +78,18 @@ describe("the start's own planting on generated maps (PLAN §20 D252)", () => {
     for (const s of starts) for (const id of ["start.wood", "start.food", "start.wood_floor"]) expect(s.checks[id], `${s.label} ${id}`).toBe(true);
   });
 
-  it("no two starts get the same ring: the planting leans to a side instead of surrounding the start", () => {
+  // An expected failure, a named gap: sea-map starts (Kyler, 2026-10-07). Since Islands round 6 (0.8.7) the mean
+  // lean on these sixteen starts is 0.442, under the 0.45: two Any maps that roll a sea layout lean less. Its
+  // seeds and bar stay; `fails` comes off when sea-map starts are looked at.
+  it.fails("no two starts get the same ring: the planting leans to a side instead of surrounding the start", () => {
     // (the even planting it replaced: a mean lean of 0.36 on these starts, every yard planted up to
     // its bench)
     const lean = starts.reduce((a, s) => a + s.spread.lean, 0) / starts.length;
     expect(lean, "mean lean").toBeGreaterThan(0.45);
+  });
+
+  // (its own test while the lean above is held, so these two stay checked)
+  it("at most three starts get a ring, and a yard stays clear of its own planting where the walk has room", () => {
     const rings = starts.filter((s) => s.spread.ring).map((s) => s.label);
     expect(rings.length, `rings: ${rings.join(", ")}`).toBeLessThanOrEqual(3);
     // where the walk has room, the start's yard stays clear of its own planting

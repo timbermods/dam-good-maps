@@ -103,6 +103,10 @@ maps the documents.
   - Never while Timberborn is already running; never touching Kyler's saves, settings or other mods (probe games never
     autosave into Kyler's folders, and any file they create is removed afterwards); only when no other heavy work is
     running on this machine. While waiting for the yes, carry on with work that doesn't need the batch.
+  - **What a batch plays (D483):** only what players get: maps the current generator makes, and edited maps as the app
+    exports them, on the current game version. Never replay a map already played unless what the game reads changed in a
+    way that could change play; hand-made test maps only for a rule that has never been played. Ask for a batch when it is
+    worth it, with its maps named.
   - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, "The machine"): a batch may run whenever the plan
     calls for one, without asking. The other rules above still apply, and every batch and its results go into
     `docs/STATUS.md`.

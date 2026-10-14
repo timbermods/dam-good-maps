@@ -23,13 +23,14 @@
 // the map is the same on every machine).
 
 import * as portable from "../math/portable";
+import { walledRun } from "../analysis/signature";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
-import { seaLevel, standIslandsClear } from "../land/islands";
+import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -50,6 +51,8 @@ import { lakeRise, shallowSheet } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
 import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
+import { shapeCanyon } from "../land/canyon";
+import { shapeHighlands } from "../land/highlands";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { mainWater, planBadwater, type Hazards } from "../land/hazards";
 import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -182,7 +185,7 @@ export interface GenerationInfo {
   preWet?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
-  planned?: { promise: boolean; water: boolean };
+  planned?: { promise: boolean; water: boolean; island?: number };
   /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
   hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
@@ -355,6 +358,17 @@ interface LandStage {
   hollows: Omit<Hazards, "heights"> | null;
 }
 
+/** The main river's course within the map, in tiles (0 when `entering` and it rises from a spring). */
+function mainCourse(main: RiverFeature, W: number, H: number, entering: boolean): number {
+  if (entering && !("edge" in main.params.entry)) return 0;
+  const path = main.params.path;
+  const inside = ([x, y]: [number, number]) => x >= 0 && y >= 0 && x < W && y < H;
+  let len = 0;
+  for (let k = 1; k < path.length; k++) if (inside(path[k - 1]) && inside(path[k])) { const dx = path[k][0] - path[k - 1][0]; const dy = path[k][1] - path[k - 1][1]; len += portable.sqrt(dx * dx + dy * dy); }
+  return len;
+}
+/** An island to expand to (D429): the dry tiles it needs at 128², by area (`islandToExpandTo`). */
+const EXPAND_TILES = 150;
 /** Lands at most drawn again before one is shown because, read on the water its rivers were planned
  *  with, it misses the theme's promise or a readable water story (D333 (3): first maps meeting all
  *  three outcomes): fewer on larger maps, whose land stage takes longer (time to land, D333 (2)). */
@@ -542,6 +556,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       if (specIn.theme === "lakeBasin") shapeLakeBasin(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (round 2, #155: a Canyon above 128² reserves its gorge's depth in the first plan)
       if (specIn.theme === "canyon" && W > 128) g.hydro.incise += 3;
+      shapeCanyon(g, W, H, seed, genomes);
+      shapeHighlands(g, W, H);
       genomes++;
       replans = 0;
       // (every theme's land from the field's processes: D370's Islands and Delta templates are
@@ -554,6 +570,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       g.flowDir = orientDir(g.flowDir, o);
       const E = orientField(F.E, W, H, o);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
+      // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
+      if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
     const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
     if (a.stage) {
@@ -1366,6 +1384,14 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // takes days to settle; the channel is as wide as the map's flow needs
   const channels = new Uint8Array(N);
   for (let i = 0; i < N; i++) channels[i] = hy.water[i] === 1 ? 1 : 0;
+  // (round 6: never through an island sea's lip, the two rows at the map's edge: the sea spills over
+  // the lip to the edge, and a channel cut through it drained the sea a level and notched the lip)
+  if (g.seaLayout && g.theme === "islands")
+    for (let i = 0; i < N; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
+    }
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
@@ -1392,7 +1418,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
-  // ground, is parted from it by a strait)
+  // ground, is parted from it by a strait; D432: on every sea map)
   if (g.seaLayout) {
     const isles = g.parts.filter((p) => p.isle).map((p) => {
       const o = (g.orientation ?? 0) as LandOrientation;
@@ -1406,8 +1432,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     });
     const keepI = new Uint8Array(N);
     for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
-    // (only round an inland sea: where the ring breaks, an island may reach the land round it, D417)
-    if (g.seaRing) standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
+    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
@@ -1803,7 +1828,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (shown.theme === "canyon" && N <= 128 * 128) {
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water: est, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
-        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H));
+        // (and from 128² up the gorge is the main river's: it enters on an edge and crosses the map,
+        // or its own walled stretch is twice the promise's line; a main clipping a corner unwalled
+        // left a creek and a lake to carry the gorge, Canyon 128² seed 27, Kyler's look at #261)
+        const main = hy.rivers.find((r) => r.role === "river/main");
+        const gorged = W < 128 || (!!main && (mainCourse(main, W, H, !g.hydro.noInflows) >= 0.75 * Math.min(W, H) || walledRun(main, W, H, hLand, est).best >= 2 * Math.max(16, 0.16 * 128 * portable.sqrt(Math.min(W, H) / 128))));
+        const keeps = PROMISES[shown.theme].holds(po.signature, Math.min(W, H)) && gorged;
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // A rejected Canyon course can be incised on the same shaped field.
@@ -1870,6 +1900,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
+        }
+        // (D429, D432: an Islands map has an island to expand to, large enough to build on and
+        // reachable from the shore across water as the game allows; a land without one is drawn again
+        // like one missing the promise. The size is Kyler's 150 tiles at 128², by area.)
+        if (shown.theme === "islands" && g.seaLayout) {
+          const island = islandToExpandTo(hLand, est, W, H);
+          info.planned.island = island;
+          // (from 128² up: at 96² the sea has little room for islands and the shore little for a
+          // start, and a land drawn again for this missed the start more often, D433)
+          if (!lastAttempt && opts.screen !== false && N >= 128 * 128 && screened.count < landScreen(W, H) && island < EXPAND_TILES * (N / (128 * 128))) {
+            screened.count++;
+            return fail("an island to expand to (planned)", null, false);
+          }
         }
       }
     }

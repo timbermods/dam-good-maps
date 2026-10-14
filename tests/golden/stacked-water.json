@@ -1,5 +1,5 @@
 {
-  "reference": "feature/terrain3d-a 24b88b9b; tests/golden/terrain3d.json water hashes unchanged. Disk fixtures only; runtime maps use typed memory.",
+  "reference": "feature/terrain3d-a 24b88b9b; tests/golden/terrain3d.json water hashes unchanged. Disk fixtures only; runtime maps use typed memory. The t7-sink case is not from #71 and not game-verified: its sink under a roof follows the game's code (UpdateWaterSourcesTask, WaterDepthSetter), not yet played (tools/rust/stack-sink-fixture.ts).",
   "cases": [
     {
       "name": "t1-support",
@@ -292,6 +292,40 @@
         "17": "a3e331917f60a394533904a1bf08ab3c27cdd9156789f1d914b57c634fed70f0",
         "18": "404bbd4d43a49fc0e5c6021667161f4a9fbb1bd5a014d0fe178004da3086029e",
         "19": "74ad3e4886caa0a10fb6cc5b3532e15a6d93e7c0a5c181781a8157b6e8e22754"
+      }
+    },
+    {
+      "name": "t7-sink",
+      "W": 48,
+      "H": 48,
+      "settle": {
+        "settled": true,
+        "ticks": 896
+      },
+      "hashes": {
+        "depth": "e7069066869678fe",
+        "overflow": "55c4f65e03727714",
+        "contamination": "1c02730953829883"
+      },
+      "levels": 2,
+      "inputSha256": "cdade9ec57e7f179dadb25658d44afb89e51c5c50bbeb36f19b0493407a3ff9e",
+      "inputGzip": "H4sIAAAAAAAAA+3QMQrCMBTG8QwijiIODoIOHsDJQUTrWTyI59DLOLq6unmEjm7akNchr4SmUGha/g9+PNrw8j6yNcZY44KtUeEHAIl5BqRyH/nJT/7h5gcAAECcVQNdZyV/esjfn/zXFvD+5E8J+QEAADBkrpaZ62vVJ9JDlZ/8+Y3q4fn7zdb74c8fGu7/qP3H6P2uvmr/Tvpe+rxm3si5zp9FzueyP1Rl/qm6x32/Zpez/39R2fcHnXtcbfQlAAA=",
+      "fields": {
+        "3": "6dc25667d22278bbf808a61d1f72ce44d9c344e93507626037bc73bbdf2b15b3",
+        "4": "3189502f4e6c4b64841e8b4884b3ca2275243695d59dac545a3115f4055446a8",
+        "5": "01d455053e263b6cefc6089b3665ea0c0e131ae0fa659a6fce675eb08fe64a05",
+        "6": "e7069066869678feebb93c42a504db4556c8878e11e90f0960a01d7e98324912",
+        "7": "55c4f65e037277149c54890a81f77c6e50c0b1fb9a2724fd95ab86c794ee7e91",
+        "8": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75",
+        "10": "fcf02b90e9909aa14155b863f2c00ff738888068342982a06c3f83cb101791db",
+        "11": "55619c78c3a990bc10ad54a4b974c60114b07fe9a34804b5b0f3626ce1653a9d",
+        "12": "9e5e169829934a178e61db31b7c02bc557d4a5c844194ca7abda4366ac6aef3b",
+        "13": "0886a2da4f1af3d8fbeb12bb14a99d16170d7460d40b31d6bb85a4e4514739e7",
+        "14": "f8bbdc41e94b5c98d7f94915615d59a36f44569b59bc8b8fa30edb19abe910f0",
+        "16": "5ca2a52614c7ef9c5370f1bbdb7887d30424acaee2b471fdc1b38c02b28554e8",
+        "17": "6dc25667d22278bbf808a61d1f72ce44d9c344e93507626037bc73bbdf2b15b3",
+        "18": "a04a9ae80a8acd3ec947eb75bd38a76e9100726d4b8c5c832e0a75cddd2e9cd8",
+        "19": "3189502f4e6c4b64841e8b4884b3ca2275243695d59dac545a3115f4055446a8"
       }
     }
   ]

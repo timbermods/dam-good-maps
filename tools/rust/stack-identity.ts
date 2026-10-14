@@ -1,4 +1,5 @@
-// D448 correctness only: all eight #71 fixtures in native Rust and Node-Wasm.
+// D448 correctness only: all eight #71 fixtures in native Rust and Node-Wasm, and the sink case (t7-sink:
+// from the game's code, not yet played; tools/rust/stack-sink-fixture.ts).
 // Build first: cargo build --release -j 4 -p water --example stack-fixture (inside rust/).
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -35,7 +36,7 @@ for (const f of stackFixtures) {
     const row = { name: f.name, ticks: wasm.info[0], nativeSha256: hash(native), goldenWater: true, allFields: true };
     results.push(row);
     writeFileSync(join(dir, f.name + '.native'), native);
-    console.log('PASS ' + f.name + ' native = Node-Wasm = #71 golden; ' + row.ticks + ' ticks');
+    console.log('PASS ' + f.name + ' native = Node-Wasm = ' + (f.name === 't7-sink' ? 'pinned (not yet played)' : '#71 golden') + '; ' + row.ticks + ' ticks');
 }
 // Changing slice boundaries must preserve the entire exposed state.
 for (const name of ['cave-valley', 'lake-cave']) {

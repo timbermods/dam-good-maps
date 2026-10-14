@@ -3,7 +3,8 @@
 // in each milestone's checks.txt), the cycle model's calibration points (investigation/cycles/CALIBRATION.md
 // on branch investigation/cycles-exact), the Map look captures (docs/map-look/after/after.json), the high
 // terrain test maps, the tall maps (tools/probe-tall.ts, PLAN §20 D172), the ceiling maps made in the editor
-// (tools/probe-ceiling.ts, PLAN §20 D244), the size maps (tools/probe-sizes.ts, PLAN §20 D357 (9)), and any
+// (tools/probe-ceiling.ts, PLAN §20 D244), the size maps (tools/probe-sizes.ts, PLAN §20 D357 (9)), the terrain-3D test maps T1–T7
+// (tools/probe-3d.ts, PLAN §20 D127, D279), and any
 // .timber files given on the command line (the M9 prototypes, for example).
 // Groups whose maps are made outside the repository declare their writer here (GROUP_WRITERS): the runner writes
 // their maps itself before it plans them (writers.ts).
@@ -16,6 +17,7 @@ import { NEW_GAME_DAY } from './job';
 import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } from './derived';
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
 import { ceilingDir, REPO, sizesDir, tallDir } from './paths';
+import { terrain3dGames, type Terrain3dEntry } from './terrain3d';
 import type { GroupWriter } from '../../../tools/probe-maps/group';
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
 import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
@@ -67,6 +69,8 @@ export interface GameDef {
   sizes?: SizesEntry;
   /** Frame times after the first day (the phases; `afterDays` from the start). */
   perf?: Omit<PerfSpec, 'startDay'> & { afterDays: number };
+  /** A terrain-3D test map's entry in terrain3d.json (tools/probe-3d.ts). */
+  terrain3d?: Terrain3dEntry;
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -191,6 +195,7 @@ function sizesBytes(t: SizesEntry): Uint8Array {
 export const GROUP_WRITERS: Record<string, () => GroupWriter> = {
   'Tall maps': () => (require('../../../tools/probe-maps/tall') as typeof import('../../../tools/probe-maps/tall')).TALL_WRITER,
   Sizes: () => (require('../../../tools/probe-maps/sizes') as typeof import('../../../tools/probe-maps/sizes')).SIZES_WRITER,
+  'Terrain 3D': () => (require('../../../tools/probe-maps/terrain3d') as typeof import('../../../tools/probe-maps/terrain3d')).TERRAIN3D_WRITER,
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -656,6 +661,10 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
       checks: [SIZE.load, SIZE.terrain, SIZE.objects, SIZE.water, SIZE.smooth, SIZE.loadTime, SIZE.shots],
     });
   }
+
+  // Terrain above terrain (PLAN §20 D127, D279): the test maps of investigation/terrain3d/DESIGN.md §8 and the
+  // sink map T7, written with tools/probe-3d.ts into C:\dgm-probe\terrain3d; their checks are in terrain3d.ts.
+  games.push(...terrain3dGames());
 
   // The cycle model's calibration points (CALIBRATION.md on investigation/cycles-exact), under forced weather
   games.push({

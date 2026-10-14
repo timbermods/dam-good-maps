@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import { stackFixtures, runStackFixture, fixtureOutput } from '../../tools/rust/stack-fixtures';
-import { StackMemory } from '../../tools/rust/stack-memory';
+import { StackWater as StackMemory } from '../../src/core/sim/stackWater';
 import { prefill, canonicalSettle } from '../../src/core/sim/prefill';
 import type { WaterModel } from '../../src/core/sim/water';
 const hash = (a: Uint8Array) => createHash('sha256').update(a).digest('hex');

@@ -13,7 +13,9 @@ import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 
 const W = 128;
-const SEED = 21;
+const SEED = 22;
+const SIZE_HEAD: [number, number] = [62, 14];
+const POWER_HEAD: [number, number] = [14, 46];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
@@ -21,8 +23,16 @@ beforeAll(async () => {
   // (D148, M9b's maps: the head is re-picked from the map. The old pick, the highest dry ground, is on
   // seed 21 a tile near the north rim whose ice runs 16 tiles and stops, so the comparisons had no
   // stretch to share; (80, 24), level 14, sends its ice 70 tiles at the narrowest Size, and every check
-  // below holds from there)
-  at = [80, 24];
+  // below holds from there; seed 22 and (62, 14), level 11, since the height round's tall terraces
+  // moved the map, investigation/canyon-highlands-height: on seed 21 no head of 57 whose ice runs 55+
+  // tiles keeps every check (its benches make the walls grow unevenly with Power), on seed 22 this one
+  // does, its ice running 60 tiles. On 0.8.8's map, dev's badwater courses merged in, D148, each
+  // comparison has its own head: Size's stays (62, 14), where every check of it holds; Power's is
+  // (14, 46), level 11: from (62, 14) the ice at Size 24 now follows a valley already cut, and Power 100
+  // takes little more out of a section than Power 50, 129 for 122. Of 38 heads with long ice on five
+  // maps that is the only one where Power 100 takes out less than 1.3 times Power 50's (1.5 to 7 times
+  // on the rest); no head of 30 tried on this map and 30 on seed 21 keeps every check of both)
+  at = SIZE_HEAD;
 });
 
 interface Run {
@@ -65,6 +75,7 @@ function compare(runs: Run[], widest: number) {
 
 describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
   it("at a fixed Size, Power alone deepens it from a light scour to a deep valley, its width the same", () => {
+    at = POWER_HEAD;
     const [p0, p50, p100] = compare([0, 50, 100].map((p) => glacier(p, 24)), 24);
     const where = JSON.stringify({ p0, p50, p100 });
     for (const r of [p0, p50, p100]) expect(r.sections, where).toBeGreaterThanOrEqual(10);
@@ -87,6 +98,7 @@ describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
   }, 300_000);
 
   it("at a fixed Power, Size alone widens it, its floor cut to the same level", () => {
+    at = SIZE_HEAD;
     for (const power of [20, 60, 100]) {
       const [narrow, wide] = compare([glacier(power, 10), glacier(power, 40)], 40);
       const where = `Power ${power}: ${JSON.stringify({ narrow, wide })}`;

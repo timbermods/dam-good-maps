@@ -153,15 +153,12 @@ checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was 
 
 **Type.** The system UI face, 13px, tabular numbers. The map's name: Bitter 700 (OFL, self-hosted, one weight).
 
-### Still to come
+### As built
 
-- Variety joins Theme, Size, Seed and Designed for when M9b brings the setting.
-- The shelf's pictures at their real size, and the default view fitted to the free space, need two small changes
-  in the renderer (`thumbnail()`'s framing, `frameMap()`'s insets); until then the pictures are the present renders
-  and the view is centred in the window.
-- The map's name is in Bitter once its font file is in the repository; until then it falls back to Georgia.
-- The versions strip, the legend and the trees line (checkpoint 2) and Your maps (checkpoint 3) are not built yet;
-  the card shows the name, the map's premise and a quiet line of facts.
+This section is the first direction; the page as built follows "The one-page editor" below and Kyler's sittings after
+it. Of what it left open: Variety is in the Map Generator; the default view is fitted to the free space (the
+renderer's insets); the versions strip, the legend and Your maps are built. The map's name is in the system UI face:
+no display face is in the repository.
 
 ## Proposed after checkpoint 1's sitting (v4): set aside
 

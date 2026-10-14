@@ -8,10 +8,13 @@ namespace DGMProbe
     {
         public int X;
         public int Y;
-        // Every water column on the tile, bottom up: floor, depth, contamination.
+        // Every water column on the tile, bottom up: floor, depth, contamination, overflow.
         public List<float[]> Columns = new List<float[]>();
         public float Moisture;
         public float SoilContamination;
+        // On a tile with more than one terrain column (caves, overhangs): every terrain column, bottom up:
+        // floor, ceiling, moisture, soil contamination. Left out on other tiles.
+        public List<float[]> Runs;
     }
 
     public class SampleRow
@@ -195,8 +198,12 @@ namespace DGMProbe
         // first air level, where objects stand) and how many terrain columns the tile has (1 without caves).
         public int[] Terrain;
         public int[] TerrainColumns;
-        // Tiles with more than one water column (caves, overhangs): x, y and every column.
+        // Tiles with more than one water column (caves, overhangs): x, y and every column (floor, depth,
+        // contamination, overflow).
         public List<LayeredTile> Layered = new List<LayeredTile>();
+        // Tiles with more than one terrain column: x, y and every terrain column (floor, ceiling, moisture,
+        // soil contamination), so the soil of cave floors and roofs is recorded, not only the top one's.
+        public List<LayeredRuns> TerrainLayered = new List<LayeredRuns>();
         public List<EntityRecord> Plants = new List<EntityRecord>();
         public List<EntityRecord> Sources = new List<EntityRecord>();
     }
@@ -206,5 +213,12 @@ namespace DGMProbe
         public int X;
         public int Y;
         public List<float[]> Columns = new List<float[]>();
+    }
+
+    public class LayeredRuns
+    {
+        public int X;
+        public int Y;
+        public List<float[]> Runs = new List<float[]>();
     }
 }

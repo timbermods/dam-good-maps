@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createContext, runInContext } from "node:vm";
 import { createRequire } from "node:module";
-import * as ts from "typescript";
+import ts from "@typescript/typescript6";
 import { test, expect } from "vitest";
 
 const sourceRoot = process.env.DGM_PAGE_SOURCE_ROOT ?? process.cwd();
