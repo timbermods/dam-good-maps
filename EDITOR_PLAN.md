@@ -251,7 +251,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   as a word made file-safe; a real place, an opened file or a renamed map as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
   **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
-  its path); any other is refused with one line naming `DocumentsTimberbornMaps`, and the previous choice stands.
+  its path); any other is refused with one line naming `Documents\Timberborn\Maps`, and the previous choice stands.
   Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
   refused, the folder gone, a write error) falls back to the download with a plain note; a failed write also forgets the remembered folder, so the next Save asks again. **File → Choose Maps folder…**
   picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
