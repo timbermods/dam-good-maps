@@ -92,7 +92,7 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
   }, [tool, ready]);
 
   /** The page's map's ceiling for the forces (the worker's rule), worked out once per map state. */
-  const ceilingOf = useRef<{ heights: Uint8Array | null; top: number }>({ heights: null, top: BRUSH_MAX_LEVEL });
+  const ceilingOf = useRef<{ heights: Uint8Array | null; version: number; top: number }>({ heights: null, version: -1, top: BRUSH_MAX_LEVEL });
 
   /** Why a vent clicked at (x, y) would not erupt at all (D258: the one word Erupt shows: no room to
    *  rise, even on its flank), from the worker's own fit on the same ground; null when it will. */
@@ -100,8 +100,10 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     const { W, H } = infoRef.current;
     const heights = mirror.current.heights;
     const c = ceilingOf.current;
-    if (c.heights !== heights) {
+    // (a force's frames are written into the same heights, #312: its kept edit's version says they changed)
+    if (c.heights !== heights || c.version !== infoRef.current.version) {
       c.heights = heights;
+      c.version = infoRef.current.version;
       c.top = forceCeiling(heights);
     }
     try {

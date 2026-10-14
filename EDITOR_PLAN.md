@@ -422,7 +422,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   **Size** (breadth), **Try another**; shape (steep or broad), summit (peak, crater or caldera), flows (light or
   heavy) and ridges from the land and the seed. Its terrain is final in about two seconds (D312); the lava's glow
   (along its flows, with ridges or without, D356), the smoke and the plume (bigger and darker with Power) play on,
-  never blocking. **A volcano always looks like a
+  never blocking; the ground it raised reads as ash and basalt until the heat fades into the soil's own colours (#367).
+  **A volcano always looks like a
   volcano** (D321, item 14): the cone is the dominant shape at every setting, rising to a clear summit (Summit:
   Crater, a bowl a fifth of its height deep under the rim), flows running down its sides, heavy flows a wider
   thicker skirt, never a round plateau; its surface reads as rock (no lone raised tile, the summit aside); high

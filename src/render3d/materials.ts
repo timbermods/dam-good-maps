@@ -62,7 +62,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE } from "./light";
@@ -540,6 +540,9 @@ export interface TerrainUniforms {
   /** An eruption's heat on the ground (D206; forces.ts): its mask (RGBA a tile: vents, flows'
    *  cracks, dust, when the heat arrives), its age in seconds (below 0: none) and its cooling. */
   eruptionMask: { value: DataTexture };
+  /** The ground's heights when that heat came (R a tile; G 255 where known): what rose above them since is
+   *  its fresh rock (#367). */
+  eruptionBase: { value: DataTexture };
   eruptionAge: { value: number };
   coolingAge: { value: number };
 }
@@ -552,6 +555,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     hover: { value: new Vector3(0, 0, 0) },
     groundMode: { value: 0 },
     eruptionMask: { value: overlayTexture(1, 1) },
+    eruptionBase: { value: overlayTexture(1, 1) },
     eruptionAge: { value: -1 },
     coolingAge: { value: 0 },
   };
@@ -580,6 +584,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform vec3 hover;
       uniform float groundMode;
       uniform sampler2D eruptionMask;
+      uniform sampler2D eruptionBase;
       uniform float eruptionAge;
       uniform float coolingAge;
       centroid varying vec3 vWorld;
@@ -590,6 +595,20 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         return texture2D(tileTex, (t + 0.5) / mapSize);
       }
       float heightOf(vec4 d) { return floor(d.r * 255.0 + 0.5); }
+      /** How much of tile t's ground at y is an eruption's fresh rock (#367): what rose above the ground
+       *  its heat came to, until the heat fades with the crust (0–1). */
+      float freshRock(vec2 t, float y) {
+        if (eruptionAge < 0.0) return 0.0;
+        vec4 b = texture2D(eruptionBase, (clamp(t, vec2(0.0), mapSize - 1.0) + 0.5) / mapSize);
+        return step(0.5, b.g) * step(floor(b.r * 255.0 + 0.5) + 0.05, y) * (1.0 - smoothstep(4.4, 6.4, coolingAge));
+      }
+      /** Fresh volcanic rock's colour at ground point g: ash grey in broad patches of dark basalt and
+       *  pale ash, with a fine grain. */
+      vec3 ashOf(vec2 g) {
+        float b = vnoise(g * 0.41 + 7.0);
+        float f = vnoise(g * 5.3 + 3.0);
+        return mix(${glColor(JUICE.ashDark)}, ${glColor(JUICE.ashPale)}, smoothstep(0.22, 0.78, b)) * (0.9 + 0.2 * f);
+      }
       /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1) */
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
@@ -753,6 +772,10 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
           float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
+          // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
+          float fresh = freshRock(tile, h0);
+          ground = mix(ground, ashOf(g), fresh);
+          glow *= 1.0 - fresh;
           if (groundMode > 0.5) {
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
             glow = 0.0;
@@ -810,6 +833,10 @@ ${hook(h, "wall")}          float py = fwidth(y);
           float lip = 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
           vec3 top = groundMode > 0.5 ? heightColor(h0) : (s0.x > 0.5 ? ${glColor(GROUND.moistHigh)} : ${glColor(GROUND.dry)} * 0.85);
+          // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
+          float freshWall = freshRock(tile, y);
+          wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
+          if (groundMode < 0.5) top = mix(top, ${glColor(JUICE.ashPale)} * 0.85, freshRock(tile, h0));
           vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
           float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
           wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
