@@ -392,18 +392,61 @@ export class MapSession {
 
   /** Follow another session of the same generation (a replica: the editor's checks run on one in
    *  a worker of their own): its log becomes this one's, and the map is rebuilt incrementally from
-   *  where it stood. The history is not kept; the replica never undoes. */
+   *  where it stood, as after an edit: the operations both logs share from the start stay as they
+   *  are (their state, and the caches the build keys on them), those after are taken back and the
+   *  new ones applied in order. The history becomes the log's steps, with nothing to redo; the
+   *  kept maps of the steps the logs share stay. The same map, byte for byte, as replaying the
+   *  whole log (`replay`). */
   followLog(log: readonly AppliedOp[], nextSeq: number): void {
-    const r = replay(this.gen.baseFeatures, log);
-    this.log = r.log;
-    this.st = r.state;
+    let keep = 0;
+    while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
+    for (let k = this.log.length - 1; k >= keep; k--) invertOp(this.st, this.log[k]);
+    this.log.length = keep;
+    for (let k = keep; k < log.length; k++) {
+      const copy = clone(log[k]) as AppliedOp;
+      applyOp(this.st, copy);
+      this.log.push(copy);
+    }
     this.seqNext = nextSeq;
     this.undoStack = stepsOf(this.log);
+    // (the steps wholly inside the shared operations: their maps stand as they were)
+    let shared = 0;
+    for (let n = 0; shared < this.undoStack.length; shared++) {
+      n += this.undoStack[shared].ops.length;
+      if (n > keep) break;
+    }
     this.floor = 0;
     this.pending = null;
     this.redoStack = [];
-    this.snaps.clear();
+    for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
     this.cur = this.rebuilt();
+  }
+
+  /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
+   *  redo of a step that is not the latest, D362): `remove` names the step by its first operation's
+   *  number (`seq`), `insert` gives its operations as the log kept them (`stepOps`). The operations
+   *  after it are applied again in order, and the map rebuilt from where it stood, as an edit is
+   *  (`followLog`): one edit's cost, never a rebuild of the whole log. False, and nothing changes,
+   *  when there is no such step to take out, or an operation to put back is in the log already. */
+  spliceStep(change: { remove: number } | { insert: readonly AppliedOp[] }): boolean {
+    let log: AppliedOp[];
+    if ("remove" in change) {
+      const n = change.remove;
+      log = this.log.filter((o) => o.seq !== n && o.step !== n);
+      if (log.length === this.log.length) return false;
+    } else {
+      const seqs = new Set(this.log.map((o) => o.seq));
+      if (!change.insert.length || change.insert.some((o) => seqs.has(o.seq))) return false;
+      log = [...this.log, ...change.insert].sort((a, b) => a.seq - b.seq);
+    }
+    this.followLog(log, Math.max(this.seqNext, ...log.map((o) => o.seq + 1)));
+    return true;
+  }
+
+  /** The operations of the step whose first operation is `seq`, as the log keeps them (for
+   *  `spliceStep`'s `insert`); empty when there is none. Copies. */
+  stepOps(seq: number): AppliedOp[] {
+    return clone(this.log.filter((o) => o.seq === seq || o.step === seq)) as AppliedOp[];
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
@@ -1316,6 +1359,11 @@ function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/** The same logged operation: the very object, or its number, kind, step, origin and parameters alike. */
+function sameOp(a: AppliedOp, b: AppliedOp): boolean {
+  return a === b || (a.seq === b.seq && a.op === b.op && a.step === b.step && a.origin === b.origin && (a as { label?: string }).label === (b as { label?: string }).label && JSON.stringify(a.params) === JSON.stringify(b.params));
 }
 
 /** A stored field as the build takes it. */

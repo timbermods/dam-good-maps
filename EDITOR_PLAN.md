@@ -943,7 +943,13 @@ builds the canonical water and the editor adopts it, and `SessionInfo.waterPendi
 can save the map again, now with its stored map. A
 project saved by another version of the app opens by rebuilding.
 
-**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
+**Undo and redo** run over the operation list and put back the map each step kept (`MapSession`: every step's
+within 16 steps of where the history stands at 256², 64 at 128², about 96 MB at most, and one every eight steps
+further back), its own water with it, never rebuilding it; an edit's answer, and undo's and redo's, go to the page
+before the water's settle is even set up, and the water follows in the background (D158, D453). A log another
+session follows (the checks replica, collaborative editing's peers) is rebuilt from where the map stood, as an
+edit is (`followLog`); `spliceStep` takes one step out of the log or puts it back, the steps after it applied
+again, for collaborative editing's undo of a step that is not the latest. The
 history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
 once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
 with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
