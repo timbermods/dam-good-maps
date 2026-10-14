@@ -87,25 +87,39 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
   return { id: c.id, class: c.class, message: rowWords(c.id, c.message), ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
 }
 
-/** A row's words as the editor lists them, the same on every map: the berry rows say which bushes each
- *  counts (the food row the thriving ones within 20 tiles' walk, the drought row every bush within 20
- *  tiles, so the two never read as contradicting), and the edge wall names its edges once. */
+/** A row's words as the editor lists them, the same on every map: the two berry rows count by the same
+ *  measure (20 tiles' walk) and say which bushes each counts (those that thrive; every living one), and
+ *  the edge wall names its edges once. */
 export function rowWords(id: string, message: string): string {
-  if (id === "start.food") return message.replace(/\bliving blueberry bush(es)?\b/, "thriving blueberry bush$1");
-  if (id === "plants.drought") return message.replace(/ near the start /, " within 20 tiles of the start ");
+  if (id === "start.food") return message.replace(/^(\d+) living blueberry bush(es)? /, (_, n: string, es?: string) => `${n} blueberry bush${es ?? ""} ${es ? "thrive" : "thrives"} `);
+  if (id === "plants.drought")
+    return message
+      .replace(/^(\d+) blueberry bush(es)? near the start dry out /, (_, n: string, es?: string) => `${n} living blueberry bush${es ?? ""} within 20 tiles' walk of the start ${es ? "dry out" : "dries out"} `)
+      .replace(/(\d+)-day/, "$1‑day");
   if (id === "terrain.edge_wall") {
     const edges = [...message.matchAll(/(south|north|west|east) edge \((\d+)%\)/g)].map((m) => ({ side: m[1], share: Number(m[2]) }));
     if (!edges.length) return message;
+    const shares = edges.map((e) => e.share);
     if (edges.length === 4) {
-      const lo = Math.min(...edges.map((e) => e.share));
-      const hi = Math.max(...edges.map((e) => e.share));
-      return `Walls hold back water on all four edges (${lo === hi ? lo : `${lo}–${hi}`}%)`;
+      const lo = Math.min(...shares);
+      const hi = Math.max(...shares);
+      return `Walls hold back water on all four edges (${lo === hi ? lo : `${lo}–${hi}`}% of each edge)`;
     }
-    const named = edges.map((e) => `${e.side} (${e.share}%)`);
-    if (named.length === 1) return `A wall holds back water on the ${named[0].replace(" ", " edge ")}`;
-    return `Walls hold back water on the ${named.slice(0, -1).join(", ")} and ${named.at(-1)} edges`;
+    if (edges.length === 1) return `A wall holds back water on the ${edges[0].side} edge (${shares[0]}%)`;
+    const and = (xs: string[]) => `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
+    return `Walls hold back water on the ${and(edges.map((e) => e.side))} edges (${and(shares.map((v) => `${v}%`))})`;
   }
   return message;
+}
+
+/** The berry rows side by side where a group holds both (the drought row right after the food row). */
+function berriesTogether(items: CheckItem[]): CheckItem[] {
+  const food = items.findIndex((c) => c.id === "start.food");
+  const drought = items.findIndex((c) => c.id === "plants.drought");
+  if (food < 0 || drought < 0 || drought === food + 1) return items;
+  const rest = items.filter((_, k) => k !== drought);
+  rest.splice(rest.findIndex((c) => c.id === "start.food") + 1, 0, items[drought]);
+  return rest;
 }
 
 /** The failing checks as items; with `region`, those in it (a tile of the problem within a tile of the
@@ -195,15 +209,15 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
   }
   // (a place's start with no clean water says so once: its store-water row repeats the warning)
   if (place && out.warnings.some((c) => c.id === "start.water")) out.advisory = out.advisory.filter((c) => c.id !== "water.storage_possible");
+  for (const g of ["blocking", "warnings", "advisory", "existing"] as const) out[g] = berriesTogether(out[g]);
   return out;
 }
 
-/** A row as information (a real place's Good to know): its words a fact (`informationMessage`), and a
- *  planting fix without the count that aimed at the target the fact no longer shows ("Plant oaks near
- *  the start"). */
+/** A row as information (a real place's Good to know): its words a fact (`informationMessage`), with no
+ *  fix (a fact asks for nothing; the warnings keep theirs). */
 function informationItem(item: CheckItem): CheckItem {
-  const fix = item.fix?.map((op, k) => (k === 0 ? { ...op, label: op.label.replace(/^Plant (\d+) (.+?) (for the starting logs|near the start)$/, (_, n: string, what: string) => `Plant ${n === "1" ? (/^[aeiou]/.test(what) ? "an " : "a ") : ""}${what} near the start`) } : op));
-  return { ...item, message: informationMessage(item.message), ...(fix ? { fix } : {}) };
+  const { fix: _fix, ...rest } = item;
+  return { ...rest, message: informationMessage(item.message) };
 }
 
 /** A row's words where it is information (a real place's Good to know, D245): the fact without the
