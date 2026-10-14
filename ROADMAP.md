@@ -726,6 +726,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
+   **Built: the Badtide view's veins.** A held Badtide day sends the page its own soil (the ground its water poisons, with
+   no moisture where badwater lies), and the ground shader draws the game's orange-red veins on every contaminated tile
+   of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
+   pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
+   capture is `tools/capture-weather.ts`.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).

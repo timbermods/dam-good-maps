@@ -660,7 +660,9 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
-  hazard's days are kept until the map changes and worked out in the background once the water has settled. Any
+  hazard's days are kept until the map changes and worked out in the background once the water has settled. A held Badtide day draws the
+  game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
+  badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged.
 - **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
   its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
