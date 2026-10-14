@@ -11,7 +11,7 @@ import { FLUIDS } from "../data/parity";
 import { placeComponents } from "./objectOps";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
-import { placeLabel, plantLabel } from "./labels";
+import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
@@ -80,8 +80,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     }
     if (other) {
       if (other === "StartingLocation") return "the district center stands there";
-      const name = other === "UndergroundRuins" ? "mine site" : other.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
-      return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name} stands there`;
+      return `${withArticle(itemName(other))} stands there`;
     }
   }
   return level ? levelProblem(s, p) : null;

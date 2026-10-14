@@ -87,38 +87,47 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
   return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
 }
 
-/** A check that names several things, one line each (the checks' own message, "
-" between), as one
- *  item per thing, each with its own place for Show; the fix stays on the first, and "and 3 more"
- *  is a line of its own. The place is the check's tile or entity at the same position. */
-export function checkRows(s: MapSession, c: CheckResult): CheckItem[] {
+/** A check that names several things, one line each (the checks' own message, a line break between), as
+ *  one item per thing, each with its own place for Show. The fix goes on the first row in `region` (the
+ *  first row when none is), so "This edit made" keeps it. A closing "and 3 more" joins the last row's words.
+ *  The place is the check's tile or entity at the same position. */
+export function checkRows(s: MapSession, c: CheckResult, region: TileRect | null = null): CheckItem[] {
   const item = checkItem(s, c);
-  const lines = item.message.split("\n");
-  if (lines.length < 2) return [item];
   const at = new Map<string, [number, number]>();
   for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
-  const tiles = c.where?.tiles;
-  const ids = c.where?.entities;
-  return lines.map((message, k): CheckItem => {
-    const pt = tiles?.length ? tiles[k] : ids?.[k] ? at.get(ids[k]) : undefined;
-    const row: CheckItem = { id: item.id, class: item.class, message, ...(pt ? { where: { tiles: [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
-    if (k === 0 && item.fix) row.fix = item.fix;
-    return row;
-  });
+  const lines = item.message.split("\n");
+  let rows: CheckItem[];
+  if (lines.length < 2) rows = [item];
+  else {
+    let more = "";
+    if (/^and \d+ more$/.test(lines[lines.length - 1])) more = ` (${lines.pop()})`;
+    const tiles = c.where?.tiles;
+    const ids = c.where?.entities;
+    rows = lines.map((message, k): CheckItem => {
+      const pt = tiles?.length ? tiles[k] : ids?.[k] ? at.get(ids[k]) : undefined;
+      const text = k === lines.length - 1 ? message + more : message;
+      return { id: item.id, class: item.class, message: text, ...(pt ? { where: { tiles: [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
+    });
+    if (item.fix) rows[0].fix = item.fix;
+  }
+  if (region) {
+    for (const r of rows) r.here = inRegion(r.where ?? c.where, region, at);
+    if (rows.length > 1 && item.fix) {
+      const first = rows.find((r) => r.here) ?? rows[0];
+      delete rows[0].fix;
+      first.fix = item.fix;
+    }
+  }
+  return rows;
 }
 
 /** The failing checks as items; with `region`, those in it (a tile of the problem within a tile of the
  *  rectangle) are marked `here`. */
 export function checkItems(s: MapSession, checks: readonly CheckResult[], region: TileRect | null): CheckItem[] {
   const items: CheckItem[] = [];
-  const at = new Map<string, [number, number]>();
-  for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
   for (const c of checks) {
     if (!failing(c)) continue;
-    for (const item of checkRows(s, c)) {
-      if (region) item.here = inRegion(item.where, region, at);
-      items.push(item);
-    }
+    items.push(...checkRows(s, c, region));
   }
   return items;
 }

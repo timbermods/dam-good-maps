@@ -46,6 +46,7 @@ describe("labels read 'Verb the thing', with articles and plurals", () => {
     expect(placeLabel("Place", "BadwaterSource")).toBe("Place a badwater source");
     expect(placeLabel("Place", "UndergroundRuins")).toBe("Place a mine site");
     expect(placeLabel("Place", "SmallRelic")).toBe("Place a relic");
+    expect(placeLabel("Place", "Thorns")).toBe("Place a thorn");
     expect(placeLabel("Place", "RuinColumnH3")).toBe("Place a ruin");
     expect(placeLabel("Move", "NaturalDam")).toBe("Move a natural dam");
     expect(itemName("GeothermalField")).toBe("geothermal field");
@@ -84,12 +85,16 @@ describe("a check that names several things is one row for each", () => {
   const s = { built: { entities: [{ id: "a", x: 3, y: 4 }, { id: "b", x: 9, y: 9 }] } } as unknown as MapSession;
   const base = { id: "extras.placement", class: "playability", severity: "warn", ok: false } as unknown as CheckResult;
 
-  it("one row per line, each with its own place, the last 'and more' with none", () => {
-    const rows = checkRows(s, { ...base, message: "Mine site on uneven ground · X 3 · Y 4 · Z 1\nSmall relic within 2 tiles of water · X 9 · Y 9 · Z 1\nand 3 more", where: { tiles: [[3, 4], [9, 9]] } });
-    expect(rows.map((r) => r.message)).toEqual(["Mine site on uneven ground · X 3 · Y 4 · Z 1", "Small relic within 2 tiles of water · X 9 · Y 9 · Z 1", "and 3 more"]);
-    expect(rows[0].where?.tiles).toEqual([[3, 4]]);
+  it("one row per line with its own place; 'and more' joins the last row; the fix follows the edit", () => {
+    const msg = "Mine site on uneven ground · X 3 · Y 4 · Z 1\nSmall relic within 2 tiles of water · X 9 · Y 9 · Z 1\nand 3 more";
+    const tiles: [number, number][] = [[3, 4], [9, 9], [1, 1], [2, 2], [5, 5], [6, 6], [7, 7]];
+    const fix = [{ op: "removeSlope", label: "Remove them", params: { x: 3, y: 4 } }];
+    const rows = checkRows(s, { ...base, message: msg, where: { tiles }, fix } as unknown as CheckResult);
+    expect(rows.map((r) => r.message)).toEqual(["Mine site on uneven ground · X 3 · Y 4 · Z 1", "Small relic within 2 tiles of water · X 9 · Y 9 · Z 1 (and 3 more)"]);
     expect(rows[1].where?.tiles).toEqual([[9, 9]]);
-    expect(rows[2].where).toBeUndefined();
+    const here = checkRows(s, { ...base, message: msg, where: { tiles }, fix } as unknown as CheckResult, { x0: 9, y0: 9, x1: 9, y1: 9 });
+    expect(here.map((r) => !!r.here)).toEqual([false, true]);
+    expect(here.map((r) => !!r.fix)).toEqual([false, true]);
   });
 
   it("entities find their tiles", () => {

@@ -7,6 +7,7 @@ const ITEM_NAMES: Record<string, string> = {
   BlueberryBush: "berry bush",
   StartingLocation: "start",
   UndergroundRuins: "mine site",
+  Thorns: "thorn",
   SmallRelic: "relic",
   MediumRelic: "relic",
   LargeRelic: "relic",

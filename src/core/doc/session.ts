@@ -1361,8 +1361,7 @@ const KIND_NAMES: Record<string, string> = {
 export function labelOf(op: AppliedOp): string {
   if (op.label) return op.label;
   switch (op.op) {
-    case "addFeature":
-      {
+    case "addFeature": {
       const name = KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind;
       return `Add ${name === "start" ? "the start" : withArticle(name)}`;
     }
