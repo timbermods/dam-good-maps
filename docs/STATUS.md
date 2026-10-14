@@ -91,7 +91,7 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 
 - `water.test.ts`'s save check (local only, the save is on Kyler's PC): 975 ticks gave 0.00106 against 0.001, after
   0.00096 at M2 under the port's rules. The bound was one exact tick, but the game's order is known to a tick either way and
-  a filling river moves about 0.001 a tick there; it now holds at the best of 974–976 ticks (#PR). Needs one run on Kyler's
+  a filling river moves about 0.001 a tick there; it now holds at the best of 974–976 ticks (#376). Needs one run on Kyler's
   PC to confirm; if it still misses, look at the game's rules against the save (D308), not the bound.
 - `mechanics.test.ts` (local only): Oasis is no longer approximate because, since D337, aquifers are off at the start, so
   its settle matches its own water exactly (0% differ) and the rule finds no evidence. #370 rewrites this test (none
