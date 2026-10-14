@@ -1,6 +1,6 @@
 // The one 3D renderer (PLAN §3, EDITOR_PLAN §8), used by the generator's 3D preview and by the
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
-// edit), a voxel mesher for columns with caves or overhangs, translucent water surfaces, and
+// edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up), picks tiles against
 // the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
 // instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
