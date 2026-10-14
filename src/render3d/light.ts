@@ -10,6 +10,8 @@
 //   and widen with the distance from what casts them. Trees and ruins cast shadows too.
 // - Contact shadows at the foot of walls are drawn by the shader from the tile data (the heights
 //   of the neighbours next to each point), so they stay sharp at every zoom.
+// All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
+// arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
 import { DEAD, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
 import { LIGHT } from "./palette";

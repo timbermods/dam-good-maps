@@ -171,6 +171,8 @@ export function terrainHooks(): ShaderHooks {
   uniform vec2 hlFlowSize;
 `),
     skyLight: "ambientVisibility(vWorld, n) * ",
+    // under a roof, the light volume's sun and the soft shadow of the real meshes both (off: the volume's)
+    caveSun: "cave.y * (hlShadows > 0.5 ? sunHere : 1.0)",
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",

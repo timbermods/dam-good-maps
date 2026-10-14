@@ -595,8 +595,10 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, 3D picking, the level-slice cutaway.
+runs with undersides every exposed face once. Part 2, light in 3D in both looks (`render3d/caveLight.ts`): a face
+whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
+else the baked light stands, so maps without caves draw exactly as before. Next: the masks from the worker, soil
+per run top, water per column, 3D picking, the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
