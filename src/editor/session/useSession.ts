@@ -85,6 +85,8 @@ export interface SessionSlice {
   setLayers: Dispatch<StateUpdater<WaterLayers | null>>;
   waterLayers: WaterLayers | null;
   waterTick: number;
+  /** Changes when a held weather day's water is put on the map (the minimap draws it). */
+  heldTick: number;
   flowing: number | null;
   markersOn: boolean;
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
@@ -247,6 +249,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [layer, setLayer] = useState<LayerKind>("none");
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
   const [waterTick, setWaterTick] = useState(0);
+  const [heldTick, setHeldTick] = useState(0);
   /** The water is flowing into an edit's new shape (how far it has come, 0–1), or null. */
   const [flowing, setFlowing] = useState<number | null>(null);
   /** **Markers** is on (every source shows its marker then, D196). */
@@ -463,6 +466,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const H = infoRef.current.H;
     mirror.current.water = r?.mapState()?.surface ?? surfaceWater(W, H, w);
     mirror.current.waterView = w;
+    if (held) setHeldTick((t) => t + 1);
   }
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
@@ -627,7 +631,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
-    setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick,
+    setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
     flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,

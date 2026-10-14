@@ -536,6 +536,17 @@
   white-space: nowrap;
 }
 
+/* Heights' own line: the map's lowest and highest level under the ramp (as the folded key says them) */
+.legend-panel.in-column .height-ends {
+  display: flex;
+  justify-content: space-between;
+  height: var(--legend-row);
+  padding: 0 4px;
+  line-height: var(--legend-row);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel.in-column .swatch {
   width: 22px;
   height: 13px;

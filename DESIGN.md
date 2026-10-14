@@ -621,7 +621,7 @@ D380 work.
 - **The legend's names (v8):** every line is a name on one line, nothing of what it does in the game: Moist ground ·
   Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
   bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
-  Blockage · Other objects; under "Markers on:": Slope arrows · Level lines · Contamination edge · Mine site
+  Blockage · Other objects; under "Markers on:": Slope arrows · Wall levels · Contamination edge · Mine site
   outline. Each line's tooltip is "Show on the map"; the notes about far-off drawing and clicking are gone. The same
   names serve wherever the legend appears. **Two lines are wider than the column** at the panel's present paddings
   (the column is 164px at 1×, the text has 108px): "Contaminated ground" needs 121px and "Contamination edge" 112px;
@@ -829,3 +829,10 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+- **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
+  open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
+  generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when
+  there is none (`labelLayout.ts`). Markers' wall ledges are named **Wall levels** (the legend's line and Markers'
+  tooltip), never "Level lines", which the Lines toggle's tooltip already says. The open Legend stays centred under its
+  toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
+  Drought or Badtide day's water.
