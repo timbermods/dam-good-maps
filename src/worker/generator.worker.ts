@@ -11,7 +11,7 @@ import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
 import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
-import type { SoilBase } from "./daySoil";
+import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
@@ -54,8 +54,8 @@ ed.setAutoWater(true);
 
 // A hazard day's soil (the Weather view's soil and withered plants, D250) is one whole-map pass of the game's soil, 150 to 350 ms
 // on a 256² map: it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
-// never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker's jobs are worked
-// out here instead (session.ts).
+// never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker is made again and the job tried once more;
+// failing twice, the session sends the day without its soil, never working it out itself.
 if (typeof Worker !== "undefined") {
   let soilWorker: Worker | null = null;
   let jobs = 0;
@@ -68,9 +68,8 @@ if (typeof Worker !== "undefined") {
     soilWorker = null;
     sent = null;
   };
-  ed.setSoilRunner(
-    (job) =>
-      new Promise<SoilView>((resolve, reject) => {
+  const attempt = (job: SoilJob) =>
+    new Promise<SoilView>((resolve, reject) => {
         if (!soilWorker) {
           soilWorker = new Worker(new URL("./daySoil.worker.ts", import.meta.url), { type: "module" });
           soilWorker.onmessage = (m: MessageEvent<{ id: number; soil?: SoilView; error?: string }>) => {
@@ -86,8 +85,9 @@ if (typeof Worker !== "undefined") {
         const first = sent?.base !== job.base;
         if (first) sent = { id: (sent?.id ?? 0) + 1, base: job.base };
         soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination });
-      }),
-  );
+      });
+  // (a failed worker is made again and the job tried once more; failing twice, the session sends the day without soil)
+  ed.setSoilRunner((job) => attempt(job).catch(() => attempt(job)));
 }
 
 // The checks worker joins once the map is editable (D367): a page that calls `deferChecks` before opening a map
