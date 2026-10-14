@@ -23,8 +23,7 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("open → edit → Generate replaces the map without asking and Your maps keeps the edits → a reload brings the open map back", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 4264 since the first visit's hints offer the tour (one row taller, D377), D148: the spring is the first spot clear of every
-  // bar, so a taller hint moved it, and on 4263's map it then let the water run on past six days; seed 4263 on 0.8.1's maps, D148: the edited 4262's checks show a thing to look at, or its spring
+  // (seed 4263 on 0.8.1's maps, D148: the edited 4262's checks show a thing to look at, or its spring
   // beside the river is refused, since the badwater ditches follow the land; seed 4262 on M9b's maps,
   // D148: the edited 4261 shows a geothermal field within 2 tiles of water, a
   // thing to look at; seed 4261 since D333, D148: on 4254's map the start moved two tiles west has little wood and
@@ -33,7 +32,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // a level above the river's outlet, and the spring below flooded it)
   // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
   // refine: the editor opens the generated map in 3D
-  await openEditor(page, "s=4264&z=96&d=n&t=riverValley");
+  await openEditor(page, "s=4263&z=96&d=n&t=riverValley");
   await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Top-down" }).click();
@@ -55,41 +54,27 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.keyboard.press("Escape");
   await toolPutAway(page);
   // a spring on dry, empty ground beside the river, its water running straight in: away from the
-  // start and from the relics, mine sites and geothermal fields, which must stay off water
+  // start and from the relics, mine sites and geothermal fields, which must stay off water. Its tile is chosen in the map's
+  // own coordinates, never by where the bars happen to leave room on the screen (a taller hint once moved a spot picked that
+  // way, and a different spring let this map's water run on past six days, D148): the tile this map's spring has always
+  // been placed on, checked here to be what the comment says
+  const SPRING: [number, number] = [89, 15];
   const spring = await page.evaluate(
-    ([s0, s1]) => {
+    ([s0, s1, at]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const e = m.entities;
+      const [x2, y] = at;
+      const i = y * m.W + x2;
       const extras: [number, number][] = [];
       for (let k = 0; k < e.count; k++) if (/Relic|Geothermal|Mine|Underground/i.test(e.templates[e.template[k]])) extras.push([e.x[k], e.y[k]]);
-      for (let y = 4; y < m.H - 4; y++)
-        for (let x2 = 4; x2 < m.W - 4; x2++) {
-          const i = y * m.W + x2;
-          if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) continue;
-          let wet = false;
-          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
-          if (!wet) continue;
-          // clear of the bars over the map by a margin: the water bar's width follows its status (the nearest
-          // tile to it sat 14 px off its edge), and a press on a bar is no press on the map
-          const c = window.dgmEditor!.tileToClient(x2, y);
-          const box = window.dgm3d!.renderer.canvas;
-          let bare = true;
-          for (const ox of [-70, 0, 70]) for (const oy of [-70, 0, 70]) if (document.elementFromPoint(c.x + ox, c.y + oy) !== box) bare = false;
-          if (!bare) continue;
-          let empty = true;
-          for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) empty = false;
-          // clear of the sources on the screen too: a press within a few pixels of one selects it (D345), and at
-          // this zoom a few pixels are several tiles
-          for (let k = 0; k < e.count && empty; k++) {
-            if (!/WaterSource|BadwaterSource/.test(e.templates[e.template[k]])) continue;
-            const s = window.dgmEditor!.tileToClient(e.x[k], e.y[k]);
-            if (Math.hypot(s.x - c.x, s.y - c.y) < 24) empty = false;
-          }
-          if (empty && m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1) return [x2, y] as [number, number];
-        }
-      return null;
+      if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) return null;
+      let wet = false;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
+      if (!wet) return null;
+      for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) return null;
+      return m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1 ? at : null;
     },
-    [start0[0], start0[1]] as const,
+    [start0[0], start0[1], SPRING] as const,
   );
   expect(spring).not.toBeNull();
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();
@@ -133,7 +118,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 60_000 });
   const download = page.waitForEvent("download");
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4264.timber");
+  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4263.timber");
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);
