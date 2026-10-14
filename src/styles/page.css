@@ -1553,8 +1553,19 @@
   --lab: 44px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px;
-  grid-auto-rows: var(--line);
+  grid-template-rows: repeat(3, var(--line));
+  grid-auto-rows: auto;
   gap: 3px 10px;
+}
+
+/* beyond 256 on a side (D357): a warning under the size line, in the warning colour; the game's editor cannot open the
+   map and the game may run slower, never a refusal */
+.sheet-top .size-warn {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--warn);
 }
 
 /* Name and Seed, two fields one gap apart: the name box takes what the seed's box (a ten-digit seed's width) and Keep

@@ -60,7 +60,7 @@ async function wordy(page: Page): Promise<string[]> {
   return page.evaluate((max) => {
     const out: string[] = [];
     const seen = new Set<string>();
-    // (a key in brackets: "(7)", "(Ctrl+Z)", "(F, [ and ])", "(X or Esc)", "(R turns it)"; "(48 to 256)" is no key)
+    // (a key in brackets: "(7)", "(Ctrl+Z)", "(F, [ and ])", "(X or Esc)", "(R turns it)"; "(4 to 512)" is no key)
     const keyWord = /\b(Ctrl|Shift|Alt|Esc|Space|Delete|Enter|Tab|Up|Down|scroll|click)\b/;
     const bracketedKey = (t: string) => [...t.matchAll(/\(([^)]*)\)/g)].some(([, inner]) => /^\s*\S\s*$/.test(inner) || keyWord.test(inner) || /[[\]{}]/.test(inner) || /(^|\s)[A-Z0-9](,|\s|$)/.test(inner));
     for (const el of Array.from(document.querySelectorAll<HTMLElement>("[title], [data-tip-held]"))) {

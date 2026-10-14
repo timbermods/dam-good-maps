@@ -100,9 +100,10 @@ every water source's strength and every stored outflow on load (the 0.7→1.0 re
 
 **`MapSize`**: in 1.1 only `Size` is read. The vertical size is a game constant: 23 terrain
 layers (`MaxGameTerrainHeight` 22 + 1) and 33 total layers (10 above the terrain). The 1.0-era
-`MapHeight` key is ignored and dropped on re-save. Size limits are 4–256 per axis (enforced only by
-the New Map dialog). Non-square maps are fine. Larger maps load too: the unmodded game plays the Map Resizer mod's maps
-up to 399×399 and 29×599 (investigation/WORKSHOP.md); 512 a side is D357's probe batch (group `Sizes`).
+`MapHeight` key is ignored and dropped on re-save. The game's New Map dialog takes 4–256 per axis;
+our validator and generator take 4–512 (D357). Non-square maps are fine. Larger maps load too: the unmodded game plays
+the Map Resizer mod's maps up to 399×399 and 29×599 (investigation/WORKSHOP.md); 512 a side is D357's probe batch (group
+`Sizes`). Past 256 a side Timberborn's own map editor can't open the map.
 
 **`TerrainMap`**: one token per voxel, `1` solid. The array must hold exactly `X·Y·23` tokens: fewer
 crash, more are truncated to 22 layers with a warning. Limits:

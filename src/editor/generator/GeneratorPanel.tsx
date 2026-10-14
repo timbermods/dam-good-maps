@@ -154,6 +154,7 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
           <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "A new map like this one, on different land" : "Only for a generated map")} onClick={m.onAnother}>
             Another like this
           </button>
+          {f.sizeWarning}
         </div>
         <div class="sheet-cols">
           <div class="sheet-col">

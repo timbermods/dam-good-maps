@@ -888,11 +888,18 @@ reported. PLAN §20 D357 has the whole decision.
 
 - **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
   references. Our file writer and both validators' other load checks handle every size and shape already.
-- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
-  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
-  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
-  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
-  "4–256 per axis".
+- **Part 1 (done, `feature/custom-sizes`):** any width and height from 4 to 512 is accepted and carried exactly: the MapSpec
+  schema and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/`), share links (`z=WxH`; old links decode as before), the size boxes
+  (`src/editor/generator/fields.tsx`, with the warning line beyond 256 a side), the load check `file.size` (4–512) in both
+  validators (`rust/checks`, `prototype/validate.py`) and FORMAT.md. `tools/size-smoke.ts` generates once per shape and
+  theme. The generator refuses a side under 48 with a one-line reason (`generatorSizeRefusal`, `src/core/spec/mapspec.ts`)
+  until part 2 shapes for thin maps; the larger shapes generate unchanged. The generated standard maps are byte-identical.
+  Smoke (seed 1, every theme): 64×512, 128×512, 512×256 and 512×512 all generate; 64×512 and 128×512 take 5–109 s,
+  512×256 18–67 s, 512×512 2.3–17 min (Lake Basin slowest), which part 2 should bring down (`tools/size-smoke.ts`).
+- **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled),
+  the named shapes ("Long river", "Strip", "Wide valley") in the size setting, and the editor limits the readiness audit
+  found (`investigation/custom-sizes/DETAILS.md`: coordinates and run indices capped at 255 or 65535 in `ops.schema.json`
+  and `features.schema.json`, `MAX_OP_TILES`, the brush radius ladder), so a 512-side map can be edited as well as made.
 
 ## The dam sketch tool (D383)
 

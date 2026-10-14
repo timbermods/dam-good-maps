@@ -72,7 +72,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the map's **Name** (the
   title's; renaming it here is the title's rename), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  Custom, its width and height typed, each 4 to 512; beyond 256 on a side a line in the warning colour says Timberborn's
+  own map editor can't open the map and the game may run slower, D357; it never refuses). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
   within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
   included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
