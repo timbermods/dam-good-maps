@@ -761,8 +761,8 @@ Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. 
 After its file entries and a hairline, the File menu ends with three, in this order (the 20-second tour's entry joins
 them, ROADMAP "The 20-second tour"):
 
-- **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three columns (Tools; Brushes,
-  forces and objects over Editing; View), each line what the key does and its keys as key caps. The list is data
+- **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps. The list is data
   (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
   `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
   `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.

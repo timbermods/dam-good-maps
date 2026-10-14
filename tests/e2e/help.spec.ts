@@ -21,8 +21,8 @@ test("Keyboard shortcuts lists the keys, ? opens it, Esc and Close close it, and
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("dt", { hasText: "Carve a river" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
-  await expect(dialog.locator("dt", { hasText: "Raise the ground" }).locator("xpath=following-sibling::dd")).toHaveText("2");
+  await expect(dialog.locator("dt", { hasText: "Carve: a river" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
+  await expect(dialog.locator("dt", { hasText: /^Raise$/ }).locator("xpath=following-sibling::dd")).toHaveText("2");
   // (a key pressed while it shows picks no tool)
   await page.keyboard.press("2");
   expect(await page.evaluate(() => document.querySelector('[aria-pressed="true"][aria-label^="Raise"], [aria-pressed="true"][title^="Raise"]') !== null)).toBe(false);

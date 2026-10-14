@@ -1501,7 +1501,7 @@
 
 /* every dialog centred on the window (the backdrop does that), its buttons centred in it; a dialog of words (a map
    being made, a question such as "Delete <name>?", About) has its words centred too (Kyler, 2026-10-04). The export
-   dialog's lists of checks stay left-aligned, read as lists. */
+   dialog's lists of checks, Help and the shortcuts stay left-aligned, read as lists. */
 .dialog footer {
   justify-content: center;
 }
@@ -2241,7 +2241,7 @@
   box-sizing: border-box;
 }
 
-/* ---- Keyboard shortcuts and Help (File menu; M13): dialogs of words, read as lists, so left-aligned */
+/* ---- Keyboard shortcuts and Help (File menu; M13): read as lists, so left-aligned like the export dialog's checks */
 .menu li.menu-rule {
   margin-top: 4px;
   padding-top: 4px;
@@ -2252,8 +2252,8 @@
   text-align: left;
 }
 
-.dialog.help-dialog h2 {
-  font-size: 1.1rem;
+.dialog.help-dialog a {
+  color: var(--accent);
 }
 
 .dialog.help-dialog p,
@@ -2276,36 +2276,23 @@
   width: min(1040px, 100%);
 }
 
-/* three columns: the tools; the brushes' keys over editing; the view */
+/* three balanced columns of whole groups */
 .shortcut-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 28px;
+  column-count: 3;
+  column-gap: 28px;
   margin-top: 4px;
 }
 
-.shortcut-groups > section:nth-child(1) {
-  grid-column: 1;
-  grid-row: 1 / span 2;
+.shortcut-groups > section {
+  break-inside: avoid;
 }
 
-.shortcut-groups > section:nth-child(2) {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.shortcut-groups > section:nth-child(3) {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-}
-
-.shortcut-groups > section:nth-child(4) {
-  grid-column: 2;
-  grid-row: 2;
+.shortcut-groups > section {
+  padding-bottom: 12px;
 }
 
 .shortcut-groups h3 {
-  margin: 10px 0 4px;
+  margin: 0 0 4px;
   padding-bottom: 3px;
   border-bottom: 1px solid var(--rule);
   font-size: 0.82rem;
@@ -2337,21 +2324,17 @@
   gap: 4px;
   margin: 0;
   flex-shrink: 0;
-  max-width: 52%;
+  max-width: 66%;
 }
 
 @media (max-width: 900px) {
   .shortcut-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .shortcut-groups > section:nth-child(n) {
-    grid-column: auto;
-    grid-row: auto;
+    column-count: 2;
   }
 }
 
 @media (max-width: 640px) {
   .shortcut-groups {
-    grid-template-columns: minmax(0, 1fr);
+    column-count: 1;
   }
 }

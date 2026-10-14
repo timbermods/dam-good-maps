@@ -506,7 +506,7 @@ refinements and what the mockups left open:
   22px at 1920×1080; Legend stays centred between Badtide and Top-down.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
-  checks stay left-aligned.
+  checks, Help and Keyboard shortcuts stay left-aligned, read as lists.
 - **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
 - **Messages sit above the bar** (Kyler, 2026-10-05): the editor's (a file saved, a save that failed) and the page's
   (Your maps couldn't keep the map, a version found) sit above the first steps' hints and the bar's settings, one gap
@@ -567,7 +567,7 @@ refinements and what the mockups left open:
   Your maps and the map has edits.
 - **File** holds exactly Open…, Download project, Download .timber, Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
-  lists, the shortcuts in three columns with their keys as key caps) (Another like this is in
+  lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.

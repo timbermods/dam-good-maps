@@ -8,10 +8,10 @@ The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on
 
 ## Install a map
 
-1. Press **Save to Timberborn**. The first time, pick `Documents\Timberborn\Maps` (Chrome and Edge).
-2. In another browser, **Download .timber** and move the file to `Documents\Timberborn\Maps` (on macOS
+1. In Chrome or Edge, press **Save to Timberborn**. The first time, pick `Documents\Timberborn\Maps`.
+2. In another browser, press **Download .timber** and move the file to `Documents\Timberborn\Maps` (on macOS
    `~/Documents/Timberborn/Maps`).
-3. If the download is a `.zip` (the Claude artifact edition), extract it first and move the `.timber` inside.
+3. If you got a `.zip`, extract it first and move the `.timber` inside.
 4. Start Timberborn, choose **New game** and pick the map.
 
 **File → Help** in the editor says the same. To report a problem, use **File → Report a problem**, or
@@ -46,7 +46,7 @@ The editor:
 - Middle-drag turns the view, right-drag moves it, scroll zooms. WASD and the arrow keys move, Q and
   E turn, Shift is faster.
 - Paint the ground with the brushes in the bar at the bottom: **Raise**, **Lower**, **Flatten**, **Smooth** and
-  **Naturalize** (keys 1–5). Drag on the map to paint.
+  **Naturalize** (keys 2–6). Drag on the map to paint.
 - { and } size the brush, or hold F and move the mouse. Hold F and scroll, or press [ and ], to set
   **Smooth** and **Naturalize**'s strength. Shift while painting swaps Raise and Lower. Esc cancels a stroke.
 - **Raise**, **Lower** and **Flatten** work like the game's editor. They take the ground to the level
@@ -63,8 +63,8 @@ The editor:
   want it from the objects' **Slope**.
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
-- The forces reshape the land in one gesture: **Carve** (7) a river, **Craterize** (8) an impact crater, **Quake** (9)
-  a fault, **Erupt** (0) a volcano, **Glaciate** (-) a glacial valley. Click the map, or draw a path, a fault or a loop.
+- The forces reshape the land in one gesture: **Carve** (Shift+1) a river, **Craterize** (Shift+2) an impact crater,
+  **Erupt** (Shift+3) a volcano, **Rift** (Shift+4), **Quake** (Shift+5) a fault, **Deposit** (Shift+6) and **Glaciate** (Shift+7) a glacial valley. Click the map, or draw a path, a fault or a loop.
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
   Power. Every setting shows; **Auto** lets the land decide one. **Try another** gives a different result.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.
@@ -87,7 +87,7 @@ The editor:
 - Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
   **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
-- Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
+- Ctrl+Shift+1 to 9 keeps the view; Alt+1 to 9 goes back to it.
 - **File → Keyboard shortcuts**, or ?, lists every key.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
 - The dot at the top is green when the map is ready to play. Amber means something to look at:

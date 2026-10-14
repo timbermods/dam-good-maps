@@ -10,7 +10,7 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../work
 import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
-import { HelpPanels, reportProblem, showHelpPanel } from "./help/helpPanels";
+import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
@@ -454,7 +454,7 @@ export function Header(p: HeaderProps) {
                 </button>
               </li>
               <li role="none">
-                <button type="button" role="menuitem" {...tip("Report a bug or an idea on GitHub")} onClick={pick(reportProblem)}>
+                <button type="button" role="menuitem" {...tip(REPORT_TIP)} onClick={pick(reportProblem)}>
                   Report a problem
                 </button>
               </li>

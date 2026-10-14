@@ -12,6 +12,9 @@ export const REPORT_URL = "https://github.com/timbermods/dam-good-maps/issues/ne
 /** The README's install help, linked from Help. */
 export const INSTALL_URL = "https://github.com/timbermods/dam-good-maps#install-a-map";
 
+/** Report a problem's tooltip, on the menu entry and the Help dialog's button alike. */
+export const REPORT_TIP = "Report a bug or an idea on GitHub";
+
 export type HelpPanel = "shortcuts" | "help";
 
 let shown: HelpPanel | null = null;
@@ -132,11 +135,11 @@ function Help(p: { onClose(): void }) {
             <strong>Undo</strong> and <strong>Redo</strong> are at the top right. <strong>History</strong> lists every step.
           </li>
           <li>
-            Every key is in <strong>File → Keyboard shortcuts</strong>, or press <kbd class="cap">?</kbd>.
+            Every shortcut is in <strong>File → Keyboard shortcuts</strong>.
           </li>
         </ul>
         <footer>
-          <button type="button" class="ghost" {...tip("Open the issue page on GitHub")} onClick={reportProblem}>
+          <button type="button" class="ghost" {...tip(REPORT_TIP)} onClick={reportProblem}>
             Report a problem
           </button>
           <button type="button" class="primary" {...tip("Close the help", "Esc")} onClick={p.onClose} autoFocus>
