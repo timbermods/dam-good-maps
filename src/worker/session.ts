@@ -15,6 +15,8 @@ import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
+import { planPaintObjects } from "../core/doc/paint";
+import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -1466,6 +1468,17 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
   if (!p.ok) return { ...changed(s, false, p.errors, t0), planted: [] };
   const r = s.applyAll(p.ops, "user", p.label);
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? p.planted : [] };
+}
+
+/** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
+ *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const plan = planPaintObjects(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
