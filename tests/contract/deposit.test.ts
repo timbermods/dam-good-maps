@@ -70,10 +70,17 @@ describe("Rust Deposit",()=>{
   expect(p.ok).toBe(true);if(!p.ok)return;p.staged!.finishAll();const kept=keptForceParams({before:p.before,request:p.request,carve:null,staged:p.staged});
   expect(kept.ok).toBe(true);if(kept.ok&&kept.params)expect(kept.params.verb).toBe("deposit");
  });
+ test("an outline with nothing above the Floor to take still lays a small fan, inside it (D356, #341)",()=>{
+  // (the water brings its sediment: a lake's bed or the map's lowest ground never refuses a click)
+  const m=plain(),h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:22,size:8},{path:[path[0]]});
+  run.finishAll();
+  let raised=0,lowered=0,outside=0;
+  for(let i=0;i<h.length;i++){const d=run.map.heights[i]-h[i];if(d>0)raised++;if(d<0)lowered++;if(d!==0&&Math.hypot(i%64-path[0].x,Math.floor(i/64)-path[0].y)>4)outside++;}
+  expect(raised).toBeGreaterThan(0);expect(lowered).toBe(0);expect(outside).toBe(0);
+ });
  test("one-line refusals leave all input bytes unchanged",()=>{
   const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
   expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");
-  expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:22},{path})).toThrow("the Floor leaves nothing to take sediment from");
   expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path},new Uint8Array(4096).fill(1))).toThrow("the working area leaves nothing to take sediment from");
   expect(m.heights).toEqual(h);
  });
