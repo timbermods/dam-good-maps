@@ -180,8 +180,8 @@ const api = {
   /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
    *  one. (Small, and the worker keeps its own: copied, not taken over.) */
   watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
-    // (the page's last callback is let go, or its port stays open for good)
-    // (the same one passed again is kept)
+    // (the page's last callback is let go, or its port stays open for good; each crossing makes a new proxy, so the
+    // check is only against releasing the one kept)
     if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
     droughtFn = fn;
     return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
