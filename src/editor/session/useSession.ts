@@ -2,13 +2,13 @@
 // renderer, the tools picked, the panels' state, the sounds, the water's player) and the queue that
 // sends every edit to the worker and shows what comes back.
 
-import type { Remote } from "comlink";
+import { proxy, type Remote } from "comlink";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { rulesFor, type Rules } from "../../core/validate/playability";
 import { surfaceWater, type MapView, type SoilView, type WaterView } from "../../render3d/model";
 import type { MapRenderer } from "../../render3d";
 import type { GeneratorApi } from "../../worker/generator.worker";
-import type { CheckItem, CheckProgress, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
+import type { CheckItem, CheckProgress, DroughtLineNews, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
 import { FeatureIndex, type StartCheck, type StartStatus } from "../features";
 import { plain, type LayerKind } from "../panels";
 import { DEFAULT_SHELF_OPTIONS, type ShelfItem, type ShelfOptions } from "../shelfItems";
@@ -302,9 +302,32 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
+  // the drought line (D133): the worker's channel, drawn in the normal view only (never while a day is held) and only
+  // for the map's own version, so an edit puts it away until the new map's comes
+  const droughtNews = useRef<DroughtLineNews | null>(null);
+  const syncDroughtLine = () => {
+    const n = droughtNews.current;
+    renderer.current?.setDroughtLine(n && n.version === infoRef.current.version && !weatherRef.current ? n.line : null);
+  };
+  useEffect(() => {
+    if (!ready) return;
+    const take = (n: DroughtLineNews) => {
+      droughtNews.current = n;
+      syncDroughtLine();
+    };
+    const news = proxy(take);
+    void api.watchDroughtLine(news).then((n) => n && take(n));
+    // (a map just opened has its line worked out too, not only after the first press: the worker waits for the water)
+    idlePrep();
+    return () => {
+      droughtNews.current = null;
+      void api.watchDroughtLine(null);
+    };
+  }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
     setWeatherState(on);
+    syncDroughtLine();
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
@@ -315,16 +338,28 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // days then Badtide's; any press or key stops it at once, and it picks up again when the press ends with the water
   // settled (an edit's water settling picks it up too)
   const idlePrep = () => void api.prepareWeather();
+  /** A press or a key is held (the prep waits for it to end). */
+  const pressed = useRef(false);
   useEffect(() => {
-    const stop = () => void api.stopWeatherPrep();
+    const stop = () => {
+      pressed.current = true;
+      void api.stopWeatherPrep();
+    };
     const resume = () => {
+      pressed.current = false;
       if (player.current?.progress === null) idlePrep();
     };
     window.addEventListener("pointerdown", stop, true);
     window.addEventListener("keydown", stop, true);
     window.addEventListener("pointerup", resume, true);
     window.addEventListener("keyup", resume, true);
+    // (a cancelled touch, or a window left with a key down (Alt+Tab), never sends its up: nothing is held then,
+    // and the background work carries on)
+    window.addEventListener("pointercancel", resume, true);
+    window.addEventListener("blur", resume);
     return () => {
+      window.removeEventListener("pointercancel", resume, true);
+      window.removeEventListener("blur", resume);
       window.removeEventListener("pointerdown", stop, true);
       window.removeEventListener("keydown", stop, true);
       window.removeEventListener("pointerup", resume, true);
@@ -563,6 +598,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (a held weather day: an edit whose water is already settled runs it again at once; otherwise the settled water
     // does, once it is in place)
     if (u.ok && weatherRef.current && u.waterSettled) requestHeldDay();
+    // (an edit that left the water settled has no settling to wait for: its drought line is worked out now)
+    else if (u.ok && u.waterSettled && !pressed.current) idlePrep();
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
@@ -572,6 +609,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     infoRef.current = i;
     setInfo(i);
     props.onChange(i);
+    syncDroughtLine();
   }
 
   /** Apply what changed on the map to the mirror and the renderer. While strokes the page painted
