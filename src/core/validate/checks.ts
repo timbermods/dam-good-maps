@@ -65,8 +65,9 @@ export interface ValidateOptions {
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
    *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */
   mineCutAtOpen?: ReadonlySet<number>;
-  /** What the build's support pass removed, in blocks of ground (D121): given for a generated map,
-   *  `terrain.dropped` reports it, and a generated map must have none. No caller passes it yet. */
+  /** What the build's support pass removed, in blocks of ground (D121; `BuildResult.dropped`):
+   *  given for a generated map (the generator's checks and `MapSession.validate` pass it),
+   *  `terrain.dropped` reports it, and a generated map must have none. */
   dropped?: number;
   /** Only the load and design classes (the M1 oracle's --load-only). */
   loadOnly?: boolean;
