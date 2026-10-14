@@ -65,7 +65,10 @@ export function useShelf(ed: Ed): ShelfSlice {
         .then((f) => {
           if (fitWant.current === k) then(f);
         })
-        .catch(() => setFit(null))
+        .catch(() => {
+          shownFit.current = null;
+          setFit(null);
+        })
         .finally(() => {
           fitBusy.current = false;
           const want = fitWant.current;
@@ -74,8 +77,17 @@ export function useShelf(ed: Ed): ShelfSlice {
     };
     next(req, key);
   }
+  /** The spot the fit on show belongs to and its problem, set with it: the page's copy of the fit
+   *  (ed.fitRef) follows a render later, and the pointer's new tile has its own check in flight
+   *  until the worker answers, so a click reads the problem only when it is the clicked spot's. */
+  const shownFit = useRef<{ spot: string; problem: string | null } | null>(null);
+  const spotOf = (item: ShelfItem, x: number, y: number) => `${item.id}|${turnRef.current}|${x},${y}`;
+  /** The problem of the shelf's object at (x, y) as the latest check of that spot found, or null
+   *  when no check of it is on show yet (the core checks the placement itself). */
+  const problemAt = (item: ShelfItem, x: number, y: number) => (shownFit.current?.spot === spotOf(item, x, y) ? shownFit.current.problem : null);
   useEffect(() => {
     fitWant.current = null;
+    shownFit.current = null;
     setFit(null);
   }, [shelf, shelfOptions, turn, info.version]);
 
@@ -107,6 +119,8 @@ export function useShelf(ed: Ed): ShelfSlice {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H) tiles.push((y + dy) * W + x + dx);
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
       const job = ++shelfStartJob.current;
+      const spot = spotOf(item, x, y);
+      shownFit.current = { spot, problem };
       setFit({ tiles: own, problem, status: problem ? "blocked" : "pending" });
       shelfWord(problem);
       if (!problem && mirror.current.water) {
@@ -116,6 +130,7 @@ export function useShelf(ed: Ed): ShelfSlice {
           .check({ W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x, y, door, bench, self: s.owner, needs })
           .then((check) => {
             if (job !== shelfStartJob.current || !mounted.current || !shelfRef.current) return;
+            shownFit.current = { spot, problem: check.problem };
             setFit({ tiles: own, problem: check.problem, status: startStatus(check) });
             renderer.current?.setGhost({ ...ghostAt.current!, ok: GHOST_OK[startStatus(check)] });
           })
@@ -144,6 +159,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     checkFit(item.source ? sourceAtTile(item.source === "bad", x, y) : { tool: "entity", template, x: cx, y: cy, orientation: o }, (f) => {
       // (put away while the worker was checking: nothing shows)
       if (!shelfRef.current) return;
+      shownFit.current = { spot: spotOf(item, x, y), problem: f.problem };
       setFit(f);
       shelfWord(f.problem);
       const now = ghostAt.current;
@@ -167,11 +183,12 @@ export function useShelf(ed: Ed): ShelfSlice {
   function placeShelf(x: number, y: number) {
     const item = shelfRef.current;
     if (!item) return;
-    // (refused: the reason is beside the pointer already, once; a check left from the object held before, not yet
-    // cleared, is not this one's: the core checks the placement itself)
+    // (refused: the reason is beside the pointer already, once; a check of another spot (the tile the pointer was
+    // over before, its own check still in flight) or left from the object held before is not this one's: the core
+    // checks the placement itself)
     const own = ghostAt.current?.template === (item.id === "start" ? "StartingLocation" : templateOf(item, shelfOptionsRef.current));
-    const f = own ? ed.fitRef.current : null;
-    if (f?.problem) return shelfWord(f.problem);
+    const problem = own ? problemAt(item, x, y) : null;
+    if (problem) return shelfWord(problem);
     if (item.id === "start") {
       // (a map without a start, D323 item 44: the Start places one)
       const s = startHere ?? NO_START_HERE;
@@ -209,8 +226,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!shelfRef.current) return;
     const hit = cancelled ? null : (renderer.current?.hoverHit ?? null);
     if (!hit) return pickShelf(null);
-    const at = shelfTile.current;
-    const problem = at && at[0] === hit.x && at[1] === hit.y ? (ed.fitRef.current?.problem ?? null) : null;
+    const problem = problemAt(shelfRef.current, hit.x, hit.y);
     if (problem) {
       pickShelf(null);
       flashNote(quietWord(problem));
@@ -255,6 +271,7 @@ export function useShelf(ed: Ed): ShelfSlice {
           r.setGhost(null);
           ghostAt.current = null;
           fitWant.current = null;
+          shownFit.current = null;
           setFit(null);
           setShapeNote(null);
           return;

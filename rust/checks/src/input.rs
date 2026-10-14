@@ -135,6 +135,8 @@ pub struct Map {
     pub profile: u8,
     pub external: bool,
     pub editing: bool,
+    /// What the build's support pass removed, in blocks, when the build says (a generated map's: D121).
+    pub dropped: Option<f64>,
     pub game_version: String,
     pub version_txt: String,
     /// Bit k: the k-th of the six singletons checkFile needs is present.
@@ -259,7 +261,7 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
     if r.u32()? != 0x434d_4744 {
         return Err("meta: magic".into());
     }
-    if r.u32()? != 2 {
+    if r.u32()? != 3 {
         return Err("meta: version".into());
     }
     let w = r.u32()? as usize;
@@ -269,6 +271,7 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
     let external = r.bool()?;
     let editing = r.bool()?;
     let load_only = r.bool()?;
+    let dropped = if r.bool()? { Some(r.f64()?) } else { None };
     let game_version = r.str()?;
     let version_txt = r.str()?;
     let singletons = r.u32()?;
@@ -419,6 +422,7 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
         profile,
         external,
         editing,
+        dropped,
         game_version,
         version_txt,
         singletons,
