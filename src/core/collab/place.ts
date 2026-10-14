@@ -1,5 +1,5 @@
 // Where on the map an action was, in the few plain words a refusal uses. `placeOf` names the feature that holds most of
-// the tiles ("at the north lake", "by the start": the lake, river, start or landform whose footprint holds most of them,
+// the tiles ("at the north lake", "by the start": the lake, river or start whose own ground holds most of them,
 // with a compass word only when the map has several of that kind) and otherwise gives a compass word ("in the
 // north-east", `placeWords`). North is +y, as everywhere in the core (gen/names.ts). Worked out from the tiles an action
 // wrote, or touched when it wrote none; a map-wide reach names no place.
@@ -47,31 +47,79 @@ export function placeWords(W: number, H: number, m: Mask): string {
   return name ? `in the ${name}` : "in the middle";
 }
 
-const NAMED = { lake: "lake", river: "river", start: "start", landform: "landform" } as const;
+/** The words for the features a player knows by name (a landform is not one). */
+const NAMED = { lake: "lake", river: "river", start: "start" } as const;
 
-/** The place of the tiles, in words: a feature when one holds most of them (the smallest that holds at least 60%), else a compass word. */
+const dist2 = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const t = dx || dy ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
+  return (px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2;
+};
+
+const nearPath = (px: number, py: number, path: readonly (readonly number[])[], reach: number, closed: boolean): boolean => {
+  const n = path.length;
+  for (let k = 0; k < (closed ? n : n - 1); k++) {
+    const [ax, ay] = path[k];
+    const [bx, by] = path[(k + 1) % n];
+    if (dist2(px, py, ax, ay, bx, by) <= reach * reach) return true;
+  }
+  return n === 1 && dist2(px, py, path[0][0], path[0][1], path[0][0], path[0][1]) <= reach * reach;
+};
+
+const inside = (px: number, py: number, poly: readonly (readonly number[])[]): boolean => {
+  let in_ = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) in_ = !in_;
+  }
+  return in_;
+};
+
+/** Whether a tile is the feature's own ground: a lake's tiles inside its outline, a river's within half its width plus its banks of its path, the start's bench. */
+function ownGround(f: Feature, session: MapSession): (x: number, y: number) => boolean {
+  const { W, H } = session.built;
+  if (f.kind === "lake") {
+    const poly = f.params.outline;
+    return (x, y) => inside(x + 0.5, y + 0.5, poly) || nearPath(x + 0.5, y + 0.5, poly, 0.75, true);
+  }
+  if (f.kind === "river") {
+    const reach = f.params.width / 2 + (f.params.banks ? 2 : 1);
+    return (x, y) => nearPath(x + 0.5, y + 0.5, f.params.path, reach, false);
+  }
+  const r = terrainFootprint(f, { W, H, river: () => undefined });
+  return (x, y) => !!r && r !== "all" && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+}
+
+const PRIORITY = { start: 0, lake: 1, river: 2 } as const;
+
+/** The place of the tiles, in words: the lake, river or start whose own ground holds at least 60% of them (the one holding most), else a compass word. */
 export function placeOf(session: MapSession, m: Mask): string {
   const { W, H } = session.built;
   const n = m.size;
   if (!n || n === W * H) return "";
   const features = session.features;
-  const byId = new Map(features.map((f) => [f.id, f]));
-  const target = { W, H, river: (id: string) => { const f = byId.get(id); return f && f.kind === "river" ? f : undefined; } };
   const tiles = m.tiles();
-  let best: { f: Feature; cx: number; cy: number; area: number } | null = null;
+  let best: { f: Feature; held: number; cx: number; cy: number } | null = null;
   for (const f of features) {
     if (!(f.kind in NAMED)) continue;
-    const r = terrainFootprint(f, target);
-    if (!r || r === "all") continue;
-    let inside = 0;
+    const own = ownGround(f, session);
+    let held = 0;
+    let sx = 0;
+    let sy = 0;
     for (const i of tiles) {
       const x = i % W;
       const y = Math.floor(i / W);
-      if (x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) inside++;
+      if (own(x, y)) {
+        held++;
+        sx += x + 0.5;
+        sy += y + 0.5;
+      }
     }
-    if (inside * 10 < n * 6) continue;
-    const area = (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1);
-    if (!best || area < best.area || (area === best.area && f.id < best.f.id)) best = { f, cx: (r.x0 + r.x1 + 1) / 2 / W, cy: (r.y0 + r.y1 + 1) / 2 / H, area };
+    if (held * 10 < n * 6) continue;
+    const better = !best || held > best.held || (held === best.held && (PRIORITY[f.kind as keyof typeof PRIORITY] < PRIORITY[best.f.kind as keyof typeof PRIORITY] || (f.kind === best.f.kind && f.id < best.f.id)));
+    if (better) best = { f, held, cx: sx / held / W, cy: sy / held / H };
   }
   if (!best) return placeWords(W, H, m);
   const kind = best.f.kind as keyof typeof NAMED;
