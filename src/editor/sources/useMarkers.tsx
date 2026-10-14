@@ -6,7 +6,8 @@ import { useMemo, useRef } from "preact/hooks";
 import type { TileHit } from "../../render3d";
 import { feedingGroups, sourceGroups, sourceStrengths, sourceStrengthWords, type SourceGroup } from "../features";
 import type { Ed } from "../ed";
-import { SourceLabels, type LabelSource } from "./SourceLabels";
+import { SourceLabels } from "./SourceLabels";
+import type { LabelIn } from "./labelLayout";
 
 export interface MarkersSlice {
   groupsRef: { current: SourceGroup[] };
@@ -78,7 +79,7 @@ export function useMarkers(ed: Ed): MarkersSlice {
     const r = renderer.current;
     if (!r || !shownGroups.length) return null;
     void viewTick;
-    const items: LabelSource[] = [];
+    const items: LabelIn[] = [];
     for (const k of shownGroups) {
       const g = groups[k];
       if (!g) continue;
@@ -86,7 +87,7 @@ export function useMarkers(ed: Ed): MarkersSlice {
       if (!p.visible) continue;
       const feed = feeding.includes(k);
       const target = k === targetGroup;
-      items.push({ id: k, ax: p.x, ay: p.y, count: g.members.length, strength: g.strength, bad: g.bad, priority: target ? 2 : feed ? 1 : 0, feeding: feed, target });
+      items.push({ id: k, ax: p.x, ay: p.y, count: g.members.length, strength: g.strength, bad: g.bad, feeding: feed, target });
     }
     return items.length ? <SourceLabels items={items} /> : null;
   }

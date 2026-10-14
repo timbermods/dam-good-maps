@@ -24,11 +24,6 @@ const OBSTACLES = [
   ".places-panel",
 ];
 
-export interface LabelSource extends LabelIn {
-  feeding: boolean;
-  target: boolean;
-}
-
 interface Measured {
   w: number;
   h: number;
@@ -88,7 +83,7 @@ const same = (a: Measured, b: Measured) =>
   a.w === b.w && a.h === b.h && a.font === b.font && a.height === b.height && a.obstacles.length === b.obstacles.length && a.obstacles.every((o, i) => o.x === b.obstacles[i].x && o.y === b.obstacles[i].y && o.w === b.obstacles[i].w && o.h === b.obstacles[i].h);
 
 /** The labels of the sources shown, each with its place on the screen. */
-export function SourceLabels(p: { items: LabelSource[] }) {
+export function SourceLabels(p: { items: LabelIn[] }) {
   const box = useRef<HTMLDivElement>(null);
   const [m, setM] = useState<Measured>(START);
   const now = useRef(m);
@@ -130,18 +125,37 @@ export function SourceLabels(p: { items: LabelSource[] }) {
     // (a little over, so a label never crowds its neighbour by the width's rounding)
     width: (words, strong) => textWidth(strong ? m.strongFont : m.font, words) + 20 + (strong ? 6 : 2),
   };
-  const laid = layoutLabels(p.items, env);
+  // (what each label did last frame comes back in, so a label stays put while the camera moves and is still clear)
+  const last = useRef(new Map<number, { dx: number; dy: number; into: number | null }>());
+  const laid = layoutLabels(
+    p.items.map((i) => ({ ...i, prev: last.current.get(i.id) ?? null })),
+    env,
+  );
+  last.current = new Map(laid.map((l) => [l.id, { dx: l.dx, dy: l.dy, into: l.into }]));
   const byId = new Map(p.items.map((i) => [i.id, i]));
+  // a label moved more than its own height keeps a thin line to its source
+  const leaders = laid.filter((l) => !l.hidden && Math.hypot(l.dx, l.dy) > m.height);
   return (
     <div ref={box} class="source-markers" aria-hidden="true" style={m.w ? undefined : { visibility: "hidden" }}>
+      <svg class="source-leaders" width={m.w || 1} height={m.h || 1}>
+        {leaders.map((l) => {
+          const x = Math.max(l.box.x, Math.min(l.ax, l.box.x + l.box.w));
+          const y = Math.max(l.box.y, Math.min(l.ay, l.box.y + l.box.h));
+          return (
+            <g key={l.id} class={l.bad ? "bad" : undefined}>
+              <line x1={l.ax} y1={l.ay} x2={x} y2={y} />
+              <circle cx={l.ax} cy={l.ay} r="2.5" />
+            </g>
+          );
+        })}
+      </svg>
       {laid.map((l) => {
         if (l.hidden) return null;
-        const src = byId.get(l.id)!;
         const ids = [l.id, ...l.merged].map((k) => byId.get(k)!);
         const feeding = ids.some((s) => s.feeding);
         const target = ids.some((s) => s.target);
         return (
-          <span key={l.id} class={`map-note source-marker${l.bad ? " bad" : ""}${feeding ? " feeding" : ""}${target ? " target" : ""}`} style={{ left: `${l.x}px`, top: `${l.y}px` }} data-sources={l.count} data-nudged={l.x !== src.ax || l.y !== src.ay ? "" : undefined}>
+          <span key={l.id} class={`map-note source-marker${l.bad ? " bad" : ""}${feeding ? " feeding" : ""}${target ? " target" : ""}`} style={{ left: `${l.x}px`, top: `${l.y}px` }} data-sources={l.count}>
             {l.words}
           </span>
         );

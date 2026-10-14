@@ -833,6 +833,6 @@ API, every pinned hash, and every role and accessible name the tests use.
   open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
   generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when
   there is none (`labelLayout.ts`). Markers' wall ledges are named **Wall levels** (the legend's line and Markers'
-  tooltip), never "Level lines", which the Lines toggle's tooltip already says. The open Legend stays centred under its
+  tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.

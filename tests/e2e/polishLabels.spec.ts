@@ -95,3 +95,29 @@ test("the minimap shows a held Drought day's water, and the map's own again afte
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
   await expect.poll(async () => (await picture()).sum, { timeout: 15_000 }).toBe(before.sum);
 });
+
+test("at 1280×800 a legend taller than its room scrolls inside itself, keeping Low and High, and its last row is reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (Heights' key, Badwater's caption and Markers' lines: the fullest legend, in the room the first run's hints leave)
+  await page.getByRole("checkbox", { name: "Heights" }).click();
+  await page.getByRole("checkbox", { name: "Markers" }).click();
+  await page.getByRole("checkbox", { name: "Badwater" }).click();
+  const legend = await openLegend(page);
+  await expect(legend.locator(".height-ends")).toHaveText(/Low \d+\s*High \d+/);
+  const state = () =>
+    legend.evaluate((el) => {
+      const p = el.getBoundingClientRect();
+      const last = [...el.querySelectorAll(".pick-line")].pop()!.getBoundingClientRect();
+      return { overflow: getComputedStyle(el).overflowY, over: el.scrollHeight > el.clientHeight + 1, lastBottom: last.bottom, panelBottom: p.bottom };
+    });
+  const before = await state();
+  expect(before.overflow).toBe("auto");
+  // (the panel stays clear of what is under it; whatever does not fit is reached by scrolling it)
+  const dock = (await page.locator(".tool-dock > *").first().boundingBox())!;
+  expect((await legend.boundingBox())!.y + (await legend.boundingBox())!.height).toBeLessThanOrEqual(dock.y + 0.5);
+  await legend.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  const after = await state();
+  expect(after.lastBottom).toBeLessThanOrEqual(after.panelBottom + 0.5);
+  await expect(legend.locator(".pick-line").last()).toBeVisible();
+});

@@ -619,6 +619,31 @@ button[aria-pressed="true"] {
   overflow: hidden;
 }
 
+/* a label moved off its source keeps a thin line to it */
+.source-leaders {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.source-leaders line {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.source-leaders circle {
+  fill: var(--accent);
+}
+
+.source-leaders .bad line {
+  stroke: var(--warn);
+  stroke-dasharray: 3 2;
+}
+
+.source-leaders .bad circle {
+  fill: var(--warn);
+}
+
 .source-marker {
   position: absolute;
   transform: translate(-50%, -120%);
