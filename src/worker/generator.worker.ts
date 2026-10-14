@@ -10,7 +10,7 @@ import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers, type WaterView } from "../render3d/model";
+import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
@@ -50,6 +50,38 @@ function eventBuffers(e: ed.EditorEvent): Transferable[] {
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
 ed.setAutoWater(true);
+
+// A hazard day's soil (the Weather view's withered plants, D250) is one whole-map pass of the core, about 35 ms on a 256² map:
+// it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message never waits
+// behind it (daySoil.ts). A failing worker's jobs are worked out here instead (session.ts).
+if (typeof Worker !== "undefined") {
+  let soilWorker: Worker | null = null;
+  let jobs = 0;
+  const waiting = new Map<number, { resolve: (s: SoilView) => void; reject: (e: unknown) => void }>();
+  const failed = (e: unknown) => {
+    for (const w of waiting.values()) w.reject(e);
+    waiting.clear();
+    soilWorker?.terminate();
+    soilWorker = null;
+  };
+  ed.setSoilRunner(
+    (job) =>
+      new Promise<SoilView>((resolve, reject) => {
+        if (!soilWorker) {
+          soilWorker = new Worker(new URL("./daySoil.worker.ts", import.meta.url), { type: "module" });
+          soilWorker.onmessage = (m: MessageEvent<{ id: number; soil: SoilView }>) => {
+            const w = waiting.get(m.data.id);
+            waiting.delete(m.data.id);
+            w?.resolve(m.data.soil);
+          };
+          soilWorker.onerror = failed;
+        }
+        const id = ++jobs;
+        waiting.set(id, { resolve, reject });
+        soilWorker.postMessage({ id, job });
+      }),
+  );
+}
 
 // The checks worker joins once the map is editable (D367): a page that calls `deferChecks` before opening a map
 // keeps its replica (and the checks code it loads) out of the way until `editorReady`; a page that never calls it

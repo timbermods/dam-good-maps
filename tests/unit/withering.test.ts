@@ -70,7 +70,7 @@ describe("the plants a held day has surely killed", () => {
         expect(deadOn(template, "m" + "d".repeat(days)), `${template} on ${difficulty}`).toBe(false);
       }
     }
-    // (the species with the shortest timers, 8 and 6 days, do die in a normal drought)
+    // (the 8-day chestnut lives, its limit 8.8 days; the 6-day mangrove, 6.6, dies in a normal drought's 9 days)
     expect(deadOn("ChestnutTree", "m" + "d".repeat(hazardDays("normal", "drought")))).toBe(false);
     expect(deadOn("Mangrove", "m" + "d".repeat(hazardDays("normal", "drought")))).toBe(true);
   });
