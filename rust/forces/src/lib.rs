@@ -1240,7 +1240,9 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
         }
         6 | 7 => {
             let settings_error=if opcode==6{27}else{30}; let path_error=if opcode==6{28}else{31};
-            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],4.0,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) || !whole(c[5],0.0,2.0) {return settings_error;}
+            // (Size from 4 for a Rift, from 8 for a Deposit, #341)
+            let size_min=if opcode==6{4.0}else{8.0};
+            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],size_min,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) || !whole(c[5],0.0,2.0) {return settings_error;}
             if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return path_error;}
             0
         }
