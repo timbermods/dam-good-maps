@@ -1103,9 +1103,10 @@ export function refine(): SessionOpen {
   return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
-/** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
-export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
-  return opened(MapSession.importMap(bytes, fileName));
+/** Open any .timber (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Saves are refused
+ *  with a message (ImportError). */
+export function openTimber(bytes: Uint8Array, fileName: string, place?: string): SessionOpen {
+  return opened(MapSession.importMap(bytes, fileName, place));
 }
 
 /** Open a project file (.damgoodmaps.json). */

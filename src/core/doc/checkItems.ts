@@ -139,9 +139,17 @@ function existedBefore(c: CheckResult, before: Validation): boolean {
   return now.every((k) => had.has(k));
 }
 
+/** The absolutes a real place answers to besides the load checks (D245, D331, PERFECT "Real places"):
+ *  the starting-logs floor and the water floor (water a pump can reach from the start). */
+export const PLACE_ABSOLUTE_CHECKS: ReadonlySet<string> = new Set(["start.wood_floor", "start.water"]);
+
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43); `before` is an imported
- *  map's validation as it was opened (its own problems are `existing`), null otherwise. */
+ *  map's validation as it was opened (its own problems are `existing`), null otherwise. A real place
+ *  (`DocMeta.place`) is a map we made and the player gets, so its problems are never "in the map when
+ *  you opened it": only the absolutes count (D245, D331): a load problem blocks, a missed floor
+ *  (`PLACE_ABSOLUTE_CHECKS`) is a warning, and every other row is information. */
 export function groupChecks(s: MapSession, v: Validation, before: Validation | null): CheckGroups {
+  const place = !!s.meta.place;
   const out: CheckGroups = {
     blocking: [],
     warnings: [],
@@ -154,7 +162,11 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
     if (c.applicable === false) continue;
     out.checks++;
     if (c.ok) continue;
-    if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
+    if (place) {
+      if (c.class === "load") out.blocking.push(checkItem(s, c));
+      else if (!c.advisory && PLACE_ABSOLUTE_CHECKS.has(c.id)) out.warnings.push(checkItem(s, c));
+      else out.advisory.push(checkItem(s, c));
+    } else if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
     else if (c.advisory) out.advisory.push(checkItem(s, c));
     else if (blocks("export", c)) out.blocking.push(checkItem(s, c));
     else out.warnings.push(checkItem(s, c));

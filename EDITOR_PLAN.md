@@ -961,6 +961,10 @@ afresh, with a view built for its size.
 The editor reuses the generator's validation modules unchanged (one source of truth for what "valid" means), run
 with the `export` profile (`PLAN.md` §19.5, §11). An imported map's own problems, the ones it had when it was
 opened, are listed but never blamed on the player's edits and do not block its export (`PLAN.md` §20, D43).
+A real place opened from Real places is not an imported map in this sense: it is ours, so its checks follow the
+place's absolutes (D245, D331; `checkItems.ts` `groupChecks`): a load problem blocks, a missed starting-logs floor
+or water floor (no clean water a pump can reach from the start) is a warning the checks dot counts, and every other
+row is information under Good to know.
 
 - **Instant checks** after every edit, on the dirty region: footprints, ground support, overlaps, start area,
   limits, slopes, terrain support. **Background checks** in a web worker, debounced (0.7 s) and cancelled when a
