@@ -36,7 +36,8 @@ describe("validation profiles (PLAN §19.5)", () => {
   });
 
   it("re-reading the written file gives the generator's verdicts, check by check", () => {
-    const again = validateMap(file(), { profile: "generate", spec: r.spec, features: r.features });
+    // (what the build's support pass removed is the build's to say, not the file's: passed as the generator does)
+    const again = validateMap(file(), { profile: "generate", spec: r.spec, features: r.features, dropped: r.built.dropped ?? 0 });
     expect(again.report.checks.map((c) => [c.id, verdict(c)])).toEqual(r.report.checks.map((c) => [c.id, verdict(c)]));
     expect(again.water!.ticks).toBe(r.built.settle.ticks);
     expect(Array.from(again.water!.depth)).toEqual(Array.from(r.built.water));

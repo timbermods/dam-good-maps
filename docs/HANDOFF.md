@@ -33,8 +33,12 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 ## 2. The sessions (D388, D398, D468, D470)
 
 - **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
-  water, the generator, the Rust order (D381), the Codex adoptions and the documents. It reviews every PR, merges, releases,
-  and owns the decisions' numbering, STATUS and HANDOFF.
+  water, the generator, the Rust order (D381), the Codex adoptions and the documents. It owns the decisions' numbering,
+  STATUS and HANDOFF.
+- **The planning session** (Opus 5.5, high; the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14,
+  replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it merges every "ready to merge", releases
+  to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
+  the rest to him. Its own PRs are merged by this session after a fresh sub-agent's review.
 - **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
   `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
@@ -44,7 +48,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
-  `dev`; this session reviews and merges them.
+  `dev`; the planning session merges them on their owner's "ready to merge".
 - **No session touches another's files.** Sessions talk on the Coordination issue (#236); what needs Kyler carries
   `needs-kyler` (D470).
 
@@ -60,8 +64,11 @@ where the job is written down, scripts where it's only waiting.
 | The document prune; mechanical work touching layout or other work's tests; building from a written spec; review sets and contact sheets; mechanical merges and CI fix-ups without real conflicts | `build-light` | Sonnet 5.5, high |
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
-| The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
+| The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
+| The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
+| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | any agent, `model: haiku` | Haiku 4.5 |
+| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
@@ -72,9 +79,9 @@ and D386's review). **Never raise a model's effort on your own, never start sub-
 
 The order of work (the release gate, the editor-core items, the post-release list, M9b's adoption order) is at the top of
 [ROADMAP.md](../ROADMAP.md); Kyler's Codex verdicts and what is still with Codex are in its "The Codex adoptions";
-[STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; this session merges them
-as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started from an
-unreleased one) and adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
+[STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; the planning session
+merges them as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started
+from an unreleased one), and this session adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
 default. Hold any PR Kyler says Codex is still working on. The Rust adoptions (D442) run ahead of the post-release list as one `build` sub-agent in its own worktree, in parallel with
 M9b: (a) Rust 1.90, wasm32 and the Rust build in CI with `portable.rs`; (b) the Rust water, in every engine at every size;
 (c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the generator after
@@ -83,18 +90,23 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). This session never ends its turn while work is left (D484, "Never idle"): it keeps
+  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
+  a fresh Opus agent reviews looks); merges come first; about three heavy local runs at once across both sessions. This
+  session never ends its turn while work is left (D484, "Never idle"): it keeps
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
-  - *Review:* Kyler reviews nothing (D484). This session reviews every PR's diff before it merges (correctness, scope,
-    ownership of files); its own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
+  - *Review:* Kyler reviews nothing (D484). The planning session checks every PR before it merges (correctness, scope,
+    ownership of files); this session's own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
     or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
     interaction change's captures).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
-    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; this session
-    checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
-    with a full CI run by hand first for core and Rust changes).
+    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
+    session checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
+    with a full CI run by hand first for core and Rust changes). The planning session's own PRs are merged by this session
+    after a fresh sub-agent's review.
+  - *Design questions* go to the planning session first, on #236: it answers those Kyler's recorded decisions settle,
+    citing them, and sends only the rest to him as `needs-kyler` issues.
   - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
     question's issue is closed.
   - *Codex's investigations* are adopted or sent back for another round by this session (D484).
@@ -179,7 +191,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D485**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D487**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual

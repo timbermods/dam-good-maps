@@ -70,7 +70,7 @@ describe("validation parity between the editor and the generator (ROADMAP M8)", 
     const v = s.validate("generate"); // settles canonically first
     expect(s.waterPending).toBe(false);
     const bytes = s.exportTimber().bytes;
-    const again = validateMap(readTimber(bytes), { profile: "generate", spec: s.spec, features: s.features });
+    const again = validateMap(readTimber(bytes), { profile: "generate", spec: s.spec, features: s.features, dropped: s.built.dropped ?? 0 });
     expect(verdicts(v.report.checks)).toEqual(verdicts(again.report.checks));
     expect(Array.from(again.water!.depth)).toEqual(Array.from(s.built.water));
     // the map equals a full build: the preview left nothing behind
