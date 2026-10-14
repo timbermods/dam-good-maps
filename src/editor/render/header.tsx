@@ -26,6 +26,8 @@ export function header(ed: Ed, props: EditorProps) {
       onSave={(kind) => void saveMap(kind)}
       onOpenFile={props.onOpenFile}
       onSaveProject={() => void exportProject()}
+      // (a force at work is kept when it ends: the tour waits for it, as every other edit does)
+      onTour={props.onTour && (() => (ed.forcer.current?.running ? flashNote("A force is at work: the tour can start once it ends") : props.onTour?.()))}
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       // (one left panel at a time: History opening closes Map Generator, Real places or Your maps)

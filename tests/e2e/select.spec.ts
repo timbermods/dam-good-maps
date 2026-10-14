@@ -29,8 +29,9 @@ async function dryAt(page: Page, room = 8): Promise<[number, number]> {
   return page.evaluate((r) => {
     const m = window.dgm3d!.renderer.mapState()!;
     const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
-    // (clear of the controls, with room above the bar's settings for a selection's actions row, which opens there)
-    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
+    // (clear of the controls, with room above the bar's settings for a selection's actions row, which opens there; 110px since the
+    // first visit's hints offer the tour in a row of their own, D377, D148)
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 110;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
       return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
@@ -167,7 +168,7 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
   // a river tile where the map takes the pointer (with room above the bar for a selection's actions row)
   const r = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
-    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 80;
+    const dock = document.querySelector(".tool-dock")!.getBoundingClientRect().top - 110;
     const onMap = (x: number, y: number) => {
       const p = window.dgmEditor!.tileToClient(x, y);
       return p.y < dock && document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";

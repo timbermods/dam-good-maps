@@ -19,6 +19,7 @@ import { coreNotes } from "../../core/sim/coreMoment";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
+import { TourLayer } from "../tour/TourLayer";
 import { header } from "./header";
 import { topBar } from "./topBar";
 import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, roofsButton, viewButtons } from "./viewControls";
@@ -57,6 +58,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               legendOpen={false}
               frameInsets={measureInsets}
               keepView={props.keepView}
+              viewAfter={props.restore?.view ?? undefined}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               caption={layerCaption(ed)}
@@ -106,6 +108,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         </section>
       </div>
       <DropTarget onFile={props.onOpenFile} />
+      {props.tour ? <TourLayer ed={ed} onEnd={props.tour.onEnd} /> : null}
     </div>
     </ForceFloor.Provider>
   );

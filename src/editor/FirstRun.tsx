@@ -1,5 +1,8 @@
 // First run (PLAN §20 D184): three one-line hints, each gone once it is done (paint the land, place
-// things, add water), and never again after the three, or after the ×. Kept in the browser.
+// things, add water), and never again after the three, or after the ×. Kept in the browser. The hints end
+// with the one quiet offer of the 20-second tour (D377), which is also in the File menu.
+
+import { tip } from "../ui/Tooltip";
 
 const KEY = "dgm.firstRun";
 
@@ -45,7 +48,7 @@ export function FirstRunSizer() {
   );
 }
 
-export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
+export function FirstRun(p: { done: Set<FirstStep>; onClose(): void; onTour?(): void }) {
   const left = LINES.filter(([k]) => !p.done.has(k));
   if (!left.length) return null;
   return (
@@ -54,6 +57,13 @@ export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
         {left.map(([k, words]) => (
           <li key={k}>{words}</li>
         ))}
+        {p.onTour ? (
+          <li class="tour-offer" role="none">
+            <button type="button" class="linkish" {...tip("See the editor's best controls")} onClick={p.onTour}>
+              Watch a 20-second tour
+            </button>
+          </li>
+        ) : null}
       </ul>
       <button type="button" class="linkish" aria-label="No more hints" title="No more hints" onClick={p.onClose}>
         ×

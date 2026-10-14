@@ -54,41 +54,27 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.keyboard.press("Escape");
   await toolPutAway(page);
   // a spring on dry, empty ground beside the river, its water running straight in: away from the
-  // start and from the relics, mine sites and geothermal fields, which must stay off water
+  // start and from the relics, mine sites and geothermal fields, which must stay off water. Its tile is chosen in the map's
+  // own coordinates, never by where the bars happen to leave room on the screen (a taller hint once moved a spot picked that
+  // way, and a different spring let this map's water run on past six days, D148): the tile this map's spring has always
+  // been placed on, checked here to be what the comment says
+  const SPRING: [number, number] = [89, 15];
   const spring = await page.evaluate(
-    ([s0, s1]) => {
+    ([s0, s1, at]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const e = m.entities;
+      const [x2, y] = at;
+      const i = y * m.W + x2;
       const extras: [number, number][] = [];
       for (let k = 0; k < e.count; k++) if (/Relic|Geothermal|Mine|Underground/i.test(e.templates[e.template[k]])) extras.push([e.x[k], e.y[k]]);
-      for (let y = 4; y < m.H - 4; y++)
-        for (let x2 = 4; x2 < m.W - 4; x2++) {
-          const i = y * m.W + x2;
-          if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) continue;
-          let wet = false;
-          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
-          if (!wet) continue;
-          // clear of the bars over the map by a margin: the water bar's width follows its status (the nearest
-          // tile to it sat 14 px off its edge), and a press on a bar is no press on the map
-          const c = window.dgmEditor!.tileToClient(x2, y);
-          const box = window.dgm3d!.renderer.canvas;
-          let bare = true;
-          for (const ox of [-70, 0, 70]) for (const oy of [-70, 0, 70]) if (document.elementFromPoint(c.x + ox, c.y + oy) !== box) bare = false;
-          if (!bare) continue;
-          let empty = true;
-          for (let k = 0; k < e.count && empty; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) empty = false;
-          // clear of the sources on the screen too: a press within a few pixels of one selects it (D345), and at
-          // this zoom a few pixels are several tiles
-          for (let k = 0; k < e.count && empty; k++) {
-            if (!/WaterSource|BadwaterSource/.test(e.templates[e.template[k]])) continue;
-            const s = window.dgmEditor!.tileToClient(e.x[k], e.y[k]);
-            if (Math.hypot(s.x - c.x, s.y - c.y) < 24) empty = false;
-          }
-          if (empty && m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1) return [x2, y] as [number, number];
-        }
-      return null;
+      if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) return null;
+      let wet = false;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(y + dy) * m.W + x2 + dx] > 0.2) wet = true;
+      if (!wet) return null;
+      for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - x2) <= 2 && Math.abs(e.y[k] - y) <= 2) return null;
+      return m.heights[i] <= m.heights[i - 1] + 1 && m.heights[i] <= m.heights[i + 1] + 1 ? at : null;
     },
-    [start0[0], start0[1]] as const,
+    [start0[0], start0[1], SPRING] as const,
   );
   expect(spring).not.toBeNull();
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Water source", exact: true }).click();

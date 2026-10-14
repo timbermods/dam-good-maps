@@ -28,6 +28,11 @@ export interface SelectSlice {
   selectChip: () => ComponentChildren;
   selectRow: () => JSX.Element | null;
   objectFootprints: () => number[][];
+  /** The Select row's Level number (null until set) and its Max water depth, which the tour gives back (D377). */
+  flattenRef: { current: number | null };
+  setFlattenTo: (level: number | null) => void;
+  maxDepthRef: { current: number };
+  setMaxDepth: (depth: number) => void;
 }
 
 export function useSelect(ed: Ed): SelectSlice {
@@ -269,6 +274,8 @@ export function useSelect(ed: Ed): SelectSlice {
   const flattenRef = useRef<number | null>(null);
   flattenRef.current = flattenTo;
   const [maxDepth, setMaxDepth] = useState(2);
+  const maxDepthRef = useRef(maxDepth);
+  maxDepthRef.current = maxDepth;
   /** The deepest water in the selection (Max water depth's top). */
   function deepestIn(): number {
     const w = mirror.current.water;
@@ -506,6 +513,6 @@ export function useSelect(ed: Ed): SelectSlice {
 
   return {
     selectHost, openSelect, closeSelect, selectAll, workingArea, inArea, selectCalls, checkDepthRef, selectChip,
-    selectRow, objectFootprints
+    selectRow, objectFootprints, flattenRef, setFlattenTo, maxDepthRef, setMaxDepth
   };
 }

@@ -248,6 +248,8 @@ export interface HeaderProps {
   onSave(kind: "timberborn" | "download"): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
+  /** Watch the 20-second tour (File → Watch a 20-second tour, D377). */
+  onTour?(): void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
   onClearEverything(): void;
   historyOpen: boolean;
@@ -443,7 +445,14 @@ export function Header(p: HeaderProps) {
                   About
                 </button>
               </li>
-              <li role="none" class="menu-rule">
+              {p.onTour ? (
+                <li role="none" class="menu-rule">
+                  <button type="button" role="menuitem" {...tip("See the editor's best controls")} onClick={pick(p.onTour)}>
+                    Watch a 20-second tour
+                  </button>
+                </li>
+              ) : null}
+              <li role="none" class={p.onTour ? undefined : "menu-rule"}>
                 <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
                   Keyboard shortcuts
                 </button>

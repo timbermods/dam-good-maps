@@ -425,8 +425,13 @@ export class BrushPainter {
     if (!at || !hasTarget(s.tool)) return h.note?.(null, null);
     if (this.picking && !this.stroke) return h.note?.(`level ${this.hereLevel}`, ev);
     if (this.stroke ? !!this.stroke.settings.channel : this.smart(at[0], at[1])) return h.note?.("channel", ev);
-    const t = this.shownTarget();
-    const tool = (this.stroke?.settings.tool ?? s.tool) as "raise" | "lower" | "flatten";
+    let t = this.shownTarget();
+    let tool = (this.stroke?.settings.tool ?? s.tool) as "raise" | "lower" | "flatten";
+    // Shift held: the click would do the opposite, and the words say so (Raise's "up to 8" is Lower's "down to 6")
+    if (!this.stroke && ev?.shiftKey && (tool === "raise" || tool === "lower")) {
+      tool = tool === "raise" ? "lower" : "raise";
+      if (s.target === null) t = followTarget(tool, this.hereLevel);
+    }
     h.note?.(t === null ? null : targetWords(tool, t), ev);
   }
 

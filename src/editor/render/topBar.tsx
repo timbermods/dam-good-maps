@@ -36,8 +36,9 @@ export function topBar(ed: Ed, props: EditorProps) {
       row={unleashRow()}
       notes={notes}
       hints={
-        <FirstRun
+        props.tour ? null : <FirstRun
           done={firstRun}
+          onTour={props.onTour}
           onClose={() => {
             const all = new Set<FirstStep>(["paint", "place", "water"]);
             saveFirstRun(all);

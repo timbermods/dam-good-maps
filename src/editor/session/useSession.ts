@@ -288,6 +288,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   useEffect(
     () => () => {
       mounted.current = false;
+      // what this editor had under way stops with it: the renderer outlives the editor (the next map's editor takes it),
+      // and a soil or water frame that came late would be drawn on that map
+      clearTimeout(soilTimer.current);
+      player.current?.clear();
       juice.current?.dispose();
     },
     [],
@@ -487,6 +491,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** A stroke's water waiting for the next frame (the latest wins). */
   const draftWater = useRef<WaterView | null>(null);
   function showWater(w: WaterView, soon = false, held = false) {
+    if (!mounted.current) return;
     // (a held weather day stays on screen: only the day itself replaces it, Kyler, 2026-10-04)
     if (weatherRef.current && !held) return;
     const r = renderer.current;
@@ -508,6 +513,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const n = to.moisture.length;
     const moisture = new Uint8Array(n);
     const step = () => {
+      if (!mounted.current) return;
       const t = Math.min(1, (performance.now() - t0) / 2000);
       if (t >= 1) {
         r.updateSoil(to);
@@ -585,6 +591,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showSoil(soil: SoilView) {
+    if (!mounted.current) return;
     renderer.current?.updateSoil(soil);
   }
 
@@ -616,6 +623,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  are on their way to the worker, the page's own terrain is ahead of the worker's: its
    *  terrain waits for the last of them (it is the same, byte for byte). */
   function applyView(v: ViewUpdate): void {
+    // (an answer that comes after the editor has gone is for a map that is no longer shown)
+    if (!mounted.current) return;
     const r = renderer.current;
     const m = mirror.current;
     if (v.heights && ed.pendingTerrain.current === 0) {
