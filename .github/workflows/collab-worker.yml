@@ -1,0 +1,73 @@
+name: Deploy collaboration function
+
+# Deploys collab-worker/ (the room-code function for collaborative editing, D431) to Cloudflare Workers with
+# wrangler: on a push to main that touches it, and by hand. Needs four repository secrets, set by Kyler with
+# `gh secret set` (never pasted in chat): CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID deploy the Worker;
+# CF_TURN_KEY_ID and CF_TURN_KEY_API_TOKEN (Cloudflare Realtime TURN) become the Worker's own secrets. Without the first
+# two this skips with a notice and succeeds; without the TURN pair the Worker deploys but reports the relay as not
+# set up, and the page says collaboration is unavailable. collab-worker/README.md has the steps.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "collab-worker/**"
+      - ".github/workflows/collab-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collab-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_TURN_KEY_ID: ${{ secrets.CF_TURN_KEY_ID }}
+      CF_TURN_KEY_API_TOKEN: ${{ secrets.CF_TURN_KEY_API_TOKEN }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Are the Cloudflare secrets set?
+        id: have
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not set, so the collaboration function was not deployed (see collab-worker/README.md)."
+          fi
+      - uses: actions/checkout@v7
+        if: steps.have.outputs.ready == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.have.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: collab-worker/package-lock.json
+      - run: npm ci --prefix collab-worker
+        if: steps.have.outputs.ready == 'true'
+      - run: npm run typecheck --prefix collab-worker
+        if: steps.have.outputs.ready == 'true'
+      - name: Deploy the Worker
+        if: steps.have.outputs.ready == 'true'
+        working-directory: collab-worker
+        run: |
+          npx wrangler deploy 2>&1 | tee deploy.log
+          url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' deploy.log | head -n 1 || true)
+          echo "The function is at: ${url:-unknown (see the log)}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Set the relay's key and token as the Worker's secrets
+        if: steps.have.outputs.ready == 'true'
+        working-directory: collab-worker
+        run: |
+          if [ -n "$CF_TURN_KEY_ID" ] && [ -n "$CF_TURN_KEY_API_TOKEN" ]; then
+            printf '%s' "$CF_TURN_KEY_ID" | npx wrangler secret put CF_TURN_KEY_ID
+            printf '%s' "$CF_TURN_KEY_API_TOKEN" | npx wrangler secret put CF_TURN_KEY_API_TOKEN
+          else
+            echo "::notice::CF_TURN_KEY_ID or CF_TURN_KEY_API_TOKEN is not set: the function is deployed but has no relay, so collaboration stays unavailable."
+          fi
