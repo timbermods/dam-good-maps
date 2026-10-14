@@ -1320,7 +1320,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     const rect = changedRect(m.W, m.H, m.heights, heights);
-    if (rect) this.droughtLayer?.clear();
+    if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
       this.landBefore ??= this.drawnLand.slice();
@@ -1592,7 +1592,7 @@ export class MapRenderer {
     const heights = m.heights;
     const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
     if (!c) return false;
-    this.droughtLayer?.clear();
+    this.droughtLayer?.retire();
     // the water on the land that changed rides it in this same frame (its own water follows, worked
     // out on this land: `rideLand`), and the land it stood on is kept for water still on its way
     const landBefore = (this.landBefore ??= this.drawnLand.slice());

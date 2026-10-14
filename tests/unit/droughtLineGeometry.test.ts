@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, DROUGHT_LINE_CAVES, type DroughtLine } from "../../src/core/sim/droughtLine";
-import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT } from "../../src/render3d/droughtLineGeometry";
+import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
 
 const W = 8;
 const H = 8;
@@ -25,7 +25,7 @@ function lineOf(entries: { tile: number; sides: number; level: number; start?: n
 type Box = { x: number[]; y: number[]; z: number[] };
 
 /** The quads as their bounding boxes and opacity. */
-function quads(g: ReturnType<typeof droughtLineGeometry>): { b: Box; a: number }[] {
+function quads(g: QuadBuffers): { b: Box; a: number }[] {
   const out: { b: Box; a: number }[] = [];
   for (let q = 0; q < g.indices.length / 6; q++) {
     const c: number[][] = [];
@@ -38,16 +38,18 @@ function quads(g: ReturnType<typeof droughtLineGeometry>): { b: Box; a: number }
 
 describe("the drought line's geometry", () => {
   it("draws a refused or empty line as nothing", () => {
-    expect(droughtLineGeometry(emptyDroughtLine(W, H, 9), heights).indices.length).toBe(0);
-    expect(droughtLineGeometry(emptyDroughtLine(W, H, 9, DROUGHT_LINE_CAVES), heights).indices.length).toBe(0);
+    for (const l of [emptyDroughtLine(W, H, 9), emptyDroughtLine(W, H, 9, DROUGHT_LINE_CAVES)]) {
+      const g = droughtLineGeometry(l, heights);
+      expect(g.line.indices.length + g.tint.indices.length).toBe(0);
+    }
   });
 
   it("lays a side's strip flat at the level, just inside the tile, with an upright one beside the bank", () => {
     const x = 2;
     const y = 3;
     const g = droughtLineGeometry(lineOf([{ tile: x + y * W, sides: SIDE_WEST, level: 3.4 }]), heights);
-    expect(g.lineQuads).toBe(2);
-    const [flat, up] = quads(g).map((q) => q.b);
+    expect(g.line.quads).toBe(2);
+    const [flat, up] = quads(g.line).map((q) => q.b);
     // flat: at the level, from the side inward, along the whole side (tile y spans z −y−1 … −y)
     expect(flat.y[0]).toBeCloseTo(3.4, 5);
     expect(flat.y[1]).toBeCloseTo(3.4, 5);
@@ -61,6 +63,22 @@ describe("the drought line's geometry", () => {
     expect(up.z).toEqual([-y - 1, -y]);
   });
 
+  it("gives every corner its strip's middle line and width, for the shader's minimum on-screen width", () => {
+    const x = 2;
+    const y = 3;
+    const g = droughtLineGeometry(lineOf([{ tile: x + y * W, sides: SIDE_WEST | SIDE_SOUTH, level: 3.4 }]), heights);
+    const { positions: p, centers: c, widths: wd } = g.line;
+    expect(c.length).toBe(p.length);
+    expect(wd.length).toBe(p.length / 3);
+    for (let v = 0; v < wd.length; v++) expect(wd[v]).toBeCloseTo(LINE_WIDTH, 5);
+    // the first strip is the west side's flat one: its middle line runs along X = x + width / 2
+    for (let v = 0; v < 4; v++) {
+      expect(c[v * 3]).toBeCloseTo(x + LINE_WIDTH / 2, 5);
+      expect(c[v * 3 + 2]).toBeCloseTo(p[v * 3 + 2], 5);
+      expect(Math.abs(p[v * 3] - c[v * 3])).toBeCloseTo(LINE_WIDTH / 2, 5);
+    }
+  });
+
   it("puts each side on its own edge (west x−1, east x+1, north y−1, south y+1)", () => {
     const x = 4;
     const y = 4;
@@ -71,8 +89,8 @@ describe("the drought line's geometry", () => {
       [SIDE_SOUTH, (b: Box) => b.z[0] === -y - 1],
     ] as const) {
       const g = droughtLineGeometry(lineOf([{ tile: x + y * W, sides: side, level: 5 }]), heights);
-      expect(g.lineQuads).toBe(2);
-      expect(quads(g).some((q) => check(q.b))).toBe(true);
+      expect(g.line.quads).toBe(2);
+      expect(quads(g.line).some((q) => check(q.b))).toBe(true);
     }
   });
 
@@ -80,8 +98,8 @@ describe("the drought line's geometry", () => {
     const x = 1;
     const y = 1;
     const g = droughtLineGeometry(lineOf([{ tile: x + y * W, sides: SIDE_WEST | SIDE_NORTH, level: 4 }]), heights);
-    expect(g.lineQuads).toBe(4);
-    const flats = quads(g)
+    expect(g.line.quads).toBe(4);
+    const flats = quads(g.line)
       .map((q) => q.b)
       .filter((b) => b.y[0] === b.y[1]);
     expect(flats.length).toBe(2);
@@ -91,8 +109,8 @@ describe("the drought line's geometry", () => {
   });
 
   it("draws the start's water a little stronger, and both faint", () => {
-    const a = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, start: 1 }]), heights))[0].a;
-    const b = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4 }]), heights))[0].a;
+    const a = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4, start: 1 }]), heights).line)[0].a;
+    const b = quads(droughtLineGeometry(lineOf([{ tile: 10, sides: SIDE_EAST, level: 4 }]), heights).line)[0].a;
     expect(a).toBeCloseTo(LINE_ALPHA.start, 5);
     expect(b).toBeCloseTo(LINE_ALPHA.other, 5);
     expect(a).toBeGreaterThan(b);
@@ -101,7 +119,7 @@ describe("the drought line's geometry", () => {
     expect(TINT_ALPHA.start).toBeLessThan(0.5);
   });
 
-  it("tints only the beds that dry out completely, over the ground, a run of tiles a quad", () => {
+  it("tints only the beds that dry out completely, over the ground, a run of tiles a quad, apart from the line", () => {
     const ground = new Uint8Array(W * H).fill(3);
     ground[2 + W] = 5; // (a step in the run's ground)
     const bed = [
@@ -113,8 +131,8 @@ describe("the drought line's geometry", () => {
       { tile: 0 + 4 * W, gone: 1, start: 1 },
     ];
     const g = droughtLineGeometry(lineOf([], bed), ground);
-    expect(g.lineQuads).toBe(0);
-    const qs = quads(g);
+    expect(g.line.quads).toBe(0);
+    const qs = quads(g.tint);
     // row 1: x 0–2 at 3, the stepped tile at 5, x 3–4 at 3; row 4: the start's, stronger
     const row1 = qs.filter((q) => q.b.z[1] === -1).map((q) => q.b);
     expect(row1.map((b) => [b.x[0], b.x[1], Math.round((b.y[0] - TINT_LIFT) * 1000) / 1000])).toEqual([

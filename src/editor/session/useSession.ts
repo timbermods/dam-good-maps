@@ -315,7 +315,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       droughtNews.current = n;
       syncDroughtLine();
     };
-    void api.watchDroughtLine(proxy(take)).then((n) => n && take(n));
+    const news = proxy(take);
+    void api.watchDroughtLine(news).then((n) => n && take(n));
     // (a map just opened has its line worked out too, not only after the first press: the worker waits for the water)
     idlePrep();
     return () => {
@@ -337,9 +338,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // days then Badtide's; any press or key stops it at once, and it picks up again when the press ends with the water
   // settled (an edit's water settling picks it up too)
   const idlePrep = () => void api.prepareWeather();
+  /** A press or a key is held (the prep waits for it to end). */
+  const pressed = useRef(false);
   useEffect(() => {
-    const stop = () => void api.stopWeatherPrep();
+    const stop = () => {
+      pressed.current = true;
+      void api.stopWeatherPrep();
+    };
     const resume = () => {
+      pressed.current = false;
       if (player.current?.progress === null) idlePrep();
     };
     window.addEventListener("pointerdown", stop, true);
@@ -586,7 +593,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // does, once it is in place)
     if (u.ok && weatherRef.current && u.waterSettled) requestHeldDay();
     // (an edit that left the water settled has no settling to wait for: its drought line is worked out now)
-    else if (u.ok && u.waterSettled) idlePrep();
+    else if (u.ok && u.waterSettled && !pressed.current) idlePrep();
     // the instant checks: the problems this edit made, in the region it changed (with the checks
     // worker they come as an event a moment later)
     if (u.instant) setInstant(u.instant.items.filter((c) => c.here && c.class === "load"));
