@@ -35,7 +35,7 @@ them for detail on any decision.
   patches (#312). The old renderer session is closed; its #275 and #225 have no owner until Kyler says. The milestone session
   merges its PRs when CI is green (D453).
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
-  `dev` as investigations, and adopts them on Kyler's yes.
+  `dev` as investigations, and adopts them itself (D484).
   Codex works only in its own clone, never in a session's checkout.
 
 ## Models (D389)

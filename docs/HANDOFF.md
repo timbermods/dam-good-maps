@@ -87,21 +87,20 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
-  - *Review:* Kyler reviews no PR or code, except for design, taste or human-facing behaviour. This session reviews every
-    PR's diff before it merges (correctness, scope, ownership of files); its own PRs that touch the core or the water get a
-    review from a fresh sub-agent that didn't write them.
-  - *Merging:* labels `hold` (never merge), `needs-kyler` (waiting on his eye; never merge while on) and `approved` (he
-    approved the human-facing result); each session sets them on its own PRs. This session merges, through the merge queue,
-    any green PR that isn't hold or needs-kyler. A PR that changes what a player sees, hears or feels (a theme, a force, the
-    page, sound, wording) needs approved; one with nothing human-facing (internals, CI, Rust ports, cleanup, docs,
-    investigations) merges on review and green CI.
-  - *At every merge pass:* anything that no longer needs Kyler loses `needs-kyler`; a PR this session adopts or supersedes
-    is closed with a line saying why; an answered question's issue is closed.
-  - *A Codex PR Kyler sends back for another round* loses `needs-kyler` until Codex pushes that round; then it gets the
-    label again for his verdict.
+  - *Review:* Kyler reviews nothing (D484). This session reviews every PR's diff before it merges (correctness, scope,
+    ownership of files); its own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
+    or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
+    interaction change's captures).
+  - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
+    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; this session
+    checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
+    with a full CI run by hand first for core and Rust changes).
+  - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
+    question's issue is closed.
+  - *Codex's investigations* are adopted or sent back for another round by this session (D484).
   - *Theme rounds* by Claude Code sessions land as real PRs into dev, re-pin included (D148), not as investigations; if two
-    collide on pins, this session re-pins the later one. Codex stays on investigation branches, adopted on Kyler's yes; read
-    its branches, it doesn't use the issue.
+    collide on pins, this session re-pins the later one. Codex stays on investigation branches; read its branches, it
+    doesn't use the issue.
   - *The Coordination issue* ([#236](https://github.com/timbermods/dam-good-maps/issues/236), pinned): messages between Claude Code
     sessions, each comment starting "To milestone:", "To page:", "To renderer:" or "To <session name>:". Read it at the start of
     a task, before pushing and at the end; answer there.
@@ -157,8 +156,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 - **Fixes for dev's own failing tests go to dev**, never only onto a feature branch: as a PR through the queue (a repository admin's direct push bypasses it, and has no CI run, so release only commits that went through the queue).
 - **Speed (D453).** No quiet windows, measured budgets or timing gates; Kyler judges speed by using the tool. Correctness and
   byte-identity checks run in CI; a real check before anything is reported done stays.
-- **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn, normally only after
-  Kyler's yes in chat for that batch (CLAUDE.md, D117).
+- **Probes.** The DGM Probe (`investigation/probe`) is the only way Claude may launch Timberborn: on the dedicated
+  machine whenever a batch decides something (D218, D484); anywhere else only after Kyler's yes in chat (CLAUDE.md, D117).
   **What a batch plays (D483):** A probe batch plays only what players get: maps the current generator makes, and edited maps as the app exports them, on the current game version.
   A map already played is never replayed unless what the game reads from it changed in a way that could change play.
   Hand-made test maps are only for a rule that has never been played.

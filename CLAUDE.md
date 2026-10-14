@@ -185,7 +185,7 @@ text.
   old site is back, and report.
 - The site stays noindex and unannounced until launch. Launch needs versioned deploys (moved to Later, D285) and Kyler's
   go-ahead; then set the repository variable `DGM_PUBLIC` to `true`.
-- Steps outside the milestones are released the same way, each tagged once Kyler approves it. Released steps' tags are in
+- Steps outside the milestones are released the same way, each tagged at its step's end (D484). Released steps' tags are in
   `git tag -l '*-done'`. Not yet released:
   - the design pass, built with "The page is the editor" in step 1 (D384): `design-done`;
   - Real places' second round (parked, D319): `real-places-2-done`; Pick a place: `pick-a-place-done`;
