@@ -50,7 +50,15 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   which the old picker sometimes lost to rounding, now lands on the floor. On hand-made overhangs, caves, a bridge
   and a floating run, 6,000 rays each (from above, the side, or inside a void) are checked against every exposed
   face intersected one by one: the first face along the ray, never one behind a wall.
-- **Pick time (Node, this machine, information):** see the PR.
+- **Official maps** (the three with the most cave columns, 192² and 256², checked once by hand, not committed): ~290
+  rays each aimed at cave tiles, checked against every exposed face intersected one by one: none differ.
+- **Pick time (Node, this machine, measured once, information):** 256² River Delta, 4,000 camera rays: 7.3 µs the
+  heightfield picker, 9.5 µs the voxel walk; with a 100 × 100 block of cave columns under the rays, 115 µs (the
+  mask is rebuilt from its 23 bytes at each cell; a mask array from the worker, seam 1 above, would make it a lookup).
+- **Captures:** `docs/sheets/3d-view-picking.jpg` (official map with caves, a cave floor through its mouth and a
+  ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
+  Chrome on the RTX 2070 SUPER): dev's cursor and drag land on the wall or roof in front, this branch's on the floor.
+  The selection's tint still covers the whole tile (roof, walls and floor), since the overlay is per tile.
 - **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
   Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
   Wand takes the ground joined to the click at that level, a run's top under an overhang too (`levelTiles`, the
