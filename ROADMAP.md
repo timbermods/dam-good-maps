@@ -595,8 +595,10 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, 3D picking, the level-slice cutaway.
+runs with undersides every exposed face once. Part 5, 3D picking (`render3d/pick.ts`): a ray through the column masks
+lands on the first face along it, and equals the heightfield picker on maps without caves (`pickTerrain.test.ts`); Select
+reads the run hit. Next: the masks from the worker, light in 3D, soil per run top, water
+per column, the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water

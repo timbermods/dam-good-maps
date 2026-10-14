@@ -534,7 +534,8 @@ const common = (h?: ShaderHooks) => /* glsl */ `
 
 export interface TerrainUniforms {
   heightRange: { value: Vector2 };
-  hover: { value: Vector3 };
+  /** x, y of the hovered tile; z 1 when one is hovered; w the level of the run whose top lights up (-1: every top of the tile). */
+  hover: { value: Vector4 };
   /** 0: ground coloured by soil (moisture), 1: by height. */
   groundMode: { value: number };
   /** An eruption's heat on the ground (D206; forces.ts): its mask (RGBA a tile: vents, flows'
@@ -552,7 +553,7 @@ export interface TerrainUniforms {
 export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, lite = false, h?: ShaderHooks): ShaderMaterial {
   const own: TerrainUniforms = {
     heightRange: { value: new Vector2(lo, hi) },
-    hover: { value: new Vector3(0, 0, 0) },
+    hover: { value: new Vector4(0, 0, 0, -1) },
     groundMode: { value: 0 },
     eruptionMask: { value: overlayTexture(1, 1) },
     eruptionBase: { value: overlayTexture(1, 1) },
@@ -581,7 +582,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     `,
     fragmentShader: /* glsl */ `
       uniform vec2 heightRange;
-      uniform vec3 hover;
+      uniform vec4 hover;
       uniform float groundMode;
       uniform sampler2D eruptionMask;
       uniform sampler2D eruptionBase;
@@ -915,7 +916,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
             c = mix(c, ${glColor(WALL.groove)}, (1.0 - smoothstep(lw, lw + px, e)) * 0.8);
           }
         }
-        if (hover.z > 0.5 && tile == hover.xy) {
+        if (hover.z > 0.5 && tile == hover.xy && (hover.w < 0.0 || n.y < 0.5 || abs(vWorld.y - hover.w) < 0.02)) {
           vec2 fr = fract(vec2(p.x, -p.z));
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));

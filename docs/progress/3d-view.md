@@ -33,6 +33,35 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   after, real Chrome on the RTX 2070 SUPER, 1920×1080, dark): the same picture; the pixel differences are the moving
   water and quad edges on merged faces.
 
+## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
+
+- **What:** `src/render3d/pick.ts` `pickTerrain` walks the voxels of the column masks (`mesh.ts` `columnMask`, the
+  masks the mesher draws) with a 3D DDA and lands on the first solid voxel's face. A `TileHit` now also says its
+  `face` (`top`, `bottom` or `side`, with `side` the way a wall faces), its `run` (`bottom` and `top`: the solid
+  run of the column the face belongs to; the map's floor under air at the bottom is the empty run at level 0) and
+  its `level` (the run's top). So the cursor, the brushes, the forces and Select aim at what the player sees: a
+  cave's floor through its mouth, a ledge under an overhang, a run's underside, never a face behind a wall.
+  Under a layer cut the walk lands on the cut (voxels at or above it are air); the per-pick copy of every height
+  that cut used to make is gone. `pickHeightfield` stays as the reference (and for the investigations).
+- **Equivalence** (`tests/unit/pickTerrain.test.ts`): on seven generated maps (all themes, 96² to 128²) over a grid
+  of camera angles and screen points, straight-down rays and low rays across the map, with and without a layer
+  cut, every pick gives the heightfield picker's tile, height, face, `t` and point (a few thousand rays a map). The
+  one difference: a ray that reaches the map's floor over a tile of height 0 exactly at the bottom of the box,
+  which the old picker sometimes lost to rounding, now lands on the floor. On hand-made overhangs, caves, a bridge
+  and a floating run, 6,000 rays each (from above, the side, or inside a void) are checked against every exposed
+  face intersected one by one: the first face along the ray, never one behind a wall.
+- **Pick time (Node, this machine, information):** see the PR.
+- **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
+  Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
+  Wand takes the ground joined to the click at that level, a run's top under an overhang too (`levelTiles`, the
+  view's `hasTop`). The Alt+click layer pick cuts at the level hit. A run is not named in the selection or the
+  operations yet; the brushes and Select's actions still work on the heightfield's top until step 3 (D280 (3)) moves
+  them onto runs. Proposed when they do: the selection keeps its tile mask and gains an optional level per tile
+  (`Selection.levels`), set from the hit's `level`.
+- **What is drawn where the pointer aims:** the brush disc and the force ring lie on the top of the run nearest the
+  hit's level in a column with terrain above terrain (`groundNear`), and the hovered tile lights only that run's
+  top (`hover.w` in the terrain shader); everywhere else, as before.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
@@ -51,8 +80,8 @@ Each reads the same column masks the mesher reads. The seams:
    them per run).
 4. **Water per column:** `waterMesh.ts` already draws lower water columns (`lowerByTile`); seat each slot on its own
    floor and cap it at its ceiling, from the stacked engine's slots, with cave attenuation on its light.
-5. **3D picking and selections:** `pick.ts` picks against the heightfield; pick against the masks (a ray through the
-   voxels, the face hit and its run), then the Select tool in 3D.
+5. **3D picking and selections (built, part 5 above):** `pick.ts` picks against the masks (a ray through the
+   voxels, the face hit and its run) and the Select tool reads the run hit.
 6. **The level-slice cutaway:** today a uniform cuts the world above a level in the shader. 3d-view's rule (D207):
    mesh the clipped mask with caps only where solid rock crosses the cut, lighting from the unsliced terrain.
 7. **Kyler's notes at approval:** the stone pattern stretching on ceilings and at corners; cave interiors and deep
