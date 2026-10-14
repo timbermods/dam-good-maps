@@ -7,7 +7,7 @@ Erode, the Block tool, and the brushes, forces and recorded strokes on runs.
 
 On `feature/3d-strokes-on-runs`, core only. Nothing changes on a map without caves or overhangs.
 
-**The rule, per brush, on a tile that is not one plain run from z = 0** (an imported map's cave roof, overhang or
+**The rule (D487), per brush, on a tile that is not one plain run from z = 0** (an imported map's cave roof, overhang or
 floating ground). Every brush shapes the tile's top run and nothing below it; the lowest a roof's top may go is one
 layer above its underside (`terrain/runs.ts` `topFloor`, `topFloors`), so the roof keeps a layer, the cave's air and
 floor stay exactly, and no tile gains or loses a run.

@@ -499,6 +499,22 @@ export class MapSession {
     return newFalls(b.terrain.withSurface(before.heights), b.terrain.withSurface(now.heights), tops0, tops1);
   }
 
+  /** How many blocks of ground an operation just put in the log would make fall, worked out from the
+   *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
+   *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
+   *  it covers the rest, D280 (3)). */
+  private fallsAhead(op: EditOp): number {
+    if (this.mode === "live" || (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult")) return 0;
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size) return 0;
+    const { heights } = previewTerrain(this.cur, this.input());
+    if (sameBytes(heights, this.cur.heights)) return 0;
+    // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, b.W, b.H), this.cur.heights, heights, b.W).length) return 0;
+    const tops = stackableTops(b.W, b.H, this.cur.entities);
+    return newFalls(b.terrain.withSurface(this.cur.heights), b.terrain.withSurface(heights), tops, tops).length;
+  }
+
   /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
    *  taken, the map back to `before`. */
   private refuseStep(mark: HistoryMark, seq: number, before: BuildResult): void {
@@ -739,6 +755,14 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
+    // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
+    const ahead = this.fallsAhead(op);
+    if (ahead) {
+      invertOp(this.st, applied);
+      this.log.pop();
+      this.seqNext = seq;
+      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+    }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();

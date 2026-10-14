@@ -589,7 +589,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         }
       }
       m.heights = v.heights;
-      r?.updateTerrain(v.heights);
+      r?.updateTerrain(v.heights, v.columns);
     }
     if (v.terrain && ed.pendingTerrain.current === 0) ed.terrain.current = v.terrain;
     if (v.water && weatherRef.current) m.mapWater = v.water;

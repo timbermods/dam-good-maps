@@ -528,7 +528,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Shift+scroll, F held with the wheel, or [ and ] set their strength (Raise, Lower and Flatten take nothing from
   those: their target level is theirs). Tooltips name the game editor's terms. Under a layer cut (D207) Raise stops
   at the cut. An exact stroke's tiles stay as it leaves them (the integrity pass leaves them out).
-- **On caves and overhangs** (D280 (3), terrain above terrain's step 3): the brushes shape each tile's top run, on
+- **On caves and overhangs** (D487, D280 (3), terrain above terrain's step 3): the brushes shape each tile's top run, on
   every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
   above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
   stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
