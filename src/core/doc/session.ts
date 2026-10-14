@@ -498,6 +498,13 @@ export class MapSession {
     return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
   }
 
+  /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):
+   *  an unedited import's own water while it keeps it (`showsStoredWater`), else the build's. The same
+   *  object until the map's water changes. */
+  waterShown(): CanonicalWater {
+    return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
+  }
+
   /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {

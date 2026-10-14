@@ -242,7 +242,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
  *  water's own, else the settle's, else the stored file's. */
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
@@ -252,10 +252,18 @@ function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination
   return view;
 }
 
-function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** Water in flight to show. `weather`: a hazard's day, which an unedited heightfield import shows as the day's water
+ *  (the file's own is day 0 only); any other live water of an unedited import shows the file's. */
+interface LiveWater {
+  depth: ArrayLike<number>;
+  contamination: ArrayLike<number>;
+  weather?: boolean;
+}
+
+function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
   const roofed = s.roofedTiles;
-  if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
+  if (!roofed.size && (!s.showsStoredWater || live?.weather)) return waterFromDepth(b.heights, b.water, b.contamination);
   const w = s.storedWater();
   const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
   if (s.showsStoredWater) return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
@@ -790,14 +798,14 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
 // ------------------------------------------------------------------------------------ weather
 
 /** A held weather view (D180 (8), D181 (3); Kyler, 2026-10-04): a drought or a badtide simulated day by day from the
- *  map's settled water, every day's water and soil kept as it is computed, so any day shows at once once reached
+ *  water the map shows (`MapSession.waterShown`), every day's water and soil kept as it is computed, so any day shows at once once reached
  *  and the player can hold it, inspect it and plan against it. Day 0 is the map's own water; the last day by
  *  default is the hazard's length for the map's difficulty (core/sim/weather.ts), and further days are simulated on
  *  request, without a cap (the game's lengths depend on its difficulty). A drought: every source stops, the rivers
  *  drain, the pools evaporate. A badtide: the clean sources give badwater along the game's opening curve, then at
  *  full strength (a held badtide never ends, so its sources never ease back), and it spreads through the water and
  *  poisons the ground. Nothing plays and nothing comes back: the page shows the day it asks for. After an edit the
- *  page asks again; the map's version has changed, so the run starts again from the edited map's settled water.
+ *  page asks again; the map's version has changed, so the run starts again from the water the edited map shows.
  *  The map never changes. */
 interface WeatherRun {
   session: MapSession;
@@ -805,8 +813,9 @@ interface WeatherRun {
   hazard: Hazard;
   /** The hazard's default length (its last day by default). */
   days: number;
-  /** The water the run started from (the map's settled water then: the drought line's day 0). */
-  from: { depth: Float64Array; contamination: Float64Array };
+  /** The water the run started from (the map's water as shown then, `MapSession.waterShown`: the drought line's
+   *  day 0): a run whose map shows other water now (its settle came in) starts again. */
+  from: CanonicalWater;
   /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
   run: HazardRun;
   sim: WaterSim;
@@ -838,10 +847,10 @@ let weatherShown: MapSession | null = null;
 
 /** A run still good for the map as it is. */
 function currentRun(run: WeatherRun): boolean {
-  return weatherRuns[run.hazard] === run && run.session === session && run.version === version;
+  return weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from === run.session.waterShown();
 }
 
-/** The hazard's run for the map as it is: the kept one, or a new one from the map's settled water. */
+/** The hazard's run for the map as it is: the kept one, or a new one from the water the map shows (`waterShown`). */
 function runFor(hazard: Hazard): WeatherRun {
   const s = need();
   const old = weatherRuns[hazard];
@@ -849,8 +858,9 @@ function runFor(hazard: Hazard): WeatherRun {
   old?.sim.dispose();
   const base = s.built.waterModel;
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
-  const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
-  const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
+  // from the water the map shows (an unedited import's own, not the build's empty one)
+  const from = s.waterShown();
+  const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination) }, hazard, Infinity);
   const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
@@ -873,7 +883,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   void driveWeather(run);
 }
 
-/** Work out both hazards' default days in the background, from the map's settled water (Kyler, 2026-10-04: then the
+/** Work out both hazards' default days in the background, from the water the map shows (Kyler, 2026-10-04: then the
  *  first click is instant too). The page asks only while Kyler is idle and the water has settled, and stops it the
  *  moment he edits, paints or uses a force; it runs a few milliseconds at a time between his messages. */
 export async function prepareWeather(): Promise<void> {
@@ -902,7 +912,7 @@ function sendWeatherDay(run: WeatherRun, day: number): void {
   if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
   const { x: W, y: H } = s.size;
   const soil = soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil });
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice(), weather: true }), soil });
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -947,6 +957,12 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   } finally {
     run.running = false;
     if (run.prep !== null && run.kept.length > run.days) run.prep = null;
+    // the map's water was replaced while the page waited for a day (its settle came in): the day from the new water
+    if (run.show !== null && weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from !== run.session.waterShown()) {
+      const day = run.show;
+      run.show = null;
+      showWeatherDay(run.hazard, day);
+    }
   }
 }
 
