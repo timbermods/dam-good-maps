@@ -187,6 +187,7 @@ export interface SessionSlice {
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
   showSoil: (soil: SoilView, withered?: Int32Array) => void;
+  showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
 }
@@ -551,6 +552,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (h) void api.showWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
+  function showWithered(tiles: Int32Array) {
+    renderer.current?.setWithered(tiles);
+  }
   function showSoil(soil: SoilView, withered?: Int32Array) {
     renderer.current?.updateSoil(soil);
     // (the plants the days up to this one have surely killed, drawn withered in High, D250)
@@ -643,6 +647,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
-    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, applyUpdate, applyView
+    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView
   };
 }

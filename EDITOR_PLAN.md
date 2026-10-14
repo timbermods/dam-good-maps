@@ -661,7 +661,9 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
-  hazard's days are kept until the map changes and worked out in the background once the water has settled. Any
+  hazard's days are kept until the map changes and worked out in the background once the water has settled. A held Badtide day draws the
+  game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
+  badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged.
 - **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
   its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
@@ -688,7 +690,7 @@ Two looks (Map look 2, D147, D242, D250, D284):
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
   splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
-  (the run resets when moisture returns; succulents exempt), or on contaminated soil on any day; dead for good once
+  (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). On a held drought day, High also draws pale dusty
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
   (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.

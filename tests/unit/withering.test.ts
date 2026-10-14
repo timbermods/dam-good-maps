@@ -43,17 +43,25 @@ describe("the plants a held day has surely killed", () => {
     expect(deadOn("BlueberryBush", "m" + "d".repeat(6) + "mmmm")).toBe(false);
   });
 
-  it("contamination on a single day kills any plant, succulents included, for good; contamination on Day 0 is the map's own", () => {
+  it("contamination kills any plant, succulents included, once it has lasted: two days running, for good; a single day, or the map's own Day 0, does not", () => {
     for (const template of ["Pine", "Birch", "Oak", "BlueberryBush", "Succulent"]) {
-      expect(deadOn(template, "mmxmmm"), template).toBe(true);
-      expect(deadOn(template, "mmxmmm", 1), template).toBe(false);
+      expect(deadOn(template, "mmxxmm"), template).toBe(true);
+      expect(deadOn(template, "mmxxmm", 2), template).toBe(false);
+      expect(deadOn(template, "mmxxmm", 3), template).toBe(true);
+      // (still dead after the poison goes)
+      expect(deadOn(template, "mmxxmmmm", 7), template).toBe(true);
+      // (it leaves before a second day: the game's timer resets)
+      expect(deadOn(template, "mmxmmm"), template).toBe(false);
+      expect(deadOn(template, "mxmxmx"), template).toBe(false);
     }
-    expect(deadOn("Pine", "xmm")).toBe(false);
+    expect(deadOn("Pine", "xxm")).toBe(false);
+    // (contamination from Day 0 on counts from day 1)
+    expect(deadOn("Pine", "xxx")).toBe(true);
   });
 
   it("a succulent is exempt from dryness only", () => {
     expect(deadOn("Succulent", "m" + "d".repeat(40))).toBe(false);
-    expect(deadOn("Succulent", "m" + "d".repeat(5) + "c")).toBe(true);
+    expect(deadOn("Succulent", "m" + "d".repeat(5) + "cc")).toBe(true);
   });
 
   it("nothing dies of dryness in an easy drought's 4 days or a normal one's 9: the longest a pine, birch, oak or blueberry takes is 9.9", () => {
@@ -71,6 +79,7 @@ describe("the plants a held day has surely killed", () => {
     const days: DaySoil[] = [
       { moisture: [9, 9, 9], contamination: [0, 0, 0] },
       { moisture: [0, 9, 0], contamination: [0, 0, 0] },
+      { moisture: [0, 9, 0], contamination: [0, 5, 0] },
       { moisture: [0, 9, 0], contamination: [0, 5, 0] },
     ];
     expect(Array.from(witheredByDay(days, [{ tile: 1, template: "Oak" }, { tile: 0, template: "Oak" }, { tile: 2, template: "Succulent" }]))).toEqual([1, 0, 0]);

@@ -6,8 +6,9 @@
 //   moisture returns. A plant is shown dead once the tile's run of dry days has reached 1.1 × `DaysToDieDry`, the longest
 //   the timer can be: nothing shows dead that might live (Kyler's forces-play call, D484). Succulents are exempt (they
 //   die if moist instead; not worked out here).
-// - Soil contamination above 0 kills any plant, succulents included, in 0.2 to 0.3 days: dead if the tile was
-//   contaminated on any day of the hazard.
+// - Soil contamination above 0 kills any plant, succulents included, after 0.2 to 0.3 days of it without a break
+//   (NaturalResourcesContamination: it resets if the contamination leaves first): dead once the tile has been
+//   contaminated on two days running (a lower bound of a day, past the 0.3 longest), counted from day 1.
 // - Death is permanent: a plant dead on one day is dead on every later day, whatever the ground does after.
 //
 // Pure: it reads the soil each kept day gives (day 0 the map's own) and says which plants are dead on the last of them. The
@@ -52,11 +53,16 @@ export function witheredByDay(days: readonly DaySoil[], plants: readonly Plant[]
   if (last < 1) return dead;
   plants.forEach((p, n) => {
     const limit = DAYS_TO_DIE_DRY[p.template] === undefined ? Infinity : SURELY_DEAD * DAYS_TO_DIE_DRY[p.template];
-    // the first sample of the dry run now running (a lower bound of its length is the samples since)
+    // the first sample of the dry run now running, and of the contaminated run (a lower bound of a run's length is the
+    // samples since its first)
     let dryFrom = -1;
+    let badFrom = -1;
     for (let k = 0; k <= last; k++) {
       const soil = days[k];
-      if (k >= 1 && soil.contamination[p.tile] > 0) return void (dead[n] = 1);
+      if (k >= 1 && soil.contamination[p.tile] > 0) {
+        if (badFrom < 0) badFrom = k;
+        else if (k - badFrom >= 1) return void (dead[n] = 1);
+      } else badFrom = -1;
       if (soil.moisture[p.tile] > 0) dryFrom = -1;
       else if (dryFrom < 0) dryFrom = k;
       if (dryFrom >= 0 && k - dryFrom >= limit) return void (dead[n] = 1);
