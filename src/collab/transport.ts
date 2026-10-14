@@ -76,6 +76,8 @@ export class CollabTransport extends Emitter<TransportEvents> {
   peer: PeerInfo | null = null;
   room: RoomInfo | null = null;
 
+  /** Relay problems the browser reported while connecting (for diagnosing a failed connection). */
+  readonly iceErrors: string[] = [];
   private readonly baseUrl: string;
   private readonly opts: Required<Pick<TransportOptions, "heartbeatMs" | "deadAfterMs" | "setupTimeoutMs" | "maxMessageBytes">>;
   private started = false;
@@ -181,6 +183,10 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.pc = pc;
     pc.onicecandidate = (e) => {
       if (e.candidate) this.socket?.send({ k: "cand", c: e.candidate.toJSON() });
+    };
+    pc.onicecandidateerror = (e) => {
+      const ev = e as RTCPeerConnectionIceErrorEvent;
+      if (this.iceErrors.length < 10) this.iceErrors.push(`${ev.url ?? "?"}: ${ev.errorCode} ${ev.errorText ?? ""}`.trim());
     };
     pc.onconnectionstatechange = () => {
       if (pc.connectionState !== "failed") return;
@@ -417,6 +423,12 @@ export class CollabTransport extends Emitter<TransportEvents> {
     const local = byId.get(String(pair.localCandidateId));
     const remote = byId.get(String(pair.remoteCandidateId));
     return { local: String(local?.candidateType ?? "unknown"), remote: String(remote?.candidateType ?? "unknown") };
+  }
+
+  /** What the browser says about the connection, for diagnosing a failure. */
+  diagnostics(): { connectionState: string; iceConnectionState: string; iceGatheringState: string; iceErrors: string[] } {
+    const pc = this.pc;
+    return { connectionState: pc?.connectionState ?? "none", iceConnectionState: pc?.iceConnectionState ?? "none", iceGatheringState: pc?.iceGatheringState ?? "none", iceErrors: this.iceErrors };
   }
 
   /** Every kind of candidate gathered or received ("relay" only, by the policy); for diagnostics and the tests. */

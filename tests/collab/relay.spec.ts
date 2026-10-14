@@ -28,8 +28,12 @@ interface Peer {
   page: Page;
 }
 
+/** Firefox ignores loopback candidates by default; the test's relay runs on 127.0.0.1. (Test setup only: real relays are public.) */
+const FIREFOX_PREFS = { "media.peerconnection.ice.loopback": true, "media.peerconnection.ice.link_local": true };
+
 const ci = Boolean(process.env.CI);
-const haveFirefox = existsSync(firefox.executablePath());
+// Playwright's Firefox does not start on every Windows machine; locally it is used only when asked for (DGM_COLLAB_FIREFOX=1)
+const haveFirefox = (ci || process.env.DGM_COLLAB_FIREFOX === "1") && existsSync(firefox.executablePath());
 
 /** A browser in its own process. `chromium` is Chrome; `other` is Firefox, or Edge where Firefox isn't installed (local). */
 async function launchPeer(kind: Kind): Promise<Peer> {
@@ -41,7 +45,7 @@ async function launchPeer(kind: Kind): Promise<Peer> {
     browser = await chromium.connect(server.wsEndpoint());
     name = "Chromium";
   } else if (haveFirefox) {
-    server = await firefox.launchServer({ headless: true });
+    server = await firefox.launchServer({ headless: true, firefoxUserPrefs: FIREFOX_PREFS });
     browser = await firefox.connect(server.wsEndpoint());
     name = "Firefox";
   } else {
@@ -68,7 +72,7 @@ async function closePeer(p: Peer): Promise<void> {
 
 type H = {
   host(url: string, sessionId?: string): Promise<{ code: string; sessionId: string }>;
-  join(url: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string }>;
+  join(url: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }>;
   whenConnected(): Promise<{ sessionId: string; peerEpoch: string; pair: { local: string; remote: string } | null }>;
   sendAll(items: ({ text: string } | { size: number; seed: number })[]): Promise<void>;
   sendPresence(text: string): boolean;
@@ -146,7 +150,8 @@ test("two separate browsers connect through the relay, exchange messages, notice
     // a code, a join, and a connection that runs over the relay and nothing else
     const { code, sessionId } = await call(host.page, "host", stack.workerUrl);
     expect(code).toMatch(/^[2-9A-HJKMNP-Z]{6}$/);
-    expect(await call(guest.page, "join", stack.workerUrl, code)).toEqual({ ok: true });
+    const joinResult = await call(guest.page, "join", stack.workerUrl, code);
+    expect(joinResult, `${guest.name} joined: ${JSON.stringify(joinResult)}`).toEqual({ ok: true });
     const hostSide = await call(host.page, "whenConnected");
     const guestSide = await call(guest.page, "whenConnected");
     expect(guestSide.sessionId).toBe(sessionId);

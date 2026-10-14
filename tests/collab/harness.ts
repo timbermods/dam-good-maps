@@ -50,7 +50,7 @@ class Harness {
   }
 
   /** Joins; resolves with the failure's kind and message instead of throwing, so the test can look at it. */
-  async join(baseUrl: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string }> {
+  async join(baseUrl: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }> {
     const t = joinSession(code, { baseUrl, ...(sessionId ? { sessionId } : {}), name: "Guest", heartbeatMs: 500, deadAfterMs: 3000 });
     this.wire(t);
     try {
@@ -62,7 +62,7 @@ class Harness {
       return { ok: true };
     } catch (e) {
       const err = e as { kind?: string; message?: string };
-      return { ok: false, kind: err.kind ?? "unknown", message: err.message ?? String(e) };
+      return { ok: false, kind: err.kind ?? "unknown", message: err.message ?? String(e), diagnostics: t.diagnostics() };
     }
   }
 
