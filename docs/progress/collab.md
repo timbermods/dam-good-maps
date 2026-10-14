@@ -79,6 +79,6 @@ the same numbers), and `applyAll`'s refusal path resets it (a group whose later 
 - **Force previews are not cached or sliced.** `planKeptForce` plans and runs in one call; the page's live preview and its
   warning latency (INTEGRATION.md gate 2) belong to the claims and page work.
 - **Try another** (a force replacing the force before it) is not an entry kind yet.
-- **Single-player quirks the peers work around:** the session leaves a gap in the operations' numbers after any undo, and
-  `applyBatch` does not mark its step. The numbers still agree between peers because every peer takes the same steps.
+- **Single-player quirks the peers work around:** the session leaves a gap in the operations' numbers after any undo. `applyBatch`
+  marks its step (D456). The numbers still agree between peers because every peer takes the same steps.
 - The records are kept, bounded to each player's last 50, and nothing yet reads them.
