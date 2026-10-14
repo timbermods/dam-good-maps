@@ -33,6 +33,8 @@ concurrency:
 #   - only documents, investigation/, LICENSE or package.json's descriptive fields (not dependencies, devDependencies,
 #     scripts or anything else): `test` runs its two document tests and the build; every other job is skipped; a pull
 #     request into dev touching only investigation/ skips `test` too (the nightly and the merge still check it);
+#   - only the collaboration connection (collab-worker/, src/collab/, tests/collab/, their configs and collab*.yml): like
+#     documents, because its own workflow (collab.yml) tests it; the typecheck and the build still run;
 #   - only src/editor/, src/ui/ and the browser specs (tests/e2e/), plus documents: `test` and the browser shards run;
 #     oracle, generation, engines and rust are skipped;
 #   - anything else: all of them, except the Rust checks, which run only when rust/, tools/rust/, the toolchain

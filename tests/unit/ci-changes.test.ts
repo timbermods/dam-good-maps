@@ -3,7 +3,7 @@
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { describe, expect, it } from "vitest";
-import { classify, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, isCollabOnly, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -96,5 +96,18 @@ describe("which suites a change needs", () => {
     expect(classify(["README.md"], none, "light")).toEqual({ heavy: false, suites: false, rust: false });
     expect(classify([], none, "light")).toEqual({ heavy: true, suites: false, rust: false });
     expect(classify([], none)).toEqual(all);
+  });
+});
+
+describe("the collaboration connection", () => {
+  it("is tested by its own workflow, so a change only there skips the browser shards and the quick suite", () => {
+    const only = ["collab-worker/src/room.ts", "collab-worker/package-lock.json", "src/collab/transport.ts", "tests/collab/relay.spec.ts", "tests/unit/collabRoom.test.ts", "playwright.collab.config.ts", ".github/workflows/collab-worker.yml", ".github/workflows/collab.yml"];
+    for (const f of only) expect(isCollabOnly(f), f).toBe(true);
+    expect(needsHeavy(only, () => null)).toBe(false);
+    expect(classify(only, () => null, "auto")).toEqual({ heavy: false, suites: false, rust: false });
+  });
+  it("does not cover anything else, even beside it", () => {
+    for (const f of ["src/editor/a.ts", ".github/workflows/ci.yml", "tests/unit/ci-changes.test.ts", "package.json", "tests/e2e/a.spec.ts"]) expect(isCollabOnly(f), f).toBe(false);
+    expect(needsHeavy(["src/collab/transport.ts", "src/core/a.ts"], () => null)).toBe(true);
   });
 });

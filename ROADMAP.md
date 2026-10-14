@@ -29,7 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
 
 - **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
-  started ahead of the Weather view, custom map sizes and the dam sketch, alongside the generator queue (the queue's step
+  started ahead of the Weather view and custom map sizes, alongside the generator queue (the queue's step
   keeps first place; the two never edit the same files at once). Its new modules are already on dev (the Rust
   stacked-column engine and #71's eight game-verified fixtures in CI); what remains is "Terrain above terrain", step 1.
 
@@ -43,7 +43,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   page part reaches dev with #163.
 - **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
   (`investigation/gen-speed-3`), first load (`investigation/first-load`), the page hunt (#303).
-- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked until its adoption after the Weather view.
+- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked; the dam sketch is out of the order (D485).
 - **Merged since:** every force plays smoothly (#311), the forces share rust/water's kernel (#304), the checks in Rust (#321),
   the badwater line (#265, generator 0.8.1), Craterize clears and rides sources (#322), Naturalize rule 4 (#324), forces end
   the moment their land is final (#275), a source's highlight under its water (#225), shared object models (#323), #313's
@@ -52,7 +52,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   joins the main water (D476).
 - **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
   scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
-- **Next, after Foundations** (D481): the Weather view, custom map sizes, then the dam sketch.
+- **Next, after Foundations** (D481): the Weather view, custom map sizes, then 3D's view, Erode and the Block tool (D485).
 
 **1. Released, and the coherence cleanup**
 
@@ -140,7 +140,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
    `investigation/parity-core` (#252, `feature/parity-core`); the page wires its shelf tiles and settings, and the old
    branch (#95) closes. Crop map to selection is still to build.
 2. **The Weather view** (parked, #73): Drought and Badtide day by day, held for Kyler's sitting after the page (D349).
-3. **Custom map sizes** (D357), then **the dam sketch tool** (D383).
+3. **Custom map sizes** (D357). The dam sketch tool (D383) is out of the order (D485).
 4. **Pick a place**, after the design pass (D384).
 5. **The four 3D steps** (terrain above terrain; #71 is the reference, never adopted in TypeScript, D448): the Rust water
    has the stacked-column engine (adopted, the computation alone, not wired in), then Foundations, the view, creating them (Erode in Rust, D438, and the Block tool),
@@ -591,6 +591,12 @@ Python check exactly as today.
 ### 2. The view (tag `3d-view-done`)
 
 After the High look is adopted (Map look 2, released), so there is only one mesher to build (D280 (2)).
+Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/3d-view.md).
+
+**Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
+without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
+runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
+per column, 3D picking, the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -697,7 +703,7 @@ Once M9b has settled (D280 (4)).
 
 ---
 
-## Weather view (parked, D349)
+## Weather view (in work, D349)
 
 Closes step 1 of D349's order, after "The page is the editor" and the parity batch (Kyler, 2026-09-25; PLAN §20 D133, D253;
 **slimmed by D285 (2)**: the separate timeline and its plain-language summary are dropped; the strategy axes are information
@@ -715,9 +721,34 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    the last day of a drought (the length set in the day strip); a lake that would dry out shows a faint dry tint over its bed;
    the start's water is marked a little more strongly. It updates in the background after each edit, like the checks, and
    never blocks: feedback from the land itself, not a readout (D184).
+   **Built (core and worker):** `core/sim/droughtLine.ts` `droughtLine` reads the line from the settled water and the
+   Drought view's own last day (the worker's kept run), so the two agree tile for tile: the shore tiles of the water
+   left with their dry sides and the level it stands at, the beds it uncovers (and whether each whole body dries out),
+   and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
+   `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
+   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
+   instead ("The drought line isn't worked out for maps with caves yet").
+   **Built (the drawing):** `render3d/droughtLine.ts` (geometry in `droughtLineGeometry.ts`, set by the page through
+   `renderer.setDroughtLine`): a faint amber line along each shore side at the last day's water level (a thin strip flat
+   at that height and one upright on the bank, so it reads from above and from the side, through today's water where
+   that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
+   water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
+   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing. **Next:** the
+   refusal's words on the page, and the line on maps with caves.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
+   **Built: the Badtide view's veins.** A held Badtide day sends the page its own soil (the ground its water poisons, with
+   no moisture where badwater lies), and the ground shader draws the game's orange-red veins on every contaminated tile
+   of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
+   pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
+   capture is `tools/capture-weather.ts`.
+   **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
+   core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
+   temperate days, drawn from the difficulty's range, so it is a range: a core at cycle 5 and 10.5 days, goes off
+   "2 to 7 days before cycle 5's drought or badtide" on Normal), lit while the day shown is one it may go off on. `core/sim/coreMoment.ts`
+   (pure; `tests/unit/coreMoment.test.ts`). **Open:** the held day is drawn as the map is now, never after the explosion;
+   a core placed by hand with other days is read at the game's default days until the page's core options exist.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -870,6 +901,10 @@ to Later.
 
 **Effort:** high.
 
+**Built:** **Report a problem**, **Keyboard shortcuts** (also ?) and **Help** at the end of the File menu; the shortcuts
+panel is generated from the editor's own tool lists (EDITOR_PLAN §7, "The File menu's help entries"); README's "Install a
+map" section (with the artifact edition's extract step). Left in M13: the accessibility pass and the final performance pass.
+
 ---
 ---
 
@@ -912,6 +947,8 @@ reported. PLAN §20 D357 has the whole decision.
 
 ## The dam sketch tool (D383)
 
+Parked: out of the order (D485, 2026-10-14); its branches are kept.
+
 At the end of step 1, after the Weather view (it needs the Rust water and "The page is the editor"). The player draws a
 wall of any shape and height under the game's dam, levee and floodgate rules; the reservoir fills behind it, simulated
 with the game-exact water; the tool shows the water held, the days of drought covered, the tiles needed and what it
@@ -933,6 +970,10 @@ wall) built in the game, comparing level, volume and dry-out day with the engine
 its stacked-dams scene (which predicts dry) is fixed first, and its calibration needs a Probe wall-building bridge.
 
 ## Collaborative editing (D349)
+
+Ships complete (D486): all of the brief, nothing cut, tested between real peers over the real relay, with reconnects, conflicts and a dropped peer.
+
+**Built:** part 1, the host-ordered log and replicas (`src/core/collab/`, [docs/progress/collab.md](docs/progress/collab.md)): the ordered log with literal operations, forces as gestures planned on the settled water, records with literal patches, the water settling in the background and compared at the sequence the host names, rejoin from a checkpoint plus its records and the entries since, whole-map changes the host's alone, one seam for claims; headless, no page yet.
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
 (step 3 of D349's order); nothing is built before then. Two players edit one map live, sharing one ordered list of

@@ -19,7 +19,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -102,6 +102,8 @@ export interface HistoryMark {
   readonly below: unknown;
   readonly redo: readonly unknown[];
   readonly step: unknown;
+  /** The next operation number at the mark: a step taken back leaves it as it was. */
+  readonly seq: number;
 }
 
 export interface HistoryItem {
@@ -231,6 +233,8 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
+    const dropped = groundDropped(input.base, b.heights, b.entities);
+    if (dropped) b.dropped = dropped;
     return b;
   }
 
@@ -738,6 +742,7 @@ export class MapSession {
           this.log.pop();
         }
         if (done.length) this.cur = this.rebuilt();
+        this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
       done.push(this.applyChecked(op, origin, label));
@@ -860,7 +865,7 @@ export class MapSession {
   /** Where the history stands now, before a step that may have to be taken back as if it had never
    *  been taken (a force whose Esc arrives after its keep, PLAN §20 D341). */
   mark(): HistoryMark {
-    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
+    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null, seq: this.seqNext };
   }
 
   /** The operations of the latest step on the history (empty when there is none undo can reach). */
@@ -881,6 +886,7 @@ export class MapSession {
     const top = this.undoStack.length;
     if (!mark.step || top !== mark.depth + 1 || this.undoStack[mark.depth] !== mark.step || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return false;
     this.undo();
+    this.seqNext = mark.seq;
     this.redoStack = (mark.redo as HistoryEntry[]).slice();
     for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
     return true;
@@ -1217,6 +1223,8 @@ export class MapSession {
       // (the map is being edited: an edge wall warns, D323)
       editing: true,
       mineCutAtOpen: this.mineCutAtOpen(),
+      // (what the build's support pass removed: a generated map's row, D121; an import has none)
+      dropped: live ? (this.cur.dropped ?? 0) : undefined,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,

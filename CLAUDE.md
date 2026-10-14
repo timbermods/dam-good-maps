@@ -51,7 +51,7 @@ maps the documents.
 ## Coordination (D470, D484)
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14).** Claude completes the whole order without him (D349 as
-  amended by D481). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
+  amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
   (or the owning session's), decided against his recorded decisions and the project's identity, recorded when it is a real
   choice, merged when CI and the checks are green. Every such decision is reversible; he may reverse any later.
 - **His hands are replaced, not dropped.** Forces and editor behaviour: use the page yourself in a real browser
@@ -59,7 +59,9 @@ maps the documents.
   visible effect. Look and feel: before a look or interaction change merges, a separate reviewer agent that hasn't seen the
   work judges its captures against the page rules (nothing cut off or overlapping, lined up to the pixel, every control
   named, keys only in tooltips, short text). The game: probe batches on the dedicated machine when they decide something
-  (D218, D483). Collaborative editing: tested with two peers.
+  (D218, D483). Collaborative editing: complete, between real peers over the real relay, reconnects, conflicts and a dropped peer tested (D486).
+- **Design questions go to the planning session first,** on #236: it answers those Kyler's recorded decisions settle,
+  citing them, and puts only the rest to him.
 - **The only questions for Kyler are design direction:** the answer changes what the product is, or how it looks, feels or
   behaves to a player, in a way his recorded decisions don't settle. Engineering, thresholds, wording, test results,
   performance, order inside a step and "is this good enough" are ours. One issue per question, labelled `needs-kyler`:
@@ -67,8 +69,9 @@ maps the documents.
   build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
 - **An owning session judges, a different session merges (D484):** never approve or merge your own PR. Post "ready to
   merge" on #236 with your verdict comment and captures on the PR (and an independent reviewer agent's pass for a look or
-  interaction change); the milestone session checks those and green CI, then merges. Its own PRs get a fresh sub-agent's
-  review first.
+  interaction change); the planning session checks those and green CI, then merges. The milestone session's own PRs get a
+  fresh sub-agent's review first; the planning session's own PRs are merged by the milestone session after a fresh
+  sub-agent's review.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
@@ -80,8 +83,14 @@ maps the documents.
   probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
   it fires, and do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
   Kyler can unblock every piece of work (said on #236).
-- **Resuming:** after every merge, the milestone session's #236 post says where it is and what's next, so "Resume from
-  #236" restarts it. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
+- **Going faster (D484):** work in parallel through sub-agents, each in its own worktree, branch and PR, with a complete
+  brief: Sonnet for well-specified building, Haiku for mechanical work (watching CI and #236, logs, searches, clean dev
+  merges, regenerated files, status lines), Opus (the milestone session) for the order, decisions and verdicts, the planning session for merges,
+  and a fresh Opus agent as the look and interaction reviewer. Work ahead on steps that need nothing else; the split is
+  posted on #236. Merges come first: a "ready to merge" is merged before anything new starts. About three heavy local
+  runs at once across both sessions (builds, Playwright, Rust), each said on #236; the rest goes to CI.
+- **Resuming:** after every merge, the planning session's #236 post says what merged and what's next; each session posts
+  where it is when it finishes a piece of work, so "Resume from #236" restarts any of them. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
   steps, one line to Kyler.
 - **The Coordination issue** ([#236](https://github.com/timbermods/dam-good-maps/issues/236)): read it when you start a
   task, before you push and when you finish; answer there, each comment starting "To milestone:", "To page:", "To renderer:" or

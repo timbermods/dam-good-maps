@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://timbermods.github.io/dam-good-maps/schema/collab-v1.json",
+  "title": "Dam Good Maps collaboration v1",
+  "description": "Each of the definitions below is a message or entry on its own: validate.ts picks one by its \"kind\". The ordered log's entries and the session messages two players exchange (docs/COLLAB-BRIEF.md, D362, D486). An operation inside a command is checked against ops.schema.json by the session that applies it; forces travel as gestures (the request with its seed), never as results. Whatever depends on the map (a force's points, an operation's tiles) is checked by the core that applies it.",
+  "$defs": {
+    "playerId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,40}$" },
+    "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "count": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+    "point": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "tile": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 65536,
+      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 1023 } }
+    },
+    "opEnvelope": {
+      "type": "object",
+      "required": ["op", "params"],
+      "properties": { "op": { "type": "string" }, "params": { "type": "object" }, "label": { "type": "string" } }
+    },
+    "forceRequest": {
+      "description": "The page's force request (core/forces/start.ts ForceRequest): which force, its settings with the seed, where, the layer showing and the working area.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verb", "settings", "cut"],
+      "properties": {
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"] },
+        "settings": { "type": "object" },
+        "cut": { "type": ["integer", "null"], "minimum": 0, "maximum": 22 },
+        "origin": { "$ref": "#/$defs/tile" },
+        "end": { "$ref": "#/$defs/tile" },
+        "via": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/tile" } },
+        "path": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "type": "object", "required": ["x", "y"], "additionalProperties": false, "properties": { "x": { "type": "number" }, "y": { "type": "number" } } }
+        },
+        "side": { "enum": [1, -1] },
+        "painting": { "type": "boolean" },
+        "source": { "$ref": "#/$defs/guid" },
+        "shownFrom": { "const": "end" },
+        "area": { "$ref": "#/$defs/runs" },
+        "natural": { "type": "boolean" },
+        "gesture": { "type": "integer" }
+      }
+    },
+    "forceGesture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "request"],
+      "properties": {
+        "id": { "$ref": "#/$defs/guid" },
+        "preview": { "$ref": "#/$defs/hash" },
+        "sourceId": { "$ref": "#/$defs/guid" },
+        "request": { "$ref": "#/$defs/forceRequest" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "enum": ["edit", "select", "force", "newMap"] } },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "edit" } } }, "then": { "$ref": "#/$defs/editCommand" } },
+        { "if": { "properties": { "kind": { "const": "select" } } }, "then": { "$ref": "#/$defs/selectCommand" } },
+        { "if": { "properties": { "kind": { "const": "force" } } }, "then": { "$ref": "#/$defs/forceCommand" } },
+        { "if": { "properties": { "kind": { "const": "newMap" } } }, "then": { "$ref": "#/$defs/newMapCommand" } }
+      ]
+    },
+    "editCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ops", "label"],
+      "properties": {
+        "kind": { "const": "edit" },
+        "ops": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/opEnvelope" } },
+        "label": { "type": "string" }
+      }
+    },
+    "selectCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ops", "label"],
+      "properties": {
+        "kind": { "const": "select" },
+        "ops": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/opEnvelope" } },
+        "label": { "type": "string" }
+      }
+    },
+    "forceCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "gesture"],
+      "properties": { "kind": { "const": "force" }, "gesture": { "$ref": "#/$defs/forceGesture" } }
+    },
+    "newMapCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": { "kind": { "const": "newMap" }, "name": { "type": "string" } }
+    },
+    "entry": {
+      "description": "One entry of the ordered log: its sequence number (the host's), the map it belongs to (epoch), the author, the sequence the author's view was at, the author's request counter and the command.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "seq", "epoch", "author", "baseSeq", "counter", "command"],
+      "properties": {
+        "kind": { "const": "entry" },
+        "seq": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "epoch": { "$ref": "#/$defs/count" },
+        "author": { "$ref": "#/$defs/playerId" },
+        "baseSeq": { "$ref": "#/$defs/count" },
+        "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "command": { "$ref": "#/$defs/command" },
+        "applied": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/opEnvelope" } },
+        "water": { "const": true }
+      }
+    },
+    "request": {
+      "description": "A player's proposed command, to the host. The author is the channel's, never claimed here.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "epoch", "counter", "baseSeq", "command"],
+      "properties": {
+        "kind": { "const": "request" },
+        "epoch": { "$ref": "#/$defs/count" },
+        "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+        "baseSeq": { "$ref": "#/$defs/count" },
+        "command": { "$ref": "#/$defs/command" }
+      }
+    },
+    "commit": {
+      "description": "The host to everyone: an entry in its place, with the hash of the map after it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "entry", "hash"],
+      "properties": { "kind": { "const": "commit" }, "entry": { "$ref": "#/$defs/entry" }, "hash": { "$ref": "#/$defs/hash" } }
+    },
+    "reject": {
+      "description": "The host to the requester: one plain reason; the sequence did not advance.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "counter", "reason"],
+      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" } }
+    },
+    "settled": {
+      "description": "The host to everyone: the water has settled for the map after entry seq (the entries after since settled together), with the hash of everything the water decides.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "epoch", "seq", "since", "hash"],
+      "properties": {
+        "kind": { "const": "settled" },
+        "epoch": { "$ref": "#/$defs/count" },
+        "seq": { "$ref": "#/$defs/count" },
+        "since": { "$ref": "#/$defs/count" },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "mapOpening": {
+      "description": "The host to the guests, before a whole-map change: the page shows \"<name> is opening a new map\".",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "author", "name"],
+      "properties": { "kind": { "const": "map-opening" }, "author": { "$ref": "#/$defs/playerId" }, "name": { "type": "string" } }
+    },
+    "snapshotHeader": {
+      "description": "A rejoin: the host's map at a checkpoint (the project bytes travel beside this header) and the entries since, so the end state is checkpointSeq + tail.length.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "epoch", "checkpointSeq", "tail", "endHash", "records", "counters"],
+      "properties": {
+        "kind": { "const": "snapshot" },
+        "epoch": { "$ref": "#/$defs/count" },
+        "checkpointSeq": { "$ref": "#/$defs/count" },
+        "tail": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/entry" } },
+        "endHash": { "$ref": "#/$defs/hash" },
+        "records": { "type": "array", "maxItems": 100000, "items": { "type": "object" } },
+        "counters": { "type": "object" }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 // responsive on 256² maps (PLAN §2.2, EDITOR_PLAN §8). The same core runs in Node for tests and
 // batch runs.
 
-import { expose, proxy, transfer, wrap } from "comlink";
+import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { BrushParams } from "../core/features/raster/brush";
@@ -71,6 +71,7 @@ function connectChecksWhenEditable() {
   connected = true;
   ed.useChecksWorker(client);
 }
+let droughtFn: ((n: ed.DroughtLineNews) => void) | null = null;
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -176,6 +177,15 @@ const api = {
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
   prepareWeather: () => ed.prepareWeather(),
+  /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
+   *  one. (Small, and the worker keeps its own: copied, not taken over.) */
+  watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
+    // (the page's last callback is let go, or its port stays open for good; each crossing makes a new proxy, so the
+    // check is only against releasing the one kept)
+    if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
+    droughtFn = fn;
+    return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
+  },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),

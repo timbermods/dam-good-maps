@@ -64,7 +64,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About). **Another like this** (M9b's D278 (1c): a sibling, the
+  Download project, Download .timber, Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
@@ -462,13 +463,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   a click or a drawn fault, the stroke band as wide as its Size, the ring at the cursor, its sounds (a split, a deep
   drop, falling stone); no key yet. Its crack-and-drop effects on the land are the renderer's, to come.
 - **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
-  of it paid for by ground taken upstream and from the higher shoulders (conserved; Keep, the Floor and the working
-  area are budgeted before it plays). A click builds the fan there (a flat edge click moves slightly inland); a drag
-  sets its direction and reach. **Power** (default 70), **Size** (reach, Auto or 4–64, independent of Power), **Try
-  another**; behind More, **Channels** (Auto, Few, Many). Wet outlets keep their bed; objects ride or are buried,
+  of it paid for by ground taken from behind it and beside it (conserved; Keep, the Floor and the working area are
+  budgeted before it plays). Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a
+  drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
+  reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
+  behind More, **Channels** (Auto, Few, Many). It never refuses for want of ground (D356): where no fan fits, what it
+  took lies a level deep on the nearest free ground inside the circle, and where the outline's free ground, beside the
+  fan's own tiles, has too little above the Floor to take (a lake's bed, the map's lowest ground, a working area the fan
+  fills), the water brings the rest of a small fan's sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
+  take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
-  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a narrow band),
+  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
   the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
   land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
@@ -657,15 +663,24 @@ Make a valley, drop a source, and there's a river.
   within a frame or two, the rest of the map follows, always at one brisk pace (D197, D268): small edits settle
   nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water row: Drought and
   Badtide and the day (the dot says "Settling…"); no controls for the water's journey (D268; Kyler, 2026-10-04).
-- **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once (with progress
-  while it's worked out); clicking again returns to the map's own water. While one is shown, a day strip on the
-  water bar runs from Day 0 to the last day: previous and next, a click on any day, play, and **Speed** (slower,
-  normal, faster, instant; it appears only here). Stepping animates that day's water at that speed; Instant jumps
-  and stays; nothing reverts on its own. A length of 1 to 30 days per hazard (defaults drought 9, badtide 8),
-  remembered. The start's water is highlighted, and the strip marks the day it leaves a pump's reach (or, in a
-  badtide, the day badwater reaches it or its farmland); hovering any water says when it dries or turns bad. Any
-  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. The Weather
-  step's summary and map-card lines build on these buttons (D133).
+- **Drought and Badtide, day by day** (D267, D268; held, not played, D133 as amended by the page): clicking one
+  shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
+  holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
+  **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
+  hazard's days are kept until the map changes and worked out in the background once the water has settled. A held Badtide day draws the
+  game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
+  badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
+  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. **An Unstable Core's
+  moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
+  that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
+  temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
+  (`core/sim/coreMoment.ts`).
+- **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
+  its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
+  tint over its bed; the start's water (the lakes and rivers its pumps draw from) is marked a little more strongly.
+  It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
+  comes in the background with the drought's days after each edit, never blocking. None on a map with caves yet.
+  The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`: an amber waterline at the last day's level along the shore, flat and upright by the bank, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
 
@@ -752,6 +767,21 @@ Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. 
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
+
+### The File menu's help entries (M13)
+
+After its file entries and a hairline, the File menu ends with three, in this order (the 20-second tour's entry joins
+them, ROADMAP "The 20-second tour"):
+
+- **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps. The list is data
+  (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
+  `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
+  `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
+- **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
+  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem.
+- **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
+  chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
 
 ## 8. The generator, Claude and the first run
 
@@ -1043,7 +1073,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
     soon as it has answered. Water on land that changed rides it in the frame the land is drawn, and water worked out
     on the land just before is seated on the land drawn (`rideLand`), so the two never part; a force's water comes with
-    each frame of its land and is drawn with it. Moving water (a stroke's, a force's, the water's journey after an edit)
+    each frame of its land and is drawn with it. A force's water starts from the water on screen (`forceShows`, #329),
+    even while the journey still plays behind the worker, so its first frame never jumps a lake; with stored water, caves
+    or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
+    anew. Moving water (a stroke's, a force's, the water's journey after an edit)
     is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
     (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
     the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
@@ -1094,7 +1127,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the
   timbermods organization (`PLAN.md` §2).
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
-  chunks only; a voxel mesher only for columns with more than one solid run; instanced trees, bushes and ruins;
+  chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
+  merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
   picking against the heightfield and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
