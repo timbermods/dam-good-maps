@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://timbermods.github.io/dam-good-maps/schema/claims-v1.json",
+  "title": "Dam Good Maps claims v1",
+  "description": "Collaborative editing's claims (D362, D486; docs/COLLAB-BRIEF.md §2): the commands a player gives (claim ground, release all or part of it, offer it to the other player, accept or decline an offer) and the snapshot of who holds what that a rejoining player is sent. Ground is always [y, x0, x1] runs (x1 inclusive), the same runs as ops.schema.json; every bound that depends on the map (its size, what is already claimed, whose it is) is checked by core/collab/claims.ts and refused with a one-line reason, never clamped. Claims never go into the saved map or the .timber.",
+  "$defs": {
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1048576,
+      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } }
+    },
+    "player": { "enum": ["host", "guest"] },
+    "command": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["claim", "release", "offer", "accept", "decline"] },
+        "runs": { "$ref": "#/$defs/runs" },
+        "offer": { "type": "integer", "minimum": 1 }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "claim" } } }, "then": { "additionalProperties": false, "required": ["kind", "runs"], "properties": { "kind": {}, "runs": {} } } },
+        { "if": { "properties": { "kind": { "const": "release" } } }, "then": { "additionalProperties": false, "required": ["kind"], "properties": { "kind": {}, "runs": {} } } },
+        { "if": { "properties": { "kind": { "const": "offer" } } }, "then": { "additionalProperties": false, "required": ["kind"], "properties": { "kind": {}, "runs": {} } } },
+        { "if": { "properties": { "kind": { "const": "accept" } } }, "then": { "additionalProperties": false, "required": ["kind", "offer"], "properties": { "kind": {}, "offer": {} } } },
+        { "if": { "properties": { "kind": { "const": "decline" } } }, "then": { "additionalProperties": false, "required": ["kind", "offer"], "properties": { "kind": {}, "offer": {} } } }
+      ]
+    },
+    "offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "runs"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "from": { "$ref": "#/$defs/player" },
+        "to": { "$ref": "#/$defs/player" },
+        "runs": { "$ref": "#/$defs/runs" }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "W", "H", "revision", "nextOffer", "host", "guest", "offers"],
+      "properties": {
+        "version": { "const": 1 },
+        "W": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "H": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "nextOffer": { "type": "integer", "minimum": 1 },
+        "host": { "type": "array", "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
+        "guest": { "type": "array", "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
+        "offers": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/offer" } }
+      }
+    }
+  },
+  "$comment": "Validate a command against #/$defs/command and a snapshot against #/$defs/snapshot (claims.ts does)."
+}
