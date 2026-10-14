@@ -139,15 +139,16 @@ function existedBefore(c: CheckResult, before: Validation): boolean {
   return now.every((k) => had.has(k));
 }
 
-/** The absolutes a real place answers to besides the load checks (D245, D331, PERFECT "Real places"):
- *  the starting-logs floor and the water floor (water a pump can reach from the start). */
-export const PLACE_ABSOLUTE_CHECKS: ReadonlySet<string> = new Set(["start.wood_floor", "start.water"]);
+/** What a real place warns of besides the load checks (D245, D331, PERFECT "Real places"): the
+ *  starting-logs floor, the water floor (water a pump can reach from the start) and water that keeps
+ *  moving, the misses that would sink a player who goes straight to the game. */
+export const PLACE_WARNING_CHECKS: ReadonlySet<string> = new Set(["start.wood_floor", "start.water", "water.settles"]);
 
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43); `before` is an imported
  *  map's validation as it was opened (its own problems are `existing`), null otherwise. A real place
  *  (`DocMeta.place`) is a map we made and the player gets, so its problems are never "in the map when
- *  you opened it": only the absolutes count (D245, D331): a load problem blocks, a missed floor
- *  (`PLACE_ABSOLUTE_CHECKS`) is a warning, and every other row is information. */
+ *  you opened it" (D245, D331): a load problem blocks, a miss in `PLACE_WARNING_CHECKS` is a warning,
+ *  and every other row is information, worded as a fact (`informationMessage`). */
 export function groupChecks(s: MapSession, v: Validation, before: Validation | null): CheckGroups {
   const place = !!s.meta.place;
   const out: CheckGroups = {
@@ -164,12 +165,24 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
     if (c.ok) continue;
     if (place) {
       if (c.class === "load") out.blocking.push(checkItem(s, c));
-      else if (!c.advisory && PLACE_ABSOLUTE_CHECKS.has(c.id)) out.warnings.push(checkItem(s, c));
-      else out.advisory.push(checkItem(s, c));
+      else if (!c.advisory && PLACE_WARNING_CHECKS.has(c.id)) out.warnings.push(checkItem(s, c));
+      else out.advisory.push({ ...checkItem(s, c), message: informationMessage(c.message) });
     } else if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
     else if (c.advisory) out.advisory.push(checkItem(s, c));
     else if (blocks("export", c)) out.blocking.push(checkItem(s, c));
     else out.warnings.push(checkItem(s, c));
   }
+  // (a place's start with no clean water says so once: its store-water row repeats the warning)
+  if (place && out.warnings.some((c) => c.id === "start.water")) out.advisory = out.advisory.filter((c) => c.id !== "water.storage_possible");
   return out;
+}
+
+/** A row's words where it is information (a real place's Good to know, D245): the fact without the
+ *  target that would read as failed ("124 logs within 20 tiles' walk of the start", "No mine sites").
+ *  A generated map's rows keep their pass/fail words. */
+export function informationMessage(message: string): string {
+  if (/^0( of 0)? mine sites\b/.test(message)) return "No mine sites";
+  return message
+    .replace(/ \((at least|[A-Z][a-z]+ allows) [^)]*\)$/, "")
+    .replace(/, (at least [^,]+ needed|at least \d+%|aim for [^,]+)$/, "");
 }
