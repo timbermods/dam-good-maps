@@ -1007,7 +1007,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (f.kind !== "setPiece" || !live(f)) continue;
     for (const i of BUILDERS[f.params.kind]?.clears?.(f, W, H, features) ?? []) occupied[i] = 1;
   }
-  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans };
+  //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
+  //    (the resources and the start placed after this hold none)
+  const dropped = groundDropped(base, heights, entities);
+  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
     terrainFeatures: features.filter((f) => isTerrainKind(f) && live(f)).map((f) => JSON.parse(featureKey(f)) as Feature),
@@ -1250,12 +1253,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (finalEntities.some((e) => keptBy.has(e.owner) && held.has(e.y * W + e.x))) finalEntities = finalEntities.filter((e) => !(keptBy.has(e.owner) && held.has(e.y * W + e.x)));
   }
 
-  //    the support rule (D121, step 7) on the terrain as built: a heightfield drops nothing, and is
-  //    not worked out; a base's caves and overhangs are its own (the objects that hold them included)
-  const dropped = base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), finalEntities).dropped : 0;
   const result: BuildResult = {
     ...withWater,
-    ...(dropped ? { dropped } : {}),
     entities: finalEntities,
     dirty: null,
     cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, resourceWater: water, occupiedBeforeEdits, resources, resourceOrder: order }),
@@ -1265,6 +1264,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 }
 
 // -------------------------------------------------------------------------------------- helpers
+
+/** The build's rule pass (D121, step 7): the blocks of ground nothing holds up on the terrain a build
+ *  makes of `base` under `heights`, with `objects` (their stackable tops hold ground). A heightfield
+ *  drops nothing and is not worked out; a base's caves and overhangs are its own. `BuildResult.dropped`
+ *  is this, derived, so a stored build leaves it out and its session works it out again. */
+export function groundDropped(base: BaseLayer | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[]): number {
+  return base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), objects).dropped : 0;
+}
 
 /** Tiles of the landforms whose gentle or terraced edges are "joined by slopes" (PLAN §19.2): the
  *  derived slopes join their steps wherever they are. The key names them for slope reuse. */

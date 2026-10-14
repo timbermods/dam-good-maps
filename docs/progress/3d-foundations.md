@@ -203,13 +203,16 @@ On `feature/3d-foundations-3b`, on top of stage 3. A player sees the `terrain.dr
 ("No ground had to be removed"), as stage 3 proposed it; nothing else.
 - **The rule pass** (D121, PLAN §19.8 step 7): `terrain/support.ts` `supportPass(terrain, objects)` gives the terrain
   the game keeps and the blocks it deletes; a heightfield drops nothing and is not worked out. The build runs it at
-  the end of `run` on its base's caves (`base.terrain.withSurface(heights)`, with the final objects, whose stackable
+  step 9 on its base's caves (`groundDropped`: `base.terrain.withSurface(heights)` with the objects, whose stackable
   tops hold ground: `stackableTops`, moved out of `tools/terrain3d-maps.ts`) and sets `BuildResult.dropped` only when
-  it is above 0, so no stored project's bytes move. On an import the count is not shown (the row is absent there,
+  it is above 0, on every return. It is derived, so a stored build leaves it out and the session works it out again
+  when it opens one: no project's bytes move. On an import the count is not shown (the row is absent there,
   `terrain.supported` reports such ground) and the ground stays in the file: removing it from an edited import's
   export would be a change a player sees, left for stage 6 and the milestone session.
 - **Fed to the row:** the generator's five validations (`gen/generate.ts`) and `MapSession.validate` on a generated
-  (live) map pass `dropped: built.dropped ?? 0`; a frozen or imported map passes nothing.
+  (live) map pass `dropped: built.dropped ?? 0`; a frozen or imported map passes nothing. A written file checked
+  again has no row unless its caller passes the build's count (the count is the build's to say, not the file's:
+  `validate.test.ts` and `parity.test.ts` pass it).
 - **`unsupportedVoxels` searches only the voxels above each tile's run from z = 0** (that run is supported as a
   whole): the same cells on 400 random terrains with 124,445 dropped voxels, and about 8 ms instead of about 70 ms
   on a 256² map with caves, which matters now that a cave import's every build runs it.
