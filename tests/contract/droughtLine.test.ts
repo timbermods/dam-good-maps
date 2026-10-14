@@ -183,5 +183,39 @@ describe("the drought line (D133, D269)", () => {
     const caves = droughtLine({ ...flat, caves: true });
     expect([caves.line.count, caves.bed.count, caves.refused]).toEqual([0, 0, DROUGHT_LINE_CAVES]);
     expect(DIFFICULTY_RULES.normal.waterWithin).toBeGreaterThan(0);
+    // the session's question refuses a map with caves too (a stacked water model, or an import's columns)
+    const stub = (stacked: boolean, columns: number) =>
+      ({ built: { W: 32, H: 32, waterModel: stacked ? { stacked: {} } : {} }, columns: new Map(Array.from({ length: columns }, (_, k) => [k, new Uint8Array(23)])) }) as unknown as MapSession;
+    expect(mapDroughtLine(stub(true, 0), flat.last, 9).refused).toBe(DROUGHT_LINE_CAVES);
+    expect(mapDroughtLine(stub(false, 3), flat.last, 9).refused).toBe(DROUGHT_LINE_CAVES);
+  });
+
+  it("is only ever the map's line as it is: none yet when a map opens, none after an edit or once it closes", async () => {
+    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    ed.setAutoWater(false);
+    const got: ed.DroughtLineNews[] = [];
+    ed.watchDroughtLine((n) => got.push(n));
+    try {
+      // a map opening: an empty line for its version, until its own is worked out
+      const open = ed.refine();
+      expect(got.length).toBe(1);
+      expect([got[0].version, got[0].line.line.count, got[0].line.bed.count, got[0].line.refused]).toEqual([open.info.version, 0, 0, null]);
+      ed.showWeatherDay("drought", null);
+      await until(() => got.length === 2, 60_000);
+      expect(got[1].line.line.count).toBeGreaterThan(0);
+      expect(ed.watchDroughtLine((n) => got.push(n))?.line).toBe(got[1].line);
+      // an edit: the old line is no longer the map's
+      const cells: [number, number, number][] = [[2, 2, 3]];
+      expect(ed.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 1 } }).errors).toEqual([]);
+      expect(ed.watchDroughtLine((n) => got.push(n))).toBeNull();
+      // a closed map has none
+      ed.stopWeather();
+      ed.closeSession();
+      expect(ed.watchDroughtLine((n) => got.push(n))).toBeNull();
+    } finally {
+      ed.watchDroughtLine(null);
+      ed.stopWeather();
+      ed.closeSession();
+    }
   });
 });

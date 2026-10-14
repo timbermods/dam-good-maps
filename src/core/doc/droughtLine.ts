@@ -13,8 +13,14 @@ export function droughtLineRefusal(s: MapSession): string | null {
 }
 
 /** The drought line of `s` from `last`, the depth per tile on the drought's last day (`days`) as the
- *  Drought view's run left it from the session's settled water (`built.water`). */
-export function mapDroughtLine(s: MapSession, last: ArrayLike<number>, days: number): DroughtLine {
+ *  Drought view's run left it, from `settled`: the water the run started from (default the session's
+ *  settled water, `built.water`). */
+export function mapDroughtLine(
+  s: MapSession,
+  last: ArrayLike<number>,
+  days: number,
+  settled: { depth: ArrayLike<number>; contamination: ArrayLike<number> } = { depth: s.built.water, contamination: s.built.contamination },
+): DroughtLine {
   const b = s.built;
   const refused = droughtLineRefusal(s);
   if (refused) return emptyDroughtLine(b.W, b.H, days, refused);
@@ -23,8 +29,8 @@ export function mapDroughtLine(s: MapSession, last: ArrayLike<number>, days: num
     W: b.W,
     H: b.H,
     heights: b.heights,
-    depth: b.water,
-    contamination: b.contamination,
+    depth: settled.depth,
+    contamination: settled.contamination,
     objects: b.entities,
     start: b.start,
     within,
@@ -33,7 +39,7 @@ export function mapDroughtLine(s: MapSession, last: ArrayLike<number>, days: num
     W: b.W,
     H: b.H,
     heights: b.heights,
-    settled: { depth: b.water, contamination: b.contamination },
+    settled,
     last,
     days,
     startWater,

@@ -778,12 +778,12 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
  *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
  *  background check that stopped it, D345 B14). */
 function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
+  // (a map with caves has no drought line: the page is told so once its water settles)
+  if (droughtLineRefusal(s)) droughtWatch?.(currentDroughtLine()!);
   if (!listener) return view;
   // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
   const copy = structuredClone(view);
   listener({ kind: "settled", version, view, info: sessionInfo(s) });
-  // (a map with caves has no drought line: the page is told so once its water settles)
-  if (droughtLineRefusal(s)) droughtWatch?.(currentDroughtLine()!);
   return copy;
 }
 
@@ -805,6 +805,8 @@ interface WeatherRun {
   hazard: Hazard;
   /** The hazard's default length (its last day by default). */
   days: number;
+  /** The water the run started from (the map's settled water then: the drought line's day 0). */
+  from: { depth: Float64Array; contamination: Float64Array };
   /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
   run: HazardRun;
   sim: WaterSim;
@@ -844,8 +846,9 @@ function runFor(hazard: Hazard): WeatherRun {
   old?.sim.dispose();
   const base = s.built.waterModel;
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
-  const hazardRun = new HazardRun(base, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
+  const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
+  const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -957,12 +960,30 @@ export interface DroughtLineNews {
 }
 let droughtWatch: ((n: DroughtLineNews) => void) | null = null;
 
+let droughtLineFailed = false;
+
+/** The line from the run's last day, against the water the run started from. A failure leaves the line absent (said
+ *  once); the day itself is never held up. */
 function droughtLineFrom(run: WeatherRun): void {
   const k = run.kept[run.days];
   if (!k) return;
-  const line = mapDroughtLine(run.session, k.depth, run.days);
+  let line: DroughtLine;
+  try {
+    line = mapDroughtLine(run.session, k.depth, run.days, run.from);
+  } catch (e) {
+    if (!droughtLineFailed) console.warn("the drought line failed", e);
+    droughtLineFailed = true;
+    return;
+  }
   droughtLineNow = { session: run.session, version: run.version, line };
   droughtWatch?.({ version: run.version, line });
+}
+
+/** A newly opened map's line as the page should show it now: its refusal (caves), else none yet. */
+function droughtLineOpened(): void {
+  const s = session;
+  if (!droughtWatch || !s) return;
+  droughtWatch(currentDroughtLine() ?? { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought")) });
 }
 
 /** The drought line of the map as it is (its refusal on a map with caves), or null while it is still to come. */
@@ -975,8 +996,8 @@ function currentDroughtLine(): DroughtLineNews | null {
   return now && now.session === s && now.version === version ? { version, line: now.line } : null;
 }
 
-/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, and a map with caves' refusal
- *  when its water settles. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now,
+/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, an empty line (or a map with
+ *  caves' refusal) when a map opens, and that refusal again when its water settles. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now,
  *  when there is one already. */
 export function watchDroughtLine(fn: ((n: DroughtLineNews) => void) | null): DroughtLineNews | null {
   droughtWatch = fn;
@@ -1065,6 +1086,7 @@ function opened(s: MapSession): SessionOpen {
   version++;
   followed = null;
   syncChecks();
+  droughtLineOpened();
   return sessionView();
 }
 
