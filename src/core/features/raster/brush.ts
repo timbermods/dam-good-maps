@@ -80,8 +80,10 @@
 //   outside), so the edit meets the locked land at one level a tile: a feathered edge.
 // - Levels stay within 0 and the editor's one ceiling, D172's tall maximum (D244; 16 before it).
 //   A map whose land goes above 16 is a tall map.
-// - Brushes shape each column's top (`layer: "top"`); the 3D stages extend them to the runs
-//   below (caves), with the same dabs.
+// - Brushes shape each column's top run (D280 (3), `layer: "top"`). On a map with caves or
+//   overhangs a roof's top is shaped like any other ground, down to one layer above its underside
+//   at the lowest (`BrushStrokeOptions.floor`, terrain/runs.ts `topFloor`): what is under a roof is
+//   never touched. On a heightfield nothing changes.
 
 import { fmix32 } from "../../math/hash";
 import { CEILING } from "../../format/world";
@@ -188,8 +190,8 @@ export interface BrushParams {
   /** Smart Lower, a deepening pass (D263): drawn along a channel, it lowers what the brush's middle
    *  passes over by exactly one level. */
   deepen?: boolean;
-  /** The run of each column it shapes: the top (the surface). Runs below come with the 3D
-   *  stages (caves and overhangs). */
+  /** The run of each column it shapes: the top (the surface; on a cave's roof its top run, D280
+   *  (3)). The runs below are the Block tool's and Erode's. */
   layer?: "top";
   /** Dab centres in quarter tiles: [x0, y0, x1, y1, …]; tile (x, y)'s middle is (4x + 2, 4y + 2). */
   dabs: number[];
@@ -467,7 +469,7 @@ export function brushReadsNeighbours(p: Pick<BrushParams, "tool" | "rigid">): bo
 
 /** Each piece that rides a stroke whole (D249) takes the level of its middle tile, in `heights`
  *  (the tiles `write` allows). Returns the rectangle of tiles it changed, or null. */
-export function levelRigid(rigid: readonly (readonly [number, number, number, number])[], heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true): Rect | null {
+export function levelRigid(rigid: readonly (readonly [number, number, number, number])[], heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, floor: Uint8Array | null = null): Rect | null {
   let out: Rect | null = null;
   for (const [a, b, c, d] of rigid) {
     const x0 = Math.max(0, a);
@@ -480,7 +482,10 @@ export function levelRigid(rigid: readonly (readonly [number, number, number, nu
       for (let x = x0; x <= x1; x++) {
         const i = y * W + x;
         if (heights[i] === level || !write(i)) continue;
-        heights[i] = level;
+        // (a roof's top no lower than its floor, D280 (3))
+        const v = floor && level < floor[i] ? floor[i] : level;
+        if (heights[i] === v) continue;
+        heights[i] = v;
         out = grow(out, { x0: x, y0: y, x1: x, y1: y });
       }
   }
@@ -519,6 +524,9 @@ export interface BrushStrokeOptions {
   /** Rule 3: the settled water's moisture (the moist ground keeps its height). */
   moisture?: ArrayLike<number> | null;
   record?: (shore: [number, number, number, number][], pools: [number, number, number][], moist?: [number, number, number][]) => void;
+  /** The lowest each tile's surface may go (D280 (3)): one above a roof's underside on a map with
+   *  caves or overhangs (terrain/runs.ts `topFloors`), 0 elsewhere; null on a heightfield. */
+  floor?: Uint8Array | null;
 }
 
 /** A stroke being applied to a heightfield, dab by dab. `heights` is changed in place; `write(i)`
@@ -550,8 +558,11 @@ export class BrushStroke {
   private readonly depth: Uint8Array | null;
   /** A target's stroke (D322): exact, hard-edged. */
   private readonly exact: boolean;
-  /** Ground mode (D322): the lowest each bank tile may go (0 elsewhere); null without a bank. */
+  /** Ground mode (D322): the lowest each bank tile may go (0 elsewhere), with a roof's floor; null
+   *  without a bank or a roof. */
   private readonly low: Uint8Array | null;
+  /** The lowest each tile's surface may go (a roof's, D280 (3)); null on a heightfield. */
+  private readonly floor: Uint8Array | null;
   /** Tiles the middle of the brush has passed over (the first pass moves them a whole level). */
   private readonly swept: Uint8Array;
   private dabCount = 0;
@@ -627,6 +638,13 @@ export class BrushStroke {
       low = new Uint8Array(W * H);
       for (const [y, a, b, level] of settings.bank) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) low[y * W + x] = Math.max(0, Math.min(BRUSH_MAX_LEVEL, level));
     }
+    // (a roof keeps its lowest layer, D280 (3): its floor is the lowest the tile goes, as a bank's is)
+    const floor = opts.floor ?? null;
+    if (floor) {
+      low ??= new Uint8Array(W * H);
+      for (let i = 0; i < floor.length; i++) if (floor[i] > low[i]) low[i] = floor[i];
+    }
+    this.floor = floor;
     this.low = low;
     // the tiles the stroke leaves alone
     if (settings.keep?.length) {
@@ -769,7 +787,7 @@ export class BrushStroke {
   /** The pieces that ride the stroke whole take the level of their middle tile (D249), once its
    *  dabs are all in. Returns the rectangle of tiles that changed, or null. */
   level(rigid: readonly (readonly [number, number, number, number])[]): Rect | null {
-    return levelRigid(rigid, this.heights, this.W, this.H, this.write);
+    return levelRigid(rigid, this.heights, this.W, this.H, this.write, this.floor);
   }
 
   /** Rule 3: one dab's weathering. The intensity from all the pressure gathered so far, on the dab's
@@ -831,7 +849,7 @@ export class BrushStroke {
     }
     const cache = (this.cache ??= new WeatherCache(this.heights, W, H, true));
     const changes: number[] = [];
-    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, changes, cache, rule: this.settings.weathering }, this.heights);
+    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, changes, cache, rule: this.settings.weathering, floor: this.floor }, this.heights);
     if (changed) {
       this.version++;
       cache.changed(changes);
@@ -931,7 +949,7 @@ export class BrushStroke {
       ({ shore, pools } = this.shoreAt!);
     }
     const cache = (this.cache ??= new WeatherCache(before, W, H));
-    weather({ W, H, box, before, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, shore, pools, cache }, this.heights);
+    weather({ W, H, box, before, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, shore, pools, cache, floor: this.floor }, this.heights);
     return box;
   }
 
@@ -1151,8 +1169,9 @@ function pad(r: Rect, n: number, W: number, H: number): Rect {
   return { x0: Math.max(0, r.x0 - n), y0: Math.max(0, r.y0 - n), x1: Math.min(W - 1, r.x1 + n), y1: Math.min(H - 1, r.y1 + n) };
 }
 
-/** Apply a whole stroke to `heights` (the build's step 6). */
-export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true): void {
+/** Apply a whole stroke to `heights` (the build's step 6). `floor`: the lowest each tile's surface may
+ *  go (a roof's, D280 (3)); null on a heightfield. */
+export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, floor: Uint8Array | null = null): void {
   const { dabs, pressure, levels, ...settings } = p;
   // (rule 3: where water stood over its working rectangle when it began, from the ring it recorded)
   let water: Uint8Array | undefined;
@@ -1160,7 +1179,7 @@ export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: nu
     const box = weatherBox(p, W, H);
     if (box) water = boxWaterLevels(heights, box, p.rim ?? [], W, H);
   }
-  const s = new BrushStroke(settings, heights, W, H, write, water ? { water } : {});
+  const s = new BrushStroke(settings, heights, W, H, write, { ...(water ? { water } : {}), ...(floor ? { floor } : {}) });
   s.add(dabs, pressure, levels);
   if (p.rigid?.length) s.level(p.rigid);
 }

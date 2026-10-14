@@ -527,6 +527,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Shift+scroll, F held with the wheel, or [ and ] set their strength (Raise, Lower and Flatten take nothing from
   those: their target level is theirs). Tooltips name the game editor's terms. Under a layer cut (D207) Raise stops
   at the cut. An exact stroke's tiles stay as it leaves them (the integrity pass leaves them out).
+- **On caves and overhangs** (D280 (3), terrain above terrain's step 3): the brushes shape each tile's top run, on
+  every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
+  above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
+  stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
+  stroke leaves it. A stroke that would leave ground nothing holds up (the game's support rule) is refused with one
+  line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
+  while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
+  removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
+  tiles as they are, as before. On a map without caves nothing changes, byte for byte.
 - **Ground, Water and Both** (D322, item 2): every brush's mode. **Ground** changes only dry tiles and never lowers
   a tile beside water below that water's surface; **Water** changes only the wet tiles (those drawn as water); **Both**
   (default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never a
@@ -813,10 +822,10 @@ flags them if they reappear anywhere else (D188).
 ## Non-goals
 
 - Voxel-level cave and overhang editing, until terrain above terrain's step 3, "Creating them" (`ROADMAP.md`,
-  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281). Until then imported caves and overhangs must be
-  preserved and exported unchanged, together with the water the file stores under them, and the tools edit
-  surface height only. The data model stores terrain as runs per tile from project format 3 (D119), so voxel
-  editing needs no format change.
+  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281), whose Erode and Block tool bring it. Until then
+  what lies under a roof is preserved and exported unchanged, together with the water the file stores under it; the
+  brushes shape each tile's top run only (§4, "On caves and overhangs"). The data model stores terrain as runs per
+  tile from project format 3 (D119), so voxel editing needs no format change.
 - Terrain above the map's own limit: 16, or 22 on tall maps (`PLAN.md` §20, D172; §5.9). The tools keep to the
   map's limit (D123), and imported maps with terrain up to 22 are preserved.
 - Multiplayer starts, for now. Timberborn 1.1 keeps exactly one StartingLocation per map. Fair multi-colony maps for
@@ -909,10 +918,11 @@ referencing them survive other edits wherever the referenced object still exists
 flagged as orphaned and shown, never silently dropped. When terrain changes under an entity, the entity snaps to
 the new ground if placement stays valid; otherwise it is flagged with a fix option.
 
-**Working representation.** Surface heights and entities are kept in typed arrays. A voxel override layer preserves
-imported caves and overhangs: columns with more than one solid run are locked to the brushes and exported
-unchanged, until terrain above terrain's step 3. After every terrain edit the instant checks re-test terrain
-support (the game deletes voxels more than 3 tiles sideways from support, and the objects standing on them).
+**Working representation.** Surface heights and entities are kept in typed arrays; the terrain is runs per tile
+(`ColumnTerrain`, D119): the build's surface with each tile's top run reshaped to it over the base's runs
+(`withSurface`), so on a cave the brushes move only the roof's top and everything under it exports unchanged
+(D280 (3)). An edit that would leave ground the game's support rule deletes (more than 3 tiles sideways from
+support) is refused with its reason before it lands (`MapSession.apply`, `terrain/support.ts` `newFalls`).
 Dirty-region tracking lets rendering, validation and the water preview update only what changed.
 
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; Your maps in the browser (D234;
@@ -995,7 +1005,8 @@ opened, are listed but never blamed on the player's edits and do not block its e
     roofs** (imported caves, tunnels, overhang bridges, badtide drains): there the editor keeps the water the file
     stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
     tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
-    **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
+    **Under roofs** view button marks them (D100); what lies under a roof is never edited, the brushes shaping only
+    its top (D280 (3)).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
