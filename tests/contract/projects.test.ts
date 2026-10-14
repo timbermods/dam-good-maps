@@ -45,11 +45,14 @@ function gen(theme: ThemeId, size: number, seed: number): GenerateResult {
   return r;
 }
 
-// One seed per theme and size. Lake Basin's and Islands' seeds are ones whose terrace rings reach
-// past the old bounds (at 0.5.0); the other themes keep their points on the map.
+// One seed per theme and size. Lake Basin's and Islands' seeds are ones whose terrace rings reached
+// past the old bounds (at 0.5.0); the other themes keep their points on the map. Islands 256² is
+// seed 4 since round 6 (generator 0.8.7, D341): seed 2 took four attempts and nine settles of a
+// spring by the start (164–357 s on CI against the 300 s limit); seed 4 makes its map on the first
+// attempt, a feature's point past the map's edge, in about 36 s.
 const RING_SEEDS: Partial<Record<ThemeId, Record<number, number>>> = {
   lakeBasin: { 96: 1, 128: 2, 192: 1, 256: 2 },
-  islands: { 96: 1, 128: 1, 192: 2, 256: 2 },
+  islands: { 96: 1, 128: 1, 192: 2, 256: 4 },
 };
 const SIZES = Object.values(SIZE_PRESETS);
 const CASES = THEMES.flatMap((theme) => SIZES.map((size) => [theme, size, RING_SEEDS[theme]?.[size] ?? 1] as const));
