@@ -590,6 +590,17 @@
   white-space: nowrap;
 }
 
+/* Heights' own line: the map's lowest and highest level under the ramp (as the folded key says them) */
+.legend-panel.in-column .height-ends {
+  display: flex;
+  justify-content: space-between;
+  height: var(--legend-row);
+  padding: 0 4px;
+  line-height: var(--legend-row);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel.in-column .swatch {
   width: 22px;
   height: 13px;
@@ -2214,6 +2225,17 @@
   margin-top: var(--legend-drop, 0px);
   max-height: var(--legend-max, none);
   overflow-y: auto;
+  /* (where the room is short the legend scrolls inside itself, its scrollbar thin, so the lines below
+     the edge are known to be there) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  /* (and a soft edge where more lines wait, top or bottom: the panel's colour over them, the edge's shadow behind) */
+  background:
+    linear-gradient(var(--panel) 30%, transparent) top / 100% 22px no-repeat local,
+    linear-gradient(transparent, var(--panel) 70%) bottom / 100% 22px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--muted) 85%, transparent), transparent) top / 100% 9px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--muted) 85%, transparent), transparent) bottom / 100% 9px no-repeat scroll,
+    var(--panel);
 }
 
 .gen {
