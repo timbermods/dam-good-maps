@@ -7,7 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CaveLight, caveSample, LIGHT_LEVELS } from "../../src/render3d/caveLight";
+import { CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
+import { skyVisibility } from "../../src/render3d/light";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
 import { LAYERS } from "../../src/render3d/model";
 
@@ -35,9 +36,10 @@ describe("light under roofs on maps without terrain above terrain", () => {
   it.each(maps)("%s %i² seed %i: no volume, and every face keeps the baked light", (theme, size, seed) => {
     const { W, H, heights } = generate(makeSpec({ seed, theme, size: { x: size, y: size } })).built;
     const src: TerrainSource = { W, H, heights, columns: new Map() };
-    expect(CaveLight.build(src), "the renderer builds no volume").toBeNull();
+    const sky = skyVisibility(W, H, heights);
+    expect(CaveLight.build(src, sky), "the renderer builds no volume").toBeNull();
     // and even with one built, the shader's rule hands every point of every face to the baked light
-    const v = CaveLight.build(src, true)!;
+    const v = CaveLight.build(src, sky, true)!;
     const { nx, ny } = chunkCount(W, H);
     let points = 0;
     for (let cy = 0; cy < ny; cy++)
@@ -78,7 +80,8 @@ describe("light under roofs on terrains with roofs", () => {
     if (x >= 8 && x <= 9 && y >= 6 && y <= 7 && z >= 6 && z <= 7) return false;
     return true;
   });
-  const v = CaveLight.build(src)!;
+  const sky = skyVisibility(W, H, src.heights);
+  const v = CaveLight.build(src, sky)!;
 
   it("builds a volume, 2 bytes a cell", () => {
     expect(v).not.toBeNull();
@@ -98,6 +101,13 @@ describe("light under roofs on terrains with roofs", () => {
     }
     // the deepest floor dims to the volume's least (the shader holds it at 0.30)
     expect(floor(10)![0]).toBeLessThanOrEqual(0.3);
+  });
+
+  it("a cave's mouth is never brighter than the open ground before it", () => {
+    // the tunnel opens east onto the ground at x = 20: its floor just inside, and at the roof line
+    const open = openSky(sky[10 * W + 20]) / 255;
+    for (const x of [19.7, 19.95]) expect(caveSample(v, [x, 2, -10.5], [0, 1, 0])![0]).toBeLessThanOrEqual(open);
+    expect(caveSample(v, [19.5, 2, -10.5], [0, 1, 0])![0]).toBeLessThan(open);
   });
 
   it("a sealed chamber takes the least sky and no sun", () => {
@@ -128,7 +138,7 @@ describe("relighting after an edit", () => {
     const solid = (x: number, y: number, z: number, g: Uint8Array) => z < g[y * W + x] && (z < 1 || !holes.some((h) => (x - h.x) ** 2 + (y - h.y) ** 2 + (z - h.z) ** 2 * 3 < h.r * h.r));
     let src = terrain(W, H, (x, y, z) => solid(x, y, z, ground));
     expect(src.columns.size).toBeGreaterThan(50);
-    const v = CaveLight.build(src)!;
+    const v = CaveLight.build(src, skyVisibility(W, H, src.heights))!;
     for (let k = 0; k < 60; k++) {
       // a dab on plain tiles (the brushes leave the columns alone): raise or lower a small square
       const x0 = Math.floor(rnd() * (W - 4));
@@ -143,9 +153,10 @@ describe("relighting after an edit", () => {
           heights[i] = Math.max(1, Math.min(LAYERS - 1, heights[i] + (rnd() < 0.5 ? -3 : 4)));
         }
       src = { ...src, heights };
-      const box = v.relight(src, rect);
+      const sky = skyVisibility(W, H, heights);
+      const box = v.relight(src, sky, rect);
       expect(box.x1 - box.x0).toBeLessThan(W);
-      const full = CaveLight.build(src)!;
+      const full = CaveLight.build(src, sky)!;
       expect(Buffer.from(v.data).equals(Buffer.from(full.data)), `edit ${k}`).toBe(true);
     }
   });

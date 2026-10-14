@@ -36,14 +36,17 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 ## Part 2: light in 3D (built, `feature/3d-view-light`)
 
 - **What:** `src/render3d/caveLight.ts`, Erode's light volume (`lightVolume`) on the mesher's column masks: two
-  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). R the sky: 255 in open air (at or above
-  its column's top), 229 in roofed air beside open air or the map's edge and 26 less per step through roofed air,
-  never below 64; 0 in rock. G the sun: a ray marched toward the sun from every roofed cell and every open cell
-  beside one, 255 or 0. The terrain shader (`materials.ts` `caveAt`, both looks) reads the cell half a cell along
-  the face's normal: where that cell is roofed air, the face takes `caveLightOf` (the filtered sky with a 0.30
-  floor, and the sun); anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
-  `light.ts` stands, untouched. One typed hook, `ShaderHooks.caveSun`: High multiplies the volume's sun by its own
-  soft shadow of the real meshes. Water and objects under roofs are not lit by it yet (part 4, and item 7).
+  bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). R the sky: roofed air (below its
+  column's top, not rock) walks it in from its openings, starting beside an open cell from that cell's sky less a
+  step (an open cell beside roofed air holds the sky the baked light gives its ground, 0.55 + 0.45 × the tile's sky
+  visibility; beside the map's edge 255) and 26 less per step, never below 64; 0 in rock. G the sun: a ray marched
+  toward the sun from every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts`
+  `caveAt`, both looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face
+  takes `caveLightOf` (the filtered sky with the look's sky occlusion, `skyLight`, never below 0.30; and the sun);
+  anywhere else (open air, rock under the slice's cut, outside the map) the baked light of `light.ts` stands. One
+  typed hook, `ShaderHooks.caveSun`: Standard takes the volume's sun where its baked shadow is lit too, High where
+  its soft shadow of the real meshes is. Open ground casts no contact shadow toward a cave's mouth (the roof above
+  is not a wall at its level). Water and objects under roofs are not lit by it yet (part 4, and item 7).
 - **Equivalence:** a map with no column that is not plain builds no volume (`caveSize` 0: the shader returns before
   reading it). `tests/unit/caveLight.test.ts` builds the volume anyway on seven generated maps (all six themes and
   Any, 96², 128², 256²), meshes every chunk and samples every quad's middle and four inner points through
@@ -53,16 +56,20 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   levels, all on the moving water's surface (located by a diff mask); the terrain is pixel-identical.
 - **On cave maps** (official imports): cave floors, walls and ceilings take their own air's light: bright at the
   mouth, dimmer inward to the 0.30 floor, sun where a ray reaches them; floors no longer take the fixed light of
-  the overhang's shade, nor walls their top's sky. Seen from above, only the undersides and floors visible along
-  hollowed cliffs change (0.4–1.7% of the frame).
-- **Relight:** after a change of heights only the changed tiles' cells are reset, the sky walk is redone within 8
-  tiles of them (seeded from the unchanged lit air just outside), and the sun only for cells whose ray can cross
+  the overhang's shade, nor walls their top's sky. A mouth is never brighter than the open ground before it, with
+  no step at the roof line: measured once on 16 mouths of two official maps with a flat grey on every face, the
+  floor 0.3 into the mouth against the open tile before it and either side of the roof line (Standard: darker in
+  all 16, the line within 5 levels; High: the line within 4 levels, while High's own occlusion field brightens the
+  open tile from its middle toward the mouth, and the cave carries on from there). Seen from above, only hollowed
+  cliffs and the open ground at mouths change (0.6–2.1% of the frame).
+- **Relight:** after a change of heights only the changed tiles' cells are reset, the sky is redone within 14
+  tiles of them (their tiles' sky visibility reaches 5, the walk 8; seeded from the unchanged lit air just outside), and the sun only for cells whose ray can cross
   them (within 15 tiles down-sun); the same bytes as building it again (the test, 60 random dabs among random
   caves). The box goes to the GPU by itself (`rowUploads.ts` `BoxUploads`, `texSubImage3D`), not the whole texture.
   Measured once in Node on this machine, the light work of a dab of radius 6 at 256² (sky, tile data, shadows, and
-  now the volume), dabs placed on cave tiles: official cave maps 0.52–0.59 ms median before, 0.58–0.72 ms after
-  (Hollows-like `builtin_18` at 192²: 0.55 → 1.0 ms); a generated map: no change (no volume). Building the volume
-  when a map opens: 1–70 ms on the official maps.
+  now the volume), dabs placed on cave tiles: official cave maps at 256² 0.51–0.55 ms median before, 0.59–0.79 ms after
+  (`builtin_18`, 192², the most caves: 0.55 → 1.2 ms); a generated map: no change (no volume). Building the volume
+  when a map opens: up to about 0.25 s on the official maps (once, with the map).
 - **Memory:** 2 bytes a cell × 24 levels: 3.0 MB at 256², 12.6 MB at 512² (in memory and on the GPU), only on maps
   with air under a roof.
 - **Captures:** `docs/sheets/3d-view-light.jpg`.

@@ -1003,7 +1003,7 @@ export class MapRenderer {
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops));
-    this.cave = CaveLight.build(source);
+    this.cave = CaveLight.build(source, sky);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
     u.caveTex.value = this.caveTex ?? this.noCave;
@@ -1284,7 +1284,7 @@ export class MapRenderer {
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map;
     if (!m || !this.cave) return;
-    const box = this.cave.relight(m.source, rect);
+    const box = this.cave.relight(m.source, m.sky, rect);
     this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
   }
 
