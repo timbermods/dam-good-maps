@@ -34,7 +34,8 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 - **Every control says what it does** (D351, D361, D368 (6)): each tool, force, option, view toggle, shelf item and
   button has a tooltip, a short phrase (about 60 characters at most, no second sentence, no technical detail) that
   says what it is for at a glance, then its shortcut at the end as a small key cap, never in brackets ("Carve a
-  river" then a cap 7). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
+  river" then a cap 7). A force's tooltip starts with a verb ("Strike a crater", "Raise a volcano"); a toggle's Off
+  says what is absent ("No lake at its head"). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
   its `title` and its keys in `data-keys` (`tip("Carve a river", "7")`). Whoever changes a control updates its
   tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one, with a
   second sentence, past that length, with a key in brackets, or named with a key its tooltip doesn't end with
@@ -125,7 +126,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
-  - The forces: Power · Size (Auto: it follows Power) · their choices (Carve's What it leaves, Wander, Walls, Canyon
+  - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Side (V) and Scarp; Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
     Try another, always in its place, ready once a run is kept. A force at work: its status, Pause (Carve) and Revert.

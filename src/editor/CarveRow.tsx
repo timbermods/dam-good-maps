@@ -160,7 +160,7 @@ export function CarveRow(p: CarveRowProps) {
           key: "size",
           row: 1,
           at: 4,
-          span: 2,
+          span: 3,
           node: (
             <NumberSetting
               label="Size"
@@ -179,7 +179,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "leaves",
           row: 1,
-          at: 6,
+          at: 7,
           span: 2,
           node: (
             <ChoiceSetting<"river" | "canyon">
@@ -196,7 +196,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "walls",
           row: 1,
-          at: 8,
+          at: 9,
           span: 2,
           node: (
             <ChoiceSetting<"steep" | "wide">
@@ -214,8 +214,8 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "wander",
           row: 1,
-          at: 10,
-          span: 4,
+          at: 11,
+          span: 3,
           node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
         },
         {

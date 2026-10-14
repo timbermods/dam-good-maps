@@ -22,12 +22,13 @@ export interface ShortcutGroup {
 export const SHORTCUTS_KEY = "?";
 
 /** Shorter words than the tooltip's, where its hint would take a second line here. */
-const SHORT: Record<string, string> = { Rift: "a crack that drops the land", Deposit: "a fan of sediment" };
+const SHORT: Record<string, string> = { Deposit: "lay a fan of sediment" };
 
-/** A force's line: its name as the bar shows it, then what it does ("Carve: a river"). */
+/** A force's line: its name as the bar shows it, then what it does, in lower case ("Carve: a river", "Erupt: raise a volcano"). */
 const forceWhat = (name: string, hint?: string) => {
   hint = SHORT[name] ?? hint;
-  const rest = hint?.toLowerCase().startsWith(`${name.toLowerCase()} `) ? hint.slice(name.length + 1) : hint;
+  let rest = hint?.toLowerCase().startsWith(`${name.toLowerCase()} `) ? hint.slice(name.length + 1) : hint;
+  if (rest) rest = rest.charAt(0).toLowerCase() + rest.slice(1);
   return rest ? `${name}: ${rest}` : name;
 };
 

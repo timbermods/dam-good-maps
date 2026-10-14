@@ -339,7 +339,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
-  - **Carve** and the other forces: Power 3 · Size 3 (with Auto) · What it leaves 3 · More 2.
+  - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
     group on whole cells; the bar never moves.
@@ -381,9 +381,13 @@ refinements and what the mockups left open:
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
   at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; every tool's rows share their
-  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it): Craterize and Erupt
-  on cells 3, 6 and 9, Rift and Deposit on 6 and 9, Quake on 3 and 9, Glaciate on 3, 6, 9
-  and 11, Carve on 3, 5, 7 and 9 (its ten settings two cells each, Power, Wander and Canyon depth wider); the brushes
+  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it). **Power is always
+  cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
+  setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
+  Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
+  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve What it leaves 7–8, Walls 9–10, Wander 11–13, then
+  Canyon depth, River depth, Banks and the Floor on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.
   The rest of this item describes the build before.
