@@ -48,7 +48,7 @@ export function viewButtons(ed: Ed) {
 /** Caves and overhangs, on a map that has them: beside Legend at the top right (at 1920×1080 the Show row has no room for
  *  it before the water row). */
 export function roofsButton(ed: Ed) {
-  return ed.waterLayers?.roofed.length ? overlayRow(ed, "roofed") : null;
+  return ed.info.caves ? overlayRow(ed, "roofed") : null;
 }
 
 /** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */

@@ -993,8 +993,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     last water stays on show while the canonical settle runs in the background, in slices, the dot saying
     "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
     on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
-    refused there with one plain line each until each has its rule for water in caves. The **Caves and
-    overhangs** view button marks the tiles the tools leave as they are (D40).
+    refused there with one plain line each until each has its rule for water in caves (a refused Drought or
+    Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).
+    The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
+    leave as they are (D40).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.

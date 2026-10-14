@@ -26,8 +26,7 @@ test("a map with caves: an edit's water settles in the background and shows when
   await waitForEditor(page);
   expect(await page.evaluate(() => window.dgmEditor!.info().notices)).toEqual(["This map has caves or overhangs. The tools leave them as they are."]);
 
-  // the layer: its toggle and its words (the page shows the toggle once an overlay has been on)
-  await page.getByRole("checkbox", { name: "Badwater" }).click();
+  // the layer: its toggle, there from the start on a map with caves, and its words
   const layer = page.getByRole("checkbox", { name: "Caves and overhangs" });
   await expect(layer).toBeVisible();
   await layer.click();
@@ -70,15 +69,19 @@ test("a map with caves: an edit's water settles in the background and shows when
   await expect(page.getByText(CAVE_REFUSALS.fill)).toBeVisible();
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "removeUnfedWater", params: { tiles: [t], pools: 1 } }, "Remove unfed water"), i);
   await expect(page.getByText(CAVE_REFUSALS.removeUnfed)).toBeVisible();
-  // Drought and Badtide: the worker refuses with the line, and the map keeps its own water (the page has no
-  // place for the line yet: docs/progress/3d-foundations.md, "What the page needs")
+  // Drought and Badtide: the worker refuses with the line; the page shows it, the button goes back up, the day box reads "Day –"
+  // and the map keeps its own water
   for (const hazard of ["drought", "badtide"] as const) {
     const said = await page.evaluate((h) => window.dgmEditor!.worker.showWeatherDay(h, null).then(() => "", (e: unknown) => String((e as Error).message ?? e)), hazard);
     expect(said).toContain(CAVE_REFUSALS.weather);
   }
   const before = await depthAt(page, 57, 26);
-  await page.getByRole("button", { name: "Drought", exact: true }).click();
-  await expect(page.locator(".day-label")).not.toHaveClass(/counting/);
-  expect(await depthAt(page, 57, 26)).toBe(before);
-  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  for (const name of ["Drought", "Badtide"]) {
+    const button = page.getByRole("button", { name, exact: true });
+    await button.click();
+    await expect(page.getByText(CAVE_REFUSALS.weather)).toBeVisible();
+    await expect(button).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".day-label")).toHaveText("Day –");
+    expect(await depthAt(page, 57, 26)).toBe(before);
+  }
 });

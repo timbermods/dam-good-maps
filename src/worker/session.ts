@@ -89,6 +89,8 @@ export interface SessionInfo {
   badwaterRemoved: boolean;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
+  /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
+  caves: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -196,6 +198,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
     waterPending: s.waterPending,
+    caves: s.roofedTiles.size > 0,
     version,
   };
 }

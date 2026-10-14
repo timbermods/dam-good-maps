@@ -442,14 +442,11 @@ the soil rules per run on the map's own water against its stored moisture slots:
 
 ### What is not done, and what others need
 
-- **The page** (`session/useSession.ts`, not this session's file): `toggleWeather` and `holdWeatherDay` drop the
-  answer of `api.showWeatherDay`. On a map with caves the worker refuses with its line and sends the map's own
-  water as day 0, so the Drought or Badtide button stays pressed, the day box reads the hazard's last day, the
-  water does not change and no line shows. It needs: catch the refusal, release the button, show the line as the
-  other refusals are shown. Fill and Remove unfed water have no control in the page yet; their refusals are the
-  operations'.
-- **The page** (`paint/usePaint.ts`): the water layers are fetched only while an overlay is on, so the Caves and
-  overhangs toggle shows only once Badwater has been on. The same on dev before this change.
+- **The page** (`session/useSession.ts`, `render/viewControls.tsx`): a refused Drought or Badtide shows the
+  worker's line where an edit's refusal shows (`setMessage`, the line under the bar), the button goes back up and
+  the day box back to "Day –" (`askWeatherDay`, `weatherOff`). The Caves and overhangs toggle shows from the
+  start on such a map (`SessionInfo.caves`), not only once an overlay has been on. `tests/e2e/caveWater.spec.ts`
+  holds both. Fill and Remove unfed water have no control in the page yet; their refusals are the operations'.
 - **`src/editor/Header.tsx` line 133** ("The water and start checks are approximate here: …") needs no change: it
   prints whatever reason the checks give, and the cave reason is simply no longer given.
 - **The renderer** draws the water it is sent, column by column, as it drew the file's own water under roofs
