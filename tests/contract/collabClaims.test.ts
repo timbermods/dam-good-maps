@@ -1,13 +1,16 @@
 // Collaborative editing, claims (PLAN §20 D362, D486; docs/COLLAB-BRIEF.md §2 to §4; core/collab/claims.ts,
 // footprint.ts, waterNotes.ts): who holds which ground, what an edit reaches, and the quiet note when an
 // edit changes the water in the other player's area. The core is exercised directly, headless, on small
-// generated maps. Footprints are held against the tiles the edits actually changed: no changed tile may
-// escape the footprint, and none the cautious band the page shows while a stroke is drawn.
+// generated maps. The host decides on the record's exact writes (#397's touchesOf, plus the generated trees
+// an entry fells); the cautious band the page shows while a stroke is drawn is held against those writes
+// (no written tile may escape it), and a force's plan footprint too. The long sweep of every force is in
+// collabClaims.heavy.test.ts (nightly).
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { check, ClaimsState, parseCommand, reachInto, refusal, refusalForWrites, type ClaimCommand, type PlayerNames } from "../../src/core/collab/claims";
-import { bandOf, changedTiles, footprintOf, forceBand, TileMask } from "../../src/core/collab/footprint";
-import { describeWaterNote, waterNote } from "../../src/core/collab/waterNotes";
+import { claimsCheck, ClaimsState, parseCommand, reachInto, refusal, refusalForWrites, type ClaimCommand, type PlayerNames, type Role } from "../../src/core/collab/claims";
+import { bandOf, footprintOf, forceBand, trialWrites, TileMask, writtenBy } from "../../src/core/collab/footprint";
+import { Mask } from "../../src/core/collab/mask";
+import { describeWaterNote, waterNote, waterNotes } from "../../src/core/collab/waterNotes";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { planEntity, planMoveEntity } from "../../src/core/doc/placing";
@@ -15,17 +18,13 @@ import { planRemove } from "../../src/core/doc/remove";
 import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
-import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
-import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
-import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
-import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
-import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { FOOTPRINTS } from "../../src/core/format/footprints";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { mulberry } from "./brushRandom";
+import { act, GUEST, GUID, HOST, sit } from "./collabFixtures";
+import { holdForce, open, planOf } from "./collabClaimsForces";
 
 const W = 64;
 const NAMES: PlayerNames = { host: "Kyler", guest: "Emma" };
@@ -37,11 +36,13 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
   return out;
 };
 
-/** One generated map for every test (generating is the slow part); each test gets a session of its own. */
-let generated: ReturnType<typeof generate> | null = null;
+/** One generated map, saved as the app saves it; every test opens its own session from it. */
+let bytes: Uint8Array;
+beforeAll(() => {
+  bytes = MapSession.fromGenerated(generate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }))).project();
+}, 300_000);
 function session(water: "defer" | "canonical" = "defer"): MapSession {
-  generated ??= generate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
-  const s = MapSession.fromGenerated(generated, generated.file);
+  const s = MapSession.open(decodeProject(bytes));
   s.setWaterMode(water);
   return s;
 }
@@ -57,23 +58,25 @@ function bare(s: MapSession, w: number, h: number): [number, number] {
 }
 
 /** Tiles of `a` that are not in `b`. */
-function outside(a: TileMask, b: TileMask): number {
+function outside(a: TileMask | Mask, b: TileMask | Mask): number {
+  const N = a instanceof TileMask ? a.bits.length : a.N;
   let n = 0;
-  for (let i = 0; i < a.bits.length; i++) if (a.bits[i] && !b.bits[i]) n++;
+  for (let i = 0; i < N; i++) if (a.has(i) && !b.has(i)) n++;
   return n;
 }
 
-/** Apply `ops` as one step on `s` and hold their footprint and band against the tiles they changed. */
-function held(s: MapSession, ops: EditOp[], what: string): { changed: number } {
-  const before = s.built;
-  const fp = footprintOf(ops, s);
+/** What the host will record as written by `ops` on `s`, held against the cautious band (and the plan's
+ *  footprint for a force); then the step is applied, so the next one starts from where it leaves the map. */
+function held(s: MapSession, ops: EditOp[], what: string): { written: number } {
   const band = bandOf(ops, s);
+  const trial = trialWrites(s, ops);
+  expect(trial.ok, what).toBe(true);
+  if (!trial.ok) return { written: 0 };
+  expect(outside(trial.writes, band.tiles), `${what}: a tile the host records escapes the cautious band`).toBe(0);
+  if (ops.some((o) => o.op === "forceResult")) expect(outside(trial.writes, footprintOf(ops, s).tiles), `${what}: a written tile escapes the plan's footprint`).toBe(0);
   const r = ops.length === 1 ? s.apply(ops[0]) : s.applyAll(ops);
   expect(r.errors, what).toEqual([]);
-  const ch = changedTiles(before, s.built);
-  expect(outside(ch, fp.tiles), `${what}: a changed tile escapes the footprint`).toBe(0);
-  expect(outside(fp.tiles, band.tiles), `${what}: the footprint is not inside the cautious band`).toBe(0);
-  return { changed: ch.count() };
+  return { written: trial.writes.size };
 }
 
 describe("claims (§2)", () => {
@@ -208,26 +211,31 @@ describe("claims (§2)", () => {
     expect(ClaimsState.fromSnapshot(json, 32, 32)).toEqual({ ok: false, reason: "The claims are for a map of another size" });
     const both = { ...json, guest: [...json.guest, [4, 4, 4]] };
     expect(ClaimsState.fromSnapshot(both, W, W)).toEqual({ ok: false, reason: "The claims overlap" });
-    const stray = { ...json, offers: [{ id: 5, from: "guest", to: "host", runs: [[4, 4, 4]] }] };
+    const stray = { ...json, nextOffer: 6, offers: [{ id: 5, from: "guest", to: "host", runs: [[4, 4, 4]] }] };
     expect(ClaimsState.fromSnapshot(stray, W, W)).toEqual({ ok: false, reason: "An offer is of ground its offerer does not hold" });
     expect(ClaimsState.fromSnapshot({ ...json, version: 2 }, W, W).ok).toBe(false);
+    // refused: two offers with one number, and a next number that is not past the ones waiting
+    const offer = (id: number, y: number) => ({ id, from: "host", to: "guest", runs: [[y, 4, 5]] });
+    expect(ClaimsState.fromSnapshot({ ...json, nextOffer: 9, offers: [offer(3, 5), offer(3, 6)] }, W, W)).toEqual({ ok: false, reason: "Two offers have the same number" });
+    expect(ClaimsState.fromSnapshot({ ...json, nextOffer: 3, offers: [offer(3, 5)] }, W, W)).toEqual({ ok: false, reason: "The next offer number is not past the offers waiting" });
+    expect(ClaimsState.fromSnapshot({ ...json, nextOffer: 4, offers: [offer(3, 5)] }, W, W).ok).toBe(true);
+    // the arrays of runs are bounded
+    expect(ClaimsState.fromSnapshot({ ...json, host: Array.from({ length: 1048577 }, () => [0, 0, 0]) }, W, W).ok).toBe(false);
   });
 
-  it("never reaches the saved map: a session's bytes, project and export are the same with claims in play", () => {
+  it("never reaches the saved map: the project and the export are the same with claims in play", () => {
     const s = session();
     const c = claims();
-    const exported = s.exportTimber().bytes;
     const project = JSON.stringify(s.document);
     ok(c.apply("host", { kind: "claim", runs: square(4, 4, 20, 12) }, NAMES));
     ok(c.apply("guest", { kind: "claim", runs: square(30, 30, 40, 40) }, NAMES));
     ok(c.apply("host", { kind: "offer", runs: square(4, 4, 8, 6) }, NAMES));
-    expect(s.exportTimber().bytes).toEqual(exported);
-    expect(JSON.stringify(s.document)).toBe(project);
-    // and an edit refused for reaching into a claim leaves no mark either: the map is the same as ever
+    // an edit refused for reaching into a claim leaves no mark either: the trial takes it back whole
     const op: EditOp = { op: "sculpt", params: { mode: "raise", cells: [run(35, 32, 34)], amount: 1 } };
     expect(refusal(op, c, "host", s, NAMES)).toBe("Reaches into Emma's area");
-    expect(s.exportTimber().bytes).toEqual(exported);
-    expect(Buffer.from(exported).includes(Buffer.from("claim"))).toBe(false);
+    expect(JSON.stringify(s.document)).toBe(project);
+    expect(JSON.stringify(s.document)).not.toContain("claim");
+    expect(Buffer.from(s.exportTimber().bytes).includes(Buffer.from("claim"))).toBe(false);
   });
 });
 
@@ -253,7 +261,7 @@ describe("what an edit reaches (§3)", () => {
         params.dabs = [4 * cx + 2, 4 * cy + 2, 4 * (cx + 5) + 2, 4 * (cy + 4) + 2];
       }
       if (k % 9 === 5) params.area = square(cx - 2, cy - 2, cx + 6, cy + 6);
-      changed += held(s, [{ op: "brush", params } as unknown as EditOp], `brush ${k} ${tool}`).changed;
+      changed += held(s, [{ op: "brush", params } as unknown as EditOp], `brush ${k} ${tool}`).written;
     }
     expect(changed).toBeGreaterThan(200);
   });
@@ -336,7 +344,7 @@ describe("what an edit reaches (§3)", () => {
     held(s, [op], "paint trees");
   });
 
-  it("a feature operation reaches everywhere; the start's move only the start and its bench", () => {
+  it("a feature operation has its real footprint where there is one: the start its bench, a lock nothing; any other rebuilds the map", () => {
     const s = session();
     const start = s.features.find((f) => f.kind === "start")!;
     const move: EditOp = { op: "updateFeature", params: { id: start.id, patch: { params: { position: [40, 20], benchLevel: s.built.heights[20 * W + 40] } } } };
@@ -344,11 +352,19 @@ describe("what an edit reaches (§3)", () => {
     expect(fp.whole).toBe(false);
     expect(fp.tiles.has(20 * W + 40)).toBe(true);
     expect(fp.tiles.count()).toBeLessThan(200);
+    // a lock toggled writes nothing, and the host's trial agrees
     const other = s.features.find((f) => f.kind !== "start")!;
-    const edit: EditOp = { op: "updateFeature", params: { id: other.id, patch: { locked: true } } };
+    const lock: EditOp = { op: "updateFeature", params: { id: other.id, patch: { locked: true } } };
+    expect(footprintOf(lock, s).tiles.count()).toBe(0);
+    expect(footprintOf(lock, s).whole).toBe(false);
+    const locked = trialWrites(s, lock);
+    expect(locked.ok && locked.writes.size).toBe(0);
+    // a feature's parameters change land the build decides on: the whole map until it is known
+    const edit: EditOp = { op: "updateFeature", params: { id: other.id, patch: { params: {} } } };
     const wide = footprintOf(edit, s);
     expect(wide.whole).toBe(true);
     expect(wide.tiles.count()).toBe(W * W);
+    held(s, [move], "move the start");
   });
 });
 
@@ -388,7 +404,7 @@ describe("the refusal (§3)", () => {
     expect(refusal(flat, c, "host", s, NAMES)).toBe("Reaches into Emma's area");
   });
 
-  it("takes the write mask of an applied entry directly (the host's check), as a footprint, a mask, bytes or tiles", () => {
+  it("takes the write mask of an applied entry directly, as a footprint, a mask, bytes or tiles", () => {
     const c = new ClaimsState(W, W);
     c.apply("guest", { kind: "claim", runs: square(30, 30, 40, 40) }, NAMES);
     const inside = 35 * W + 35;
@@ -403,10 +419,6 @@ describe("the refusal (§3)", () => {
     expect(refusalForWrites([beside, inside], c, "host", NAMES)).toBe("Reaches into Emma's area");
     expect(refusalForWrites({ has: (i) => i === inside }, c, "host", NAMES)).toBe("Reaches into Emma's area");
     expect(refusalForWrites({ tiles: mask, whole: false }, c, "host", NAMES)).toBe("Reaches into Emma's area");
-    expect(check({ by: "host" }, { W: mask }, { claims: c, names: NAMES })).toBe("Reaches into Emma's area");
-    expect(check({ by: "guest" }, { W: mask }, { claims: c, names: NAMES })).toBeNull();
-    expect(check({ by: "host" }, { writes: [beside] }, { claims: c })).toBeNull();
-    expect(check({ by: "host" }, null, { claims: c })).toBeNull();
     // the tiles that would land there, for the page to show in her colour
     expect(reachInto(mask, c, "host")).toEqual([inside]);
     expect(reachInto(mask, c, "guest")).toEqual([]);
@@ -440,66 +452,16 @@ describe("the cautious band while drawing (§3)", () => {
   });
 });
 
-/** The forces, run in the editor's worker the page's way; each one's completed plan as the operations it
- *  became, the map it started from and what it actually changed. */
-describe("forces: the exact footprint of the plan, and the cautious band of the gesture", () => {
-  /** The operations a force became (the force and, when it carried the start, the carry), run to its end in
-   *  the worker the page's way. */
-  const planOf = (req: ed.ForceRequest): EditOp[] | null => {
-    const n0 = decodeProject(ed.project().bytes).edits.length;
-    if (ed.forceStart(req).errors.length) return null;
-    for (let k = 0; k < 800 && !ed.forceAdvance(8)!.done; k++);
-    if (ed.forceStop().errors.length) return null;
-    return decodeProject(ed.project().bytes).edits.slice(n0).map((e) => ({ op: e.op, params: e.params }) as EditOp);
-  };
-  const open = () => MapSession.open(decodeProject(ed.project().bytes));
-  beforeAll(async () => {
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+describe("forces: the plan's footprint and the gesture's band, held against what the host records", () => {
+  beforeAll(() => {
+    ed.openProject(bytes);
   }, 300_000);
 
-  it("every force: no changed tile outside the plan's footprint, the footprint inside the gesture's band", () => {
-    const cases: Record<string, unknown>[] = [];
-    // (a small and a large power; the cheap forces at both, the long-running ones at the large)
-    for (const power of [15, 70]) {
-      const at: [number, number] = power < 50 ? [22, 22] : [44, 40];
-      const big = power >= 50;
-      cases.push({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power }, origin: at, cut: null });
-      cases.push({ verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "aim", power, rays: true }, origin: at, end: [at[0] + 14, at[1] + 6], cut: null });
-      cases.push({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power }, origin: at, cut: null });
-      cases.push({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "fissure", power }, origin: at, path: [{ x: at[0] - 8, y: at[1] }, { x: at[0] + 8, y: at[1] + 3 }], cut: null });
-      cases.push({ verb: "rift", settings: { ...RIFT_DEFAULTS, power, size: 22 }, path: [{ x: at[0], y: at[1] }, { x: at[0] + 12, y: at[1] + 10 }], cut: null });
-      cases.push({ verb: "deposit", settings: { ...DEPOSIT_DEFAULTS, power, size: 20 }, path: [{ x: at[0], y: at[1] }, { x: at[0] + 12, y: at[1] + 10 }], cut: null });
-      if (!big) continue;
-      cases.push({ verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "unleash", power }, origin: at, cut: null });
-      cases.push({ verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power }, origin: at, end: [at[0] + 20, at[1] + 5], cut: null });
-      cases.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power }, path: [{ x: at[0] - 15, y: at[1] }, { x: at[0] + 15, y: at[1] + 3 }], side: 1, cut: null });
-      cases.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power }, path: [{ x: at[0] - 15, y: at[1] }, { x: at[0] + 15, y: at[1] + 3 }], side: -1, cut: null });
-      cases.push({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power }, origin: at, cut: null });
-    }
-    let seen = 0;
-    for (const req of cases as unknown as ed.ForceRequest[]) {
-      const mirror = open();
-      const ops = planOf(req);
-      if (!ops) continue;
-      ed.undo();
-      const force = ops.find((o) => o.op === "forceResult");
-      if (!force || force.op !== "forceResult") continue;
-      const label = `${req.verb} ${(req.settings as { mode?: string }).mode ?? ""} power ${(req.settings as { power: number }).power}`;
-      const before = mirror.built;
-      const fp = footprintOf(ops, mirror);
-      const band = forceBand({ verb: req.verb, settings: force.params.settings, where: force.params.where }, mirror);
-      expect(mirror.applyAll(ops).errors, label).toEqual([]);
-      const ch = changedTiles(before, mirror.built);
-      expect(ch.count(), label).toBeGreaterThan(0);
-      expect(outside(ch, fp.tiles), `${label}: a changed tile escapes the plan's footprint`).toBe(0);
-      expect(outside(fp.tiles, band.tiles), `${label}: the plan's footprint is not inside the gesture's band`).toBe(0);
-      // the same band from the page's own request
-      expect(outside(fp.tiles, forceBand(req as never, mirror).tiles), `${label}: from the request`).toBe(0);
-      seen++;
-    }
-    expect(seen).toBeGreaterThanOrEqual(14);
-  }, 300_000);
+  it("a Craterize and an aimed Carve", () => {
+    const at: [number, number] = [32, 28];
+    expect(holdForce({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 50 }, origin: at, cut: null } as unknown as ed.ForceRequest)).not.toBeNull();
+    expect(holdForce({ verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 60 }, origin: at, end: [at[0] + 14, at[1] + 6], cut: null } as unknown as ed.ForceRequest)).not.toBeNull();
+  }, 120_000);
 
   it("a force reaching into a claim is refused from its plan; Try another counts the force it replaces", () => {
     const mirror = open();
@@ -529,28 +491,91 @@ describe("forces: the exact footprint of the plan, and the cautious band of the 
     for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++);
     expect(ed.forceStop().errors).toEqual([]);
     const second = decodeProject(ed.project().bytes).edits.slice(n1).map((e) => ({ op: e.op, params: e.params }) as EditOp);
-    const replaces = (second.find((o) => o.op === "forceResult") as { params: { replaces?: number } }).params.replaces;
-    expect(replaces).toBeDefined();
-    const before = kept.built;
+    expect((second.find((o) => o.op === "forceResult") as { params: { replaces?: number } }).params.replaces).toBeDefined();
     const fp2 = footprintOf(second, kept);
-    expect(kept.applyAll(second).errors).toEqual([]);
-    // every changed tile is in the footprint, but for an object the replaced force had removed that
+    const written = trialWrites(kept, second);
+    expect(written.ok).toBe(true);
+    // every tile the host records is in the footprint, but for an object the replaced force had removed that
     // stands again (its place is not in the map this footprint reads; the host's record holds it)
-    const prior = (first.find((o) => o.op === "forceResult") as unknown as { params: { removed: string[] } }).params.removed;
-    const restored = new Set(kept.built.entities.filter((e) => prior.includes(e.id)).map((e) => e.y * W + e.x));
-    const ch = changedTiles(before, kept.built);
-    for (let i = 0; i < ch.bits.length; i++) if (ch.bits[i] && !fp2.tiles.bits[i]) expect(restored.has(i), `tile ${i} escapes the footprint`).toBe(true);
+    const prior = (first.find((o) => o.op === "forceResult") as unknown as { params: { removed: string[]; tiles: number[] } }).params;
+    kept.applyAll(second);
+    const restored = new Set(kept.built.entities.filter((e) => prior.removed.includes(e.id)).map((e) => e.y * W + e.x));
+    if (written.ok) for (const i of written.writes.tiles()) if (!fp2.tiles.has(i)) expect(restored.has(i), `tile ${i} escapes the footprint`).toBe(true);
     // the force it replaced is in it, so a claim only the first force reached still refuses the second
-    const gone = new TileMask(W, W);
-    for (const i of (first.find((o) => o.op === "forceResult") as unknown as { params: { tiles: number[] } }).params.tiles) gone.add(i);
-    expect(outside(gone, fp2.tiles)).toBe(0);
+    for (const i of prior.tiles) expect(fp2.tiles.has(i)).toBe(true);
     ed.undo();
     ed.undo();
   }, 120_000);
 });
 
+describe("the host's check (#397's seam): claimsCheck", () => {
+  const NAMES2: PlayerNames = { host: "Ada", guest: "Bo" };
+  const roleOf = (a: string): Role => (a === HOST ? "host" : "guest");
+  const crater = (x: number, y: number, seed = 5, debris = "heavy", size = 16, power = 80, rays = false) => ({ kind: "force", gesture: { id: GUID(5000 + seed), request: { verb: "craterize", settings: { mode: "strike", power, size, walls: "terraced", centre: "auto", debris, rays, seed }, origin: [x, y], cut: null, natural: true } } }) as never;
+  const stroke = (x: number, y: number): never => ({ kind: "edit", label: "Raise", ops: [{ op: "brush", params: { tool: "raise", size: 2, strength: 8, dabs: [4 * x + 2, 4 * y + 2, 4 * (x + 1) + 2, 4 * y + 2] } }] }) as never;
+
+  it("refuses an entry that wrote into the other's area and takes it back; each player edits their own area", () => {
+    const claims = new ClaimsState(W, W);
+    const t = sit(bytes, { check: claimsCheck(() => claims, roleOf, NAMES2) }, [GUEST]);
+    const [bx, by] = bare(t.host.session, 30, 14);
+    claims.apply("host", { kind: "claim", runs: square(bx, by, bx + 10, by + 10) }, NAMES2);
+    claims.apply("guest", { kind: "claim", runs: square(bx + 16, by, bx + 26, by + 10) }, NAMES2);
+    const mine = stroke(bx + 5, by + 5);
+    const hers = stroke(bx + 21, by + 5);
+    const reason = (a: { kind: string }) => (a.kind === "reject" ? (a as unknown as { reason: string }).reason : "ordered");
+    // the host edits his own area (the author is an id, not a role: he is not refused in his own claim)
+    expect(reason(act(t, HOST, mine))).toBe("ordered");
+    const hash = t.host.hash();
+    const seq = t.host.seq;
+    // into hers: refused, one plain line, the sequence does not advance, nothing is left of it
+    expect(reason(act(t, HOST, hers))).toBe("Reaches into Bo's area");
+    expect(t.host.seq).toBe(seq);
+    expect(t.host.hash()).toBe(hash);
+    expect(t.guests.get(GUEST)!.hash()).toBe(hash);
+    // she edits hers, outside both, and is refused in his
+    expect(reason(act(t, GUEST, hers))).toBe("ordered");
+    expect(reason(act(t, GUEST, stroke(58, 58)))).toBe("ordered");
+    expect(reason(act(t, GUEST, mine))).toBe("Reaches into Ada's area");
+    // a player the claims do not know is refused, not taken for the host
+    const check = claimsCheck(() => claims, () => undefined as unknown as Role, NAMES2);
+    expect(check({ author: "x" } as never, { writes: new Mask(W * W) } as never, t.host as never)).toBe("That player has no place in the claims");
+    // nothing is held: nothing is refused
+    const none = new ClaimsState(W, W);
+    expect(claimsCheck(() => none, roleOf)({ author: GUEST } as never, { writes: new Mask(W * W).add(1), keys: [] } as never, t.host as never)).toBeNull();
+  }, 120_000);
+
+  it("a crater's knocked-down trees count: they lie on ground the crater did not change", () => {
+    // a Light crater with Rays at the middle fells twelve generated trees; the record's patch has no tile for them
+    const gesture = crater(32, 32, 5, "light", 24, 60, true);
+    const probe = sit(bytes, {}, [GUEST]);
+    let extra: number[] = [];
+    probe.host.setCheck((_e, record, state) => {
+      const all = writtenBy({ writes: record.writes, keys: record.keys }, state.session);
+      extra = all.tiles().filter((i) => !record.writes.has(i));
+      return "probe";
+    });
+    act(probe, HOST, gesture);
+    expect(extra.length, "no tree felled off the ground the record says was written").toBeGreaterThan(0);
+    // her claim is one such tree's ground, and nothing else the crater wrote: the record alone lets it through
+    const claims = new ClaimsState(W, W);
+    const tile = extra[0];
+    claims.apply("guest", { kind: "claim", runs: [run(Math.floor(tile / W), tile % W, tile % W)] }, NAMES2);
+    const t = sit(bytes, {}, [GUEST]);
+    const seam = claimsCheck(() => claims, roleOf, NAMES2);
+    t.host.setCheck((entry, record, state) => {
+      expect(refusalForWrites(record.writes, claims, "host", NAMES2), "the record alone").toBeNull();
+      return seam(entry, record, state);
+    });
+    const answer = act(t, HOST, gesture);
+    expect(answer.kind).toBe("reject");
+    expect((answer as unknown as { reason: string }).reason).toBe("Reaches into Bo's area");
+    expect(t.host.seq).toBe(0);
+  }, 120_000);
+});
+
 describe("water notes (§4)", () => {
-  it("notes who flooded the other's area and where, and nothing for an edit far from it", () => {
+  const roleOf = (a: string): Role => (a === "kyler" ? "host" : "guest");
+  it("notes whose edits flooded the other's area and where, and nothing for an edit far from it", () => {
     const s = session("canonical");
     const claims = new ClaimsState(W, W);
     // hers beside the spring's flood, his own elsewhere
@@ -563,11 +588,14 @@ describe("water notes (§4)", () => {
     expect(s.applyAll(plan.ops).errors).toEqual([]);
     // the water flows across her claim: the edit was never refused for it
     expect(refusal(plan.ops, claims, "host", s, NAMES)).toBeNull();
-    const note = waterNote(before, s.built.water, claims, "host");
+    const batch = [{ author: "kyler", seq: 7 }];
+    const note = waterNote(before, s.built.water, claims, "guest", batch, roleOf);
     expect(note).not.toBeNull();
     if (!note) return;
     expect(note.by).toBe("host");
     expect(note.owner).toBe("guest");
+    expect(note.edits).toBe(1);
+    expect(note.seqs).toEqual({ from: 7, to: 7 });
     expect(note.flooded).toBeGreaterThan(3);
     expect(note.drained).toBe(0);
     expect(note.tiles).toBe(note.flooded);
@@ -581,37 +609,44 @@ describe("water notes (§4)", () => {
     expect(s.built.water[centre] - before[centre]).toBeGreaterThanOrEqual(0.25);
     expect(note.runs.reduce((n, [, a, b]) => n + b - a + 1, 0)).toBe(note.tiles);
     expect(describeWaterNote(note, NAMES)).toMatch(/^Kyler's edit flooded \d+ tiles of your area$/);
-    // the other way round it is his area that is watched, and the flood did not reach it
-    expect(waterNote(before, s.built.water, claims, "guest")).toBeNull();
+    // the batch settled together: three of his edits and one of hers are named as his three; hers alone is no note for her
+    const mixed = [{ author: "kyler", seq: 5 }, { author: "emma", seq: 6 }, { author: "kyler", seq: 7 }, { author: "kyler", seq: 8 }];
+    const named = waterNote(before, s.built.water, claims, "guest", mixed, roleOf)!;
+    expect(named.edits).toBe(3);
+    expect(named.seqs).toEqual({ from: 5, to: 8 });
+    expect(describeWaterNote(named, NAMES)).toMatch(/^Kyler's 3 edits flooded \d+ tiles of your area$/);
+    expect(waterNote(before, s.built.water, claims, "guest", [{ author: "emma", seq: 7 }], roleOf)).toBeNull();
+    // (and his own area is watched too: the flood did not reach it)
+    expect(waterNotes(before, s.built.water, claims, mixed, roleOf).map((n) => n.owner)).toEqual(["guest"]);
     // draining: the spring taken away again
     const flooded = Float64Array.from(s.built.water);
     s.undo();
-    const drained = waterNote(flooded, s.built.water, claims, "host");
+    const drained = waterNote(flooded, s.built.water, claims, "guest", batch, roleOf);
     expect(drained?.drained).toBe(note.flooded);
     expect(drained?.flooded).toBe(0);
     expect(describeWaterNote(drained!, NAMES)).toMatch(/^Kyler's edit drained \d+ tiles of your area$/);
     // nothing for an edit that leaves the water alone: a hill raised far from her area
     const dry = Float64Array.from(s.built.water);
     expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [run(54, 4, 8)], exact: true, amount: 1 } }).errors).toEqual([]);
-    expect(waterNote(dry, s.built.water, claims, "host")).toBeNull();
+    expect(waterNote(dry, s.built.water, claims, "guest", batch, roleOf)).toBeNull();
     // and none where nobody else holds ground
-    expect(waterNote(before, flooded, new ClaimsState(W, W), "host")).toBeNull();
+    expect(waterNote(before, flooded, new ClaimsState(W, W), "guest", batch, roleOf)).toBeNull();
     // a trace of change is the settle's noise, not an event
     const trace = Float64Array.from(before);
     for (let i = 0; i < trace.length; i++) trace[i] += 0.01;
-    expect(waterNote(before, trace, claims, "host")).toBeNull();
+    expect(waterNote(before, trace, claims, "guest", batch, roleOf)).toBeNull();
     // two tiles are not worth a note either; the threshold and the count can be asked for
     const two = Float64Array.from(before);
     two[36 * W + 48] += 1;
     two[36 * W + 49] += 1;
-    expect(waterNote(before, two, claims, "host")).toBeNull();
-    expect(waterNote(before, two, claims, "host", { minTiles: 2 })?.tiles).toBe(2);
-    expect(waterNote(before, two, claims, "host", { minTiles: 2, threshold: 2 })).toBeNull();
+    expect(waterNote(before, two, claims, "guest", batch, roleOf)).toBeNull();
+    expect(waterNote(before, two, claims, "guest", batch, roleOf, { minTiles: 2 })?.tiles).toBe(2);
+    expect(waterNote(before, two, claims, "guest", batch, roleOf, { minTiles: 2, threshold: 2 })).toBeNull();
     // badwater reaching her area, when contamination is given
     const clean = new Float64Array(W * W);
     const fouled = Float64Array.from(clean);
     for (let x = 47; x < 53; x++) fouled[36 * W + x] = 0.5;
-    const foul = waterNote(before, before, claims, "host", { contamination: { before: clean, after: fouled } });
+    const foul = waterNote(before, before, claims, "guest", batch, roleOf, { contamination: { before: clean, after: fouled } });
     expect(foul?.fouled).toBe(6);
     expect(foul?.flooded).toBe(0);
     expect(describeWaterNote(foul!, NAMES)).toBe("Kyler's edit fouled 6 tiles of your area");

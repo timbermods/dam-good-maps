@@ -1,27 +1,39 @@
 // The quiet note about water (collaborative editing; D362, D486; docs/COLLAB-BRIEF.md §4). Headless, plain
 // data (D342).
 //
-// Water flows as the game would, across claims: an edit never stops for it. When one player's edit changes
-// the water inside the other's claim (floods it, drains it), the other gets a quiet note naming who and
-// where, with a way to see it. This is the whole question: given the settled water before and after an
-// edit (the depth per tile as the session stores it, `built.water`) and the claims as they stood, which
-// tiles of the other player's area flooded or drained by more than a small threshold, summarised as who
-// edited, where (bounds and a centre) and how many. Nothing when nothing meaningful changed: water that
-// differs by a trace, or by a tile or two, is the settle's noise, not an event.
+// Water flows as the game would, across claims: an edit never stops for what the water does afterwards.
+// (The tiles an edit itself writes in the water, a Fill, Remove unfed water or a force's lake, are its
+// footprint like any other.) When the other player's edits change the water inside a player's claim (flood
+// it, drain it), that player gets a quiet note naming who and where, with a way to see it. The host settles
+// the water in batches ("settled at seq N", the entries since the last settle), so the question is asked of a
+// batch: given the settled water before and after (the depth per tile as the session stores it,
+// `built.water`), the claims as they stood, and the entries that settled together, which tiles of a player's
+// area flooded or drained by more than a small threshold, summarised as whose edits (how many), where
+// (bounds and a centre) and how many tiles. Nothing when the batch is all the owner's own, or when nothing
+// meaningful changed: water that differs by a trace, or by a tile or two, is the settle's noise, not an event.
 //
-// The caller publishes the note once the edit's water has settled (not the preview's waves), holding the
+// The caller publishes the notes once the batch's water has settled (not the preview's waves), holding the
 // claims as they stood when it ran.
 //
 // Adapted from investigation/collab-architecture (`architecture.ts` `waterNotices`).
 
-import { ClaimsState, DEFAULT_NAMES, otherPlayer, type PlayerId, type PlayerNames } from "./claims";
+import { ClaimsState, DEFAULT_NAMES, PLAYERS, type PlayerNames, type Role } from "./claims";
 
-/** The water an edit changed inside the other player's claim. */
+/** An entry of the batch that settled together: who made it and its number in the log. */
+export interface BatchEntry {
+  author: string;
+  seq: number;
+}
+
+/** The water a batch of edits changed inside one player's claim, by the other's edits. */
 export interface WaterNote {
-  /** Who edited. */
-  by: PlayerId;
   /** Whose area the water changed in. */
-  owner: PlayerId;
+  owner: Role;
+  /** Who edited: the other player. */
+  by: Role;
+  /** How many of the other's edits were in the batch that settled, and the numbers of the first and last. */
+  edits: number;
+  seqs: { from: number; to: number };
   /** Tiles of that area that now hold more water, and fewer; (with contamination given) the ones fouled. */
   flooded: number;
   drained: number;
@@ -47,15 +59,17 @@ export interface WaterNoteOptions {
   contaminationThreshold?: number;
 }
 
-/** The note for the water an edit by `by` changed in the other player's claim, or null when it changed
- *  none worth noting. `before` and `after` are the settled depth per tile (W · H), `claims` as they stood
- *  while the water settled. */
-export function waterNote(before: ArrayLike<number>, after: ArrayLike<number>, claims: ClaimsState, by: PlayerId, options: WaterNoteOptions = {}): WaterNote | null {
+/** The note for `owner` about the water that changed in their claim when `batch` (the entries the host
+ *  settled together) was applied, or null: when every entry in it is the owner's own, or the water changed
+ *  by less than the threshold in too few tiles to be worth a note. `before` and `after` are the settled depth
+ *  per tile (W · H), `claims` as they stood while the water settled, `roleOf` says which player an author is. */
+export function waterNote(before: ArrayLike<number>, after: ArrayLike<number>, claims: ClaimsState, owner: Role, batch: readonly BatchEntry[], roleOf: (author: string) => Role, options: WaterNoteOptions = {}): WaterNote | null {
   const { W, H } = claims;
   if (before.length !== W * H || after.length !== W * H) throw new Error("the water must be one depth per tile of the claims' map");
+  const others = batch.filter((e) => roleOf(e.author) !== owner);
+  if (!others.length) return null;
   const threshold = options.threshold ?? 0.25;
   const minTiles = options.minTiles ?? 3;
-  const owner = otherPlayer(by);
   const code = ClaimsState.code(owner);
   const dirty = options.contamination;
   const cThreshold = options.contaminationThreshold ?? 0.1;
@@ -105,10 +119,33 @@ export function waterNote(before: ArrayLike<number>, after: ArrayLike<number>, c
       best = i;
     }
   }
-  return { by, owner, flooded, drained, fouled, tiles: tiles.length, bounds: { x0, y0, x1, y1 }, centre: { x: best % W, y: Math.floor(best / W) }, runs };
+  const seqs = others.map((e) => e.seq);
+  return {
+    owner,
+    by: roleOf(others[0].author),
+    edits: others.length,
+    seqs: { from: Math.min(...seqs), to: Math.max(...seqs) },
+    flooded,
+    drained,
+    fouled,
+    tiles: tiles.length,
+    bounds: { x0, y0, x1, y1 },
+    centre: { x: best % W, y: Math.floor(best / W) },
+    runs,
+  };
 }
 
-/** The note in words, for the one who receives it: short and quiet ("Emma's edit flooded 12 tiles of your area"). */
+/** The notes a settled batch earns, one for each player whose claim's water the other's edits changed. */
+export function waterNotes(before: ArrayLike<number>, after: ArrayLike<number>, claims: ClaimsState, batch: readonly BatchEntry[], roleOf: (author: string) => Role, options: WaterNoteOptions = {}): WaterNote[] {
+  const out: WaterNote[] = [];
+  for (const owner of PLAYERS) {
+    const n = waterNote(before, after, claims, owner, batch, roleOf, options);
+    if (n) out.push(n);
+  }
+  return out;
+}
+
+/** The note in words, for the one who receives it: short and quiet ("Emma's 3 edits flooded 12 tiles of your area"). */
 export function describeWaterNote(note: WaterNote, names: PlayerNames = DEFAULT_NAMES): string {
   const n = (k: number) => `${k} ${k === 1 ? "tile" : "tiles"}`;
   const parts: string[] = [];
@@ -116,5 +153,5 @@ export function describeWaterNote(note: WaterNote, names: PlayerNames = DEFAULT_
   if (note.drained) parts.push(`drained ${n(note.drained)}`);
   if (note.fouled) parts.push(`fouled ${n(note.fouled)}`);
   const what = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
-  return `${names[note.by]}'s edit ${what} of your area`;
+  return `${names[note.by]}'s ${note.edits === 1 ? "edit" : `${note.edits} edits`} ${what} of your area`;
 }

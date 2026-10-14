@@ -1,20 +1,21 @@
 // What an edit reaches (collaborative editing, claims; D362, D486; docs/COLLAB-BRIEF.md §3).
 //
-// Pure, headless questions of the core (D342) about the tiles an edit writes. Water never counts: it flows
-// across claims (§4, waterNotes.ts).
-//   - `footprintOf(ops, map)`: the tiles an edit writes, per operation kind, from its recorded parameters
-//     and the map it lands on (a force's from its completed plan: its tiles, rock, lake, and the objects it
-//     removes, carries, fells, clears and adds), with the objects standing on those tiles. The page asks it
-//     before release. On the host the applied entry's own record holds the exact write mask, which
-//     `claims.ts` `check` reads directly; this is the same answer ahead of time, held against the real
-//     changes by tests/contract/collabClaims.test.ts (no changed tile may escape it).
+// Pure, headless questions of the core (D342) about the tiles an edit writes. What the water does afterwards
+// never counts (it flows across claims, §4, waterNotes.ts); the tiles an edit itself writes in the water
+// (Fill, Remove unfed water, a force's lake) do.
+//   - The host decides. After it applies an entry its record holds the exact writes (`record.writes`, #397's
+//     `touchesOf`); `writtenBy` adds the generated trees and bushes the entry names (felled, moved), which
+//     the record's patch leaves out. `trialWrites(session, ops)` asks the same of an edit before it is
+//     sent: it tries it and takes it back. Both are what claims.ts refuses on.
 //   - `bandOf(ops, map)` and `forceBand(gesture, map)`: the quick, cautious warning while a stroke is drawn:
-//     the stroke's band plus the force's reach. It may reach past the footprint (and warn near a border when
-//     the edit would not really reach in), but never falls short of it. A force that runs as far as the
-//     land lets it (Carve, Glaciate, Quake) has the whole map as its band until its plan is complete; the
-//     page then shows the plan's footprint instead.
-//   - `changedTiles(before, after)`: the tiles two builds of the same map differ in, the oracle for those
-//     tests (a plant's life, which follows the water, is not counted).
+//     the stroke's band plus the force's reach. It may reach past what the host will record (and warn near a
+//     border when the edit would not really reach in), but never falls short of it. Carve Unleash and Glaciate
+//     flow, which are clicks that run as far as the land lets them, have the whole map as their band; the
+//     other forces a corridor derived from the planners' own constants (`corridor`).
+//   - `footprintOf(ops, map)`: the tiles an edit is aimed at, per operation kind, from its recorded
+//     parameters and the map it lands on; a force's from its completed plan (its tiles, rock, lake, and the
+//     objects it removes, carries, fells, clears and adds). The force preview shows it; for any other edit
+//     the host's record is the truth.
 //
 // Adapted from investigation/collab-architecture (`architecture.ts` `touches`, `forces.ts`), which was built
 // against an older commit and recomputed a force; here a force's footprint is read off its stored result.
@@ -24,7 +25,7 @@
 import { entityTiles, type PlaceEntityParams } from "../features/edits";
 import { brushBounds, markBrushTiles, weathersLikeNature, type BrushParams } from "../features/raster/brush";
 import type { BuildResult } from "../features/build";
-import { entityJson, type EntitySpec } from "../format/entities";
+import type { EntitySpec } from "../format/entities";
 import { FOOTPRINTS, type Orientation } from "../format/footprints";
 import { planPaintObjects } from "../doc/paint";
 import { patchFeature, type EditOp } from "../doc/ops";
@@ -32,9 +33,15 @@ import type { Feature, StartFeature } from "../features/schema";
 import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
+import { entityTiles as forceEntityTiles } from "../forces/force";
+import { quakeReach, slideTiles } from "../forces/quake";
+import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
 import * as portable from "../math/portable";
+import { captureState } from "./mapState";
+import { Mask } from "./mask";
+import { touchesOf } from "./touches";
 
 /** A set of tiles of a W × H map (y · W + x). */
 export class TileMask {
@@ -121,18 +128,17 @@ function addEntity(m: TileMask, e: Pick<EntitySpec, "template" | "x" | "y" | "or
 
 // ------------------------------------------------------------------------------------- brush
 
-/** The tiles a brush stroke writes: the tiles it presses on (its dabs' discs, an area's rectangle) within
- *  its working area when it has one, and the ring one tile past them (the integrity pass may tidy a pit or
- *  spike beside what the stroke changed), the pieces that ride it whole and the slopes it records; a
+/** The tiles a brush stroke is aimed at: the tiles it presses on (its dabs' discs, an area's rectangle)
+ *  within its working area when it has one, the pieces that ride it whole and the slopes it records; a
  *  weathering Naturalize works all round its dabs (its band). A stroke that changes nothing there still
- *  counts: it was aimed at that ground. */
+ *  counts: it was aimed at that ground. (The integrity pass may tidy a pit or spike one tile past what a
+ *  stroke changed; the host's record has it, `bandOf` allows for it.) */
 function brushTiles(p: BrushParams, W: number, H: number): TileMask {
   const out = new TileMask(W, H);
   const pressed = new Uint8Array(W * H);
   markBrushTiles(p, W, H, pressed);
   const inside = p.area?.length ? new TileMask(W, H).addRuns(p.area) : null;
   for (let i = 0; i < pressed.length; i++) if (pressed[i] && (!inside || inside.bits[i])) out.bits[i] = 1;
-  out.grow(1);
   if (weathersLikeNature(p)) out.union(brushBand(p, W, H));
   for (const [x0, y0, x1, y1] of p.rigid ?? []) out.addRect(x0, y0, x1, y1);
   for (const [x, y] of p.slopes ?? []) out.addXY(x, y);
@@ -140,8 +146,7 @@ function brushTiles(p: BrushParams, W: number, H: number): TileMask {
 }
 
 /** The stroke's band: each dab's square of everything the stroke can reach (`brushBounds` for that dab:
- *  the disc, the tiles next to it that Smooth and Naturalize read, a weathering stroke's margin), within
- *  the working area. Grown by one more tile: the integrity pass may tidy a pit or spike one tile past
+ *  the disc, the tiles next to it that Smooth and Naturalize read, a weathering stroke's margin). Grown by one more tile: the integrity pass may tidy a pit or spike one tile past
  *  what the stroke changed. A band, not the footprint: it holds everything the footprint holds. */
 function brushBand(p: BrushParams, W: number, H: number): TileMask {
   const out = new TileMask(W, H);
@@ -155,10 +160,7 @@ function brushBand(p: BrushParams, W: number, H: number): TileMask {
       const b = forDab([p.dabs[k], p.dabs[k + 1]]);
       if (b) out.addRect(b.x0, b.y0, b.x1, b.y1);
     }
-  if (p.area?.length) {
-    const inside = new TileMask(W, H).addRuns(p.area);
-    for (let i = 0; i < out.bits.length; i++) if (!inside.bits[i]) out.bits[i] = 0;
-  }
+  // (not clipped to a working area: the integrity pass and the area's feathered edge work past it)
   out.grow(1);
   for (const [x0, y0, x1, y1] of p.rigid ?? []) out.addRect(x0, y0, x1, y1);
   for (const [x, y] of p.slopes ?? []) out.addXY(x, y);
@@ -314,6 +316,8 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
     case "updateFeature":
     case "deleteFeature": {
       const start = startOf(op, m);
+      // (a lock toggled changes no ground)
+      if (op.op === "updateFeature" && Object.keys(op.params.patch).every((k) => k === "locked") && !start) break;
       if (start) for (const f of start) addStart(t, f, W, H);
       else everywhere(acc);
       break;
@@ -335,71 +339,133 @@ export function footprintOf(ops: EditOp | readonly EditOp[], map: MapView & Part
 
 // ---------------------------------------------------------------------------------- the band
 
-/** The cautious band of an edit while it is drawn (or once its plan is complete): never smaller than its
- *  footprint. A brush stroke's is its dabs' reach; the others' their footprint (a force gesture not yet
- *  planned has `forceBand`). */
+/** The cautious band of an edit while it is drawn: never smaller than what the host will record as written.
+ *  A brush stroke's is its dabs' reach; any ground an edit changes is allowed one tile more (the integrity
+ *  pass may tidy a pit or spike beside it); a force's, once its plan is complete, is its footprint (before
+ *  it is, `forceBand`). */
 export function bandOf(ops: EditOp | readonly EditOp[], map: MapView & Partial<MapSession>): Footprint {
   const list = Array.isArray(ops) ? (ops as readonly EditOp[]) : [ops as EditOp];
   const { x: W, y: H } = map.size;
-  const out = footprintOf(list, map);
-  for (const op of list) if (op.op === "brush") out.tiles.union(brushBand(op.params, W, H));
+  const out = emptyFootprint(W, H);
+  for (const op of list) {
+    const one = emptyFootprint(W, H);
+    addOp(one, op, map);
+    if (op.op !== "forceResult") one.tiles.grow(1);
+    if (op.op === "brush") one.tiles.union(brushBand(op.params, W, H));
+    out.tiles.union(one.tiles);
+    if (one.whole) out.whole = true;
+  }
   carried(out.tiles, map);
   return out;
 }
 
 /** A force as it is asked, before its plan is complete: the verb, its settings and where. Both the
- *  operation's record (`where`) and the page's request (`origin`, `end`, `path` beside the verb) fit. */
-export interface ForceGesture {
+ *  operation's record (`where`) and the page's request (`origin`, `end`, `via`, `path` beside the verb) fit. */
+export interface ForceBandRequest {
   verb: Verb;
   settings: ForceResultParams["settings"];
   where?: ForceWhere;
   origin?: readonly [number, number];
   end?: readonly [number, number];
+  /** Glaciate and Carve: the points the line was drawn through between origin and end. */
+  via?: readonly (readonly [number, number])[];
   path?: readonly ({ x: number; y: number } | readonly [number, number])[];
 }
 
 /** The points a force gesture is drawn through, in order: its point, its line, its end. */
-export function gesturePoints(g: ForceGesture): [number, number][] {
+export function gesturePoints(g: ForceBandRequest): [number, number][] {
   const w = g.where ?? g;
   const pts: [number, number][] = [];
   if (w.origin) pts.push([w.origin[0], w.origin[1]]);
+  for (const p of (g as ForceBandRequest).via ?? []) pts.push([p[0], p[1]]);
   for (const p of w.path ?? []) pts.push(Array.isArray(p) ? [p[0], p[1]] : [(p as { x: number }).x, (p as { y: number }).y]);
   if (w.end) pts.push([w.end[0], w.end[1]]);
   return pts;
 }
 
-/** The forces whose changes run as far as the land lets them (a river's water downhill to the map's
- *  edge, a glacier down its valley, a quake's whole moving side): nothing short of the plan says how far,
- *  so before it is complete their band is the whole map. The plan's footprint then replaces it. */
-const FAR: readonly Verb[] = ["carve", "glaciate", "quake"];
+const dist = (ax: number, ay: number, bx: number, by: number): number => portable.hypot(ax - bx, ay - by);
 
-/** How far past a force's point or line its changes reach, in tiles, as a multiple of its own size
- *  (`forceReach`) and a pad (the ground it throws or washes away): measured on the forces at powers 0
- *  to 100 on three themes (tests/contract/collabClaims.test.ts holds the band against their plans). */
-function reachOf(g: ForceGesture): number {
-  const s = g.settings as unknown as { power: number; size?: number | null; rays?: boolean };
+/** How far the corridor round a force gesture reaches, and the points it runs through, or null when the
+ *  gesture cannot be bounded before its plan is complete. Each reach is derived from the planner that makes
+ *  the force (the line numbers are rust/forces/src/lib.rs unless a file is named):
+ *  - Craterize: the ejecta skirt reaches 2.65 radii for Heavy debris, 1.48 for Light (2519), the rays 1.4 more
+ *    (2630) and a ray starts at 1.12 and runs 2.45 radii on (2262-2270), all of it measured along the oval
+ *    a glancing blow makes: its long axis is radius × (1 + 0.65 × glance), glance the aim's length over the
+ *    crater's diameter (2223-2224);
+ *  - Erupt: lava lobes run up to 2.36 radii for Heavy flows, 1.42 for Light (erupt.ts lavaLobes), and are
+ *    up to 4.84 × max(0.7, radius / 22) wide;
+ *  - Quake: lift moves ground out to max(reach, 1.3 × the fault's length) from it, slide to
+ *    max(reach, 1.3 × length, slide + 12) + 12, then a slide's travel on (9346, 9530, 9567; quake.ts);
+ *  - an aimed Carve stays within the aim's length + 20.25 of its end (3262, 4226), a half-width of 0.72 × 24
+ *    either side (4848) and its banks, 1.8 × banks + 14;
+ *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size and a margin for hanging
+ *    valleys and outwash (5992);
+ *  - Rift and Deposit: their size (their width) and the ground they move.
+ *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
+function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
+  const pts = gesturePoints(g);
+  const s = g.settings as unknown as Record<string, number | string | boolean | null | undefined> & { power: number };
+  const JITTER = 1.65;
   switch (g.verb) {
-    case "craterize": return forceReach({ verb: "craterize", settings: s as never }) * (s.rays ? 5 : 2.5) + 8;
-    case "erupt": return forceReach({ verb: "erupt", settings: s as never }) * 2.5 + 8;
-    // a rift's and a deposit's size is their width: the ground they move lands a size or two away
-    default: return ((s.size ?? 20) / 2) * 3 + 8;
+    case "craterize": {
+      const R = forceReach({ verb: "craterize", settings: s as never });
+      const diameter = R * 2;
+      const aim = s.mode === "aim" && pts.length > 1;
+      const glance = aim ? Math.max(0, Math.min(1, dist(pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1]) / Math.max(12, diameter))) : 0;
+      const a = R * (1 + 0.65 * glance);
+      const skirt = ((s.debris === "light" ? 1.48 : 2.65) + (s.rays ? 1.4 : 0)) * a;
+      const ray = s.rays ? 1.12 * a + R * 2.45 * (1 + 0.5 * glance) : 0;
+      return { pts: pts.slice(0, 1), r: Math.max(skirt, ray) + JITTER + 2 };
+    }
+    case "erupt": {
+      const R = forceReach({ verb: "erupt", settings: s as never });
+      const lobes = (s.flows === "light" ? 1.42 : 2.36) * R + 4.84 * Math.max(0.7, R / 22);
+      return { pts, r: Math.max(lobes, R) + JITTER + 2 };
+    }
+    case "quake": {
+      let L = 0;
+      for (let k = 1; k < pts.length; k++) L += dist(pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1]);
+      const reach = quakeReach(s.power);
+      const slide = slideTiles(s.power);
+      const r = s.mode === "slide" ? Math.max(reach, L * 1.3, slide + 12) + 12 + slide : Math.max(reach, L * 1.3);
+      return { pts, r: r + JITTER + 2 };
+    }
+    case "carve": {
+      if (s.mode !== "aim" || pts.length < 2) return null;
+      const end = pts[pts.length - 1];
+      let far = 0;
+      for (const p of pts) far = Math.max(far, dist(p[0], p[1], end[0], end[1]));
+      const banks = typeof s.banks === "number" ? s.banks : 0;
+      return { pts: [end], r: far + 20.25 + 0.72 * 24 + 1.8 * banks + 14 + 2 };
+    }
+    case "glaciate": {
+      const drawn = pts.length > 2 || ((g.where?.path?.length ?? 0) > 2);
+      if (s.mode !== "aim" || !drawn) return null;
+      const size = typeof s.size === "number" ? s.size : GLACIATE_AUTO_SIZE;
+      return { pts, r: 1.12 * size + 0.5 * size + 10 };
+    }
+    default:
+      return { pts, r: ((typeof s.size === "number" ? s.size : 20) / 2) * 3 + 8 };
   }
 }
 
-/** The corridor a force gesture asks about: a disc round its point, a capsule along its line; the whole
- *  map for the forces that run as far as the land lets them. Cautious: never smaller than the footprint
- *  of the plan the gesture then makes. */
-export function forceBand(g: ForceGesture, map: MapView): Footprint {
+/** The corridor a force gesture asks about: a disc round its point, a capsule along its line (see
+ *  `corridor` for each force's reach); the whole map for the two that are clicks and run as far as the land
+ *  lets them. Cautious: never smaller than the footprint of the plan the gesture then makes. A force that
+ *  breaks the start's ground carries the start up to 24 tiles on, so wherever the start stands in the band
+ *  the band reaches that far from it. */
+export function forceBand(g: ForceBandRequest, map: MapView): Footprint {
   const { x: W, y: H } = map.size;
   const acc = emptyFootprint(W, H);
-  const out = acc.tiles;
-  const pts = gesturePoints(g);
-  if (FAR.includes(g.verb)) {
+  const c = corridor(g);
+  if (!c) {
     everywhere(acc);
     return acc;
   }
+  const { pts } = c;
   if (!pts.length) return acc;
-  const r = Math.ceil(reachOf(g));
+  const r = Math.ceil(c.r);
+  const out = acc.tiles;
   const near = (x: number, y: number): boolean => {
     for (let k = 0; k < pts.length; k++) {
       const [ax, ay] = pts[k];
@@ -408,7 +474,7 @@ export function forceBand(g: ForceGesture, map: MapView): Footprint {
       const dy = by - ay;
       const len = dx * dx + dy * dy;
       const u = len === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len));
-      if (portable.hypot(x - (ax + u * dx), y - (ay + u * dy)) <= r) return true;
+      if (dist(x, y, ax + u * dx, ay + u * dy) <= r) return true;
     }
     return false;
   };
@@ -416,8 +482,6 @@ export function forceBand(g: ForceGesture, map: MapView): Footprint {
   for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
   for (let y = Math.max(0, Math.floor(y0 - r)); y <= Math.min(H - 1, Math.ceil(y1 + r)); y++)
     for (let x = Math.max(0, Math.floor(x0 - r)); x <= Math.min(W - 1, Math.ceil(x1 + r)); x++) if (near(x + 0.5, y + 0.5)) out.bits[y * W + x] = 1;
-  // a force that breaks the start's ground carries the start to the nearest good ground (up to 24 tiles
-  // on, with its building): wherever the start stands in the band, the band reaches that far from it
   for (const e of map.built.entities) {
     if (e.template !== "StartingLocation" || !entityTilesOf(e).some(([x, y]) => x >= 0 && y >= 0 && x < W && y < H && out.has(y * W + x))) continue;
     out.addRect(e.x - START_CARRY, e.y - START_CARRY, e.x + START_CARRY, e.y + START_CARRY);
@@ -430,30 +494,42 @@ export function forceBand(g: ForceGesture, map: MapView): Footprint {
  *  building and door a few more). */
 const START_CARRY = 28;
 
-// --------------------------------------------------------------------------------------- the oracle
+// ------------------------------------------------------------------- what the host decides on
 
-/** The tiles two builds of the same map differ in: ground, and the objects added, removed or changed
- *  (old and new places). Water is not here (it flows across claims). */
-export function changedTiles(before: Pick<BuildResult, "W" | "H" | "heights" | "entities">, after: Pick<BuildResult, "W" | "H" | "heights" | "entities">): TileMask {
-  const { W, H } = before;
-  const out = new TileMask(W, H);
-  for (let i = 0; i < before.heights.length; i++) if (before.heights[i] !== after.heights[i]) out.bits[i] = 1;
-  const a = new Map(before.entities.map((e) => [e.id, e]));
-  const b = new Map(after.entities.map((e) => [e.id, e]));
-  // (whether a plant lives, and how far it has grown, follows the soil's moisture, which follows the
-  // water: a consequence of the edit that the water notes cover, not a write of it)
-  const life = new Set(["LivingNaturalResource", "Growable", "GatherableYieldGrower", "Yielder:Gatherable"]);
-  const plain = (e: EntitySpec) => {
-    const j = entityJson(e) as { Components?: Record<string, unknown> };
-    return JSON.stringify({ ...j, Components: Object.fromEntries(Object.entries(j.Components ?? {}).filter(([k]) => !life.has(k))) });
-  };
-  const same = (x: EntitySpec, y: EntitySpec) => plain(x) === plain(y);
-  for (const id of new Set([...a.keys(), ...b.keys()])) {
-    const x = a.get(id);
-    const y = b.get(id);
-    if (x && y && same(x, y)) continue;
-    if (x) addEntity(out, x);
-    if (y) addEntity(out, y);
+/** The tiles an applied entry wrote, for the claims check: the host's record (`writes`, exact for the ground,
+ *  the objects the players made and the lakes) and the generated trees and bushes it names. Those are not in
+ *  the record's patch (they follow from the settled water), but a crater's knockdown ring or a quake can fell
+ *  or move them on ground that did not change: `fallen:` and `entity:` keys are read to the tiles those
+ *  objects stand on, as the host's map shows them now. (A generated object a force removed outright is gone
+ *  from the map; it lost its ground, which is in `writes`.) */
+export function writtenBy(record: { writes: Mask; keys: Iterable<string> }, session: Pick<MapSession, "built">): Mask {
+  const { W, H } = session.built;
+  const out = new Mask(W * H).union(record.writes);
+  let byId: Map<string, EntitySpec> | null = null;
+  for (const key of record.keys) {
+    const id = key.startsWith("fallen:") ? key.slice(7) : key.startsWith("entity:") ? key.slice(7) : null;
+    if (id === null) continue;
+    byId ??= new Map(session.built.entities.map((e) => [e.id, e]));
+    const e = byId.get(id);
+    if (e) for (const i of forceEntityTiles(W, H, e)) out.add(i);
   }
   return out;
+}
+
+/** What an edit would write, by trying it: applied to `session` and taken back, so the numbers of its
+ *  operations and the map are as they were. The host's own rule (the record's writes, `writtenBy`), asked
+ *  before anything is ordered. `session` is the player's own copy; a refusal is `ok: false` with the
+ *  reason the edit itself would be refused for (not a claims matter). */
+export function trialWrites(session: MapSession, ops: EditOp | readonly EditOp[]): { ok: true; writes: Mask } | { ok: false; reason: string } {
+  const list = Array.isArray(ops) ? (ops as readonly EditOp[]) : [ops as EditOp];
+  const before = captureState(session);
+  const mark = session.mark();
+  const r = list.length === 1 ? session.apply(list[0]) : session.applyAll(list);
+  if (!r.ok) return { ok: false, reason: r.errors[0] ?? "The edit could not be applied" };
+  const applied = session.lastStepOps().map((o) => ({ op: o.op, params: structuredClone(o.params) }) as EditOp);
+  const t = touchesOf(applied, before, captureState(session));
+  const writes = writtenBy({ writes: t.writes, keys: t.keys }, session);
+  const step = session.stepSince(mark);
+  if (!step || !session.takeBack(step)) throw new Error("A trial edit could not be taken back");
+  return { ok: true, writes };
 }

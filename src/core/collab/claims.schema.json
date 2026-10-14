@@ -48,8 +48,8 @@
         "H": { "type": "integer", "minimum": 1, "maximum": 4096 },
         "revision": { "type": "integer", "minimum": 0 },
         "nextOffer": { "type": "integer", "minimum": 1 },
-        "host": { "type": "array", "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
-        "guest": { "type": "array", "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
+        "host": { "type": "array", "maxItems": 1048576, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
+        "guest": { "type": "array", "maxItems": 1048576, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 4095 } } },
         "offers": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/offer" } }
       }
     }

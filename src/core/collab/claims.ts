@@ -7,11 +7,12 @@
 // reason, never silently clamped. Claims are an editing tool only: nothing here is a map, a project or
 // a .timber, and nothing in them reaches the saved bytes (tests/contract/collabClaims.test.ts proves it).
 //
-// An edit reaching into the other player's claim is refused (§3): `refusal` / `check` read the tiles an
-// edit writes. The host's record of an applied entry already holds its exact write mask, so `check`
-// takes that mask directly; `refusal(ops, ...)` works one out from the operations (footprint.ts) for the
-// page, which asks before release. `reachInto` lists the tiles that would land in the other's area, for
-// the page to show in that player's colour while the stroke is drawn.
+// An edit reaching into the other player's claim is refused (§3). The host decides: `claimsCheck` is its
+// `EntryCheck`, run after it has applied an entry, on the record's exact writes. `refusal(ops, ...)` is the
+// page's question before release, answered the same way (it tries the edit and reads what it writes).
+// `reachInto` lists the tiles that would land in the other's area, for the page to show in that player's
+// colour while the stroke is drawn (the cautious band, footprint.ts). Ordering the claim commands through
+// the host, and sending the claims on a rejoin (`toSnapshot`), are the session piece's.
 //
 // Adapted from investigation/collab-architecture (`architecture.ts` `Claims`), which was built against an
 // older commit: its single revision-wide offer reset is replaced by the precise rule above, and its
@@ -20,13 +21,16 @@
 import type { EditOp } from "../doc/ops";
 import type { MapSession } from "../doc/session";
 import { checkSchema } from "../spec/schema";
-import { footprintOf, type Footprint, type MapView, type TileMask } from "./footprint";
+import { bandOf, trialWrites, writtenBy, type Footprint, type TileMask } from "./footprint";
+import type { EntryCheck } from "./host";
 import schema from "./claims.schema.json" with { type: "json" };
 
-export type PlayerId = "host" | "guest";
-export const PLAYERS: readonly PlayerId[] = ["host", "guest"];
-export const otherPlayer = (p: PlayerId): PlayerId => (p === "host" ? "guest" : "host");
-const CODE: Record<PlayerId, number> = { host: 1, guest: 2 };
+/** Which of the two players: the one who hosts, and the one who joined. (A session's `PlayerId` is the id of
+ *  a person; `roleOf` maps it to this.) */
+export type Role = "host" | "guest";
+export const PLAYERS: readonly Role[] = ["host", "guest"];
+export const otherPlayer = (p: Role): Role => (p === "host" ? "guest" : "host");
+const CODE: Record<Role, number> = { host: 1, guest: 2 };
 
 /** The names the players go by (the session's, not the map's). */
 export interface PlayerNames {
@@ -49,8 +53,8 @@ export type ClaimCommand =
 /** An offer waiting for its answer: ground `from` holds, offered to `to`. */
 export interface ClaimOffer {
   id: number;
-  from: PlayerId;
-  to: PlayerId;
+  from: Role;
+  to: Role;
   /** y · W + x, ascending. */
   tiles: number[];
 }
@@ -66,7 +70,7 @@ export interface ClaimsSnapshot {
   nextOffer: number;
   host: Runs;
   guest: Runs;
-  offers: { id: number; from: PlayerId; to: PlayerId; runs: Runs }[];
+  offers: { id: number; from: Role; to: Role; runs: Runs }[];
 }
 
 const root = (ref: string) => ({ $defs: (schema as { $defs: unknown }).$defs, $ref: `#/$defs/${ref}` }) as Record<string, unknown>;
@@ -108,23 +112,23 @@ export class ClaimsState {
     this.owner = new Uint8Array(W * H);
   }
 
-  static code(p: PlayerId): number {
+  static code(p: Role): number {
     return CODE[p];
   }
 
-  ownerOf(i: number): PlayerId | null {
+  ownerOf(i: number): Role | null {
     const c = this.owner[i];
     return c === 1 ? "host" : c === 2 ? "guest" : null;
   }
 
-  tilesOf(p: PlayerId): number[] {
+  tilesOf(p: Role): number[] {
     const out: number[] = [];
     const c = CODE[p];
     for (let i = 0; i < this.owner.length; i++) if (this.owner[i] === c) out.push(i);
     return out;
   }
 
-  countOf(p: PlayerId): number {
+  countOf(p: Role): number {
     let n = 0;
     const c = CODE[p];
     for (let i = 0; i < this.owner.length; i++) if (this.owner[i] === c) n++;
@@ -146,13 +150,13 @@ export class ClaimsState {
   }
 
   /** Why `by` cannot give `command` now, or null. Changes nothing. */
-  refusal(by: PlayerId, command: ClaimCommand, names: PlayerNames = DEFAULT_NAMES): string | null {
+  refusal(by: Role, command: ClaimCommand, names: PlayerNames = DEFAULT_NAMES): string | null {
     const r = this.plan(by, command, names);
     return r.ok ? null : r.reason;
   }
 
   /** Give a command. When it is refused nothing changes, and the reason is one plain line. */
-  apply(by: PlayerId, command: ClaimCommand, names: PlayerNames = DEFAULT_NAMES): ClaimResult {
+  apply(by: Role, command: ClaimCommand, names: PlayerNames = DEFAULT_NAMES): ClaimResult {
     const plan = this.plan(by, command, names);
     if (!plan.ok) return plan;
     const me = CODE[by];
@@ -186,7 +190,7 @@ export class ClaimsState {
     this.offers = this.offers.filter((o) => o.tiles.every((i) => this.owner[i] === CODE[o.from]));
   }
 
-  private plan(by: PlayerId, command: ClaimCommand, names: PlayerNames): { ok: true; tiles: number[]; offer?: ClaimOffer } | { ok: false; reason: string } {
+  private plan(by: Role, command: ClaimCommand, names: PlayerNames): { ok: true; tiles: number[]; offer?: ClaimOffer } | { ok: false; reason: string } {
     const bad = checkSchema(root("command"), command);
     if (bad.length) return { ok: false, reason: oneLine(bad[0].path, bad[0].message, "Not a claim command") };
     const me = CODE[by];
@@ -269,7 +273,11 @@ export class ClaimsState {
         c.owner[i] = CODE[p];
       }
     }
+    const seen = new Set<number>();
     for (const o of s.offers) {
+      if (seen.has(o.id)) return { ok: false, reason: "Two offers have the same number" };
+      seen.add(o.id);
+      if (o.id >= s.nextOffer) return { ok: false, reason: "The next offer number is not past the offers waiting" };
       const r = c.resolve(o.runs);
       if (!r.ok) return r;
       if (o.from === o.to || !r.tiles.every((i) => c.owner[i] === CODE[o.from])) return { ok: false, reason: "An offer is of ground its offerer does not hold" };
@@ -301,7 +309,7 @@ function hasOf(w: WriteSet, N: number): (i: number) => boolean {
 
 /** The tiles of the other player's area that an edit by `by` would write: what the page shows in that
  *  player's colour ("reaches into <name>'s area"). */
-export function reachInto(writes: WriteSet, claims: ClaimsState, by: PlayerId): number[] {
+export function reachInto(writes: WriteSet, claims: ClaimsState, by: Role): number[] {
   const has = hasOf(writes, claims.owner.length);
   const theirs = CODE[otherPlayer(by)];
   const out: number[] = [];
@@ -311,40 +319,40 @@ export function reachInto(writes: WriteSet, claims: ClaimsState, by: PlayerId): 
 
 /** The refusal for an edit that writes `writes`: it may not reach into the other player's area (§3). One
  *  plain line, or null when it does not. */
-export function refusalForWrites(writes: WriteSet, claims: ClaimsState, by: PlayerId, names: PlayerNames = DEFAULT_NAMES): string | null {
+export function refusalForWrites(writes: WriteSet, claims: ClaimsState, by: Role, names: PlayerNames = DEFAULT_NAMES): string | null {
   const has = hasOf(writes, claims.owner.length);
   const theirs = CODE[otherPlayer(by)];
   for (let i = 0; i < claims.owner.length; i++) if (claims.owner[i] === theirs && has(i)) return `Reaches into ${names[otherPlayer(by)]}'s area`;
   return null;
 }
 
-/** The refusal for an edit (one operation, or the operations of a step): its footprint may not reach
- *  into the other player's area. The step is refused whole. Water never counts (it flows across claims,
- *  waterNotes.ts). */
-export function refusal(ops: EditOp | readonly EditOp[], claims: ClaimsState, by: PlayerId, map: MapView & Partial<MapSession>, names: PlayerNames = DEFAULT_NAMES): string | null {
+/** The refusal for an edit (one operation, or the operations of a step) a player is about to release: it may
+ *  not write into the other player's area. The step is refused whole. Decided as the host decides: by trying
+ *  the edit on `session` (the player's own copy; applied and taken back) and reading what it writes
+ *  (`trialWrites`); the cautious band (`bandOf`) answers first when it cannot reach the other's area. The
+ *  water that flows afterwards never counts (waterNotes.ts); a Fill, Remove unfed water or a force's lake do:
+ *  they write the tiles they name. */
+export function refusal(ops: EditOp | readonly EditOp[], claims: ClaimsState, by: Role, session: MapSession, names: PlayerNames = DEFAULT_NAMES): string | null {
   const theirs = CODE[otherPlayer(by)];
   if (!claims.owner.some((c) => c === theirs)) return null;
-  return refusalForWrites(footprintOf(ops, map), claims, by, names);
+  if (!reachInto(bandOf(ops, session), claims, by).length) return null;
+  const trial = trialWrites(session, ops);
+  // (an edit that cannot be applied is refused for its own reason, not for a claim's)
+  return trial.ok ? refusalForWrites(trial.writes, claims, by, names) : null;
 }
 
-/** What the host's check is given about an edit it has applied: the record holds the exact tiles the entry
- *  wrote (`W`, or `writes`). */
-export interface WriteRecord {
-  W?: WriteSet;
-  writes?: WriteSet;
-}
-
-/** What the check reads: the claims, and the players' names. */
-export interface ClaimsView {
-  claims: ClaimsState;
-  names?: PlayerNames;
-}
-
-/** The seam the host's log calls after applying an entry, with the entry's record: a reason to roll it back
- *  (the entry reaches into the other player's area), or null. `entry.by` is the author. A record without
- *  a write mask (a claim command, a presence note) reaches nowhere. */
-export function check(entry: { by: PlayerId }, record: WriteRecord | null | undefined, view: ClaimsView): string | null {
-  const writes = record?.W ?? record?.writes;
-  if (!writes) return null;
-  return refusalForWrites(writes, view.claims, entry.by, view.names ?? DEFAULT_NAMES);
+/** The seam the host calls with each entry after it has applied it and made its record (`EntryCheck`,
+ *  host.ts): the entry may not have written into the other player's area. `claims()` is the claims as they
+ *  stand when the entry is ordered, `roleOf` says which player an author is, and `names` the names the
+ *  refusal uses. The tiles are the record's writes and the generated trees and bushes it names
+ *  (`writtenBy`); the host takes the step back when this gives a reason. */
+export function claimsCheck(claims: () => ClaimsState, roleOf: (author: string) => Role, names: PlayerNames | (() => PlayerNames) = DEFAULT_NAMES): EntryCheck {
+  return (entry, record, state) => {
+    const by = roleOf(entry.author);
+    if (by !== "host" && by !== "guest") return "That player has no place in the claims";
+    const theirs = otherPlayer(by);
+    const c = claims();
+    if (!c.owner.some((o) => o === CODE[theirs])) return null;
+    return refusalForWrites(writtenBy({ writes: record.writes, keys: record.keys }, state.session), c, by, typeof names === "function" ? names() : names);
+  };
 }
