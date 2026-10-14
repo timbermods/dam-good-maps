@@ -89,8 +89,13 @@ Tests marked as expected failures, each a named gap. One comes off the list only
 
 ## To look into (the milestone session)
 
-- `tests/e2e/start-edit.spec.ts:64` (a thorns click not registering) fails on this PC about four runs in six alone, on dev's own code; CI passes it. No test stays known-flaky (D341): find the cause.
-- Two local-only tests fail on dev with the official maps present (CI skips them): `mechanics.test.ts` (Oasis is not reported approximate) and `water.test.ts` (975 ticks gives 0.00106, limit 0.001).
+- `water.test.ts`'s save check (local only, the save is on Kyler's PC): 975 ticks gave 0.00106 against 0.001, after
+  0.00096 at M2 under the port's rules. The bound was one exact tick, but the game's order is known to a tick either way and
+  a filling river moves about 0.001 a tick there; it now holds at the best of 974–976 ticks (#PR). Needs one run on Kyler's
+  PC to confirm; if it still misses, look at the game's rules against the save (D308), not the bound.
+- `mechanics.test.ts` (local only): Oasis is no longer approximate because, since D337, aquifers are off at the start, so
+  its settle matches its own water exactly (0% differ) and the rule finds no evidence. #370 rewrites this test (none
+  approximate), so it is left to #370; its comment credits Oasis's change to the stacked pre-fill, but on dev it is D337.
 
 ## Waiting for Kyler
 
