@@ -6,6 +6,7 @@
 //! generated into tables.rs (tools/rust/checks-tables.ts).
 
 pub mod checks;
+pub mod floors;
 pub mod geom;
 pub mod input;
 pub mod js;
@@ -113,6 +114,35 @@ impl Arena {
             }
         }
     }
+
+    /// The floor graph (floors.rs) of the terrain in input buffer VOXELS (`layers`·`w`·`h` bytes), with the
+    /// map's slopes in input buffer META as little-endian i32 quadruples (x, y, level, facing 0–3). Output
+    /// buffer OUT_REPORT takes one i32 triple per floor (its tile, its level, its area), tile by tile and
+    /// bottom to top in each.
+    pub fn floors(&mut self, w: usize, h: usize, layers: usize) -> u32 {
+        for o in self.outputs.iter_mut() {
+            o.resize(0);
+        }
+        let voxels = self.inputs[input::VOXELS].bytes();
+        let meta = self.inputs[input::META].bytes();
+        if w == 0 || h == 0 || voxels.len() != layers * w * h || meta.len() % 16 != 0 {
+            self.outputs[OUT_REFUSAL].set(b"floors: the terrain or the slopes are the wrong size");
+            return STATUS_BAD_INPUT;
+        }
+        let int = |c: &[u8]| i32::from_le_bytes(c.try_into().unwrap()) as i64;
+        // (a facing outside the four joins nothing)
+        let facing = |o: i64| if (0..=3).contains(&o) { o as u8 } else { 4 };
+        let slopes: Vec<floors::SlopeAt> = meta.chunks_exact(16).map(|q| floors::SlopeAt { x: int(&q[0..4]), y: int(&q[4..8]), z: int(&q[8..12]), orientation: facing(int(&q[12..16])) }).collect();
+        let g = floors::floor_graph(voxels, w, h, layers, &slopes);
+        let mut out: Vec<u8> = Vec::with_capacity(g.len() * 12);
+        for k in 0..g.len() {
+            out.extend((g.tile[k] as i32).to_le_bytes());
+            out.extend((g.level[k] as i32).to_le_bytes());
+            out.extend((g.area[k] as i32).to_le_bytes());
+        }
+        self.outputs[OUT_REPORT].set(&out);
+        STATUS_OK
+    }
 }
 
 thread_local! {
@@ -130,6 +160,12 @@ pub extern "C" fn checks_input(kind: u32, bytes: usize) -> *mut u8 {
 #[no_mangle]
 pub extern "C" fn checks_run() -> u32 {
     ARENA.with(|a| a.borrow_mut().run())
+}
+
+/// The floor graph of the terrain and slopes the input buffers hold (`Arena::floors`).
+#[no_mangle]
+pub extern "C" fn checks_floors(w: u32, h: u32, layers: u32) -> u32 {
+    ARENA.with(|a| a.borrow_mut().floors(w as usize, h as usize, layers as usize))
 }
 
 #[no_mangle]

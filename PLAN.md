@@ -858,7 +858,8 @@ The same modules serve the editor. Each check has a class, and a profile decides
   it is a warning on the quiet dot, never a pop-up, and never blocks export (D184); the warning is noted in the map
   description.
 - **design**: `terrain.max_height` (22 since D172 (1); the generator keeps to 16 until Verticality, §5.9),
-  `terrain.single_floor` (from 3D-a, `caves.headroom` in its place) and `water.source_in_flow` (D171). They must pass
+  `terrain.single_floor` (an imported map's row only: a generated map has none), `terrain.dropped` and
+  `water.source_in_flow` (D171). They must pass
   in `generate`; in `export` they warn (`water.source_in_flow` not at all: in the editor sources go anywhere, D184);
   on an import they are only information, because official and workshop maps with caves, or terrain up to 22, load
   fine in the game.
@@ -893,12 +894,13 @@ tokens; `Levels` at least the terrain's floor count); `file.metadata` (all 8 key
 |---|---|
 | `terrain.max_height`, `terrain.top_layer_free` | surface ≤ 22 and voxel layer 22 empty (D172 (1), DGM Probe run 20260925-tall); above 16 the check notes that the in-game map editor edits only up to level 16 |
 | `terrain.supported` | no voxel more than 3 sideways steps from support (0 on heightfields); with stacked terrain, every run not starting at z = 0 checked: no voxel the game's load rule would delete |
-| `terrain.single_floor` | one floor per tile (the water model's scope); retired for generated maps with stacked terrain |
+| `terrain.single_floor` | one floor per tile (the water model's scope). An imported map's row only: a generated map has no such row |
 | `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (Real places as converted: 89–99% of their most walled edge; official maps at most 38%; generated 128² at most 36%.) Not applicable under 10 tiles a side. |
-| `terrain.dropped`, `plants.clearance` | `generate`: the build's support rule pass dropped 0 voxels (D121); every plant's blocks fit under the terrain above it (3 cells for pine and oak, 2 for birch and succulent, 1 for bushes) |
+| `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The checks have the row (`ValidateOptions.dropped`); the build does not report the count yet, so no map shows it |
+| `plants.clearance` | every plant has its blocks' height in air above its floor (3 levels for a pine or an oak, 2 for a birch or a succulent, 1 for a blueberry bush; `terrain/clearance.ts`): the game removes one that has not. Load class. Such a plant is counted here and not in `entities.placement` |
 | `entities.templates`, `.enums`, `.components`, `.ids` | only common templates (§5.7); Orientation ∈ {Cw0, Cw90, Cw180, Cw270}, exact case; RuinModels + Yielder:Ruin on ruins, WaterSource (+WaterDepthStrengthModifier on seeps), UnstableCore on cores; unique lowercase GUIDs |
 | `entities.placement` | each occupied cell of every object (`Coordinates + R(F(local))`) is inside the map, z < 33, not in terrain, with occupation flags disjoint from other objects, MatterBelow met (Ground: solid below; GroundOrStackable: solid or an overhang/drain top below), no object under an OccupyAllBelow block, water objects/geothermal/mine sites on the first terrain column: 0 objects the game would delete |
-| `slopes.connect` | every Slope has ground at z+1 on its high side (Cw0 y−1, Cw90 x−1, Cw180 y+1, Cw270 x+1) and ground at z (or a chained slope at z−1) on its low side; with stacked terrain, the floor at the object's z |
+| `slopes.connect` | every Slope has ground at z+1 on its high side (Cw0 y−1, Cw90 x−1, Cw180 y+1, Cw270 x+1) and ground at z (or a chained slope at z−1) on its low side; with stacked terrain, the floor at the object's z. A warning on an imported map, which never blocks its export (D482); blocking on a generated map |
 | `start.count`, `.clear`, `.flat`, `.entrance` | exactly one StartingLocation; nothing overlaps it; its 3×3 footprint is flat at the start level; its entrance tile (Cw0 (X+1,Y−1), Cw90 (X−1,Y−1), Cw180 (X−1,Y+1), Cw270 (X+1,Y+1)) is free ground at the start level |
 
 ### 11.3 Water
@@ -937,8 +939,8 @@ when a map misses one (D85).
 | `resources.scrap`, `.trees`, `.bushes` | Totals ≥ 0.5 × the size-aware official median × the setting multiplier (about the official p10) (D167–D170). | advisory |
 | `resources.mine_site`, `resources.badwater_source` | At least one mine site (D167); at least one BadwaterSource or BadwaterSeep, unless the map is set to No badwater: its Badwater setting, or, for a map without its settings, its description saying so (D200). | rejects |
 | `ruins.fields`, `ruins.access` | ≥ 80% of columns in fields of 10+ touching columns (official median 97%); every column has an 8-neighbour on ground at its level, not blocked. | rejects |
-| `walk.levels` | (D122) information: the levels the start reaches without stairs and how; the heights that need stairs, and what lies there. In `generate`, nothing planned stands in a pocket no stairs reach. | — |
-| `water.sealed_source` | No running source in a sealed air space (it fills, pressurises and loses water past the cap). | advisory |
+| `walk.levels` | (D122) Information, never a failure: the areas the start does not reach on foot over the floor graph (`terrain/floors.ts`: a floor is air on solid ground at any level of a tile; floors join at the same level, and between levels only by the map's slopes; no headroom rule). An area counts from 400 dry floors open to the sky or the map's edge (the size of a region that earns a slope, §7.5): it needs stairs. The row says how many, and the highest one's level. Not applicable without one start. The Python validator reports the row without computing it (D279). | — |
+| `water.sealed_source` | No water source, badwater source or seep with a strength above 0 stands in air that joins neither the sky nor the map's edge (it fills its cave, and the game destroys what it adds after that). The Python validator reports the row without computing it (D279). | advisory |
 | `extras.placement` | Relics, geothermal fields and mine sites sit on flat dry ground outside flood reach, at their distance bands (D75): level ground; no water within 2 tiles (Chebyshev) and outside every planned reservoir; the generated ones in their bands (§5.5, scaled under 128²); generated thorn belts 20+ and unstable cores 40+ from the start, and cores their radius + 2 apart. Both validators; not applicable when the map has none, or on an import. | rejects |
 
 **Stored water needed** (`calibrated.reservoir_needed`):

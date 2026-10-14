@@ -1,8 +1,11 @@
 // checks.ts: the load class (what the game would crash on, silently drop, or break at start), the design class
-// (terrain.max_height, terrain.single_floor), the principles terrain.edge_wall and terrain.dam_wall, and
-// `validateMap`, which adds the playability class (playability.rs) on the map's canonically settled water.
+// (terrain.max_height; terrain.single_floor on an imported map; terrain.dropped when the build says what its
+// support pass removed), the principles terrain.edge_wall and terrain.dam_wall, and `validateMap`, which adds
+// the playability class (playability.rs) on the map's canonically settled water, and the two rows read off the
+// floor graph and the air (floors.rs): walk.levels and water.sealed_source.
 
-use crate::geom::{slope_high_side, start_entrance_tile, world_blocks, Placement};
+use crate::floors::{self, SlopeAt};
+use crate::geom::{footprint_tiles, slope_high_side, start_entrance_tile, start_middle_tile, world_blocks, Placement};
 use crate::input::{Entity, Map, Stored};
 use crate::js::{num, round, trim};
 use crate::json::{arr, b, n, obj, s, strings, tiles, Json};
@@ -220,16 +223,20 @@ fn check_terrain(m: &Map, c: &mut Collector, surface: &[u8], stack_tops: &[i64],
         ("limit", n(0.0)),
         ("message", s(if top != 0.0 { format!("{} of ground in the top layer", counted(top, "block")) } else { "Top layer is empty".into() })),
     ]);
-    let floors = floors_of(m);
-    let multi = floors.iter().filter(|&&v| v > 1).count() as f64;
-    c.add(vec![
-        ("id", s("terrain.single_floor")),
-        ("class", s("design")),
-        ("ok", b(multi == 0.0)),
-        ("value", n(multi)),
-        ("limit", n(0.0)),
-        ("message", s(if multi != 0.0 { format!("Caves or overhangs on {}", counted(multi, "tile")) } else { "One floor per tile".into() })),
-    ]);
+    // an imported map's only: a generated map may have caves and overhangs (retired for them, ROADMAP
+    // "Terrain above terrain", 1 (4)), so the row is absent there
+    if m.external {
+        let floors = floors_of(m);
+        let multi = floors.iter().filter(|&&v| v > 1).count() as f64;
+        c.add(vec![
+            ("id", s("terrain.single_floor")),
+            ("class", s("design")),
+            ("ok", b(multi == 0.0)),
+            ("value", n(multi)),
+            ("limit", n(0.0)),
+            ("message", s(if multi != 0.0 { format!("Caves or overhangs on {}", counted(multi, "tile")) } else { "One floor per tile".into() })),
+        ]);
+    }
     // every map with a tile that is not one plain run from z = 0, whatever its count of floors: a run
     // floating over air down to z = 0 has one floor, and the game deletes it all the same
     let unsupported = if all_plain(m, surface) { 0.0 } else { unsupported_voxels(m, stack_tops) as f64 };
@@ -241,6 +248,24 @@ fn check_terrain(m: &Map, c: &mut Collector, surface: &[u8], stack_tops: &[i64],
         ("limit", n(0.0)),
         ("message", s(if unsupported != 0.0 { format!("{} of ground floating", counted(unsupported, "block")) } else { "All ground is supported".into() })),
     ]);
+    // what the build's support pass removed (D121): a generated map's only, and only when the build says
+    if let (Some(dropped), false) = (m.dropped, m.external) {
+        c.add(vec![
+            ("id", s("terrain.dropped")),
+            ("class", s("design")),
+            ("ok", b(dropped == 0.0)),
+            ("value", n(dropped)),
+            ("limit", n(0.0)),
+            (
+                "message",
+                s(if dropped != 0.0 {
+                    format!("{} of ground removed: nothing held {} up", counted(dropped, "block"), if dropped == 1.0 { "it" } else { "them" })
+                } else {
+                    "No ground had to be removed".into()
+                }),
+            ),
+        ]);
+    }
     check_edge_wall(m.w, m.h, surface, c, editing);
 }
 
@@ -375,12 +400,7 @@ fn all_plain(m: &Map, surface: &[u8]) -> bool {
 /// at `z` stands on it, whatever is above: on a heightfield it is the surface, under a roof the cave's
 /// floor, on a ledge the ledge's top.
 fn floor_at(m: &Map, i: usize, z: i64) -> bool {
-    let plane = m.w * m.h;
-    if z < 0 || z as usize > m.layers {
-        return false;
-    }
-    let z = z as usize;
-    (z == m.layers || m.voxels[z * plane + i] == 0) && (z == 0 || m.voxels[(z - 1) * plane + i] != 0)
+    floors::floor_at(&m.voxels, m.w * m.h, m.layers, i, z)
 }
 
 /// Solid voxels not reachable from z = 0 going up, or by at most 3 sideways steps since the last upward step;
@@ -564,6 +584,8 @@ fn check_entities(m: &Map, c: &mut Collector) -> EntityScan {
     let mut start_cells: Vec<i64> = vec![];
     let mut problems: Vec<String> = vec![];
     let mut rejected: Vec<String> = vec![];
+    // plants on good ground whose upper blocks meet the rock above them (plants.clearance)
+    let mut cramped: Vec<String> = vec![];
     let key = |x: i64, y: i64, z: i64| z * plane + y * xs + x;
     for &k in &order {
         let e: &Entity = &m.entities[placements[k]];
@@ -571,13 +593,21 @@ fn check_entities(m: &Map, c: &mut Collector) -> EntityScan {
         let fp = footprint(&e.template).unwrap();
         let cells = world_blocks(fp, &p);
         let mut why = String::new();
+        let plant = plant_clearance(&e.template).is_some();
+        let mut no_room = false;
         for bl in &cells {
             if bl.x < 0 || bl.x >= xs || bl.y < 0 || bl.y >= ys || bl.z >= MAX_OBJECT_Z {
                 why = "off the map".into();
                 break;
             }
             if solid(bl.x, bl.y, bl.z) {
-                why = "inside terrain".into();
+                // a plant needs its blocks' height in air above its floor (GAME_RULES §5): one whose own
+                // floor is free and whose upper block is in rock has no room, and is counted apart
+                if plant && bl.local_z > 0 {
+                    no_room = true;
+                } else {
+                    why = "inside terrain".into();
+                }
                 break;
             }
             if occupied.get(&key(bl.x, bl.y, bl.z)).copied().unwrap_or(0) & bl.flags != 0 {
@@ -608,6 +638,10 @@ fn check_entities(m: &Map, c: &mut Collector) -> EntityScan {
         if !why.is_empty() {
             problems.push(object_line(&e.template, &why, e.x, e.y, e.z));
             rejected.push(placement_ids[k].to_string());
+            continue;
+        }
+        if no_room {
+            cramped.push(placement_ids[k].to_string());
             continue;
         }
         for bl in &cells {
@@ -653,6 +687,29 @@ fn check_entities(m: &Map, c: &mut Collector) -> EntityScan {
         ("limit", n(0.0)),
         ("message", s(if overlap != 0.0 { format!("Objects cover {} of the start", counted(overlap, "tile")) } else { "Nothing covers the start".into() })),
     ]);
+    let k = cramped.len() as f64;
+    let mut r = vec![
+        ("id", s("plants.clearance")),
+        ("class", s("load")),
+        ("ok", b(cramped.is_empty())),
+        ("value", n(k)),
+        ("limit", n(0.0)),
+        (
+            "message",
+            s(if cramped.is_empty() {
+                "Every plant has room above it".into()
+            } else if cramped.len() == 1 {
+                "1 plant has no room under the rock above it; the game removes it".into()
+            } else {
+                format!("{} have no room under the rock above them; the game removes them", counted(k, "plant"))
+            }),
+        ),
+    ];
+    if !cramped.is_empty() {
+        r.push(("where", obj(vec![("entities", strings(&cramped))])));
+        r.push(("fix", arr(vec![obj(vec![("op", s("deleteEntities")), ("label", s("Remove the objects the game would delete")), ("params", obj(vec![("entities", strings(&cramped))]))])])));
+    }
+    c.add(r);
     EntityScan { occupied, stack_tops, placements }
 }
 
@@ -687,6 +744,13 @@ fn check_slopes(m: &Map, c: &mut Collector, scan: &EntityScan) {
     let mut r = vec![
         ("id", s("slopes.connect")),
         ("class", s("load")),
+    ];
+    // a warning on an imported map, which never blocks its export: the game loads real maps with slopes
+    // that join nothing (D482); a generated map's must all join
+    if m.external {
+        r.push(("advisory", b(true)));
+    }
+    r.extend(vec![
         ("ok", b(bad.is_empty())),
         ("value", n(bad.len() as f64)),
         ("limit", n(0.0)),
@@ -700,7 +764,7 @@ fn check_slopes(m: &Map, c: &mut Collector, scan: &EntityScan) {
                 "No slopes".into()
             }),
         ),
-    ];
+    ]);
     if !bad_tiles.is_empty() {
         r.push(("where", obj(vec![("tiles", tiles(&bad_tiles))])));
         r.push((
@@ -751,6 +815,118 @@ fn check_start(m: &Map, c: &mut Collector, scan: &EntityScan) {
         ("where", obj(vec![("tiles", tiles(&[(ex, ey)]))])),
         ("message", s(if free { "Start entrance is clear".into() } else { format!("Start entrance blocked · {}", place_of(ex, ey, p.z)) })),
     ]);
+}
+
+// ------------------------------------------------------------------------- the floor graph and the air
+
+/// The smallest area `walk.levels` counts, in dry floors: the size of a region that earns a slope of its own
+/// when a map is generated (PLAN §7.5), so smaller ledges, pillars and pockets are not listed.
+pub const AREA_MIN: usize = BIG_REGION;
+
+/// `walk.levels` (D122): information, never a failure. The floors the start does not reach on foot (floors.rs:
+/// same-level ground and the map's slopes), as areas of `AREA_MIN` or more dry floors open to the sky or the
+/// edge: each needs stairs. A pocket sealed inside rock is no place stairs reach, and water is no ground.
+fn check_walk_levels(m: &Map, surface: &[u8], depth: &[f64], scan: &EntityScan, open: Option<&[u8]>, c: &mut Collector) {
+    let placed: Vec<&Entity> = scan.placements.iter().map(|&k| &m.entities[k]).collect();
+    let starts: Vec<&&Entity> = placed.iter().filter(|e| e.template == "StartingLocation").collect();
+    if starts.len() != 1 {
+        c.not_applicable("walk.levels", "playability", &format!("Needs one start, the map has {}", starts.len()), false);
+        return;
+    }
+    let (w, h, plane) = (m.w, m.h, m.w * m.h);
+    let slopes: Vec<SlopeAt> = placed.iter().filter(|e| e.template == "Slope").map(|e| SlopeAt { x: e.x, y: e.y, z: e.z, orientation: e.orientation }).collect();
+    let g = floors::floor_graph(&m.voxels, w, h, m.layers, &slopes);
+    // the start's area: the floor under the middle of its 3×3, or under any of its tiles, at its level
+    let p = Placement::of(starts[0]);
+    let inb = |x: i64, y: i64| x >= 0 && y >= 0 && x < w as i64 && y < h as i64;
+    let mut spots = vec![start_middle_tile(&p)];
+    if let Some(fp) = footprint("StartingLocation") {
+        spots.extend(footprint_tiles(fp, &p));
+    }
+    let home = spots.iter().filter(|&&(x, y)| inb(x, y)).find_map(|&(x, y)| g.at(y as usize * w + x as usize, p.z)).map(|k| g.area[k]);
+    // each other area's dry, open floors: how many, the first and the highest
+    let mut size = vec![0usize; g.areas];
+    let mut first = vec![usize::MAX; g.areas];
+    let mut top = vec![0u8; g.areas];
+    for k in 0..g.len() {
+        let a = g.area[k] as usize;
+        if home == Some(a as u32) {
+            continue;
+        }
+        let (i, z) = (g.tile[k] as usize, g.level[k]);
+        if z == surface[i] && depth[i] > playability::WET {
+            continue;
+        }
+        if let Some(open) = open {
+            if (z as usize) < m.layers && open[z as usize * plane + i] == 0 {
+                continue;
+            }
+        }
+        if size[a] == 0 {
+            first[a] = i;
+        }
+        size[a] += 1;
+        top[a] = top[a].max(z);
+    }
+    let apart: Vec<usize> = (0..g.areas).filter(|&a| size[a] >= AREA_MIN).collect();
+    let k = apart.len() as f64;
+    let highest = apart.iter().map(|&a| top[a]).max().unwrap_or(0) as f64;
+    let mut r = vec![
+        ("id", s("walk.levels")),
+        ("class", s("playability")),
+        ("ok", b(true)),
+        ("value", n(k)),
+        (
+            "message",
+            s(if apart.is_empty() {
+                "Every level can be walked to from the start".into()
+            } else if apart.len() == 1 {
+                format!("1 area needs stairs to reach, at level {}", num(highest))
+            } else {
+                format!("{} need stairs to reach, the highest at level {}", counted(k, "area"), num(highest))
+            }),
+        ),
+    ];
+    if !apart.is_empty() {
+        let at: Vec<(i64, i64)> = apart.iter().take(50).map(|&a| ((first[a] % w) as i64, (first[a] / w) as i64)).collect();
+        r.push(("where", obj(vec![("tiles", tiles(&at))])));
+    }
+    c.add(r);
+}
+
+/// `water.sealed_source`: a warning. A water source whose air joins neither the sky nor the map's edge
+/// (floors.rs `open_air`) fills its cave, and the game destroys the water it adds after that (GAME_RULES §3.3).
+fn check_sealed_sources(m: &Map, objects: &[&Entity], open: Option<&[u8]>, c: &mut Collector) {
+    let (xs, ys, plane) = (m.w as i64, m.h as i64, m.w * m.h);
+    let mut sealed: Vec<String> = vec![];
+    let mut at: Vec<(i64, i64)> = vec![];
+    if let Some(open) = open {
+        for o in objects {
+            if !matches!(o.template.as_str(), "WaterSource" | "BadwaterSource" | "WaterSeep" | "BadwaterSeep") || !(o.strength > 0.0) || o.z < 0 || o.z as usize >= m.layers {
+                continue;
+            }
+            let Some(fp) = footprint(&o.template) else { continue };
+            // its own cells that are air: sealed when it has some and none of them is open
+            let cells: Vec<usize> = footprint_tiles(fp, &Placement::of(o)).into_iter().filter(|&(x, y)| x >= 0 && y >= 0 && x < xs && y < ys).map(|(x, y)| o.z as usize * plane + (y * xs + x) as usize).filter(|&v| m.voxels[v] == 0).collect();
+            if !cells.is_empty() && cells.iter().all(|&v| open[v] == 0) {
+                sealed.push(object_line(&o.template, "sealed inside rock", o.x, o.y, o.z));
+                at.push((o.x, o.y));
+            }
+        }
+    }
+    let mut r = vec![
+        ("id", s("water.sealed_source")),
+        ("class", s("playability")),
+        ("advisory", b(true)),
+        ("ok", b(sealed.is_empty())),
+        ("value", n(sealed.len() as f64)),
+        ("limit", n(0.0)),
+        ("message", s(if sealed.is_empty() { "No water source is sealed in".into() } else { lines(&sealed) })),
+    ];
+    if !at.is_empty() {
+        r.push(("where", obj(vec![("tiles", tiles(&at))])));
+    }
+    c.add(r);
 }
 
 // ---------------------------------------------------------------------------------------- validate
@@ -804,6 +980,10 @@ pub fn validate_map(m: &Map) -> Result<Validation, Refusal> {
                 c.approximate(mechanics::approximate_id, &why);
             }
         }
+        // read off the terrain itself, so never approximate: where beavers walk, and the air a source stands in
+        let open = if all_plain(m, &surface) { None } else { Some(floors::open_air(&m.voxels, m.w, m.h, m.layers)) };
+        check_walk_levels(m, &surface, &play.depth, &scan, open.as_deref(), &mut c);
+        check_sealed_sources(m, &objects, open.as_deref(), &mut c);
         mech = Some(mc.json());
     }
     Ok(Validation { report: report_json(profile, &c.checks), analysis, mechanics: mech })
