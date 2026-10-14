@@ -21,8 +21,12 @@ export interface ShortcutGroup {
 /** The panel's own key. */
 export const SHORTCUTS_KEY = "?";
 
+/** Shorter words than the tooltip's, where its hint would take a second line here. */
+const SHORT: Record<string, string> = { Rift: "a crack that drops the land", Deposit: "a fan of sediment" };
+
 /** A force's line: its name as the bar shows it, then what it does ("Carve: a river"). */
 const forceWhat = (name: string, hint?: string) => {
+  hint = SHORT[name] ?? hint;
   const rest = hint?.toLowerCase().startsWith(`${name.toLowerCase()} `) ? hint.slice(name.length + 1) : hint;
   return rest ? `${name}: ${rest}` : name;
 };
