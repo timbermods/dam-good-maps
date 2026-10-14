@@ -1217,6 +1217,8 @@ export class MapSession {
       // (the map is being edited: an edge wall warns, D323)
       editing: true,
       mineCutAtOpen: this.mineCutAtOpen(),
+      // (what the build's support pass removed: a generated map's row, D121; an import has none)
+      dropped: live ? (this.cur.dropped ?? 0) : undefined,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,

@@ -56,6 +56,7 @@ import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
 import type { ColumnTerrain } from "../terrain/runs";
+import { supportPass } from "../terrain/support";
 
 export { BuildTarget } from "./target";
 export { assignRuinHeights } from "./raster/resources";
@@ -200,6 +201,10 @@ export interface BuildResult {
   notes: string[];
   /** Operations whose targets did not exist when this build applied them. */
   orphans: Orphan[];
+  /** Blocks of ground the build's rule pass found nothing holds up (the support rule, D121; step 7):
+   *  the game deletes them when it loads the map. Absent: none, as on every heightfield (a generated
+   *  map). On an imported map's caves they are counted, not removed: the file keeps them. */
+  dropped?: number;
   /** What changed since the build `rebuild` started from (null for a full build). */
   dirty: DirtyInfo | null;
   /** Everything a later `rebuild` reuses. */
@@ -1245,8 +1250,12 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (finalEntities.some((e) => keptBy.has(e.owner) && held.has(e.y * W + e.x))) finalEntities = finalEntities.filter((e) => !(keptBy.has(e.owner) && held.has(e.y * W + e.x)));
   }
 
+  //    the support rule (D121, step 7) on the terrain as built: a heightfield drops nothing, and is
+  //    not worked out; a base's caves and overhangs are its own (the objects that hold them included)
+  const dropped = base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), finalEntities).dropped : 0;
   const result: BuildResult = {
     ...withWater,
+    ...(dropped ? { dropped } : {}),
     entities: finalEntities,
     dirty: null,
     cache: makeCache({ settle: settleEntry, barrierKey, moisture: settle ? moist : null, soil: settle ? soil : null, occupiedBeforeResources: occBefore, resourceWater: water, occupiedBeforeEdits, resources, resourceOrder: order }),
