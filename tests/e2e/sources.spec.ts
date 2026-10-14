@@ -71,7 +71,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     );
   const row = page.getByRole("group", { name: "Water source, selected" });
   const readout = row.getByRole("status", { name: "This source" }).locator("output");
-  const strength = row.getByRole("combobox", { name: "Strength" });
+  const strength = row.getByRole("slider", { name: "Strength", exact: true });
 
   for (const [what, x, y, n] of [
     ["alone", ax, ay, 1],
@@ -105,7 +105,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     await expect.poll(rowTotal).toBe(n);
     expect(await labelNumber()).toBe(n);
     expect(first(await readout.textContent())).toBe(1);
-    await expect(strength).toHaveValue("1");
+    await expect(strength).toHaveAttribute("aria-valuetext", "1 water per second");
 
     // four notches up in quick succession, one down: after each, before the next, the label, the row and
     // the note beside the pointer say the same number at once
@@ -123,7 +123,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
             label: num(labels[0]?.textContent, many > 1 ? /sources, ([\d.]+)/ : /([\d.]+)/),
             own: num(words, /([\d.]+)/),
             row: num(words, many > 1 ? /of ([\d.]+)/ : /([\d.]+)/),
-            select: Number((group?.querySelector('select[aria-label="Strength"]') as HTMLSelectElement | null)?.value),
+            select: num(group?.querySelector('input[aria-label="Strength"]')?.getAttribute("aria-valuetext"), /([\d.]+)/),
             note: num(document.querySelector(".shape-note")?.textContent, /([\d.]+)/),
           };
         },
@@ -150,7 +150,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
     await expect.poll(() => real(x, y), { timeout: 20_000, message: `${what}: its real strength` }).toBe(3);
     await idle(page);
     expect(first(await readout.textContent())).toBe(3);
-    await expect(strength).toHaveValue("3");
+    await expect(strength).toHaveAttribute("aria-valuetext", "3 water per second");
     expect(await labelNumber()).toBe(n > 1 ? n + 2 : 3);
     await page.keyboard.press("x");
   }

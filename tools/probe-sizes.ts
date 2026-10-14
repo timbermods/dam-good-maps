@@ -5,7 +5,7 @@
 //   npx tsx tools/probe-sizes.ts [--out C:\dgm-probe\sizes] [--check] [--python]
 //
 // --check writes nothing and fails when a file on disk differs from a fresh build. --python also runs the Python
-// validator's load checks on every map (file.size is the limit under test: both validators allow 4–256).
+// validator's load checks on every map (file.size is the limit under test: both validators allow 4–512).
 // Nothing here launches Timberborn.
 
 import { spawnSync } from "node:child_process";
@@ -34,6 +34,6 @@ if (process.argv.includes("--python") && !check)
     const rep = JSON.parse(line) as { checks: { id: string; ok: boolean; detail: string }[] };
     const bad = rep.checks.filter((c) => !c.ok && c.id !== "file.size" && c.id !== "terrain.edge_wall");
     const size = rep.checks.find((c) => c.id === "file.size");
-    console.log(`python ${f.file}: ${bad.length ? "FAIL " + bad.map((c) => `${c.id}: ${c.detail}`).join(" | ") : "load ok"}; file.size ${size ? (size.ok ? "ok" : "refused, as expected above 256") : "not reported"}`);
+    console.log(`python ${f.file}: ${bad.length ? "FAIL " + bad.map((c) => `${c.id}: ${c.detail}`).join(" | ") : "load ok"}; file.size ${size ? (size.ok ? "ok" : "refused") : "not reported"}`);
     if (bad.length) process.exitCode = 1;
   }

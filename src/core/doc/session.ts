@@ -105,6 +105,8 @@ export interface HistoryMark {
   readonly below: unknown;
   readonly redo: readonly unknown[];
   readonly step: unknown;
+  /** The next operation number at the mark: a step taken back leaves it as it was. */
+  readonly seq: number;
 }
 
 export interface HistoryItem {
@@ -552,6 +554,13 @@ export class MapSession {
     return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
   }
 
+  /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):
+   *  an unedited import's own water while it keeps it (`showsStoredWater`), else the build's. The same
+   *  object until the map's water changes. */
+  waterShown(): CanonicalWater {
+    return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
+  }
+
   /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
@@ -824,6 +833,7 @@ export class MapSession {
           this.log.pop();
         }
         if (done.length) this.cur = this.rebuilt();
+        this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
       done.push(this.applyChecked(op, origin, label));
@@ -951,7 +961,7 @@ export class MapSession {
   /** Where the history stands now, before a step that may have to be taken back as if it had never
    *  been taken (a force whose Esc arrives after its keep, PLAN §20 D341). */
   mark(): HistoryMark {
-    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
+    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null, seq: this.seqNext };
   }
 
   /** The operations of the latest step on the history (empty when there is none undo can reach). */
@@ -972,6 +982,7 @@ export class MapSession {
     const top = this.undoStack.length;
     if (!mark.step || top !== mark.depth + 1 || this.undoStack[mark.depth] !== mark.step || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return false;
     this.undo();
+    this.seqNext = mark.seq;
     this.redoStack = (mark.redo as HistoryEntry[]).slice();
     for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
     return true;
