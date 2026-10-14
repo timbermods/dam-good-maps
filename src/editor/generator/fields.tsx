@@ -50,7 +50,7 @@ export const GROUPS: readonly { name: GroupName; keys: readonly FieldKey[] }[] =
 ];
 
 /** Every setting's control, by key. */
-export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> & { sizeWarning: JSX.Element | null } {
+export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
   const { spec } = p;
   const s = spec.settings;
   const W = spec.size.x;
@@ -82,11 +82,6 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> & { s
     ),
     seed: <SeedSetting {...p} />,
     size: <SizeSetting W={W} H={H} preset={preset} onSize={p.onSize} />,
-    sizeWarning: isBigMap(W, H) ? (
-      <p class="size-warn" role="status">
-        {BIG_MAP_WARNING}
-      </p>
-    ) : null,
     relief: num("relief", "Relief", s.terrain.relief, 0, 100, (v) => set((c) => (c.terrain.relief = v)), { bandKey: "relief" }),
     verticality: num("verticality", "Verticality", s.terrain.verticality, 0, 100, (v) => set((c) => setVerticality(c.terrain, v)), { bandKey: "verticality" }),
     variety: num("variety", "Variety", s.terrain.variety, 0, 100, (v) => set((c) => (c.terrain.variety = v)), { bandKey: "variety" }),
@@ -148,11 +143,9 @@ function SeedSetting(p: SettingsProps) {
   );
 }
 
-/** What the size line says beyond 256 on a side (D357): a warning, never a refusal. */
-export const BIG_MAP_WARNING = "Timberborn's own map editor can't open maps over 256 a side, and the game may run slower.";
-
-/** Whether a map's size is past what Timberborn's own map editor opens. */
-export const isBigMap = (W: number, H: number): boolean => W > 256 || H > 256;
+/** A size box's tooltip beyond 256 a side (D357): the box turns the warning colour and says why; a warning, never a
+ *  refusal. */
+export const BIG_SIDE_TIP = "Timberborn's own editor can't open maps over 256 a side";
 
 /** The size: 96, 128, 192, 256 (a square that side) or Custom, five equal options across the line (Kyler,
  *  2026-10-04: the Size choices end where Theme's do); Custom chosen, its option holds the width and height, typed,
@@ -187,9 +180,9 @@ function SizeNumbers(p: { W: number; H: number; onSize(size: { x: number; y: num
   const box = (v: number, label: string, id: string, onSet: (n: number) => void) => (
     <input
       id={id}
-      class="set-text set-num"
+      class={`set-text set-num${v > 256 ? " over" : ""}`}
       aria-label={label}
-      title={HINT[id]}
+      title={v > 256 ? BIG_SIDE_TIP : HINT[id]}
       value={v}
       inputMode="numeric"
       onChange={(e) => {
