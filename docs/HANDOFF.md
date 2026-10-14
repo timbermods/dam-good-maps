@@ -38,7 +38,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **The planning session** (Opus 5.5, high; the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14,
   replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it merges every "ready to merge", releases
   to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
-  the rest to him.
+  the rest to him. Its own PRs are merged by this session after a fresh sub-agent's review.
 - **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
   `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
@@ -48,7 +48,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
-  `dev`; this session reviews and merges them.
+  `dev`; the planning session merges them on their owner's "ready to merge".
 - **No session touches another's files.** Sessions talk on the Coordination issue (#236); what needs Kyler carries
   `needs-kyler` (D470).
 
@@ -79,9 +79,9 @@ and D386's review). **Never raise a model's effort on your own, never start sub-
 
 The order of work (the release gate, the editor-core items, the post-release list, M9b's adoption order) is at the top of
 [ROADMAP.md](../ROADMAP.md); Kyler's Codex verdicts and what is still with Codex are in its "The Codex adoptions";
-[STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; this session merges them
-as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started from an
-unreleased one) and adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
+[STATUS.md](STATUS.md) lists the branches and PRs. Codex builds on `investigation/<name>` branches; the planning session
+merges them as investigations at a boundary (a merge commit once green; only Codex's own commits where a branch started
+from an unreleased one), and this session adopts their INTEGRATION.md as proposals; a conflict with a decision becomes a pending decision with a
 default. Hold any PR Kyler says Codex is still working on. The Rust adoptions (D442) run ahead of the post-release list as one `build` sub-agent in its own worktree, in parallel with
 M9b: (a) Rust 1.90, wasm32 and the Rust build in CI with `portable.rs`; (b) the Rust water, in every engine at every size;
 (c) the forces (#158) as soon as CI's byte-identity checks and the suites pass against the Rust (D453); (d) the analysis (#157) and the generator after
@@ -103,7 +103,10 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
     session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
     session checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
-    with a full CI run by hand first for core and Rust changes).
+    with a full CI run by hand first for core and Rust changes). The planning session's own PRs are merged by this session
+    after a fresh sub-agent's review.
+  - *Design questions* go to the planning session first, on #236: it answers those Kyler's recorded decisions settle,
+    citing them, and sends only the rest to him as `needs-kyler` issues.
   - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
     question's issue is closed.
   - *Codex's investigations* are adopted or sent back for another round by this session (D484).
