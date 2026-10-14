@@ -30,6 +30,12 @@ describe("an Unstable Core's moment against the hazard of its cycle", () => {
     expect([2, 3, 6, 7].map((d) => coreMomentNow(m, d))).toEqual([false, true, true, false]);
   });
 
+  it("less than a day's warning at the nearest reads 'up to' (Normal, 12.5 days: 0.5 to 4.5 days before)", () => {
+    const m = coreMoment({ cycles: 6, days: 12.5 }, "normal", "badtide");
+    expect(m.when).toBe("before");
+    expect(coreMomentWords(m, "badtide")).toBe("Unstable core: goes off up to 5 days before cycle 6's drought or badtide");
+  });
+
   it("a core that goes off on the hazard's last day is during it; one a day later is after it", () => {
     const length = hazardDays("hard", "drought");
     const [, longest] = TEMPERATE_DAYS.hard;
@@ -37,6 +43,8 @@ describe("an Unstable Core's moment against the hazard of its cycle", () => {
     const last = coreMoment({ cycles: 6, days: longest + length - 0.5 }, "hard", "drought");
     expect(last.when).toBe("during");
     expect(coreMomentNow(last, length)).toBe(true);
+    // (its range runs past the hazard's end: no day past the last is named)
+    expect(coreMomentWords(last, "drought")).toBe(`Unstable core: goes off on days ${length} to ${length} of cycle 6's drought or badtide, or after it ends`.replace(`days ${length} to ${length}`, `day ${length}`));
     // earliest = length: the hazard has just ended
     const after = coreMoment({ cycles: 6, days: longest + length }, "hard", "drought");
     expect(after.when).toBe("after");

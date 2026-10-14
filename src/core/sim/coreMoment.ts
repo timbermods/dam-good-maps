@@ -29,6 +29,8 @@ export interface CoreMoment {
    *  `days - temperate`); below 0 is before the hazard starts. */
   earliest: number;
   latest: number;
+  /** The hazard's length on this difficulty, days (its default, the longest). */
+  length: number;
   /** Against the hazard of that cycle (its default length): always before it starts, as it starts or while it runs,
    *  or after it ended. */
   when: "before" | "during" | "after";
@@ -42,14 +44,14 @@ export function coreMoment(core: { cycles: number; days: number }, difficulty: D
   const earliest = core.days - longest;
   const latest = core.days - shortest;
   const when = latest < 0 ? "before" : earliest >= length ? "after" : "during";
-  return { cycle: core.cycles, days: core.days, earliest, latest, when };
+  return { cycle: core.cycles, days: core.days, earliest, latest, length, when };
 }
 
 const plural = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
 /** The hazard days a core may go off on, [first, last] (day 1 when it may go off before the hazard starts). */
 function hazardDayRange(m: CoreMoment): [number, number] {
-  return [Math.floor(Math.max(m.earliest, 0)) + 1, Math.floor(m.latest) + 1];
+  return [Math.floor(Math.max(m.earliest, 0)) + 1, Math.min(Math.floor(m.latest) + 1, m.length)];
 }
 
 /** The moment in a few plain words, for the day box's note. Which hazard a cycle brings is random, so a moment that does
@@ -58,14 +60,18 @@ export function coreMomentWords(m: CoreMoment, hazard: Hazard): string {
   const goes = "Unstable core: goes off";
   const of = `cycle ${m.cycle}'s drought or badtide`;
   if (m.when === "before") {
-    const nearest = Math.max(1, Math.floor(-m.latest));
+    const nearest = Math.floor(-m.latest);
     const farthest = Math.max(1, Math.ceil(-m.earliest));
+    // (less than a day's warning at the nearest: "up to")
+    if (nearest < 1) return `${goes} up to ${plural(farthest)} before ${of}`;
     return nearest >= farthest ? `${goes} ${plural(farthest)} before ${of}` : `${goes} ${nearest} to ${plural(farthest)} before ${of}`;
   }
   if (m.when === "after") return `${goes} after cycle ${m.cycle}'s ${hazard} has ended`;
   const [a, b] = hazardDayRange(m);
   const range = a === b ? `day ${a}` : `days ${a} to ${b}`;
-  return m.earliest < 0 ? `${goes} before or on ${range} of ${of}` : `${goes} on ${range} of ${of}`;
+  // (a range that runs past the hazard's end: its last day, or after it ends)
+  const past = m.latest >= m.length ? ", or after it ends" : "";
+  return m.earliest < 0 ? `${goes} before or on ${range} of ${of}${past}` : `${goes} on ${range} of ${of}${past}`;
 }
 
 /** Whether the held hazard day falls where the core may go off (the note lights up). */
