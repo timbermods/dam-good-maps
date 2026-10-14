@@ -14,7 +14,7 @@ how things are and what is next, not how they got there.
 | [CLAUDE.md](../CLAUDE.md) | The standing rules for working in this repository. Every session reads it first. |
 | [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: how to start, the two sessions, the models, how things are run, the lessons, the machine. Read it first when starting a session. |
 | [STATUS.md](STATUS.md) | Where things stand now: what's released, what's in flight (branches, PRs, worktrees, owning session) and what waits for Kyler. |
-| [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | How Kyler and his planning chat (claude.ai) work together. Read it when starting a planning chat. |
+| [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | The planning session's role (coordination, merging, releases) and how Kyler works. Read it when starting the planning session. |
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardstick for every piece of work and every review (D225). |
 | [ROADMAP.md](../ROADMAP.md) | The order of work (the release gate, the post-release list), the Codex adoptions with Kyler's verdicts, then each open step with what it delivers and what blocks it. |
 | [PLAN.md](../PLAN.md) | The product: the generator, the checks, the interface. Its §20 points to the decisions in force. |
