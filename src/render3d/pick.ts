@@ -68,6 +68,53 @@ export function groundNear(mask: number, level: number): number {
   return best;
 }
 
+/** Whether a tile has a ground top at `level`, under a layer cut or not: its column's tops (`mask`: a column with
+ *  terrain above terrain; none: one plain run up to `height`), with the terrain above the cut gone, the cut itself a
+ *  top where rock crosses it. */
+export function hasTopAt(height: number, mask: number | undefined, level: number, cut: number | null): boolean {
+  if (mask === undefined) return (cut === null ? height : Math.min(height, cut)) === level;
+  return runTops(mask & cutKeep(cut)).includes(level);
+}
+
+/** The mask of the voxels a layer cut leaves (cut: the level, or null for none). */
+export function cutKeep(cut: number | null | undefined): number {
+  return cut === null || cut === undefined || cut >= 31 ? -1 : (1 << Math.max(0, cut)) - 1;
+}
+
+/** The heights a cursor lies on, near `at`: `heights` itself, unless the cursor follows the run the pointer
+ *  aims at (`onRun`, the Select tool's ring) and some column with terrain above terrain lies within its reach,
+ *  where that column's height becomes the top of its run nearest the aimed level (a copy then). The editing
+ *  tools (brushes, forces) never follow the run: their stroke changes the tile's top, and the cursor draws
+ *  where the ground will change. */
+export function aimedHeights(
+  heights: Uint8Array,
+  W: number,
+  H: number,
+  columns: ReadonlyMap<number, Uint8Array>,
+  maskAt: (i: number) => number,
+  aim: number | null,
+  at: { x: number; y: number; radius: number },
+  onRun: boolean,
+): Uint8Array {
+  if (!onRun || aim === null || columns.size === 0) return heights;
+  const r = Math.ceil(at.radius) + 1;
+  const x0 = Math.max(0, Math.floor(at.x) - r);
+  const x1 = Math.min(W - 1, Math.floor(at.x) + r);
+  const y0 = Math.max(0, Math.floor(at.y) - r);
+  const y1 = Math.min(H - 1, Math.floor(at.y) + r);
+  let out: Uint8Array | null = null;
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (!columns.has(i)) continue;
+      const g = groundNear(maskAt(i), aim);
+      if (g === heights[i]) continue;
+      out ??= heights.slice();
+      out[i] = g;
+    }
+  return out ?? heights;
+}
+
 export interface TerrainPickOptions {
   /** The level the world is cut at (the game's layers): voxels at or above it are air. */
   cut?: number;
@@ -82,7 +129,7 @@ export function pickTerrain(ray: Ray, W: number, H: number, maskAt: (i: number) 
   const [ox, oy, oz] = ray.origin;
   const [dxw, dy, dzw] = ray.direction;
   const maxH = opts.maxHeight ?? LAYERS;
-  const keep = opts.cut !== undefined && opts.cut < 31 ? (1 << Math.max(0, opts.cut)) - 1 : -1;
+  const keep = cutKeep(opts.cut);
   // grid coordinates: gx = X, gy = −Z
   const gx0 = ox;
   const gy0 = -oz;

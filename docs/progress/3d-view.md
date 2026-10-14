@@ -66,9 +66,15 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   operations yet; the brushes and Select's actions still work on the heightfield's top until step 3 (D280 (3)) moves
   them onto runs. Proposed when they do: the selection keeps its tile mask and gains an optional level per tile
   (`Selection.levels`), set from the hit's `level`.
-- **What is drawn where the pointer aims:** the brush disc and the force ring lie on the top of the run nearest the
-  hit's level in a column with terrain above terrain (`groundNear`), and the hovered tile lights only that run's
-  top (`hover.w` in the terrain shader); everywhere else, as before.
+- **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
+  the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
+  terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
+  as on dev, until step 3: their cursor, ring and band are drawn where the stroke will actually change the ground, since
+  a cursor on a cave floor whose stroke would raise the roof breaks what you see is what you get. Everywhere else, as before.
+- **Under a layer cut:** the pick treats voxels at or above the cut as air and the cut as a top, and the Wand's
+  `hasTop` applies the same cut (`hasTopAt`: a plain tile counts as min(height, cut)), so a click on the cut plateau
+  takes the whole flat the cut shows. With caves the shader still flattens a roof run into a lid at the cut, while the
+  pick lands on the floor under the drawn lid; part 6 (the cutaway) resolves it.
 
 ## The rest of the step (next parts)
 

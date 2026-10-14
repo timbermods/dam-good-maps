@@ -64,7 +64,7 @@ import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTextur
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
-import { groundNear, hitLevel, pickPlane, pickTerrain, runTops, type Ray, type TileHit } from "./pick";
+import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -2151,7 +2151,7 @@ export class MapRenderer {
     }
     const level = (tx: number, ty: number) => {
       const i = ty * m.W + tx;
-      const top = this.groundAt(i);
+      const top = this.slice === null ? m.heights[i] : Math.min(m.heights[i], this.slice);
       return m.surface.depth[i] > 0.05 && this.slice === null ? Math.max(top, m.surface.surface[i]) : top;
     };
     this.ring.set(s, level, m.W, m.H);
@@ -2567,56 +2567,33 @@ export class MapRenderer {
     return hit;
   }
 
-  /** The level of the ground the pointer last aimed at: the cursor and rings lie on that run in a
-   *  column with terrain above terrain (null: none, or the tile's top). */
+  /** The level of the ground the pointer last aimed at: the Select tool's ring lies on that run in a
+   *  column with terrain above terrain (null: none). */
   private aim: number | null = null;
 
   /** Whether tile `i` has a top at `level`: a run's top, or the map's floor (level 0) under air at the
-   *  bottom. Select's wand takes the ground joined at a level, under overhangs too. */
+   *  bottom; under a layer cut, of the terrain that remains (the cut is a top where solid rock crosses it).
+   *  Select's wand takes the ground joined at a level, under overhangs too. */
   hasTop(i: number, level: number): boolean {
     const m = this.map;
     if (!m) return false;
-    if (!m.source.columns.has(i)) return m.heights[i] === level;
-    return runTops(columnMask(m.source, i)).includes(level);
+    return hasTopAt(m.heights[i], m.source.columns.has(i) ? columnMask(m.source, i) : undefined, level, this.slice);
   }
 
-  /** The level of the ground tile `i` shows where the pointer aims: its top, or in a column with
-   *  terrain above terrain the top of the run nearest the aimed level. */
-  private groundAt(i: number): number {
-    const m = this.map!;
-    const c = this.aim !== null ? m.source.columns.get(i) : undefined;
-    const top = c ? groundNear(columnMask(m.source, i), this.aim!) : m.heights[i];
-    return this.slice === null ? top : Math.min(top, this.slice);
-  }
-
-  /** The heights the brush cursor lies on: the map's, with each column with terrain above terrain
-   *  inside the cursor's reach at the run the pointer aims at. */
+  /** The heights the brush cursor lies on: the map's, except for the Select tool's ring (`run`), which
+   *  lies on the run the pointer aims at in a column with terrain above terrain. The editing tools'
+   *  cursors lie where their stroke changes the ground: the tile's top. */
   private cursorHeights(): Uint8Array {
     const m = this.map!;
     const s = this.brushCursorState;
-    if (!s || this.aim === null || m.source.columns.size === 0) return m.heights;
-    const r = Math.ceil(s.radius) + 1;
-    const x0 = Math.max(0, Math.floor(s.x) - r);
-    const x1 = Math.min(m.W - 1, Math.floor(s.x) + r);
-    const y0 = Math.max(0, Math.floor(s.y) - r);
-    const y1 = Math.min(m.H - 1, Math.floor(s.y) + r);
-    let out: Uint8Array | null = null;
-    for (let y = y0; y <= y1; y++)
-      for (let x = x0; x <= x1; x++) {
-        const i = y * m.W + x;
-        if (!m.source.columns.has(i)) continue;
-        const g = groundNear(columnMask(m.source, i), this.aim);
-        if (g === m.heights[i]) continue;
-        out ??= m.heights.slice();
-        out[i] = g;
-      }
-    return out ?? m.heights;
+    if (!s) return m.heights;
+    return aimedHeights(m.heights, m.W, m.H, m.source.columns, (i) => columnMask(m.source, i) & cutKeep(this.slice), this.aim, { x: s.x, y: s.y, radius: s.radius }, s.run === true);
   }
 
   /** The tile under a point on the screen as it is seen: over water, where the ray meets the water's
    *  surface (D321, item 13: a force's cursor is where the pointer is, not on the bed below). */
-  pickSurface(clientX: number, clientY: number): TileHit | null {
-    const hit = this.pick(clientX, clientY);
+  pickSurface(clientX: number, clientY: number, picked?: TileHit | null): TileHit | null {
+    const hit = picked === undefined ? this.pick(clientX, clientY) : picked;
     const m = this.map;
     if (!hit || !m || this.slice !== null) return hit;
     const i = hit.y * m.W + hit.x;
@@ -2733,7 +2710,7 @@ export class MapRenderer {
       this.hoverHit = hit;
       const m = this.map;
       this.setHoverTile(hit ? hit.x : null, hit?.y ?? 0, hit && m?.source.columns.has(hit.y * m.W + hit.x) ? (hit.level ?? -1) : -1);
-      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY) : hit, ev);
+      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
       this.onHover?.(hit);
     });
     const end = (e: Event) => {

@@ -581,6 +581,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles.
+  The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
+  until they work on runs (step 3); hover and Select show the run seen.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at

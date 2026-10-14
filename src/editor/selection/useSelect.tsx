@@ -66,7 +66,7 @@ export function useSelect(ed: Ed): SelectSlice {
       brushSize: () => brushRef.current.size,
       ring: (at: [number, number] | null, radius: number) => {
         if (brushToolRef.current) return;
-        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
+        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null, run: true } : null);
       },
       // Ctrl+click on the land: the Level number (as Flatten's sampling)
       sample: (level: number) => {
