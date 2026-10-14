@@ -140,11 +140,11 @@ const FORCE_LIST: readonly Force[] = [
   // (the keys, Kyler 2026-10-06: Shift and the number of its place in the bar, matched on the key's code)
   { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river" },
   { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "Strike a crater" },
-  { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "Raise a volcano" },
+  { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "Build a volcano" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "Lift or slide the land along a fault" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "Shift+7", hint: "Cut a valley with a glacier" },
   { id: "rift", name: "Rift", ready: true, key: "Shift+4", hint: "Crack the land open" },
-  { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "Lay a fan of sediment at a valley's mouth" },
+  { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "Lay a fan of sediment" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */

@@ -380,13 +380,14 @@ refinements and what the mockups left open:
   no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
-  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; every tool's rows share their
-  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it). **Power is always
+  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; each gap between plates lines
+  up with a gap in the other row or a plate there spans it (Rift, Deposit and Quake, with a wide Floor, only at their
+  Sources, Try another and Power). **Power is always
   cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
   setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
   Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
-  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve What it leaves 7–8, Walls 9–10, Wander 11–13, then
-  Canyon depth, River depth, Banks and the Floor on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve Wander 7–9, What it leaves 10–11, Walls 12–13 (its rows share 3, 9 and 11), then
+  Canyon depth 1–3, River depth 4–5, Banks 6–7 and the Floor 8–9 on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
   cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.

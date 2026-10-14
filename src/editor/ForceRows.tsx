@@ -1,15 +1,13 @@
-// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226, D289, D309):
-// every force's row starts with Power (cells 1–3) and Size (cells 4–6; Quake has none), the same on all of them, then at most one signature choice, Try another and a small More button
-// for its other settings. Craterize: Power, Size (following Power, or set by hand), Try another; a
-// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: Power, Size (its breadth), Try another; a click
-// vents, a drag opens a fissure. Quake: Power (its drawn line sets
-// its length), then its one choice, Lift or Slide; V flips the side that moves. More opens the rest of each force's character (Craterize's
-// walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
-// Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
-// it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
-// another re-rolls only the details still on Auto. While a force is at work its row is its status, the
-// hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
-// and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
+// The options rows of every force but Carve (PLAN §20 D202, D203, D206, D219, D226, D289, D309; Carve's is CarveRow.tsx).
+// Every row starts with Power (cells 1–3) and Size (cells 4–6; Quake has none), the same on all of them, then the force's
+// own settings, the Floor, Sources and Try another (Sources at cells 10–11, Try another at 12–13 of row 2). Craterize: a
+// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: a click vents, a drag
+// opens a fissure. Quake: Power (its drawn line sets its length), then Lift or Slide, Scarp and Side (V flips the side
+// that moves). Glaciate: Meltwater (a click Flows, a drag Aims), benches, steps, tarn and scree. Rift: Walls. Deposit:
+// Channels. Every detail (walls, centre, debris, rays, shape, summit, flows, ridges, scarp, benches, steps, tarn, scree,
+// channels) is on Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins it
+// with a small way back to Auto (D309); Try another re-rolls only the details still on Auto. While a force is at work its
+// row is its status, the hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
 import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
