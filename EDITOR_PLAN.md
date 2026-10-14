@@ -804,7 +804,9 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
   rows as they are pressed, with **Esc stops** beside them. **It plays on a temporary copy**: the page opens the open
   map's project in a worker of its own and the editor shows that copy, so the player's map stays in its worker with its
   whole history, untouched; when the tour ends, or Esc ends it at any moment, the player's own map comes back as it was
-  (its history, what can be redone, the camera, and the brush and force choices the browser keeps). The player's own
+  (its history, what can be redone, the camera, and the brush and force choices the browser keeps) and so does the editor as the player had it (
+  `tour/uiState.ts`: the tool in hand and its settings, the shelf's object, the selection, History and the other panels and
+  toggles, a held Drought or Badtide day, and the focus). The player's own
   keys and pointer stay out while it plays. **Stored gestures, replayed through the real input paths**
   (`conductor.ts`, `script.ts`): synthetic keys, pointer moves, presses and wheel turns dispatched on the map exactly as
   a player's are, keyboard shortcuts rather than toolbar clicks, so it survives layout changes. **Spots follow the
