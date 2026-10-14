@@ -87,6 +87,26 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
   return { id: c.id, class: c.class, message: c.message, ...(where ? { where } : {}), ...(fix ? { fix } : {}) };
 }
 
+/** A check that names several things, one line each (the checks' own message, "
+" between), as one
+ *  item per thing, each with its own place for Show; the fix stays on the first, and "and 3 more"
+ *  is a line of its own. The place is the check's tile or entity at the same position. */
+export function checkRows(s: MapSession, c: CheckResult): CheckItem[] {
+  const item = checkItem(s, c);
+  const lines = item.message.split("\n");
+  if (lines.length < 2) return [item];
+  const at = new Map<string, [number, number]>();
+  for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
+  const tiles = c.where?.tiles;
+  const ids = c.where?.entities;
+  return lines.map((message, k): CheckItem => {
+    const pt = tiles?.length ? tiles[k] : ids?.[k] ? at.get(ids[k]) : undefined;
+    const row: CheckItem = { id: item.id, class: item.class, message, ...(pt ? { where: { tiles: [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
+    if (k === 0 && item.fix) row.fix = item.fix;
+    return row;
+  });
+}
+
 /** The failing checks as items; with `region`, those in it (a tile of the problem within a tile of the
  *  rectangle) are marked `here`. */
 export function checkItems(s: MapSession, checks: readonly CheckResult[], region: TileRect | null): CheckItem[] {
@@ -95,9 +115,10 @@ export function checkItems(s: MapSession, checks: readonly CheckResult[], region
   for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
   for (const c of checks) {
     if (!failing(c)) continue;
-    const item = checkItem(s, c);
-    if (region) item.here = inRegion(c.where, region, at);
-    items.push(item);
+    for (const item of checkRows(s, c)) {
+      if (region) item.here = inRegion(item.where, region, at);
+      items.push(item);
+    }
   }
   return items;
 }
@@ -154,10 +175,11 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
     if (c.applicable === false) continue;
     out.checks++;
     if (c.ok) continue;
-    if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
-    else if (c.advisory) out.advisory.push(checkItem(s, c));
-    else if (blocks("export", c)) out.blocking.push(checkItem(s, c));
-    else out.warnings.push(checkItem(s, c));
+    const rows = checkRows(s, c);
+    if (before && existedBefore(c, before)) out.existing.push(...rows);
+    else if (c.advisory) out.advisory.push(...rows);
+    else if (blocks("export", c)) out.blocking.push(...rows);
+    else out.warnings.push(...rows);
   }
   return out;
 }

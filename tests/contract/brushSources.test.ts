@@ -255,11 +255,11 @@ describe("brushes and water sources (D249)", () => {
     for (let k = 0; k < 10; k++) dabs.push(4 * x + 2, 4 * y + 2);
     const op: EditOp = { op: "brush", params: { tool: "raise", size: 2, strength: 8, dabs } };
     // the page sends the tiles of the sources the brush pressed on: the water source's
-    const u = ed.strokeClearing(op, "Raise, 13 tiles", [y * W + x]);
+    const u = ed.strokeClearing(op, "Raise 13 tiles", [y * W + x]);
     expect(u.ok).toBe(true);
     const h = ed.sessionInfo().history.filter((e) => e.applied);
     expect(h).toHaveLength(n0 + 1);
-    expect(h.at(-1)!.label).toBe("Raise, 13 tiles, a source cleared");
+    expect(h.at(-1)!.label).toBe("Raise 13 tiles, a source cleared");
     expect(ids()).not.toContain(WATER);
     expect(ids()).toContain(BAD);
     expect(open().built.heights[y * W + x]).toBeGreaterThan(heights0[y * W + x]);
@@ -268,8 +268,8 @@ describe("brushes and water sources (D249)", () => {
     expect(Array.from(open().built.heights)).toEqual(heights0);
     // no source there: the stroke alone, under its own label
     ed.redo();
-    const v = ed.strokeClearing({ op: "brush", params: { tool: "raise", size: 2, strength: 8, dabs: dabs.map((d, j) => (j % 2 ? d + 40 : d)) } }, "Raise, 12 tiles", [(y + 10) * W + x]);
+    const v = ed.strokeClearing({ op: "brush", params: { tool: "raise", size: 2, strength: 8, dabs: dabs.map((d, j) => (j % 2 ? d + 40 : d)) } }, "Raise 12 tiles", [(y + 10) * W + x]);
     expect(v.ok).toBe(true);
-    expect(ed.sessionInfo().history.filter((e) => e.applied).at(-1)!.label).toBe("Raise, 12 tiles");
+    expect(ed.sessionInfo().history.filter((e) => e.applied).at(-1)!.label).toBe("Raise 12 tiles");
   });
 });

@@ -52,7 +52,7 @@ test("D368 (4): Ctrl+scroll over a source: its label, its row and its real stren
   const [[ax, ay], [rx, ry]] = found;
   const place = (id: string, x: number, y: number) =>
     page.evaluate(
-      ([id, x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place water source"),
+      ([id, x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place a water source"),
       [id, x, y] as [string, number, number],
     );
   await place(ID(0), ax, ay);

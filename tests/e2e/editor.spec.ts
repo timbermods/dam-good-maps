@@ -101,7 +101,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.keyboard.press("Escape");
   await toolPutAway(page);
   i = await info(page);
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source"]);
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower \d+ tiles$/), "Place a water source"]);
   const springs = () => page.evaluate(async ([a, b]) => (await window.dgmEditor!.worker.entitiesAt(a, b)).filter((e) => e.template === "WaterSource").length, spring!);
   expect(await springs()).toBe(1);
 
@@ -125,7 +125,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.evaluate(() => window.dgmEditor!.idle());
   // (History, a button in the bar since Kyler's 2026-10-06 sitting)
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
-  await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move start" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move the start" })).toBeVisible();
 
   // saved from the editor (export profile): the quiet dot says it is ready to play, and the File menu's
   // Download .timber gives the file
@@ -156,7 +156,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // the edited map as it was, its edits all there
   i = await info(page);
   expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower \d+ tiles$/), "Place a water source", "Move the start"]);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);
   expect((i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(moved.position);
