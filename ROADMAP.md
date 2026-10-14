@@ -732,11 +732,15 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
-   **Built: High's visible seasons.** On a held Drought or Badtide day, in High only, the plants (pines, birches, oaks, berry
-   bushes) that live on the map's own ground but not on the day's (dry in a drought, poisoned in a badtide, the generator's
-   own rule: moist and clean) are drawn withered, as the dead trees and bushes of dry ground; succulents and the map's
-   own plants are never changed, Day 0 and Standard show the map as it is. `render3d/seasons.ts` (pure,
-   `tests/unit/seasons.test.ts`), `MapRenderer.setSeasons`, and a check in `tests/e2e/look-high.spec.ts`.
+   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in High only, the plants the game
+   would surely have killed by then are drawn withered, by the game's timers, not the editor's instant rule
+   (`core/sim/withering.ts`, pure, `tests/unit/withering.test.ts`): dry for 1.1 x the species' `DaysToDieDry` in a row
+   (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
+   soil on any day (any plant, 0.2 to 0.3 days), and dead for good once dead. So a normal drought's 9 days kill no pine,
+   birch or oak; a badtide kills on every poisoned tile. The worker adds the held day's dead tiles to its held-day event
+   (it keeps each day's soil as the day is kept); the renderer moves those plants to the dead batches in place
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
+   heat shimmer and the badtide's sky follow (#67's stage 4).
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
