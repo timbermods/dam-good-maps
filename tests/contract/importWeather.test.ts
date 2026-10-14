@@ -66,7 +66,7 @@ describe("an unedited import's weather starts from the water the map shows", () 
     }
   });
 
-  it("the worker: day 0 is the water shown, the last day is drier, and an edit's own water starts the run again", async () => {
+  it("the worker: day 0 is the water shown, the last day is drier, a day between is wetter than the last", async () => {
     ed.openTimber(pondFile(), "pond.timber");
     ed.setAutoWater(false);
     try {

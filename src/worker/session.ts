@@ -798,14 +798,14 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
 // ------------------------------------------------------------------------------------ weather
 
 /** A held weather view (D180 (8), D181 (3); Kyler, 2026-10-04): a drought or a badtide simulated day by day from the
- *  map's settled water, every day's water and soil kept as it is computed, so any day shows at once once reached
+ *  water the map shows (`MapSession.waterShown`), every day's water and soil kept as it is computed, so any day shows at once once reached
  *  and the player can hold it, inspect it and plan against it. Day 0 is the map's own water; the last day by
  *  default is the hazard's length for the map's difficulty (core/sim/weather.ts), and further days are simulated on
  *  request, without a cap (the game's lengths depend on its difficulty). A drought: every source stops, the rivers
  *  drain, the pools evaporate. A badtide: the clean sources give badwater along the game's opening curve, then at
  *  full strength (a held badtide never ends, so its sources never ease back), and it spreads through the water and
  *  poisons the ground. Nothing plays and nothing comes back: the page shows the day it asks for. After an edit the
- *  page asks again; the map's version has changed, so the run starts again from the edited map's settled water.
+ *  page asks again; the map's version has changed, so the run starts again from the water the edited map shows.
  *  The map never changes. */
 interface WeatherRun {
   session: MapSession;
@@ -850,7 +850,7 @@ function currentRun(run: WeatherRun): boolean {
   return weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from === run.session.waterShown();
 }
 
-/** The hazard's run for the map as it is: the kept one, or a new one from the map's settled water. */
+/** The hazard's run for the map as it is: the kept one, or a new one from the water the map shows (`waterShown`). */
 function runFor(hazard: Hazard): WeatherRun {
   const s = need();
   const old = weatherRuns[hazard];
@@ -883,7 +883,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   void driveWeather(run);
 }
 
-/** Work out both hazards' default days in the background, from the map's settled water (Kyler, 2026-10-04: then the
+/** Work out both hazards' default days in the background, from the water the map shows (Kyler, 2026-10-04: then the
  *  first click is instant too). The page asks only while Kyler is idle and the water has settled, and stops it the
  *  moment he edits, paints or uses a force; it runs a few milliseconds at a time between his messages. */
 export async function prepareWeather(): Promise<void> {
