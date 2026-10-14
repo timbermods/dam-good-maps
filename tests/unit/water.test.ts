@@ -93,32 +93,24 @@ describe("drought (PLAN §10)", () => {
 const SAVE = "investigation/raw/saves/generated-river-valley-day1-2.timber";
 
 describe.skipIf(!existsSync(SAVE))("the game's own save (local only)", () => {
-  // The save's water at its 975th tick from empty, give or take one: the game's singleton order is
-  // known only to a tick either way (investigation/cycles/FIDELITY.md, "Limits"), and a filling river
-  // still moves by about 0.001 a tick there (a prototype River Valley 96², 975 against 976 ticks:
-  // 0.0011), so the 0.001 holds at the best-aligned of the three ticks.
-  it("975 ticks from empty, give or take the one tick the game's order leaves open, reproduce the saved water within 0.001", () => {
+  it("975 ticks from empty reproduce the saved water within 0.001", () => {
     const file = readTimber(new Uint8Array(readFileSync(SAVE)));
     const w = file.world;
     const m = waterModelFromWorld(w, surfaceOf(w));
     const sim = new WaterSim(m);
+    sim.run(975);
     const toks = String(((w.singletons.WaterMapNew as Record<string, unknown>).WaterColumns as { Array: string }).Array).split(" ");
-    const saved = toks.slice(0, w.sizeX * w.sizeY).map((t) => (t === "0" ? 0 : Number(t.split(":")[0])));
-    const wetSaved = saved.filter((d) => d > 0).length;
-    let best = { ticks: 0, worst: Infinity, wetSim: 0 };
-    sim.run(974);
-    for (let ticks = 974; ticks <= 976; ticks++) {
-      if (ticks > 974) sim.run(1);
-      let worst = 0;
-      let wetSim = 0;
-      for (let i = 0; i < saved.length; i++) {
-        worst = Math.max(worst, Math.abs(saved[i] - sim.D[i]));
-        if (sim.D[i] > 0) wetSim++;
-      }
-      if (worst < best.worst) best = { ticks, worst, wetSim };
+    let worst = 0;
+    let wetSaved = 0;
+    let wetSim = 0;
+    for (let i = 0; i < w.sizeX * w.sizeY; i++) {
+      const d = toks[i] === "0" ? 0 : Number(toks[i].split(":")[0]);
+      worst = Math.max(worst, Math.abs(d - sim.D[i]));
+      if (d > 0) wetSaved++;
+      if (sim.D[i] > 0) wetSim++;
     }
-    expect(best.worst, `best at ${best.ticks} ticks`).toBeLessThan(0.001);
-    expect(best.wetSim, `at ${best.ticks} ticks`).toBe(wetSaved);
+    expect(worst).toBeLessThan(0.001);
+    expect(wetSim).toBe(wetSaved);
   });
 });
 
