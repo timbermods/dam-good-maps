@@ -1,0 +1,48 @@
+name: Collaboration connection (deployed)
+
+# D486: the two-browser relay test against the deployed function and Cloudflare's real relay. Run by hand once the
+# function is deployed (collab-worker.yml) and its relay secrets are set. It needs no secrets of its own: it only
+# calls the function, which must answer /health with the relay set up; otherwise the test skips and says why.
+
+on:
+  workflow_dispatch:
+    inputs:
+      worker_url:
+        description: The function's address (https://dam-good-maps-collab.<account>.workers.dev)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collab-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium and Firefox for Playwright
+        run: npx playwright install --with-deps chromium firefox
+      - name: Connection test against the deployed function
+        run: npx playwright test -c playwright.collab-live.config.ts
+        env:
+          DGM_COLLAB_LIVE_URL: ${{ inputs.worker_url }}
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: collab-live-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

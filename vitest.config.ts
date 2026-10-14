@@ -18,6 +18,7 @@ const HEAVY = [
   "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
   "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
   "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
+  "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
 ];
 
 export default defineConfig({
