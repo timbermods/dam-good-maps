@@ -1042,7 +1042,10 @@ opened, are listed but never blamed on the player's edits and do not block its e
     the worker runs the water on it at once (so the water nearest the edit moves first) and sends each frame as
     soon as it has answered. Water on land that changed rides it in the frame the land is drawn, and water worked out
     on the land just before is seated on the land drawn (`rideLand`), so the two never part; a force's water comes with
-    each frame of its land and is drawn with it. Moving water (a stroke's, a force's, the water's journey after an edit)
+    each frame of its land and is drawn with it. A force's water starts from the water on screen (`forceShows`, #329),
+    even while the journey still plays behind the worker, so its first frame never jumps a lake; with stored water, caves
+    or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
+    anew. Moving water (a stroke's, a force's, the water's journey after an edit)
     is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
     (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
     the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
