@@ -6,7 +6,7 @@
 
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
+import { chooseMapsFolder, isMapsFolder, liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
 
 function fakeFolder(name: string, writes: { name: string; bytes: Uint8Array }[]): FileSystemDirectoryHandle {
   return {
@@ -142,8 +142,8 @@ describe("saveToTimberborn: the fallback", () => {
     expect(downloads).toEqual([{ bytes, name: "River Valley (1).timber" }]);
   });
 
-  it("downloads instead when the player cancels the folder picker", async () => {
-    const downloads: { bytes: Uint8Array; name: string }[] = [];
+  it("does nothing when the player cancels the folder picker: no download, no write", async () => {
+    const downloads: unknown[] = [];
     const deps: SaveToTimberbornDeps = {
       supported: () => true,
       recall: async () => null,
@@ -155,12 +155,49 @@ describe("saveToTimberborn: the fallback", () => {
       write: neverCalled,
       download: (bytes, name) => downloads.push({ bytes, name }),
     };
-    const bytes = new Uint8Array([9, 8, 7]);
 
-    const r = await saveToTimberborn(bytes, "River Valley (1).timber", deps);
+    const r = await saveToTimberborn(new Uint8Array([9, 8, 7]), "River Valley (1).timber", deps);
 
-    expect(r).toEqual({ via: "download" });
-    expect(downloads).toEqual([{ bytes, name: "River Valley (1).timber" }]);
+    expect(r).toEqual({ via: "cancelled" });
+    expect(downloads).toEqual([]);
+  });
+
+  it("refuses a folder not named Maps: nothing saved or remembered, nothing downloaded", async () => {
+    const downloads: unknown[] = [];
+    const deps: SaveToTimberbornDeps = {
+      supported: () => true,
+      recall: async () => null,
+      remember: neverCalled,
+      pick: async () => ({ name: "Documents" }) as unknown as FileSystemDirectoryHandle,
+      freeName: neverCalled,
+      write: neverCalled,
+      download: (bytes, name) => downloads.push({ bytes, name }),
+    };
+
+    const r = await saveToTimberborn(new Uint8Array([1]), "a.timber", deps);
+
+    expect(r).toEqual({ via: "wrong-folder", picked: "Documents" });
+    expect(downloads).toEqual([]);
+  });
+
+  it("asks again when the remembered folder isn't named Maps", async () => {
+    const writes: { name: string; bytes: Uint8Array }[] = [];
+    const maps = fakeFolder("Maps", writes);
+    let remembered: FileSystemDirectoryHandle | null = null;
+    const deps: SaveToTimberbornDeps = {
+      supported: () => true,
+      recall: async () => ({ name: "Documents" }) as unknown as FileSystemDirectoryHandle,
+      remember: async (h) => void (remembered = h),
+      pick: async () => maps,
+      freeName: async (_f, requested) => requested,
+      write: liveDeps.write,
+      download: neverCalled,
+    };
+
+    const r = await saveToTimberborn(new Uint8Array([1]), "a.timber", deps);
+
+    expect(r).toEqual({ via: "fsa", folder: "Maps" });
+    expect(remembered).toBe(maps);
   });
 
   it("downloads instead when permission has lapsed and the player declines it again", async () => {
@@ -181,7 +218,7 @@ describe("saveToTimberborn: the fallback", () => {
 
     const r = await saveToTimberborn(new Uint8Array([1]), "a.timber", deps);
 
-    expect(r).toEqual({ via: "download" });
+    expect(r).toEqual({ via: "download", failed: true });
     expect(downloads).toHaveLength(1);
   });
 
@@ -203,8 +240,30 @@ describe("saveToTimberborn: the fallback", () => {
 
     const r = await saveToTimberborn(bytes, "a.timber", deps);
 
-    expect(r).toEqual({ via: "download" });
+    expect(r).toEqual({ via: "download", failed: true });
     expect(downloads).toEqual([{ bytes, name: "a.timber" }]);
+  });
+});
+
+describe("Choose Maps folder", () => {
+  const handle = (name: string) => ({ name }) as unknown as FileSystemDirectoryHandle;
+
+  it("only a folder named Maps counts", () => {
+    expect(["Maps", "maps", " Maps "].every(isMapsFolder)).toBe(true);
+    expect(["Documents", "Timberborn", "My Maps"].some(isMapsFolder)).toBe(false);
+  });
+
+  it("remembers a Maps folder, and leaves the previous choice alone on a cancel or the wrong folder", async () => {
+    const remembered: string[] = [];
+    const remember = async (h: FileSystemDirectoryHandle) => void remembered.push(h.name);
+    const abort = async () => {
+      throw new DOMException("The user aborted a request.", "AbortError");
+    };
+    expect(await chooseMapsFolder({ pick: async () => handle("Maps"), remember })).toEqual({ via: "chosen", folder: "Maps" });
+    expect(await chooseMapsFolder({ pick: abort, remember })).toEqual({ via: "cancelled" });
+    expect(await chooseMapsFolder({ pick: async () => handle("Documents"), remember })).toEqual({ via: "wrong-folder", picked: "Documents" });
+    expect(await chooseMapsFolder({ pick: async () => { throw new DOMException("no", "NotAllowedError"); }, remember })).toEqual({ via: "failed" });
+    expect(remembered).toEqual(["Maps"]);
   });
 });
 

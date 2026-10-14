@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { wrap, type Remote } from "comlink";
 import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES } from "../core/places/attribution";
 import { placeNote, type PlaceIndex, type PlaceIndexEntry } from "../core/places/place";
-import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
+import { saveFile, saveToTimberborn, wrongFolderNote, type SaveToTimberbornResult } from "../platform";
 import { fetchGalleryIndex, fetchPlace, PLACES_URL } from "./data";
 import type { PlaceWorkerApi } from "./place.worker";
 
@@ -106,7 +106,9 @@ export function Gallery() {
     setSaving(p.id, { busy: true });
     try {
       const r = await buildPlace(p.id);
-      setSaving(p.id, await saveToTimberborn(r.bytes, r.fileName));
+      const v = await saveToTimberborn(r.bytes, r.fileName);
+      // (a closed picker saves nothing and says nothing; a folder not named Maps is refused with its line)
+      setSaving(p.id, v.via === "cancelled" ? null : v.via === "wrong-folder" ? { error: wrongFolderNote(v.picked) } : v);
     } catch (e) {
       setSaving(p.id, { error: `${p.name} could not be built: ${String(e instanceof Error ? e.message : e)}` });
     }

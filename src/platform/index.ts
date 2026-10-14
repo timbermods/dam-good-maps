@@ -294,8 +294,34 @@ async function freeName(folder: FileSystemDirectoryHandle, name: string): Promis
   }
 }
 
-/** `savedAs` is set only when the name had to change to avoid overwriting an existing map. */
-export type SaveToTimberbornResult = { via: "fsa"; folder: string; savedAs?: string } | { via: "download" };
+/** Where Timberborn reads custom maps from, as the player sees it. */
+export const TIMBERBORN_MAPS_PATH = "Documents\\Timberborn\\Maps";
+
+/** The one test of a chosen folder: the browser hands over the folder's name but not its path, so a folder called
+ *  Maps is as close as a page can get to Timberborn's. Anything else (Documents, Downloads) is refused. */
+export function isMapsFolder(name: string): boolean {
+  return name.trim().toLowerCase() === "maps";
+}
+
+/** The plain line shown when the folder picked is not named Maps. */
+export function wrongFolderNote(picked: string): string {
+  return `"${picked}" isn't Timberborn's Maps folder. Choose ${TIMBERBORN_MAPS_PATH}.`;
+}
+
+/** The picker closed without a choice, not a failure: nothing should be saved and nothing said. */
+function isCancel(e: unknown): boolean {
+  return typeof e === "object" && e !== null && (e as { name?: string }).name === "AbortError";
+}
+
+/** `savedAs` is set only when the name had to change to avoid overwriting an existing map. `cancelled`: the player
+ *  closed the folder picker, so nothing was saved or downloaded. `wrong-folder`: the folder picked wasn't named Maps,
+ *  so nothing was saved and the previous choice stands. `download` with `failed`: the folder could not be written, so
+ *  the map was downloaded instead. */
+export type SaveToTimberbornResult =
+  | { via: "fsa"; folder: string; savedAs?: string }
+  | { via: "download"; failed?: true }
+  | { via: "cancelled" }
+  | { via: "wrong-folder"; picked: string };
 
 /** Swapped out in tests so the fallback and the write can be checked without a real browser. */
 export interface SaveToTimberbornDeps {
@@ -322,26 +348,47 @@ export const liveDeps: SaveToTimberbornDeps = {
 /**
  * Save straight into the player's Timberborn Maps folder (D162): the first call asks the player
  * to pick it and remembers the folder; later calls reuse it, asking again only if permission has
- * lapsed. Never overwrites an existing map: a taken name is saved as "name-2" (then "-3", and so
- * on), reported back as `savedAs`. Falls back to the normal download - the same bytes, just not
- * placed in the folder - on every other browser, a declined picker or permission, or a failure
- * finding a free name or writing the file.
+ * lapsed. Only a folder named Maps is accepted. Never overwrites an existing map: a taken name is
+ * saved as "name-2" (then "-3", and so on), reported back as `savedAs`. A closed picker is a cancel
+ * and does nothing. Other browsers get the normal download - the same bytes, just not placed in the
+ * folder - and so does a failure (permission refused, a missing folder, the write failing).
  */
 export async function saveToTimberborn(bytes: Uint8Array, name: string, deps: SaveToTimberbornDeps = liveDeps): Promise<SaveToTimberbornResult> {
-  if (deps.supported()) {
-    try {
-      let folder = await deps.recall();
-      if (!folder) {
-        folder = await deps.pick();
-        await deps.remember(folder);
-      }
-      const savedName = await deps.freeName(folder, name);
-      await deps.write(folder, savedName, bytes);
-      return { via: "fsa", folder: folder.name, ...(savedName !== name ? { savedAs: savedName } : {}) };
-    } catch {
-      // the player's browser refused, they closed the picker, or the write failed: fall back
+  if (!deps.supported()) {
+    deps.download(bytes, name);
+    return { via: "download" };
+  }
+  try {
+    let folder = await deps.recall();
+    if (folder && !isMapsFolder(folder.name)) folder = null; // a folder remembered before only Maps was accepted
+    if (!folder) {
+      const picked = await deps.pick();
+      if (!isMapsFolder(picked.name)) return { via: "wrong-folder", picked: picked.name };
+      await deps.remember(picked);
+      folder = picked;
     }
+    const savedName = await deps.freeName(folder, name);
+    await deps.write(folder, savedName, bytes);
+    return { via: "fsa", folder: folder.name, ...(savedName !== name ? { savedAs: savedName } : {}) };
+  } catch (e) {
+    if (isCancel(e)) return { via: "cancelled" };
+    // the player's browser refused permission or the write failed: fall back to the download
   }
   deps.download(bytes, name);
-  return { via: "download" };
+  return { via: "download", failed: true };
+}
+
+export type ChooseMapsFolderResult = { via: "chosen"; folder: string } | { via: "cancelled" } | { via: "wrong-folder"; picked: string } | { via: "failed" };
+
+/** File -> "Choose Maps folder...": pick (or change) the remembered folder without saving. A cancel or a folder not
+ *  named Maps leaves the previous choice as it was. */
+export async function chooseMapsFolder(deps: Pick<SaveToTimberbornDeps, "pick" | "remember"> = liveDeps): Promise<ChooseMapsFolderResult> {
+  try {
+    const picked = await deps.pick();
+    if (!isMapsFolder(picked.name)) return { via: "wrong-folder", picked: picked.name };
+    await deps.remember(picked);
+    return { via: "chosen", folder: picked.name };
+  } catch (e) {
+    return isCancel(e) ? { via: "cancelled" } : { via: "failed" };
+  }
 }

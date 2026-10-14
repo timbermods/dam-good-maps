@@ -1,15 +1,19 @@
 // Export and save: the project file and the map for Timberborn; an opened file's import flags for the quiet dot.
 
 import { proxy } from "comlink";
-import { saveFile, saveToTimberborn } from "../../platform";
+import { chooseMapsFolder, saveFile, saveToTimberborn, TIMBERBORN_MAPS_PATH, wrongFolderNote } from "../../platform";
 import type { CheckProgress } from "../../worker/session";
 import { plain } from "../panels";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
+const MOVE_IT = `Move the file to ${TIMBERBORN_MAPS_PATH}, then start a new game and pick the map.`;
+
 export interface SaveSlice {
   exportProject: () => Promise<void>;
   saveMap: (kind: "timberborn" | "download") => Promise<void>;
+  /** File -> Choose Maps folder…: pick or change the folder Save to Timberborn writes to. */
+  chooseFolder: () => Promise<void>;
   /** An opened file's import flags, each with its fix: the quiet dot lists them (Kyler, 2026-10-03). */
   flags: ImportFlag[];
 }
@@ -49,11 +53,15 @@ export function useSave(ed: Ed): SaveSlice {
       const fileName = r.fileName;
       if (kind === "download") {
         saveFile(r.bytes, fileName);
-        setMessage({ kind: "info", text: `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+        setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
         return;
       }
       const v = await saveToTimberborn(r.bytes, fileName);
-      setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
+      if (v.via === "cancelled") return; // the picker was closed: no file, no note
+      if (v.via === "wrong-folder") setMessage({ kind: "error", text: wrongFolderNote(v.picked) });
+      else if (v.via === "fsa") setMessage({ kind: "info", text: `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` });
+      else if (v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.` });
+      else setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
     } finally {
@@ -61,7 +69,15 @@ export function useSave(ed: Ed): SaveSlice {
     }
   }
 
+  async function chooseFolder() {
+    setMessage(null);
+    const r = await chooseMapsFolder();
+    if (r.via === "chosen") setMessage({ kind: "info", text: `Timberborn's Maps folder is set. Save to Timberborn puts maps in ${r.folder}.` });
+    else if (r.via === "wrong-folder") setMessage({ kind: "error", text: wrongFolderNote(r.picked) });
+    else if (r.via === "failed") setMessage({ kind: "error", text: "Couldn't use that folder. Try choosing it again." });
+  }
+
   const flags = info.importReport?.flags ?? [];
 
-  return { exportProject, saveMap, flags };
+  return { exportProject, saveMap, chooseFolder, flags };
 }

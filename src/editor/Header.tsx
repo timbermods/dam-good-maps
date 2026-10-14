@@ -246,6 +246,8 @@ export interface HeaderProps {
   /** A save in progress, and how far along. */
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
   onSave(kind: "timberborn" | "download"): void;
+  /** Pick or change the folder Save to Timberborn writes to. */
+  onChooseFolder(): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
@@ -430,6 +432,13 @@ export function Header(p: HeaderProps) {
                 <li role="none">
                   <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
                     {saving?.kind === "download" ? savingWords : "Download .timber"}
+                  </button>
+                </li>
+              ) : null}
+              {p.canFolder ? (
+                <li role="none">
+                  <button type="button" role="menuitem" title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
+                    Choose Maps folder…
                   </button>
                 </li>
               ) : null}
