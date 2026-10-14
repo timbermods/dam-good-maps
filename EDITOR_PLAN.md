@@ -467,9 +467,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
   reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
   behind More, **Channels** (Auto, Few, Many). It never refuses for want of ground (D356): where no fan fits, what it
-  took lies a level deep on the nearest free ground inside the circle, and where its outline has too little ground
-  above the Floor to take (a lake's bed, the map's lowest ground), the water brings the rest of a small fan's
-  sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
+  took lies a level deep on the nearest free ground inside the circle, and where the outline's free ground, beside the
+  fan's own tiles, has too little above the Floor to take (a lake's bed, the map's lowest ground, a working area the fan
+  fills), the water brings the rest of a small fan's sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
   take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The

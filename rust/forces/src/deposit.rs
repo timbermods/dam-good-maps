@@ -269,9 +269,10 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     }
     offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
     let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
-    // (where the outline's donors fall short of the least fan, a lake's bed or the map's lowest ground, the water makes
-    // up the rest, so a click is never refused for want of ground (D356) and nothing outside the outline changes,
-    // #341; conserved whenever the outline has ground enough to give)
+    // (where the outline's donors (its free ground beside the fan's own tiles: a fan never digs under itself) fall short
+    // of the least fan, a lake's bed, the map's lowest ground or a working area the fan fills, the water makes up the
+    // rest, so it is never refused for want of ground (D356) and nothing outside the outline changes, #341; conserved
+    // whenever those donors have ground enough to give)
     let mut brought=donor_capacity<9;
     let budget=if brought{capacity.max(9).min(minimum)}else{capacity.max(9).min(supply).min(donor_capacity)};
     let mut bed=before.heights.clone();let mut remaining=budget;
