@@ -811,7 +811,7 @@ button.linkish.ow-close:focus-visible,
 }
 
 /* an object's window: its name line is the × button's height, so the hover square shows whole */
-.object-window .cell-head.ow-head {
+.object-window .cell-head.ow-head:has(> .ow-close) {
   height: 24px;
   line-height: 24px;
   overflow: visible;
