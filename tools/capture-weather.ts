@@ -36,22 +36,26 @@ const GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"]
 /** Page side: the camera for the view: the place on the map where the held day shows the effect. */
 const FIND_JS = `([hazard, zoom]) => {
   const r = window.dgm3d.renderer;
-  const m = r.mapState(), W = m.W, H = m.H, h = m.heights, soil = m.soil, s = m.surface;
+  const m = r.mapState(), W = m.W, H = m.H, h = m.heights, soil = m.soil, s = m.surface, own = window.__ownSoil, e = m.entities;
   const wet = (i) => s.depth[i] > 0.05;
-  // a window of tiles scoring best: contaminated ground (badtide) or dry ground beside water that is gone (drought)
-  const score = new Float32Array(W * H);
-  for (let i = 0; i < W * H; i++) score[i] = hazard === "badtide" ? (soil.contamination[i] > 0 && !wet(i) ? 1 : 0) : (soil.moisture[i] === 0 && !wet(i) ? 1 : 0);
-  const R = 9; let best = -1, bx = W / 2, by = H / 2;
-  for (let y = R; y < H - R; y += 3) for (let x = R; x < W - R; x += 3) {
-    let v = 0, n = 0;
-    for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { v += score[(y + dy) * W + x + dx]; n++; }
-    // ... near (but not under) water, so the day's water shows in the same frame
-    let w = 0; for (let dy = -R; dy <= R; dy += 3) for (let dx = -R; dx <= R; dx += 3) if (wet((y + dy) * W + x + dx)) w++;
-    const sc = v / n * (w > 4 ? 1 : 0.5);
-    if (sc > best) { best = sc; bx = x; by = y; }
+  const lives = (sl, i) => sl.moisture[i] > 0 && sl.contamination[i] === 0;
+  // the plants that wither on the held day, and the ground that is poisoned (badtide) or dry beside water (drought)
+  const plants = new Float32Array(W * H);
+  for (let k = 0; k < e.count; k++) {
+    if (!/^(Pine|Birch|Oak|BlueberryBush)$/.test(e.templates[e.template[k]])) continue;
+    const i = e.y[k] * W + e.x[k];
+    if (lives(own, i) && !lives(soil, i)) plants[i] = 1;
   }
-  let mean = 0; for (let i = 0; i < W * H; i++) mean += h[i]; mean /= W * H;
-  return { found: best, view: { mode: "orbit", yaw: -Math.PI / 6, pitch: 0.95, distance: zoom, target: [bx + 0.5, h[by * W + bx], -(by + 0.5)] } };
+  const ground = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) ground[i] = hazard === "badtide" ? (soil.contamination[i] > 0 && !wet(i) ? 1 : 0) : (soil.moisture[i] === 0 && !wet(i) ? 1 : 0);
+  const R = 7; let best = -1, bx = W / 2, by = H / 2, np = 0;
+  for (let y = R; y < H - R; y += 2) for (let x = R; x < W - R; x += 2) {
+    let p = 0, g = 0, w = 0, n = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const i = (y + dy) * W + x + dx; p += plants[i]; g += ground[i]; if (wet(i)) w++; n++; }
+    const sc = p * 3 + g / n * 10 + (w > 8 ? 2 : 0);
+    if (sc > best) { best = sc; bx = x; by = y; np = p; }
+  }
+  return { found: np, view: { mode: "orbit", yaw: -Math.PI / 6, pitch: 0.85, distance: zoom, target: [bx + 0.5, h[by * W + bx], -(by + 0.5)] } };
 }`;
 
 async function dayShown(page: Page, hazard: string, day: number | null): Promise<void> {
@@ -59,12 +63,9 @@ async function dayShown(page: Page, hazard: string, day: number | null): Promise
   await bar.getByRole("button", { name: hazard === "badtide" ? "Badtide" : "Drought", exact: true }).click();
   await page.waitForFunction(() => /Day \d+/.test(document.querySelector('[aria-label="Water time"]')?.textContent ?? ""), null, { timeout: 240_000 });
   if (day !== null) {
-    for (let i = 0; i < 40; i++) {
-      const now = Number(/Day (\d+)/.exec((await bar.textContent()) ?? "")?.[1]);
-      if (now === day) break;
-      await bar.getByRole("button", { name: now < day ? "▶" : "◀" }).click();
-      await page.waitForTimeout(400);
-    }
+    await bar.locator(".day-label").dblclick();
+    await bar.getByRole("textbox", { name: "Day" }).fill(String(day));
+    await bar.getByRole("textbox", { name: "Day" }).press("Enter");
   }
   await page.waitForTimeout(600);
   await page.waitForFunction(() => !document.querySelector(".day-fill"), null, { timeout: 240_000 });
@@ -92,6 +93,7 @@ async function main() {
         await page.evaluate(`(() => { const r = window.dgm3d.renderer; if (${JSON.stringify(LOOK)} === 'high') for (const k of Object.keys(r.highEffects)) r.setHighEffect(k, true); r.setLookChoice(${JSON.stringify(LOOK)}, false); })()`);
         await page.waitForFunction("window.dgm3d.renderer.highSettled || ('" + LOOK + "' !== 'high')", null, { timeout: 120_000 });
         await page.evaluate("window.dgm3d.renderer.setClock(12.5)");
+        await page.evaluate("(() => { const m = window.dgm3d.renderer.mapState(); window.__ownSoil = { moisture: m.soil.moisture.slice(), contamination: m.soil.contamination.slice() }; })()");
         await dayShown(page, HAZARD, DAY);
         const found = (await page.evaluate(`(${FIND_JS})(${JSON.stringify([HAZARD, ZOOM])})`)) as { found: number; view: unknown };
         await page.evaluate(`window.dgm3d.renderer.setView(${JSON.stringify(found.view)})`);
@@ -100,7 +102,7 @@ async function main() {
         const png = await page.screenshot({ type: "png" });
         const file = join(OUT, `${HAZARD}-${LOOK}-${scheme}-${w}x${h}.png`);
         writeFileSync(file, png);
-        console.log(`${file} (found ${found.found.toFixed(2)}) ${errors.length ? "ERRORS " + errors.join("|") : ""}`);
+        console.log(`${file} (withering plants in view: ${found.found}) ${errors.length ? "ERRORS " + errors.join("|") : ""}`);
         shots.push({ file, label: `${scheme} ${w}x${h}`, png });
         if (PAIR && scheme === SCHEMES[0] && w === 1280) {
           // the same camera on Day 0, the map's own water and ground
