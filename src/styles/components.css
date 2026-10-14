@@ -318,6 +318,11 @@
   box-shadow: none;
 }
 
+/* a segmented choice inside a menu (Look) keeps its words centred in their cells */
+.menu .set-seg button {
+  text-align: center;
+}
+
 .select-menu {
   left: 0;
   right: auto;
