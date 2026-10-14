@@ -6,6 +6,8 @@ The checks on a map, each with an id, a class and a severity, and the report the
 - The checks run in Rust (`rust/checks`, D465): `rust.ts` writes the map into the module's typed buffers and reads back the report and what the checks measured; their TypeScript is tag `ts-checks-final`. A change to a check is a change to `rust/checks` and a re-pin of `tools/rust/checks-pins.json`.
 - Check ids, rules and thresholds match the Python oracle (`prototype/validate.py`, `prototype/playability.py`). `tools/oracle.ts` runs both on the same files and compares every verdict.
 - A profile decides what each class does (`report.ts`). What must never fail is correctness and the absolutes (`docs/PERFECT.md`); measures and budgets are information (D115, D145).
+- A row can depend on the map's kind (`ValidateOptions.external`: an imported map). `slopes.connect` blocks on a generated map and is a warning on an imported one, which never blocks its export (D482); `terrain.single_floor` is an imported map's row only; `terrain.dropped` a generated map's only.
+- Terrain above terrain: `walk.levels` (information) reads the floor graph (D122; `terrain/floors.ts` is its plain face, `rust/checks/src/floors.rs` the computation), `water.sealed_source` (a warning) the air inside the rock, `plants.clearance` the room over each plant (`terrain/clearance.ts`). The Python oracle reports the first two without computing them (D279), and `tools/oracle.ts` does not compare their verdicts.
 - The editor's verdict must equal the generator's on the exported file (`tests/contract/parity.test.ts`).
 - Playability runs on the canonically settled water.
 - A one-click fix is an ordinary edit operation (`FixOp`).
@@ -15,4 +17,4 @@ The checks on a map, each with an id, a class and a severity, and the report the
 
 **Start from**: `checks.ts` `validateMap`, `validateFile`; `rust.ts` (the binding); `playability.ts` (what the generator and the editor read the way the checks do: `rulesFor`, `colonyReach`, `mineSitesCutAt`, `basinLeak`, `EXTRA_BANDS`, `nearWater`); `report.ts` (`severityOf`, `blocks`, `failing`, `groupOf`); `facts.ts` `mapFacts` (the map card's key facts, information only). How the editor lists the checks, with their fixes, is `doc/checkItems.ts`.
 
-**Tests**: `tests/contract/validate.test.ts`, `parity.test.ts`, `edges.test.ts`, `sources.test.ts`, `start.test.ts`, `mechanics.test.ts`; `cargo test -p checks` in `rust/`; the byte fixtures in `npx tsx tools/rust/check.ts`. Run `npx vitest run tests/contract/validate.test.ts`.
+**Tests**: `tests/contract/validate.test.ts`, `parity.test.ts`, `edges.test.ts`, `sources.test.ts`, `start.test.ts`, `mechanics.test.ts`, `floorChecks.test.ts` and `floorRows.test.ts` (terrain above terrain); `cargo test -p checks` in `rust/`; the byte fixtures in `npx tsx tools/rust/check.ts`. Run `npx vitest run tests/contract/validate.test.ts`.
