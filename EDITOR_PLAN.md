@@ -64,7 +64,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About). **Another like this** (M9b's D278 (1c): a sibling, the
+  Download project, Download .timber, Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
@@ -760,6 +761,21 @@ Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. 
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
 
+### The File menu's help entries (M13)
+
+After its file entries and a hairline, the File menu ends with three, in this order (the 20-second tour's entry joins
+them, ROADMAP "The 20-second tour"):
+
+- **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps. The list is data
+  (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
+  `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
+  `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
+- **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
+  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem.
+- **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
+  chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
+
 ## 8. The generator, Claude and the first run
 
 **The page is the editor** (D330; [docs/UI-BRIEF.md](docs/UI-BRIEF.md), as Kyler reshaped it on the current editor's
@@ -1104,7 +1120,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   dirty regions and compact arrays, not whole documents. Hosting: a static site on GitHub Pages under the
   timbermods organization (`PLAN.md` §2).
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
-  chunks only; a voxel mesher only for columns with more than one solid run; instanced trees, bushes and ruins;
+  chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
+  merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
   picking against the heightfield and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a

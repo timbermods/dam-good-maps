@@ -591,6 +591,12 @@ Python check exactly as today.
 ### 2. The view (tag `3d-view-done`)
 
 After the High look is adopted (Map look 2, released), so there is only one mesher to build (D280 (2)).
+Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/3d-view.md).
+
+**Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
+without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
+runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
+per column, 3D picking, the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -877,6 +883,10 @@ to Later.
 **In-game check:** none.
 
 **Effort:** high.
+
+**Built:** **Report a problem**, **Keyboard shortcuts** (also ?) and **Help** at the end of the File menu; the shortcuts
+panel is generated from the editor's own tool lists (EDITOR_PLAN §7, "The File menu's help entries"); README's "Install a
+map" section (with the artifact edition's extract step). Left in M13: the accessibility pass and the final performance pass.
 
 ---
 ---
