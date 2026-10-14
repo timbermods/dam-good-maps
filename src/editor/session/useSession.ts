@@ -353,7 +353,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     window.addEventListener("keydown", stop, true);
     window.addEventListener("pointerup", resume, true);
     window.addEventListener("keyup", resume, true);
+    // (a cancelled touch, or a window left with a key down, never sends its up: nothing is held then)
+    const release = () => {
+      pressed.current = false;
+    };
+    window.addEventListener("pointercancel", resume, true);
+    window.addEventListener("blur", release);
     return () => {
+      window.removeEventListener("pointercancel", resume, true);
+      window.removeEventListener("blur", release);
       window.removeEventListener("pointerdown", stop, true);
       window.removeEventListener("keydown", stop, true);
       window.removeEventListener("pointerup", resume, true);

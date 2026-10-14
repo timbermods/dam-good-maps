@@ -181,7 +181,8 @@ const api = {
    *  one. (Small, and the worker keeps its own: copied, not taken over.) */
   watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
     // (the page's last callback is let go, or its port stays open for good)
-    (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
+    // (the same one passed again is kept)
+    if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
     droughtFn = fn;
     return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
   },

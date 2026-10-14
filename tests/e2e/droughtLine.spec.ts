@@ -6,6 +6,21 @@ import { openEditor } from "./open";
 
 const showing = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing);
 
+test("a river that dries out completely gets the dry tint as well as the line, drawn in Standard and in High", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=1&z=96&d=n&t=islands");
+  const drawn = () => page.evaluate(() => window.dgm3d!.renderer.droughtDrawn);
+  await expect.poll(async () => (await drawn()).tint, { timeout: 60_000 }).toBeGreaterThan(0);
+  expect((await drawn()).line).toBeGreaterThan(0);
+  // (the look changes the tint's strength, not the mesh)
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high"));
+  await page.evaluate(() => window.dgm3d!.renderer.renderNow());
+  expect((await drawn()).tint).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
 test("the drought line shows, goes while a day is held and at an edit, and comes back with the new map's", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));

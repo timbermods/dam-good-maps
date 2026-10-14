@@ -29,9 +29,9 @@ export const TINT_LIFT = 0.03;
  *  on the start's water and elsewhere. Faint: feedback from the land, not a readout (D184). */
 export const LINE_COLOR: readonly [number, number, number] = [1.0, 0.82, 0.42];
 export const LINE_ALPHA = { start: 0.6, other: 0.4 };
-/** The dry tint: where a lake or river dries out completely (it lies under today's water, which veils it). */
+/** The dry tint: where a lake or river dries out completely (it lies under today's water, which veils it; High's near-opaque water hides it, so it is stronger there). Its vertices carry 1 on the start's water, else 0 in the alpha: the tint's shader sets the opacity for the look. */
 export const TINT_COLOR: readonly [number, number, number] = [0.95, 0.68, 0.2];
-export const TINT_ALPHA = { start: 0.3, other: 0.2 };
+export const TINT_ALPHA = { standard: { start: 0.3, other: 0.2 }, high: { start: 0.6, other: 0.45 } };
 
 export interface QuadBuffers {
   /** x, y, z per vertex. */
@@ -119,8 +119,8 @@ export function droughtLineGeometry(line: DroughtLine, heights: ArrayLike<number
     }
   }
   // the tint: beds that dry out completely, a run of tiles along x with the same strength one quad
-  const cell = new Map<number, number>(); // tile → opacity
-  for (let k = 0; k < bed.count; k++) if (bed.gone[k]) cell.set(bed.tile[k], bed.start[k] ? TINT_ALPHA.start : TINT_ALPHA.other);
+  const cell = new Map<number, number>(); // tile → 1 on the start's water, else 0 (the look sets the opacity)
+  for (let k = 0; k < bed.count; k++) if (bed.gone[k]) cell.set(bed.tile[k], bed.start[k] ? 1 : 0);
   const done = new Set<number>();
   for (const i of [...cell.keys()].sort((a, b) => a - b)) {
     if (done.has(i)) continue;

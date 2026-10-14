@@ -763,6 +763,7 @@ export class MapRenderer {
     const was = this.lookNow;
     this.lookNow = tier;
     this.waterMotion?.setHigh(tier !== "standard");
+    this.droughtLayer?.setHigh(tier !== "standard");
     if (tier === "standard") {
       if (this.high) {
         this.useMaterials(this.std);
@@ -2097,7 +2098,9 @@ export class MapRenderer {
   setDroughtLine(line: DroughtLine | null): void {
     const m = this.map;
     if (line && m && line.W === m.W && line.H === m.H && !line.refused) {
-      (this.droughtLayer ??= new DroughtLineLayer(this.scene)).setHidden(this.slice !== null);
+      this.droughtLayer ??= new DroughtLineLayer(this.scene);
+      this.droughtLayer.setHigh(this.lookNow !== "standard" && this.lookNow !== "light");
+      this.droughtLayer.setHidden(this.slice !== null);
       this.droughtLayer.set(line, m.heights);
     } else this.droughtLayer?.clear();
     this.requestRender();
@@ -2106,6 +2109,11 @@ export class MapRenderer {
   /** Whether the drought line is on the map (tests). */
   get droughtLineShowing(): boolean {
     return this.droughtLayer?.showing ?? false;
+  }
+
+  /** The quads of the drought line and of its tint drawn now (tests). */
+  get droughtDrawn(): { line: number; tint: number } {
+    return this.droughtLayer?.drawn ?? { line: 0, tint: 0 };
   }
 
   /** The blocks an area stroke will add or take away, while it is dragged (the area brush, the

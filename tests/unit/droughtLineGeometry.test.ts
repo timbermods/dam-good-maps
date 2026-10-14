@@ -115,8 +115,12 @@ describe("the drought line's geometry", () => {
     expect(b).toBeCloseTo(LINE_ALPHA.other, 5);
     expect(a).toBeGreaterThan(b);
     expect(a).toBeLessThan(1);
-    expect(TINT_ALPHA.start).toBeGreaterThan(TINT_ALPHA.other);
-    expect(TINT_ALPHA.start).toBeLessThan(0.5);
+    // the tint's opacity per look: the start's a little stronger, High's near-opaque water asking for more, all faint
+    for (const look of [TINT_ALPHA.standard, TINT_ALPHA.high]) {
+      expect(look.start).toBeGreaterThan(look.other);
+      expect(look.start).toBeLessThanOrEqual(0.65);
+    }
+    expect(TINT_ALPHA.high.other).toBeGreaterThan(TINT_ALPHA.standard.other);
   });
 
   it("tints only the beds that dry out completely, over the ground, a run of tiles a quad, apart from the line", () => {
@@ -141,7 +145,8 @@ describe("the drought line's geometry", () => {
       [3, 4, 3],
     ]);
     expect(qs.some((q) => q.b.x[0] === 5 && q.b.z[1] === -1)).toBe(false);
-    expect(qs.find((q) => q.b.z[1] === -4)!.a).toBeCloseTo(TINT_ALPHA.start, 5);
-    expect(qs.find((q) => q.b.z[1] === -1)!.a).toBeCloseTo(TINT_ALPHA.other, 5);
+    // (a vertex carries 1 on the start's water, else 0: the tint's shader turns it into the look's opacity)
+    expect(qs.find((q) => q.b.z[1] === -4)!.a).toBe(1);
+    expect(qs.find((q) => q.b.z[1] === -1)!.a).toBe(0);
   });
 });

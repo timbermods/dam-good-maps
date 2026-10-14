@@ -8,9 +8,9 @@
 //   on screen (up close it is its own width), so it never shimmers as dots when the camera pulls out.
 // Only drawn.
 
-import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, ShaderMaterial, Vector2, type Scene } from "three";
+import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, ShaderMaterial, Vector2, Vector3, type Scene } from "three";
 import type { DroughtLine } from "../core/sim/droughtLine";
-import { droughtLineGeometry, LINE_MIN_PX, type QuadBuffers } from "./droughtLineGeometry";
+import { droughtLineGeometry, LINE_MIN_PX, TINT_ALPHA, TINT_COLOR, type QuadBuffers } from "./droughtLineGeometry";
 
 const lineMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -42,10 +42,35 @@ const lineMaterial = (): ShaderMaterial =>
       void main() { gl_FragColor = vColor; }`,
   });
 
+/** The tint: its colour with the opacity the look gives it (`setHigh`): High's near-opaque water hides it, so it is
+ *  stronger there. The vertices carry 1 on the start's water, else 0, in the alpha. */
+const tintMaterial = (): ShaderMaterial =>
+  new ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+    uniforms: { rgb: { value: new Vector3(...TINT_COLOR) }, alpha: { value: new Vector2(TINT_ALPHA.standard.other, TINT_ALPHA.standard.start) } },
+    vertexShader: /* glsl */ `
+      attribute vec4 lineColor;
+      uniform vec2 alpha;
+      varying float vA;
+      void main() {
+        vA = mix(alpha.x, alpha.y, lineColor.a);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 rgb;
+      varying float vA;
+      void main() { gl_FragColor = vec4(rgb, vA); }`,
+  });
+
 function geometry(b: QuadBuffers, extra?: { centers: Float32Array; widths: Float32Array }): BufferGeometry {
   const geo = new BufferGeometry();
   geo.setAttribute("position", new BufferAttribute(b.positions, 3));
-  geo.setAttribute(extra ? "lineColor" : "color", new BufferAttribute(b.colors, 4));
+  geo.setAttribute("lineColor", new BufferAttribute(b.colors, 4));
   if (extra) {
     geo.setAttribute("center", new BufferAttribute(extra.centers, 3));
     geo.setAttribute("width", new BufferAttribute(extra.widths, 1));
@@ -58,7 +83,7 @@ export class DroughtLineLayer {
   private line: Mesh | null = null;
   private tint: Mesh | null = null;
   private readonly lineMat = lineMaterial();
-  private readonly tintMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  private readonly tintMat = tintMaterial();
   private hidden = false;
   /** The line drawn now, and the one a terrain change put away (its ground is gone: it is never drawn again). */
   private current: DroughtLine | null = null;
@@ -106,6 +131,18 @@ export class DroughtLineLayer {
   /** Whether a line is on the map. */
   get showing(): boolean {
     return !!this.line || !!this.tint;
+  }
+
+  /** The quads drawn now, of the line and of the tint (tests): none while it is hidden. */
+  get drawn(): { line: number; tint: number } {
+    const n = (m: Mesh | null) => (m && m.visible && m.parent ? (m.geometry.index?.count ?? 0) / 6 : 0);
+    return { line: n(this.line), tint: n(this.tint) };
+  }
+
+  /** The tint's strength for the look (High's water hides more of it): a uniform, so no rebuild. */
+  setHigh(high: boolean): void {
+    const a = high ? TINT_ALPHA.high : TINT_ALPHA.standard;
+    (this.tintMat.uniforms.alpha.value as Vector2).set(a.other, a.start);
   }
 
   /** Put it away without dropping it (the cut-away layers show the world cut, which the line is not drawn for). */
