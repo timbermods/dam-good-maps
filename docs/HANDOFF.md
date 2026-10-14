@@ -15,8 +15,8 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 
 ## 1. Starting a session
 
-1. Start in the main clone (`C:\Users\Kyler\code\DamGoodMaps` on Kyler's PC; `C:\Users\krams\code\DamGoodMaps` on the dedicated
-   machine) at Opus 5.5, high, so `.claude/agents/` load.
+1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`, the dedicated machine, §7) at Opus 5.5, high, so
+   `.claude/agents/` load.
 2. On a new machine, run once, yourself (safe to run again): `npm run setup:machine` (`tools/setup-machine.mjs`). It creates
    the plan's worktrees and the probe folder `-probe` beside the clone, installs their dependencies, writes the probe allow
    rules into `.claude/settings.local.json`, checks the tools and Timberborn's folders, and prints what's ready and what's
@@ -35,13 +35,13 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
   water, the generator, the Rust order (D381), the Codex adoptions and the documents. It reviews every PR, merges, releases,
   and owns the decisions' numbering, STATUS and HANDOFF.
-- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`, PR #163) does only the page and its
-  design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
+- **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
+  the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
   `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
-- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played them. The old
-  renderer session is closed; its #275 and #225 have no owner until Kyler says (STATUS).
-- **Codex** runs on both machines, each task in its own clone, never in a session's worktree. It delivers investigations
+- **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives
+  every force Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played
+  them.
+- **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
   `dev`; this session reviews and merges them.
@@ -212,39 +212,40 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 7. The machine
 
-**Kyler's PC (since 2026-10-05):** Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
-Python 3.13, gh. Under `C:\Users\Kyler\code`:
+**Everything runs on the dedicated machine** (since 2026-10-14, on Kyler's new account; D218): the milestone session and
+the renderer session "forces play", each with its own usage. Kyler's PC is idle. The computer is kept for this work: always
+on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; under
+`C:\Users\krams\code`:
 
-- `DamGoodMaps`: the main clone, where the milestone session runs;
-- `DamGoodMaps-page`: the page session's worktree, on `feature/page`;
+- `DamGoodMaps`: the main clone, on `dev`, where the milestone session runs;
+- `DamGoodMaps-forces-play`: the renderer session's worktree (made detached at `origin/dev`; it makes its own branches);
+- `DamGoodMaps-page`: the page session's worktree, on `feature/page` (the session is stopped);
 - `DamGoodMaps-probe`: the probe folder, detached;
-- `DamGoodMaps-forces-play`: the renderer session's worktree;
-- about 50 older `DamGoodMaps-*` worktrees from released work: leave them alone.
+- about 65 older `DamGoodMaps-*` worktrees and folders from released work: leave them alone.
 
-Codex works in `C:\Users\Kyler\Documents\ChatGPT`. Every folder that isn't the milestone session's belongs to another
-session or to Codex: never touch it, and check no session is working in a folder before installing or checking out there.
-The renderer session shares the PC and comes first: keep local runs to about half the threads and leave the rest to CI.
-**Probe batches need Kyler's yes in chat, every time** (D117; D218 lifts the ask only on the dedicated machine).
+Each worktree has its own `node_modules`: run `npm ci` in one only if its `package-lock.json` changed. Every folder that
+isn't the milestone session's belongs to another session or to Codex: never touch it, and check no session is working in a
+folder before installing or checking out there. Forces play shares the 12 threads and comes first: keep local runs to about
+half and leave the rest to CI. **Probe batches run here without asking** (D218), only what D483 allows.
 
-**On any new computer:** clone the repository, run `npm run setup:machine` (it installs the dependencies, makes the page
-worktree, writes the probe allow rules into `.claude/settings.local.json` and checks the tools; restart the session after it
-adds allow rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`. The section below
-describes the dedicated machine.
-
-The computer kept for this work (D218): always on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. User folder `C:\Users\krams`; the repository and its worktrees (one per branch, each with its own
-`node_modules`: run `npm ci` in one only if its `package-lock.json` changed) are under `C:\Users\krams\code\`.
-
-- **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Python 3.12.10 (numpy and
-  pillow from `prototype/requirements.txt`); the .NET 8 SDK (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide
-  `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd; gh.
-- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game version `1.1.2.4-52e959e-sw`, the build the repository
-  was verified against (FORMAT.md). Keep Steam running; Timberborn stays closed unless the probe launches it.
+- **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Rust 1.90 with
+  `wasm32-unknown-unknown`; Python 3.12.10 (numpy and pillow from `prototype/requirements.txt`); the .NET 8 SDK
+  (`%LOCALAPPDATA%\Microsoft\dotnet`; the machine-wide `C:\Program Files\dotnet` has only SDK 3.1); ilspycmd; gh.
+- **Timberborn:** Steam at `C:\Program Files (x86)\Steam`; the game version `1.1.2.7-2c14458-sw` (Steam updates it). Keep
+  Steam running; Timberborn stays closed unless the probe launches it.
 - **Official maps** are in `.scratch/official/`, deliberately not in `investigation/raw/builtin/` (its local-only tests also
-  expect the workshop copies). **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`; work that needs them waits
-  for Kyler's main PC.
+  expect the workshop copies). **Not on this machine:** `C:\dgm-workshop\` and `C:\dgm-reference\`; work that needs them
+  waits for Kyler.
 - **DGM Probe:** results in `C:\dgm-probe\`; settings backup `C:\dgm-probe\settings-backup\2026-09-26T19-19-16\Timberborn-settings.reg`.
-- **Restarts** (automatic updates are off): start a session in the repository folder, read this page, start the keep-awake
-  script (it ends with the session that started it), check `git worktree list`, and if a probe batch was running, run `npm --prefix investigation/probe run restore`
-  before anything else.
+- **Restarts** (automatic updates are off): start a session in the repository folder, read this page, run
+  `npm run setup:machine`, start the keep-awake script (it ends with the session that started it), check
+  `git worktree list`, and if a probe batch was running, run `npm --prefix investigation/probe run restore` before
+  anything else.
 - **When the game updates:** recompute the starting-logs floor (D224) with `npx tsx tools/log-floor.ts --check` (then
-  `--write`; record the new floor in `docs/decisions/`); regenerate `investigation/decompiled/`; note it in STATUS.
+  `--write`; record the new floor in `docs/decisions/`); regenerate `investigation/decompiled/` (move the old folder away
+  first: the script skips files that exist); note it in STATUS.
+
+**Kyler's PC** (idle since 2026-10-14): Ryzen 7 9800X3D (16 threads), RTX 4080; Node 24, Rust 1.90 with wasm32, .NET 8,
+Python 3.13, gh; the clone `C:\Users\Kyler\code\DamGoodMaps` and its worktrees, Codex in `C:\Users\Kyler\Documents\ChatGPT`.
+On any other new computer: clone the repository, run `npm run setup:machine` (restart the session after it adds allow
+rules), install Rust 1.90 with the `wasm32-unknown-unknown` target, and `gh auth login`.

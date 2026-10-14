@@ -20,19 +20,21 @@ them for detail on any decision.
   session that changes `dev`, merges and releases. It
   does everything except the page: the core, the water, the generator, the editor-core items, the Codex adoptions and the
   documents. It orchestrates sub-agents, records Kyler's decisions in `docs/decisions/`, and logs one line per event on the Progress
-  log issue (#57). From 2026-10-05 it runs on Kyler's PC, in `C:\Users\Kyler\code\DamGoodMaps` (`docs/HANDOFF.md`, "The machine").
-- **The page session** (Claude Code, Opus 5.5, high; D388, D468) does only "The page is the editor" and its design (D384), in its
+  log issue (#57). From 2026-10-14 everything runs on the dedicated machine, on Kyler's new account; Kyler's PC is idle
+  (`docs/HANDOFF.md`, "The machine").
+- **The page session** (Claude Code, Opus 5.5, high; D388, D468; stopped since 2026-10-07) does only "The page is the editor" and its design (D384), in its
   own worktree `C:\Users\krams\code\DamGoodMaps-page` and branch `feature/page`, started fresh from `dev` (D395), with Kyler's sittings at each checkpoint. The
   `/preview/` slot is its while it works (D396). It builds the first-visit map picker and parallel loading; the milestone
   session builds the startup service worker (D397). Neither session touches the other's
   files; the page session records its decisions in its own `DESIGN.md` and `docs/progress/page.md`.
-- **The renderer session "forces play"** (Claude Code, Opus 5.5, high, on Kyler's PC, its own usage; D398) gives every force
+- **The renderer session "forces play"** (Claude Code, Opus 5.5, high, on the dedicated machine in
+  `C:\Users\krams\code\DamGoodMaps-forces-play`, its own usage; D398) gives every force
   Carve's smooth play (#311, `needs-kyler` until Kyler has played it), then Codex's force-playback renderer and worker
   patches (#312). The old renderer session is closed; its #275 and #225 have no owner until Kyler says. The milestone session
   merges its PRs when CI is green (D453).
 - **Codex** builds prototypes and audits on its own `investigation/<name>` branches. The milestone session merges them into
   `dev` as investigations, and adopts them on Kyler's yes.
-  On Kyler's PC, Codex works only in its own clone, never in the renderer session's checkout.
+  Codex works only in its own clone, never in a session's checkout.
 
 ## Models (D389)
 
@@ -109,7 +111,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D480.**
+- **The next free decision number is D484.**
 
 ## How the planning chat checks in
 

@@ -6,10 +6,11 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
-session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page session is stopped (its worktree is `DamGoodMaps-page`); the probe folder is
-`DamGoodMaps-probe`.
+As of 2026-10-14, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
+`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`, which comes first: local runs use
+about half the 12 threads and CI does the rest. Probe batches run here without asking (D218), only what D483 allows. The
+page session is stopped (worktree `DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`. Kyler's PC is idle. Work
+stopped from 2026-10-08 to 2026-10-14 when the old account's usage ran out; dev was unchanged (4a699b80).
 
 ## Released
 
@@ -25,11 +26,11 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
-- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
+- **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
   jump), #312's worker part now the page part is on dev, and Deposit's outline (#348, on `fix/deposit-outline`; its Rust is a core
   change, reviewed with a full CI run when its PR comes).
-- **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
+- **Codex** builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
 
@@ -110,6 +111,6 @@ results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archi
   stacked engine's sink rule is game-verified on 1.1.2.7. T3–T6 (replays) passed and are not looked at further (D483). The
   machine: only Unity's four per-launch registry values changed, compared from outside the sandbox.
 - **The game updated to 1.1.2.7** (seen 2026-10-08). Done: the starting-logs floor recomputes to the same 178; the probe's
-  smoke run and five Terrain 3D maps pass on it. To do: regenerate `investigation/decompiled/`; `log-floor.json` and the
+  smoke run and five Terrain 3D maps pass on it. `investigation/decompiled/` is regenerated for 1.1.2.7 on the dedicated machine (2026-10-14; the files are smaller only because the game no longer ships Unity's generated script-path tables). To do: `log-floor.json` and the
   writer's stamped version move together once a batch of what players get (D483) has played on 1.1.2.7; the sink fixture's
   reference text still says "not game-verified".
