@@ -732,6 +732,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
+   **Built: the Badtide view's veins.** A held Badtide day sends the page its own soil (the ground its water poisons, with
+   no moisture where badwater lies), and the ground shader draws the game's orange-red veins on every contaminated tile
+   of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
+   pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
+   capture is `tools/capture-weather.ts`.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -884,6 +889,10 @@ to Later.
 
 **Effort:** high.
 
+**Built:** **Report a problem**, **Keyboard shortcuts** (also ?) and **Help** at the end of the File menu; the shortcuts
+panel is generated from the editor's own tool lists (EDITOR_PLAN §7, "The File menu's help entries"); README's "Install a
+map" section (with the artifact edition's extract step). Left in M13: the accessibility pass and the final performance pass.
+
 ---
 ---
 
@@ -935,6 +944,8 @@ its stacked-dams scene (which predicts dry) is fixed first, and its calibration 
 ## Collaborative editing (D349)
 
 Ships complete (D486): all of the brief, nothing cut, tested between real peers over the real relay, with reconnects, conflicts and a dropped peer.
+
+**Built:** part 1, the host-ordered log and replicas (`src/core/collab/`, [docs/progress/collab.md](docs/progress/collab.md)): the ordered log with literal operations, forces as gestures planned on the settled water, records with literal patches, the water settling in the background and compared at the sequence the host names, rejoin from a checkpoint plus its records and the entries since, whole-map changes the host's alone, one seam for claims; headless, no page yet.
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
 (step 3 of D349's order); nothing is built before then. Two players edit one map live, sharing one ordered list of
