@@ -513,7 +513,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await bar.getByRole("button", { name: "Drought" }).click();
   await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
 
-  // a badtide: any contamination kills at once, so the plants on poisoned ground are dead; Day 0 has none
+  // a badtide: contamination that stays two days kills any plant, so the plants on poisoned ground are dead; Day 0 has none
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);

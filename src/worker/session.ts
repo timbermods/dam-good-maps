@@ -33,8 +33,6 @@ import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, type Hazard } from "../core/sim/weather";
 import { droughtLineRefusal, mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
-import { moisture } from "../core/sim/moisture";
-import { soilContamination } from "../core/sim/contamination";
 import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/withering";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
@@ -45,6 +43,7 @@ import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, mapObjects, moistureBarrier, objectTile, waterModel } from "../core/sim/model";
 import { toMapObject } from "../core/features/build";
+import { computeDaySoil, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { changedRect } from "../render3d/mesh";
@@ -823,8 +822,12 @@ interface WeatherRun {
    *  visible seasons). A 256² day is 128 KB. */
   soils: SoilView[];
   plants: Plant[] | null;
-  /** The day last sent to the page. */
+  /** The day last sent to the page, and the day whose withered plants wait for Kyler to be idle (a press or a key stopped the
+   *  work), or null. */
   shown: number;
+  witherDue: number | null;
+  /** The soil jobs under way, by day. */
+  soilJobs: Map<number, Promise<SoilView>>;
   /** The tiles Thorns shield from moisture and contamination (the map's own build uses them), worked out once. */
   barrier?: Uint8Array | null;
   /** How far the run simulates: the day to show, or the default last day for the background's work. */
@@ -865,7 +868,7 @@ function runFor(hazard: Hazard): WeatherRun {
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
   const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
   const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, shown: 0, want: 0, show: null, prep: null, running: false };
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -880,7 +883,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   for (const other of Object.values(weatherRuns)) if (other && other !== run) other.show = null;
   if (target < run.kept.length) {
     run.show = null;
-    return sendWeatherDay(run, target);
+    return void sendWeatherDay(run, target);
   }
   run.show = target;
   run.want = Math.max(run.want, target);
@@ -893,6 +896,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
 export async function prepareWeather(): Promise<void> {
   if (!session || (waterJob && waterJob.session === session)) return;
   const token = ++prepToken;
+  resumeWithering();
   for (const hazard of ["drought", "badtide"] as const) {
     if (token !== prepToken || !session) return;
     const run = runFor(hazard);
@@ -903,24 +907,48 @@ export async function prepareWeather(): Promise<void> {
   }
 }
 
+/** The withered plants a press or a key held back are worked out now: Kyler is idle again (the page's `prepareWeather`). */
+function resumeWithering(): void {
+  for (const run of Object.values(weatherRuns)) {
+    if (!run || run.witherDue === null || !currentRun(run) || weatherShown !== run.session || run.shown !== run.witherDue) continue;
+    const day = run.witherDue;
+    run.witherDue = null;
+    void witherLater(run, day);
+  }
+}
+
 /** Stop the background work now (Kyler edits, paints or uses a force). */
 export function stopWeatherPrep(): void {
   prepToken++;
 }
 
+/** Where a day's soil is worked out: a worker of its own where the page has one (generator.worker.ts), else here (Node, the
+ *  tests). The session never does a whole-map pass itself, so a stroke, a force or a water message never waits behind one. */
+let soilRunner: SoilRunner = (job) => Promise.resolve(computeDaySoil(job));
+export function setSoilRunner(runner: SoilRunner | null): void {
+  soilRunner = runner ?? ((job) => Promise.resolve(computeDaySoil(job)));
+}
+
 /** The page is told the day it asked for: its water exactly as kept, and the ground's moisture and contamination
- *  worked out for it now (day 0: the map's own water and soil). */
-function sendWeatherDay(run: WeatherRun, day: number): void {
+ *  worked out for it (off this worker; day 0: the map's own water and soil). Withered plants: sent with the day when every
+ *  earlier day's soil is cached (stepping on a day, or back), else after it, in a `withered` event. */
+async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   const s = run.session;
   const k = run.kept[day];
-  if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
   run.shown = day;
-  const soil = daySoil(run, day);
-  // the plants the days up to this one have killed need each day's soil: at once when they are cached (stepping on a day,
-  // or back), else a day at a time after this day is sent, never holding the worker (D453)
-  const ready = !stackedMap(s) && cachedUpTo(run, day);
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil, ...(ready ? { withered: witheredTiles(run, day) } : {}) });
-  if (!ready && !stackedMap(s)) void witherLater(run, day);
+  run.witherDue = null;
+  // (no plants withered on Day 0: the map as it is)
+  if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s), withered: new Int32Array(0) });
+  const soil = await soilOfDay(run, day);
+  // (another day asked for, or the map changed, while the soil was being worked out)
+  if (!currentRun(run) || run.shown !== day) return;
+  // a map with caves has none until the stacked engine's Drought and Badtide give it day soil (#404): the page keeps its plants
+  run.soils[0] ??= soilOf(s);
+  const caves = stackedMap(s);
+  const ready = !caves && cachedUpTo(run, day);
+  const withered = caves ? new Int32Array(0) : ready ? witheredTiles(run, day) : undefined;
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil, ...(withered ? { withered } : {}) });
+  if (!caves && !ready) void witherLater(run, day);
 }
 
 /** A map with caves or overhangs (a stacked water model): no day soil of its own yet, so no withering until the stacked
@@ -934,35 +962,55 @@ function cachedUpTo(run: WeatherRun, day: number): boolean {
   return true;
 }
 
-/** Work out the soil of the days before `day` not cached yet, one a slice (each is about 35 ms on a 256² map, over the 10 ms
- *  a slice allows), then tell the page which plants are dead, if it is still on that day. */
+/** Work out the soil of the days before `day` not cached yet, off this worker, a day at a time, then tell the page which plants are
+ *  dead, if it is still on that day. A press or a key (the prep token) stops it where it is, and the next `prepareWeather`, when
+ *  Kyler is idle, takes it up again. */
 async function witherLater(run: WeatherRun, day: number): Promise<void> {
+  const token = prepToken;
   const still = () => currentRun(run) && weatherShown === run.session && run.shown === day;
-  for (let d = 1; d <= day; d++) {
-    if (run.soils[d]) continue;
+  // (the messages waiting go first)
+  await breathe();
+  for (let d = 0; d <= day; d++) {
     if (!still()) return;
-    daySoil(run, d);
-    await breathe();
+    if (token !== prepToken) return void (run.witherDue = day);
+    if (!run.soils[d]) await soilOfDay(run, d);
   }
-  if (still()) listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredTiles(run, day) });
+  if (!still()) return;
+  if (token !== prepToken) return void (run.witherDue = day);
+  listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredTiles(run, day) });
 }
 
-/** The soil of a kept day, worked out once (day 0: the map's own). */
-function daySoil(run: WeatherRun, day: number): SoilView {
+/** The soil of a kept day, worked out once and off this worker (day 0: the map's own, cheap). */
+function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
   const have = run.soils[day];
-  if (have) return have;
+  if (have) return Promise.resolve(have);
   const s = run.session;
   const k = run.kept[day];
+  if (!k || day === 0) return Promise.resolve((run.soils[day] = soilOf(s)));
+  const going = run.soilJobs.get(day);
+  if (going) return going;
   const { x: W, y: H } = s.size;
   // (Thorns block moisture and contamination: the barrier the map's own build passes, so plants behind a line stay as they are)
   if (run.barrier === undefined) run.barrier = moistureBarrier(W, H, s.built.entities.filter((e) => !e.raw || placementOf(e.raw)).map(toMapObject));
-  const soil = !k || day === 0 ? soilOf(s) : soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, run.barrier), soilContamination(s.built.heights, k.depth, k.contamination, W, H, run.barrier));
-  run.soils[day] = soil;
-  return soil;
+  const job: SoilJob = { heights: s.built.heights, depth: k.depth, contamination: k.contamination, barrier: run.barrier, W, H };
+  const p = (async () => {
+    let soil: SoilView;
+    try {
+      soil = await soilRunner(job);
+    } catch {
+      // (the worker failed: here, once, rather than no withering)
+      soil = computeDaySoil(job);
+    }
+    run.soils[day] = soil;
+    run.soilJobs.delete(day);
+    return soil;
+  })();
+  run.soilJobs.set(day, p);
+  return p;
 }
 
 /** The tiles of the plants the days up to `day` have surely killed (core/sim/withering.ts: the game's timers, not the
- *  editor's instant rule): the page draws them withered, the map's own plants never changed. */
+ *  editor's instant rule), from every day's soil, cached: the page draws them withered, the map's own plants never changed. */
 function witheredTiles(run: WeatherRun, day: number): Int32Array {
   if (day < 1) return new Int32Array(0);
   const s = run.session;
@@ -970,8 +1018,7 @@ function witheredTiles(run: WeatherRun, day: number): Int32Array {
   run.plants ??= entityInputs(s.built.entities)
     .filter((e) => WITHERING_SPECIES.has(e.template) && !(e as { dead?: boolean }).dead && e.x >= 0 && e.y >= 0 && e.x < W && e.y < s.size.y)
     .map((e) => ({ tile: e.y * W + e.x, template: e.template }));
-  const days: SoilView[] = [];
-  for (let d = 0; d <= day; d++) days.push(daySoil(run, d));
+  const days = run.soils.slice(0, day + 1);
   const dead = witheredByDay(days, run.plants);
   const tiles: number[] = [];
   run.plants.forEach((p, n) => dead[n] && tiles.push(p.tile));
@@ -1013,7 +1060,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
         if (day >= run.show) {
           const shown = run.show;
           run.show = null;
-          sendWeatherDay(run, shown);
+          void sendWeatherDay(run, shown);
         }
       }
     }

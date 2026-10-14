@@ -505,6 +505,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       journey.current?.flush();
       player.current?.skip();
       setWeather(hazard);
+      // (the other hazard's withered plants are not this one's)
+      renderer.current?.setWithered(null);
       heldDay.current = null;
       setWeatherDay(null);
       // (working from the click until the day shows: the box's fill starts empty)
@@ -556,8 +558,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
   function showSoil(soil: SoilView, withered?: Int32Array) {
     renderer.current?.updateSoil(soil);
-    // (the plants the days up to this one have surely killed, drawn withered in High, D250)
-    renderer.current?.setWithered(withered ?? null);
+    // (the plants the days up to this one have surely killed, drawn withered in High, D250: a day that comes without its list
+    // keeps the last one until the new one arrives, so after an edit the dead plants never flash alive; cleared only when the
+    // hazard changes or ends, or the map does)
+    if (withered) renderer.current?.setWithered(withered);
   }
 
   function applyUpdate(u: SessionUpdate): void {
