@@ -437,7 +437,7 @@ export function Header(p: HeaderProps) {
               ) : null}
               {p.canFolder ? (
                 <li role="none">
-                  <button type="button" role="menuitem" title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
+                  <button type="button" role="menuitem" disabled={!!saving} title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
                     Choose Maps folder…
                   </button>
                 </li>

@@ -234,6 +234,11 @@ export function Gallery() {
                                 </>
                               ) : null}
                             </>
+                          ) : s.via === "download" && s.failed ? (
+                            <>
+                              Couldn't save to the Maps folder, so it was downloaded. Move the file to <code>Documents\Timberborn\Maps</code>.
+                              {s.forgotten ? " Save asks for the folder again next time." : ""}
+                            </>
                           ) : (
                             <>
                               Downloaded. Move the file to <code>Documents\Timberborn\Maps</code>.

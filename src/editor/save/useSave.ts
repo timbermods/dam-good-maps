@@ -67,7 +67,7 @@ export function useSave(ed: Ed): SaveSlice {
       }
       const v = await saveIntoFolder(choice!, r.bytes, fileName);
       if (v.via === "fsa") setMessage({ kind: "info", text: `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` });
-      else if (v.via === "download" && v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.` });
+      else if (v.via === "download" && v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.${v.forgotten ? " Save asks for the folder again next time." : ""}` });
       else setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
@@ -79,7 +79,7 @@ export function useSave(ed: Ed): SaveSlice {
   async function chooseFolder() {
     setMessage(null);
     const r = await chooseMapsFolder();
-    if (r.via === "chosen") setMessage({ kind: "info", text: `Timberborn's Maps folder is set. Save to Timberborn puts maps in ${r.folder}.` });
+    if (r.via === "chosen") setMessage({ kind: "info", text: "Maps folder set. Save to Timberborn saves there." });
     else if (r.via === "wrong-folder") setMessage({ kind: "error", text: wrongFolderNote(r.picked) });
     else if (r.via === "failed") setMessage({ kind: "error", text: "Couldn't use that folder. Try choosing it again." });
   }

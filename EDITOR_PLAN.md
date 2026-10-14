@@ -253,7 +253,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
   its path); any other is refused with one line naming `DocumentsTimberbornMaps`, and the previous choice stands.
   Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
-  refused, the folder gone, a write error) falls back to the download with a plain note. **File → Choose Maps folder…**
+  refused, the folder gone, a write error) falls back to the download with a plain note; a failed write also forgets the remembered folder, so the next Save asks again. **File → Choose Maps folder…**
   picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
   the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
   picker needs the click's user activation, which lapses in seconds, long before a big map is built.

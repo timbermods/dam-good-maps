@@ -268,6 +268,32 @@ describe("saving in two steps: the folder first, the write after the build", () 
   });
 });
 
+describe("a remembered folder that cannot be written", () => {
+  it("is forgotten, so the next save asks again", async () => {
+    let forgotten = 0;
+    const downloads: string[] = [];
+    const gone = { name: "Maps" } as unknown as FileSystemDirectoryHandle;
+    const deps: SaveToTimberbornDeps = {
+      supported: () => true,
+      recall: async () => gone,
+      remember: neverCalled,
+      pick: neverCalled,
+      freeName: async (_f, n) => n,
+      write: async () => {
+        throw new DOMException("the folder is gone", "NotFoundError");
+      },
+      download: (_b, name) => downloads.push(name),
+      forget: async () => void forgotten++,
+    };
+
+    const r = await saveToTimberborn(new Uint8Array([1]), "a.timber", deps);
+
+    expect(r).toEqual({ via: "download", failed: true, forgotten: true });
+    expect(forgotten).toBe(1);
+    expect(downloads).toEqual(["a.timber"]);
+  });
+});
+
 describe("Choose Maps folder", () => {
   const handle = (name: string) => ({ name }) as unknown as FileSystemDirectoryHandle;
 

@@ -252,6 +252,14 @@ async function rememberFolder(handle: FileSystemDirectoryHandle): Promise<void> 
   }
 }
 
+async function forgetFolder(): Promise<void> {
+  try {
+    await withFolderStore("readwrite", (s) => s.delete(FOLDER_KEY));
+  } catch {
+    // nothing remembered, or storage blocked
+  }
+}
+
 async function pickFolder(): Promise<FileSystemDirectoryHandle> {
   const handle = await window.showDirectoryPicker!({ id: "timberborn-maps", mode: "readwrite", startIn: "documents" });
   const granted = await handle.requestPermission?.({ mode: "readwrite" });
@@ -319,7 +327,7 @@ function isCancel(e: unknown): boolean {
  *  the map was downloaded instead. */
 export type SaveToTimberbornResult =
   | { via: "fsa"; folder: string; savedAs?: string }
-  | { via: "download"; failed?: true }
+  | { via: "download"; failed?: true; forgotten?: true }
   | { via: "cancelled" }
   | { via: "wrong-folder"; picked: string };
 
@@ -332,6 +340,8 @@ export interface SaveToTimberbornDeps {
   freeName(folder: FileSystemDirectoryHandle, name: string): Promise<string>;
   write(folder: FileSystemDirectoryHandle, name: string, bytes: Uint8Array): Promise<void>;
   download(bytes: Uint8Array, name: string): void;
+  /** Drop the remembered folder (it could not be written, so the next save asks again). */
+  forget?(): Promise<void>;
 }
 
 /** Exported so a test can reach the real IndexedDB-backed folder store without a real browser's `window`. */
@@ -339,6 +349,7 @@ export const liveDeps: SaveToTimberbornDeps = {
   supported: canSaveToTimberborn,
   recall: recallFolder,
   remember: rememberFolder,
+  forget: forgetFolder,
   pick: pickFolder,
   freeName,
   write: writeIntoFolder,
@@ -346,7 +357,7 @@ export const liveDeps: SaveToTimberbornDeps = {
 };
 
 /** Where a save will go, found before the map is built: the folder, or why it has to be a download or nothing. */
-export type FolderChoice = { via: "folder"; folder: FileSystemDirectoryHandle } | { via: "download"; failed?: true } | { via: "cancelled" } | { via: "wrong-folder"; picked: string };
+export type FolderChoice = { via: "folder"; folder: FileSystemDirectoryHandle } | { via: "download"; failed?: true; forgotten?: true } | { via: "cancelled" } | { via: "wrong-folder"; picked: string };
 
 /**
  * Step one of Save to Timberborn (D162): find the Maps folder. The first call asks the player to pick it and
@@ -388,8 +399,10 @@ export async function saveIntoFolder(choice: FolderChoice, bytes: Uint8Array, na
       return { via: "fsa", folder: choice.folder.name, ...(savedName !== name ? { savedAs: savedName } : {}) };
     } catch {
       // the folder could not be written: fall back to the download
+      // (a remembered folder that is gone would fail every later save: forget it so the next save asks again)
+      const forgotten = deps.forget ? await deps.forget().then(() => true, () => false) : false;
       deps.download(bytes, name);
-      return { via: "download", failed: true };
+      return { via: "download", failed: true, ...(forgotten ? { forgotten: true as const } : {}) };
     }
   }
   deps.download(bytes, name);

@@ -110,7 +110,7 @@ test.describe("the editor's header", () => {
     // Choose Maps folder... picks the right one and says so; a save then lands in it
     await nextPick(page, "Maps");
     await (await openFileMenu(page)).getByRole("menuitem", { name: "Choose Maps folder…" }).click();
-    await expect(page.getByRole("status").filter({ hasText: /Maps folder is set/ })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: /Maps folder set/ })).toBeVisible();
     await saveButton(page).click();
     await expect(page.getByRole("status").filter({ hasText: /^Saved dgm-.* to Maps./ })).toBeVisible({ timeout: 120_000 });
     expect(await filesIn(page, "Maps")).toHaveLength(1);
