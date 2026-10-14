@@ -15,6 +15,7 @@ import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
 import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
+import { coreNotes } from "../../core/sim/coreMoment";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
@@ -69,7 +70,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               {sourceMarkers()}
               {startHintTag()}
               {topBar(ed, props)}
-              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} /> : null}
+              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />

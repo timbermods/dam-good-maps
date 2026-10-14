@@ -23,6 +23,7 @@ beforeAll(async () => {
 
 const line = [{ x: 30.6, y: 30.2 }, { x: 40.7, y: 41.9 }];
 const tiny: [number, number, number][] = [[30, 30, 30]];
+const whole: [number, number, number][] = Array.from({ length: 64 }, (_, y) => [y, 0, 63]);
 const LAYER = "That ground is above the layer showing: show it to change it";
 const AREA = "Outside the working area: clear it to work there";
 const PICK = "Pick a spot on the map";
@@ -36,6 +37,7 @@ it.each([
   ["a Rift under the layer showing", { verb: "rift", settings: RIFT_DEFAULTS, path: line, cut: 0 }, LAYER],
   ["a Rift outside the working area", { verb: "rift", settings: RIFT_DEFAULTS, path: line, cut: null, area: tiny }, AREA],
   ["a Deposit under the layer showing", { verb: "deposit", settings: DEPOSIT_DEFAULTS, path: line, cut: 0 }, LAYER],
+  ["a Deposit under the layer showing, inside a working area", { verb: "deposit", settings: DEPOSIT_DEFAULTS, path: line, cut: 0, area: whole }, LAYER],
 ] as [string, ed.ForceRequest, string][])("%s is refused with its own reason", (_name, req, why) => {
   const before = ed.terrainNow().heights.slice();
   const r = ed.forceStart(req);
