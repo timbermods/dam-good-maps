@@ -50,10 +50,11 @@ function roomStub(env: Env, code: string) {
 
 const keeper = (env: Env) => env.KEEPER.get(env.KEEPER.idFromName("keeper"));
 
-/** Hands out relay credentials, within the day's cap. */
-async function mint(env: Env, origin: string | null): Promise<Response> {
-  if (!(await keeper(env).takeMint(Number(env.MAX_DAILY_MINTS) || LIMITS.dailyMints)))
-    return fail({ kind: "rate-limited", message: "Collaboration is busy today. Try again tomorrow." }, origin);
+/** Hands out relay credentials, within the day's cap and the address's own. */
+async function mint(env: Env, origin: string | null, ip: string): Promise<Response> {
+  const verdict = await keeper(env).takeMint(Number(env.MAX_DAILY_MINTS) || LIMITS.dailyMints, ipKey(ip), Number(env.MAX_DAILY_MINTS_PER_ADDRESS) || LIMITS.mintsPerAddressPerDay);
+  if (verdict === "busy") return fail({ kind: "rate-limited", message: "Collaboration is busy today. Try again tomorrow." }, origin);
+  if (verdict === "address") return fail({ kind: "rate-limited", message: "Too many connections from here today. Try again tomorrow." }, origin);
   const creds = await relayCredentials(env);
   if (!creds.ok) return fail(creds.error, origin);
   return json({ iceServers: creds.iceServers, ttl: creds.ttl }, 200, origin);
@@ -91,9 +92,9 @@ export default {
       if (!(await allowed(env, "ice", ip))) return fail({ kind: "rate-limited", message: "Too many tries. Wait a minute." }, origin);
       const bearer = /^Bearer (st1\.[A-Za-z0-9_.-]{1,500})$/.exec(request.headers.get("Authorization") ?? "");
       if (!bearer) return fail({ kind: "unauthorized", message: "Send the session key." }, origin);
-      const valid = await keeper(env).checkToken(bearer[1]);
+      const valid = await keeper(env).redeemToken(bearer[1], Number(env.MAX_TOKEN_RENEWALS) || LIMITS.tokenRenewals);
       if (!valid.ok) return fail(valid.error, origin);
-      return mint(env, origin);
+      return mint(env, origin, ip);
     }
 
     const m = /^\/rooms\/([^/]+)\/(join|ice|ws)$/.exec(path);
@@ -125,7 +126,7 @@ export default {
       if (!bearer) return fail({ kind: "unauthorized", message: "Send the room key." }, origin);
       const who = await roomStub(env, code).takeIce(await hashSecret(bearer[1]));
       if (!who.ok) return fail(who.error, origin);
-      return mint(env, origin);
+      return mint(env, origin, ip);
     }
 
     // the room's socket: setup messages between the two players

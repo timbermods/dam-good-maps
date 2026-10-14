@@ -27,6 +27,10 @@ export const LIMITS = {
   socketsPerMinute: 30,
   /** Relay logins handed out in a day, all addresses together (the bill's ceiling); the Worker's MAX_DAILY_MINTS overrides it. */
   dailyMints: 3000,
+  /** ... and from one address (an IPv6 /64) in a day: a household needs a handful, an abuser should not reach the day's total. */
+  mintsPerAddressPerDay: 60,
+  /** A session token can fetch this many fresh relay logins (a 24-hour session renews about every 2 hours). */
+  tokenRenewals: 12,
   /** A session token (to refresh the relay's login during a long session) lasts this long. */
   tokenTtlMs: 24 * 60 * 60_000,
 } as const;
@@ -269,6 +273,8 @@ export function checkSignal(data: string): Result<{ kind: SignalKind }> {
 
 /** The key an address is counted under: an IPv6 address by its /64 (one household has the whole range). */
 export function ipKey(ip: string): string {
+  // an IPv4 address in IPv6 clothes is that IPv4 address
+  if (ip.toLowerCase().startsWith("::ffff:") && ip.includes(".")) return ip.slice(7);
   if (!ip.includes(":")) return ip;
   const [head, tail = ""] = ip.split("::");
   const a = head ? head.split(":") : [];
@@ -292,6 +298,34 @@ export function takeDaily(state: DayCount | undefined, now: number, cap: number)
   return { allowed: true, state: { day, count: cur.count + 1 } };
 }
 
+/** Counts per key (an address) for one day. */
+export interface KeyedDay {
+  day: string;
+  counts: Record<string, number>;
+}
+
+/** One more for this key today, or not. */
+export function takeKeyed(state: KeyedDay | undefined, now: number, key: string, cap: number): { allowed: boolean; state: KeyedDay } {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const cur: KeyedDay = state && state.day === day ? state : { day, counts: {} };
+  const n = cur.counts[key] ?? 0;
+  if (n >= cap) return { allowed: false, state: cur };
+  return { allowed: true, state: { day, counts: { ...cur.counts, [key]: n + 1 } } };
+}
+
+/** What each session token has used: its id, how many renewals, and when the token ends (then it is forgotten). */
+export type Renewals = Record<string, { n: number; exp: number }>;
+
+/** One more renewal for this token, or not. */
+export function takeRenewal(state: Renewals | undefined, jti: string, exp: number, now: number, max: number): { allowed: boolean; state: Renewals } {
+  const live: Renewals = {};
+  for (const [id, v] of Object.entries(state ?? {})) if (v.exp > now) live[id] = v;
+  const n = live[jti]?.n ?? 0;
+  if (n >= max) return { allowed: false, state: live };
+  live[jti] = { n: n + 1, exp };
+  return { allowed: true, state: live };
+}
+
 // ---- session tokens ----
 
 const b64url = (bytes: Uint8Array): string => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -303,12 +337,12 @@ async function hmacKey(secret: Uint8Array): Promise<CryptoKey> {
 
 /** A token that lets a connected player fetch fresh relay logins for the session: "st1.<payload>.<mac>". */
 export async function signToken(secret: Uint8Array, sessionId: string, now: number, ttlMs: number = LIMITS.tokenTtlMs): Promise<string> {
-  const payload = b64url(new TextEncoder().encode(JSON.stringify({ sid: sessionId.slice(0, 64), exp: now + ttlMs })));
+  const payload = b64url(new TextEncoder().encode(JSON.stringify({ sid: sessionId.slice(0, 64), exp: now + ttlMs, jti: b64url(crypto.getRandomValues(new Uint8Array(9))) })));
   const mac = await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(payload));
   return `st1.${payload}.${b64url(new Uint8Array(mac))}`;
 }
 
-export async function verifyToken(secret: Uint8Array, token: string, now: number): Promise<Result<{ sessionId: string }>> {
+export async function verifyToken(secret: Uint8Array, token: string, now: number): Promise<Result<{ sessionId: string; jti: string; exp: number }>> {
   const m = /^st1\.([A-Za-z0-9_-]{1,300})\.([A-Za-z0-9_-]{20,100})$/.exec(token);
   if (!m) return err("unauthorized", "That session key isn't right.");
   let ok = false;
@@ -318,7 +352,7 @@ export async function verifyToken(secret: Uint8Array, token: string, now: number
     ok = false;
   }
   if (!ok) return err("unauthorized", "That session key isn't right.");
-  const body = JSON.parse(new TextDecoder().decode(fromB64url(m[1]))) as { sid: string; exp: number };
+  const body = JSON.parse(new TextDecoder().decode(fromB64url(m[1]))) as { sid: string; exp: number; jti?: string };
   if (!(body.exp > now)) return err("expired", "This session's key has run out.");
-  return { ok: true, sessionId: body.sid };
+  return { ok: true, sessionId: body.sid, jti: String(body.jti ?? ""), exp: body.exp };
 }

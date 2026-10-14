@@ -21,7 +21,7 @@ export interface IceServer {
   credential: string;
 }
 
-const DEFAULT_TTL_SECONDS = 4 * 60 * 60;
+const DEFAULT_TTL_SECONDS = 2 * 60 * 60;
 
 /**
  * Relay credentials for one room member. Local development returns a local TURN server's static login; otherwise

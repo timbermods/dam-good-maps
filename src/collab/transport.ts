@@ -43,6 +43,11 @@ export interface TransportEvents {
   presence: Payload;
   /** The relay's login was renewed and the connection moved onto it, without interruption. */
   refreshed: { ttlSeconds: number };
+  /**
+   * The relay's login could not be renewed (the function can't be reached, or the session has no renewal key): the
+   * connection will end when the login runs out. `error.message` is a sentence for the player; renewal is retried.
+   */
+  "renewal-failed": CollabError;
   /** The peer is gone. The transport is finished; reconnect with a new room code and the same session id. */
   dropped: { reason: DropReason };
   /** A failure; `error.message` is a sentence for the player. */
@@ -65,14 +70,16 @@ export interface TransportOptions {
   /** From both players being in the room (or the guest joining) to connected. */
   setupTimeoutMs?: number;
   maxMessageBytes?: number;
+  /** Tests only: wait this long before telling the room this side is connected (to try reports far apart). */
+  reportDelayMs?: number;
   /** Keep a copy of every setup message sent and received in `signalLog` (the tests check what crossed). */
   recordSignals?: boolean;
 }
 
 const HIGH_WATER = 256 * 1024;
 const LOW_WATER = 64 * 1024;
-/** How long a connected player keeps the room's socket open for the session token. */
-const TOKEN_WAIT_MS = 30_000;
+/** A failed renewal is tried again this often until the login runs out. */
+const RENEWAL_RETRY_MS = 15_000;
 
 const randomId = (): string => [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -93,6 +100,8 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private readonly baseUrl: string;
   private readonly opts: Required<Pick<TransportOptions, "heartbeatMs" | "deadAfterMs" | "setupTimeoutMs" | "maxMessageBytes">>;
   private readonly recordSignals: boolean;
+  private readonly reportDelayMs: number;
+  private reportTimer: ReturnType<typeof setTimeout> | null = null;
   private started = false;
   private pc: RTCPeerConnection | null = null;
   private rtcConfig: RTCConfiguration = {};
@@ -116,7 +125,6 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private earlyBytes = 0;
   // the relay's login and its renewal
   private sessionToken: string | null = null;
-  private tokenWait: ReturnType<typeof setTimeout> | null = null;
   private loginTtlMs = 0;
   private loginFetchedAt = 0;
   private loginExpired = false;
@@ -141,6 +149,7 @@ export class CollabTransport extends Emitter<TransportEvents> {
       maxMessageBytes: options.maxMessageBytes ?? 64 * 1024 * 1024,
     };
     this.recordSignals = options.recordSignals ?? false;
+    this.reportDelayMs = options.reportDelayMs ?? 0;
     this.code = options.code;
     this.name = options.name;
     this.reassembler = new Reassembler(this.opts.maxMessageBytes);
@@ -412,10 +421,12 @@ export class CollabTransport extends Emitter<TransportEvents> {
     if (!pair || pair.local !== "relay" || pair.remote !== "relay") return this.protocolFailure("not-relayed", "The connection didn't go through the relay, so it was closed.");
     this.setStatus("connected");
     this.startHeartbeat();
-    this.socket?.reportConnected(this.sessionId);
-    // setup timers are over; the room's socket stays open a little for the session token (it closes when the room is done)
-    this.clearTimers();
-    this.tokenWait = setTimeout(() => this.socket?.close(), TOKEN_WAIT_MS);
+    // the room's socket stays open until the room says it is done (both have reported, which is when the session token
+    // comes) or runs out; the keepalive holds it meanwhile
+    const sessionId = this.sessionId;
+    if (this.reportDelayMs) this.reportTimer = setTimeout(() => this.socket?.reportConnected(sessionId), this.reportDelayMs);
+    else this.socket?.reportConnected(sessionId);
+    this.clearTimers(); // the setup timers are over
     this.scheduleLoginTimers();
     this.settle.resolve();
     this.emit("connected", { peer: this.peer, sessionId: this.sessionId! });
@@ -448,26 +459,34 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.expireTimer = setTimeout(() => (this.loginExpired = true), Math.max(0, left));
   }
 
-  /** A fresh login from the function, for this player's own relay allocation; false if it can't be had. */
-  private async fetchFreshLogin(): Promise<boolean> {
-    if (!this.sessionToken || !this.pc) return false;
+  /** Whether this side has the session token that lets it renew the relay's login. */
+  get canRenew(): boolean {
+    return this.sessionToken !== null;
+  }
+
+  /** A fresh login from the function, for this player's own relay allocation; null if it was had, otherwise why not. */
+  private async fetchFreshLogin(): Promise<CollabError | null> {
+    if (!this.pc) return new CollabError("closed", MESSAGES.closed);
+    if (!this.sessionToken) return new CollabError("connect-failed", "This session has no key for renewing the relay's login.");
     try {
       const ice = await fetchSessionIceServers(this.baseUrl, this.sessionToken);
       this.rtcConfig = { ...this.rtcConfig, iceServers: ice.iceServers };
       this.pc.setConfiguration(this.rtcConfig);
       this.noteLogin(ice);
-      return true;
-    } catch {
-      return false;
+      return null;
+    } catch (e) {
+      return e instanceof CollabError ? e : new CollabError("unavailable", MESSAGES.unavailable);
     }
   }
 
   /** The host's turn: fresh logins on both sides, then an ICE restart whose offer and answer go over the data channel. */
   private async refreshLogin(): Promise<void> {
     if (this.status !== "connected" || this.done) return;
-    if (!(await this.fetchFreshLogin())) {
-      // try again shortly while there is time; the guest's side cannot start it
-      this.refreshTimer = setTimeout(() => void this.refreshLogin(), 15_000);
+    const problem = await this.fetchFreshLogin();
+    if (problem) {
+      // said plainly, and tried again while there is time (the connection ends when the login runs out)
+      this.emit("renewal-failed", new CollabError(problem.kind, `The relay's login can't be renewed: ${problem.message} The connection will end when it runs out.`));
+      this.refreshTimer = setTimeout(() => void this.refreshLogin(), RENEWAL_RETRY_MS);
       return;
     }
     if (this.role !== "host") return;
@@ -647,8 +666,8 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private teardown(): void {
     this.done = true;
     this.clearTimers();
-    for (const t of [this.refreshTimer, this.expireTimer, this.tokenWait]) if (t) clearTimeout(t);
-    this.refreshTimer = this.expireTimer = this.tokenWait = null;
+    for (const t of [this.refreshTimer, this.expireTimer, this.reportTimer]) if (t) clearTimeout(t);
+    this.refreshTimer = this.expireTimer = this.reportTimer = null;
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = null;
     this.socket?.close();

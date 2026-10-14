@@ -13,14 +13,15 @@ the relay's key in the page, and keeps nothing once the two are connected.
 2. The guest's page calls `POST /rooms/{code}/join` with the code the player typed: a key of their own. The code is spent.
 3. **Relay logins go out only once the guest has joined**, and only to a holder of a room key: `POST /rooms/{code}/ice`
    (bearer key), 3 times per room at most. The Worker asks Cloudflare Realtime TURN for short-lived credentials
-   (`TURN_TTL_SECONDS`, default 4 hours) and passes on only the TURN servers.
+   (`TURN_TTL_SECONDS`, default 2 hours; the browsers renew it) and passes on only the TURN servers.
 4. When both players are in the room each gets `ready`; the host sends its offer and both trickle candidates. **Only an
    offer, an answer and relayed candidates pass** (`typ relay`, no address of the sender's: `raddr` absent or 0.0.0.0), 16 KiB
    each, 120 per room; anything else is refused with a one-line reason. A message for a player who has already left the room
    is dropped quietly (`no-peer`), since each side leaves once it is connected.
 5. Each player reports `connected` with the session id. When both have, the room gives each a **session token**
    (`st1.<payload>.<mac>`, signed with a key the Keeper object makes on first use and never lets out, bound to the session id,
-   good for `SESSION_TOKEN_TTL_SECONDS`, default 24 hours), deletes everything and closes the sockets. The same happens, without
+   good for `SESSION_TOKEN_TTL_SECONDS`, default 24 hours, and for at most `MAX_TOKEN_RENEWALS`, default 12, fresh logins),
+   deletes everything and closes the sockets. The same happens, without
    tokens, when the room expires (5 minutes, or 2 minutes after the guest joins if that is later). What a room holds: SHA-256 of
    the two keys, times and counters. No addresses, no setup content.
 6. During a long session each browser calls `POST /session/ice` (bearer session token) shortly before its login runs out, and
@@ -29,8 +30,10 @@ the relay's key in the page, and keeps nothing once the two are connected.
 
 **Limits against abuse.** A request must come from the site's page (an allowed `Origin`); only local development (`ALLOW_LOCAL_ORIGINS=1`)
 also accepts calls with no Origin and localhost pages. Per address (an IPv6 address counted by its /64): 6 rooms, 30 join tries,
-20 relay-login requests and 30 socket opens per minute (best effort, in a Durable Object's memory). Across all addresses, **at
-most `MAX_DAILY_MINTS` relay logins a day** (default 3000), counted in the Keeper object, which persists. At most 4 sockets per room.
+20 relay-login requests and 30 socket opens per minute (best effort, in a Durable Object's memory). Relay logins are also
+counted per day in the Keeper object, which persists: **at most `MAX_DAILY_MINTS_PER_ADDRESS` (default 60) from one address (an
+IPv6 /64) and `MAX_DAILY_MINTS` (default 3000) in all**, so no one address can use up the day. These cap logins, not bytes: the
+billing alert below is the real ceiling on what the relay costs. At most 4 sockets per room.
 
 The rules are plain functions in `src/room.ts` (tested in `tests/unit/collabRoom.test.ts` and `collabRules.test.ts`);
 `src/roomObject.ts` stores the record and moves sockets; `src/keeper.ts` holds the day's count and the token key;
@@ -42,8 +45,9 @@ The rules are plain functions in `src/room.ts` (tested in `tests/unit/collabRoom
 | --- | --- | --- |
 | `ALLOWED_ORIGINS` | variable (`wrangler.jsonc`) | Exact origins that may call from a page, comma-separated. Default `https://timbermods.github.io`. |
 | `ALLOW_LOCAL_ORIGINS` | variable | `1` also accepts localhost pages and calls with no Origin. Off in production. |
-| `TURN_TTL_SECONDS` | variable | How long the relay's login lasts before the browsers renew it (session tokens). |
-| `MAX_DAILY_MINTS` | variable | Relay logins handed out per day, all together. |
+| `TURN_TTL_SECONDS` | variable | How long the relay's login lasts (default 2 hours) before the browsers renew it with their session tokens. |
+| `MAX_DAILY_MINTS`, `MAX_DAILY_MINTS_PER_ADDRESS` | variable | Relay logins handed out per day, all together and per address (an IPv6 /64). |
+| `MAX_TOKEN_RENEWALS` | variable | Fresh logins one session token may fetch. |
 | `SESSION_TOKEN_TTL_SECONDS` | variable | How long a session token lasts. |
 | `CF_TURN_KEY_ID`, `CF_TURN_KEY_API_TOKEN` | **Worker secrets** | The relay's key id and API token (Cloudflare dashboard, Realtime, TURN). Never in the page. |
 | `LOCAL_TURN_URLS`, `LOCAL_TURN_USERNAME`, `LOCAL_TURN_CREDENTIAL` | variables, local only | A local TURN server's address and static login, used instead of Cloudflare (tests). |

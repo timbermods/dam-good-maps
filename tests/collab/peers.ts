@@ -59,11 +59,12 @@ export async function closePeer(p: Peer): Promise<void> {
 }
 
 export type H = {
-  host(url: string, sessionId?: string): Promise<{ code: string; sessionId: string }>;
-  join(url: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }>;
+  host(url: string, sessionId?: string, reportDelayMs?: number): Promise<{ code: string; sessionId: string }>;
+  join(url: string, code: string, sessionId?: string, reportDelayMs?: number): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }>;
   whenConnected(): Promise<{ sessionId: string; peerEpoch: string; pair: { local: string; remote: string } | null }>;
   sendAll(items: ({ text: string } | { size: number; seed: number })[]): Promise<void>;
   sendPresence(text: string): boolean;
+  canRenew(): boolean;
   pair(): Promise<{ local: string; remote: string } | null>;
   candidateTypes(): Promise<{ local: string[]; remote: string[] }>;
   state(): {
@@ -71,6 +72,7 @@ export type H = {
     presence: string[];
     dropped: string | null;
     refreshed: number;
+    renewalFailures: string[];
     signals: string[];
     error: { kind: string; message: string } | null;
     status: string;

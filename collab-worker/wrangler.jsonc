@@ -14,8 +14,9 @@
   "vars": {
     "ALLOWED_ORIGINS": "https://timbermods.github.io",
     "ALLOW_LOCAL_ORIGINS": "0",
-    "TURN_TTL_SECONDS": "14400",
+    "TURN_TTL_SECONDS": "7200",
     "MAX_DAILY_MINTS": "3000",
+    "MAX_DAILY_MINTS_PER_ADDRESS": "60",
     "SESSION_TOKEN_TTL_SECONDS": "86400"
   },
   "observability": { "enabled": false }

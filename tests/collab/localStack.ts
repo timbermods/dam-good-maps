@@ -85,6 +85,8 @@ export async function bundleHarness(): Promise<string> {
 export interface StackOptions {
   /** How long the relay's login lasts (seconds); short, to see it renewed. */
   turnTtlSeconds?: number;
+  /** More settings of the function (MAX_DAILY_MINTS and the like). */
+  vars?: Record<string, string>;
 }
 
 export async function startStack(options: StackOptions = {}): Promise<Stack> {
@@ -134,6 +136,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         "--inspector-port", String(inspectorPort),
         "--persist-to", state,
         "--var", "ALLOW_LOCAL_ORIGINS:1",
+        ...Object.entries(options.vars ?? {}).flatMap(([k, v]) => ["--var", `${k}:${v}`]),
         "--var", `LOCAL_TURN_URLS:turn:127.0.0.1:${turnPort}?transport=udp`,
         ...(options.turnTtlSeconds ? ["--var", `TURN_TTL_SECONDS:${options.turnTtlSeconds}`] : []),
         "--var", `LOCAL_TURN_USERNAME:${TURN_USER}`,

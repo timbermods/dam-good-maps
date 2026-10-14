@@ -12,6 +12,7 @@ host.on("connected", ({ peer, sessionId }) => ...);
 host.on("message", (payload) => ...);                   // string or Uint8Array, whole, in order
 host.on("presence", (payload) => ...);                  // unordered, may be lost
 host.on("refreshed", () => ...);                        // the relay's login was renewed; nothing to do
+host.on("renewal-failed", (e) => ...);                  // the relay's login can't be renewed: said plainly, retried; the connection ends when it runs out
 host.on("dropped", ({ reason }) => ...);                // "left" | "timeout" | "channel-closed" | "connection-failed" | "credentials-expired"
 host.on("error", (e) => showPlainly(e.message));        // CollabError: kind + a sentence for the player
 await host.connect();                                   // resolves when connected, rejects with the same error
@@ -39,7 +40,9 @@ guest.sendPresence(json);                               // dropped if the channe
 - Heartbeats: a ping every second; 10 seconds without any traffic is a drop (`timeout`), and a gap between two ticks of more
   than twice the interval (a stalled page) restarts the count. A closed channel or a failed connection is a drop at once;
   `close()` says goodbye so the other side sees `left`.
-- **Long sessions.** When both connect, the room gives each a session token (it closes the room socket when it has it). Shortly
+- **Long sessions.** Each side keeps the room's socket open (a keepalive holds it) until the room says it is done: when both
+  have reported connected, the room gives each a session token, however far apart the reports are, within the room's
+  two-minute setup window (a side that never gets one says so with `renewal-failed`; it is retried every 15 s). Shortly
   before the relay's login runs out, each fetches a fresh one with the token (`POST /session/ice`), calls `setConfiguration`,
   and the host restarts ICE with an offer and answer carried by the data channel (control frames `renego` and `cand`); the old
   path keeps carrying data until the new one is chosen, then `refreshed` fires. If the login ran out without a renewal (the

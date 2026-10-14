@@ -18,6 +18,7 @@ class Harness {
   statuses: string[] = [];
   dropped: DropReason | null = null;
   refreshed = 0;
+  renewalFailures: string[] = [];
   error: { kind: string; message: string } | null = null;
   private connected: Promise<{ sessionId: string; peerEpoch: string; pair: { local: string; remote: string } | null }> | null = null;
 
@@ -28,6 +29,7 @@ class Harness {
     this.statuses = [];
     this.dropped = null;
     this.refreshed = 0;
+    this.renewalFailures = [];
     this.error = null;
     t.on("status", (s) => this.statuses.push(s));
     // messages are recorded in the order they arrive (hashing is async, so each waits for the one before)
@@ -40,6 +42,7 @@ class Harness {
     });
     t.on("presence", (p) => this.presence.push(typeof p === "string" ? p : `binary:${p.length}`));
     t.on("refreshed", () => this.refreshed++);
+    t.on("renewal-failed", (e) => this.renewalFailures.push(e.message));
     t.on("dropped", (d) => (this.dropped = d.reason));
     t.on("error", (e) => (this.error = { kind: e.kind, message: e.message }));
     this.connected = new Promise((resolve) =>
@@ -48,8 +51,8 @@ class Harness {
   }
 
   /** Starts hosting; resolves with the room code as soon as the function hands it out. */
-  async host(baseUrl: string, sessionId?: string): Promise<{ code: string; sessionId: string }> {
-    const t = hostSession({ baseUrl, ...(sessionId ? { sessionId } : {}), name: "Host", recordSignals: true });
+  async host(baseUrl: string, sessionId?: string, reportDelayMs?: number): Promise<{ code: string; sessionId: string }> {
+    const t = hostSession({ baseUrl, ...(sessionId ? { sessionId } : {}), name: "Host", recordSignals: true, ...(reportDelayMs ? { reportDelayMs } : {}) });
     this.wire(t);
     const code = new Promise<string>((resolve) => t.on("code", (c) => resolve(c.code)));
     t.connect().catch(() => {});
@@ -57,8 +60,8 @@ class Harness {
   }
 
   /** Joins; resolves with the failure's kind and message instead of throwing, so the test can look at it. */
-  async join(baseUrl: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }> {
-    const t = joinSession(code, { baseUrl, ...(sessionId ? { sessionId } : {}), name: "Guest", recordSignals: true });
+  async join(baseUrl: string, code: string, sessionId?: string, reportDelayMs?: number): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }> {
+    const t = joinSession(code, { baseUrl, ...(sessionId ? { sessionId } : {}), name: "Guest", recordSignals: true, ...(reportDelayMs ? { reportDelayMs } : {}) });
     this.wire(t);
     try {
       void t.connect().catch(() => {});
@@ -86,6 +89,10 @@ class Harness {
     return this.t!.sendPresence(text);
   }
 
+  canRenew() {
+    return this.t!.canRenew;
+  }
+
   pair() {
     return this.t!.selectedPair();
   }
@@ -95,7 +102,7 @@ class Harness {
   }
 
   state() {
-    return { received: this.received, presence: this.presence, statuses: this.statuses, dropped: this.dropped, refreshed: this.refreshed, signals: this.t?.signalLog ?? [], error: this.error, status: this.t?.status ?? "idle" };
+    return { received: this.received, presence: this.presence, statuses: this.statuses, dropped: this.dropped, refreshed: this.refreshed, renewalFailures: this.renewalFailures, signals: this.t?.signalLog ?? [], error: this.error, status: this.t?.status ?? "idle" };
   }
 
   close() {

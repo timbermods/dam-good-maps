@@ -118,3 +118,24 @@ test("a wrong code and a code from nowhere say so plainly", async () => {
     await closePeer(guest);
   }
 });
+
+test("the session key reaches both players even when their reports to the room are far apart", async () => {
+  const host = await launch("chromium");
+  const guest = await launch("other");
+  try {
+    const { code } = await call(host.page, "host", stack.workerUrl);
+    // the guest tells the room it is connected 35 seconds after the host does (the room waits up to two minutes)
+    expect(await call(guest.page, "join", stack.workerUrl, code, undefined, 35_000)).toEqual({ ok: true });
+    await call(host.page, "whenConnected");
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(await call(host.page, "canRenew"), "the host cannot have a key before the guest has reported").toBe(false);
+    await Promise.all([exchange(host.page, guest.page, "early-h"), exchange(guest.page, host.page, "early-g")]);
+
+    // once the guest's report arrives, the room gives both their keys, though the host's report was long before
+    for (const page of [host.page, guest.page]) await expect.poll(() => call(page, "canRenew"), { timeout: 60_000 }).toBe(true);
+    expect((await call(host.page, "state")).dropped).toBeNull();
+  } finally {
+    await closePeer(host);
+    await closePeer(guest);
+  }
+});

@@ -66,6 +66,7 @@ export function isUiOnly(path) {
  * The collaboration connection (collab-worker/, src/collab/, tests/collab/ and their configs and workflows): nothing else
  * in the app imports it, and its own workflow (.github/workflows/collab.yml) runs its tests, so a change only here does not
  * need the browser shards or the quick suite. (The typecheck and the build still run.)
+ * NOTE: src/collab/ leaves this light class once the page imports it; take it out of the list then.
  */
 export function isCollabOnly(path) {
   return (

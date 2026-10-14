@@ -14,6 +14,9 @@ export interface Env extends RelayEnv {
   ALLOW_LOCAL_ORIGINS?: string;
   /** Relay logins handed out in a day, all together (default 3000). */
   MAX_DAILY_MINTS?: string;
+  /** Relay logins handed out per day to one address (an IPv6 /64), and renewals one session token may fetch. */
+  MAX_DAILY_MINTS_PER_ADDRESS?: string;
+  MAX_TOKEN_RENEWALS?: string;
   /** Seconds a session token lasts (default 24 hours). */
   SESSION_TOKEN_TTL_SECONDS?: string;
 }
