@@ -30,6 +30,7 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
   const out = viewBuffers({ heights: f.heights, entities: f.entities }) as Transferable[];
   if (f.heat) out.push(f.heat.buffer as Transferable);
+  if (f.heightPatch) out.push(f.heightPatch.buffer as Transferable);
   return out;
 }
 
@@ -197,9 +198,10 @@ const api = {
   /** Try another: the last kept force again, with the next seed. `pins`: the row's current
    *  per-detail state (D309); left out, every detail re-rolls. */
   forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
-  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
+  // (the browser takes the changed rows only, written into its own copy, #312)
+  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps, true)),
   /** A painted Lift's fault as it is painted now. */
-  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power)),
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */

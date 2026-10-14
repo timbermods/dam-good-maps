@@ -1561,6 +1561,9 @@ export interface ForceFrame {
   trail: TrailPoint[];
   cue: ForceCue;
   heights?: Uint8Array;
+  /** Instead of `heights`, when asked for (the browser's advance and painted Lift, #312): only the rows inside
+   *  `rect`, packed left to right, top to bottom, when that is less than the whole map. */
+  heightPatch?: Uint8Array;
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
@@ -1776,7 +1779,7 @@ function carveCue(p: CarvePlay): ForceCue {
   return { verb: "carve", phase: p.done ? "done" : "carve", progress: p.total ? p.shown / p.total : 0, x: h.x, y: h.y, z: h.z, size: h.width, power: p.run.settings.power };
 }
 
-function forceFrame(f: NonNullable<typeof force>): ForceFrame {
+function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
   const map = f.play ? f.play.map : f.staged!.map;
   const { W, H } = map;
   let head: ForceHead;
@@ -1801,8 +1804,21 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
   if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
-    f.shown = map.heights.slice();
-    out.heights = map.heights.slice();
+    // (the land as last sent is kept in place, never copied anew a frame; a patch is the changed rows only)
+    const width = rect.x1 - rect.x0 + 1;
+    const size = width * (rect.y1 - rect.y0 + 1);
+    if (patches && size < map.heights.length) {
+      const patch = new Uint8Array(size);
+      for (let y = rect.y0; y <= rect.y1; y++) {
+        const row = map.heights.subarray(y * W + rect.x0, y * W + rect.x1 + 1);
+        patch.set(row, (y - rect.y0) * width);
+        f.shown.set(row, y * W + rect.x0);
+      }
+      out.heightPatch = patch;
+    } else {
+      f.shown.set(map.heights);
+      out.heights = map.heights.slice();
+    }
     out.rect = rect;
   }
   const now = performance.now();
@@ -1827,7 +1843,7 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
 }
 
 /** Run the force `steps` steps more (ten are a second of a carve), and what changed. */
-export function forceAdvance(steps: number): ForceFrame | null {
+export function forceAdvance(steps: number, patches = false): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session) return null;
   if (f.play) {
@@ -1848,14 +1864,14 @@ export function forceAdvance(steps: number): ForceFrame | null {
     if (f.play) f.play.showTo(f.play.total);
     else f.staged!.finishAll();
   }
-  return withForceWater(f, forceFrame(f));
+  return withForceWater(f, forceFrame(f, patches));
 }
 
 /** A frame whose land changed, its water sent just before it (the page gets the two together and draws
  *  them in one frame: the water never a frame behind its land). */
 function withForceWater(f: NonNullable<typeof force>, frame: ForceFrame): ForceFrame {
   const w = forceWater;
-  if (frame.heights && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
+  if ((frame.heights || frame.heightPatch) && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
   return frame;
 }
 
@@ -2272,7 +2288,7 @@ async function runForceWater(token: number): Promise<void> {
 
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
-export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
+export function forcePaint(path: Point[], side: 1 | -1, power?: number, patches = false): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session || !(f.staged instanceof QuakeRun) || f.request.verb !== "quake") return null;
   try {
@@ -2281,7 +2297,7 @@ export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFr
   } catch {
     // (a stroke that reaches the start's ground: the last good one stays)
   }
-  return withForceWater(f, forceFrame(f));
+  return withForceWater(f, forceFrame(f, patches));
 }
 
 /** The page's view back to the map as it stands (a force dropped, or refused). */
