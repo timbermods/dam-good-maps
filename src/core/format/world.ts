@@ -435,10 +435,11 @@ export function storedSoil(singletons: JsonObject, W: number, H: number, topSlot
 }
 
 /** The water a map stores (WaterMapNew, every level): one entry per wet column, with its floor
- *  (the token's fourth field; -1 when an old 3-field token has none), depth and badwater share.
+ *  (the token's fourth field; -1 when an old 3-field token has none), depth, badwater share and a full
+ *  cave's pressure (the third field of a token with a floor, `overflow`; else 0).
  *  Empty when the singleton is missing or its array does not fit the map. */
-export function storedWater(singletons: JsonObject, W: number, H: number): { tile: Int32Array; floor: Float32Array; depth: Float32Array; contamination: Float32Array } {
-  const empty = { tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+export function storedWater(singletons: JsonObject, W: number, H: number): { tile: Int32Array; floor: Float32Array; depth: Float32Array; contamination: Float32Array; overflow: Float32Array } {
+  const empty = { tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0), overflow: new Float32Array(0) };
   const wm = singletons.WaterMapNew;
   if (!isObject(wm) || !isObject(wm.WaterColumns)) return empty;
   const tokens = String(wm.WaterColumns.Array).split(" ");
@@ -449,6 +450,7 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
   const floor: number[] = [];
   const depth: number[] = [];
   const contamination: number[] = [];
+  const overflow: number[] = [];
   for (let k = 0; k < tokens.length; k++) {
     const t = tokens[k];
     if (t === "0") continue;
@@ -458,9 +460,10 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
     tile.push(k % plane);
     depth.push(d);
     contamination.push(Number(f[1] ?? 0) || 0);
+    overflow.push(f.length >= 4 ? Number(f[2]) || 0 : 0);
     floor.push(f.length >= 4 ? Number(f[3]) : -1);
   }
-  return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+  return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination), overflow: Float32Array.from(overflow) };
 }
 
 /** The outflows a map stores (`ColumnOutflows`, FORMAT.md §4.3) of each tile's surface water (its

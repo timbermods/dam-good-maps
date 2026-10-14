@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { MapSession } from "../../src/core/doc/session";
 import { toMapObject } from "../../src/core/features/build";
-import { waterSource } from "../../src/core/format/entities";
+import { fluidObject, waterSource } from "../../src/core/format/entities";
 import { heightMasks } from "../../src/core/sim/columns";
 import { droughtStorage } from "../../src/core/sim/drought";
 import { waterModel } from "../../src/core/sim/model";
@@ -22,15 +22,22 @@ import { TICKS_PER_DAY, type WaterModel } from "../../src/core/sim/water";
 import { HazardRun } from "../../src/core/sim/weather";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
 
-/** A basin 18 × 14 at level 3 with a deeper pool at 2, in ground at 6, an outlet to the east edge at 4 and a
- *  source at its head. */
+/** A basin 18 × 14 at level 3 with a deeper pool at 2, in ground at 6, an outlet to the east edge at 4, and its
+ *  water objects. */
 function basin() {
   const W = 24, H = 20, N = W * H;
   const heights = new Uint8Array(N).fill(6);
   for (let y = 3; y < 17; y++) for (let x = 3; x < 21; x++) heights[y * W + x] = 3;
   for (let y = 6; y < 12; y++) for (let x = 8; x < 16; x++) heights[y * W + x] = 2;
   for (let x = 21; x < W; x++) heights[10 * W + x] = 4;
-  const objects = [toMapObject(waterSource({ id: "00000000-0000-4000-8000-000000000001", owner: "test", x: 5, y: 5, z: 3, strength: 1 }))];
+  const id = (k: number) => `00000000-0000-4000-8000-00000000000${k}`;
+  // a clean source, a badwater source, a sink and a seep (which starts off, as the game's does, D337)
+  const objects = [
+    waterSource({ id: id(1), owner: "test", x: 5, y: 5, z: 3, strength: 1 }),
+    waterSource({ id: id(2), owner: "test", x: 18, y: 14, z: 3, strength: 0.5, bad: true }),
+    waterSource({ id: id(3), owner: "test", x: 10, y: 14, z: 3, strength: -0.3 }),
+    fluidObject({ id: id(4), owner: "test", template: "WaterSeep", x: 17, y: 5, z: 3, strength: 1 }),
+  ].map(toMapObject);
   return { W, H, N, heights, objects, model: waterModel(W, H, heights, objects) };
 }
 
@@ -73,7 +80,8 @@ describe("the stacked weather on a map with no caves is the heightfield's", () =
       }
       const last = a.water();
       if (hazard === "drought") expect(last.depth.reduce((x, y) => x + y, 0)).toBeLessThan(0.7 * settled.depth.reduce((x, y) => x + y, 0));
-      else expect(Math.max(...last.contamination)).toBeGreaterThan(0.9);
+      // (the clean source's own water has turned bad)
+      else expect(last.contamination[5 * b.W + 5]).toBeGreaterThan(0.9);
       a.dispose();
       s.dispose();
     });
@@ -111,7 +119,7 @@ describe.skipIf(!existsSync(OFFICIAL + MAPS[0] + ".timber"))("Drought on the off
     expect(prev).toBeLessThanOrEqual(1.2 * analytic + 5);
     expect(prev).toBeGreaterThan(0.5 * analytic - 5);
     // and the drought line comes out: the shore of what is left
-    const line = mapDroughtLine(s, run.water().depth, days, from);
+    const line = mapDroughtLine(s, run.water(), days, from);
     expect(line.refused).toBeNull();
     expect(line.line.count).toBeGreaterThan(0);
     run.dispose();

@@ -788,6 +788,12 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
  *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
  *  background check that stopped it, D345 B14). */
 function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
+  // (a drought line read from the water the settle replaced goes: an empty line until the new water's comes)
+  const old = droughtLineNow;
+  if (old && old.session === s && old.from !== s.waterShown()) {
+    droughtLineNow = null;
+    droughtWatch?.({ version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought")) });
+  }
   if (!listener) return view;
   // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
   const copy = structuredClone(view);
@@ -921,12 +927,16 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   try {
     while (run.kept.length - 1 < run.want) {
       const day = run.kept.length;
+      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, where a tick of a big map
+      // takes as long as a whole slice, so an edit never waits behind more than one; fixed, so the days are the same
+      // on any machine)
+      const stepTicks = run.run.stack ? 1 : 24;
       let t = 0;
       while (t < TICKS_PER_DAY) {
         if (!wanted()) return;
         const t0 = performance.now();
         while (t < TICKS_PER_DAY && performance.now() - t0 < WATER_SLICE_MS) {
-          const gap = Math.min(24, TICKS_PER_DAY - t);
+          const gap = Math.min(stepTicks, TICKS_PER_DAY - t);
           run.run.step(gap);
           t += gap;
         }
@@ -966,7 +976,8 @@ async function driveWeather(run: WeatherRun): Promise<void> {
  *  Drought view's last day agree tile for tile. It comes in the background after each edit with the drought's days
  *  (`prepareWeather`, which the page asks for once the water has settled and Kyler is idle, and stops the moment he
  *  acts), never blocking: an edit makes a new version, and the old run, its line with it, is dropped. */
-let droughtLineNow: { session: MapSession; version: number; line: DroughtLine } | null = null;
+/** (with the water it was read from: a settle coming in replaces it, and the line with it) */
+let droughtLineNow: { session: MapSession; version: number; from: CanonicalWater; line: DroughtLine } | null = null;
 /** The drought line of a version of the map, as the page is told it. */
 export interface DroughtLineNews {
   version: number;
@@ -983,13 +994,13 @@ function droughtLineFrom(run: WeatherRun): void {
   if (!k) return;
   let line: DroughtLine;
   try {
-    line = mapDroughtLine(run.session, k.depth, run.days, run.from);
+    line = mapDroughtLine(run.session, k, run.days, run.from);
   } catch (e) {
     if (!droughtLineFailed) console.warn("the drought line failed", e);
     droughtLineFailed = true;
     return;
   }
-  droughtLineNow = { session: run.session, version: run.version, line };
+  droughtLineNow = { session: run.session, version: run.version, from: run.from, line };
   droughtWatch?.({ version: run.version, line });
 }
 
@@ -1005,7 +1016,7 @@ function currentDroughtLine(): DroughtLineNews | null {
   const s = session;
   if (!s) return null;
   const now = droughtLineNow;
-  return now && now.session === s && now.version === version ? { version, line: now.line } : null;
+  return now && now.session === s && now.version === version && now.from === s.waterShown() ? { version, line: now.line } : null;
 }
 
 /** Where the worker sends the drought line (null: nowhere): each one as it is worked out, and an empty line when a map

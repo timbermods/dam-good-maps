@@ -15,7 +15,7 @@ import type { JsonObject } from "../../src/core/format/json";
 import { toMapObject } from "../../src/core/features/build";
 import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { WATER_BODY } from "../../src/core/analysis/walk";
-import { CAVE_REFUSALS, cavesOf } from "../../src/core/sim/stackWater";
+import { CAVE_REFUSALS, cavesOf, surfaceWater } from "../../src/core/sim/stackWater";
 import { TICKS_PER_DAY } from "../../src/core/sim/water";
 import { HazardRun, hazardSoil } from "../../src/core/sim/weather";
 import { build, t3CaveWater } from "../../tools/terrain3d-maps";
@@ -143,13 +143,16 @@ describe("an imported map with caves or overhangs", () => {
         expect(under(w.stack!)).toBeLessThanOrEqual(under(from.stack!));
       }
       expect(prev).toBeLessThan(top(from.depth));
-      // the drought line, read from that last day seen from above: the shore of the water left, on its tiles
-      const last = drought.water().depth;
-      const line = mapDroughtLine(s, last, 3, from);
+      // the drought line, read from that last day on the map's ground, the same column on both days: the shore of
+      // the water left, and the beds it uncovers, each wet on day 0
+      const lastDay = drought.water();
+      const line = mapDroughtLine(s, lastDay, 3, from);
+      const last = surfaceWater(lastDay.stack!, s.built.heights).depth;
+      const first = surfaceWater(from.stack!, s.built.heights).depth;
       expect(line.refused).toBeNull();
       expect(line.line.count).toBeGreaterThan(0);
       for (let k = 0; k < line.line.count; k++) expect(last[line.line.tile[k]]).toBeGreaterThan(WATER_BODY);
-      for (let k = 0; k < line.bed.count; k++) expect(last[line.bed.tile[k]]).toBeLessThanOrEqual(WATER_BODY);
+      for (let k = 0; k < line.bed.count; k++) expect([first[line.bed.tile[k]] > WATER_BODY, last[line.bed.tile[k]] <= WATER_BODY]).toEqual([true, true]);
       const soil = hazardSoil(s.built.waterModel, s.built.heights, drought.water(), s.built.entities.map(toMapObject));
       expect(soil.moisture.length).toBe(N);
       drought.dispose();

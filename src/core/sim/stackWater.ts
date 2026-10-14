@@ -463,7 +463,7 @@ export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[
 /** Water on stacked columns that is not a settle of them, on the columns `cols`: a file's own stored
  *  water (`stored`, world.ts `storedWater`: each entry on the column whose floor it names, or the one
  *  it stands in), or water carried over from other columns (`staleStack`). Never written to a file. */
-export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number>; floor: ArrayLike<number>; depth: ArrayLike<number>; contamination: ArrayLike<number> }): StackSettle {
+export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number>; floor: ArrayLike<number>; depth: ArrayLike<number>; contamination: ArrayLike<number>; overflow?: ArrayLike<number> }): StackSettle {
   const { W, H, N, L } = cols;
   const out = emptyStack(cols);
   for (let k = 0; k < stored.tile.length; k++) {
@@ -477,8 +477,34 @@ export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number
     if (slot < 0) continue;
     out.depth[slot * N + i] = stored.depth[k];
     out.contamination[slot * N + i] = stored.contamination[k];
+    // (a full cave's pressure, on a column its water fills, as the engine holds it: a column under pressure is full,
+    // whatever its rounded token says)
+    const o = stored.overflow?.[k] ?? 0;
+    const cap = cols.ceil[slot * N + i] - cols.floor[slot * N + i];
+    if (o > 0 && stored.depth[k] >= cap - 1e-3) {
+      out.depth[slot * N + i] = cap;
+      out.overflow[slot * N + i] = o;
+    }
   }
   return { ...out, W, H, L };
+}
+
+/** The water standing on the map's ground, per tile: a tile's one column, or the column whose floor is the tile's
+ *  height (`heights`, the terrain's surface), else none. What a reading on the ground compares day by day (the drought line): the same
+ *  column on both sides, never the water under a NaturalOverhang on one and the water on its top on the other. */
+export function surfaceWater(s: StackSettle, heights: ArrayLike<number>): { depth: Float64Array; contamination: Float64Array } {
+  const N = s.W * s.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let i = 0; i < N; i++)
+    for (let q = s.count[i] - 1; q >= 0; q--) {
+      const c = q * N + i;
+      if (s.count[i] > 1 && s.floor[c] !== heights[i]) continue;
+      depth[i] = s.depth[c];
+      contamination[i] = s.contamination[c];
+      break;
+    }
+  return { depth, contamination };
 }
 
 /** The water of stacked columns seen through the roofs: per tile, its highest wet column's depth and

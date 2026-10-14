@@ -494,20 +494,28 @@ the soil rules per run on the map's own water against its stored moisture slots:
 
 ## Drought, Badtide and the drought line on the stacked engine (#391, built 2026-10-14)
 
-On `feature/stacked-weather`. No Rust change: the engine already had every rule the weather needs (its `run`
-scales every source, 0 in a drought, and takes each emitter's contamination between runs; every column
-evaporates by its own cluster saturation). The game's code (1.1.2.7: `DroughtWaterStrengthModifier`,
+On `feature/stacked-weather`. The engine already had every rule the weather needs (its `run` scales every
+source, 0 in a drought, and takes each emitter's contamination between runs; every column evaporates by its own
+cluster saturation). The game's code (1.1.2.7: `DroughtWaterStrengthModifier`,
 `BadtideWaterSourceContaminationController`, `WaterParametersUpdateTask`) acts per source and per column, with
-nothing about roofs, so the heightfield's rules are the stacked ones.
+nothing about roofs, so the heightfield's rules are the stacked ones. One Rust change: a seep in the stacked
+engine starts off, as the heightfield's and the game's do (`WaterDepthStrengthModifier._isEnabled` starts false,
+unsaved); no golden fixture has a seep. An unedited import's stored water now carries its full caves' pressure
+(`storedWater`'s `overflow`, into `storedStack`): without it Pressure's start lost 2,005 blocks over 4,610 columns.
+The drought line reads both days on the column standing on the map's ground (`surfaceWater`), so water under a
+NaturalOverhang is never a false bed.
 - **The core:** `sim/stackWater.ts` `StackRun` (the engine built on the model's terrain and objects, its state
   set from a `StackSettle`, run with a scale and the clean sources' contamination); `sim/weather.ts` `HazardRun`
   takes `water.stack` on a stacked model and runs it there, `water()` giving the day's water from above and on
   every column, `hazardSoil` the day's soil (per run top with caves). `MapSession.waterShown()` is the water a
   hazard starts from: an unedited import's own (its build holds none: before this, a drought on an unedited
   import, heightfield or not, started from dry water, and its days showed the file's water), else the build's.
-- **The worker:** no refusal; a run restarts when the water it started from is replaced (a settle coming in);
+- **The worker:** no refusal; a run restarts when the water it started from is replaced (a settle coming in), and a
+  drought line read from replaced water goes; a map with caves steps one tick at a time (a tick of a big one takes
+  a whole slice), so an edit never waits;
   the background prep waits while a cave map's water settles.
-- **Checked:** on a map with no caves the stacked weather is the heightfield's day by day, bit for bit, both on an
+- **Checked:** on a map with no caves (a clean source, a badwater source, a sink and a seep) the stacked weather is
+  the heightfield's day by day, bit for bit, both on an
   open field and with one overhang far from the water putting the whole map on the stacked rules
   (`tests/contract/stackedWeather.test.ts`); T3 unedited and edited (`caveImport.test.ts`); the page
   (`caveWater.spec.ts`). On the official cave maps, a 9-day drought from each map's own water, water from above
@@ -524,7 +532,7 @@ nothing about roofs, so the heightfield's rules are the stacked ones.
 | MountainRange | 1,240 | 255 | 248 | 2.8 |
 | Craters | 4,571 | 1,862 | 2,013 | 16.2 |
 | Lakes | 5,632 | 702 | 604 | 21.5 |
-| Pressure | 3,347 | 948 | 1,904 | 53.8 |
+| Pressure | 3,347 | 1,001 | 1,904 | 54.3 |
 | Beaverome | 80,662 | 68,253 | 68,462 | 136.6 |
 
   Below the analytic drought where water drains into caves the heightfield cannot see (Pressure, Terraces); a

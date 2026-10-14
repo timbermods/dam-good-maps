@@ -179,7 +179,9 @@ impl Stack {
                 }
             }
         }
-        let seep_on = vec![true; m.emitters.len()];
+        // a seep starts off, as the game's does (`WaterDepthStrengthModifier._isEnabled` is not saved and starts
+        // false): it turns on at the first tick only below its restart depth, as on a heightfield (sim.rs)
+        let seep_on = m.emitters.iter().map(|e| e.limit.is_none()).collect();
         Stack {
             cols,
             emitters: m.emitters,
