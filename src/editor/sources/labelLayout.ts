@@ -162,11 +162,19 @@ export function layoutLabels(labels: readonly LabelIn[], env: LayoutEnv): LabelO
     const out = lay(labels, env, carried);
     // (a merge is let go once the label's own spot is clear by a little more than a label needs, so it does not flicker)
     let letGo = false;
-    for (const [id] of carried) {
+    // (the label it went into counts at its own width, not the merged one, which is what it would go back to)
+    const alone = (l: LabelIn) => env.width(labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
+    for (const [id, into] of carried) {
       const l = first.get(id)!;
-      const w = env.width(labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
+      const w = alone(l);
       const own: Rect = { x: l.ax - w / 2, y: l.ay - env.height * LIFT, w, h: env.height };
-      const clear = own.x >= 0 && own.y >= 0 && own.x + w <= env.bounds.w && own.y + own.h <= env.bounds.h && !env.obstacles.some((o) => hits(own, o, GAP + 6)) && !out.some((o) => !o.hidden && hits(own, o.box, GAP + 6));
+      const others = out.filter((o) => !o.hidden).map((o) => {
+        if (o.id !== into) return o.box;
+        const k = first.get(into)!;
+        const kw = alone(k);
+        return { x: k.ax - kw / 2 + o.dx, y: k.ay - env.height * LIFT + o.dy, w: kw, h: env.height };
+      });
+      const clear = own.x >= 0 && own.y >= 0 && own.x + w <= env.bounds.w && own.y + own.h <= env.bounds.h && !env.obstacles.some((o) => hits(own, o, GAP + 6)) && !others.some((b) => hits(own, b, GAP + 6));
       if (clear) {
         carried.delete(id);
         letGo = true;

@@ -169,4 +169,19 @@ describe("the sources' labels", () => {
       }
     }
   });
+
+  it("lets a merge go when each label fits alone, though the merged label was wider than that", () => {
+    const withPrev = (ls: LabelIn[], prev: LabelOut[]): LabelIn[] =>
+      ls.map((l) => {
+        const o = prev.find((q) => q.id === l.id)!;
+        return { ...l, prev: { dx: o.dx, dy: o.dy, into: o.into } };
+      });
+    const sources = (gap: number) => Array.from({ length: 8 }, (_, i) => label(i, 100 + i * gap, 60, { strength: 0.5 }));
+    const tight = layoutLabels(sources(8).map((l) => ({ ...l, prev: null })), env([], 1700, 110));
+    expect(tight.some((o) => o.merged.length > 0)).toBe(true);
+    // (each label is 93px wide: at 152px apart there is room for every one at its own spot)
+    const out = layoutLabels(withPrev(sources(152), tight), env([], 1700, 110));
+    expect(drawn(out)).toHaveLength(8);
+    expect(out.every((o) => o.dx === 0 && o.dy === 0 && o.into === null && o.merged.length === 0)).toBe(true);
+  });
 });
