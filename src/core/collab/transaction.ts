@@ -14,10 +14,13 @@ import type { MapSession } from "../doc/session";
 import { applySelection } from "../doc/start";
 import { newRampedStroke } from "../doc/strokes";
 import { applyForce } from "./forceStep";
-import { captureState, patchIsEmpty, stateHash, type MapState, type Patch } from "./mapState";
+import { applyPatch, captureState, cloneState, invertPatch, patchIsEmpty, stateHash, type MapState, type Patch } from "./mapState";
 import { Mask } from "./mask";
+import { placeWords } from "./place";
+import { nameOf, type RecordLog } from "./records";
 import { touchesOf } from "./touches";
 import type { Command, LogEntry, PlayerId } from "./types";
+import { historyProblem, type Names } from "./undo";
 import { WaterBarrier } from "./water";
 
 /** What an applied entry left behind: the record undo with two players is built on. */
@@ -35,6 +38,15 @@ export interface TransactionRecord {
   touch: Mask;
   /** Identity keys: "entity:<id>", "lakes", "feature-order", "action:<seq>". */
   keys: string[];
+  /** Where it was, in words ("in the north-east"), or "" when it reached the whole map (undo.ts names it in a refusal). */
+  where: string;
+  /** Set once the action is taken back: the sequence of the entry that took it back (undo.ts). Taken back, it can be brought back. */
+  undoneAt?: number;
+  /** While taken back: the earlier actions it was made on that have been taken back or brought back since (an odd number of times).
+   *  It cannot be brought back until the ground it was made on is as it was. */
+  shifted?: number[];
+  /** On the record of an undo's or a redo's effect (which is not an action of its own and is never undone): what it took back or brought back. */
+  undoes?: { target: number; redo: boolean };
   /** Whether the step changed anything the players made directly (a stroke that found nothing to change still touched the ground). */
   changed: boolean;
   /** The step's operations as the document keeps them, with their undo data: an undo can turn the record into
@@ -44,7 +56,7 @@ export interface TransactionRecord {
 }
 
 export type Applied =
-  | { ok: true; record: TransactionRecord; hash: string; state: MapState; applied?: EditOp[]; needsWater: boolean }
+  | { ok: true; record: TransactionRecord; hash: string; state: MapState; applied?: EditOp[]; needsWater: boolean; /** Set for an undo or a redo: the record is its effect, not an action of its own. */ effect?: { target: number; redo: boolean } }
   | { ok: false; reason: string; busy?: boolean; stale?: boolean };
 
 /** The JSON form of a record (masks as runs of tile indices). */
@@ -79,6 +91,10 @@ export interface ApplyOptions {
   role: "host" | "replica";
   /** The host's last look, after the step is applied and its record made: a reason takes the step back (the claims seam). */
   check?: (record: TransactionRecord) => string | null;
+  /** The records an undo or a redo decides by and marks (the host's, or the replica's own); required for those commands. */
+  records?: RecordLog;
+  /** How players are called in a refusal's line. */
+  names?: Names;
 }
 
 /** Applies entries to one session, keeping the map's last captured state so a record needs one capture per step. */
@@ -107,6 +123,7 @@ export class MapApplier {
     const command: Command = entry.command;
     const host = opts.role === "host";
     if (command.kind === "newMap") return { ok: false, reason: "A whole-map change is the host's, and arrives as a new map" };
+    if (command.kind === "undo" || command.kind === "redo") return this.history(entry, command.kind === "redo", command.target, opts);
     // (a replica goes by the host: it settles for every entry the host held for the settled water)
     const needsWater = host ? hostNeedsWater(command, new Set(this.state().derived.map((d) => d[0]))) : entry.water === true || hostNeedsWater(command);
     if (needsWater) {
@@ -162,6 +179,7 @@ export class MapApplier {
       epoch: entry.epoch,
       author: entry.author,
       label,
+      where: placeWords(before.W, before.H, t.writes.empty ? t.touch : t.writes),
       patch: t.patch,
       writes: t.writes,
       touch: t.touch,
@@ -179,5 +197,59 @@ export class MapApplier {
       throw new Error("A refused step could not be taken back");
     }
     return { ok: true, record, hash: stateHash(after), state: after, needsWater, ...(applied ? { applied } : {}) };
+  }
+
+  /** An undo or a redo: the action named leaves the document (or returns to it, at its place in the document's order) and the map
+   *  that results must be what the stored values put on the map as it stands, or it is refused and nothing changes. Decided from
+   *  the records alone, so every peer decides the same. */
+  private history(entry: Pick<LogEntry, "seq" | "epoch" | "author">, redo: boolean, target: number, opts: ApplyOptions): Applied {
+    const s = this.session;
+    const records = opts.records;
+    if (!records) throw new Error("An undo needs the records");
+    const found = historyProblem(records, entry.author, redo, target, opts.names);
+    if ("reason" in found) return { ok: false, reason: found.reason };
+    const r = found.record;
+    const before = this.state();
+    const prev = s.logOps.slice();
+    const next = s.nextSeq;
+    const seqs = new Set(r.ops.map((o) => o.seq));
+    const standing = prev.filter((o) => seqs.has(o.seq)).length;
+    if (redo ? standing > 0 : standing !== seqs.size) return { ok: false, reason: `${nameOf(r)} is not in the map as the records say` };
+    const log = redo ? [...prev, ...r.ops.map((o) => structuredClone(o))].sort((a, b) => a.seq - b.seq) : prev.filter((o) => !seqs.has(o.seq));
+    const revert = () => {
+      s.followLog(prev, next);
+      this.seen = { built: s.built, state: before };
+    };
+    s.followLog(log, next);
+    const after = captureState(s);
+    const expected = cloneState(before);
+    applyPatch(expected, r.patch, !redo);
+    if (stateHash(expected) !== stateHash(after)) {
+      revert();
+      return { ok: false, reason: `${nameOf(r)} cannot be ${redo ? "brought back" : "taken back"} without changing ground other edits are on` };
+    }
+    const effect: TransactionRecord = {
+      seq: entry.seq,
+      epoch: entry.epoch,
+      author: entry.author,
+      label: `${redo ? "Redo" : "Undo"} ${nameOf(r)}`,
+      where: r.where,
+      patch: redo ? structuredClone(r.patch) : invertPatch(r.patch),
+      writes: r.writes.clone(),
+      touch: r.writes.clone(),
+      keys: [...r.keys],
+      changed: r.changed,
+      ops: [],
+      undoes: { target, redo },
+    };
+    const blocked = opts.check?.(effect) ?? null;
+    if (blocked) {
+      revert();
+      return { ok: false, reason: blocked };
+    }
+    records.setUndone(r, redo ? undefined : entry.seq);
+    this.water.invalidate();
+    this.seen = { built: s.built, state: after };
+    return { ok: true, record: effect, hash: stateHash(after), state: after, needsWater: false, effect: { target, redo } };
   }
 }

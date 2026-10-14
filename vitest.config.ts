@@ -19,6 +19,7 @@ const HEAVY = [
   "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
   "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
+  "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
 ];
 
 export default defineConfig({

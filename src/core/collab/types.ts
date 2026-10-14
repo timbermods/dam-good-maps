@@ -3,6 +3,7 @@
 
 import type { EditOp } from "../doc/ops";
 import type { ForceRequest } from "../forces/start";
+import type { FencesJson } from "./records";
 import type { RecordJson } from "./transaction";
 
 export type PlayerId = string;
@@ -26,6 +27,11 @@ export type Command =
   /** A Select action: one step with the start carried when its ground broke (doc/start.ts `applySelection`; the host works out the tiles it changed). */
   | { kind: "select"; ops: EditOp[]; label: string }
   | { kind: "force"; gesture: ForceGesture }
+  /** The author takes back one of their own actions, named by its record (its entry's sequence number). Decided by the
+   *  host like any entry and by every peer from the same records (undo.ts); a refusal names what is in the way. */
+  | { kind: "undo"; target: number }
+  /** The author brings back one of their own actions they took back. */
+  | { kind: "redo"; target: number }
   /** Generate, a real place or another map: the host's alone. The map itself travels as a snapshot. */
   | { kind: "newMap"; name: string };
 
@@ -103,6 +109,8 @@ export interface Snapshot {
   endHash: string;
   /** The records of the entries up to the checkpoint (each player's last 50), so a rejoined peer holds what the host does. */
   records: RecordJson[];
+  /** What the actions that left the records fence off, so the same actions stay out of reach for a rejoined peer (undo.ts). */
+  fences: FencesJson;
   /** Each player's request counter, so a rejoining player carries on. */
   counters: Record<PlayerId, number>;
 }

@@ -10,6 +10,7 @@ import { MapSession } from "../doc/session";
 import { planKeptForce } from "./forceStep";
 import { MapApplier, recordFromJson, BUSY, type TransactionRecord } from "./transaction";
 import { RecordLog } from "./records";
+import { redoPlan, undoPlan, type HistoryPlan, type Names } from "./undo";
 import type { Command, ForceGesture, LogEntry, MapOpening, PlayerId, Reject, Request, Settled, Snapshot } from "./types";
 import { messageProblem } from "./validate";
 import { settledHash } from "./water";
@@ -59,6 +60,8 @@ export class CollabReplica {
     readonly events: ReplicaEvents = {},
     /** Called on each session this copy opens from a snapshot (the page sets its own options here). */
     readonly configure?: (s: MapSession) => void,
+    /** How players are called in an undo's refusal; the ids by default. */
+    readonly names?: Names,
   ) {
     this.session = session;
     this.applier = new MapApplier(session);
@@ -89,6 +92,7 @@ export class CollabReplica {
     this.records.clear();
     const N = this.session.built.W * this.session.built.H;
     for (const j of snapshot.records) this.records.add(recordFromJson(N, j));
+    this.records.restoreFences(N, snapshot.fences);
     this.epoch = snapshot.epoch;
     this.seq = snapshot.checkpointSeq;
     this.counter = snapshot.counters[this.playerId] ?? this.counter;
@@ -103,6 +107,16 @@ export class CollabReplica {
     }
     if (this.applier.hash() !== snapshot.endHash) return this.diverged("This copy of the map differs from the host's after loading it");
     return { ok: true };
+  }
+
+  /** What Undo does for this player now: the action it takes back (null when none can be) and the blocked ones it skips, each named. */
+  undoPlan(): HistoryPlan {
+    return undoPlan(this.records, this.playerId, this.names);
+  }
+
+  /** What Redo does for this player now. */
+  redoPlan(): HistoryPlan {
+    return redoPlan(this.records, this.playerId, this.names);
   }
 
   /** This player's next request for `command`, or why they can't ask now. */
@@ -201,10 +215,11 @@ export class CollabReplica {
   private applyInOrder(entry: LogEntry): Received {
     const ordered = this.order(entry);
     if (!ordered.ok) return ordered;
-    const done = this.applier.apply(entry, { role: "replica" });
+    const done = this.applier.apply(entry, { role: "replica", records: this.records, names: this.names });
     if (!done.ok) return this.diverged(`Entry ${entry.seq} would not apply here: ${done.reason}`);
     this.seq = entry.seq;
-    this.records.add(done.record);
+    if (done.effect) this.records.addEffect(done.record);
+    else this.records.add(done.record);
     this.events.applied?.(entry, done.record);
     return { ok: true };
   }
