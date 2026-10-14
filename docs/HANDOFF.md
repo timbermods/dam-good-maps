@@ -62,8 +62,8 @@ where the job is written down, scripts where it's only waiting.
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
-| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | `model: haiku` | Haiku |
-| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5 |
+| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | any agent, `model: haiku` | Haiku 4.5 |
+| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
