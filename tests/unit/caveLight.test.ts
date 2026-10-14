@@ -107,7 +107,7 @@ describe("light under roofs on terrains with roofs", () => {
     // the tunnel opens east onto the ground at x = 20: its floor just inside, and at the roof line
     const open = openSky(sky[10 * W + 20]) / 255;
     for (const x of [19.7, 19.95]) expect(caveSample(v, [x, 2, -10.5], [0, 1, 0])![0]).toBeLessThanOrEqual(open);
-    expect(caveSample(v, [19.5, 2, -10.5], [0, 1, 0])![0]).toBeLessThan(open);
+    expect(caveSample(v, [18.5, 2, -10.5], [0, 1, 0])![0]).toBeLessThan(open);
   });
 
   it("a sealed chamber takes the least sky and no sun", () => {

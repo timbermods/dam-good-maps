@@ -3,7 +3,7 @@
 // as investigation/3d-view adopted it). Two bytes a cell, W × H × LIGHT_LEVELS cells (x fastest, then
 // y, then the level), a 3D texture the terrain shader reads half a cell along each face's normal:
 // - R, the sky. Roofed air (below its column's top, not rock) walks it in from its openings: beside an
-//   open cell, that cell's sky less a step; beside the map's edge, 229; then 26 less per step through
+//   open cell, that cell's sky; beside the map's edge, 229; then 26 less per step through
 //   roofed air, never below 64 (a cave's mouth as bright as the open ground before it, never brighter,
 //   its depths dim; the shader keeps a 0.30 floor so a cave stays readable). An open cell beside roofed
 //   air holds the sky the baked light gives the ground there (light.ts: 0.55 + 0.45 × the tile's sky
@@ -186,14 +186,20 @@ export class CaveLight {
             const xx = x + (k === 0 ? -1 : k === 1 ? 1 : 0);
             const yy = y + (k === 2 ? -1 : k === 3 ? 1 : 0);
             let v: number;
-            // (beyond the map's edge is open air: the map stands in the sky, its sides cut through the rock)
-            if (xx < 0 || yy < 0 || xx >= W || yy >= H) v = OPEN;
+            // (beyond the map's edge is open air: the map stands in the sky, its sides cut through the rock;
+            // beside open ground a mouth takes that ground's own sky, so the light carries on across the roof
+            // line, and falls a step a cell from there)
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) v = OPEN - STEP;
             else {
               const j = yy * W + xx;
               v = data[(z * N + j) * 2];
-              if (!v || (z < 32 - Math.clz32(masks[j]) && inS(xx, yy))) continue;
+              if (!v) continue;
+              if (z < 32 - Math.clz32(masks[j])) {
+                if (inS(xx, yy)) continue;
+                v -= STEP;
+              }
             }
-            if (v - STEP > best) best = v - STEP;
+            if (v > best) best = v;
           }
           if (best > FLOOR) {
             data[(z * N + i) * 2] = best;

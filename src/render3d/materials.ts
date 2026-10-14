@@ -388,7 +388,7 @@ export interface ShaderHooks {
   /** A sun shadow of its own: `float sunLit(vec2 g, float z)` (the baked one is kept as
    *  `bakedSunLit`, for when the effect is off). */
   sunLit?: string;
-  /** A factor on the sky's light (`lightOf`, `caveLightOf` under roofs, the objects' light): the ambient occlusion. */
+  /** A factor on the sky's light (`lightOf`, the objects' light): the ambient occlusion. */
   skyLight?: string;
   /** finish(): the haze (replacing the Standard line), and the last step (replacing the clamp). */
   haze?: string;
@@ -410,10 +410,17 @@ export interface ShaderHooks {
   /** After the light, before the overlays (c, light, n, h0, d0). */
   lit?: string;
   /** The sun on a face whose air is under a roof (an expression of `cave`, the light volume's sky in
-   *  x and sun in y, and `sunHere`, the look's own sun shadow at the point). Standard: the volume's sun
-   *  where the baked shadow at the point is lit too, so a cave's mouth is never in sun the open ground
-   *  before it is not. */
+   *  x and sun in y, and `sunHere`, the look's own sun shadow at the point). Standard: a ray marched
+   *  through the volume until it meets rock or comes out under the open sky's baked shadow
+   *  (`caveSunMarch`), so the sun carries on across a cave's roof line and in as far as it reaches. */
   caveSun?: string;
+  /** The sun on the open ground at a cave's roof line (an expression of `mouth`, the point just outside
+   *  it, world space; Standard: the baked shadow there). */
+  caveSunOpen?: string;
+  /** Statements that put the look's occlusion of the sky on a face under a roof (`sky`, from `cave`,
+   *  n): the same as on the open ground at the roof line its light comes in by (`caveMouth`), so it
+   *  never steps there or rises inward. Standard: none. */
+  caveSky?: string;
   // the water
   /** Functions after the shared water palette's GLSL (they may use it). */
   waterDecl?: string;
@@ -643,12 +650,74 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
         return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
       }
+      /** The sun on a point under a roof: a ray marched toward the sun through the volume's cells; rock
+       *  stops it, and once it is out in open air the baked shadow there decides (as on the ground
+       *  before a cave's mouth, so the light carries on across the roof line); a ray still under roofs
+       *  after its run takes the volume's own sun. */
+      float caveSunMarch(vec3 world, vec3 n, float fallback) {
+        vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
+        vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02;
+        for (int k = 0; k < 40; k++) {
+          q += dir * 0.2;
+          vec3 cell = floor(q);
+          if (cell.x < 0.0 || cell.y < 0.0 || cell.x >= caveSize.x || cell.y >= caveSize.y || cell.z >= caveSize.z) return 1.0;
+          if (cell.z >= heightOf(tileAt(cell.xy))) return sunLit(q.xy, q.z);
+          if (texelFetch(caveTex, ivec3(cell), 0).r < 0.001) return 0.0;
+        }
+        return fallback;
+      }
+      /** The roof line a face under a roof takes its light from: walked from its cell toward the brightest
+       *  neighbour (the volume's sky rises toward its opening), up to the first cell beside open air.
+       *  xyz the point just outside that line on the open ground (world space; along the line, the
+       *  face's own place as far as that cell reaches), w 1 when found. */
+      vec4 caveMouth(vec3 world, vec3 n) {
+        vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.5;
+        vec3 c = floor(q);
+        for (int k = 0; k < 10; k++) {
+          float here = texelFetch(caveTex, ivec3(c), 0).r;
+          float best = here;
+          vec2 to = vec2(0.0);
+          for (int d = 0; d < 4; d++) {
+            vec2 o = d == 0 ? vec2(1.0, 0.0) : d == 1 ? vec2(-1.0, 0.0) : d == 2 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
+            vec3 nc = c + vec3(o, 0.0);
+            if (nc.x < 0.0 || nc.y < 0.0 || nc.x >= caveSize.x || nc.y >= caveSize.y) continue;
+            float top = heightOf(tileAt(nc.xy));
+            if (nc.z >= top) {
+              vec2 p = clamp(q.xy, c.xy, c.xy + 1.0);
+              if (o.x != 0.0) p.x = c.x + 0.5 + o.x * 0.52;
+              else p.y = c.y + 0.5 + o.y * 0.52;
+              return vec4(p.x, top, -p.y, 1.0);
+            }
+            float r = texelFetch(caveTex, ivec3(nc), 0).r;
+            if (r > best) {
+              best = r;
+              to = o;
+            }
+          }
+          if (best <= here) break;
+          c += vec3(to, 0.0);
+        }
+        return vec4(world, 0.0);
+      }
       /** The light on a face in air under a roof: the volume's sky with the look's occlusion of the sky,
-       *  never below 0.30 so a cave stays readable, and its sun. */
+       *  never below 0.30 so a cave stays readable, and its sun. Both carry on from the open ground at the
+       *  roof line the air opens by (caveMouth): the sun there fades to the cave's own over the first
+       *  0.6 of a tile and never exceeds it inside, so the light never steps at the line or rises inward. */
       vec3 caveLightOf(vec3 n, vec3 cave, float sunHere) {
         float ndl = max(dot(n, sunDir), 0.0);
-        float sun = ${hook(h, "caveSun", "min(cave.y, sunLit(vec2(vWorld.x, -vWorld.z) + vec2(n.x, -n.z) * 0.26, vWorld.y))")};
-        return skyColor * (0.7 + 0.3 * n.y) * max(0.30, ${hook(h, "skyLight")}cave.x) + sunColor * 0.55 * ndl * sun;
+        vec4 mouth = caveMouth(vWorld, n);
+        float sun = 0.0;
+        if (ndl > 0.0) {
+          float inside = ${hook(h, "caveSun", "caveSunMarch(vWorld, n, cave.y)")};
+          sun = inside;
+          if (mouth.w > 0.5) {
+            float open = ${hook(h, "caveSunOpen", "sunLit(vec2(mouth.x, -mouth.z), mouth.y)")};
+            float d = length(vWorld.xz - mouth.xz);
+            sun = mix(open, min(inside, open), smoothstep(0.0, 0.6, d));
+          }
+        }
+        float sky = cave.x;${hook(h, "caveSky")}
+        return skyColor * (0.7 + 0.3 * n.y) * max(0.30, sky) + sunColor * 0.55 * ndl * sun;
       }
       /** How much of tile t's ground at y is an eruption's fresh rock (#367): what rose above the ground
        *  its heat came to, until the heat fades with the crust (0–1). */
