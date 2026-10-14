@@ -4,6 +4,7 @@
 // Built from the shared bar and button styles (D176).
 
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { CoreNote } from "../core/sim/coreMoment";
 import type { Hazard } from "../core/sim/weather";
 import { tip } from "../ui/Tooltip";
 
@@ -17,6 +18,9 @@ export interface WaterBarProps {
   target: number | null;
   counting: number | null;
   onStep(delta: -1 | 1): void;
+  /** Where an Unstable Core's moment falls against the hazard held (D339): a quiet line under the row for each, lit
+   *  while the day shown is one it may go off on. None with no core on the map. */
+  coreNotes?: CoreNote[];
   /** Show a typed day (0 to 99). */
   onDay(day: number): void;
 }
@@ -25,7 +29,7 @@ export interface WaterBarProps {
 const DAY_MAX = 99;
 
 
-export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay }: WaterBarProps) {
+export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay, coreNotes = [] }: WaterBarProps) {
   const shown = target ?? day;
   /** The day being typed into the box (Kyler, 2026-10-04: a double-click on it while a hazard is shown), or null. */
   const [typing, setTypingState] = useState<string | null>(null);
@@ -123,6 +127,15 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
           ▶
         </button>
       </span>
+      {weather && coreNotes.length ? (
+        <div class="core-moment" role="note">
+          {coreNotes.map((n) => (
+            <span key={n.text} class={n.now ? "now" : ""}>
+              {n.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
