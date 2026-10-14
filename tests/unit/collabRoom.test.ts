@@ -110,6 +110,11 @@ describe("a room", () => {
       r = n.room;
     }
     expect(noteSignal(r, 100)).toMatchObject({ ok: false, error: { kind: "too-many" } });
+    // nobody has joined: no relay login yet
+    expect(noteIceFetch(r)).toMatchObject({ ok: false, error: { kind: "not-ready" } });
+    const joined = joinRoom(r, T0, await hashSecret("guest-key"));
+    if (!joined.ok) throw new Error("join");
+    r = joined.room;
     for (let i = 0; i < LIMITS.maxIceFetches; i++) {
       const n = noteIceFetch(r);
       if (!n.ok) throw new Error("early refusal");
@@ -144,15 +149,16 @@ describe("limits per address", () => {
 
 describe("origins", () => {
   const cfg = { allowed: "https://timbermods.github.io", allowLocal: false };
-  it("accept the site and requests from outside a page, refuse other pages", () => {
+  it("accept the site, refuse other pages and anything that is not from a page", () => {
     expect(originAllowed("https://timbermods.github.io", cfg)).toBe(true);
-    expect(originAllowed(null, cfg)).toBe(true);
+    expect(originAllowed(null, cfg)).toBe(false);
     expect(originAllowed("https://evil.example", cfg)).toBe(false);
     expect(originAllowed("https://timbermods.github.io.evil.example", cfg)).toBe(false);
   });
   it("accept localhost only in local development", () => {
     expect(originAllowed("http://localhost:5173", cfg)).toBe(false);
     const dev = { ...cfg, allowLocal: true };
+    expect(originAllowed(null, dev)).toBe(true); // local tools and tests call the function directly
     expect(originAllowed("http://localhost:5173", dev)).toBe(true);
     expect(originAllowed("http://127.0.0.1:4173", dev)).toBe(true);
     expect(originAllowed("http://localhost.evil.example", dev)).toBe(false);

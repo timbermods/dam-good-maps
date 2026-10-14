@@ -1,6 +1,7 @@
 // Decides which of CI's suites a change needs. Three classes of change:
 //   documents    only documents, investigation/, LICENSE or package.json's descriptive fields: the typecheck and the
 //                document tests run; the browser shards and every other suite are skipped (heavy=false).
+//   collaboration  only the collaboration connection (isCollabOnly) counts like documents: its own workflow tests it.
 //   editor/UI    only src/editor/, src/ui/ and the browser specs (tests/e2e/), plus documents: the tests and the browser
 //                shards run; oracle, generation, engines and rust are skipped (suites=false, rust=false).
 //   anything else  everything runs, except the Rust job, which needs a change to the Rust or to the TypeScript that
@@ -61,6 +62,23 @@ export function isUiOnly(path) {
   return path.startsWith("src/editor/") || path.startsWith("src/ui/") || path.startsWith("tests/e2e/");
 }
 
+/**
+ * The collaboration connection (collab-worker/, src/collab/, tests/collab/ and their configs and workflows): nothing else
+ * in the app imports it, and its own workflow (.github/workflows/collab.yml) runs its tests, so a change only here does not
+ * need the browser shards or the quick suite. (The typecheck and the build still run.)
+ */
+export function isCollabOnly(path) {
+  return (
+    path.startsWith("collab-worker/") ||
+    path.startsWith("src/collab/") ||
+    path.startsWith("tests/collab/") ||
+    /^tests\/unit\/collab[A-Za-z]*\.test\.ts$/.test(path) ||
+    path === "playwright.collab.config.ts" ||
+    path === "playwright.collab-live.config.ts" ||
+    /^\.github\/workflows\/collab[a-z-]*\.yml$/.test(path)
+  );
+}
+
 /** The Rust job's inputs: the Rust, its build tools, the TypeScript that wraps the Wasm, the app's settle the native one is checked against (water.ts, prefill.ts, fed.ts), the maths it is checked against, the forces' fixture maps, the golden water the water's and the analysis' fixtures read, the checks and what their fixtures' files are made of (validate/, the water model, the entities), and anything that changes the tools or the workflow. */
 export function isRustInput(path) {
   return (
@@ -96,7 +114,7 @@ export function classify(files, read, mode = "auto") {
   let suites = false;
   let rust = false;
   for (const f of files) {
-    if (isDocument(f) || isInvestigation(f)) continue;
+    if (isDocument(f) || isInvestigation(f) || isCollabOnly(f)) continue;
     if (f === "package.json" || f === "package-lock.json") {
       const a = read(f, "old");
       const b = read(f, "new");

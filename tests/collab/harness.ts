@@ -17,6 +17,7 @@ class Harness {
   presence: string[] = [];
   statuses: string[] = [];
   dropped: DropReason | null = null;
+  refreshed = 0;
   error: { kind: string; message: string } | null = null;
   private connected: Promise<{ sessionId: string; peerEpoch: string; pair: { local: string; remote: string } | null }> | null = null;
 
@@ -26,6 +27,7 @@ class Harness {
     this.presence = [];
     this.statuses = [];
     this.dropped = null;
+    this.refreshed = 0;
     this.error = null;
     t.on("status", (s) => this.statuses.push(s));
     // messages are recorded in the order they arrive (hashing is async, so each waits for the one before)
@@ -37,6 +39,7 @@ class Harness {
       });
     });
     t.on("presence", (p) => this.presence.push(typeof p === "string" ? p : `binary:${p.length}`));
+    t.on("refreshed", () => this.refreshed++);
     t.on("dropped", (d) => (this.dropped = d.reason));
     t.on("error", (e) => (this.error = { kind: e.kind, message: e.message }));
     this.connected = new Promise((resolve) =>
@@ -46,7 +49,7 @@ class Harness {
 
   /** Starts hosting; resolves with the room code as soon as the function hands it out. */
   async host(baseUrl: string, sessionId?: string): Promise<{ code: string; sessionId: string }> {
-    const t = hostSession({ baseUrl, ...(sessionId ? { sessionId } : {}), name: "Host", heartbeatMs: 500, deadAfterMs: 3000 });
+    const t = hostSession({ baseUrl, ...(sessionId ? { sessionId } : {}), name: "Host", recordSignals: true });
     this.wire(t);
     const code = new Promise<string>((resolve) => t.on("code", (c) => resolve(c.code)));
     t.connect().catch(() => {});
@@ -55,7 +58,7 @@ class Harness {
 
   /** Joins; resolves with the failure's kind and message instead of throwing, so the test can look at it. */
   async join(baseUrl: string, code: string, sessionId?: string): Promise<{ ok: true } | { ok: false; kind: string; message: string; diagnostics?: unknown }> {
-    const t = joinSession(code, { baseUrl, ...(sessionId ? { sessionId } : {}), name: "Guest", heartbeatMs: 500, deadAfterMs: 3000 });
+    const t = joinSession(code, { baseUrl, ...(sessionId ? { sessionId } : {}), name: "Guest", recordSignals: true });
     this.wire(t);
     try {
       void t.connect().catch(() => {});
@@ -83,12 +86,16 @@ class Harness {
     return this.t!.sendPresence(text);
   }
 
+  pair() {
+    return this.t!.selectedPair();
+  }
+
   candidateTypes() {
     return this.t!.candidateTypes();
   }
 
   state() {
-    return { received: this.received, presence: this.presence, statuses: this.statuses, dropped: this.dropped, error: this.error, status: this.t?.status ?? "idle" };
+    return { received: this.received, presence: this.presence, statuses: this.statuses, dropped: this.dropped, refreshed: this.refreshed, signals: this.t?.signalLog ?? [], error: this.error, status: this.t?.status ?? "idle" };
   }
 
   close() {

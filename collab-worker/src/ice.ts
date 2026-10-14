@@ -32,7 +32,7 @@ export async function relayCredentials(env: RelayEnv): Promise<Result<{ iceServe
   if (env.LOCAL_TURN_URLS) {
     return {
       ok: true,
-      ttl: DEFAULT_TTL_SECONDS,
+      ttl: Math.max(1, Number(env.TURN_TTL_SECONDS) || DEFAULT_TTL_SECONDS),
       iceServers: [
         {
           urls: env.LOCAL_TURN_URLS.split(",").map((s) => s.trim()).filter(Boolean),

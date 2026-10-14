@@ -7,6 +7,8 @@ export interface RoomInfo {
   /** This player's key to the room; never shown, never stored. */
   secret: string;
   expiresAt: number;
+  /** How long the code works, from now (the function's own count; the client's clock is not compared with the server's). */
+  ttlMs: number;
 }
 
 export interface IceServers {
@@ -37,19 +39,36 @@ async function call<T>(baseUrl: string, path: string, init: RequestInit): Promis
 
 /** The host: a new room and its short code. */
 export async function createRoom(baseUrl: string): Promise<RoomInfo> {
-  const r = await call<{ code: string; hostSecret: string; expiresAt: number }>(baseUrl, "/rooms", { method: "POST" });
-  return { code: r.code, secret: r.hostSecret, expiresAt: r.expiresAt };
+  const r = await call<{ code: string; hostSecret: string; expiresAt: number; codeTtlMs: number }>(baseUrl, "/rooms", { method: "POST" });
+  return { code: r.code, secret: r.hostSecret, expiresAt: r.expiresAt, ttlMs: r.codeTtlMs };
 }
 
 /** The guest: spends the code a player typed or pasted. */
 export async function joinRoom(baseUrl: string, code: string): Promise<RoomInfo> {
   const r = await call<{ code: string; guestSecret: string; expiresAt: number }>(baseUrl, `/rooms/${encodeURIComponent(code.trim())}/join`, { method: "POST" });
-  return { code: r.code, secret: r.guestSecret, expiresAt: r.expiresAt };
+  return { code: r.code, secret: r.guestSecret, expiresAt: r.expiresAt, ttlMs: 0 };
 }
 
 /** Short-lived relay logins, for a holder of a room key. */
 export async function fetchIceServers(baseUrl: string, room: RoomInfo): Promise<IceServers> {
   return call<IceServers>(baseUrl, `/rooms/${encodeURIComponent(room.code)}/ice`, { method: "POST", headers: { Authorization: `Bearer ${room.secret}` } });
+}
+
+/** Fresh relay logins during a long session, for the holder of the session token the room gave at connect. */
+export async function fetchSessionIceServers(baseUrl: string, token: string): Promise<IceServers> {
+  return call<IceServers>(baseUrl, "/session/ice", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+}
+
+/** A candidate that goes through the relay and shows no address of the sender's (the only kind that may be sent or accepted). */
+export function relayedCandidate(candidate: string): boolean {
+  if (!/ typ relay(?: |$)/.test(candidate)) return false;
+  const raddr = / raddr (\S+)/.exec(candidate);
+  return !raddr || raddr[1] === "0.0.0.0" || raddr[1] === "::";
+}
+
+/** Every candidate line in an offer or answer is relayed. */
+export function sdpRelayOnly(sdp: string): boolean {
+  return sdp.split(/\r?\n/).every((line) => !line.startsWith("a=candidate:") || relayedCandidate(line));
 }
 
 /** Asks whether collaboration can work at all (the function is up and the relay is set up). */
@@ -87,7 +106,7 @@ export interface RoomSocketHandlers {
   ready: () => void;
   signal: (m: SignalMessage) => void;
   /** The room is gone (done, expired) or the socket broke. */
-  closed: (reason: string) => void;
+  closed: (reason: string, sessionToken?: string) => void;
   error: (e: CollabError) => void;
 }
 
@@ -95,6 +114,7 @@ export interface RoomSocketHandlers {
 export class RoomSocket {
   private ws: WebSocket | null = null;
   private finished = false;
+  private keepalive: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     readonly baseUrl: string,
@@ -118,11 +138,12 @@ export class RoomSocket {
         if (!authed) reject(new CollabError("unavailable", MESSAGES.unavailable));
       };
       ws.onclose = () => {
+        if (this.keepalive) clearInterval(this.keepalive);
         if (!authed) reject(new CollabError("unavailable", MESSAGES.unavailable));
         else if (!this.finished) this.on.closed("socket");
       };
       ws.onmessage = (ev) => {
-        let m: { t?: string; data?: string; reason?: string; kind?: string; message?: string };
+        let m: { t?: string; data?: string; reason?: string; kind?: string; message?: string; token?: string };
         try {
           m = JSON.parse(String(ev.data));
         } catch {
@@ -131,6 +152,14 @@ export class RoomSocket {
         switch (m.t) {
           case "authed":
             authed = true;
+            // a host waiting for a guest keeps the room's socket alive for the code's few minutes
+            this.keepalive = setInterval(() => {
+              try {
+                ws.send("ping");
+              } catch {
+                /* closing */
+              }
+            }, 20_000);
             resolve();
             break;
           case "ready":
@@ -145,7 +174,7 @@ export class RoomSocket {
             break;
           case "closed":
             this.finished = true;
-            this.on.closed(m.reason ?? "closed");
+            this.on.closed(m.reason ?? "closed", m.token);
             break;
           case "error": {
             const e = fromServer(m.kind, m.message, 400);
@@ -163,9 +192,9 @@ export class RoomSocket {
   }
 
   /** This player's side of the connection is up; when both say so the room is deleted. */
-  reportConnected(): void {
+  reportConnected(sessionId: string | null): void {
     try {
-      this.ws?.send(JSON.stringify({ t: "connected" }));
+      this.ws?.send(JSON.stringify({ t: "connected", ...(sessionId ? { sessionId } : {}) }));
     } catch {
       /* the room expires by itself */
     }
@@ -173,6 +202,7 @@ export class RoomSocket {
 
   close(): void {
     this.finished = true;
+    if (this.keepalive) clearInterval(this.keepalive);
     try {
       this.ws?.close();
     } catch {

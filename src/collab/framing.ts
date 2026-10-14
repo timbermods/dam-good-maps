@@ -11,7 +11,7 @@ export const DATA_HEADER = 14;
 export const CHUNK_BYTES = FRAME_MAX - DATA_HEADER;
 /** A message is at most this big (the design budgets 8 MiB compressed, 64 MiB expanded). */
 export const DEFAULT_MAX_MESSAGE_BYTES = 64 * 1024 * 1024;
-const MAX_CONTROL_BYTES = 2048;
+const MAX_CONTROL_BYTES = 8192;
 
 export type Payload = string | Uint8Array;
 
@@ -19,7 +19,10 @@ export type Control =
   | { t: "hello"; protocol: number; session: string | null; epoch: string; name?: string }
   | { t: "ping"; n: number }
   | { t: "pong"; n: number }
-  | { t: "bye"; reason: string };
+  | { t: "bye"; reason: string }
+  /** A new offer or answer while connected (an ICE restart with fresh relay logins) and its candidates: no room needed. */
+  | { t: "renego"; kind: "offer" | "answer"; sdp: string }
+  | { t: "cand"; c: { candidate: string; sdpMid: string | null; sdpMLineIndex: number | null } };
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -77,6 +80,16 @@ export function parseControl(frame: Uint8Array): Control {
       const p = c as { t: "ping" | "pong"; n: unknown };
       if (!Number.isSafeInteger(p.n)) throw new FramingError("bad ping");
       return { t: p.t, n: p.n as number };
+    }
+    case "renego": {
+      const r = c as { kind?: unknown; sdp?: unknown };
+      if ((r.kind !== "offer" && r.kind !== "answer") || typeof r.sdp !== "string" || r.sdp.length > 7000) throw new FramingError("bad renegotiation");
+      return { t: "renego", kind: r.kind, sdp: r.sdp };
+    }
+    case "cand": {
+      const k = (c as { c?: { candidate?: unknown; sdpMid?: unknown; sdpMLineIndex?: unknown } }).c;
+      if (!k || typeof k.candidate !== "string" || k.candidate.length > 1024) throw new FramingError("bad candidate");
+      return { t: "cand", c: { candidate: k.candidate, sdpMid: typeof k.sdpMid === "string" ? k.sdpMid : null, sdpMLineIndex: typeof k.sdpMLineIndex === "number" ? k.sdpMLineIndex : null } };
     }
     case "bye":
       return { t: "bye", reason: String((c as { reason?: unknown }).reason ?? "").slice(0, 64) };

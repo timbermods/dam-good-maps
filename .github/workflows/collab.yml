@@ -1,9 +1,10 @@
 name: Collaboration connection
 
 # The connection test for collaborative editing (D486): the room-code function under `wrangler dev`, a local TURN
-# relay and two separate browser processes (Chromium and Firefox), relay-only, with messages, a killed peer and a
-# reconnect (tests/collab, playwright.collab.config.ts). Runs on pull requests that touch the connection, nightly
-# and by hand. Does not deploy anything.
+# relay and two separate browser processes (Chromium and Firefox), relay-only, with messages, a killed peer, a
+# reconnect and a renewed relay login (tests/collab, playwright.collab.config.ts). Runs on pull requests that touch the
+# connection, nightly and by hand. Does not deploy anything and has no secrets. The test against the deployed function
+# is collab-live.yml.
 
 on:
   pull_request:
@@ -12,11 +13,15 @@ on:
       - "collab-worker/**"
       - "src/collab/**"
       - "tests/collab/**"
+      - "tests/unit/collab*.test.ts"
       - "playwright.collab.config.ts"
       - ".github/workflows/collab.yml"
   schedule:
     - cron: "40 5 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: collab-${{ github.head_ref || github.ref }}
@@ -30,6 +35,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'schedule' && 'dev' || '' }}
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -40,7 +46,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix collab-worker
       - run: npm run typecheck --prefix collab-worker
-      - run: npx vitest run --project quick tests/unit/collabRoom.test.ts tests/unit/collabIce.test.ts tests/unit/collabFraming.test.ts
+      - run: npx vitest run --project quick tests/unit/collab
       - name: Install Chromium and Firefox for Playwright
         run: npx playwright install --with-deps chromium firefox
       - name: Connection test

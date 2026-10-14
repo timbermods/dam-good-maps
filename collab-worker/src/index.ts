@@ -1,13 +1,15 @@
 // The room-code function for collaborative editing (D431). It hands out a short room code, passes the two
 // browsers' connection setup through a Durable Object per room, and hands out the relay's short-lived credentials
-// to a holder of a room key. It never sees map data: that goes through the relay, encrypted end to end.
-import { ERROR_STATUS, LIMITS, NOT_FOUND_MESSAGE, err, hashSecret, newCode, newSecret, normalizeCode, originAllowed } from "./room";
-import type { Result } from "./room";
+// to a holder of a room key (or of a session token, to refresh them in a long session). It never sees map data: that
+// goes through the relay, encrypted end to end.
+import { ERROR_STATUS, LIMITS, NOT_FOUND_MESSAGE, hashSecret, ipKey, newCode, newSecret, normalizeCode, originAllowed } from "./room";
+import type { RoomError } from "./room";
 import { relayConfigured, relayCredentials } from "./ice";
 import type { Env } from "./env";
 
 export { Room } from "./roomObject";
 export { Limiter } from "./limiter";
+export { Keeper } from "./keeper";
 
 function cors(origin: string | null): Record<string, string> {
   return origin
@@ -25,18 +27,36 @@ function json(body: unknown, status: number, origin: string | null): Response {
   return Response.json(body, { status, headers: { ...cors(origin), "Cache-Control": "no-store" } });
 }
 
-function fail(error: { kind: keyof typeof ERROR_STATUS; message: string }, origin: string | null): Response {
+function fail(error: RoomError, origin: string | null): Response {
   return json({ error }, ERROR_STATUS[error.kind], origin);
 }
 
-async function allowed(env: Env, kind: "rooms" | "joins", ip: string): Promise<boolean> {
-  const limit = kind === "rooms" ? LIMITS.roomsPerMinute : LIMITS.joinsPerMinute;
-  const stub = env.LIMITERS.get(env.LIMITERS.idFromName(`${kind}:${ip}`));
-  return stub.hit(limit, 60_000);
+type LimitKind = "rooms" | "joins" | "ice" | "sockets";
+const PER_MINUTE: Record<LimitKind, number> = {
+  rooms: LIMITS.roomsPerMinute,
+  joins: LIMITS.joinsPerMinute,
+  ice: LIMITS.icePerMinute,
+  sockets: LIMITS.socketsPerMinute,
+};
+
+async function allowed(env: Env, kind: LimitKind, ip: string): Promise<boolean> {
+  const stub = env.LIMITERS.get(env.LIMITERS.idFromName(`${kind}:${ipKey(ip)}`));
+  return stub.hit(PER_MINUTE[kind], 60_000);
 }
 
 function roomStub(env: Env, code: string) {
   return env.ROOMS.get(env.ROOMS.idFromName(code));
+}
+
+const keeper = (env: Env) => env.KEEPER.get(env.KEEPER.idFromName("keeper"));
+
+/** Hands out relay credentials, within the day's cap. */
+async function mint(env: Env, origin: string | null): Promise<Response> {
+  if (!(await keeper(env).takeMint(Number(env.MAX_DAILY_MINTS) || LIMITS.dailyMints)))
+    return fail({ kind: "rate-limited", message: "Collaboration is busy today. Try again tomorrow." }, origin);
+  const creds = await relayCredentials(env);
+  if (!creds.ok) return fail(creds.error, origin);
+  return json({ iceServers: creds.iceServers, ttl: creds.ttl }, 200, origin);
 }
 
 export default {
@@ -66,9 +86,25 @@ export default {
       return fail({ kind: "too-many", message: "Couldn't make a room. Try again." }, origin);
     }
 
+    // a connected player refreshing the relay's login during a long session
+    if (path === "/session/ice" && request.method === "POST") {
+      if (!(await allowed(env, "ice", ip))) return fail({ kind: "rate-limited", message: "Too many tries. Wait a minute." }, origin);
+      const bearer = /^Bearer (st1\.[A-Za-z0-9_.-]{1,500})$/.exec(request.headers.get("Authorization") ?? "");
+      if (!bearer) return fail({ kind: "unauthorized", message: "Send the session key." }, origin);
+      const valid = await keeper(env).checkToken(bearer[1]);
+      if (!valid.ok) return fail(valid.error, origin);
+      return mint(env, origin);
+    }
+
     const m = /^\/rooms\/([^/]+)\/(join|ice|ws)$/.exec(path);
     if (!m) return fail({ kind: "not-found", message: "Not found." }, origin);
-    const code = normalizeCode(decodeURIComponent(m[1]));
+    let rawCode: string;
+    try {
+      rawCode = decodeURIComponent(m[1]);
+    } catch {
+      return fail({ kind: "bad-request", message: "That isn't a room code." }, origin);
+    }
+    const code = normalizeCode(rawCode);
     const action = m[2];
 
     // joining spends the code
@@ -81,24 +117,24 @@ export default {
       return json({ code, guestSecret, expiresAt: joined.expiresAt }, 200, origin);
     }
 
-    // relay credentials: for a holder of a room key
+    // relay credentials: for a holder of a room key, once the guest has joined
     if (action === "ice" && request.method === "POST") {
+      if (!(await allowed(env, "ice", ip))) return fail({ kind: "rate-limited", message: "Too many tries. Wait a minute." }, origin);
       if (!code) return fail({ kind: "not-found", message: NOT_FOUND_MESSAGE }, origin);
       const bearer = /^Bearer (.{1,100})$/.exec(request.headers.get("Authorization") ?? "");
       if (!bearer) return fail({ kind: "unauthorized", message: "Send the room key." }, origin);
-      const who: Result<{ role: string }> = await roomStub(env, code).takeIce(await hashSecret(bearer[1]));
+      const who = await roomStub(env, code).takeIce(await hashSecret(bearer[1]));
       if (!who.ok) return fail(who.error, origin);
-      const creds = await relayCredentials(env);
-      if (!creds.ok) return fail(creds.error, origin);
-      return json({ iceServers: creds.iceServers, ttl: creds.ttl }, 200, origin);
+      return mint(env, origin);
     }
 
     // the room's socket: setup messages between the two players
     if (action === "ws" && request.method === "GET") {
+      if (!(await allowed(env, "sockets", ip))) return fail({ kind: "rate-limited", message: "Too many tries. Wait a minute." }, origin);
       if (!code) return fail({ kind: "not-found", message: NOT_FOUND_MESSAGE }, origin);
       return roomStub(env, code).fetch(request);
     }
 
-    return fail(err("bad-request", "Not supported.").error, origin);
+    return fail({ kind: "bad-request", message: "Not supported." }, origin);
   },
 } satisfies ExportedHandler<Env>;

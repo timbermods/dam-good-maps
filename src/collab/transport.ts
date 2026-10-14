@@ -2,15 +2,16 @@
 // (`iceTransportPolicy: "relay"`, only the function's servers), so neither player sees the other's address and
 // no direct path exists. One reliable ordered data channel carries operations (cut into frames, with
 // backpressure); one unordered, unreliable channel carries presence. Heartbeats notice a dropped peer within
-// seconds. No UI: the page listens to the events and shows the errors' messages.
+// seconds. Long sessions refresh the relay's login before it runs out (an ICE restart over the data channel).
+// No UI: the page listens to the events and shows the errors' messages.
 import { Emitter } from "./emitter";
 import { CollabError, MESSAGES } from "./errors";
 import type { CollabErrorKind } from "./errors";
 import { COLLAB_WORKER_URL } from "./config";
 import { FRAME_MAX, FramingError, Reassembler, encodeControl, encodeMessage, parseControl } from "./framing";
 import type { Control, Payload } from "./framing";
-import { RoomSocket, createRoom, fetchIceServers, joinRoom } from "./signal";
-import type { RoomInfo, SignalMessage } from "./signal";
+import { RoomSocket, createRoom, fetchIceServers, fetchSessionIceServers, joinRoom, relayedCandidate, sdpRelayOnly } from "./signal";
+import type { IceServers, RoomInfo, SignalMessage } from "./signal";
 
 export const PROTOCOL = 1;
 
@@ -18,8 +19,11 @@ export type Role = "host" | "guest";
 
 export type TransportStatus = "idle" | "making-room" | "waiting-for-guest" | "connecting" | "connected" | "dropped" | "closed";
 
-/** Why a connected peer is gone: they left on purpose, or the connection broke. */
-export type DropReason = "left" | "timeout" | "channel-closed" | "connection-failed";
+/**
+ * Why a connected peer is gone: they left on purpose, the connection broke, or it broke after the relay's login had run
+ * out without a refresh (a session longer than the login, or the function unreachable at refresh time).
+ */
+export type DropReason = "left" | "timeout" | "channel-closed" | "connection-failed" | "credentials-expired";
 
 export interface PeerInfo {
   name?: string;
@@ -29,14 +33,16 @@ export interface PeerInfo {
 
 export interface TransportEvents {
   status: TransportStatus;
-  /** The host's room code, ready to show: it works once, for a few minutes. */
-  code: { code: string; expiresAt: number };
+  /** The host's room code, ready to show: it works once, for `expiresInMs` (counted from now on this machine). */
+  code: { code: string; expiresAt: number; expiresInMs: number };
   /** Connected through the relay and the peer's hello accepted. */
   connected: { peer: PeerInfo; sessionId: string };
   /** An operation or snapshot from the peer, whole (reliable, in order). */
   message: Payload;
   /** A presence packet from the peer (unordered, may be lost). */
   presence: Payload;
+  /** The relay's login was renewed and the connection moved onto it, without interruption. */
+  refreshed: { ttlSeconds: number };
   /** The peer is gone. The transport is finished; reconnect with a new room code and the same session id. */
   dropped: { reason: DropReason };
   /** A failure; `error.message` is a sentence for the player. */
@@ -59,10 +65,14 @@ export interface TransportOptions {
   /** From both players being in the room (or the guest joining) to connected. */
   setupTimeoutMs?: number;
   maxMessageBytes?: number;
+  /** Keep a copy of every setup message sent and received in `signalLog` (the tests check what crossed). */
+  recordSignals?: boolean;
 }
 
 const HIGH_WATER = 256 * 1024;
 const LOW_WATER = 64 * 1024;
+/** How long a connected player keeps the room's socket open for the session token. */
+const TOKEN_WAIT_MS = 30_000;
 
 const randomId = (): string => [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -75,13 +85,17 @@ export class CollabTransport extends Emitter<TransportEvents> {
   status: TransportStatus = "idle";
   peer: PeerInfo | null = null;
   room: RoomInfo | null = null;
-
   /** Relay problems the browser reported while connecting (for diagnosing a failed connection). */
   readonly iceErrors: string[] = [];
+  /** Every setup message ("out"/"in") when `recordSignals` is set. */
+  readonly signalLog: string[] = [];
+
   private readonly baseUrl: string;
   private readonly opts: Required<Pick<TransportOptions, "heartbeatMs" | "deadAfterMs" | "setupTimeoutMs" | "maxMessageBytes">>;
+  private readonly recordSignals: boolean;
   private started = false;
   private pc: RTCPeerConnection | null = null;
+  private rtcConfig: RTCConfiguration = {};
   private socket: RoomSocket | null = null;
   private ops: RTCDataChannel | null = null;
   private presenceChannel: RTCDataChannel | null = null;
@@ -90,15 +104,29 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private sendQueue: Promise<void> = Promise.resolve();
   private heartbeat: ReturnType<typeof setInterval> | null = null;
   private lastRx = 0;
+  private lastTick = 0;
   private pingN = 0;
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private negotiation: Promise<void> = Promise.resolve();
   private pendingCandidates: RTCIceCandidateInit[] = [];
   private haveRemote = false;
   private offered = false;
+  /** Messages that arrived between the peer's hello and our being connected; handed over in order once we are. */
+  private early: Payload[] = [];
+  private earlyBytes = 0;
+  // the relay's login and its renewal
+  private sessionToken: string | null = null;
+  private tokenWait: ReturnType<typeof setTimeout> | null = null;
+  private loginTtlMs = 0;
+  private loginFetchedAt = 0;
+  private loginExpired = false;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private expireTimer: ReturnType<typeof setTimeout> | null = null;
   private settle!: { resolve: () => void; reject: (e: CollabError) => void };
   private readonly settled: Promise<void>;
   private done = false;
+  private readonly code: string | undefined;
+  private readonly name: string | undefined;
 
   constructor(options: TransportOptions) {
     super();
@@ -107,10 +135,12 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.sessionId = options.sessionId ?? (options.role === "host" ? crypto.randomUUID() : null);
     this.opts = {
       heartbeatMs: options.heartbeatMs ?? 1000,
-      deadAfterMs: options.deadAfterMs ?? 4000,
+      // long enough to ride out a stalled page; a closed channel or a failed connection is noticed at once anyway
+      deadAfterMs: options.deadAfterMs ?? 10_000,
       setupTimeoutMs: options.setupTimeoutMs ?? 45_000,
       maxMessageBytes: options.maxMessageBytes ?? 64 * 1024 * 1024,
     };
+    this.recordSignals = options.recordSignals ?? false;
     this.code = options.code;
     this.name = options.name;
     this.reassembler = new Reassembler(this.opts.maxMessageBytes);
@@ -119,9 +149,6 @@ export class CollabTransport extends Emitter<TransportEvents> {
     });
     this.settled.catch(() => {}); // the failure is also an event
   }
-
-  private readonly code: string | undefined;
-  private readonly name: string | undefined;
 
   private setStatus(s: TransportStatus): void {
     if (this.status === s) return;
@@ -142,27 +169,30 @@ export class CollabTransport extends Emitter<TransportEvents> {
       this.room = room;
       this.assertOpen();
       if (this.role === "host") {
-        this.emit("code", { code: room.code, expiresAt: room.expiresAt });
+        this.emit("code", { code: room.code, expiresAt: room.expiresAt, expiresInMs: room.ttlMs });
         this.setStatus("waiting-for-guest");
-        // the code is good for a few minutes
-        this.later(room.expiresAt - Date.now(), () => {
+        // the code is good for a few minutes, counted here from now (not against the server's clock)
+        this.later(room.ttlMs, () => {
           if (this.status === "waiting-for-guest") this.fail(new CollabError("code-expired", "Nobody joined in time. Make a new code."));
         });
       } else {
         this.setStatus("connecting");
         this.startSetupTimer();
       }
-      const ice = await fetchIceServers(this.baseUrl, room);
-      this.assertOpen();
-      this.makePeerConnection(ice.iceServers);
       this.socket = new RoomSocket(this.baseUrl, room, {
         ready: () => this.onRoomReady(),
         signal: (m) => this.enqueue(() => this.onSignal(m)),
-        closed: (reason) => {
+        closed: (reason, token) => {
+          if (token) this.sessionToken = token;
           if (!this.done && this.status !== "connected" && reason !== "done") this.fail(new CollabError("unavailable", MESSAGES.unavailable));
         },
-        error: (e) => this.fail(e),
+        // a problem with the room once the connection is up is no concern of the connection
+        error: (e) => {
+          if (this.status !== "connected") this.fail(e);
+        },
       });
+      // the guest's relay login is fetched while the host is still setting up; the host's, once the guest is in the room
+      if (this.role === "guest") this.enqueue(() => this.startPeerConnection());
       await this.socket.connect();
       this.assertOpen();
     } catch (e) {
@@ -177,12 +207,30 @@ export class CollabTransport extends Emitter<TransportEvents> {
 
   // ---- the peer connection ----
 
+  /** Asks for the relay's login (the room hands it out once both players are in) and makes the peer connection. */
+  private async startPeerConnection(): Promise<void> {
+    this.assertOpen();
+    const ice = await fetchIceServers(this.baseUrl, this.room!);
+    this.assertOpen();
+    this.noteLogin(ice);
+    this.makePeerConnection(ice.iceServers);
+  }
+
   private makePeerConnection(iceServers: RTCIceServer[]): void {
     // relay only, and only the function's servers: no direct path, no address shown to the other player
-    const pc = new RTCPeerConnection({ iceServers, iceTransportPolicy: "relay", bundlePolicy: "max-bundle" });
+    this.rtcConfig = { iceServers, iceTransportPolicy: "relay", bundlePolicy: "max-bundle" };
+    const pc = new RTCPeerConnection(this.rtcConfig);
     this.pc = pc;
     pc.onicecandidate = (e) => {
-      if (e.candidate) this.socket?.send({ k: "cand", c: e.candidate.toJSON() });
+      // only relayed candidates leave this browser (the room refuses the others as well)
+      if (!e.candidate || !relayedCandidate(e.candidate.candidate)) return;
+      const init = e.candidate.toJSON();
+      this.log("out", { k: "cand", c: init });
+      if (this.status === "connected" && this.ops?.readyState === "open") {
+        this.sendControl({ t: "cand", c: { candidate: init.candidate ?? "", sdpMid: init.sdpMid ?? null, sdpMLineIndex: init.sdpMLineIndex ?? null } });
+      } else {
+        this.socket?.send({ k: "cand", c: init });
+      }
     };
     pc.onicecandidateerror = (e) => {
       const ev = e as RTCPeerConnectionIceErrorEvent;
@@ -228,8 +276,16 @@ export class CollabTransport extends Emitter<TransportEvents> {
 
   // ---- setting up through the room ----
 
+  /** Runs a step of the negotiation after the ones before it. A failure ends a connection being set up, never a working one. */
   private enqueue(job: () => Promise<void>): void {
-    this.negotiation = this.negotiation.then(job).catch(() => this.fail(new CollabError("connect-failed", MESSAGES.connectFailed)));
+    this.negotiation = this.negotiation.then(job).catch((e) => {
+      if (this.done || this.status === "connected") return;
+      this.fail(e instanceof CollabError ? e : new CollabError("connect-failed", MESSAGES.connectFailed));
+    });
+  }
+
+  private log(direction: "in" | "out", m: unknown): void {
+    if (this.recordSignals) this.signalLog.push(`${direction} ${JSON.stringify(m)}`);
   }
 
   private onRoomReady(): void {
@@ -239,9 +295,12 @@ export class CollabTransport extends Emitter<TransportEvents> {
     this.offered = true;
     this.setStatus("connecting");
     this.enqueue(async () => {
+      await this.startPeerConnection();
       const pc = this.pc!;
       await pc.setLocalDescription(await pc.createOffer());
-      this.socket?.send({ k: "offer", sdp: pc.localDescription!.sdp });
+      const m: SignalMessage = { k: "offer", sdp: pc.localDescription!.sdp };
+      this.log("out", m);
+      this.socket?.send(m);
     });
   }
 
@@ -254,23 +313,36 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private async onSignal(m: SignalMessage): Promise<void> {
     const pc = this.pc;
     if (!pc || this.done) return;
+    this.log("in", m);
+    if ((m.k === "offer" || m.k === "answer") && !sdpRelayOnly(m.sdp)) throw new CollabError("not-relayed", "The other player's connection wasn't through the relay, so it was refused.");
     if (m.k === "offer" && this.role === "guest" && !this.haveRemote) {
       await pc.setRemoteDescription({ type: "offer", sdp: m.sdp });
       await this.flushCandidates();
       await pc.setLocalDescription(await pc.createAnswer());
-      this.socket?.send({ k: "answer", sdp: pc.localDescription!.sdp });
+      const answer: SignalMessage = { k: "answer", sdp: pc.localDescription!.sdp };
+      this.log("out", answer);
+      this.socket?.send(answer);
     } else if (m.k === "answer" && this.role === "host" && !this.haveRemote) {
       await pc.setRemoteDescription({ type: "answer", sdp: m.sdp });
       await this.flushCandidates();
-    } else if (m.k === "cand" && m.c) {
-      if (this.haveRemote) await pc.addIceCandidate(m.c);
+    } else if (m.k === "cand" && m.c && relayedCandidate(m.c.candidate ?? "")) {
+      if (this.haveRemote) await this.addCandidate(m.c);
       else this.pendingCandidates.push(m.c);
+    }
+  }
+
+  private async addCandidate(c: RTCIceCandidateInit): Promise<void> {
+    try {
+      await this.pc?.addIceCandidate(c);
+    } catch (e) {
+      // a stray candidate (late, or for an earlier attempt) must not end a connection that is working
+      if (this.status !== "connected") throw e;
     }
   }
 
   private async flushCandidates(): Promise<void> {
     this.haveRemote = true;
-    for (const c of this.pendingCandidates.splice(0)) await this.pc!.addIceCandidate(c);
+    for (const c of this.pendingCandidates.splice(0)) await this.addCandidate(c);
   }
 
   // ---- frames in ----
@@ -282,7 +354,7 @@ export class CollabTransport extends Emitter<TransportEvents> {
     try {
       if (frame[0] === 0) {
         const whole = this.reassembler.push(frame);
-        if (whole !== null && this.status === "connected") this.emit("message", whole);
+        if (whole !== null) this.deliver(whole);
       } else if (frame[0] === 1) {
         this.onControl(parseControl(frame));
       } else {
@@ -292,6 +364,14 @@ export class CollabTransport extends Emitter<TransportEvents> {
       if (!(e instanceof FramingError)) throw e;
       this.protocolFailure("protocol", "The other player's browser sent something we can't read.");
     }
+  }
+
+  /** A whole message from the peer. One that arrives while we are still checking the relay waits, and goes out in order. */
+  private deliver(message: Payload): void {
+    if (this.status === "connected") return void this.emit("message", message);
+    this.early.push(message);
+    this.earlyBytes += typeof message === "string" ? message.length * 3 : message.length;
+    if (this.earlyBytes > this.opts.maxMessageBytes) this.protocolFailure("protocol", "The other player's browser sent too much too early.");
   }
 
   private onControl(c: Control): void {
@@ -305,6 +385,15 @@ export class CollabTransport extends Emitter<TransportEvents> {
       case "bye":
         this.drop("left");
         break;
+      case "renego":
+        this.enqueue(() => this.onRenegotiate(c));
+        break;
+      case "cand":
+        if (relayedCandidate(c.c.candidate)) {
+          this.log("in", { k: "cand", c: c.c });
+          this.enqueue(() => this.addCandidate(c.c));
+        }
+        break;
       default:
         break;
     }
@@ -317,22 +406,97 @@ export class CollabTransport extends Emitter<TransportEvents> {
       return this.protocolFailure("session-mismatch", "That code belongs to a different session.");
     if (this.sessionId === null) this.sessionId = h.session;
     this.peer = { epoch: h.epoch, ...(h.name ? { name: h.name } : {}) };
-    // the connection must really run through the relay (D431)
+    // the connection must really run through the relay (D431), at both ends
     const pair = await this.selectedPair();
     if (this.done) return;
-    if (!pair || pair.local !== "relay") return this.protocolFailure("not-relayed", "The connection didn't go through the relay, so it was closed.");
+    if (!pair || pair.local !== "relay" || pair.remote !== "relay") return this.protocolFailure("not-relayed", "The connection didn't go through the relay, so it was closed.");
     this.setStatus("connected");
     this.startHeartbeat();
-    this.socket?.reportConnected();
-    this.socket?.close();
+    this.socket?.reportConnected(this.sessionId);
+    // setup timers are over; the room's socket stays open a little for the session token (it closes when the room is done)
     this.clearTimers();
+    this.tokenWait = setTimeout(() => this.socket?.close(), TOKEN_WAIT_MS);
+    this.scheduleLoginTimers();
     this.settle.resolve();
     this.emit("connected", { peer: this.peer, sessionId: this.sessionId! });
+    const waiting = this.early.splice(0);
+    this.earlyBytes = 0;
+    for (const message of waiting) this.emit("message", message);
   }
 
   private protocolFailure(kind: CollabErrorKind, message: string): void {
     this.sendControl({ t: "bye", reason: kind });
     this.fail(new CollabError(kind, message));
+  }
+
+  // ---- the relay's login, renewed during a long session ----
+
+  private noteLogin(ice: IceServers): void {
+    this.loginTtlMs = ice.ttl * 1000;
+    this.loginFetchedAt = Date.now();
+    this.loginExpired = false;
+    if (this.status === "connected") this.scheduleLoginTimers();
+  }
+
+  private scheduleLoginTimers(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    if (this.expireTimer) clearTimeout(this.expireTimer);
+    if (!this.loginTtlMs) return;
+    const margin = Math.min(10 * 60_000, this.loginTtlMs / 4);
+    const left = this.loginFetchedAt + this.loginTtlMs - Date.now();
+    this.refreshTimer = setTimeout(() => void this.refreshLogin(), Math.max(0, left - margin));
+    this.expireTimer = setTimeout(() => (this.loginExpired = true), Math.max(0, left));
+  }
+
+  /** A fresh login from the function, for this player's own relay allocation; false if it can't be had. */
+  private async fetchFreshLogin(): Promise<boolean> {
+    if (!this.sessionToken || !this.pc) return false;
+    try {
+      const ice = await fetchSessionIceServers(this.baseUrl, this.sessionToken);
+      this.rtcConfig = { ...this.rtcConfig, iceServers: ice.iceServers };
+      this.pc.setConfiguration(this.rtcConfig);
+      this.noteLogin(ice);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The host's turn: fresh logins on both sides, then an ICE restart whose offer and answer go over the data channel. */
+  private async refreshLogin(): Promise<void> {
+    if (this.status !== "connected" || this.done) return;
+    if (!(await this.fetchFreshLogin())) {
+      // try again shortly while there is time; the guest's side cannot start it
+      this.refreshTimer = setTimeout(() => void this.refreshLogin(), 15_000);
+      return;
+    }
+    if (this.role !== "host") return;
+    this.enqueue(async () => {
+      const pc = this.pc;
+      if (!pc || this.status !== "connected") return;
+      await pc.setLocalDescription(await pc.createOffer({ iceRestart: true }));
+      this.log("out", { k: "offer", sdp: pc.localDescription!.sdp });
+      this.sendControl({ t: "renego", kind: "offer", sdp: pc.localDescription!.sdp });
+    });
+  }
+
+  private async onRenegotiate(c: Extract<Control, { t: "renego" }>): Promise<void> {
+    const pc = this.pc;
+    if (!pc || this.status !== "connected") return;
+    this.log("in", { k: c.kind, sdp: c.sdp });
+    if (!sdpRelayOnly(c.sdp)) throw new CollabError("not-relayed", "The other player's connection wasn't through the relay, so it was refused.");
+    if (c.kind === "offer" && this.role === "guest") {
+      // our own relay allocation moves to a fresh login before we answer
+      if (Date.now() - this.loginFetchedAt > this.loginTtlMs / 2) await this.fetchFreshLogin();
+      await pc.setRemoteDescription({ type: "offer", sdp: c.sdp });
+      await pc.setLocalDescription(await pc.createAnswer());
+      this.log("out", { k: "answer", sdp: pc.localDescription!.sdp });
+      this.sendControl({ t: "renego", kind: "answer", sdp: pc.localDescription!.sdp });
+      this.emit("refreshed", { ttlSeconds: this.loginTtlMs / 1000 });
+    } else if (c.kind === "answer" && this.role === "host") {
+      await pc.setRemoteDescription({ type: "answer", sdp: c.sdp });
+      this.emit("refreshed", { ttlSeconds: this.loginTtlMs / 1000 });
+    }
   }
 
   // ---- frames out ----
@@ -392,19 +556,25 @@ export class CollabTransport extends Emitter<TransportEvents> {
   // ---- heartbeat and drop ----
 
   private startHeartbeat(): void {
-    this.lastRx = Date.now();
+    this.lastRx = this.lastTick = Date.now();
     this.heartbeat = setInterval(() => {
       if (this.status !== "connected") return;
-      if (Date.now() - this.lastRx > this.opts.deadAfterMs) return this.drop("timeout");
+      const now = Date.now();
+      // a page that was stalled (a long task, a suspended tab) did not hear anything because it was not listening
+      if (now - this.lastTick > this.opts.heartbeatMs * 2) this.lastRx = now;
+      this.lastTick = now;
+      if (now - this.lastRx > this.opts.deadAfterMs) return this.drop("timeout");
       this.sendControl({ t: "ping", n: ++this.pingN });
     }, this.opts.heartbeatMs);
   }
 
   private drop(reason: DropReason): void {
     if (this.status !== "connected") return;
+    // a break after the relay's login ran out is told apart from a plain break (but not from a goodbye)
+    const why: DropReason = reason !== "left" && this.loginExpired ? "credentials-expired" : reason;
     this.teardown();
     this.setStatus("dropped");
-    this.emit("dropped", { reason });
+    this.emit("dropped", { reason: why });
   }
 
   /** Which kinds of candidates carry the connection ("relay" is the only acceptable answer). */
@@ -477,6 +647,8 @@ export class CollabTransport extends Emitter<TransportEvents> {
   private teardown(): void {
     this.done = true;
     this.clearTimers();
+    for (const t of [this.refreshTimer, this.expireTimer, this.tokenWait]) if (t) clearTimeout(t);
+    this.refreshTimer = this.expireTimer = this.tokenWait = null;
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = null;
     this.socket?.close();

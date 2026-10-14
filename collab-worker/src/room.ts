@@ -16,12 +16,19 @@ export const LIMITS = {
   /** A whole room passes at most this many setup messages (an offer, an answer and a few dozen candidates). */
   maxSignalMessages: 120,
   /** TURN credentials are handed out at most this often per room. */
-  maxIceFetches: 6,
+  maxIceFetches: 3,
   /** At most this many sockets (two players, plus a replaced one in flight) per room. */
   maxSockets: 4,
   /** Per address: rooms made and join tries, per minute. */
   roomsPerMinute: 6,
   joinsPerMinute: 30,
+  /** Relay logins asked for (by room key or session token) and sockets opened, per minute per address. */
+  icePerMinute: 20,
+  socketsPerMinute: 30,
+  /** Relay logins handed out in a day, all addresses together (the bill's ceiling); the Worker's MAX_DAILY_MINTS overrides it. */
+  dailyMints: 3000,
+  /** A session token (to refresh the relay's login during a long session) lasts this long. */
+  tokenTtlMs: 24 * 60 * 60_000,
 } as const;
 
 export type Role = "host" | "guest";
@@ -34,6 +41,7 @@ export type RoomErrorKind =
   | "rate-limited"
   | "too-large"
   | "too-many"
+  | "not-ready"
   | "relay-unavailable"
   | "bad-request"
   | "forbidden-origin";
@@ -52,6 +60,7 @@ export const ERROR_STATUS: Record<RoomErrorKind, number> = {
   "rate-limited": 429,
   "too-large": 413,
   "too-many": 429,
+  "not-ready": 409,
   "relay-unavailable": 503,
   "bad-request": 400,
   "forbidden-origin": 403,
@@ -166,8 +175,9 @@ export function noteSignal(room: RoomRecord, bytes: number): Result<{ room: Room
   return { ok: true, room: { ...room, signalCount: room.signalCount + 1 } };
 }
 
-/** Relay credentials are about to be handed out. */
+/** Relay credentials are about to be handed out: only once the guest has joined, and only a few times per room. */
 export function noteIceFetch(room: RoomRecord): Result<{ room: RoomRecord }> {
+  if (room.guestHash === null) return err("not-ready", "The other player hasn't joined yet.");
   if (room.iceFetches >= LIMITS.maxIceFetches) return err("too-many", "The relay credentials were already handed out for this room.");
   return { ok: true, room: { ...room, iceFetches: room.iceFetches + 1 } };
 }
@@ -209,9 +219,106 @@ export interface OriginConfig {
   allowLocal: boolean;
 }
 
-/** A request with no Origin (not from a page) passes: CORS keeps pages out, it is not a key. */
+/**
+ * Pages must come from the site (or, in local development, localhost). A request with no Origin is not from a page:
+ * CORS would not keep it out anyway, but it cannot get relay logins from the deployed function (only local development,
+ * where tests and tools call it directly, accepts it).
+ */
 export function originAllowed(origin: string | null, cfg: OriginConfig): boolean {
-  if (origin === null) return true;
+  if (origin === null) return cfg.allowLocal;
   if (cfg.allowed.split(",").map((s) => s.trim()).filter(Boolean).includes(origin)) return true;
   return cfg.allowLocal && /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin);
+}
+
+// ---- the setup messages: offer, answer and relayed candidates, nothing else ----
+
+/** A candidate line (the text after "candidate:" or a whole `a=candidate:` line): relayed, and with no address of the sender's. */
+export function relayedCandidate(line: string): boolean {
+  if (!/ typ relay(?: |$)/.test(line)) return false;
+  const raddr = / raddr (\S+)/.exec(line);
+  return !raddr || raddr[1] === "0.0.0.0" || raddr[1] === "::";
+}
+
+export type SignalKind = "offer" | "answer" | "cand";
+
+/** What may pass between the two players. Anything else, and any candidate that is not relayed, is refused. */
+export function checkSignal(data: string): Result<{ kind: SignalKind }> {
+  let v: { k?: unknown; sdp?: unknown; c?: unknown };
+  try {
+    v = JSON.parse(data) as typeof v;
+  } catch {
+    return err("bad-request", "Not a valid setup message.");
+  }
+  if (!v || typeof v !== "object") return err("bad-request", "Not a valid setup message.");
+  if (v.k === "offer" || v.k === "answer") {
+    if (typeof v.sdp !== "string") return err("bad-request", "Not a valid setup message.");
+    for (const line of v.sdp.split(/\r?\n/)) if (line.startsWith("a=candidate:") && !relayedCandidate(line)) return err("bad-request", "Only relayed connections may pass.");
+    return { ok: true, kind: v.k };
+  }
+  if (v.k === "cand") {
+    if (v.c === null) return { ok: true, kind: "cand" };
+    const c = v.c as { candidate?: unknown } | undefined;
+    if (!c || typeof c.candidate !== "string") return err("bad-request", "Not a valid setup message.");
+    if (c.candidate !== "" && !relayedCandidate(c.candidate)) return err("bad-request", "Only relayed connections may pass.");
+    return { ok: true, kind: "cand" };
+  }
+  return err("bad-request", "Not a valid setup message.");
+}
+
+// ---- addresses ----
+
+/** The key an address is counted under: an IPv6 address by its /64 (one household has the whole range). */
+export function ipKey(ip: string): string {
+  if (!ip.includes(":")) return ip;
+  const [head, tail = ""] = ip.split("::");
+  const a = head ? head.split(":") : [];
+  const b = tail ? tail.split(":") : [];
+  const groups = ip.includes("::") ? [...a, ...Array(Math.max(0, 8 - a.length - b.length)).fill("0"), ...b] : a;
+  return groups.slice(0, 4).map((g) => g.toLowerCase().replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+// ---- the day's budget ----
+
+export interface DayCount {
+  day: string;
+  count: number;
+}
+
+/** One more relay login today, or not: the whole function hands out at most `cap` a day. */
+export function takeDaily(state: DayCount | undefined, now: number, cap: number): { allowed: boolean; state: DayCount } {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const cur = state && state.day === day ? state : { day, count: 0 };
+  if (cur.count >= cap) return { allowed: false, state: cur };
+  return { allowed: true, state: { day, count: cur.count + 1 } };
+}
+
+// ---- session tokens ----
+
+const b64url = (bytes: Uint8Array): string => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromB64url = (s: string): Uint8Array => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+async function hmacKey(secret: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", secret as Uint8Array<ArrayBuffer>, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+
+/** A token that lets a connected player fetch fresh relay logins for the session: "st1.<payload>.<mac>". */
+export async function signToken(secret: Uint8Array, sessionId: string, now: number, ttlMs: number = LIMITS.tokenTtlMs): Promise<string> {
+  const payload = b64url(new TextEncoder().encode(JSON.stringify({ sid: sessionId.slice(0, 64), exp: now + ttlMs })));
+  const mac = await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(payload));
+  return `st1.${payload}.${b64url(new Uint8Array(mac))}`;
+}
+
+export async function verifyToken(secret: Uint8Array, token: string, now: number): Promise<Result<{ sessionId: string }>> {
+  const m = /^st1\.([A-Za-z0-9_-]{1,300})\.([A-Za-z0-9_-]{20,100})$/.exec(token);
+  if (!m) return err("unauthorized", "That session key isn't right.");
+  let ok = false;
+  try {
+    ok = await crypto.subtle.verify("HMAC", await hmacKey(secret), fromB64url(m[2]) as Uint8Array<ArrayBuffer>, new TextEncoder().encode(m[1]));
+  } catch {
+    ok = false;
+  }
+  if (!ok) return err("unauthorized", "That session key isn't right.");
+  const body = JSON.parse(new TextDecoder().decode(fromB64url(m[1]))) as { sid: string; exp: number };
+  if (!(body.exp > now)) return err("expired", "This session's key has run out.");
+  return { ok: true, sessionId: body.sid };
 }

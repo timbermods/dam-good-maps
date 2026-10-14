@@ -68,7 +68,8 @@ export interface Stack {
   stop(): Promise<void>;
 }
 
-async function bundleHarness(): Promise<string> {
+/** The harness page's script, bundled from tests/collab/harness.ts (and src/collab). */
+export async function bundleHarness(): Promise<string> {
   const out = (await build({
     root,
     configFile: false,
@@ -81,7 +82,12 @@ async function bundleHarness(): Promise<string> {
   return chunk.code;
 }
 
-export async function startStack(): Promise<Stack> {
+export interface StackOptions {
+  /** How long the relay's login lasts (seconds); short, to see it renewed. */
+  turnTtlSeconds?: number;
+}
+
+export async function startStack(options: StackOptions = {}): Promise<Stack> {
   const cleanups: (() => void | Promise<void>)[] = [];
   const stop = async () => {
     for (const c of cleanups.reverse()) await c();
@@ -129,6 +135,7 @@ export async function startStack(): Promise<Stack> {
         "--persist-to", state,
         "--var", "ALLOW_LOCAL_ORIGINS:1",
         "--var", `LOCAL_TURN_URLS:turn:127.0.0.1:${turnPort}?transport=udp`,
+        ...(options.turnTtlSeconds ? ["--var", `TURN_TTL_SECONDS:${options.turnTtlSeconds}`] : []),
         "--var", `LOCAL_TURN_USERNAME:${TURN_USER}`,
         "--var", `LOCAL_TURN_CREDENTIAL:${TURN_PASSWORD}`,
       ],

@@ -6,8 +6,8 @@
 #   included. npm majors are not requested here: they wait for a deliberate upgrade step at a quiet
 #   time (for example the refinement phase) with the full nightly suite, found with `npm outdated`.
 #
-# Only the root package matters: the package.json files under investigation/ belong to finished
-# studies and prototypes that nothing imports (investigation/README.md).
+# The root package and collab-worker/ (the collaboration function, with its own lockfile) matter: the package.json files
+# under investigation/ belong to finished studies and prototypes that nothing imports (investigation/README.md).
 #
 # GitHub reads this file from the default branch (main), so it takes effect with the next release.
 
@@ -23,6 +23,23 @@ updates:
     open-pull-requests-limit: 2
     groups:
       npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # collab-worker/ is deployed on its own (wrangler, workers types); its own lockfile
+  - package-ecosystem: npm
+    directory: /collab-worker
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 1
+    groups:
+      collab-worker-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
     ignore:

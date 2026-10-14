@@ -7,11 +7,12 @@ and shows the errors' messages.
 import { hostSession, joinSession } from "./collab/transport";
 
 const host = hostSession({ name: "Emma" });            // a session id is made; pass one to carry a session on
-host.on("code", ({ code }) => show(code));              // the Invite: short, single use, a few minutes
+host.on("code", ({ code, expiresInMs }) => show(code)); // the Invite: short, single use, a few minutes (counted here, not by clock)
 host.on("connected", ({ peer, sessionId }) => ...);
 host.on("message", (payload) => ...);                   // string or Uint8Array, whole, in order
 host.on("presence", (payload) => ...);                  // unordered, may be lost
-host.on("dropped", ({ reason }) => ...);                // "left" | "timeout" | "channel-closed" | "connection-failed"
+host.on("refreshed", () => ...);                        // the relay's login was renewed; nothing to do
+host.on("dropped", ({ reason }) => ...);                // "left" | "timeout" | "channel-closed" | "connection-failed" | "credentials-expired"
 host.on("error", (e) => showPlainly(e.message));        // CollabError: kind + a sentence for the player
 await host.connect();                                   // resolves when connected, rejects with the same error
 
@@ -24,16 +25,26 @@ guest.sendPresence(json);                               // dropped if the channe
 ## How it connects
 
 - `signal.ts`: the function's client (`collab-worker/`): make a room, join with a code, get the relay's login, and the
-  room's WebSocket that passes the offer, answer and candidates.
+  room's WebSocket that passes the offer, answer and candidates (and a keepalive while the host waits).
 - `transport.ts`: one `RTCPeerConnection` with `iceTransportPolicy: "relay"` and **only** the function's servers, so there
-  is no direct path and neither player sees the other's address. After the data channel opens the transport checks the
-  selected candidate pair is relayed and closes with `not-relayed` otherwise. The host makes both channels: `ops`
-  (reliable, ordered) and `presence` (unordered, no retransmits).
+  is no direct path and neither player sees the other's address. Only candidates of type `relay` are sent or accepted (the
+  function refuses the others as well), an offer or answer with another kind of candidate is refused, and once the data
+  channel opens the transport checks that **both** ends of the selected pair are relayed, closing with `not-relayed`
+  otherwise. The host makes both channels: `ops` (reliable, ordered) and `presence` (unordered, no retransmits). The relay's
+  login is asked for once the guest is in the room (the host) or has joined (the guest).
 - `framing.ts`: messages cut into frames of at most 16 KiB (the size browsers agree on) and put back together in order; a
   rejoin snapshot of about 1 MB is 64 frames. Sending waits while more than 256 KiB is buffered. Messages over 64 MiB, and
-  frames out of order, are refused (`protocol` error).
-- Heartbeats: a ping every second; 4 seconds without any traffic is a drop (`timeout`). A closed channel or a failed
-  connection is a drop at once; `close()` says goodbye so the other side sees `left`.
+  frames out of order, are refused (`protocol` error). A message that arrives while the transport is still checking the
+  relay is held and handed over, in order, right after `connected`.
+- Heartbeats: a ping every second; 10 seconds without any traffic is a drop (`timeout`), and a gap between two ticks of more
+  than twice the interval (a stalled page) restarts the count. A closed channel or a failed connection is a drop at once;
+  `close()` says goodbye so the other side sees `left`.
+- **Long sessions.** When both connect, the room gives each a session token (it closes the room socket when it has it). Shortly
+  before the relay's login runs out, each fetches a fresh one with the token (`POST /session/ice`), calls `setConfiguration`,
+  and the host restarts ICE with an offer and answer carried by the data channel (control frames `renego` and `cand`); the old
+  path keeps carrying data until the new one is chosen, then `refreshed` fires. If the login ran out without a renewal (the
+  function was unreachable, or the session outlived the token's day), the break that follows is reported as
+  `credentials-expired`, not as a plain drop.
 
 ## Reconnecting
 

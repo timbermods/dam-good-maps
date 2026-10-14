@@ -1,14 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
-import { LIMITS, createRoom, err, hashSecret, isExpired, joinRoom, markConnected, noteIceFetch, noteSignal, roleOf } from "./room";
+import { LIMITS, checkSignal, createRoom, err, hashSecret, isExpired, joinRoom, markConnected, noteIceFetch, noteSignal, roleOf } from "./room";
 import type { Result, Role, RoomRecord } from "./room";
 import type { Env } from "./env";
 
 /** What the browser sends over the room's socket. */
-type ClientMessage = { t: "auth"; secret: string } | { t: "signal"; data: string } | { t: "connected" };
+type ClientMessage = { t: "auth"; secret: string } | { t: "signal"; data: string } | { t: "connected"; sessionId?: string };
 
 interface Attachment {
   role: Role | null;
   msgs: number;
+  /** The session id this player reported when connected (the session token is made for it). */
+  sid?: string;
 }
 
 /** A socket may send this many messages in all: a connection setup needs a few dozen. */
@@ -20,6 +22,12 @@ const MAX_SOCKET_MESSAGES = 400;
  * time runs out, everything is deleted and the sockets closed.
  */
 export class Room extends DurableObject<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // a waiting host's keepalive is answered without waking the room
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
   private async load(): Promise<RoomRecord | null> {
     return (await this.ctx.storage.get<RoomRecord>("room")) ?? null;
   }
@@ -28,11 +36,15 @@ export class Room extends DurableObject<Env> {
     await this.ctx.storage.put("room", room);
   }
 
-  /** Deletes everything and closes every socket. */
-  private async destroy(reason: string): Promise<void> {
+  /** Deletes everything and closes every socket. When both players connected, each is first given a session token. */
+  private async destroy(reason: string, withTokens = false): Promise<void> {
+    const keeper = this.env.KEEPER.get(this.env.KEEPER.idFromName("keeper"));
+    const ttlMs = (Number(this.env.SESSION_TOKEN_TTL_SECONDS) || LIMITS.tokenTtlMs / 1000) * 1000;
     for (const ws of this.ctx.getWebSockets()) {
       try {
-        ws.send(JSON.stringify({ t: "closed", reason }));
+        const att = ws.deserializeAttachment() as Attachment | null;
+        const token = withTokens && att?.sid ? await keeper.issueToken(att.sid, ttlMs) : undefined;
+        ws.send(JSON.stringify({ t: "closed", reason, ...(token ? { token } : {}) }));
         ws.close(1000, reason);
       } catch {
         /* already gone */
@@ -138,18 +150,24 @@ export class Room extends DurableObject<Env> {
       case "signal": {
         if (!att.role) return tell({ t: "error", kind: "unauthorized", message: "Send your key first." });
         if (typeof msg.data !== "string") return tell({ t: "error", kind: "bad-request", message: "Not a valid message." });
-        const counted = noteSignal(room, new TextEncoder().encode(msg.data).length);
+        const size = new TextEncoder().encode(msg.data).length;
+        // only an offer, an answer and relayed candidates pass (the relay-only rule, kept here as well as in the browser)
+        const valid = size > LIMITS.maxMessageBytes ? err("too-large", "That setup message is too large.") : checkSignal(msg.data);
+        if (!valid.ok) return tell({ t: "error", kind: valid.error.kind, message: valid.error.message });
+        const counted = noteSignal(room, size);
         if (!counted.ok) return tell({ t: "error", kind: counted.error.kind, message: counted.error.message });
         const peers = this.socketsOf(att.role === "host" ? "guest" : "host");
-        if (!peers.length) return tell({ t: "error", kind: "bad-request", message: "The other player isn't in the room." });
+        // the other side may already have its connection and have left the room: that is not an error
+        if (!peers.length) return tell({ t: "no-peer" });
         await this.save(counted.room);
         for (const peer of peers) peer.send(JSON.stringify({ t: "signal", data: msg.data }));
         return;
       }
       case "connected": {
         if (!att.role) return tell({ t: "error", kind: "unauthorized", message: "Send your key first." });
+        if (typeof msg.sessionId === "string") ws.serializeAttachment({ ...att, sid: msg.sessionId.slice(0, 64) } satisfies Attachment);
         const next = markConnected(room, att.role);
-        if (next.done) return this.destroy("done");
+        if (next.done) return this.destroy("done", true);
         await this.save(next.room);
         return;
       }
@@ -159,10 +177,17 @@ export class Room extends DurableObject<Env> {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    const att = ws.deserializeAttachment() as Attachment | null;
     try {
       ws.close(1000);
     } catch {
       /* already closed */
+    }
+    // a host who leaves before anyone has joined takes the room with them (a reconnecting host replaces their socket first)
+    if (att?.role === "host") {
+      const room = await this.load();
+      const stillHere = this.socketsOf("host").some((other) => other !== ws);
+      if (room && room.guestHash === null && !stillHere) await this.destroy("host-left");
     }
   }
 }

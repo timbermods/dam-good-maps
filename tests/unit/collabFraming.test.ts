@@ -45,5 +45,11 @@ describe("framing", () => {
     const bad = new Uint8Array([1, ...new TextEncoder().encode('{"t":"ping","n":"x"}')]);
     expect(() => parseControl(bad)).toThrow(FramingError);
     expect(() => parseControl(new Uint8Array([1, ...new TextEncoder().encode('{"t":"nope"}')]))).toThrow(FramingError);
+    // the renewal's offer, answer and candidates travel as control frames too
+    const renego = { t: "renego", kind: "offer", sdp: "v=0 ".repeat(1500) } as const;
+    expect(parseControl(encodeControl(renego))).toEqual(renego);
+    const cand = { t: "cand", c: { candidate: "candidate:1 1 udp 2 192.0.2.1 5000 typ relay", sdpMid: "0", sdpMLineIndex: 0 } } as const;
+    expect(parseControl(encodeControl(cand))).toEqual(cand);
+    expect(() => parseControl(new Uint8Array([1, ...new TextEncoder().encode('{"t":"renego","kind":"bye","sdp":"x"}')]))).toThrow(FramingError);
   });
 });
