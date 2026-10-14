@@ -420,13 +420,14 @@ button[aria-pressed="true"] {
 /* a caption's colour as a swatch, then its name (the map's overlay colours, shown rather than named) */
 .layer-legend .layer-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .layer-legend .layer-row .swatch {
   width: 22px;
   height: 13px;
+  margin-top: 2px;
 }
 
 .dialog progress {

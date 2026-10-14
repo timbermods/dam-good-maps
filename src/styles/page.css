@@ -1532,8 +1532,8 @@
 }
 
 .object-window .cell-body .segmented > button {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: max-content;
   padding-left: 4px;
   padding-right: 4px;
   white-space: nowrap;

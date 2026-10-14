@@ -60,7 +60,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
         </>
       ) : kind === "roofed" ? (
         layers.roofed.length ? (
-          <CaptionRow color={LAYER_COLORS.roofed}>Under caves or overhangs, water approximate</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.roofed}>Caves and overhangs, left as they are</CaptionRow>
         ) : (
           <p>No caves or overhangs on this map.</p>
         )
