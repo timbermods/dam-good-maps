@@ -2,7 +2,7 @@
 // responsive on 256² maps (PLAN §2.2, EDITOR_PLAN §8). The same core runs in Node for tests and
 // batch runs.
 
-import { expose, proxy, transfer, wrap } from "comlink";
+import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { BrushParams } from "../core/features/raster/brush";
@@ -11,6 +11,7 @@ import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
 import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
+import type { SoilBase } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
@@ -51,34 +52,40 @@ function eventBuffers(e: ed.EditorEvent): Transferable[] {
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
 ed.setAutoWater(true);
 
-// A hazard day's soil (the Weather view's withered plants, D250) is one whole-map pass of the core, about 35 ms on a 256² map:
-// it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message never waits
-// behind it (daySoil.ts). A failing worker's jobs are worked out here instead (session.ts).
+// A hazard day's soil (the Weather view's soil and withered plants, D250) is one whole-map pass of the game's soil, 150 to 350 ms
+// on a 256² map: it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
+// never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker's jobs are worked
+// out here instead (session.ts).
 if (typeof Worker !== "undefined") {
   let soilWorker: Worker | null = null;
   let jobs = 0;
+  let sent: { id: number; base: SoilBase } | null = null;
   const waiting = new Map<number, { resolve: (s: SoilView) => void; reject: (e: unknown) => void }>();
   const failed = (e: unknown) => {
     for (const w of waiting.values()) w.reject(e);
     waiting.clear();
     soilWorker?.terminate();
     soilWorker = null;
+    sent = null;
   };
   ed.setSoilRunner(
     (job) =>
       new Promise<SoilView>((resolve, reject) => {
         if (!soilWorker) {
           soilWorker = new Worker(new URL("./daySoil.worker.ts", import.meta.url), { type: "module" });
-          soilWorker.onmessage = (m: MessageEvent<{ id: number; soil: SoilView }>) => {
+          soilWorker.onmessage = (m: MessageEvent<{ id: number; soil?: SoilView; error?: string }>) => {
             const w = waiting.get(m.data.id);
             waiting.delete(m.data.id);
-            w?.resolve(m.data.soil);
+            if (m.data.soil) w?.resolve(m.data.soil);
+            else w?.reject(new Error(m.data.error ?? "soil failed"));
           };
           soilWorker.onerror = failed;
         }
         const id = ++jobs;
         waiting.set(id, { resolve, reject });
-        soilWorker.postMessage({ id, job });
+        const first = sent?.base !== job.base;
+        if (first) sent = { id: (sent?.id ?? 0) + 1, base: job.base };
+        soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination });
       }),
   );
 }
@@ -103,6 +110,7 @@ function connectChecksWhenEditable() {
   connected = true;
   ed.useChecksWorker(client);
 }
+let droughtFn: ((n: ed.DroughtLineNews) => void) | null = null;
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -211,6 +219,10 @@ const api = {
   /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
    *  one. (Small, and the worker keeps its own: copied, not taken over.) */
   watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
+    // (the page's last callback is let go, or its port stays open for good; each crossing makes a new proxy, so the
+    // check is only against releasing the one kept)
+    if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
+    droughtFn = fn;
     return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
   },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
