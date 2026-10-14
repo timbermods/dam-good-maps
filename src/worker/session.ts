@@ -41,9 +41,9 @@ import { PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
-import { EMITTERS, mapObjects, moistureBarrier, objectTile, waterModel } from "../core/sim/model";
+import { EMITTERS, mapObjects, objectTile, waterModel } from "../core/sim/model";
 import { toMapObject } from "../core/features/build";
-import { computeDaySoil, type SoilJob, type SoilRunner } from "./daySoil";
+import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { changedRect } from "../render3d/mesh";
@@ -811,6 +811,9 @@ interface WeatherRun {
   days: number;
   /** The water the run started from (the map's settled water then: the drought line's day 0). */
   from: { depth: Float64Array; contamination: Float64Array };
+  /** The map's water array the run was built on (`built.water`): the canonical settle lands without a new version
+   *  (`adoptWater`), and a run from the preview's water is then no longer the map's. */
+  fromWater: Float64Array;
   /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
   run: HazardRun;
   sim: WaterSim;
@@ -828,8 +831,8 @@ interface WeatherRun {
   witherDue: number | null;
   /** The soil jobs under way, by day. */
   soilJobs: Map<number, Promise<SoilView>>;
-  /** The tiles Thorns shield from moisture and contamination (the map's own build uses them), worked out once. */
-  barrier?: Uint8Array | null;
+  /** What the day soil reads of the map (its heights and objects), taken once and sent to the soil worker once. */
+  base?: SoilBase;
   /** How far the run simulates: the day to show, or the default last day for the background's work. */
   want: number;
   /** The day the page asked to see, while it waits for it, or null. */
@@ -855,7 +858,7 @@ let weatherShown: MapSession | null = null;
 
 /** A run still good for the map as it is. */
 function currentRun(run: WeatherRun): boolean {
-  return weatherRuns[run.hazard] === run && run.session === session && run.version === version;
+  return weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.session.built.water === run.fromWater;
 }
 
 /** The hazard's run for the map as it is: the kept one, or a new one from the map's settled water. */
@@ -868,7 +871,7 @@ function runFor(hazard: Hazard): WeatherRun {
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
   const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
   const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, fromWater: s.built.water, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -990,9 +993,9 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
   const going = run.soilJobs.get(day);
   if (going) return going;
   const { x: W, y: H } = s.size;
-  // (Thorns block moisture and contamination: the barrier the map's own build passes, so plants behind a line stay as they are)
-  if (run.barrier === undefined) run.barrier = moistureBarrier(W, H, s.built.entities.filter((e) => !e.raw || placementOf(e.raw)).map(toMapObject));
-  const job: SoilJob = { heights: s.built.heights, depth: k.depth, contamination: k.contamination, barrier: run.barrier, W, H };
+  // (the map the soil reads, sent to the soil worker once for the run: the game's soil takes Thorns and the soil per run top from its objects)
+  run.base ??= { W, H, heights: s.built.heights.slice(), objects: s.built.entities.map(toMapObject) };
+  const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination };
   const p = (async () => {
     let soil: SoilView;
     try {
@@ -1076,7 +1079,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
  *  Drought view's last day agree tile for tile. It comes in the background after each edit with the drought's days
  *  (`prepareWeather`, which the page asks for once the water has settled and Kyler is idle, and stops the moment he
  *  acts), never blocking: an edit makes a new version, and the old run, its line with it, is dropped. */
-let droughtLineNow: { session: MapSession; version: number; line: DroughtLine } | null = null;
+let droughtLineNow: { session: MapSession; version: number; fromWater: Float64Array; line: DroughtLine } | null = null;
 /** The drought line of a version of the map, as the page is told it. */
 export interface DroughtLineNews {
   version: number;
@@ -1099,7 +1102,7 @@ function droughtLineFrom(run: WeatherRun): void {
     droughtLineFailed = true;
     return;
   }
-  droughtLineNow = { session: run.session, version: run.version, line };
+  droughtLineNow = { session: run.session, version: run.version, fromWater: run.fromWater, line };
   droughtWatch?.({ version: run.version, line });
 }
 
@@ -1117,7 +1120,7 @@ function currentDroughtLine(): DroughtLineNews | null {
   const refused = droughtLineRefusal(s);
   if (refused) return { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought"), refused) };
   const now = droughtLineNow;
-  return now && now.session === s && now.version === version ? { version, line: now.line } : null;
+  return now && now.session === s && now.version === version && now.fromWater === s.built.water ? { version, line: now.line } : null;
 }
 
 /** Where the worker sends the drought line (null: nowhere): each one as it is worked out, an empty line (or a map with
