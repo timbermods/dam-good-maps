@@ -73,8 +73,9 @@ fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker 
 `toBlob` encoders differ between browsers; both keep files byte-reproducible. Hosting is GitHub Pages from GitHub
 Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
-cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
-`SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
+cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up, and the background settle of
+maps with caves or overhangs from 128² up, run on several threads over `SharedArrayBuffer` (`src/core/sim/parallel.ts`,
+`src/core/sim/stackParallel.ts`, byte-identical to one thread); other parallel work runs as independent
 workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
 scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
 anything with a query or range always come from the network. On a host that sends the headers itself the page registers

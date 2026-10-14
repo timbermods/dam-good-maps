@@ -45,7 +45,7 @@ fn job() -> Result<(), String> {
     if at != b.len() {
         return Err("Fixture has trailing data.".into());
     }
-    let e = s.engine.as_ref().ok_or("Fixture map was not built.")?;
+    let e = s.engine().ok_or("Fixture map was not built.")?;
     let info = [
         e.ticks() as f64,
         if matches!(e.flow, Flow::Flat(_)) { 0.0 } else { 1.0 },

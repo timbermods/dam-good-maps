@@ -262,11 +262,11 @@ jobs:
       - name: Stacked water core contracts, the analysis' frame guards and the checks' contracts (at most four workers)
         if: needs.changes.outputs.rust == 'true'
         run: cd rust && cargo test -j 4 -p water -p analysis -p checks --target-dir target/stack-tests -- --test-threads=4
-      - name: Stacked water against the game-verified goldens, native and Node-Wasm
+      - name: Stacked water against the game-verified goldens, native and Node-Wasm; its canonical settle on one thread and on four
         if: needs.changes.outputs.rust == 'true'
         run: |
           cd rust && cargo build --release -j 4 -p water --example stack-fixture
-          cd .. && npx tsx tools/rust/stack-identity.ts
+          cd .. && npx tsx tools/rust/stack-identity.ts --threads 4
       - name: The native Rust settle gives the app's bytes, on one thread and on four (golden fixtures under both rules, every theme, stored water, 96² to 512²)
         if: needs.changes.outputs.rust == 'true'
         run: npx tsx tools/rust/water-identity.ts --seeds 1-1 --require-native --threads 4 --sizes 96,128,256,512

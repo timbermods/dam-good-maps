@@ -1,11 +1,18 @@
 // D448 correctness only: all eight #71 fixtures in native Rust and Node-Wasm, and the sink case (t7-sink:
 // from the game's code, not yet played; tools/rust/stack-sink-fixture.ts).
+// With --threads N, the app's canonical settle of each fixture's map (stackWater.ts `canonicalStackRun`) runs
+// twice, on one thread and on N (the multi-core settle, src/core/sim/stackParallel.ts, on Node's
+// worker_threads at every size), and must give the same bytes.
 // Build first: cargo build --release -j 4 -p water --example stack-fixture (inside rust/).
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { stackFixtures, inputBytes, runStackFixture, fixtureOutput } from './stack-fixtures';
+import { stackFixtures, inputBytes, runStackFixture, fixtureOutput, settleFixture } from './stack-fixtures';
+import { installNodeThreads, nodeThreadsReady, uninstallParallelWater } from './water-threads';
+import { withoutParallelWater } from '../../src/core/sim/parallel';
+import type { StackSettle } from '../../src/core/sim/stackWater';
+import { stackParallelStats } from '../../src/core/sim/stackParallel';
 const root = resolve(import.meta.dirname, '../..');
 const dir = process.env.DGM_STACK_LOCAL ?? join(root, '.scratch/stacked-water');
 mkdirSync(dir, { recursive: true });
@@ -48,3 +55,23 @@ for (const name of ['cave-valley', 'lake-cave']) {
     console.log('PASS ' + name + ' slices of 37');
 }
 writeFileSync(join(dir, 'summary.json'), JSON.stringify({ reference: '24b88b9b', cases: results, nativeEqualsNodeWasm: true, slices: true }, null, 2) + '\n');
+const at = process.argv.indexOf('--threads');
+const threads = at >= 0 ? Number(process.argv[at + 1]) : 0;
+if (threads) {
+    installNodeThreads(threads);
+    await nodeThreadsReady(threads);
+    const settle = settleFixture;
+    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
+    let ran = 0;
+    for (const f of stackFixtures) {
+        const one = withoutParallelWater(() => settle(f));
+        const before = stackParallelStats.ticks;
+        const many = settle(f);
+        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks)
+            throw Error(f.name + ' differs on ' + threads + ' threads');
+        if (stackParallelStats.ticks > before) ran++;
+        console.log('PASS ' + f.name + ' canonical settle on one thread = on ' + threads + (stackParallelStats.ticks > before ? '' : ' (one thread: an open field)') + '; ' + many.ticks + ' ticks');
+    }
+    uninstallParallelWater();
+    if (!ran) throw Error('the threads never ran');
+}
