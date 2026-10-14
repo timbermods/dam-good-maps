@@ -4,9 +4,10 @@
 //
 // The game's cycle (investigation/cycles/weather.ts `MODES`, `CycleClock`): a cycle is its temperate days, drawn
 // uniformly from the difficulty's range, then its hazard, which starts once those days have passed. A core's countdown
-// runs from the start of its cycle (`TimeActivatedComponent`: `CyclesUntilCountdownActivation`, `DaysUntilActivation`,
-// read as `fluidTime.ts` does: it goes off once `days` days of that cycle have passed), so it falls `days - temperate`
-// days into the cycle's hazard: a range, as the temperate days are drawn.
+// runs from the start of its cycle (`TimedComponentActivator`, ActivatorSystem.cs: days count from day 1 of the core's
+// cycle plus the day's progress), so it goes off `days - temperate` days into the cycle's hazard: a range, as the
+// temperate days are drawn. The view's Day N means N days into the hazard (weather.ts), so hazard day N covers the
+// offsets from N - 1 up to N.
 
 import { CORE } from "../data/parity";
 import type { Feature } from "../features/schema";
@@ -24,8 +25,8 @@ export interface CoreMoment {
   /** The cycle the core's countdown starts in, and the days of it that pass first. */
   cycle: number;
   days: number;
-  /** The hazard day the core goes off on, soonest and latest, counting the hazard's first day as day 1; 0 or less is
-   *  before the hazard starts. */
+  /** How far into the hazard the core goes off, soonest and latest, in days from the hazard's start (the game's
+   *  `days - temperate`); below 0 is before the hazard starts. */
   earliest: number;
   latest: number;
   /** Against the hazard of that cycle (its default length): always before it starts, as it starts or while it runs,
@@ -37,39 +38,41 @@ export interface CoreMoment {
 export function coreMoment(core: { cycles: number; days: number }, difficulty: Difficulty, hazard: Hazard): CoreMoment {
   const [shortest, longest] = TEMPERATE_DAYS[difficulty];
   const length = hazardDays(difficulty, hazard);
-  // (the hazard starts when `temperate` days have passed, so its day 1 is cycle day temperate + 1)
-  const earliest = core.days - longest + 1;
-  const latest = core.days - shortest + 1;
-  const when = latest <= 0 ? "before" : earliest > length ? "after" : "during";
+  // (the hazard starts once `temperate` days of the cycle have passed, and the core goes off once `days` have)
+  const earliest = core.days - longest;
+  const latest = core.days - shortest;
+  const when = latest < 0 ? "before" : earliest >= length ? "after" : "during";
   return { cycle: core.cycles, days: core.days, earliest, latest, when };
-}
-
-const HAZARD_WORDS: Record<Hazard, string> = { drought: "drought", badtide: "badtide" };
-const whole = (n: number) => Math.round(n);
-
-/** The moment in a few plain words, for the day box's note. */
-export function coreMomentWords(m: CoreMoment, hazard: Hazard): string {
-  const h = HAZARD_WORDS[hazard];
-  const cycle = `Unstable core, cycle ${m.cycle}`;
-  if (m.when === "before") {
-    const nearest = whole(-m.latest + 1);
-    const farthest = whole(-m.earliest + 1);
-    return nearest >= farthest ? `${cycle}: goes off ${plural(Math.max(1, farthest))} before the ${h}` : `${cycle}: goes off ${Math.max(1, nearest)} to ${plural(farthest)} before the ${h}`;
-  }
-  if (m.when === "after") return `${cycle}: goes off after the ${h} has ended`;
-  const a = Math.max(1, whole(m.earliest));
-  const b = Math.max(a, whole(m.latest));
-  const range = a === b ? `day ${a}` : `days ${a} to ${b}`;
-  return m.earliest <= 0 ? `${cycle}: goes off before or on ${range} of the ${h}` : `${cycle}: goes off on ${range} of the ${h}`;
 }
 
 const plural = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
+/** The hazard days a core may go off on, [first, last] (day 1 when it may go off before the hazard starts). */
+function hazardDayRange(m: CoreMoment): [number, number] {
+  return [Math.floor(Math.max(m.earliest, 0)) + 1, Math.floor(m.latest) + 1];
+}
+
+/** The moment in a few plain words, for the day box's note. Which hazard a cycle brings is random, so a moment that does
+ *  not depend on the hazard's length names both. */
+export function coreMomentWords(m: CoreMoment, hazard: Hazard): string {
+  const goes = "Unstable core: goes off";
+  const of = `cycle ${m.cycle}'s drought or badtide`;
+  if (m.when === "before") {
+    const nearest = Math.max(1, Math.floor(-m.latest));
+    const farthest = Math.max(1, Math.ceil(-m.earliest));
+    return nearest >= farthest ? `${goes} ${plural(farthest)} before ${of}` : `${goes} ${nearest} to ${plural(farthest)} before ${of}`;
+  }
+  if (m.when === "after") return `${goes} after cycle ${m.cycle}'s ${hazard} has ended`;
+  const [a, b] = hazardDayRange(m);
+  const range = a === b ? `day ${a}` : `days ${a} to ${b}`;
+  return m.earliest < 0 ? `${goes} before or on ${range} of ${of}` : `${goes} on ${range} of ${of}`;
+}
+
 /** Whether the held hazard day falls where the core may go off (the note lights up). */
 export function coreMomentNow(m: CoreMoment, day: number): boolean {
   if (m.when !== "during") return false;
-  const a = Math.max(1, whole(m.earliest));
-  return day >= a && day <= Math.max(a, whole(m.latest));
+  const [a, b] = hazardDayRange(m);
+  return day >= a && day <= b;
 }
 
 /** The Unstable Cores of a map's features (placed or from the generator's option) as their countdowns. A core a feature

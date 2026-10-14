@@ -663,7 +663,7 @@ Make a valley, drop a source, and there's a river.
   hazard's days are kept until the map changes and worked out in the background once the water has settled. Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. **An Unstable Core's
   moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
-  that cycle's hazard ("Unstable core, cycle 6: goes off 3 to 7 days before the badtide": a range, because a cycle's
+  that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
   temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
   (`core/sim/coreMoment.ts`).
 - **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
