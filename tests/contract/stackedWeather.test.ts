@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { MapSession } from "../../src/core/doc/session";
 import { toMapObject } from "../../src/core/features/build";
 import { waterSource } from "../../src/core/format/entities";
@@ -109,6 +110,10 @@ describe.skipIf(!existsSync(OFFICIAL + MAPS[0] + ".timber"))("Drought on the off
     const analytic = sum(droughtStorage(m, from.depth, days));
     expect(prev).toBeLessThanOrEqual(1.2 * analytic + 5);
     expect(prev).toBeGreaterThan(0.5 * analytic - 5);
+    // and the drought line comes out: the shore of what is left
+    const line = mapDroughtLine(s, run.water().depth, days, from);
+    expect(line.refused).toBeNull();
+    expect(line.line.count).toBeGreaterThan(0);
     run.dispose();
   });
 });

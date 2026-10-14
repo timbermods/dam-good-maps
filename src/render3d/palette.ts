@@ -83,6 +83,10 @@ export const JUICE = {
   streak: [1.0, 0.86, 0.53] as Rgb,
   rock: [0.45, 0.39, 0.3] as Rgb,
   crack: [0.2, 0.18, 0.16] as Rgb,
+  /** An eruption's fresh rock (#367): the ground it raised, ash grey from dark basalt to pale ash,
+   *  never the grass or earth it rose from, until its heat fades into the ground's own colours. */
+  ashDark: [0.2, 0.198, 0.195] as Rgb,
+  ashPale: [0.38, 0.372, 0.36] as Rgb,
   /** Glaciate's ice (D246, from investigation/glaciate `effects.ts`): its deep blue and its white. */
   iceDeep: [0.32, 0.66, 0.78] as Rgb,
   ice: [0.9, 0.97, 1.0] as Rgb,

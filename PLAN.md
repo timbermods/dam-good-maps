@@ -897,7 +897,7 @@ tokens; `Levels` at least the terrain's floor count); `file.metadata` (all 8 key
 | `terrain.supported` | no voxel more than 3 sideways steps from support (0 on heightfields); with stacked terrain, every run not starting at z = 0 checked: no voxel the game's load rule would delete |
 | `terrain.single_floor` | one floor per tile (the water model's scope). An imported map's row only: a generated map has no such row |
 | `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (Real places as converted: 89–99% of their most walled edge; official maps at most 38%; generated 128² at most 36%.) Not applicable under 10 tiles a side. |
-| `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The checks have the row (`ValidateOptions.dropped`); the build does not report the count yet, so no map shows it |
+| `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The build's rule pass (`terrain/support.ts` `supportPass`, step 7) gives the count (`BuildResult.dropped`, absent when none: a heightfield drops nothing and is not worked out); the generator's checks and the editor's pass it (`ValidateOptions.dropped`) |
 | `plants.clearance` | every plant has its blocks' height in air above its floor (3 levels for a pine or an oak, 2 for a birch or a succulent, 1 for a blueberry bush; `terrain/clearance.ts`): the game removes one that has not. Load class. Such a plant is counted here and not in `entities.placement` |
 | `entities.templates`, `.enums`, `.components`, `.ids` | only common templates (§5.7); Orientation ∈ {Cw0, Cw90, Cw180, Cw270}, exact case; RuinModels + Yielder:Ruin on ruins, WaterSource (+WaterDepthStrengthModifier on seeps), UnstableCore on cores; unique lowercase GUIDs |
 | `entities.placement` | each occupied cell of every object (`Coordinates + R(F(local))`) is inside the map, z < 33, not in terrain, with occupation flags disjoint from other objects, MatterBelow met (Ground: solid below; GroundOrStackable: solid or an overhang/drain top below), no object under an OccupyAllBelow block, water objects/geothermal/mine sites on the first terrain column: 0 objects the game would delete |
@@ -963,7 +963,10 @@ checked with its spec and features; any other map as an import. The TypeScript p
 three first shortcuts (D28): a BadwaterSource's tiles come from the footprint transform, whatever its orientation;
 WaterSeep, BadwaterSeep, BadtideDrain and Aquifer are emitters with their rules (§10); multi-tile objects (mine sites,
 geothermal fields, relics, cores) block walking on their whole footprint. The parity test (`npm run oracle`) runs both
-validators on generated maps and on all 19 official maps (import profile), and fails on any disagreement.
+validators on generated maps and on all 19 official maps (import profile), and fails on any disagreement. The rows the
+Python validator does not compute are marked information and not compared (D279: no Python copy of the 3D rules):
+`walk.levels`, `water.sealed_source`, and on a map with caves or overhangs every row that reads the water, since
+the Python water model sees the map from above.
 
 `plants.drought` is **advisory**: the one check that never blocks, in any profile. It flags living berry bushes within
 20 tiles of the start whose moisture comes only from water that drains during a drought longer than 0.9 × their

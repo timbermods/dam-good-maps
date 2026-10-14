@@ -48,21 +48,60 @@
 Dam Good Maps: a map generator for Timberborn. The README says what the repository holds; [docs/README.md](docs/README.md)
 maps the documents.
 
-## Coordination (D470)
+## Coordination (D470, D484)
 
-- **Labels on your own PRs:** `hold` (never merge), `needs-kyler` (waiting on Kyler's eye; never merge while on),
-  `approved` (Kyler approved the human-facing result). Anything a player sees, hears or feels needs `approved` to merge.
+- **Kyler is done testing and giving feedback (D484, 2026-10-14).** Claude completes the whole order without him (D349 as
+  amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
+  (or the owning session's), decided against his recorded decisions and the project's identity, recorded when it is a real
+  choice, merged when CI and the checks are green. Every such decision is reversible; he may reverse any later.
+- **His hands are replaced, not dropped.** Forces and editor behaviour: use the page yourself in a real browser
+  (Playwright), on generated maps and imports, light and dark, at 1920×1080, 2560×1440 and 1280; a force always has a
+  visible effect. Look and feel: before a look or interaction change merges, a separate reviewer agent that hasn't seen the
+  work judges its captures against the page rules (nothing cut off or overlapping, lined up to the pixel, every control
+  named, keys only in tooltips, short text). The game: probe batches on the dedicated machine when they decide something
+  (D218, D483). Collaborative editing: complete, between real peers over the real relay, reconnects, conflicts and a dropped peer tested (D486).
+- **Design questions go to the planning session first,** on #236: it answers those Kyler's recorded decisions settle,
+  citing them, and puts only the rest to him.
+- **The only questions for Kyler are design direction:** the answer changes what the product is, or how it looks, feels or
+  behaves to a player, in a way his recorded decisions don't settle. Engineering, thresholds, wording, test results,
+  performance, order inside a step and "is this good enough" are ours. One issue per question, labelled `needs-kyler`:
+  the question in plain words, 2–4 options (a capture or mockup where it helps) and the recommended default. Never block:
+  build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
+- **An owning session judges, a different session merges (D484):** never approve or merge your own PR. Post "ready to
+  merge" on #236 with your verdict comment and captures on the PR (and an independent reviewer agent's pass for a look or
+  interaction change); the planning session checks those and green CI, then merges. The milestone session's own PRs get a
+  fresh sub-agent's review first; the planning session's own PRs are merged by the milestone session after a fresh
+  sub-agent's review.
+- **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's
+  account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
+- **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
+  are green; posted on #236.
+- **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back: all 12
+  threads, Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
+  the work needs; say on #236 when a probe batch holds the game.
+- **Never idle (D484):** nobody types to you. Never end your turn while work is left in the order: while waiting on CI, a
+  probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
+  it fires, and do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
+  Kyler can unblock every piece of work (said on #236).
+- **Going faster (D484):** work in parallel through sub-agents, each in its own worktree, branch and PR, with a complete
+  brief: Sonnet for well-specified building, Haiku for mechanical work (watching CI and #236, logs, searches, clean dev
+  merges, regenerated files, status lines), Opus (the milestone session) for the order, decisions and verdicts, the planning session for merges,
+  and a fresh Opus agent as the look and interaction reviewer. Work ahead on steps that need nothing else; the split is
+  posted on #236. Merges come first: a "ready to merge" is merged before anything new starts. About three heavy local
+  runs at once across both sessions (builds, Playwright, Rust), each said on #236; the rest goes to CI.
+- **Resuming:** after every merge, the planning session's #236 post says what merged and what's next; each session posts
+  where it is when it finishes a piece of work, so "Resume from #236" restarts any of them. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
+  steps, one line to Kyler.
 - **The Coordination issue** ([#236](https://github.com/timbermods/dam-good-maps/issues/236)): read it when you start a
   task, before you push and when you finish; answer there, each comment starting "To milestone:", "To page:", "To renderer:" or
   "To <session name>:". Codex doesn't use it.
 - **The line:** sessions settle merge order, holds, rebases, re-pins, CI failures (whoever broke it fixes it) and ordering on
-  overlapping files. Kyler alone decides what a player sees, hears or feels, a new direction or scope, rules, adopting Codex
-  work, releases, probe batches, anything that spends usage, and anything you're unsure about: `needs-kyler` and a ping.
-- **Everything that needs Kyler carries `needs-kyler`,** so one GitHub list shows it all: the PR if there is one; otherwise a
-  small issue with the question in a few lines, closed once he has answered. Codex PRs ready for his verdict get it too.
+  overlapping files; the milestone session decides the rest (D484), except design direction. A new Claude session or Codex
+  task that would speed things up: post its full prompt on #236 and tell Kyler in one line; he sends it. Never two
+  sessions in one folder.
 - **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.
-- **Pings** only when Kyler's attention is needed, never for progress: the `needs-kyler` label pings his phone from GitHub;
-  `tools/notify.ps1` adds a toast on this machine.
+- **Pings** only for a design question or an account-only item, never for progress: the `needs-kyler` label pings his
+  phone from GitHub.
 - A decision gets a number only when it's a rule that constrains future work. Full version: `docs/HANDOFF.md`.
 
 ## Standing rules
@@ -108,8 +147,9 @@ maps the documents.
     way that could change play; hand-made test maps only for a rule that has never been played. Ask for a batch when it is
     worth it, with its maps named.
   - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, "The machine"): a batch may run whenever the plan
-    calls for one, without asking. The other rules above still apply, and every batch and its results go into
-    `docs/STATUS.md`.
+    calls for one, without asking. The machine is the two sessions' own (D484): no holding back for other heavy work, only
+    a line on #236 while a batch holds the game. The other rules above still apply, and every batch and its results go
+    into `docs/STATUS.md`.
 - **Progress log (D221):** add a short, plain comment to the "Progress log" issue
   ([#57](https://github.com/timbermods/dam-good-maps/issues/57)) each time a step finishes, something is released, a probe
   batch runs or something is parked for Kyler: what happened, links, what's next.
@@ -154,7 +194,7 @@ text.
   old site is back, and report.
 - The site stays noindex and unannounced until launch. Launch needs versioned deploys (moved to Later, D285) and Kyler's
   go-ahead; then set the repository variable `DGM_PUBLIC` to `true`.
-- Steps outside the milestones are released the same way, each tagged once Kyler approves it. Released steps' tags are in
+- Steps outside the milestones are released the same way, each tagged at its step's end (D484). Released steps' tags are in
   `git tag -l '*-done'`. Not yet released:
   - the design pass, built with "The page is the editor" in step 1 (D384): `design-done`;
   - Real places' second round (parked, D319): `real-places-2-done`; Pick a place: `pick-a-place-done`;

@@ -19,7 +19,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -239,6 +239,8 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
+    const dropped = groundDropped(input.base, b.heights, b.entities);
+    if (dropped) b.dropped = dropped;
     return b;
   }
 
@@ -1253,6 +1255,8 @@ export class MapSession {
       // (the map is being edited: an edge wall warns, D323)
       editing: true,
       mineCutAtOpen: this.mineCutAtOpen(),
+      // (what the build's support pass removed: a generated map's row, D121; an import has none)
+      dropped: live ? (this.cur.dropped ?? 0) : undefined,
       spec: this.effectiveSpec(),
       designedFor: this.gen.meta.designedFor,
       features: this.st.features,

@@ -1,6 +1,6 @@
 // The one 3D renderer (PLAN §3, EDITOR_PLAN §8), used by the generator's 3D preview and by the
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
-// edit), a voxel mesher for columns with caves or overhangs, translucent water surfaces, and
+// edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
 // instanced objects. It has an orbit camera and a top-down view (north up), picks tiles against
 // the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
 // instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
@@ -1900,27 +1900,40 @@ export class MapRenderer {
     }));
   }
 
-  /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null. */
+  /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null.
+   *  The ground as the heat comes, before the eruption raises it (it comes with the force's first
+   *  planned frame), is kept with it: what rises above that is its fresh rock (#367). */
   setHeat(mask: Uint8Array | null): void {
     const u = this.terrainMat?.uniforms;
     if (!u?.eruptionMask) return;
     const m = this.map;
     const old = u.eruptionMask.value as DataTexture;
+    const oldBase = u.eruptionBase.value as DataTexture;
     if (!mask || !m || mask.length !== m.W * m.H * 4 || this.software) {
       u.eruptionAge.value = -1;
       if (old.image.width !== 1) {
         old.dispose();
+        oldBase.dispose();
         u.eruptionMask.value = overlayTexture(1, 1);
+        u.eruptionBase.value = overlayTexture(1, 1);
       }
       return;
     }
     old.dispose();
+    oldBase.dispose();
     this.heatOfThisForce = true;
     const t = overlayTexture(m.W, m.H);
     (t.image.data as Uint8Array).set(mask);
     t.magFilter = t.minFilter = LinearFilter;
     t.needsUpdate = true;
     u.eruptionMask.value = t;
+    const base = overlayTexture(m.W, m.H);
+    const px = base.image.data as Uint8Array;
+    for (let i = 0; i < m.W * m.H; i++) {
+      px[i * 4] = m.heights[i];
+      px[i * 4 + 1] = 255;
+    }
+    u.eruptionBase.value = base;
     this.requestRender();
   }
 

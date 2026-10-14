@@ -7,8 +7,11 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 ## Who does what
 
 - **The milestone session** (Claude Code, the dedicated machine): everything except the page — the core, the water, the
-  generator, the Rust ports, adopting Codex's investigations, the documents. It reviews every PR, merges into `dev`
-  through the merge queue, releases to `main`, and owns the decision numbers, `docs/STATUS.md` and `docs/HANDOFF.md`.
+  generator, the Rust ports, adopting Codex's investigations, the documents. It owns the decision numbers,
+  `docs/STATUS.md` and `docs/HANDOFF.md`.
+- **The planning session** (Claude Code, the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14): the
+  coordination. It merges every "ready to merge" into `dev`, releases to `main`, settles cross-session questions on
+  #236, and answers design questions that Kyler's recorded decisions settle, sending only the rest to him.
 - **The page session** (Claude Code, branch `feature/page`): the page and its design — the editor's interface,
   `Editor.tsx` and its split. Nobody else edits those files.
 - **The renderer session** (Claude Code, Kyler's PC): `src/render3d/`, the look and moving water.
@@ -23,11 +26,16 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 
 ## Labels and Kyler
 
-- `hold`: never merge. `needs-kyler`: waits on Kyler; never merge while it's on. `approved`: Kyler approved the
-  human-facing result. Each session labels its own PRs.
-- Everything that needs Kyler carries `needs-kyler`: the PR, or a small issue with the question in a few lines.
-- Kyler never reviews code, only what players see, hear or feel. Claude sessions review code.
-- Sessions talk on the pinned Coordination issue (#236), not through Kyler.
+- Kyler is done testing and giving feedback (D484, 2026-10-14): Claude completes the project without him. Claude
+  sessions review code and judge what players see, hear and feel (in a real browser, with a separate reviewer agent for
+  looks, and probe batches for the game).
+- `hold`: never merge. `needs-kyler` holds only design-direction questions (one issue each: the question, 2–4 options, a
+  recommended default that work proceeds on) and the things only Kyler's account can do. Each session labels its own PRs.
+- An owning session judges its PR; a different session merges it (D484): post "ready to merge" on #236 with your verdict
+  and captures on the PR; the planning session checks them and green CI, then merges. The planning session's own PRs
+  are merged by the milestone session after a fresh sub-agent's review.
+- Sessions talk on the pinned Coordination issue (#236), not through Kyler. Design questions go there to the planning
+  session first.
 
 ## How to work
 

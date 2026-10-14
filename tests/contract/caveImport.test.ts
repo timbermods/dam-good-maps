@@ -13,6 +13,8 @@ import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { storedWater } from "../../src/core/format/world";
 import type { JsonObject } from "../../src/core/format/json";
 import { toMapObject } from "../../src/core/features/build";
+import { mapDroughtLine } from "../../src/core/doc/droughtLine";
+import { WATER_BODY } from "../../src/core/analysis/walk";
 import { CAVE_REFUSALS, cavesOf } from "../../src/core/sim/stackWater";
 import { TICKS_PER_DAY } from "../../src/core/sim/water";
 import { HazardRun, hazardSoil } from "../../src/core/sim/weather";
@@ -141,6 +143,13 @@ describe("an imported map with caves or overhangs", () => {
         expect(under(w.stack!)).toBeLessThanOrEqual(under(from.stack!));
       }
       expect(prev).toBeLessThan(top(from.depth));
+      // the drought line, read from that last day seen from above: the shore of the water left, on its tiles
+      const last = drought.water().depth;
+      const line = mapDroughtLine(s, last, 3, from);
+      expect(line.refused).toBeNull();
+      expect(line.line.count).toBeGreaterThan(0);
+      for (let k = 0; k < line.line.count; k++) expect(last[line.line.tile[k]]).toBeGreaterThan(WATER_BODY);
+      for (let k = 0; k < line.bed.count; k++) expect(last[line.bed.tile[k]]).toBeLessThanOrEqual(WATER_BODY);
       const soil = hazardSoil(s.built.waterModel, s.built.heights, drought.water(), s.built.entities.map(toMapObject));
       expect(soil.moisture.length).toBe(N);
       drought.dispose();
