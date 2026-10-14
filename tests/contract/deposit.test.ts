@@ -98,6 +98,16 @@ describe("Rust Deposit",()=>{
    expect(changed,`Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
   }
  });
+ test("a working area leaving only a little free ground still gets a fan on it (D356; review of #348)",()=>{
+  // (all its free ground would be given, leaving nowhere to lay: the water brings it all instead)
+  const m=plain();m.heights.fill(9);const area=new Uint8Array(4096);
+  for(let y=29;y<=31;y++)for(let x=29;x<=31;x++)area[y*64+x]=255;
+  for(const power of [0,70]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:1,power,size:8},{path:[{x:30,y:30}]},null,area);run.finishAll();
+   let changed=0,outside=0;for(let i=0;i<h.length;i++)if(run.map.heights[i]!==h[i]){changed++;if(!area[i])outside++;}
+   expect(changed,`Power ${power}`).toBeGreaterThan(0);expect(outside).toBe(0);
+  }
+ });
  test("one-line refusals leave all input bytes unchanged",()=>{
   const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
   expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");

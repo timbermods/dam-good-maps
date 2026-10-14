@@ -469,7 +469,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   took lies a level deep on the nearest free ground inside the circle, and where its outline has too little ground
   above the Floor to take (a lake's bed, the map's lowest ground), the water brings the rest of a small fan's
   sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
-  take sediment from"). Wet outlets keep their bed; objects ride or are buried,
+  take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
   none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
   lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
   page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),

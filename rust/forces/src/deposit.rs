@@ -269,12 +269,10 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     }
     offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
     let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
-    // (an outline with no ground above the Floor to take, a lake's bed or the map's lowest ground: the water brings
-    // the fan's sediment, a small one, so the click is never refused (D356) and nothing outside the outline changes,
-    // #341; conserved whenever the outline has ground to give)
-    // (where the outline's donors fall short of the least fan, the water makes up the rest: it refuses only where no
-    // ground in the outline is free to lay on, below)
-    let brought=donor_capacity<9;
+    // (where the outline's donors fall short of the least fan, a lake's bed or the map's lowest ground, the water makes
+    // up the rest, so a click is never refused for want of ground (D356) and nothing outside the outline changes,
+    // #341; conserved whenever the outline has ground enough to give)
+    let mut brought=donor_capacity<9;
     let budget=if brought{capacity.max(9).min(minimum)}else{capacity.max(9).min(supply).min(donor_capacity)};
     let mut bed=before.heights.clone();let mut remaining=budget;
     for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);bed[d.i]-=cut as u8;remaining-=cut;}
@@ -282,8 +280,11 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     // A force never refuses a click (D356): where no fan body fits in its outline, the material it took lies a
     // level deep on the free ground nearest where it is placed.
     if budget>0&&add.iter().all(|&v|v==0){
-        let mut free:Vec<(usize,f64)>=(0..n).filter(|&i|room[i]>0&&outlet[i]==0&&bed[i]==before.heights[i]&&(before.heights[i] as f64)<map.ceiling)
-            .map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
+        let free_of=|bed:&[u8]|->Vec<(usize,f64)>{(0..n).filter(|&i|room[i]>0&&outlet[i]==0&&bed[i]==before.heights[i]&&(before.heights[i] as f64)<map.ceiling)
+            .map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect()};
+        let mut free=free_of(&bed);
+        // (the outline's only free ground all given: the water brings it all instead, takes nothing, and lays it there)
+        if free.is_empty(){bed=before.heights.clone();donors.clear();brought=true;free=free_of(&bed);}
         free.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
         for (i,_) in free.into_iter().take(budget){add[i]=1;}
     }

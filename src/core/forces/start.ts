@@ -211,7 +211,13 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   // a Rift or Deposit that found nothing to move says why: the Rust names the Floor (a Rift) or the
   // working area (a Deposit) for any ground it may not touch, the layer showing's included
   const blame = (why: string): string => {
-    if (req.verb === "deposit" && why.includes("the working area leaves nothing") && !inside) return hidden;
+    if (req.verb === "deposit" && why.includes("the working area leaves nothing")) {
+      // (the layer showing is why when the ground drawn is hidden by it inside the working area, as a Rift's is)
+      if (!inside) return hidden;
+      const p0 = req.path[0];
+      const t: [number, number] = [Math.round(p0.x), Math.round(p0.y)];
+      return cut !== null && inMap(t) && inside[at(t)] && base.heights[at(t)] > cut ? hidden : why;
+    }
     if (req.verb !== "rift" || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;
