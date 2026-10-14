@@ -13,6 +13,7 @@ import type { SelectMode } from "../select";
 import type { LayerKind } from "../panels";
 import type { Verb } from "../../core/forces/op";
 import type { Hazard } from "../../core/sim/weather";
+import type { EntityInfo } from "../../worker/session";
 
 /** Where the focus was: the map, or a button of the header or the hints (found again by its words). */
 type Focus = { on: "map" } | { on: "button"; within: string; name: string } | null;
@@ -26,6 +27,12 @@ export interface UiState {
   turn: number;
   selecting: SelectMode | null;
   selection: { W: number; H: number; tiles: number[] };
+  /** The Select row's Level number and Max water depth. */
+  level: number | null;
+  maxDepth: number;
+  /** A source picked (where, to be picked again with its strength as the map has it) or an object picked. */
+  pickedSource: { x: number; y: number } | null;
+  pickedObject: EntityInfo | null;
   carve: CarveUi;
   crater: CraterUi;
   erupt: EruptUi;
@@ -99,6 +106,10 @@ export function takeUi(ed: Ed): UiState {
     turn: ed.turnRef.current,
     selecting: ed.selectingRef.current,
     selection: { W: sel.W, H: sel.H, tiles: sel.tiles() },
+    level: ed.flattenRef.current,
+    maxDepth: ed.maxDepthRef.current,
+    pickedSource: ed.pickedRef.current ? { x: ed.pickedRef.current.x, y: ed.pickedRef.current.y } : null,
+    pickedObject: ed.pickedObjectRef.current,
     carve: { ...ed.carveUiRef.current },
     crater: { ...ed.craterUiRef.current },
     erupt: { ...ed.eruptUiRef.current },
@@ -138,6 +149,11 @@ export function putUiBack(ed: Ed, s: UiState): void {
   ed.setSelecting(s.selecting);
   if (ed.selection.current.W === s.selection.W && ed.selection.current.H === s.selection.H) ed.selection.current.apply(s.selection.tiles, "set");
   ed.setSelectionTick((n) => n + 1);
+  ed.setFlattenTo(s.level);
+  ed.setMaxDepth(s.maxDepth);
+  // (after the tool: picking one puts a picked source or object away)
+  if (s.pickedSource) ed.pickTile(s.pickedSource.x, s.pickedSource.y);
+  else if (s.pickedObject) ed.setPickedObject(s.pickedObject);
   ed.setShowHistory(s.showHistory);
   ed.setDotOpen(s.dotOpen);
   ed.setLayer(s.layer);

@@ -5,7 +5,7 @@
 // were when it ends or Esc ends it, at any moment; and the player's own input stays out while it plays.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu, waitForEditor } from "./open";
+import { centreOn, openEditor, openFileMenu, waitForEditor } from "./open";
 
 const SPEC = "s=4242&z=96&d=n&t=highlands";
 
@@ -198,4 +198,70 @@ test("the first visit's hint offers the tour, and watching it leaves the hints a
   await expect(hints.getByRole("listitem")).toHaveCount(3);
   await expect(hints.getByRole("button", { name: "Watch a 20-second tour" })).toBeVisible();
   expect(await state(page)).toEqual(before);
+});
+
+test("a picked source with its changed strength, and the Select row's Level number, come back after the tour and after Esc", async ({ page }) => {
+  test.setTimeout(300_000);
+  // (as the sources spec picks one: markers on, seen from above)
+  await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await openEditor(page, SPEC);
+  await page.getByRole("button", { name: "Top-down" }).click();
+  await page.waitForTimeout(500);
+  // a source on dry, level ground clear of every object and bar (as the sources spec finds one)
+  const at = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const st = (window.dgmEditor!.info().features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+    const onMap = (x: number, y: number) => {
+      const p = window.dgmEditor!.tileToClient(x, y);
+      return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
+    };
+    for (let y = 16; y < m.H - 16; y++)
+      for (let x = 16; x < m.W - 16; x++) {
+        if (Math.hypot(x - st[0], y - st[1]) < 16) continue;
+        const h0 = m.heights[y * m.W + x];
+        let ok = onMap(x, y) && onMap(x + 2, y);
+        for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 5 && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
+        for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= 7 && Math.abs(m.entities.y[k] - y) <= 7) ok = false;
+        if (ok) return [x, y] as [number, number];
+      }
+    return null;
+  });
+  expect(at).not.toBeNull();
+  await centreOn(page, at![0], at![1]);
+  await page.evaluate(
+    ([x, y]) => window.dgmEditor!.edit({ op: "placeEntity", params: { id: "00000000-0000-4000-8000-000000000001", template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never, "Place water source"),
+    at!,
+  );
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const tile = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), at!);
+  // Select's Level number: Ctrl+click on the land, then the source picked and its strength changed
+  await page.keyboard.down("Control");
+  await page.mouse.click(tile.x + 30, tile.y + 30);
+  await page.keyboard.up("Control");
+  await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.held())).level).not.toBeNull();
+  await page.mouse.move(tile.x + 3, tile.y);
+  await page.mouse.move(tile.x, tile.y);
+  await page.mouse.click(tile.x, tile.y);
+  const strength = page.getByRole("combobox", { name: "Strength" });
+  await expect(strength).toBeVisible();
+  await strength.selectOption({ index: 2 });
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const held = await page.evaluate(() => window.dgmEditor!.held());
+  expect(held.source).not.toBeNull();
+  const shown = await strength.inputValue();
+  const before = await state(page);
+
+  for (const how of ["plays through", "Esc"]) {
+    await startFromMenu(page);
+    if (how === "Esc") {
+      await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.info().history.length)) > 0, { timeout: 120_000 }).toBe(true);
+      await page.keyboard.press("Escape");
+    }
+    await expect(page.locator(".tour")).toHaveCount(0, { timeout: 120_000 });
+    await waitForEditor(page);
+    expect(await state(page), how).toEqual(before);
+    await expect.poll(() => page.evaluate(() => window.dgmEditor!.held()), { timeout: 60_000 }).toEqual(held);
+    await expect(page.getByRole("combobox", { name: "Strength" })).toHaveValue(shown);
+  }
 });

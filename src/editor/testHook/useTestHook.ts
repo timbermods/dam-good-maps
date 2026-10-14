@@ -39,6 +39,7 @@ export function useTestHook(ed: Ed): TestHookSlice {
       // (the water's pace, for tests that wait on it: the page has no Speed control, Kyler, 2026-10-04)
       waterSpeed: (speed) => ed.player.current?.setSpeed(speed),
       // (the water has played into place: what the header's dot reads as no longer "Settling…")
+      held: () => ({ level: ed.flattenRef.current, maxDepth: ed.maxDepthRef.current, source: ed.pickedRef.current ? [ed.pickedRef.current.x, ed.pickedRef.current.y] : null, object: ed.pickedObjectRef.current?.id ?? null }),
       waterSettled: () => (ed.player.current?.progress ?? null) === null,
       gesture: () => {
         const g = gestureRef.current;

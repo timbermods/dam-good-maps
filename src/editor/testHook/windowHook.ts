@@ -59,6 +59,9 @@ declare global {
       /** The water's pace after an edit (tests only: the page always plays it at Normal). */
       waterSpeed(speed: "slower" | "normal" | "faster" | "instant"): void;
       waterSettled(): boolean;
+      /** What the editor holds besides its tool (tests of the tour): the Select row's Level number and Max water depth, a source
+       *  picked (where) and an object picked (its id). */
+      held(): { level: number | null; maxDepth: number; source: [number, number] | null; object: string | null };
 
     };
   }
