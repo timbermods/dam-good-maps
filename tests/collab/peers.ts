@@ -116,8 +116,8 @@ export async function assertRelayOnly(...pages: Page[]) {
   for (const page of pages) {
     await call(page, "whenConnected");
     // asked now, so that after a renewal it is the pair in use that is checked
-    const pair = await call(page, "pair");
-    expect(pair).toEqual({ local: "relay", remote: "relay" });
+    // (a browser that has just restarted ICE may take a moment to name the new pair)
+    await expect.poll(() => call(page, "pair"), { timeout: 15_000 }).toEqual({ local: "relay", remote: "relay" });
     const types = await call(page, "candidateTypes");
     expect(types.local).toEqual(["relay"]);
     expect(types.remote.every((t) => t === "relay")).toBe(true);
