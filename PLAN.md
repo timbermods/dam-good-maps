@@ -231,7 +231,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
-| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 48–256 (the game allows 4–256; under 48 there is no room for a start zone and a river). Non-square is allowed. |
+| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed. Maps too small or thin for a start are refused with a one-line reason until the generator shapes for them (D357 part 2). |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
@@ -881,7 +881,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 256; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`
@@ -1144,7 +1144,7 @@ current.
 
 `MapSpec` is a TypeScript type (`core/spec/mapspec.ts`) and a versioned JSON Schema (`core/spec/mapspec.schema.json`).
 The settings panel, the URL codec and Claude all produce it. It holds `specVersion` (1), `generatorVersion`, the `seed`
-(uint32; text seeds are hashed, §5.1), the `size` (48–256 for generation), the `theme` (the preset the settings started
+(uint32; text seeds are hashed, §5.1), the `size` (4–512 a side), the `theme` (the preset the settings started
 from, §6: "any" or one of the six), the `archetype` (the theme: no per-theme layout planner, §8), an optional
 `premise`, `designedFor` (easy, normal or hard), `settings` (every §5 value, complete, never a diff), `colonies`
 (`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5) and `accepted` (`{attempt, candidate}`,
