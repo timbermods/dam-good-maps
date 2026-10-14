@@ -4,6 +4,8 @@ import { useEffect } from "preact/hooks";
 import { FORCES, forceShown } from "../TopBar";
 import { keyHabit } from "../forceSize";
 import { BRUSHES } from "../brushes";
+import { showHelpPanel } from "../help/helpPanels";
+import { SHORTCUTS_KEY } from "../help/shortcuts";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
@@ -108,6 +110,12 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       if (forceKey && painter.current && forceShown(forceKey.id)) {
         ev.preventDefault();
         pickTop(toolRef.current === forceKey.id ? null : forceKey.id);
+        return;
+      }
+      // ?: the shortcuts panel (File → Keyboard shortcuts)
+      if (ev.key === SHORTCUTS_KEY && !mod && !ev.altKey) {
+        ev.preventDefault();
+        showHelpPanel("shortcuts");
         return;
       }
       // M: Markers on or off, as the Show row's toggle does it

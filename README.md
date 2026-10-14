@@ -6,6 +6,17 @@ the browser and save a `.timber` file that loads and plays in Timberborn 1.1.
 The website is in progress, following [ROADMAP.md](ROADMAP.md). Once Pages is on, it is served at
 <https://timbermods.github.io/dam-good-maps/>.
 
+## Install a map
+
+1. Press **Save to Timberborn**. The first time, pick `Documents\Timberborn\Maps` (Chrome and Edge).
+2. In another browser, **Download .timber** and move the file to `Documents\Timberborn\Maps` (on macOS
+   `~/Documents/Timberborn/Maps`).
+3. If the download is a `.zip` (the Claude artifact edition), extract it first and move the `.timber` inside.
+4. Start Timberborn, choose **New game** and pick the map.
+
+**File → Help** in the editor says the same. To report a problem, use **File → Report a problem**, or
+[open an issue](https://github.com/timbermods/dam-good-maps/issues/new/choose).
+
 The generator:
 - A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
@@ -77,11 +88,13 @@ The editor:
   **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Shift+1 to 9 goes back to it.
+- **File → Keyboard shortcuts**, or ?, lists every key.
 - Ctrl+Z undoes and Ctrl+Y redoes. Each stroke or placement is one step.
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Download project**, **Download .timber**, **Clear everything** and **About**.
+  has **Open…**, **Download project**, **Download .timber**, **Clear everything**, **About**, **Keyboard shortcuts**,
+  **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
 - **Generate** makes a new map. **Cancel** stops it and keeps the map you were on.
