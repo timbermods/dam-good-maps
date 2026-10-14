@@ -43,7 +43,8 @@ import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, mapObjects, objectTile, waterModel } from "../core/sim/model";
 import { toMapObject } from "../core/features/build";
-import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
+import { soilObjects } from "../core/sim/columns";
+import { computeDaySoil, soilUnderRoofs, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { surfaceOf } from "../core/format/world";
 import { changedRect } from "../render3d/mesh";
@@ -293,15 +294,19 @@ function soilOf(s: MapSession): SoilView {
   const b = s.built;
   const roofed = s.roofedTiles;
   if (!s.showsStoredWater && !roofed.size) return soilView(b.moisture, b.soilContamination);
-  const file = s.storedSoil();
-  if (s.showsStoredWater) return soilView(file.moisture, file.contamination);
-  const moisture = Float32Array.from(b.moisture);
-  const contamination = Float32Array.from(b.soilContamination);
-  for (const i of roofed) {
-    moisture[i] = file.moisture[i];
-    contamination[i] = file.contamination[i];
+  if (s.showsStoredWater) {
+    const file = s.storedSoil();
+    return soilView(file.moisture, file.contamination);
   }
-  return soilView(moisture, contamination);
+  return underRoofs(s, soilView(b.moisture, b.soilContamination));
+}
+
+/** Under an edited import's roofs the file's own soil stays (its water there is the file's, not the settle's): the map's soil,
+ *  and every held day's, take its values on the roofed tiles, so the soil does not jump between Day 0 and day 1. Changes `soil`. */
+function underRoofs(s: MapSession, soil: SoilView): SoilView {
+  const roofed = s.roofedTiles;
+  if (!roofed.size || s.showsStoredWater) return soil;
+  return soilUnderRoofs(soil, roofed, s.storedSoil());
 }
 
 /** What the sent soil depends on: the settled soil arrays, or the file's. */
@@ -994,7 +999,7 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
   if (going) return going;
   const { x: W, y: H } = s.size;
   // (the map the soil reads, sent to the soil worker once for the run: the game's soil takes Thorns and the soil per run top from its objects)
-  run.base ??= { W, H, heights: s.built.heights.slice(), objects: s.built.entities.map(toMapObject) };
+  run.base ??= { W, H, heights: s.built.heights.slice(), objects: soilObjects(s.built.entities.map(toMapObject)) };
   const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination };
   const p = (async () => {
     let soil: SoilView;
@@ -1004,6 +1009,7 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
       // (the worker failed: here, once, rather than no withering)
       soil = computeDaySoil(job);
     }
+    underRoofs(s, soil);
     run.soils[day] = soil;
     run.soilJobs.delete(day);
     return soil;
