@@ -19,6 +19,20 @@ a seam for the water notes. `tests/contract/collabUndo.test.ts` and the nightly 
 check on an undo's footprint (the seam is there), the water note (#406), the page's Undo and Redo keys on `undoPlan` and
 `redoPlan`, display names and feature places in the lines, a measure at 256� with the busy windows.
 
+**Built: the session layer** (piece 5; brief §2–§9): `core/collab/peer.ts` `CollabPeer` (the host or the guest beside the map; claims ordered through the host with the log;
+undo and redo; the water notes worked out on each peer for its own area; presence; the pause, rejoin with a new code and the whole-map change), `wire.ts` with
+`session.schema.json` (the versioned messages), `worker/collab.ts` (the peer in the worker beside `session.ts`, three hooks there and one line in `generator.worker.ts`),
+`src/collab/client.ts` (`CollabClient`: the transport, the worker and the page’s API, documented in `src/collab/README.md`). Tests:
+`tests/contract/collabSession.test.ts` (two peers over an in-memory link: interleaved edits, a force, claims, notes, undo blocked and freed, presence, a drop
+mid-stroke and a request whose answer was lost, rejoin with a new code, desync, the host’s whole-map change; the .timber bytes compared at the settled points) and
+`tests/collab/session.spec.ts` (two separate browsers over the real function and a relay, each with the app’s worker and a generated map, driven through the
+client: edits from both sides identical, a claim refusing the other’s edit, a killed browser pausing the other and a new code carrying on, the relay going away and
+back, the host opening another map, the function unreachable said plainly). Left for the page piece: Invite, join, the words, claims outlines and their toggle, notes with
+“See it”, presence drawn with “Go to”, Your maps entries from the `keep` events, routing every edit/Select/force/undo/redo through `submit` while a session is
+live (and the force preview on `previewForce`), the busy windows at 256² measured with two painters. Left in the layer: the worker still runs its own live-water
+preview beside the session’s settle (the page piece decides whether to hold it while a session is live); a checkpoint is the whole project (see “What falls short”);
+Firefox as the second peer runs only in CI here (Playwright’s Firefox does not start on this machine), where cross-browser sameness (gate 1) is tested for the first time.
+
 ## Pieces
 
 1. **The host-ordered log and replicas. Built** (#397). The log entry, the host that orders and the replicas that apply
@@ -29,11 +43,11 @@ check on an undo's footprint (the seam is there), the water note (#406), the pag
 3. **Undo with two players. Built** (this PR, on part 1's records): `undo` and `redo` are entries of the ordered log naming the
    author's own action; each player's last 50, blocked and named where an active later action of either player is built on the
    same ground, and freed when the blocker is undone; the water re-settles in the background with a seam for the water notes.
-4. **Presence**: cursor, tool, stroke, camera, Go to.
-5. **The transport and the room-code function**: the managed TURN relay and the Worker (D431), reconnects, a dropped peer
-   (the session pauses read-only, brief §7).
+4. **Presence. Built** in the session layer (cursor, tool, stroke, camera as events; the page draws them and "Go to").
+5. **The transport and the room-code function. Built** (#392): the managed TURN relay and the Worker (D431). **The session layer. Built**
+   (this PR): joining, rejoin, a dropped peer (the session pauses read-only, brief §7), claims, undo and presence over it.
 6. **The page**: Invite, join, claims, outlines, notes, presence, Your maps, the force preview on `previewForce`'s basis. **Its first task: busy windows at 256².** Forces, Select, placement strokes, Fill, Remove unfed water and weathering strokes (and any edit naming a generated tree or bush) wait for the settled water, a from-scratch settle (about 9 s) after any water-changing entry, so they stay busy while the other player paints. Measure it with two painters. If they starve, the author's page records the water and trees it showed (as single-player does for shore, pools and moist, with `weatherKeep` skipping when `keep` is given), so only forces wait.
-7. **Two-browser tests over the real relay** (D486): separate browser instances, reconnects, conflicts, a dropped peer.
+7. **Two-browser tests over the real relay** (D486): the connection’s (#392) and the session layer’s (`tests/collab/session.spec.ts`: reconnects, a conflict, a dropped peer) are built; the page’s own UI test comes with the page.
 
 ## What part 1 settled
 

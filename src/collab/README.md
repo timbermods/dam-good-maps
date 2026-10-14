@@ -70,3 +70,66 @@ https and wss origins); WebRTC to the relay is not governed by `connect-src`.
 
 Tests: `tests/unit/collab*.test.ts` (rules, relay login, framing) and `tests/collab/` (two real browsers over the relay;
 see `collab-worker/README.md`).
+
+## The session: `CollabClient` (`client.ts`)
+
+The page's one object (D486): it owns the transport above and talks to the session in the generator worker
+(`worker/collab.ts`, where the map lives; the logic is `core/collab/peer.ts`). No UI; the page shows the words the events
+carry. The worker is `api.collab` of the generator worker's Comlink proxy.
+
+```ts
+const collab = new CollabClient(api.collab);                    // { baseUrl } for a local function, { transport } for timings (tests)
+collab.on("code", ({ code, expiresInMs }) => showInvite(code));
+const { code, sessionId } = await collab.startHosting({ name: "Emma" });   // the map open in the editor is the session's
+await collab.join(typedCode, { name: "Bo" });                   // resolves once the host's map is open here (events: open, joined)
+await collab.leave();                                           // the other is told at once; the session is kept (a `keep` event)
+```
+
+**Asking.** While a session is live the page orders every change through the client instead of applying it to the map:
+`submit(command)` for an `edit` (operations and a label), a `select` action or a `force` (a gesture with its seed; see
+`core/collab/types.ts`), `undo()`, `redo()`, `claim(command)`, `previewForce(gesture)` (on the settled water; busy while it
+settles), `reachRefusal(ops)` (the line shown before release: "Reaches into Ada's area") and `reachBand(ops)` (the tiles to
+draw in the other's colour while a stroke is drawn), `plan(redo)` (what Undo does and the blocked ones it skips, each named),
+`claimsView()` (runs of each player's ground and the offers waiting), `presence({ cursor, tool, view, stroke })` in tiles
+(throttled to 15 a second in the worker; a stroke is `{ id, points, end }`, `stroke: null` cancels), `resync()` (the guest, after a
+`desync`), `project()` (a copy to save while paused) and `state()`. Every answer is the host's: `{ ok: true, seq }` or
+`{ ok: false, reason }` in one plain line (with `busy` while the water settles: the client asks again after the settle by itself,
+`block` naming what is in the way of an undo). The map then changes: the `update` event is an edit's answer; `open` is a whole
+other map (the guest's copy of the host's, after a join or rejoin).
+
+**The host's whole-map change (§9).** `announceNewMap(name)` before generating or loading ("<name> is opening a new map" reaches the
+guest at once), then, once the new map is open in the editor, `newMap(name)` (or `cancelNewMap()` if it will not be opened). Both players get a `keep` for the previous map.
+
+**Events** (`client.on(type, fn)`; all in `ClientEvents`):
+
+| event | when | the page shows |
+| --- | --- | --- |
+| `code` | an Invite was made | the short code |
+| `joined`, `resumed` | the other is in; they came back | "Bo joined" |
+| `paused` | the other left or the connection dropped (`message`) | "Bo has left. Waiting to reconnect." The map is read-only; every `submit` and `claim` answers with the same line until `resumed` |
+| `keep` | at a pause, at Leave, and the old map on a whole-map change (`project`, `name`, `sessionId`, `role`, `seq`) | puts the project in Your maps (below) |
+| `presence`, `stroke`, `presence-cleared` | the other's cursor, tool, camera and stroke before release (name and colour included) | their cursor; fades a second after the last; "Go to" reads `view` |
+| `claims` | a claim, release, offer, accept or decline stood (`by`, `command`, `offer`) | the outlines; an offer to answer |
+| `note` | the other's edits changed the water in your area (`note.centre` is where "See it" goes, `text` the words) | a quiet note |
+| `applied` | an entry was applied (`author`, `mine`, `kind`, `label`) | |
+| `refused` | a request or claim was refused (`reason`, `block`) | the reason |
+| `opening`, `new-map` | the host is opening another map; it is open | "Ada is opening a new map" |
+| `desync` | this copy (or the other's) differs from the host's (`reason`) | loudly; the guest's page offers `resync()` |
+| `settled` | the water settled for entry `seq` and matched the host's | |
+| `unavailable` | the room-code function or the relay is down | "Collaboration is unavailable right now: ..."; editing alone is unaffected |
+| `failed`, `error` | a connection that could not be made or kept; a message that could not be used (e.g. another version) | the sentence |
+
+**Your maps (§8).** `keep.project` is a normal project (`MapSession.project()`): it opens alone later like any map. Your maps keeps
+projects as `YourMapEntry` + bytes through `src/platform/yourMaps.ts` `put(entry, project, expected)`; the page makes the entry
+(`id`, `name`, `kind`, times, `thumbnail`, `revision`, `bytes`, `size`) as for any save, and may use `collab-<sessionId>` as the id so
+a session is one entry that keeps updating (the old map of a whole-map change gets its own).
+
+**Pausing and rejoining (§7).** A drop pauses both sides, read-only. The host calls `startHosting` again (same session id, a new
+code); the guest `join`s with the new code (and its `sessionId` if its page was reloaded). The guest always gets the host's latest
+checkpoint, its records and claims, and the entries since, never the history, whether it is the same browser or a new one.
+A request that had not been answered when the connection dropped is answered `{ ok: false, reason: "The connection dropped before
+this was confirmed" }`; if the host had ordered it, it is in the map after the rejoin.
+
+**What the page must do** (the page piece): route every edit, Select action, force, undo and redo through `submit`/`undo`/`redo`
+while `state()` is not null (a session exists, even while the host waits for the guest); show the events; put `keep` projects in Your maps; fade presence; draw claims.
+`tests/collab/session.spec.ts` drives all of this from a page with no UI (`tests/collab/sessionPage.ts`).

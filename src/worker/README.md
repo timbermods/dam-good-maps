@@ -24,6 +24,7 @@ says are the core's (D342).
 - `session.ts`: the editor's open map: opening, edits, undo, the live water (D133, D197), weather runs
   (`core/sim/weather.ts` `HazardRun`) and the drought line read from the drought's last day (`watchDroughtLine`),
   the instant and background checks, export, the forces' runs.
+- `collab.ts`: collaborative editing's side in the worker (`api.collab`): the core's `CollabPeer` beside the open map, the water's background settle paced between messages, the page told what changed. It reaches the map only through `session.ts` `collabSession`, `collabOpen` and `collabChanged`. The page's client is `src/collab/client.ts`.
 - `checks.worker.ts`: the checks' own worker, a replica of the open map that follows the editor's log (`follow`,
   `replicaCheck`).
 

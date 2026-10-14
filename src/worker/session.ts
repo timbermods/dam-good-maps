@@ -1118,6 +1118,22 @@ export function openProject(bytes: Uint8Array): SessionOpen {
   return opened(s);
 }
 
+// the collaboration layer (worker/collab.ts) reaches the open map through these three; nothing else here knows it exists
+/** The open map, or null. */
+export function collabSession(): MapSession | null {
+  return session;
+}
+
+/** Show this map (the host's copy a guest was sent) as any map opened in the editor. */
+export function collabOpen(s: MapSession): SessionOpen {
+  return opened(s);
+}
+
+/** The collaboration layer applied entries to (or settled the water of) the open map: the page's update. */
+export function collabChanged(): SessionUpdate {
+  return changed(need(), true, [], performance.now());
+}
+
 export function closeSession(): void {
   discardSessionWork();
   session = null;

@@ -74,10 +74,10 @@ export class CollabReplica {
   }
 
   /** A replica restored from a snapshot: the host's checkpoint opened as the project, its records, then the entries since applied. */
-  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void): CollabReplica {
+  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void, names?: Names): CollabReplica {
     const session = MapSession.open(decodeProject(snapshot.project));
     configure?.(session);
-    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure);
+    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure, names);
     const done = r.adopt(snapshot, false);
     if (!done.ok) throw new Error(done.reason);
     return r;
