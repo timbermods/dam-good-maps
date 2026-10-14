@@ -499,21 +499,42 @@ const START_CARRY = 28;
 /** The tiles an applied entry wrote, for the claims check: the host's record (`writes`, exact for the ground,
  *  the objects the players made and the lakes) and the generated trees and bushes it names. Those are not in
  *  the record's patch (they follow from the settled water), but a crater's knockdown ring or a quake can fell
- *  or move them on ground that did not change: `fallen:` and `entity:` keys are read to the tiles those
- *  objects stand on, as the host's map shows them now. (A generated object a force removed outright is gone
- *  from the map; it lost its ground, which is in `writes`.) */
-export function writtenBy(record: { writes: Mask; keys: Iterable<string> }, session: Pick<MapSession, "built">): Mask {
+ *  or move them on ground that did not change, and a force can remove them outright: `fallen:` and `entity:`
+ *  keys are read to the tiles those objects stand on, as the host's map shows them now, and for the ones that
+ *  are gone now, where they stood before the step (`before`: asked for the ids that are missing; `peekBefore`
+ *  answers it on the host, whose map already shows the step). */
+export function writtenBy(record: { writes: Mask; keys: Iterable<string> }, session: Pick<MapSession, "built">, before?: (ids: string[]) => Map<string, number[]>): Mask {
   const { W, H } = session.built;
   const out = new Mask(W * H).union(record.writes);
   let byId: Map<string, EntitySpec> | null = null;
+  const gone: string[] = [];
   for (const key of record.keys) {
     const id = key.startsWith("fallen:") ? key.slice(7) : key.startsWith("entity:") ? key.slice(7) : null;
     if (id === null) continue;
     byId ??= new Map(session.built.entities.map((e) => [e.id, e]));
     const e = byId.get(id);
     if (e) for (const i of forceEntityTiles(W, H, e)) out.add(i);
+    else gone.push(id);
   }
+  if (gone.length && before) for (const tiles of before(gone).values()) for (const i of tiles) out.add(i);
   return out;
+}
+
+/** Where the objects `ids` stood before the step the host's map shows (the latest): the step is taken back
+ *  for a moment and put again, which leaves the map, its history and its numbers as they were. */
+export function peekBefore(session: MapSession): (ids: string[]) => Map<string, number[]> {
+  return (ids) => {
+    const out = new Map<string, number[]>();
+    if (!session.undo()) return out;
+    try {
+      const want = new Set(ids);
+      const { W, H } = session.built;
+      for (const e of session.built.entities) if (want.has(e.id)) out.set(e.id, forceEntityTiles(W, H, e));
+    } finally {
+      if (!session.redo()) throw new Error("A step could not be put again after looking behind it");
+    }
+    return out;
+  };
 }
 
 /** What an edit would write, by trying it: applied to `session` and taken back, so the numbers of its
@@ -522,13 +543,20 @@ export function writtenBy(record: { writes: Mask; keys: Iterable<string> }, sess
  *  reason the edit itself would be refused for (not a claims matter). */
 export function trialWrites(session: MapSession, ops: EditOp | readonly EditOp[]): { ok: true; writes: Mask } | { ok: false; reason: string } {
   const list = Array.isArray(ops) ? (ops as readonly EditOp[]) : [ops as EditOp];
-  const before = captureState(session);
+  const earlier = captureState(session);
   const mark = session.mark();
   const r = list.length === 1 ? session.apply(list[0]) : session.applyAll(list);
   if (!r.ok) return { ok: false, reason: r.errors[0] ?? "The edit could not be applied" };
   const applied = session.lastStepOps().map((o) => ({ op: o.op, params: structuredClone(o.params) }) as EditOp);
-  const t = touchesOf(applied, before, captureState(session));
-  const writes = writtenBy({ writes: t.writes, keys: t.keys }, session);
+  const t = touchesOf(applied, earlier, captureState(session));
+  const stood = (ids: string[]) => {
+    const out = new Map<string, number[]>();
+    const want = new Set(ids);
+    for (const [id, tiles] of earlier.derived) if (want.has(id)) out.set(id, tiles);
+    for (const e of earlier.entities) if (want.has(e.id)) out.set(e.id, forceEntityTiles(earlier.W, earlier.H, e));
+    return out;
+  };
+  const writes = writtenBy({ writes: t.writes, keys: t.keys }, session, stood);
   const step = session.stepSince(mark);
   if (!step || !session.takeBack(step)) throw new Error("A trial edit could not be taken back");
   return { ok: true, writes };

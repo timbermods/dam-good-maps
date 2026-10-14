@@ -21,7 +21,7 @@
 import type { EditOp } from "../doc/ops";
 import type { MapSession } from "../doc/session";
 import { checkSchema } from "../spec/schema";
-import { bandOf, trialWrites, writtenBy, type Footprint, type TileMask } from "./footprint";
+import { bandOf, peekBefore, trialWrites, writtenBy, type Footprint, type TileMask } from "./footprint";
 import type { EntryCheck } from "./host";
 import schema from "./claims.schema.json" with { type: "json" };
 
@@ -353,6 +353,6 @@ export function claimsCheck(claims: () => ClaimsState, roleOf: (author: string) 
     const theirs = otherPlayer(by);
     const c = claims();
     if (!c.owner.some((o) => o === CODE[theirs])) return null;
-    return refusalForWrites(writtenBy({ writes: record.writes, keys: record.keys }, state.session), c, by, typeof names === "function" ? names() : names);
+    return refusalForWrites(writtenBy({ writes: record.writes, keys: record.keys }, state.session, peekBefore(state.session)), c, by, typeof names === "function" ? names() : names);
   };
 }
