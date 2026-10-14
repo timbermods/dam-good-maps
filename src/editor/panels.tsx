@@ -36,7 +36,8 @@ export const LAYER_COLORS: Record<"badwater" | "soil" | "roofed", [number, numbe
   roofed: [170, 90, 220, 150],
 };
 
-const swatchOf = (c: readonly number[]) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${(c[3] / 255).toFixed(2)})`;
+/** The overlay's colour without its transparency: a swatch looks the same on any panel, light or dark. */
+const swatchOf = (c: readonly number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 
 /** One line of a caption: the colour as it lies on the map, then what it is. */
 function CaptionRow({ color, children }: { color: readonly number[]; children: string }) {

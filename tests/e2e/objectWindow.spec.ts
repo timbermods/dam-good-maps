@@ -179,7 +179,7 @@ test("the Badwater caption shows its colours as swatches, not their names", asyn
   await expect(caption).not.toContainText(/brown/i);
 });
 
-test("a plant brush takes the one key habit: { } its Size, [ ] and F+scroll its Density, F and the mouse its Size", async ({ page }) => {
+test("trees, bushes and thorns take the one key habit: { } its Size, [ ] and F+scroll its Density, F and the mouse its Size", async ({ page }) => {
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();

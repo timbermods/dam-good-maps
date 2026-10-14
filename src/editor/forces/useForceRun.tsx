@@ -521,7 +521,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
     const forcePicked = ed.toolRef.current;
     const brushTool = brushToolRef.current;
-    // a plant brush in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer
+    // a tree, bush or thorn in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer
     const held = ed.shelfRef.current;
     if (held?.paint && !forcePicked && !brushTool) {
       const now = ed.shelfOptionsRef.current.paint[held.paint];
@@ -651,7 +651,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     pointerWords.current!.sizing(`size ${size}`);
   }
 
-  /** F went down with a plant brush in hand and the pointer on the map: its ring stays, and its Size follows the
+  /** F went down with a tree, bush or thorn in hand and the pointer on the map: its ring stays, and its Size follows the
    *  pointer's distance from the ring's middle. */
   function startPaintSize() {
     const held = ed.shelfRef.current;

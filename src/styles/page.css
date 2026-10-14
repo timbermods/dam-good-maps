@@ -871,6 +871,7 @@
   flex: none;
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -880,7 +881,9 @@
 
 .ow-close {
   flex: none;
-  padding: 0 2px;
+  width: 16px;
+  padding: 0;
+  text-align: center;
   line-height: 15px;
   font-size: 1rem;
 }
@@ -1529,7 +1532,7 @@
 }
 
 .object-window .cell-body .segmented > button {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
   padding-left: 4px;
   padding-right: 4px;

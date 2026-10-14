@@ -178,6 +178,8 @@ export function useShelf(ed: Ed): ShelfSlice {
   function shelfWord(problem: string | null) {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
+    // (a tree, bush or thorn has its ring: no "Place here" over it, only the reason it can't grow there)
+    if (item.paint && !problem) return setShapeNote(null);
     setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
