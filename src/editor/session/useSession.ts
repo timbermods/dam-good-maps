@@ -32,6 +32,13 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+export interface EditorNote {
+  kind: "error" | "info";
+  text: string;
+  keep?: boolean;
+}
+
 export interface SessionSlice {
   api: Remote<GeneratorApi>;
   info: SessionInfo;
@@ -70,8 +77,8 @@ export interface SessionSlice {
   setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
-  setMessage: Dispatch<StateUpdater<{ kind: "error" | "info"; text: string } | null>>;
-  message: { kind: "error" | "info"; text: string } | null;
+  setMessage: Dispatch<StateUpdater<EditorNote | null>>;
+  message: EditorNote | null;
   setHover: Dispatch<StateUpdater<string | null>>;
   hover: string | null;
   showHistory: boolean;
@@ -231,7 +238,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
   const [busy, setBusy] = useState(0);
-  const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
+  const [message, setMessage] = useState<EditorNote | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
@@ -243,14 +250,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
   // (info) stays until its × or the next kept edit.
-  const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.text.startsWith("Not saved") ? null : m));
+  const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.keep ? null : m));
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (!["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) dropRefusal();
     };
     // (a press on the note itself is its ×'s: that closes it)
     const press = (e: PointerEvent) => {
-      if (!(e.target instanceof Element && e.target.closest(".editor-message"))) dropRefusal();
+      // (the camera's drags, middle and right, leave it: a player looks around to see why)
+      if (e.button === 0 && !(e.target instanceof Element && e.target.closest(".editor-message"))) dropRefusal();
     };
     window.addEventListener("pointerdown", press, true);
     window.addEventListener("keydown", key, true);

@@ -42,7 +42,7 @@ export function useSave(ed: Ed): SaveSlice {
       const r = await enqueue(() => api.exportTimber(true, onProgress));
       if (!r.ok) {
         setDotOpen(true);
-        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
+        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}`, keep: true });
         return;
       }
       // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
@@ -55,7 +55,7 @@ export function useSave(ed: Ed): SaveSlice {
       const v = await saveToTimberborn(r.bytes, fileName);
       setMessage({ kind: "info", text: v.via === "fsa" ? `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` : `Saved ${fileName}. Move the file to Documents\\Timberborn\\Maps, then start a new game and pick the map.` });
     } catch (e) {
-      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e), keep: true });
     } finally {
       setSaving(null);
     }

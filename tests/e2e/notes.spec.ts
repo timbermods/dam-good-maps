@@ -30,10 +30,17 @@ test("a refusal's note goes with the next press, key, tool or view change; the f
   await page.keyboard.press("Digit3");
   await expect(note).toHaveCount(0);
 
-  // a press on the map
+  // a press on the map; the camera's drags (right, middle) leave the note, so a player can look around to see why
   await refused(page);
   await expect(note).toHaveCount(1);
   const c = await page.evaluate(() => window.dgmEditor!.tileToClient(30, 30));
+  await page.mouse.move(c.x, c.y);
+  for (const button of ["right", "middle"] as const) {
+    await page.mouse.down({ button });
+    await page.mouse.move(c.x + 20, c.y + 10);
+    await page.mouse.up({ button });
+    await expect(note).toHaveCount(1);
+  }
   await page.mouse.click(c.x, c.y);
   await expect(note).toHaveCount(0);
 

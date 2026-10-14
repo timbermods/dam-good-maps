@@ -295,8 +295,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
-  takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·
-  Ctrl+Z to undo** (a painted Lift still drawn: **Esc to cancel**).
+  takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
+  **Ctrl+Z** undoes; a painted Lift still drawn: **Esc** cancels), none written in the panel.
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
@@ -593,7 +593,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   refuses to start outside the area ("Outside the working area: clear it to work there"); a brush's Clear takes only the
   sources wholly inside. Water is never locked. Ctrl+drag with a brush out makes the selection, and on release the
   same brush keeps painting inside it. With a brush or force picked, the Select row shrinks to a chip ("Working
-  inside 40 × 40 · Esc to clear"). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
+  inside 40 × 40"; its tooltip says Esc clears it). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
   it replays exactly.
 
 (D180, D182, D183, D184, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259, D322.)

@@ -87,7 +87,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         } else {
           const b = infoRef.current.views.find((v) => v.slot === slot);
           if (b) r.glideTo(b);
-          else flashNote(`No view kept in ${slot} yet`);
+          else flashNote(`No view ${slot} saved yet`);
         }
         return;
       }

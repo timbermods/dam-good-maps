@@ -806,6 +806,13 @@ button.linkish.ow-close:focus-visible,
 /* in a message the same: 6px in from the right edge, level with its first line */
 .tool-dock > .dock-notes > * > button[aria-label="Dismiss"] {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 7px;
+  right: 5px;
+}
+
+/* an object's window: its name line is the × button's height, so the hover square shows whole */
+.object-window .cell-head.ow-head {
+  height: 24px;
+  line-height: 24px;
+  overflow: visible;
 }
