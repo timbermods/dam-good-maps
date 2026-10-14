@@ -156,13 +156,35 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
       for (let i = 0; i < s.depth.length; i++) if (s.depth[i] > 0.05 && s.contamination[i] > 0.5) n++;
       return n;
     });
+  // (the ground the veins are drawn on: the soil the renderer holds, contaminated where the day's water poisons it)
+  const poisoned = () =>
+    page.evaluate(() => {
+      const c = window.dgm3d!.renderer.mapState()!.soil!.contamination;
+      let n = 0;
+      for (let i = 0; i < c.length; i++) if (c[i] > 0) n++;
+      return n;
+    });
   const bad0 = await bad();
+  const poisoned0 = await poisoned();
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(day).toHaveText(/^Day \d+$/);
   await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
   expect(await bad()).toBeGreaterThan(bad0 + 50);
+  // the held day's soil is what is drawn (the Badtide view's veins, D133): more of the ground is contaminated than on
+  // Day 0, and Day 0 shows the map's own ground again
+  expect(await poisoned()).toBeGreaterThan(poisoned0 + 50);
+  const lastBad = Number((await day.textContent())!.replace(/\D/g, ""));
+  await bar.getByRole("button", { name: "Day back" }).click();
+  await expect(day).toHaveText(`Day ${lastBad - 1}`);
+  await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
+  await day.dblclick();
+  await field.fill("0");
+  await field.press("Enter");
+  await expect(day).toHaveText("Day 0");
+  await expect.poll(poisoned, { timeout: 60_000 }).toBe(poisoned0);
   await bar.getByRole("button", { name: "Badtide" }).click();
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
   await endsAtMapWater(page);
+  expect(await poisoned()).toBe(poisoned0);
   expect(errors).toEqual([]);
 });
