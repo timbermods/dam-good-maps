@@ -500,7 +500,8 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
   const dry20 = await withered();
   await goTo(24);
-  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThanOrEqual(dry20);
+  // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
   // Standard stays as it is, and High again draws the same plants withered
   const dry24 = await withered();
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
