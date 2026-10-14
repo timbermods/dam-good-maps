@@ -881,7 +881,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 256; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`
