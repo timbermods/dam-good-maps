@@ -59,7 +59,7 @@ import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, sk
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
-import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -67,7 +67,7 @@ import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
-import { flagsDigest, witheredCount, witheredEntities } from "./seasons";
+import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
@@ -281,11 +281,6 @@ export class MapRenderer {
    *  and ruins follow the ground painted or dragged over theirs (live editing). */
   private objectGround: Uint8Array | null = null;
   private objectsMoved = false;
-  /** The map's own soil while a drought or badtide day is held (the visible seasons, D250), or null; and a digest of the
-   *  withered plants drawn now ("" for none), so a day that withers the same plants builds nothing again. */
-  private seasonOwn: SoilView | null = null;
-  private seasonSig = "";
-  private seasonCount = 0;
   private overlay: DataTexture | null = null;
   private marks: DataTexture | null = null;
   /** Where the contamination outline runs (**Markers**): `contaminationEdges` of the tile data. */
@@ -386,6 +381,12 @@ export class MapRenderer {
   /** The shadow tops of the whole map (redone round each change), and the objects' casters. */
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
+  /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
+   *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
+  private withered: Int32Array | null = null;
+  private drawnObjects: EntityView | null = null;
+  private witheredCount = 0;
+  private casterTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -784,6 +785,7 @@ export class MapRenderer {
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.applyWithered();
         }
       }
     }
@@ -798,7 +800,7 @@ export class MapRenderer {
       this.ghost = null;
     }
     this.governor?.hold(performance.now());
-    this.refreshSeasons();
+    this.applyWithered();
     this.requestRender();
     if (was !== tier) this.tellLook();
   }
@@ -1252,7 +1254,7 @@ export class MapRenderer {
   private bakeShadows(onlyCasters = false): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
-    const casters = objectCasters(m.W, m.H, m.entities);
+    const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
     const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
     this.casters = casters;
     if (rect === null) return;
@@ -1286,11 +1288,7 @@ export class MapRenderer {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    // (the High look's visible seasons: the plants a held day's soil withers are drawn dead, the map's own never changed)
-    const shown = this.seasonal(e);
-    this.seasonSig = shown === e ? "" : flagsDigest(shown.flags);
-    this.seasonCount = shown === e ? 0 : witheredCount(shown, e);
-    const { group, instances } = buildEntities(shown, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
+    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
@@ -1301,7 +1299,8 @@ export class MapRenderer {
     this.showMarkerObjects();
     const m = this.map!;
     m.entities = e;
-    this.high?.objectsBuilt(group, shown);
+    this.high?.objectsBuilt(group, e);
+    this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
     const old = m.source.cutout ?? new Map<number, number>();
@@ -1558,40 +1557,50 @@ export class MapRenderer {
     if (!m) return;
     m.soil = soil;
     this.bakeTiles();
-    this.refreshSeasons();
     this.requestRender();
     this.onMapChange?.();
   }
 
-  /** The Weather view's visible seasons (D250 (1), D286 (4)): while a drought or a badtide day is held, `own` is the map's
-   *  own soil, and the plants that live on it but not on the day's soil (the soil shown now) are drawn withered, in the High
-   *  look only (Standard stays as it is). Null puts every plant back. */
-  setSeasons(own: SoilView | null): void {
-    this.seasonOwn = own;
-    this.refreshSeasons();
+  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
+   *  null to put them back: drawn withered in the High look (D250, D286 (4)); Standard and the map's own plants stay as
+   *  they are. Plants change state in place, so stepping from day to day costs a layout, not a rebuild. */
+  setWithered(tiles: Int32Array | null): void {
+    this.withered = tiles;
+    this.applyWithered();
   }
 
   /** How many plants are drawn withered by the held day now (the tests read it). */
   get witheredPlants(): number {
-    return this.seasonCount;
+    return this.witheredCount;
   }
 
-  /** The objects as drawn: the map's own, or with the withered plants flagged dead. */
-  private seasonal(e: EntityView): EntityView {
-    const m = this.map;
-    if (!this.seasonOwn || !m?.soil || !this.high || this.lookNow === "standard" || this.lookNow === "light") return e;
-    return witheredEntities(e, this.seasonOwn, m.soil, m.W);
-  }
-
-  /** Draw the objects again when the withered plants (or the look) changed. */
-  private refreshSeasons(): void {
+  private applyWithered(): void {
     const m = this.map;
     if (!m) return;
-    const shown = this.seasonal(m.entities);
-    if ((shown === m.entities ? "" : flagsDigest(shown.flags)) === this.seasonSig) return;
-    this.setEntitiesInner(m.entities);
-    this.bakeShadows(true);
+    let flags = m.entities.flags;
+    let count = 0;
+    const tiles = this.withered;
+    if (tiles?.length && this.high && this.lookNow !== "standard" && this.lookNow !== "light") {
+      const dead = new Uint8Array(m.W * m.H);
+      for (const t of tiles) dead[t] = 1;
+      const e = m.entities;
+      flags = e.flags.slice();
+      for (let k = 0; k < e.count; k++) {
+        if (flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
+        if (!isPlant(e.templates[e.template[k]])) continue;
+        flags[k] |= DEAD;
+        count++;
+      }
+    }
+    this.witheredCount = count;
+    const was = this.drawnObjects;
+    this.drawnObjects = count ? { ...m.entities, flags } : null;
+    const changed = this.high?.setPlantsDead(flags) ?? 0;
+    if (!changed && !was === !this.drawnObjects) return;
     this.requestRender();
+    // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => this.bakeShadows(true), 300);
   }
 
   updateEntities(e: EntityView): void {

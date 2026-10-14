@@ -186,7 +186,7 @@ export interface SessionSlice {
   draftWater: { current: WaterView | null };
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
-  showSoil: (soil: SoilView) => void;
+  showSoil: (soil: SoilView, withered?: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
 }
@@ -504,8 +504,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       journey.current?.flush();
       player.current?.skip();
       setWeather(hazard);
-      // (the High look's visible seasons: the plants the day's soil withers, against the map's own soil)
-      renderer.current?.setSeasons(mirror.current.soil ?? null);
       heldDay.current = null;
       setWeatherDay(null);
       // (working from the click until the day shows: the box's fill starts empty)
@@ -520,7 +518,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(null);
       setWeatherTarget(null);
       mirror.current.daySoil = null;
-      renderer.current?.setSeasons(null);
+      renderer.current?.setWithered(null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
@@ -552,8 +550,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (h) void api.showWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
-  function showSoil(soil: SoilView) {
+  function showSoil(soil: SoilView, withered?: Int32Array) {
     renderer.current?.updateSoil(soil);
+    // (the plants the days up to this one have surely killed, drawn withered in High, D250)
+    renderer.current?.setWithered(withered ?? null);
   }
 
   function applyUpdate(u: SessionUpdate): void {

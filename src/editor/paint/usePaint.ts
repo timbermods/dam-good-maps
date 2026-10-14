@@ -333,7 +333,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           showWater(e.water, false, true);
           if (e.soil) {
             mirror.current.daySoil = e.soil;
-            showSoil(e.soil);
+            showSoil(e.soil, e.withered);
           }
           ed.rehover();
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));

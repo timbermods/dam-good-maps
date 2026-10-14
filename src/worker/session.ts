@@ -35,6 +35,7 @@ import { droughtLineRefusal, mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
+import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/withering";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
 import type { Validation } from "../core/validate/checks";
 import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
@@ -536,7 +537,7 @@ export type EditorEvent =
   | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean }
   /** A weather run (a drought, then the water coming back): its frames, the day, and the end (the
    *  map's own water, exactly). */
-  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView }
+  | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array }
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
@@ -813,6 +814,10 @@ interface WeatherRun {
   /** Each day's water as the simulation leaves it, from day 1 on (day 0 is the map's own): only the water is kept;
    *  the ground's moisture and contamination are worked out for the day shown (Kyler, 2026-10-04). */
   kept: (WaterDay | null)[];
+  /** Each day's soil as the view holds it (worked out as the day is kept; day 0 is the map's own), and the plants that
+   *  can wither (the visible seasons). */
+  soils: SoilView[];
+  plants: Plant[] | null;
   /** How far the run simulates: the day to show, or the default last day for the background's work. */
   want: number;
   /** The day the page asked to see, while it waits for it, or null. */
@@ -851,7 +856,7 @@ function runFor(hazard: Hazard): WeatherRun {
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
   const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
   const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -900,9 +905,37 @@ function sendWeatherDay(run: WeatherRun, day: number): void {
   const s = run.session;
   const k = run.kept[day];
   if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
+  const soil = daySoil(run, day);
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil, withered: witheredTiles(run, day) });
+}
+
+/** The soil of a kept day, worked out once (day 0: the map's own). */
+function daySoil(run: WeatherRun, day: number): SoilView {
+  const have = run.soils[day];
+  if (have) return have;
+  const s = run.session;
+  const k = run.kept[day];
   const { x: W, y: H } = s.size;
-  const soil = soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil });
+  const soil = !k || day === 0 ? soilOf(s) : soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
+  run.soils[day] = soil;
+  return soil;
+}
+
+/** The tiles of the plants the days up to `day` have surely killed (core/sim/withering.ts: the game's timers, not the
+ *  editor's instant rule): the page draws them withered, the map's own plants never changed. */
+function witheredTiles(run: WeatherRun, day: number): Int32Array {
+  if (day < 1) return new Int32Array(0);
+  const s = run.session;
+  const W = s.size.x;
+  run.plants ??= entityInputs(s.built.entities)
+    .filter((e) => WITHERING_SPECIES.has(e.template) && !(e as { dead?: boolean }).dead && e.x >= 0 && e.y >= 0 && e.x < W && e.y < s.size.y)
+    .map((e) => ({ tile: e.y * W + e.x, template: e.template }));
+  const days: SoilView[] = [];
+  for (let d = 0; d <= day; d++) days.push(daySoil(run, d));
+  const dead = witheredByDay(days, run.plants);
+  const tiles: number[] = [];
+  run.plants.forEach((p, n) => dead[n] && tiles.push(p.tile));
+  return Int32Array.from(tiles);
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -935,6 +968,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       if (!currentRun(run)) return;
       const { D, C, out } = run.sim;
       run.kept.push({ depth: D.slice(), contamination: C.slice(), out: out.slice() });
+      daySoil(run, day);
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {

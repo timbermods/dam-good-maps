@@ -467,8 +467,8 @@ test("every basin source's highlight reads, under its own water too, in High as 
   expect(errors).toEqual([]);
 });
 
-test("High's visible seasons: a held drought or badtide day withers the plants whose ground dried or was poisoned; Standard and Day 0 do not (D250)", async ({ page }) => {
-  test.setTimeout(240_000);
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -478,27 +478,49 @@ test("High's visible seasons: a held drought or badtide day withers the plants w
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const day = bar.locator(".day-label");
-  expect(await withered()).toBe(0);
-  for (const hazard of ["Drought", "Badtide"]) {
-    await bar.getByRole("button", { name: hazard }).click();
-    await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
-    await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
-    const last = await withered();
-    // Standard stays as it is, and High again draws the same plants withered
-    await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
-    expect(await withered()).toBe(0);
-    await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
-    expect(await withered()).toBe(last);
-    // Day 0 is the map's own ground: nothing withers
+  const goTo = async (n: number) => {
     await day.dblclick();
-    await bar.getByRole("textbox", { name: "Day" }).fill("0");
+    await bar.getByRole("textbox", { name: "Day" }).fill(String(n));
     await bar.getByRole("textbox", { name: "Day" }).press("Enter");
-    await expect(day).toHaveText("Day 0");
-    await expect.poll(withered, { timeout: 60_000 }).toBe(0);
-    // back out of the view: every plant as the map has it
-    await bar.getByRole("button", { name: hazard }).click();
-    await expect(bar.getByRole("button", { name: hazard })).toHaveAttribute("aria-pressed", "false");
-    expect(await withered()).toBe(0);
-  }
+    await expect(day).toHaveText(`Day ${n}`);
+    await expect(day).not.toHaveClass(/counting/, { timeout: 240_000 });
+  };
+  expect(await withered()).toBe(0);
+
+  // a normal drought's last day (9): the ground is dry, but no pine, birch or oak has been dry 14 days (1.1 x 13, 11, 15)
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect(day).toHaveText("Day 9");
+  await page.waitForTimeout(1000);
+  expect(await withered()).toBe(0);
+  // a longer one: by day 20 the plants that have stood dry for 1.1 x their days are dead, and stay dead going on
+  await goTo(20);
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  const dry20 = await withered();
+  await goTo(24);
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThanOrEqual(dry20);
+  // Standard stays as it is, and High again draws the same plants withered
+  const dry24 = await withered();
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+  expect(await withered()).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+  expect(await withered()).toBe(dry24);
+  // back to day 9 and Day 0: nothing dead yet
+  await goTo(9);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await goTo(0);
+  expect(await withered()).toBe(0);
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
+
+  // a badtide: any contamination kills at once, so the plants on poisoned ground are dead; Day 0 has none
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  await goTo(0);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
+  expect(await withered()).toBe(0);
   expect(errors).toEqual([]);
 });
