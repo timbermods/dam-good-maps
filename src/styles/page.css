@@ -2058,6 +2058,36 @@
   opacity: 0.45;
 }
 
+/* an Unstable Core's moment against the hazard held (D339): a quiet line under the row, out of its flow so the row never
+   changes shape; lit in the mint while the day shown is one the core may go off on */
+.editor-view .water-bar > .core-moment {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.core-moment > span {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.core-moment > span.now {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 /* Drought or Badtide held: lit in the mint like every pressed toggle (the row's plate colour had covered the fill) */
 .editor-view .water-bar > button[aria-pressed="true"] {
   background: var(--accent);
