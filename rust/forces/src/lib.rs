@@ -1090,7 +1090,7 @@ const FORCE_ERRORS: [&str; 35] = [
     "the Floor leaves no ground to drop here",
     "Invalid Deposit settings",
     "Draw Deposit on the map",
-    "Keep or the working area leaves nothing to take sediment from",
+    "the working area leaves nothing to take sediment from",
     "the Floor leaves nothing to take sediment from",
     "the map leaves no room for sediment here",
 ];

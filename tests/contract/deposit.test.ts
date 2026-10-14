@@ -88,6 +88,16 @@ describe("Rust Deposit",()=>{
    expect(changed,`Power ${power} Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
   }
  });
+ test("ground held outside a working area never stops a fan the outline has room for (D356; review of #348)",()=>{
+  // (a flat at the Floor, the area leaving out x ≥ 33, the ground out there higher: the water still brings a fan)
+  const m=plain(),h0=m.heights[30*64+30];m.heights.fill(h0);for(let i=0;i<4096;i++)if(i%64>=33)m.heights[i]=h0+2;
+  const area=new Uint8Array(4096);for(let i=0;i<4096;i++)area[i]=i%64<33?255:0;
+  for(const size of [8,30]){
+   const h=m.heights.slice(),run=new DepositRun(m,{...DEPOSIT_DEFAULTS,floor:h0,power:70,size},{path:[{x:30,y:30}]},null,area);run.finishAll();
+   let changed=0,outside=0;for(let i=0;i<h.length;i++)if(run.map.heights[i]!==h[i]){changed++;if(i%64>=33||Math.hypot(i%64-30,Math.floor(i/64)-30)>size/2)outside++;}
+   expect(changed,`Size ${size}`).toBeGreaterThanOrEqual(9);expect(outside).toBe(0);
+  }
+ });
  test("one-line refusals leave all input bytes unchanged",()=>{
   const m=plain(),h=m.heights.slice();expect(()=>new DepositRun(m,{...DEPOSIT_DEFAULTS,power:-1},{path})).toThrow("a deposit's power is 0 to 100");
   expect(()=>new DepositRun(m,DEPOSIT_DEFAULTS,{path:[]})).toThrow("Draw Deposit on the map");
