@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { selectTool, Selection, type SelectHost } from "../../src/editor/select";
 import { columnMask, type TerrainSource } from "../../src/render3d/mesh";
 import { LAYERS } from "../../src/render3d/model";
-import { aimedHeights, hasTopAt, pickTerrain } from "../../src/render3d/pick";
+import { aimedHeights, hasTopAt, pickEditing, pickHeightfield, pickTerrain } from "../../src/render3d/pick";
 
 const W = 8;
 const H = 4;
@@ -29,21 +29,37 @@ describe("an editing tool over a roof", () => {
   const src = terrain((x, y, z) => (y === 0 ? z < 3 : x >= 2 && x <= 5 ? z < 3 || (z >= 6 && z < 9) : z < 9));
   const mask = (i: number) => columnMask(src, i);
   // a ray in over the open ground and under the roof, landing on the cave's floor
-  const ray = { origin: [3.5, 4.2, 1.5] as [number, number, number], direction: [0, -0.4, -1].map((v) => v / Math.hypot(0, 0.4, 1)) as [number, number, number] };
+  const ray = { origin: [3.5, 4.2, 1.5] as [number, number, number], direction: [0, -0.25, -1].map((v) => v / Math.hypot(0, 0.25, 1)) as [number, number, number] };
 
   it("the pick lands on the floor under the roof, the tile's top is the roof's", () => {
     const hit = pickTerrain(ray, W, H, mask)!;
-    expect([hit.x, hit.y, hit.face, hit.level]).toEqual([3, 1, "top", 3]);
-    expect(src.heights[1 * W + 3]).toBe(9);
+    expect([hit.x, hit.y, hit.face, hit.level]).toEqual([3, 3, "top", 3]);
+    expect(src.heights[3 * W + 3]).toBe(9);
+  });
+
+  it("through the cave's mouth an editing tool's pick is the tile in front, as the heightfield picker's, and the layer cut clamps it", () => {
+    const seen = pickTerrain(ray, W, H, mask)!;
+    const editing = pickEditing(ray, W, H, src.heights)!;
+    const dev = pickHeightfield(ray, W, H, src.heights)!;
+    // the roof column's wall at the mouth (tile 3, 1), not the inner tile whose floor is seen (3, 3)
+    expect([editing.x, editing.y, editing.face]).toEqual([dev.x, dev.y, dev.face]);
+    expect([editing.x, editing.y]).toEqual([3, 1]);
+    expect([seen.x, seen.y]).toEqual([3, 3]);
+    expect(editing.point.map((v, k) => Math.abs(v - dev.point[k]) < 1e-9)).toEqual([true, true, true]);
+    // under a cut at 5 the ray lands on the cut over the roof column, as the clamped heightfield does
+    const cutHeights = src.heights.map((v) => Math.min(v, 5));
+    const cut = pickEditing(ray, W, H, src.heights, 5)!;
+    const devCut = pickHeightfield(ray, W, H, cutHeights)!;
+    expect([cut.x, cut.y, cut.face]).toEqual([devCut.x, devCut.y, devCut.face]);
   });
 
   it("brushes and forces aim at the tile's top (the same heights); only the Select ring follows the run", () => {
     const hit = pickTerrain(ray, W, H, mask)!;
-    const at = { x: 3.5, y: 1.5, radius: 1 };
+    const at = { x: 3.5, y: 3.5, radius: 1 };
     expect(aimedHeights(src.heights, W, H, src.columns, mask, hit.level!, at, false)).toBe(src.heights);
     const ring = aimedHeights(src.heights, W, H, src.columns, mask, hit.level!, at, true);
-    expect(ring[1 * W + 3]).toBe(3);
-    expect(src.heights[1 * W + 3]).toBe(9);
+    expect(ring[3 * W + 3]).toBe(3);
+    expect(src.heights[3 * W + 3]).toBe(9);
   });
 
   it("the tops under a layer cut: the cave's floor, the cut where rock crosses it, the plain tile flattened", () => {

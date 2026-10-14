@@ -76,6 +76,14 @@ export function hasTopAt(height: number, mask: number | undefined, level: number
   return runTops(mask & cutKeep(cut)).includes(level);
 }
 
+/** The editing tools' pick (brushes, forces, the shelf, the start, sources): the tile's top, exactly the heightfield
+ *  picker's hit (heights clamped by the cut), until step 3 puts them on runs. A ray through a cave's mouth lands on the
+ *  tile in front (the roof's wall), not on the inner tile whose floor is seen: a cursor is where the pointer is (D321, 13)
+ *  and a stroke changes the tile's top. Only the Select tool and the hover highlight use `pickTerrain`. */
+export function pickEditing(ray: Ray, W: number, H: number, heights: Uint8Array, cut?: number): TileHit | null {
+  return pickTerrain(ray, W, H, (i) => (heights[i] >= 31 ? 0x7fffffff : (1 << heights[i]) - 1), { cut });
+}
+
 /** The mask of the voxels a layer cut leaves (cut: the level, or null for none). */
 export function cutKeep(cut: number | null | undefined): number {
   return cut === null || cut === undefined || cut >= 31 ? -1 : (1 << Math.max(0, cut)) - 1;

@@ -283,6 +283,8 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   };
   return {
     wantsAlt: true,
+    // (it aims at the ground seen, a cave's floor through its mouth)
+    voxel: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
       // Ctrl+click: the tile's level, as the Level number, and nothing else: it never creates or changes
