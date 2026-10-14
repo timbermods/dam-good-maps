@@ -87,9 +87,12 @@ check on an undo's footprint (the seam is there), the water note (#406), the pag
   answer is that safety net, so a gap in the rule would show.
 - **Redo** has the same rule, plus: it is blocked while the ground the action was made on has changed since (an action it was
   built on was taken back or brought back while it was taken back). The undone ones keep their place in the history and in a
-  rejoin's records. A new edit does not clear them (unlike single-player's redo stack): the rule alone decides.
-- **The plan** (`undoPlan`, `redoPlan`): the latest standing action nothing is built on, with the blocked ones skipped and
-  named; the page sends the target. The host decides again on its own state, so a late block is refused with its line.
+  rejoin's records. **A new edit does not clear Redo** (unlike single-player's redo stack): the rule alone decides, and the page
+  piece decides how to show that. Undo takes the action done last (made or brought back), not the highest sequence.
+- **The plan** (`undoPlan`, `redoPlan`): the action done last that nothing is built on, with the blocked ones skipped and
+  named; the page sends the target. The host decides again on its own state, so a late block is refused with its line, and
+  a refusal the rule did not foresee (a claim, the safety net) carries its target so the plans skip it until the next entry.
+  The refusal carries the block (author id, tool, place, sequence, box) for the page to word with display names.
 - **Water.** An undo never waits for the water. It is an ordinary entry in the settled batch; its effect record
   (`records.get(seq).undoes`) and the replica's `applied` event are the seam for the water notes (#406).
 
@@ -110,10 +113,12 @@ check on an undo's footprint (the seam is there), the water note (#406), the pag
   `applyBatch` does not mark its step. The numbers still agree between peers because every peer takes the same steps.
 - **The undo is conservative where the build is not yet audited:** a force, a feature operation and a water operation touch the
   whole map, so any of them blocks every earlier action of either player, and they block until they are undone themselves.
-- **Names and places.** Refusal lines use the player id and a compass word ("in the north-east"; `Names` lets the page supply
-  display names). The brief's "at the north lake" needs the page's feature names; a place by feature is the page piece's.
-- **An undo replays the log to rebuild** (`MapSession.followLog`: the whole log is copied and the build is incremental from the
-  previous map). Fast at 48²; at 256² with a long log it should be measured with the busy windows (piece 6).
+- **Names and places.** Refusal lines use the player id (`Names` lets the page supply display names) and `placeOf`: the feature
+  that holds most of the writes ("at the north lake", "by the start"), else a compass word. A river's footprint is its bounding
+  box, so a long diagonal river can hold writes that are not near its water.
+- **Speed depends on the milestone's step-splice.** An undo rebuilds from the whole log (`MapSession.followLog`: the log is
+  copied and the build is incremental from the previous map). Fast at 48²; at 256² with a long log it needs the core step-splice
+  the milestone is building for single-player and collab undo alike, and a measure with the busy windows (piece 6).
 - **Try another** (a force that replaces another) is not an entry kind, so undoing one that restored the replaced force is not
   covered.
 - **Claims** are not built: the undo's effect passes through the seam like any entry (its writes are the action's), so a claim

@@ -12,7 +12,7 @@ import type { MapSession } from "../doc/session";
 import { MapApplier, recordToJson, type RecordJson, type TransactionRecord } from "./transaction";
 import { RecordLog, type FencesJson } from "./records";
 import type { Command, Commit, LogEntry, MapOpening, PlayerId, Reject, Request, Settled, Snapshot } from "./types";
-import { redoPlan, undoPlan, type HistoryPlan, type Names } from "./undo";
+import { redoPlan, undoPlan, type HistoryPlan, type Names, type Veto } from "./undo";
 import { commandProblem, messageProblem } from "./validate";
 import { settledHash } from "./water";
 
@@ -64,6 +64,8 @@ export class CollabHost implements HostView {
   private tail: LogEntry[] = [];
   private saved: { seq: number; project: Uint8Array; records: RecordJson[]; fences: FencesJson };
   private names: Names | undefined;
+  /** The undos and redos the host refused since the last entry it ordered, by author and target: the plans skip them until then. */
+  private refused = new Map<string, string>();
   /** The sequence of the last entry that changed what the players made (a force with no preview, planned before it, is stale). */
   private changedAt = 0;
   /** The sequence the water last settled for and was announced. */
@@ -106,13 +108,18 @@ export class CollabHost implements HostView {
   }
 
   /** What Undo does for `author` now: the action it takes back (null when none can be) and the blocked ones it skips, each named. */
-  undoPlan(author: PlayerId): HistoryPlan {
-    return undoPlan(this.records, author, this.names);
+  undoPlan(author: PlayerId, veto?: Veto): HistoryPlan {
+    return undoPlan(this.records, author, this.names, this.skip(author, veto));
   }
 
   /** What Redo does for `author` now. */
-  redoPlan(author: PlayerId): HistoryPlan {
-    return redoPlan(this.records, author, this.names);
+  redoPlan(author: PlayerId, veto?: Veto): HistoryPlan {
+    return redoPlan(this.records, author, this.names, this.skip(author, veto));
+  }
+
+  /** What the plans skip besides the rule: `veto` (claims answers with a mask test of `r.writes`) and what the host has refused since the last entry. */
+  private skip(author: PlayerId, veto?: Veto): Veto {
+    return (r) => veto?.(r) ?? this.refused.get(`${author}:${r.seq}`) ?? null;
   }
 
   /** The host's own next request for `command`, as the guests' pages make theirs. */
@@ -123,7 +130,7 @@ export class CollabHost implements HostView {
   /** Order a request from `author` (the player the channel it came on belongs to; a request never names its own author). */
   submit(author: PlayerId, request: unknown): Commit | Reject {
     const asked = typeof request === "object" && request !== null ? (request as { counter?: unknown }).counter : undefined;
-    const refuse = (reason: string, busy = false): Reject => ({ kind: "reject", counter: typeof asked === "number" && Number.isInteger(asked) && asked >= 0 ? asked : 0, reason, ...(busy ? { busy: true } : {}) });
+    const refuse = (reason: string, busy = false, more: Partial<Reject> = {}): Reject => ({ kind: "reject", counter: typeof asked === "number" && Number.isInteger(asked) && asked >= 0 ? asked : 0, reason, ...(busy ? { busy: true } : {}), ...more });
     if (!this.roster.has(author)) return refuse("You are not in this session");
     // The request is counted before anything else is checked, so a refused request never leaves the player's
     // next one out of step (the player's page has counted it already); it is not retried under its number.
@@ -144,7 +151,12 @@ export class CollabHost implements HostView {
     if (c.kind === "force" && c.gesture.preview === undefined && this.changedAt > req.baseSeq) return refuse("The map changed while you were drawing: draw the force again on the map as it is now");
     const entry: LogEntry = { kind: "entry", seq: this.seq + 1, epoch: this.epoch, author, baseSeq: req.baseSeq, counter: req.counter, command: c };
     const done = this.applier.apply(entry, { role: "host", check: (record) => this.check(entry, record, this), records: this.records, names: this.names });
-    if (!done.ok) return refuse(done.reason, done.busy);
+    if (!done.ok) {
+      if (c.kind !== "undo" && c.kind !== "redo") return refuse(done.reason, done.busy);
+      this.refused.set(`${author}:${c.target}`, done.reason);
+      return refuse(done.reason, false, { target: c.target, ...(done.block ? { block: done.block } : {}) });
+    }
+    this.refused.clear();
     this.seq = entry.seq;
     if (done.applied) entry.applied = done.applied;
     if (done.needsWater) entry.water = true;
@@ -163,6 +175,7 @@ export class CollabHost implements HostView {
     if (!this.applier.water.pump(ticks)) return null;
     const settled: Settled = { kind: "settled", epoch: this.epoch, seq: this.seq, since: this.settledAt, hash: settledHash(this.session) };
     this.settledAt = this.seq;
+    this.records.settled(settled.since);
     if (this.seq - this.saved.seq >= this.every) {
       this.saved = this.checkpointNow();
       this.tail = [];
@@ -208,6 +221,7 @@ export class CollabHost implements HostView {
     this.settledAt = 0;
     this.tail = [];
     this.records.clear();
+    this.refused.clear();
     this.saved = this.checkpointNow();
     return { opening: { kind: "map-opening", author: this.hostId, name }, commit: { kind: "commit", entry, hash: this.hash() }, previousProject };
   }

@@ -9,22 +9,25 @@
 // Taking an action back (or bringing it back) is blocked while an active later action is built on it.
 
 import { forceLabel } from "../forces/op";
+import type { Box } from "./place";
 import type { TransactionRecord } from "./transaction";
 import type { PlayerId } from "./types";
 
 /** How many actions of each player stay undoable (docs/COLLAB-BRIEF.md §5). */
 export const RECORD_LIMIT = 50;
-/** How many undo and redo effects are kept to name in a settle's batch (they are not actions of their own). */
-const EFFECT_LIMIT = 100;
-
 /** What names an action in a refusal. */
 export interface Who {
   author: PlayerId;
   /** The tool's on-screen name. */
   label: string;
-  /** "in the north-east", or "". */
+  /** "at the north lake", "in the north-east", or "". */
   where: string;
+  /** The box of tiles [x0, y0, x1, y1] the action wrote (null when it reached the whole map or wrote nothing), for the page to show. */
+  box: Box | null;
 }
+
+/** Nobody in particular: the action is no longer in the records, so the line has no one to name. */
+const UNKNOWN: Who = { author: "", label: "", where: "", box: null };
 
 /** Why an action cannot be taken back or brought back now. `on-top`: a later action is built on its ground. `changed`: the
  *  earlier action it was made on has been taken back or brought back since. */
@@ -50,7 +53,7 @@ export const nameOf = (r: TransactionRecord): string => {
 /** Whether `later` is built on `earlier`'s ground: its write mask meets the other's touch mask, or their identity keys overlap. */
 export const builtOn = (earlier: TransactionRecord, later: TransactionRecord): boolean => earlier.writes.intersects(later.touch) || earlier.keys.some((k) => later.keys.includes(k));
 
-const whoOf = (r: TransactionRecord): Who => ({ author: r.author, label: nameOf(r), where: r.where });
+const whoOf = (r: TransactionRecord): Who => ({ author: r.author, label: nameOf(r), where: r.where, box: r.box });
 
 export class RecordLog {
   private list: TransactionRecord[] = [];
@@ -71,6 +74,7 @@ export class RecordLog {
       const old = own[0];
       this.list.splice(this.list.indexOf(old), 1);
       if (old.undoneAt === undefined) this.fence(old);
+      this.pruneFences();
       this.onEvict?.(old);
     }
   }
@@ -92,7 +96,12 @@ export class RecordLog {
   /** What an undo or a redo changed, kept for the water notes of the batch it settles with. */
   addEffect(r: TransactionRecord): void {
     this.effectList.push(r);
-    if (this.effectList.length > EFFECT_LIMIT) this.effectList.shift();
+  }
+
+  /** The water settled for the entries after `since`: the effects of that batch were the water note's to name, and the ones
+   *  before it are not needed any more. Until a settle is announced they are all kept. */
+  settled(since: number): void {
+    this.effectList = this.effectList.filter((r) => r.seq > since);
   }
 
   clear(): void {
@@ -120,16 +129,18 @@ export class RecordLog {
     if (gone) return gone;
     if (r.undoneAt !== undefined && r.shifted?.length) {
       const x = this.get(r.shifted[0]);
-      return { why: "changed", seq: r.shifted[0], ...(x ? whoOf(x) : { author: r.author, label: "an earlier edit", where: "" }) };
+      return { why: "changed", seq: r.shifted[0], ...(x ? whoOf(x) : UNKNOWN) };
     }
     return null;
   }
 
-  /** `r` was taken back (`undoneAt`: the entry that did) or brought back (undefined). The actions made later on the same ground that
+  /** `r` was taken back (`redo` false) or brought back (`redo` true) by the entry `at`. The actions made later on the same ground that
    *  are themselves taken back now rest on ground that changed: they can no longer be brought back unless it changes back. */
-  setUndone(r: TransactionRecord, undoneAt: number | undefined): void {
-    if (undoneAt === undefined) delete r.undoneAt;
-    else r.undoneAt = undoneAt;
+  setUndone(r: TransactionRecord, at: number, redo: boolean): void {
+    if (redo) {
+      delete r.undoneAt;
+      r.redoneAt = at;
+    } else r.undoneAt = at;
     delete r.shifted;
     for (const e of this.list) {
       if (e.seq <= r.seq || e.undoneAt === undefined || !builtOn(r, e)) continue;
@@ -148,13 +159,17 @@ export class RecordLog {
     for (const i of old.touch.tiles()) if (tiles[i] < old.seq) tiles[i] = old.seq;
     for (const k of old.keys) if ((this.fenceKey.get(k) ?? 0) < old.seq) this.fenceKey.set(k, old.seq);
     this.fenceWho.set(old.seq, whoOf(old));
-    if (this.fenceWho.size > 128) this.pruneFences();
   }
 
-  /** Forget who left, for fences that no tile or key refers to any more. */
+  /** A fence blocks only what is earlier than it: once every record kept is later, it can never block anything, so it goes (and
+   *  with it who it was, once nothing refers to it). */
   private pruneFences(): void {
+    const oldest = this.list.reduce((m, r) => Math.min(m, r.seq), Infinity);
+    const tiles = this.fenceTile;
+    if (tiles) for (let i = 0; i < tiles.length; i++) if (tiles[i] && tiles[i] < oldest) tiles[i] = 0;
+    for (const [k, s] of [...this.fenceKey]) if (s < oldest) this.fenceKey.delete(k);
     const live = new Set<number>(this.fenceKey.values());
-    for (const v of this.fenceTile ?? []) if (v) live.add(v);
+    for (const v of tiles ?? []) if (v) live.add(v);
     for (const s of [...this.fenceWho.keys()]) if (!live.has(s)) this.fenceWho.delete(s);
   }
 
@@ -167,7 +182,7 @@ export class RecordLog {
       if (s > r.seq) hit = Math.max(hit, s);
     }
     if (!hit) return null;
-    return { why: "on-top", seq: hit, ...(this.fenceWho.get(hit) ?? { author: r.author, label: "an older edit", where: "" }) };
+    return { why: "on-top", seq: hit, ...(this.fenceWho.get(hit) ?? UNKNOWN) };
   }
 
   fences(): FencesJson {

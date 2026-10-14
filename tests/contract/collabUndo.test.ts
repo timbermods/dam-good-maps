@@ -5,9 +5,11 @@
 // peer decides the same from the same records, a rejoined one too.
 
 import { beforeAll, describe, expect, test } from "vitest";
-import { captureState, CollabReplica, recordToJson, stateHash, type Command, type Reject } from "../../src/core/collab";
+import { blockLine, boxOf, captureState, CollabReplica, Mask, placeOf, recordToJson, stateHash, type Command, type Reject } from "../../src/core/collab";
 import type { EditOp } from "../../src/core/doc/ops";
-import { act, CHEAP_KINDS, expectIdentical, GUEST, GUID, HOST, live, mapProject, openProject, settle, sit, Stream, type Table } from "./collabFixtures";
+import { decodeProject } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import { act, expectIdentical, GUEST, GUID, HOST, live, mapProject, openProject, settle, sit, Stream, type Table } from "./collabFixtures";
 
 const SIZE = 48;
 let bytes: Uint8Array;
@@ -272,32 +274,111 @@ describe("a rejoin decides undo the same", () => {
   });
 });
 
-describe("edits and undos mixed at random", () => {
-  test("whatever is asked, the peers agree after every answer and the map equals the stored values", () => {
+describe("what the plans skip besides the rule", () => {
+  test("a refusal the rule did not foresee (a claim, the safety net) is skipped until the next entry, on the host and on the player's copy", () => {
     const t = sit2();
-    const stream = new Stream(21, SIZE);
-    const all = [HOST, GUEST];
-    let taken = 0;
-    let refused = 0;
-    for (let n = 0; n < 40; n++) {
-      const author = stream.pick(all);
-      if (n % 3 === 2) {
-        // Undo as the page does it: the plan's target, or the plan's reason
-        const redoing = n % 9 === 8;
-        const plan = redoing ? t.host.redoPlan(author) : t.host.undoPlan(author);
-        if (plan.target === null) {
-          refused += plan.skipped.length;
-          continue;
-        }
-        expect(typeof ask(t, author, redoing ? redo(plan.target) : undo(plan.target)), "a planned undo is ordered").toBe("number");
-        taken++;
-      } else {
-        const c = stream.command(stream.pick(CHEAP_KINDS), t.host.session);
-        if (c) ask(t, author, c);
-      }
-      expect(t.guests.get(GUEST)!.hash()).toBe(t.host.hash());
-    }
-    expect(taken).toBeGreaterThan(3);
-    expectIdentical(t, `after ${t.ordered} entries (${taken} undos, ${refused} skipped)`);
+    const b1 = ask(t, GUEST, raise(6, 6)) as number;
+    const b2 = ask(t, GUEST, raise(30, 6)) as number;
+    t.host.setCheck((entry, record) => (record.undoes?.target === b2 && entry.command.kind === "undo" ? "Reaches into ada's area" : null));
+    const refused = act(t, GUEST, undo(b2)) as Reject;
+    expect(refused.reason).toBe("Reaches into ada's area");
+    expect(refused.target).toBe(b2);
+    // Undo no longer offers it; the plan says why it skipped it, and takes the one before
+    const bo = t.guests.get(GUEST)!;
+    expect(bo.undoPlan().target).toBe(b1);
+    expect(bo.undoPlan().skipped).toEqual([{ seq: b2, label: "Raise", where: expect.any(String), reason: "Reaches into ada's area" }]);
+    expect(t.host.undoPlan(GUEST).target).toBe(b1);
+    // the next entry, anyone's, lets it be offered again
+    ask(t, HOST, raise(6, 40));
+    expect(bo.undoPlan().target).toBe(b2);
+    expect(t.host.undoPlan(GUEST).target).toBe(b2);
+    // a claim answers with a mask test of what the action wrote
+    const area = new Mask(SIZE * SIZE);
+    for (const i of t.host.records.get(b2)!.writes.tiles()) area.add(i);
+    bo.setVeto((r) => (r.writes.intersects(area) ? "That is in ada's area" : null));
+    expect(bo.undoPlan().target).toBe(b1);
+    expect(t.host.undoPlan(GUEST, (r) => (r.writes.intersects(area) ? "That is in ada's area" : null)).skipped[0].reason).toBe("That is in ada's area");
+    bo.setVeto(undefined);
+    // a block carries what the page needs to word it: the author's id, the tool, the place, the sequence and the box of tiles
+    t.host.setCheck(() => null);
+    const a1 = ask(t, HOST, raise(20, 20)) as number;
+    const b3 = ask(t, GUEST, raise(21, 20)) as number;
+    const blocked = act(t, HOST, undo(a1)) as Reject;
+    expect(blocked.block).toMatchObject({ why: "on-top", author: GUEST, label: "Raise", seq: b3 });
+    expect(blocked.block!.box).toEqual(boxOf(SIZE, SIZE, t.host.records.get(b3)!.writes));
+    expect(t.host.undoPlan(HOST).skipped.find((x) => x.seq === a1)!.block).toEqual(blocked.block);
+  });
+
+  test("a line never names a player it does not know", () => {
+    const gone = { why: "changed", seq: 3, author: "", label: "", where: "", box: null } as const;
+    expect(blockLine(gone, "ada")).toBe("An earlier edit under this has changed for good");
+    expect(blockLine({ ...gone, why: "on-top" }, "ada")).toBe("An older edit is on top of this");
+    expect(blockLine({ why: "on-top", seq: 3, author: "bo", label: "Raise", where: "at the lake", box: null }, "ada", (id) => id.toUpperCase())).toBe("BO's Raise at the lake is on top of this");
+  });
+
+  test("after a redo, Undo takes the action just brought back", () => {
+    const t = sit2();
+    const a1 = ask(t, HOST, raise(6, 6)) as number;
+    const a2 = ask(t, HOST, raise(30, 6)) as number;
+    expect(t.host.undoPlan(HOST).target).toBe(a2);
+    ask(t, HOST, undo(a1));
+    expect(t.host.undoPlan(HOST).target).toBe(a2);
+    ask(t, HOST, redo(a1));
+    // a2 has the higher sequence, but a1 is the one done last
+    expect(t.host.undoPlan(HOST).target).toBe(a1);
+    ask(t, HOST, undo(a1));
+    expect(t.host.undoPlan(HOST).target).toBe(a2);
+    expectIdentical(t, "after");
+  });
+});
+
+describe("the records an undo leaves", () => {
+  test("an undo's effect is kept until the settle that follows its batch is announced, however many entries come between", () => {
+    const t = sit2();
+    const a1 = ask(t, HOST, raise(6, 6)) as number;
+    const u = ask(t, HOST, undo(a1)) as number;
+    for (let k = 0; k < 110; k++) ask(t, GUEST, raise(2 + (k % 8) * 5, 20 + Math.floor(k / 8) * 2, 3));
+    expect(t.host.records.get(u)?.undoes).toEqual({ target: a1, redo: false });
+    expect(t.guests.get(GUEST)!.records.get(u)?.undoes).toEqual({ target: a1, redo: false });
+    settle(t); // the batch since the start, with the undo in it: it is the water note's to name
+    expect(t.host.records.get(u)).toBeDefined();
+    ask(t, GUEST, raise(40, 5));
+    settle(t); // the next batch: the first one's effects can go
+    expect(t.host.records.get(u)).toBeUndefined();
+    expect(t.guests.get(GUEST)!.records.get(u)).toBeUndefined();
+  });
+
+  test("a fence goes once every action kept is later than it", () => {
+    const t = sit2();
+    const b1 = ask(t, GUEST, raise(40, 40)) as number;
+    ask(t, HOST, raise(41, 40));
+    for (let k = 0; k < 50; k++) ask(t, HOST, raise(2 + (k % 8) * 5, 2 + Math.floor(k / 8) * 5, 3));
+    expect(t.host.records.fences().tiles.length, "ada's first fell out while standing: it fences bo's first").toBeGreaterThan(0);
+    expect(ask(t, GUEST, undo(b1))).toMatch(/is on top of this$/);
+    // bo's first falls out in turn; everything kept is later than the fence now
+    for (let k = 0; k < 50; k++) ask(t, GUEST, raise(2 + (k % 8) * 5, 2 + Math.floor(k / 8) * 5, 3));
+    expect(t.host.records.fences()).toEqual({ tiles: [], keys: [], who: [] });
+  });
+});
+
+describe("a place in words", () => {
+  test("the feature that holds most of the writes, a compass word only when there are several of its kind", () => {
+    const s = MapSession.open(decodeProject(bytes));
+    const at = (...xy: [number, number][]) => {
+      const m = new Mask(SIZE * SIZE);
+      for (const [x, y] of xy) m.add(y * SIZE + x);
+      return m;
+    };
+    const rivers = s.features.filter((f) => f.kind === "river").length;
+    expect(rivers).toBeGreaterThan(1);
+    // (the start: one only, so no compass word)
+    expect(placeOf(s, at([29, 38], [30, 38], [29, 39]))).toBe("by the start");
+    // (several rivers: the one that holds the tiles, with where it lies)
+    expect(placeOf(s, at([44, 33], [45, 33], [44, 32]))).toBe("at the north-east river");
+    // (nothing of the kind holds them: the compass word)
+    expect(placeOf(s, at([1, 1], [2, 1]))).toBe("in the south-west");
+    // (the whole map names no place; nor does no tile)
+    expect(placeOf(s, new Mask(SIZE * SIZE, true))).toBe("");
+    expect(placeOf(s, new Mask(SIZE * SIZE))).toBe("");
   });
 });

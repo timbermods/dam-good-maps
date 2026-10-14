@@ -3,7 +3,7 @@
 
 import type { EditOp } from "../doc/ops";
 import type { ForceRequest } from "../forces/start";
-import type { FencesJson } from "./records";
+import type { Block, FencesJson } from "./records";
 import type { RecordJson } from "./transaction";
 
 export type PlayerId = string;
@@ -77,6 +77,10 @@ export interface Reject {
   reason: string;
   /** The refusal is only that the water is still settling: ask again in a moment. */
   busy?: boolean;
+  /** For an undo or a redo: the action it named, which the page's plan skips until the next entry. */
+  target?: number;
+  /** For an undo or a redo blocked by another action: what is in the way (author id, tool, place, sequence, box of tiles), for the page to word with display names. */
+  block?: Block;
 }
 
 /** The host to everyone: the water has settled for the map as it stands after entry `seq`, and it hashes to `hash`

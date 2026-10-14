@@ -159,7 +159,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "counter", "reason"],
-      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" } }
+      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" }, "target": { "type": "integer", "minimum": 1 }, "block": { "type": "object" } }
     },
     "settled": {
       "description": "The host to everyone: the water has settled for the map after entry seq (the entries after since settled together), with the hash of everything the water decides.",

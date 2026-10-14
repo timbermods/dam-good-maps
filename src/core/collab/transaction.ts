@@ -16,8 +16,8 @@ import { newRampedStroke } from "../doc/strokes";
 import { applyForce } from "./forceStep";
 import { applyPatch, captureState, cloneState, invertPatch, patchIsEmpty, stateHash, type MapState, type Patch } from "./mapState";
 import { Mask } from "./mask";
-import { placeWords } from "./place";
-import { nameOf, type RecordLog } from "./records";
+import { boxOf, placeOf, type Box } from "./place";
+import { nameOf, type Block, type RecordLog } from "./records";
 import { touchesOf } from "./touches";
 import type { Command, LogEntry, PlayerId } from "./types";
 import { historyProblem, type Names } from "./undo";
@@ -40,6 +40,10 @@ export interface TransactionRecord {
   keys: string[];
   /** Where it was, in words ("in the north-east"), or "" when it reached the whole map (undo.ts names it in a refusal). */
   where: string;
+  /** The box of tiles [x0, y0, x1, y1] it wrote (or touched when it wrote none); null when it reached the whole map. */
+  box: Box | null;
+  /** Set when the action was last brought back: the sequence of the entry that did. Undo takes the action done last (made or brought back), not the highest sequence. */
+  redoneAt?: number;
   /** Set once the action is taken back: the sequence of the entry that took it back (undo.ts). Taken back, it can be brought back. */
   undoneAt?: number;
   /** While taken back: the earlier actions it was made on that have been taken back or brought back since (an odd number of times).
@@ -57,7 +61,7 @@ export interface TransactionRecord {
 
 export type Applied =
   | { ok: true; record: TransactionRecord; hash: string; state: MapState; applied?: EditOp[]; needsWater: boolean; /** Set for an undo or a redo: the record is its effect, not an action of its own. */ effect?: { target: number; redo: boolean } }
-  | { ok: false; reason: string; busy?: boolean; stale?: boolean };
+  | { ok: false; reason: string; busy?: boolean; stale?: boolean; /** An undo or a redo refused for what is in its way. */ block?: Block };
 
 /** The JSON form of a record (masks as runs of tile indices). */
 export interface RecordJson extends Omit<TransactionRecord, "writes" | "touch"> {
@@ -179,7 +183,8 @@ export class MapApplier {
       epoch: entry.epoch,
       author: entry.author,
       label,
-      where: placeWords(before.W, before.H, t.writes.empty ? t.touch : t.writes),
+      where: placeOf(s, t.writes.empty ? t.touch : t.writes),
+      box: boxOf(before.W, before.H, t.writes.empty ? t.touch : t.writes),
       patch: t.patch,
       writes: t.writes,
       touch: t.touch,
@@ -207,7 +212,7 @@ export class MapApplier {
     const records = opts.records;
     if (!records) throw new Error("An undo needs the records");
     const found = historyProblem(records, entry.author, redo, target, opts.names);
-    if ("reason" in found) return { ok: false, reason: found.reason };
+    if ("reason" in found) return { ok: false, reason: found.reason, ...(found.block ? { block: found.block } : {}) };
     const r = found.record;
     const before = this.state();
     const prev = s.logOps.slice();
@@ -234,6 +239,7 @@ export class MapApplier {
       author: entry.author,
       label: `${redo ? "Redo" : "Undo"} ${nameOf(r)}`,
       where: r.where,
+      box: r.box,
       patch: redo ? structuredClone(r.patch) : invertPatch(r.patch),
       writes: r.writes.clone(),
       touch: r.writes.clone(),
@@ -247,7 +253,7 @@ export class MapApplier {
       revert();
       return { ok: false, reason: blocked };
     }
-    records.setUndone(r, redo ? undefined : entry.seq);
+    records.setUndone(r, entry.seq, redo);
     this.water.invalidate();
     this.seen = { built: s.built, state: after };
     return { ok: true, record: effect, hash: stateHash(after), state: after, needsWater: false, effect: { target, redo } };
