@@ -41,7 +41,9 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
     keys.add(`entity:${id}`);
     for (const s of [before, after]) {
       const e = s.entities.find((g) => g.id === id);
-      if (e) for (const i of entityTiles(W, H, e)) touch.add(i), intent.add(i);
+      if (e) for (const i of entityTiles(W, H, e)) { touch.add(i); intent.add(i); }
+      // (a resource object's ground is touched too, though its object is not part of the patch)
+      for (const i of s.derived.find((g) => g[0] === id)?.[1] ?? []) { touch.add(i); intent.add(i); }
     }
   };
   const whole = () => {

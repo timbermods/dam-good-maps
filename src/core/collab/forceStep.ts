@@ -4,38 +4,59 @@
 // frame or a random number: the same map and gesture give the same operation on every peer, and no
 // heights cross the wire.
 //
-// The map a force plans on has its water settled first (a barrier; the live animation is local
-// presentation): hydrology, Auto geology and nearest-safe-start read it, and the host and a peer
-// restored from a snapshot must read the same.
+// The basis is the CANONICAL water of the entry before the force (hydrology, Auto geology and
+// nearest-safe-start read it). That is also what the author's preview must plan on: `forceBasis` says
+// whether a session shows it yet, and `previewForce` plans without changing the map. The worker's
+// preview plans on the live water today (worker/session.ts `sessionForceMap`), so it can differ from what
+// is committed; moving it onto this basis is the page piece's change.
 
 import type { ApplyResult, MapSession } from "../doc/session";
 import { startCarry } from "../doc/start";
 import { areaDepth } from "../features/raster/brush";
 import { CarvePlay } from "../forces/carve/play";
 import { keptForceParams } from "../forces/keep";
+import type { ForceResultParams } from "../forces/op";
 import { geology } from "../forces/random";
 import { QuakeRun } from "../forces/runs";
 import { fullForceMapOf, lavaOf, planForce, type ForceRequest } from "../forces/start";
 import type { FullForceMap } from "../forces/force";
-import { fallenPoses } from "./mapState";
+import { murmur3 } from "../math/hash";
+import { fallenPoses, stable } from "./mapState";
 import type { ForceGesture } from "./types";
 
-/** The open map as a force starts from it (the worker's `sessionForceMap`, from the settled water). */
+/** Whether the session's water is the canonical settle of its ground: a force plans on it only then. */
+export function forceBasis(s: MapSession): { ready: boolean } {
+  return { ready: !s.waterPending };
+}
+
+/** The open map as a force starts from it (the worker's `sessionForceMap`), on its settled water. The water must have settled. */
 export function forceMapOfSession(s: MapSession): FullForceMap {
-  if (s.waterPending) s.settleCanonical();
+  if (s.waterPending) throw new Error("The water has not settled: a force plans on the settled water");
   const b = s.built;
   return fullForceMapOf(b, { rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
 }
 
-export type ForceOutcome = { ok: true; applied: ApplyResult } | { ok: false; reason: string };
+/** What a force would keep: its operation, and a short hash of it (what the author's preview shows). */
+export interface PlannedForce {
+  params: ForceResultParams;
+  request: ForceRequest;
+  area: Uint8Array | null;
+  /** The hash of the operation: equal on every peer that plans the gesture on the same map. */
+  hash: string;
+}
 
-/** Plan, run and keep a force on the session: one history step (the force and the start's carry). */
-export function applyForce(s: MapSession, g: ForceGesture): ForceOutcome {
+export type Planned = { ok: true; plan: PlannedForce } | { ok: false; reason: string };
+
+/** The hash of a force's operation (the author's preview sends it with the gesture; the host compares it with the one it plans). */
+export const forceHash = (p: ForceResultParams): string => murmur3(new TextEncoder().encode(stable(p)), 0x364).toString(16).padStart(8, "0");
+
+/** Plan and run a force on the session's settled map and say what it would keep, changing nothing. */
+export function planKeptForce(s: MapSession, g: ForceGesture): Planned {
+  if (typeof g.request.settings.seed !== "number") return { ok: false, reason: "A force needs its seed in the gesture" };
   const base = forceMapOfSession(s);
-  const request = { ...g.request, settings: { ...g.request.settings, seed: g.request.settings.seed ?? 0 } } as ForceRequest;
   const plan = planForce({
     base,
-    request,
+    request: g.request,
     caves: s.columns.keys(),
     state: s.terrainState(),
     newId: () => {
@@ -56,11 +77,18 @@ export function applyForce(s: MapSession, g: ForceGesture): ForceOutcome {
   }
   const kept = keptForceParams({ before: plan.before, request: req, carve: plan.carve, staged: plan.staged, standing: new Set(s.built.entities.map((e) => e.id)), ...(play ? { shownCleared: play.cleared } : {}) });
   if (!kept.ok) return { ok: false, reason: kept.error };
-  const params = kept.params;
+  return { ok: true, plan: { params: kept.params, request: req, area: req.area ? areaDepth(req.area, plan.before.W, plan.before.H) : null, hash: forceHash(kept.params) } };
+}
+
+export type ForceOutcome = { ok: true; applied: ApplyResult } | { ok: false; reason: string; stale?: boolean };
+
+/** Keep a planned force: one history step (the force and the start's carry). */
+export function keepForce(s: MapSession, plan: PlannedForce): ForceOutcome {
+  const { params } = plan;
   const applied = s.applyAll([{ op: "forceResult", params }], "user");
   if (!applied.ok) return { ok: false, reason: applied.errors[0] ?? "The force could not be kept" };
   // a force that broke the start's own ground carries the start in the same step (D257)
-  const carry = startCarry(s, params, { inside: req.area ? areaDepth(req.area, plan.before.W, plan.before.H) : null, cut: req.cut });
+  const carry = startCarry(s, params, { inside: plan.area, cut: plan.request.cut });
   if (carry) {
     const label = s.history().filter((h) => h.applied).at(-1)?.label;
     s.undo();
@@ -69,3 +97,14 @@ export function applyForce(s: MapSession, g: ForceGesture): ForceOutcome {
   }
   return { ok: true, applied };
 }
+
+/** Plan and keep a gesture. `expect`: the hash of the operation the author's preview showed; when the
+ *  operation planned here differs the force is refused (the map changed under it) and nothing changes. */
+export function applyForce(s: MapSession, g: ForceGesture, expect?: string): ForceOutcome {
+  const planned = planKeptForce(s, g);
+  if (!planned.ok) return { ok: false, reason: planned.reason };
+  if (expect !== undefined && planned.plan.hash !== expect) return { ok: false, reason: STALE, stale: true };
+  return keepForce(s, planned.plan);
+}
+
+export const STALE = "The map changed under the force: draw it again on the map as it is now";

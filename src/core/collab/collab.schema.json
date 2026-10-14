@@ -43,7 +43,8 @@
         "source": { "$ref": "#/$defs/guid" },
         "shownFrom": { "const": "end" },
         "area": { "$ref": "#/$defs/runs" },
-        "natural": { "type": "boolean" }
+        "natural": { "type": "boolean" },
+        "gesture": { "type": "integer" }
       }
     },
     "forceGesture": {
@@ -52,6 +53,7 @@
       "required": ["id", "request"],
       "properties": {
         "id": { "$ref": "#/$defs/guid" },
+        "preview": { "$ref": "#/$defs/hash" },
         "sourceId": { "$ref": "#/$defs/guid" },
         "request": { "$ref": "#/$defs/forceRequest" }
       }
@@ -80,12 +82,11 @@
     "selectCommand": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "ops", "label", "tiles"],
+      "required": ["kind", "ops", "label"],
       "properties": {
         "kind": { "const": "select" },
         "ops": { "type": "array", "minItems": 1, "maxItems": 256, "items": { "$ref": "#/$defs/opEnvelope" } },
-        "label": { "type": "string" },
-        "tiles": { "type": "array", "maxItems": 1048576, "items": { "type": "integer", "minimum": 0 } }
+        "label": { "type": "string" }
       }
     },
     "forceCommand": {
@@ -112,7 +113,8 @@
         "author": { "$ref": "#/$defs/playerId" },
         "baseSeq": { "$ref": "#/$defs/count" },
         "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
-        "command": { "$ref": "#/$defs/command" }
+        "command": { "$ref": "#/$defs/command" },
+        "applied": { "type": "array", "minItems": 1, "maxItems": 65536, "items": { "$ref": "#/$defs/opEnvelope" } }
       }
     },
     "request": {
@@ -140,7 +142,20 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "counter", "reason"],
-      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" } }
+      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" } }
+    },
+    "settled": {
+      "description": "The host to everyone: the water has settled for the map after entry seq (the entries after since settled together), with the hash of everything the water decides.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "epoch", "seq", "since", "hash"],
+      "properties": {
+        "kind": { "const": "settled" },
+        "epoch": { "$ref": "#/$defs/count" },
+        "seq": { "$ref": "#/$defs/count" },
+        "since": { "$ref": "#/$defs/count" },
+        "hash": { "$ref": "#/$defs/hash" }
+      }
     },
     "mapOpening": {
       "description": "The host to the guests, before a whole-map change: the page shows \"<name> is opening a new map\".",
@@ -153,13 +168,14 @@
       "description": "A rejoin: the host's map at a checkpoint (the project bytes travel beside this header) and the entries since, so the end state is checkpointSeq + tail.length.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "epoch", "checkpointSeq", "tail", "endHash", "counters"],
+      "required": ["kind", "epoch", "checkpointSeq", "tail", "endHash", "records", "counters"],
       "properties": {
         "kind": { "const": "snapshot" },
         "epoch": { "$ref": "#/$defs/count" },
         "checkpointSeq": { "$ref": "#/$defs/count" },
         "tail": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/entry" } },
         "endHash": { "$ref": "#/$defs/hash" },
+        "records": { "type": "array", "maxItems": 100000, "items": { "type": "object" } },
         "counters": { "type": "object" }
       }
     }

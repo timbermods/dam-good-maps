@@ -3,10 +3,11 @@
 // moved, changed and removed, and every released force), delivered the way the transport will:
 // the host orders, every replica applies the commit.
 
+import { expect } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { CollabHost, CollabReplica, stable, type Command, type Commit, type ForceGesture, type PlayerId, type Reject, type Snapshot } from "../../src/core/collab";
+import { CollabHost, CollabReplica, hostNeedsWater, planKeptForce, settledHash, stable, type Command, type Commit, type ForceGesture, type PlayerId, type Reject, type Settled } from "../../src/core/collab";
 import type { BrushTool } from "../../src/core/features/raster/brush";
 import { generate } from "../../src/core/gen/generate";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -25,8 +26,34 @@ export function mapProject(seed: number, theme: ThemeId, size: number): Uint8Arr
   return MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: size, y: size } }))).project();
 }
 
-/** Two project files hold the same document (their JSON may order a log entry's keys differently after a reopen: `step` and `undo`). */
-export const sameProject = (a: Uint8Array, b: Uint8Array): boolean => stable(decodeProject(a)) === stable(decodeProject(b));
+/** Where two project files first differ as documents (their JSON may order a log entry's keys differently after a reopen), or "". */
+export function projectDiff(a: Uint8Array, b: Uint8Array, ignore: string[] = []): string {
+  const x = decodeProject(a) as unknown as Record<string, unknown>;
+  const y = decodeProject(b) as unknown as Record<string, unknown>;
+  for (const k of ignore) {
+    delete x[k];
+    delete y[k];
+  }
+  const walk = (p: unknown, q: unknown, path: string): string => {
+    if (stable(p) === stable(q)) return "";
+    if (Array.isArray(p) && Array.isArray(q)) {
+      for (let k = 0; k < Math.max(p.length, q.length); k++) {
+        const d = walk(p[k], q[k], `${path}[${k}]`);
+        if (d) return d;
+      }
+    } else if (p && q && typeof p === "object" && typeof q === "object") {
+      for (const k of new Set([...Object.keys(p), ...Object.keys(q)])) {
+        const d = walk((p as Record<string, unknown>)[k], (q as Record<string, unknown>)[k], `${path}.${k}`);
+        if (d) return d;
+      }
+    }
+    return `${path}: ${stable(p)?.slice(0, 160)} vs ${stable(q)?.slice(0, 160)}`;
+  };
+  return walk(x, y, "");
+}
+
+/** Two project files hold the same document. */
+export const sameProject = (a: Uint8Array, b: Uint8Array): boolean => projectDiff(a, b) === "";
 
 /** The live editor leaves the water to settle in the background; so do the peers here. */
 export const live = (s: MapSession) => s.setWaterMode("defer");
@@ -45,6 +72,9 @@ export interface Table {
   refused: string[];
   /** Entries ordered. */
   ordered: number;
+  /** Settles a replica compared with the host's announcement, and what a replica found different. */
+  settles: number;
+  outOfSync: string[];
 }
 
 export const HOST = "ada";
@@ -55,24 +85,40 @@ export const WATCHER = "cy";
 export function sit(bytes: Uint8Array, hostOptions: Partial<ConstructorParameters<typeof CollabHost>[1]> = {}, players: PlayerId[] = [GUEST, WATCHER]): Table {
   const host = new CollabHost(openProject(bytes), { hostId: HOST, ...hostOptions });
   const guests = new Map<PlayerId, CollabReplica>();
+  const t: Table = { host, guests, refused: [], ordered: 0, settles: 0, outOfSync: [] };
   for (const id of players) {
     host.join(id);
-    guests.set(id, CollabReplica.fromSnapshot(host.snapshot(), id, {}, live));
+    guests.set(id, CollabReplica.fromSnapshot(host.snapshot(), id, { settled: () => t.settles++, outOfSync: (r) => t.outOfSync.push(r) }, live));
   }
-  return { host, guests, refused: [], ordered: 0 };
+  return t;
 }
 
 /** Send every replica a message. */
-export function deliver(t: Table, message: Commit | Reject | { kind: "map-opening" }): void {
+export function deliver(t: Table, message: Commit | Reject | Settled | { kind: "map-opening" }): void {
   for (const g of t.guests.values()) {
     const r = g.receive(message);
     if (!r.ok) throw new Error(`${g.playerId}: ${r.reason}`);
   }
 }
 
-/** `author` asks for `command` at their view; the host orders it and every replica applies it. */
-export function act(t: Table, author: PlayerId, command: Command): Commit | Reject {
-  const request = author === HOST ? t.host.request(command) : (t.guests.get(author)!.request(command) as ReturnType<CollabHost["request"]>);
+/** The background settle, run to its end on every peer: the host announces it and each replica compares its own. */
+export function settle(t: Table): void {
+  const announced = t.host.pumpWater();
+  if (announced) deliver(t, announced);
+  for (const g of t.guests.values()) g.pumpWater();
+}
+
+/** `author` asks for `command` at their view; the host orders it and every replica applies it. A command that plans on the
+ *  settled water waits for the settle first, as the page's worker would, and a force carries its author's preview. */
+export function act(t: Table, author: PlayerId, command: Command, opts: { preview?: boolean } = {}): Commit | Reject {
+  if (hostNeedsWater(command)) settle(t);
+  let c = command;
+  if (c.kind === "force" && opts.preview !== false && c.gesture.preview === undefined) {
+    const shown = author === HOST ? planKeptForce(t.host.session, c.gesture) : t.guests.get(author)!.previewForce(c.gesture);
+    const hash = "plan" in shown ? shown.plan.hash : "preview" in shown ? shown.preview : undefined;
+    if (hash) c = { kind: "force", gesture: { ...c.gesture, preview: hash } };
+  }
+  const request = author === HOST ? t.host.request(c) : (t.guests.get(author)!.request(c) as ReturnType<CollabHost["request"]>);
   const answer = t.host.submit(author, request);
   if (answer.kind === "commit") {
     t.ordered++;
@@ -185,14 +231,10 @@ export class Stream {
         const [x, y] = this.at();
         const w = 3 + Math.floor(this.next() * 6);
         const cells: [number, number, number][] = [];
-        const tiles: number[] = [];
-        for (let dy = 0; dy < w; dy++) {
-          cells.push([y + dy, x, x + w - 1]);
-          for (let dx = 0; dx < w; dx++) tiles.push((y + dy) * this.W + x + dx);
-        }
+        for (let dy = 0; dy < w; dy++) cells.push([y + dy, x, x + w - 1]);
         const mode = this.pick(["raise", "lower", "flatten", "smooth", "terrace"] as const);
         const params = { mode, cells, ...(mode === "raise" || mode === "lower" ? { amount: 1 } : {}), ...(mode === "flatten" ? { level: 5 + Math.floor(this.next() * 6) } : {}), ...(mode === "terrace" ? { step: 2 } : {}) };
-        return { kind: "select", ops: [{ op: "sculpt", params } as EditOp], label: `Select: ${mode}`, tiles };
+        return { kind: "select", ops: [{ op: "sculpt", params } as EditOp], label: `Select: ${mode}` };
       }
       case "place":
         return this.place(this.pick(["Pine", "Oak", "Birch", "BlueberryBush", "WaterSource"] as const), s);
@@ -223,6 +265,17 @@ export class Stream {
   }
 }
 
-export function snapshotOf(t: Table): Snapshot {
-  return t.host.snapshot();
+/** Everything the peers hold is the same once the water has settled: the file the game loads and the project the app saves. */
+export function expectIdentical(t: Table, where: string) {
+  settle(t);
+  expect(t.outOfSync, where).toEqual([]);
+  const exported = t.host.session.exportTimber().bytes;
+  for (const g of t.guests.values()) {
+    expect(g.status, where).toBe("live");
+    expect(g.seq, where).toBe(t.host.seq);
+    expect(g.hash(), `${g.playerId} direct hash ${where}`).toBe(t.host.hash());
+    expect(settledHash(g.session), `${g.playerId} settled hash ${where}`).toBe(settledHash(t.host.session));
+    expect(Buffer.compare(g.session.exportTimber().bytes, exported), `${g.playerId} .timber ${where}`).toBe(0);
+    expect(projectDiff(g.session.project(), t.host.session.project()), `${g.playerId} project ${where}`).toBe("");
+  }
 }

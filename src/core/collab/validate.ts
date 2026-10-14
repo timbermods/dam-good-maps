@@ -13,6 +13,7 @@ const KINDS: Record<string, string> = {
   commit: "commit",
   reject: "reject",
   "map-opening": "mapOpening",
+  settled: "settled",
   snapshot: "snapshotHeader",
 };
 
@@ -42,8 +43,9 @@ export function messageProblem(value: unknown): string | null {
 export function commandProblem(command: unknown): string | null {
   const problem = firstProblem("command", command, "The command");
   if (problem) return problem;
-  const c = command as { kind: string; name?: unknown; gesture?: { request: { verb: string }; sourceId?: unknown }; ops?: { op?: string }[] };
+  const c = command as { kind: string; name?: unknown; gesture?: { request: { verb: string; settings: { seed?: unknown } }; sourceId?: unknown }; ops?: { op?: string }[] };
   if (c.kind === "newMap" && (typeof c.name !== "string" || c.name.trim() === "" || c.name.length > MAX_NAME)) return `A map name is 1 to ${MAX_NAME} characters`;
+  if (c.kind === "force" && typeof c.gesture!.request.settings.seed !== "number") return "A force needs its seed in the gesture";
   if (c.kind === "force" && c.gesture!.request.verb === "carve" && typeof c.gesture!.sourceId !== "string") return "A carve needs the id of its river source in the gesture";
   if (c.kind === "edit" || c.kind === "select") {
     if (c.ops!.some((o) => o.op === "forceResult")) return "A force travels as its gesture with its seed, never as its result";

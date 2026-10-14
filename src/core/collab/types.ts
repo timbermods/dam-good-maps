@@ -3,6 +3,7 @@
 
 import type { EditOp } from "../doc/ops";
 import type { ForceRequest } from "../forces/start";
+import type { RecordJson } from "./transaction";
 
 export type PlayerId = string;
 
@@ -10,6 +11,10 @@ export type PlayerId = string;
  *  derive (a Carve's source). Each peer computes the result on the agreed map; no heights cross. */
 export interface ForceGesture {
   id: string;
+  /** The hash of the operation the author's preview showed (`forceHash`). The host plans the force on its map and
+   *  refuses it if its operation differs: the map changed under the force. Absent, a force is refused when any
+   *  entry since the sequence it was planned at changed the map. */
+  preview?: string;
   /** A Carve's river source (a lowercase GUID); absent for the other forces. */
   sourceId?: string;
   request: ForceRequest;
@@ -18,8 +23,8 @@ export interface ForceGesture {
 export type Command =
   /** Operations applied as one step: a brush stroke, a placement, a group. */
   | { kind: "edit"; ops: EditOp[]; label: string }
-  /** A Select action: one step with the start carried when its ground broke (doc/start.ts `applySelection`); `tiles` are the tiles it changed. */
-  | { kind: "select"; ops: EditOp[]; label: string; tiles: number[] }
+  /** A Select action: one step with the start carried when its ground broke (doc/start.ts `applySelection`; the host works out the tiles it changed). */
+  | { kind: "select"; ops: EditOp[]; label: string }
   | { kind: "force"; gesture: ForceGesture }
   /** Generate, a real place or another map: the host's alone. The map itself travels as a snapshot. */
   | { kind: "newMap"; name: string };
@@ -36,6 +41,11 @@ export interface LogEntry {
   /** The author's request counter (their requests count 1, 2, 3 ...; a refused one uses its number too). */
   counter: number;
   command: Command;
+  /** The operations every peer applies for an edit: the ones the host applied, literally, so none re-derives a
+   *  placement or a riding source from its own water (a placement stroke is its placed objects). A weathering
+   *  Naturalize stroke is the stroke as sent: its rim, shore and kept ground are worked out on the settled map.
+   *  Absent for a force and a Select action, which every peer plans on the settled map. */
+  applied?: EditOp[];
 }
 
 export interface Request {
@@ -57,6 +67,19 @@ export interface Reject {
   kind: "reject";
   counter: number;
   reason: string;
+  /** The refusal is only that the water is still settling: ask again in a moment. */
+  busy?: boolean;
+}
+
+/** The host to everyone: the water has settled for the map as it stands after entry `seq`, and it hashes to `hash`
+ *  (everything: the objects the water decides, the water, the contamination). The entries after `since` are the
+ *  batch that settled together. A peer compares its own settle at that sequence. */
+export interface Settled {
+  kind: "settled";
+  epoch: number;
+  seq: number;
+  since: number;
+  hash: string;
 }
 
 export interface MapOpening {
@@ -74,12 +97,14 @@ export interface Snapshot {
   project: Uint8Array;
   /** The entries after the checkpoint, in order. */
   tail: LogEntry[];
-  /** The hash of the map after the tail. */
+  /** The hash of what the players made directly (`stateHash`) after the tail. */
   endHash: string;
+  /** The records of the entries up to the checkpoint (each player's last 50), so a rejoined peer holds what the host does. */
+  records: RecordJson[];
   /** Each player's request counter, so a rejoining player carries on. */
   counters: Record<PlayerId, number>;
 }
 
 export type SnapshotHeader = { kind: "snapshot" } & Omit<Snapshot, "project">;
 
-export type Message = LogEntry | Request | Commit | Reject | MapOpening | SnapshotHeader;
+export type Message = LogEntry | Request | Commit | Reject | MapOpening | Settled | SnapshotHeader;

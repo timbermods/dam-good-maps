@@ -1,10 +1,17 @@
-// The map as a collaboration record sees it: the ground, the fresh rock, the objects, the trees
-// lying down and the water the map keeps (lakes, drained tiles), as plain values. A transaction
-// captures it before and after an action; the difference is the action's literal patch (before and
-// after values, never inverse arithmetic). The settled water itself is derived and left out: every
-// peer settles the same map to the same water.
+// The map as a collaboration record sees it: what the players made directly, as plain values. That is
+// the ground, the fresh rock, the objects that are not a resource feature's (placed objects, sources,
+// the start, map objects), the trees a force knocked down (from the operations) and the lakes the map
+// keeps. A transaction captures it before and after an action; the difference is the action's literal
+// patch (before and after values, never inverse arithmetic).
+//
+// The settled water, the soil, and which trees and bushes stand and live follow from the settled water
+// (build step 11), which settles in the background: none of them is read here, so a capture costs the
+// same as a single-player edit and is the same on a peer whose water has settled and on one whose has
+// not. The footprints of the resource objects are kept apart (`derived`) only so an operation that
+// removes or moves one can say which ground it touched.
 
 import { componentsOf, type EntitySpec } from "../format/entities";
+import { resourceOwners } from "../doc/placing";
 import { entityTiles, plainEntities } from "../forces/force";
 import { lavaOf } from "../forces/start";
 import { murmur3 } from "../math/hash";
@@ -29,9 +36,11 @@ export interface MapState {
   heights: Uint8Array;
   /** Fresh volcanic rock, a bit per level of each tile. */
   lava: Uint32Array;
-  /** Plain copies of the objects, ascending by id. */
+  /** Plain copies of the objects players made directly (not a resource feature's), ascending by id. */
   entities: EntitySpec[];
-  /** Trees lying down (dead, felled by a force), ascending by id. */
+  /** The tiles each resource object (a generated tree or bush) stands on, ascending by id: not part of the patch or the hash. */
+  derived: [string, number[]][];
+  /** Trees a force knocked down, with their pose, from the operations; ascending by id. */
   fallen: [string, Pose][];
   water: StoredWater;
 }
@@ -65,11 +74,16 @@ export function stable(x: unknown): string {
 
 const byId = <T extends { id: string }>(list: readonly T[]): T[] => list.slice().sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-/** The trees a force knocked down that are still dead, with the pose of the latest force that did
- *  (what a force starts from as `down`). */
-export function fallenPoses(s: MapSession): Map<string, Pose> {
+/** The trees the forces knocked down, with the pose of the latest force that did, from the operations alone. */
+export function felledPoses(s: MapSession): [string, Pose][] {
   const out = new Map<string, Pose>();
   for (const op of s.state.sculpts) if (op.op === "forceResult") for (const f of op.params.felled ?? []) out.set(f.id, { dx: f.dx, dy: f.dy });
+  return [...out].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+}
+
+/** The knocked-down trees that are still dead on the settled map (what a force starts from as `down`). */
+export function fallenPoses(s: MapSession): Map<string, Pose> {
+  const out = new Map(felledPoses(s));
   if (!out.size) return out;
   const dead = new Set(
     s.built.entities
@@ -80,18 +94,33 @@ export function fallenPoses(s: MapSession): Map<string, Pose> {
   return out;
 }
 
-/** The session's map as it stands (the settled water is not read, so a map with its water still
- *  settling captures the same as one whose water has settled). */
+/** The owners of the resource objects the build places against the settled water. */
+function resourceFeatureOwners(s: MapSession): Set<string> {
+  const owners = resourceOwners(s);
+  for (const id of s.generatedResources()?.keys() ?? []) owners.add(id);
+  return owners;
+}
+
+/** What the players made directly on the session's map as it stands, whatever its water is doing. */
 export function captureState(s: MapSession): MapState {
   const b = s.built;
   const lava = lavaOf(s.state.sculpts, b.heights, b.W, b.H) ?? new Uint32Array(b.W * b.H);
+  const owners = resourceFeatureOwners(s);
+  const direct: EntitySpec[] = [];
+  const derived: [string, number[]][] = [];
+  for (const e of b.entities) {
+    if (owners.has(e.owner)) derived.push([e.id, entityTiles(b.W, b.H, e)]);
+    else direct.push(e);
+  }
+  derived.sort((p, q) => (p[0] < q[0] ? -1 : 1));
   return {
     W: b.W,
     H: b.H,
     heights: b.heights.slice(),
     lava: lava.slice(),
-    entities: byId(plainEntities(b.entities)),
-    fallen: [...fallenPoses(s)].sort((a, b) => (a[0] < b[0] ? -1 : 1)),
+    entities: byId(plainEntities(direct)),
+    derived,
+    fallen: felledPoses(s),
     water: {
       retained: JSON.parse(stable(b.waterModel.retained ?? [])) as RetainedWater[],
       drained: [...(b.waterModel.drained ?? [])],
@@ -179,5 +208,5 @@ export function applyPatch(st: MapState, p: Patch, inverse = false): void {
 }
 
 export function cloneState(st: MapState): MapState {
-  return { ...st, heights: st.heights.slice(), lava: st.lava.slice(), entities: structuredClone(st.entities), fallen: structuredClone(st.fallen), water: structuredClone(st.water) };
+  return { ...st, heights: st.heights.slice(), lava: st.lava.slice(), entities: structuredClone(st.entities), derived: structuredClone(st.derived), fallen: structuredClone(st.fallen), water: structuredClone(st.water) };
 }

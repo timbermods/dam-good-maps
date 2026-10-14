@@ -1,14 +1,18 @@
 // A replica: one browser's copy of the map, rebuilt from the host's ordered list. It applies commits
 // strictly in order (a gap or a duplicate is refused with its reason and changes nothing), keeps the
-// same records the host keeps, and compares the hash of its map with the host's after every entry. A
-// whole-map change (the host opening another map) tells the page first, then waits for the new map.
+// same records the host keeps, and compares the hash of what the players made directly with the host's
+// after every entry. The water settles in the background (`pumpWater`), and the host's "settled at seq N"
+// is compared with this copy's own settle at that sequence. A whole-map change (the host opening another
+// map) tells the page first, then waits for the new map.
 
 import { decodeProject } from "../doc/document";
 import { MapSession } from "../doc/session";
-import { MapApplier, type TransactionRecord } from "./transaction";
+import { planKeptForce } from "./forceStep";
+import { MapApplier, recordFromJson, BUSY, type TransactionRecord } from "./transaction";
 import { RecordLog } from "./records";
-import type { Command, LogEntry, MapOpening, PlayerId, Reject, Request, Snapshot } from "./types";
+import type { Command, ForceGesture, LogEntry, MapOpening, PlayerId, Reject, Request, Settled, Snapshot } from "./types";
 import { messageProblem } from "./validate";
+import { settledHash } from "./water";
 
 /** live: edits flow. opening: the host announced a new map. needs-map: the host opened it, adopt its snapshot.
  *  out-of-sync: this copy differs from the host's; ask for a fresh snapshot. */
@@ -23,11 +27,16 @@ export interface ReplicaEvents {
   applied?(entry: LogEntry, record: TransactionRecord): void;
   /** The host refused one of this player's requests. */
   rejected?(r: Reject): void;
+  /** The water settled for the map after entry `seq` and agrees with the host's. */
+  settled?(e: { seq: number; since: number }): void;
   /** This copy differs from the host's. */
   outOfSync?(reason: string): void;
 }
 
 export type Received = { ok: true } | { ok: false; reason: string };
+
+/** What the author's preview of a force shows: pass `preview` in the gesture so the host can tell the map changed under it. */
+export type Previewed = { ok: true; preview: string; tiles: number } | { ok: false; reason: string; busy?: boolean };
 
 export class CollabReplica {
   session: MapSession;
@@ -39,13 +48,16 @@ export class CollabReplica {
   private applier: MapApplier;
   private counter: number;
   private opening: string | null = null;
+  /** This copy's own settle: the sequence the water settled for, and its hash. */
+  private own: { seq: number; hash: string } | null = null;
+  private announced: Settled | null = null;
 
   constructor(
     session: MapSession,
     readonly playerId: PlayerId,
     start: { epoch: number; seq: number; counter?: number },
     readonly events: ReplicaEvents = {},
-    /** Called on each session this copy opens from a snapshot (the page sets the water mode here). */
+    /** Called on each session this copy opens from a snapshot (the page sets its own options here). */
     readonly configure?: (s: MapSession) => void,
   ) {
     this.session = session;
@@ -55,7 +67,7 @@ export class CollabReplica {
     this.counter = start.counter ?? 0;
   }
 
-  /** A replica restored from a snapshot: the host's checkpoint opened as the project, then the entries since applied. */
+  /** A replica restored from a snapshot: the host's checkpoint opened as the project, its records, then the entries since applied. */
   static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void): CollabReplica {
     const session = MapSession.open(decodeProject(snapshot.project));
     configure?.(session);
@@ -73,13 +85,18 @@ export class CollabReplica {
       this.session = MapSession.open(decodeProject(snapshot.project));
       this.configure?.(this.session);
       this.applier = new MapApplier(this.session);
-      this.records.clear();
     }
+    this.records.clear();
+    const N = this.session.built.W * this.session.built.H;
+    for (const j of snapshot.records) this.records.add(recordFromJson(N, j));
     this.epoch = snapshot.epoch;
     this.seq = snapshot.checkpointSeq;
     this.counter = snapshot.counters[this.playerId] ?? this.counter;
     this.status = "live";
     this.opening = null;
+    // (the checkpoint's water is settled: the project was saved only so)
+    this.own = { seq: this.seq, hash: settledHash(this.session) };
+    this.announced = null;
     for (const entry of snapshot.tail) {
       const r = this.applyInOrder(entry);
       if (!r.ok) return r;
@@ -95,7 +112,27 @@ export class CollabReplica {
     return { kind: "request", epoch: this.epoch, counter: ++this.counter, baseSeq: this.seq, command };
   }
 
-  /** What the host sends: a commit, a refusal of this player's request, or the announcement of a new map. */
+  /** The author's preview of a force: planned on the canonical water of this copy's map, changing nothing. Busy while the
+   *  water is still settling (pump it, then ask again); the page's preview must use this basis, not the live water. */
+  previewForce(gesture: ForceGesture): Previewed {
+    if (this.status !== "live") return { ok: false, reason: this.status === "opening" ? `${this.opening} is opening a new map` : "This copy of the map is not ready" };
+    if (!this.applier.water.settled) return { ok: false, reason: BUSY, busy: true };
+    const planned = planKeptForce(this.session, gesture);
+    if (!planned.ok) return { ok: false, reason: planned.reason };
+    return { ok: true, preview: planned.plan.hash, tiles: planned.plan.params.tiles.length };
+  }
+
+  /** Run a slice of the water's settle in the background (`ticks` of its clock; the default runs it to its end). True
+   *  once the water has settled for the map as it is. */
+  pumpWater(ticks = Infinity): boolean {
+    if (this.own?.seq === this.seq) return true;
+    if (!this.applier.water.pump(ticks)) return false;
+    this.own = { seq: this.seq, hash: settledHash(this.session) };
+    this.reconcile();
+    return true;
+  }
+
+  /** What the host sends: a commit, a refusal of this player's request, the announcement of a new map, or a settle. */
   receive(message: unknown): Received {
     const problem = messageProblem(message);
     if (problem) return { ok: false, reason: problem };
@@ -115,14 +152,36 @@ export class CollabReplica {
         this.events.opening?.({ author: o.author, name: o.name });
         return { ok: true };
       }
+      case "settled": {
+        const s = message as Settled;
+        if (s.epoch !== this.epoch) return { ok: false, reason: "That settle belongs to another map" };
+        this.announced = s;
+        return this.reconcile();
+      }
       default:
-        return { ok: false, reason: "A replica takes commits, refusals and map announcements" };
+        return { ok: false, reason: "A replica takes commits, refusals, settles and map announcements" };
     }
   }
 
-  /** The hash of this copy's map now. */
+  /** The hash of what the players made directly, as this copy's map stands. */
   hash(): string {
     return this.applier.hash();
+  }
+
+  /** Compare this copy's settle with the host's announcement when both are for the same sequence; an announcement this
+   *  copy has moved past can no longer be compared and is dropped (the host announces the next settle). */
+  private reconcile(): Received {
+    const a = this.announced;
+    if (!a) return { ok: true };
+    if (this.seq > a.seq) {
+      this.announced = null;
+      return { ok: true };
+    }
+    if (!this.own || this.own.seq !== a.seq) return { ok: true };
+    this.announced = null;
+    if (this.own.hash !== a.hash) return this.diverged(`The water settled differently here than on the host's map after entry ${a.seq}`);
+    this.events.settled?.({ seq: a.seq, since: a.since });
+    return { ok: true };
   }
 
   private diverged(reason: string): Received {
@@ -142,7 +201,7 @@ export class CollabReplica {
   private applyInOrder(entry: LogEntry): Received {
     const ordered = this.order(entry);
     if (!ordered.ok) return ordered;
-    const done = this.applier.apply(entry);
+    const done = this.applier.apply(entry, { role: "replica" });
     if (!done.ok) return this.diverged(`Entry ${entry.seq} would not apply here: ${done.reason}`);
     this.seq = entry.seq;
     this.records.add(done.record);
@@ -157,7 +216,7 @@ export class CollabReplica {
     if (entry.command.kind === "newMap") {
       this.seq = entry.seq;
       this.status = "needs-map";
-      this.session.settleCanonical();
+      this.applier.water.settleNow();
       this.events.newMap?.({ author: entry.author, name: entry.command.name, previousProject: this.session.project() });
       return { ok: true };
     }
