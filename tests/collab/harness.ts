@@ -28,9 +28,13 @@ class Harness {
     this.dropped = null;
     this.error = null;
     t.on("status", (s) => this.statuses.push(s));
-    t.on("message", async (m) => {
-      if (typeof m === "string") this.received.push({ kind: "text", size: m.length, value: m.length < 200 ? m : await sha256Hex(new TextEncoder().encode(m)) });
-      else this.received.push({ kind: "binary", size: m.length, value: await sha256Hex(m) });
+    // messages are recorded in the order they arrive (hashing is async, so each waits for the one before)
+    let chain: Promise<void> = Promise.resolve();
+    t.on("message", (m) => {
+      chain = chain.then(async () => {
+        if (typeof m === "string") this.received.push({ kind: "text", size: m.length, value: m.length < 200 ? m : await sha256Hex(new TextEncoder().encode(m)) });
+        else this.received.push({ kind: "binary", size: m.length, value: await sha256Hex(m) });
+      });
     });
     t.on("presence", (p) => this.presence.push(typeof p === "string" ? p : `binary:${p.length}`));
     t.on("dropped", (d) => (this.dropped = d.reason));
