@@ -138,9 +138,12 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size, and Turn (0°–270°, R) for an object that turns; picked on the map, a source's Strength, This source ("1.45 water/s",
+  Pointing at, a ruin's Height, a relic's Size, a tree's, bush's or thorn patch's Size and Density (a tree's also Age),
+  and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
-  it down (×).
+  it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
+  its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
+  Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
@@ -165,9 +168,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
-  - **Scatter-type items place like a brush** (D235): trees, bushes, ruins, thorns and the like show a brush circle
-    with the terrain brushes' grammar (F or { and } to resize, [ and ] its density, the size in the options row);
-    dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
+  - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
+    ring round the pointer at the size in the object window (Size, tiles across, 2–24, and Density, 5–100%, per kind;
+    the keys for them are not wired yet); a drag is the core's `paintObjects` over the tiles the brush covered
+    (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size

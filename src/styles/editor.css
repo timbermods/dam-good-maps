@@ -307,7 +307,6 @@ button[aria-pressed="true"] {
   top: 16px;
 }
 
-.history header,
 .dialog header {
   display: flex;
   justify-content: space-between;
@@ -315,7 +314,6 @@ button[aria-pressed="true"] {
   gap: 8px;
 }
 
-.history h2,
 .dialog h2 {
   margin: 0;
   font-size: 1rem;
@@ -358,26 +356,6 @@ button[aria-pressed="true"] {
   border-left: 1px solid var(--rule);
   background: var(--panel);
   overflow-y: auto;
-}
-
-.history ol,
-.history ul {
-  padding-left: 18px;
-  font-size: 0.9rem;
-}
-
-.history li {
-  margin: 3px 0;
-}
-
-.history li.undone button {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.history button[aria-current="true"] {
-  font-weight: 700;
-  color: var(--ink);
 }
 
 .orphan {
@@ -437,6 +415,18 @@ button[aria-pressed="true"] {
 
 .layer-legend p + p {
   margin-top: 4px;
+}
+
+/* a caption's colour as a swatch, then its name (the map's overlay colours, shown rather than named) */
+.layer-legend .layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-legend .layer-row .swatch {
+  width: 22px;
+  height: 13px;
 }
 
 .dialog progress {

@@ -343,8 +343,62 @@
    panels' room, scrolling inside past it; nothing moves when it opens */
 .gen.history-panel {
   width: 640px;
-  padding: 12px;
+  box-sizing: border-box;
+  padding: 10px;
   border: 1px solid var(--rule);
+}
+
+/* its steps are rows, as the panels' other lists are: the one the map is at selected, steps undone dimmed and struck
+   through (a click on any goes back or forward to it) */
+.history-panel .hist-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-panel .hist-sub {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.history-panel .hist-row {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.history-panel .hist-row[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.history-panel .hist-row.undone {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.history-panel .orphan {
+  margin: 2px 0 0 10px;
+}
+
+/* (the close × is a square the height of the heading row) */
+.history-panel .hist-close {
+  width: 26px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
@@ -700,9 +754,20 @@
   bottom: 10px;
   z-index: 2;
   width: 166px;
+  max-height: var(--dock-max, none);
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* (a window too short for the list and the picked object's window: the list scrolls, the window stays whole) */
+.objects-dock > .object-window {
+  flex: none;
+}
+
+.objects-dock > .objects-menu {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .object-window,
@@ -793,6 +858,24 @@
 
 .cell-body.ow-body {
   min-height: 30px;
+}
+
+.ow-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* a number's value at the right of its name, as the bar's settings say it */
+.ow-value {
+  flex: none;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.ow-head .ow-close {
+  margin-left: 6px;
 }
 
 .ow-close {
@@ -2153,7 +2236,8 @@
 
 /* Your maps' heading row (Kyler, 2026-10-05): its name at the left, Rename and Delete at the tiles' right edge, one
    tiles' gap apart and above the tiles; it stays put while the tiles scroll under it */
-.maps-panel .ym-head {
+.maps-panel .ym-head,
+.history-panel .ym-head {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -2167,7 +2251,8 @@
   box-shadow: 0 -10px 0 var(--panel), 0 8px 0 var(--panel);
 }
 
-.maps-panel .ym-title {
+.maps-panel .ym-title,
+.history-panel .ym-title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
@@ -2178,7 +2263,8 @@
   gap: 8px;
 }
 
-.maps-panel .ym-act {
+.maps-panel .ym-act,
+.history-panel .ym-act {
   height: 26px;
   padding: 0 8px;
   font-size: 13px;
