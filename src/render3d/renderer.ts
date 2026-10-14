@@ -2256,12 +2256,16 @@ export class MapRenderer {
   private glideFrameTo = 0;
   /** Glide smoothly to a view (a camera bookmark, D205): target, turn, tilt and zoom eased there in
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
-  glideTo(to: ViewState, ms = 600): void {
+  glideTo(to: ViewState, ms = 600): Promise<void> {
     cancelAnimationFrame(this.glideFrameTo);
+    // (resolves when the camera has landed, or another glide took over; never rejects)
+    this.glideDone?.();
+    const done = new Promise<void>((resolve) => (this.glideDone = resolve));
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
       this.setView({ ...to, target: [...to.target] as [number, number, number] });
-      return;
+      this.glideDone?.();
+      return done;
     }
     // (the shorter way round)
     let dyaw = to.yaw - from.yaw;
@@ -2279,9 +2283,12 @@ export class MapRenderer {
         target: [0, 1, 2].map((k) => from.target[k] + (to.target[k] - from.target[k]) * e) as [number, number, number],
       });
       if (t < 1 && !this.disposed) this.glideFrameTo = requestAnimationFrame(step);
+      else this.glideDone?.();
     };
     step();
+    return done;
   }
+  private glideDone: (() => void) | null = null;
 
   resetView(): void {
     const m = this.map;

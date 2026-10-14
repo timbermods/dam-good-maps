@@ -446,13 +446,13 @@ export function Header(p: HeaderProps) {
                 </button>
               </li>
               {p.onTour ? (
-                <li role="none">
+                <li role="none" class="menu-rule">
                   <button type="button" role="menuitem" {...tip("See the editor's best controls")} onClick={pick(p.onTour)}>
                     Watch a 20-second tour
                   </button>
                 </li>
               ) : null}
-              <li role="none" class="menu-rule">
+              <li role="none" class={p.onTour ? undefined : "menu-rule"}>
                 <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
                   Keyboard shortcuts
                 </button>

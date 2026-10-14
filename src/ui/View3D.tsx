@@ -9,7 +9,7 @@
 
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { MapRenderer, type BuildStats, type FrameInsets, type MapView, type TileHit, type ViewMode } from "../render3d";
+import { MapRenderer, type BuildStats, type FrameInsets, type MapView, type TileHit, type ViewMode, type ViewState } from "../render3d";
 import { takePreparedRenderer } from "../render3d/prepared";
 import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
@@ -72,6 +72,8 @@ export interface View3DProps {
   frameInsets?(view: HTMLElement): Partial<FrameInsets>;
   /** The first map keeps the view the kept renderer had (the same map back). */
   keepView?: boolean;
+  /** The camera to put on the kept view the moment the map is drawn (the player's own, after the tour). */
+  viewAfter?: ViewState;
 }
 
 /** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
@@ -283,6 +285,7 @@ export function View3D(props: View3DProps) {
     const keep = !!props.keepView && mapsShown.current === 0;
     mapsShown.current++;
     const stats = r.setMap(props.view, keep);
+    if (keep && props.viewAfter) r.setView(props.viewAfter);
     // the legend reads the new map now
     setMapTick((n) => n + 1);
     // (the same map back keeps its view, top-down or not)

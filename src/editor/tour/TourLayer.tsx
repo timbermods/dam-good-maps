@@ -7,68 +7,53 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { Ed } from "../ed";
 import { brushMarks, forceMarks, framingView } from "./camera";
 import { Conductor, TourEnded, type Pt } from "./conductor";
-import { playTour, type Says } from "./script";
+import { playTour } from "./script";
 import { brushSpots, forceSpots, type TourGround } from "./spots";
+import { pillBox, type Says, TourPill, useShield } from "./TourPill";
 
-/** The tour's pace: 1 is the stored gestures' own timings; half as quick again makes the tour about 21 seconds with the
- *  forces' own time. A test may change it (`window.dgmTourPace`) to look at a moment, or to get through quicker. */
-const PACE = 1.5;
-
-/** What the player's own input would have done under the tour: stopped before the editor sees it. */
-const SHIELDED = ["keydown", "keyup", "keypress", "pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "mousemove", "click", "dblclick", "auxclick", "contextmenu", "wheel", "dragstart", "dragenter", "dragover", "drop", "touchstart", "touchmove", "touchend"];
+/** The tour's pace: 1 plays the gestures at the timings written in script.ts (about 20 seconds with the forces' own
+ *  time on top). A test may change it (`window.dgmTourPace`) to look at a moment, or to get through quicker. */
+const PACE = 1;
 
 export function TourLayer(p: { ed: Ed; onEnd(): void }) {
   const { ed } = p;
   const ghost = useRef<HTMLDivElement>(null);
   const [says, setSays] = useState<Says | null>(null);
+  const [down, setDown] = useState<ReadonlySet<string>>(new Set());
+  const [wheelTick, setWheelTick] = useState(0);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [pill, setPill] = useState<{ left: number; top: number } | null>(null);
+  const [box, setBox] = useState(pillBox());
   const ended = useRef(false);
   const abort = useRef(new AbortController());
   const end = useRef(p.onEnd);
   end.current = p.onEnd;
 
-  /** The tour is over (it finished, or Esc): once. */
+  /** The tour is over (it finished, or Esc, or Stop): once. */
   const finish = () => {
     if (ended.current) return;
     ended.current = true;
     abort.current.abort();
     end.current();
   };
+  useShield(finish);
 
-  // the player's own keys and pointer stay out, but for Esc (the tour's own are not trusted events: the browser
-  // marks the ones a script makes)
+  // the caption lines up with the water row above it
   useEffect(() => {
-    const stop = (ev: Event) => {
-      if (!ev.isTrusted) return;
-      ev.stopImmediatePropagation();
-      ev.preventDefault();
-      if (ev.type === "keydown" && (ev as KeyboardEvent).key === "Escape") finish();
-    };
-    for (const t of SHIELDED) window.addEventListener(t, stop, { capture: true, passive: false });
-    return () => {
-      for (const t of SHIELDED) window.removeEventListener(t, stop, { capture: true });
-    };
-  }, []);
-
-  // the caption sits just under the page's top rows, over the part of the view the map is never framed into
-  useEffect(() => {
-    const place = () => {
-      const r = ed.renderer.current;
-      if (!r) return;
-      const c = r.canvas.getBoundingClientRect();
-      const i = r.frameInsets;
-      setPill({ left: c.left + i.left + (c.width - i.left - i.right) / 2, top: c.top + Math.max(i.top - 42, 8) });
-    };
+    const place = () => setBox(pillBox());
     place();
     window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
+    const watch = typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    const row = document.querySelector(".editor-view .water-bar");
+    if (row) watch?.observe(row);
+    return () => {
+      window.removeEventListener("resize", place);
+      watch?.disconnect();
+    };
   }, [ed.ready]);
 
   useEffect(() => {
     const r = ed.renderer.current;
     if (!ed.ready || !r) return;
-    const view = r.getView();
     const saveButton = () => document.querySelector<HTMLElement>("header.editor-bar .primary");
     const hands = new Conductor({
       canvas: r.canvas,
@@ -81,6 +66,14 @@ export function TourLayer(p: { ed: Ed; onEnd(): void }) {
           if (at) g.style.transform = `translate(${at.x}px, ${at.y}px) scale(${pressed ? 0.86 : 1})`;
           g.classList.toggle("pressed", !!pressed);
         },
+        key: (name, isDown) =>
+          setDown((d) => {
+            const next = new Set(d);
+            if (isDown) next.add(name);
+            else next.delete(name);
+            return next;
+          }),
+        wheel: () => setWheelTick((n) => n + 1),
         ripple: (at: Pt) => {
           const id = Math.random();
           setRipples((l) => [...l, { id, x: at.x, y: at.y }]);
@@ -101,12 +94,14 @@ export function TourLayer(p: { ed: Ed; onEnd(): void }) {
         const first = ground();
         if (!first) return;
         const forces = forceSpots(first);
+        // Craterize starts low on the copy (its settings come back with the player's own editor), so the scroll only goes up
+        ed.setCraterUi((ed.craterUiRef.current = { ...ed.craterUiRef.current, power: Math.max(5, forces.craterPower - 25), size: null }));
         const glide = async (marks: ReturnType<typeof forceMarks>, tilt?: number) => {
           // (the camera frames what is worked on next, clear of the controls)
           const framed = framingView(r, marks, tilt);
           if (!framed) return;
-          r.glideTo(framed, 750);
-          await hands.sleep(800);
+          // (until the camera has landed: the gestures after it are worked out on the view it ends on)
+          await hands.wait(r.glideTo(framed, 750), 3000);
         };
         const m = first;
         const clamp = (n: number, hi: number) => Math.max(0, Math.min(hi, n));
@@ -143,7 +138,6 @@ export function TourLayer(p: { ed: Ed; onEnd(): void }) {
       } finally {
         hands.letGo();
         saveButton()?.classList.remove("tour-lit");
-        r.setView(view);
         finish();
       }
     };
@@ -155,22 +149,7 @@ export function TourLayer(p: { ed: Ed; onEnd(): void }) {
   return (
     <div class="tour">
       <div class="tour-shield" aria-hidden="true" />
-      {pill ? (
-        <div class="tour-pill" role="status" aria-live="polite" style={{ left: `${pill.left}px`, top: `${pill.top}px` }}>
-          <span class="tour-says">
-            {says?.keys.map((k, i) => (
-              <span key={k + i} class="tour-key">
-                {i ? <span class="tour-plus">+</span> : null}
-                <kbd class="cap">{k}</kbd>
-              </span>
-            ))}
-            <span class="tour-words">{says?.words ?? "The 20-second tour"}</span>
-          </span>
-          <span class="tour-esc">
-            <kbd class="cap">Esc</kbd> stops
-          </span>
-        </div>
-      ) : null}
+      <TourPill says={says} down={down} wheelTick={wheelTick} box={box} onStop={finish} />
       {ripples.map((r) => (
         <span key={r.id} class="tour-ripple" style={{ left: `${r.x}px`, top: `${r.y}px` }} />
       ))}

@@ -796,15 +796,16 @@ button[aria-pressed="true"] {
   cursor: default;
 }
 
-/* the keys as they are pressed, and how to stop: one small pill under the page's top rows */
+/* the keys as they are pressed, and how to stop: one small caption, lined up with the water row above it (its left and
+   width are measured from it), 8px under it and as high as the controls in the right column */
 .tour-pill {
   position: absolute;
-  transform: translateX(-50%);
+  box-sizing: border-box;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-width: 260px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 0 6px 0 10px;
   border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--overlay);
@@ -813,31 +814,68 @@ button[aria-pressed="true"] {
   font-size: 0.85rem;
   line-height: 1.4;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .tour-says {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
 }
 
 .tour-key {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-.tour-plus,
-.tour-esc {
+.tour-plus {
   color: var(--muted);
 }
 
-.tour-esc {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.78rem;
+/* a key held shows pressed: sunk, in the accent */
+.tour-pill kbd.cap {
+  transition: transform 0.08s, background-color 0.08s, border-color 0.08s;
+}
+
+.tour-pill kbd.cap.down {
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* the wheel, with a tick that runs down it at each notch */
+.tour-wheel {
+  flex: none;
+  color: var(--muted);
+}
+
+.tour-wheel-tick {
+  animation: tour-wheel-tick 0.28s ease-out;
+}
+
+@keyframes tour-wheel-tick {
+  from {
+    transform: translateY(-2px);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateY(2px);
+    opacity: 1;
+  }
+}
+
+.tour-stop {
+  flex: none;
+  pointer-events: auto;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 0.8rem;
 }
 
 /* the cursor: an arrow, its tip at the point it is at */
@@ -887,7 +925,8 @@ button[aria-pressed="true"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tour-ripple {
+  .tour-ripple,
+  .tour-wheel-tick {
     animation-duration: 0.01s;
   }
 }
@@ -895,4 +934,8 @@ button[aria-pressed="true"] {
 /* the hints' one offer of the tour: a quiet link under the last hint, on the hints' own text edge */
 .first-run .tour-offer {
   list-style: none;
+}
+
+.first-run .tour-offer button {
+  padding-inline: 0;
 }

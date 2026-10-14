@@ -5,13 +5,10 @@
 // edges, then Save to Timberborn (shown, never done). The keys are shown as they are pressed.
 
 import type { Conductor, Pt } from "./conductor";
+import type { Says } from "./TourPill";
 import type { BrushSpots, ForceSpots, Tile } from "./spots";
 
-/** What the caption says now: the keys held or pressed, and a few words. */
-export interface Says {
-  keys: string[];
-  words: string;
-}
+export type { Says };
 
 /** What the script needs of the page. */
 export interface Stage {
@@ -22,10 +19,10 @@ export interface Stage {
   /** The ground's level at a tile, as it is drawn now. */
   level(t: Tile): number;
   say(s: Says | null): void;
-  /** The camera glides to frame what the forces work on. */
+  /** The camera glides to frame what the forces work on, and has landed when this returns. */
   frameForces(): Promise<void>;
-  /** Where the brushes work, chosen on the land as it stands now; the camera glides to frame it, tilted to read
-   *  the land's heights. */
+  /** Where the brushes work, chosen on the land as it stands now; the camera glides to frame it (tilted to read the
+   *  land's heights) and has landed when this returns. */
   brushSpots(): Promise<BrushSpots>;
   /** Craterize's Power now. */
   power(): number;
@@ -33,7 +30,8 @@ export interface Stage {
   forcing(): boolean;
   /** The Save to Timberborn button: where it is, and lit while the tour shows it pressed. */
   save(): { at: Pt; lit(on: boolean): void } | null;
-  /** The tour's pace: 1 is the 20 seconds; tests run it quicker. */
+  /** The tour's pace: 1 plays the gestures at the timings written here (about 20 seconds, the forces' own time on top);
+   *  tests run it quicker. */
   pace: number;
 }
 
@@ -42,19 +40,20 @@ const near = (s: Stage, t: Tile, dx = 0, dy = 0, level = s.level(t)) => s.at(t.x
 
 export async function playTour(s: Stage): Promise<void> {
   const c = s.hands;
+  /** A time as written, in milliseconds, at the tour's pace. */
   const ms = (n: number) => n / s.pace;
   const { river, crater } = s.forces;
 
-  /** F held and the mouse moved out from the ring's middle: the size. */
+  /** F held and the mouse moved out from the ring's middle: the size. Its caption is up for a second and a half. */
   const size = async (t: Tile, radius: number, level = s.level(t)) => {
     s.say({ keys: ["F"], words: "move to size" });
     c.hold("f");
-    await c.sleep(ms(160));
-    await c.moveTo(s.at(t.x + 0.5 + radius, t.y + 0.5, level), ms(650));
-    await c.sleep(ms(120));
+    await c.sleep(ms(200));
+    await c.moveTo(s.at(t.x + 0.5 + radius, t.y + 0.5, level), ms(900));
+    await c.sleep(ms(250));
     c.release("f");
-    await c.sleep(ms(60));
-    await c.moveTo(s.at(t.x + 0.5, t.y + 0.5, level), ms(260));
+    await c.sleep(ms(150));
+    await c.moveTo(s.at(t.x + 0.5, t.y + 0.5, level), ms(250));
   };
   /** A force at work: watched while it plays; Esc (the editor's own) takes it to its end when it runs long. */
   const watch = async (limit: number) => {
@@ -69,119 +68,111 @@ export async function playTour(s: Stage): Promise<void> {
   const from = river[0];
   await s.frameForces();
   c.appear(near(s, from, 0, 18));
-  await c.sleep(ms(250));
+  await c.sleep(ms(300));
   s.say({ keys: ["Shift", "1"], words: "Carve" });
   await c.tap("Digit1", { shift: true });
   await c.sleep(ms(200));
-  await c.moveTo(near(s, from), ms(800));
-  await c.sleep(ms(150));
+  await c.moveTo(near(s, from), ms(600));
+  await c.sleep(ms(100));
   await size(from, 4);
   s.say({ keys: [], words: "draw a river" });
   c.down();
-  await c.along(curve(river).map((p) => near(s, p)), ms(1500));
+  await c.along(curve(river).map((p) => near(s, p)), ms(1000));
   c.up();
-  await watch(2000);
+  await watch(3000);
 
-  // ------------------------------------------------------------------ Craterize: a crater
+  // ------------------------------------------------------------------ Craterize: a crater, its Power scrolled up
   s.say({ keys: ["Shift", "2"], words: "Craterize" });
   await c.tap("Digit2", { shift: true });
-  await c.sleep(ms(150));
-  await c.moveTo(near(s, crater), ms(800));
+  await c.sleep(ms(100));
+  await c.moveTo(near(s, crater), ms(550));
   await c.sleep(ms(200));
-  s.say({ keys: ["F"], words: "scroll for power" });
+  // (the copy's Craterize starts low, so the scroll only goes up: the ring grows)
+  s.say({ keys: ["F"], words: "scroll for power", wheel: true });
   c.hold("f");
-  await c.sleep(ms(120));
-  // (from where Power is to the one the crater is struck at: down to a quarter of the way below it first, if it is
-  // above that, then up to it, each notch a step of five)
-  const to = s.forces.craterPower;
-  const low = Math.max(5, Math.min(s.power(), to - 15));
-  for (let p = s.power(); p > low; p -= 5) {
-    c.wheel(100);
-    await c.sleep(ms(45));
-  }
   await c.sleep(ms(150));
-  for (let p = low; p < to; p += 5) {
+  for (let p = s.power(); p < s.forces.craterPower; p += 5) {
     c.wheel(-100);
-    await c.sleep(ms(200));
+    await c.sleep(ms(300));
   }
+  await c.sleep(ms(100));
   c.release("f");
   await c.sleep(ms(150));
   s.say({ keys: [], words: "click to strike" });
   await c.click();
-  await watch(2000);
+  await watch(3000);
 
   // ------------------------------------------------------------------ Raise: a hill, sized with F
   s.say({ keys: ["2"], words: "Raise" });
   await c.tap("Digit2");
   const { hill, shelf } = await s.brushSpots();
+  await c.sleep(ms(100));
+  await c.moveTo(near(s, hill), ms(550));
   await c.sleep(ms(150));
-  await c.moveTo(near(s, hill), ms(800));
-  await c.sleep(ms(200));
   await size(hill, 6);
   s.say({ keys: [], words: "paint a hill" });
   c.down();
-  await c.along(ring(hill, 1.5, 6).map((p) => near(s, p)), ms(600));
+  await c.along(ring(hill, 1.5, 6).map((p) => near(s, p)), ms(400));
   c.up();
-  await c.sleep(ms(250));
-  // (smaller, on the level it just made: the hill's second step)
-  await size(hill, 3);
+  await c.sleep(ms(150));
+  // (the same size, on the level it just made: the hill's second step)
   c.down();
-  await c.along(ring(hill, 1, 5).map((p) => near(s, p)), ms(450));
+  await c.along(ring(hill, 1, 5).map((p) => near(s, p)), ms(300));
   c.up();
-  await c.sleep(ms(350));
+  await c.sleep(ms(300));
 
   // ------------------------------------------------------------------ Shift+click: the opposite
   s.say({ keys: ["Shift"], words: "click to lower" });
   c.hold("Shift");
-  await c.sleep(ms(200));
+  await c.sleep(ms(350));
   const bite = { x: hill.x + 4, y: hill.y - 1 };
-  await c.moveTo(near(s, bite), ms(550));
-  await c.sleep(ms(150));
+  await c.moveTo(near(s, bite), ms(650));
+  await c.sleep(ms(250));
   await c.click();
+  await c.sleep(ms(350));
   c.release("Shift");
-  await c.sleep(ms(450));
 
   // ------------------------------------------------------------------ Ctrl+click: take the hilltop's level, Flatten to it
   s.say({ keys: ["4"], words: "Flatten" });
   await c.tap("Digit4");
-  await c.sleep(ms(150));
-  s.say({ keys: ["Ctrl"], words: "click to take its level" });
+  await c.sleep(ms(300));
+  s.say({ keys: ["Ctrl"], words: "take its level" });
   c.hold("Control");
-  await c.sleep(ms(150));
-  await c.moveTo(near(s, hill), ms(650));
-  await c.sleep(ms(150));
+  await c.sleep(ms(250));
+  await c.moveTo(near(s, hill), ms(600));
+  await c.sleep(ms(250));
   await c.click();
-  c.release("Control");
-  await c.sleep(ms(350));
-  s.say({ keys: [], words: "paint to that level" });
-  await c.moveTo(near(s, shelf, -2, -1), ms(800));
-  c.down();
-  await c.along(ring(shelf, 1.5, 4).map((p) => near(s, p)), ms(650));
-  c.up();
   await c.sleep(ms(450));
+  c.release("Control");
+  s.say({ keys: [], words: "paint it flat" });
+  await c.moveTo(near(s, shelf, -2, -1), ms(550));
+  c.down();
+  await c.along(ring(shelf, 1.5, 4).map((p) => near(s, p)), ms(450));
+  c.up();
+  await c.sleep(ms(300));
 
   // ------------------------------------------------------------------ Smooth: the edges
   s.say({ keys: ["5"], words: "Smooth" });
   await c.tap("Digit5");
-  await c.sleep(ms(150));
-  await c.moveTo(near(s, hill, 5, 0), ms(650));
+  await c.sleep(ms(100));
+  await c.moveTo(near(s, hill, 5, 0), ms(450));
   c.down();
-  await c.along(ring(hill, 5, 10, Math.PI * 0.2).map((p) => near(s, p)), ms(900));
+  await c.along(ring(hill, 5, 10, Math.PI * 0.2).map((p) => near(s, p)), ms(600));
   c.up();
-  await c.sleep(ms(350));
+  await c.sleep(ms(250));
 
   // ------------------------------------------------------------------ Save to Timberborn (shown, never done)
   const save = s.save();
   if (save) {
     s.say({ keys: [], words: "Save to Timberborn" });
-    await c.moveTo(save.at, ms(1000));
-    await c.sleep(ms(250));
+    await c.moveTo(save.at, ms(700));
+    await c.sleep(ms(150));
     save.lit(true);
-    await c.sleep(ms(850));
+    await c.sleep(ms(650));
     save.lit(false);
   }
   s.say({ keys: [], words: "That was the tour" });
-  await c.sleep(ms(900));
+  await c.sleep(ms(700));
 }
 
 /** The river's course as a smooth line: the course's points with a point between each pair, so the hand curves. */

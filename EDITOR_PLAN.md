@@ -64,7 +64,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About, Watch a 20-second tour, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project, Download .timber, Clear everything, About, then after a hairline Watch a 20-second tour, Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
@@ -796,12 +796,14 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 - **First run:** three one-line hints (paint the land, place things, add water), then never again. They end with the
   one quiet offer of the tour, below.
 - **The 20-second tour** (D377; `src/editor/tour/`), offered and never forced: the first visit's hints end with a
-  quiet **Watch a 20-second tour**, and **File** has it too. It advertises the controls that can't be discovered by
+  quiet **Watch a 20-second tour**, and **File** has it too, first of the group under its hairline. It advertises the controls that can't be discovered by
   looking, on the map in front of the player: Carve (F and the mouse size the river, drawn down a slope), Craterize
   (F and the wheel set its Power, struck on flat ground), then the brushes' flow (Raise a hill and size it with F,
   Shift+click to lower, Ctrl+click the hilltop to take its level and Flatten a spot to it, Smooth the edges) and, last,
-  Save to Timberborn, shown and never done. A ghost cursor does it, the keys shown small and quiet under the page's top
-  rows as they are pressed, with **Esc stops** beside them. **It plays on a temporary copy**: the page opens the open
+  Save to Timberborn, shown and never done. A ghost cursor does it, and one small caption, lined up with the water row
+  and 8px under it, shows the keys as they are pressed (a held key sinks, the wheel's notches tick on a small wheel), each
+  of the four hidden controls staying up for at least a second and a half. The caption is up the moment the tour is
+  asked for, while its copy opens, and has a **Stop** button (tooltip with Esc) for a player with only a mouse. **It plays on a temporary copy**: the page opens the open
   map's project in a worker of its own and the editor shows that copy, so the player's map stays in its worker with its
   whole history, untouched; when the tour ends, or Esc ends it at any moment, the player's own map comes back as it was
   (its history, what can be redone, the camera, and the brush and force choices the browser keeps) and so does the editor as the player had it (

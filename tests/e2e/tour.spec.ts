@@ -86,14 +86,20 @@ async function watchCaptions(page: Page) {
   await page.evaluate(() => {
     const seen = new Set<string>();
     (window as unknown as { tourSeen: Set<string> }).tourSeen = seen;
+    // (and when each caption's words first came up, for the ones that show a hidden control)
+    const times: [string, number][] = [];
+    (window as unknown as { tourTimes: [string, number][] }).tourTimes = times;
     const take = () => {
       for (const el of document.querySelectorAll(".tour-pill .tour-words, .tour-pill .tour-says kbd")) seen.add((el.textContent ?? "").trim());
+      const words = document.querySelector(".tour-pill .tour-words")?.textContent?.trim();
+      if (words && times.at(-1)?.[0] !== words) times.push([words, performance.now()]);
     };
     new MutationObserver(take).observe(document.body, { subtree: true, childList: true, characterData: true });
     take();
   });
 }
 const seen = (page: Page) => page.evaluate(() => [...(window as unknown as { tourSeen: Set<string> }).tourSeen]);
+const times = (page: Page) => page.evaluate(() => (window as unknown as { tourTimes: [string, number][] }).tourTimes);
 
 /** Start the tour from the File menu, and wait until it is on. */
 async function startFromMenu(page: Page) {
@@ -134,7 +140,7 @@ test("File → Watch a 20-second tour plays through on a copy: the keys are show
 
   // what it advertised: the keys and what they do
   const words = await seen(page);
-  for (const w of ["F", "Shift", "Ctrl", "move to size", "scroll for power", "click to lower", "click to take its level", "Save to Timberborn"]) expect(words, `the tour showed ${w}`).toContain(w);
+  for (const w of ["F", "Shift", "Ctrl", "move to size", "scroll for power", "click to lower", "take its level", "Save to Timberborn"]) expect(words, `the tour showed ${w}`).toContain(w);
   // (Save to Timberborn was shown, never done: no file, no saving)
   await expect(page.getByRole("button", { name: "Save to Timberborn" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Save to Timberborn" })).not.toHaveClass(/tour-lit/);
@@ -264,4 +270,55 @@ test("a picked source with its changed strength, and the Select row's Level numb
     await expect.poll(() => page.evaluate(() => window.dgmEditor!.held()), { timeout: 60_000 }).toEqual(held);
     await expect(page.getByRole("combobox", { name: "Strength" })).toHaveValue(shown);
   }
+});
+
+test("the four hidden controls each stay up for a second and a half, the caption lines up with the water row, and Stop ends it for a mouse-only player", async ({ page }) => {
+  test.setTimeout(300_000);
+  // (played at its own pace)
+  await page.addInitScript(() => {
+    (window as unknown as { dgmTourPace: number }).dgmTourPace = 1;
+  });
+  await openEditor(page, SPEC);
+  await withHistory(page);
+  const before = await state(page);
+  // (the caption is up the moment the tour is asked for, while its copy of the map opens)
+  const menu = await openFileMenu(page);
+  await menu.getByRole("menuitem", { name: "Watch a 20-second tour" }).click();
+  await expect(page.locator(".tour-pill")).toBeVisible({ timeout: 1000 });
+  await watchCaptions(page);
+  await expect.poll(() => page.evaluate(() => !!window.dgmEditor && document.querySelector(".tour-pill .tour-words")?.textContent !== "The 20-second tour"), { timeout: 60_000 }).toBe(true);
+
+  // the caption: its left and width are the water row's, 8px under it, as high as the right column's controls (36px)
+  const pill = await page.locator(".tour-pill").boundingBox();
+  const row = await page.locator(".editor-view .water-bar").boundingBox();
+  expect(Math.abs(pill!.x - row!.x)).toBeLessThan(1);
+  expect(Math.abs(pill!.width - row!.width)).toBeLessThan(1);
+  expect(Math.abs(pill!.y - (row!.y + row!.height + 8))).toBeLessThan(1);
+  expect(Math.round(pill!.height)).toBe(36);
+  // nothing in it is cut off
+  expect(await page.locator(".tour-says").evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+
+  // the keys held show pressed, and the wheel ticks with each notch of the scroll
+  await expect.poll(async () => (await seen(page)).includes("scroll for power"), { timeout: 120_000 }).toBe(true);
+  await expect(page.locator(".tour-pill .tour-wheel")).toBeVisible();
+  await expect(page.locator(".tour-pill kbd.cap.down")).toHaveText("F");
+
+  await expect(page.locator(".tour")).toHaveCount(0, { timeout: 120_000 });
+  await waitForEditor(page);
+  expect(await state(page)).toEqual(before);
+  const shown = await times(page);
+  for (const words of ["move to size", "scroll for power", "click to lower", "take its level"]) {
+    const spans = shown.flatMap(([w, t], k) => (w === words && shown[k + 1] ? [shown[k + 1][1] - t] : []));
+    expect(spans.length, words).toBeGreaterThan(0);
+    for (const d of spans) expect(d, `${words} stays up long enough`).toBeGreaterThanOrEqual(1500);
+  }
+
+  // a player with only a mouse: the caption's Stop button ends it, and nothing else on the page answered meanwhile
+  await startFromMenu(page);
+  await page.getByRole("button", { name: "File", exact: true }).click({ force: true });
+  await expect(page.getByRole("menu", { name: "File" })).toHaveCount(0);
+  await page.locator(".tour-stop").click();
+  await expect(page.locator(".tour")).toHaveCount(0, { timeout: 30_000 });
+  await waitForEditor(page);
+  expect(await state(page)).toEqual(before);
 });

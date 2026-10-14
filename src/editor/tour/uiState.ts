@@ -13,6 +13,7 @@ import type { SelectMode } from "../select";
 import type { LayerKind } from "../panels";
 import type { Verb } from "../../core/forces/op";
 import type { Hazard } from "../../core/sim/weather";
+import type { ViewState } from "../../render3d";
 import type { EntityInfo } from "../../worker/session";
 
 /** Where the focus was: the map, or a button of the header or the hints (found again by its words). */
@@ -47,6 +48,8 @@ export interface UiState {
   sliceLevel: number | null;
   weather: { hazard: Hazard; day: number | null } | null;
   focus: Focus;
+  /** The camera, put on the map the moment it is drawn again. */
+  view: ViewState | null;
 }
 
 const BUTTON_PARTS: [string, string][] = [
@@ -88,10 +91,11 @@ function focusOf(canvas: HTMLElement | null): Focus {
 
 function refocus(f: Focus, canvas: HTMLElement | null): void {
   if (!f) return;
-  if (f.on === "map") return canvas?.focus({ preventScroll: true });
+  if (f.on === "map") return canvas?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
   const selector = BUTTON_PARTS.find(([, w]) => w === f.within)![0];
   const found = [...document.querySelectorAll<HTMLElement>(`${selector} button`)].find((b) => (b.getAttribute("aria-label") ?? b.textContent?.trim() ?? "") === f.name);
-  found?.focus({ preventScroll: true });
+  // (without a focus ring: the player did not tab there, and nothing is drawn round it that was not before)
+  found?.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
 }
 
 /** The editor's state as it is now. */
@@ -124,6 +128,7 @@ export function takeUi(ed: Ed): UiState {
     sliceLevel: ed.renderer.current?.slice ?? null,
     weather: ed.weatherRef.current ? { hazard: ed.weatherRef.current, day: ed.heldDay.current } : null,
     focus: focusOf(ed.renderer.current?.canvas ?? null),
+    view: ed.renderer.current?.getView() ?? null,
   };
 }
 

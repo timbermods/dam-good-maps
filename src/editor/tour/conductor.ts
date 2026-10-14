@@ -20,7 +20,14 @@ export class TourEnded extends Error {
 export interface Ghost {
   cursor(p: Pt | null, pressed?: boolean): void;
   ripple(p: Pt): void;
+  /** A key goes down or comes up, as the caption names it (F, Shift, Ctrl, 2). */
+  key(name: string, down: boolean): void;
+  /** A notch of the wheel. */
+  wheel(): void;
 }
+
+/** A key as the caption names it. */
+const NAMES: Record<string, string> = { f: "F", Shift: "Shift", Control: "Ctrl" };
 
 export interface Hands {
   /** The map's canvas: the pointer and the wheel are dispatched on it, as the browser would. */
@@ -55,6 +62,12 @@ export class Conductor {
       const t = setTimeout(() => (this.h.signal.aborted ? reject(new TourEnded()) : resolve()), ms);
       this.h.signal.addEventListener("abort", () => (clearTimeout(t), reject(new TourEnded())), { once: true });
     });
+  }
+
+  /** Wait for a promise (a camera glide), at most `limit` ms: a hidden tab draws no frames, and the tour goes on. */
+  async wait(p: Promise<unknown>, limit: number): Promise<void> {
+    await Promise.race([p, this.sleep(limit)]);
+    this.check();
   }
 
   /** Wait until `done()` is true (polled each frame), at most `limit` ms; whether it was. */
@@ -97,12 +110,14 @@ export class Conductor {
     if (name === "Shift") this.shift = true;
     if (name === "Control") this.ctrl = true;
     this.key("keydown", name, name === "f" ? "KeyF" : name === "Shift" ? "ShiftLeft" : "ControlLeft");
+    this.h.ghost.key(NAMES[name], true);
   }
 
   release(name: "Shift" | "Control" | "f"): void {
     if (name === "Shift") this.shift = false;
     if (name === "Control") this.ctrl = false;
     this.key("keyup", name, name === "f" ? "KeyF" : name === "Shift" ? "ShiftLeft" : "ControlLeft");
+    this.h.ghost.key(NAMES[name], false);
   }
 
   /** A key tapped by the character it types and its place on the keyboard (`Digit2`), with Shift when asked. */
@@ -111,9 +126,14 @@ export class Conductor {
     if (opts.shift) this.hold("Shift");
     const digit = /^Digit(\d)$/.exec(code);
     const key = digit ? (opts.shift ? ")!@#$%^&*("[Number(digit[1])] : digit[1]) : code;
+    const shown = digit ? digit[1] : code;
     this.key("keydown", key, code);
+    this.h.ghost.key(shown, true);
     await this.sleep(70);
     this.key("keyup", key, code);
+    // (a key tapped is seen pressed for a moment, long enough to read)
+    await this.sleep(190);
+    this.h.ghost.key(shown, false);
     if (opts.shift) this.release("Shift");
   }
 
@@ -203,6 +223,7 @@ export class Conductor {
   /** A turn of the wheel at the pointer (negative: up, away from the player), with the keys held. */
   wheel(deltaY: number): void {
     this.check();
+    this.h.ghost.wheel();
     this.h.canvas.dispatchEvent(
       new WheelEvent("wheel", { deltaY, deltaMode: 0, bubbles: true, cancelable: true, clientX: this.at.x, clientY: this.at.y, shiftKey: this.shift, ctrlKey: this.ctrl }),
     );
