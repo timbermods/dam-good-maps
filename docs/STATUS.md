@@ -6,10 +6,12 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-07, the milestone session runs on Kyler's PC (clone `C:\Users\Kyler\code\DamGoodMaps`), shared with the renderer
-session, which comes first: local runs use about half the threads and CI does the rest; probe batches need Kyler's yes in
-chat (D117). The page session is stopped (its worktree is `DamGoodMaps-page`); the probe folder is
-`DamGoodMaps-probe`.
+As of 2026-10-14, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
+`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`, the machine is theirs alone
+(D484): testing and probing need no asking, all 12 threads split between them as the work needs, Timberborn whenever it
+helps, within D483. The
+page session is stopped (worktree `DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`. Kyler's PC is idle. Work
+stopped from 2026-10-08 to 2026-10-14 when the old account's usage ran out; dev was unchanged (4a699b80).
 
 ## Released
 
@@ -21,28 +23,28 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D484**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D485**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF.
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
-- **The renderer session "forces play"** (Kyler's PC, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
+- **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
   Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
   jump), #312's worker part now the page part is on dev, and Deposit's outline (#348, on `fix/deposit-outline`; its Rust is a core
   change, reviewed with a full CI run when its PR comes).
-- **Codex** (both machines) builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
+- **Codex** builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
 
 ## Open pull requests
 
-Merge order and owner. Everything merges through the milestone session's review and green CI; human-facing ones need
-`approved` (D470); Rust and core PRs also need a full CI run by hand (`gh workflow run ci.yml --ref <branch>`), since a PR
+Merge order and owner. Everything merges through the milestone session's review and green CI; the owning session judges
+what a player sees and posts "ready to merge" on #236 (D484); Rust and core PRs also need a full CI run by hand (`gh workflow run ci.yml --ref <branch>`), since a PR
 into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet.
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #329 | A force starts from the water on screen (the lake jump) | forces play | `needs-kyler`: at /preview/ since 2026-10-07 (25f7eca8, dev and the page editor merged in; checked live). After Kyler's try: merge if he approves, and put the page editor's own preview back (D477) |
-| #348 | Deposit: nothing changes outside its outline (#341) | forces play | `needs-kyler`. Kyler judges it by using it: only once his verdict on #329 is in, publish #348 at /preview/ with the page editor (D477) and ping him. Its Rust is a core change: review with a full CI run before it merges |
+| #329 | A force starts from the water on screen (the lake jump) | forces play | Forces play judges it in the browser (D484) and posts "ready to merge" on #236; the milestone session merges, then /preview/ goes back to dev's page (D477) |
+| #348 | Deposit: nothing changes outside its outline (#341) | forces play | As #329; a core Rust change, so a full CI run before it merges |
 | (branch) | 3D, step 1: Foundations (D481, D280 (1)) | milestone | `feature/3d-foundations`, worktree `DamGoodMaps-3d-foundations`, `build` agents; the stages are in `docs/progress/3d-foundations.md`. **Stage 1 is merged** (#354, 2026-10-07: the terrain in memory as runs; 84 generated maps and all 22 official maps byte-identical through import, project, reopen, strokes and export). **Stage 2 is merged** (#355, 2026-10-08, `approved`: the support check on every map with terrain above terrain; slope and start checks read the floor an object stands on). **Stage 3 is PR #369** (`needs-kyler`; worktree `DamGoodMaps-3d-foundations-3`): the floor graph in `rust/checks`, three new rows live (walking between levels, a sealed water source, room above plants) and D482; generated maps unchanged, all new rows passing on them; on imports "Slopes connect" turns into a warning on seven maps and the sealed-source warning shows on three. Five small choices are Kyler's on the PR (the walking row isn't visible in today's editor; the 400-tile area size; singular wording; the dropped-ground row built but not yet fed by the build; a broken slope on an import only in the full check). Full run 37751415225 green. `checksWasm.ts` must be rebuilt from the merged Rust when stage 6's rest merges after it. **Stage 4 is merged** (#356, 2026-10-07: the multi-slot writer, the engine's core binding `src/core/sim/stackWater.ts`, the T1–T6 writers; nothing in the app calls them). T1 and T2 are byte for byte the files the game played; T3–T6 differ only in water tokens (nine digits since #310, seven in the played files; at most 6e-7), so they go into stage 6's probe batch. **Stage 5 is merged** (#357, 2026-10-08: the stacked engine behind one switch in the canonical settle, `WaterModel.stacked`; the terrain decides the path, and no map the app builds takes it yet; 84 generated and all 32 official, workshop and user maps byte-identical through export, a stroke, save and reopen). **Stage 6, first part, is merged** (#358) (`feature/3d-foundations-6`: a sink in the stacked engine, from the game's own code, not yet played; nothing a player sees; merged 2026-10-08). **Stage 6, the rest, is PR #370** (`needs-kyler`; `feature/3d-foundations-6b`, worktree `DamGoodMaps-3d-foundations-8`; full run 37753392734): imported caves' water simulated with Kyler's choices (#359). Generated maps and projects unchanged; every import exports byte for byte unedited; the settle matches all 19 official maps' own water. Four things are Kyler's on the PR: nearly every import has a cave or overhang tile, so the background settle applies to almost all imports; the page drops Drought and Badtide's refusal and needs a few lines in a fourth page file (`src/editor/session/useSession.ts`); Tower of Beaverlon gets worse; verdicts become real on seven maps and some fail. Not merged without the page fix. The batch ran on 2026-10-08 (#361, closed): T7's sink rule is game-verified on 1.1.2.7. No further batch is planned for Foundations: from here a batch plays only what players get (D483), asked with its maps named when it is worth it. |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Parked until after the Weather view |
@@ -51,8 +53,7 @@ into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet
 
 ## Left for the next milestone session, in order
 
-1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26). Nothing else merges unless green
-   and approved.
+1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26).
 2. **Canyon and Highlands is merged** (#261, generator 0.8.8, 2026-10-08): the main river's walls at Canyon 128² a median 6.3
    levels (2.8 before); all three outcomes of 20 at 96² / 128² / 256²: Canyon 14 / 15 / 13, Highlands 14 / 17 / 16. The
    generator queue is empty. D480's extension is merged too (#366, generator 0.8.9: the main water is never dropped from the
@@ -116,6 +117,6 @@ results are recorded here. Earlier batches: [archive/status-2026-10-01.md](archi
   stacked engine's sink rule is game-verified on 1.1.2.7. T3–T6 (replays) passed and are not looked at further (D483). The
   machine: only Unity's four per-launch registry values changed, compared from outside the sandbox.
 - **The game updated to 1.1.2.7** (seen 2026-10-08). Done: the starting-logs floor recomputes to the same 178; the probe's
-  smoke run and five Terrain 3D maps pass on it. To do: regenerate `investigation/decompiled/`; `log-floor.json` and the
+  smoke run and five Terrain 3D maps pass on it. `investigation/decompiled/` is regenerated for 1.1.2.7 on the dedicated machine (2026-10-14; the files are smaller only because the game no longer ships Unity's generated script-path tables). To do: `log-floor.json` and the
   writer's stamped version move together once a batch of what players get (D483) has played on 1.1.2.7; the sink fixture's
   reference text still says "not game-verified".
