@@ -207,6 +207,17 @@ export function applyPatch(st: MapState, p: Patch, inverse = false): void {
   if (p.water) st.water = structuredClone(inverse ? p.water.before : p.water.after);
 }
 
+/** The patch that takes `p` back: its before and after values swapped (stored values, never arithmetic). */
+export function invertPatch(p: Patch): Patch {
+  const flip = <T>(list: Change<T>[]): Change<T>[] => list.map(([id, a, b]) => [id, b === null ? null : structuredClone(b), a === null ? null : structuredClone(a)]);
+  return {
+    ground: p.ground.map(([i, hb, ha, lb, la]) => [i, ha, hb, la, lb] as GroundChange),
+    objects: flip(p.objects),
+    fallen: flip(p.fallen),
+    water: p.water ? { before: structuredClone(p.water.after), after: structuredClone(p.water.before) } : null,
+  };
+}
+
 export function cloneState(st: MapState): MapState {
   return { ...st, heights: st.heights.slice(), lava: st.lava.slice(), entities: structuredClone(st.entities), derived: structuredClone(st.derived), fallen: structuredClone(st.fallen), water: structuredClone(st.water) };
 }
