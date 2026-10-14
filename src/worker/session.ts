@@ -583,7 +583,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
   if (!s) return;
   const W = s.size.x;
   if (!draft || draft.session !== s) {
-    const from = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+    const from = (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
@@ -680,7 +680,7 @@ function kickWater(): void {
   draft?.job.dispose();
   draft = null;
   draftToken++;
-  const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
+  const inflight = painted ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
@@ -1764,7 +1764,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
-  const sim = waterJob && waterJob.session === s ? waterJob.job.sim : null;
+  const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
@@ -1794,7 +1794,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
+  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -2067,7 +2067,7 @@ function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Arr
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
 function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
-  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const now = flowing ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;

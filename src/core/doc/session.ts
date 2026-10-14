@@ -3,8 +3,9 @@
 //
 // - `apply` checks an operation, applies it to the state, appends it to the log and rebuilds the
 //   dirty region. Invalid operations are rejected with reasons, never clamped.
-// - `undo` and `redo` step through the history: operations invert with their undo data. Built maps
-//   are kept as snapshots every few steps, so stepping back is instant on 256² maps.
+// - `undo` and `redo` step through the history: operations invert with their undo data. The built map
+//   of every step near where the history stands is kept (one every few steps further back), so
+//   undo and redo put it back as it was, its own water with it, never rebuilding it.
 // - Edits never replay onto new land (PLAN §20, D336): a document keeps the generation it was
 //   made on. Generate makes a new map; the log replays only onto the same land (undo and redo,
 //   reopening a project, share links).
@@ -131,9 +132,14 @@ export interface DocOrphan {
   reason: string;
 }
 
-/** Built maps kept for undo and redo. */
+/** Built maps kept for undo and redo: every step's within reach of where the history stands (undo and
+ *  redo put the map back as it was, a copy, never a rebuild: D158, D453), and one every few steps
+ *  further back. A kept build holds about 92 bytes a tile beyond the builds round it (6 MB at 256²):
+ *  `NEAR_TILES` keeps 16 steps either side at 256², 64 at 128², about 96 MB at most. */
 const SNAPSHOT_EVERY = 8;
 const MAX_SNAPSHOTS = 8;
+const NEAR_TILES = 16 * 256 * 256;
+const MIN_NEAR = 8;
 
 export class MapSession {
   private gen: Generation;
@@ -837,6 +843,7 @@ export class MapSession {
     }
     this.redoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+    this.snapshot();
     return true;
   }
 
@@ -894,14 +901,15 @@ export class MapSession {
     for (const k of [...this.snaps.keys()]) if (k >= this.undoStack.length) this.snaps.delete(k);
   }
 
-  private snapshot(force = false): void {
+  /** Keep the map as it stands for this place in the history (see `NEAR_TILES`). */
+  private snapshot(): void {
     const at = this.undoStack.length;
-    if (!force && at % SNAPSHOT_EVERY !== 0) return;
     this.snaps.set(at, this.cur);
-    while (this.snaps.size > MAX_SNAPSHOTS) {
-      const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
-      this.snaps.delete(oldest);
-    }
+    const near = Math.max(MIN_NEAR, Math.floor(NEAR_TILES / (this.gen.base.sizeX * this.gen.base.sizeY)));
+    // (the steps further away go, but the map as opened and one every few steps)
+    for (const k of [...this.snaps.keys()]) if (k !== 0 && k % SNAPSHOT_EVERY !== 0 && Math.abs(k - at) > near) this.snaps.delete(k);
+    const sparse = [...this.snaps.keys()].filter((k) => k !== 0 && k % SNAPSHOT_EVERY === 0 && Math.abs(k - at) > near).sort((a, b) => a - b);
+    while (sparse.length > MAX_SNAPSHOTS) this.snaps.delete(sparse.shift()!);
   }
 
   // ------------------------------------------------------------------------------ building

@@ -103,11 +103,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           localRedo.current = [];
           if (u.errors.length) setMessage({ kind: "error", text: plain(u.errors[0]) });
           const now = await api.terrainNow();
-          if (pendingTerrain.current === 0) {
-            mirror.current.heights = now.heights;
-            terrain.current = now.terrain;
-            renderer.current?.updateTerrain(now.heights);
-          }
+          // (put in place once nothing else the page painted is on its way; no check: the page showed what was refused)
+          checkStroke.current = false;
+          applyUpdate({ ...u, view: { ...u.view, heights: now.heights, terrain: now.terrain } });
+          return;
         }
         applyUpdate(u);
       } catch (e) {
