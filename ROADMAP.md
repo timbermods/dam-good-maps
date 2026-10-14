@@ -29,7 +29,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
 **0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
 
 - **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
-  started ahead of the Weather view, custom map sizes and the dam sketch, alongside the generator queue (the queue's step
+  started ahead of the Weather view and custom map sizes, alongside the generator queue (the queue's step
   keeps first place; the two never edit the same files at once). Its new modules are already on dev (the Rust
   stacked-column engine and #71's eight game-verified fixtures in CI); what remains is "Terrain above terrain", step 1.
 
@@ -43,7 +43,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   page part reaches dev with #163.
 - **Codex** (investigation branches; Kyler decides each adoption): TypeScript 7 (`investigation/ts7`), generation speed
   (`investigation/gen-speed-3`), first load (`investigation/first-load`), the page hunt (#303).
-- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked until its adoption after the Weather view.
+- **The dam sketch, round 3** (#279, `investigation/dam-sketch-3`): parked; the dam sketch is out of the order (D485).
 - **Merged since:** every force plays smoothly (#311), the forces share rust/water's kernel (#304), the checks in Rust (#321),
   the badwater line (#265, generator 0.8.1), Craterize clears and rides sources (#322), Naturalize rule 4 (#324), forces end
   the moment their land is final (#275), a source's highlight under its water (#225), shared object models (#323), #313's
@@ -52,7 +52,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
   joins the main water (D476).
 - **Held investigations and old drafts:** the theme critique (#211), Islands round 2 (#210), the performance audit (#152),
   scaling (#132) and the parked drafts (#73, #71, #35); STATUS has each one's state.
-- **Next, after Foundations** (D481): the Weather view, custom map sizes, then the dam sketch.
+- **Next, after Foundations** (D481): the Weather view, custom map sizes, then 3D's view, Erode and the Block tool (D485).
 
 **1. Released, and the coherence cleanup**
 
@@ -140,7 +140,7 @@ interface, `Editor.tsx` and its split. Models and effort: D389. Messages between
    `investigation/parity-core` (#252, `feature/parity-core`); the page wires its shelf tiles and settings, and the old
    branch (#95) closes. Crop map to selection is still to build.
 2. **The Weather view** (parked, #73): Drought and Badtide day by day, held for Kyler's sitting after the page (D349).
-3. **Custom map sizes** (D357), then **the dam sketch tool** (D383).
+3. **Custom map sizes** (D357). The dam sketch tool (D383) is out of the order (D485).
 4. **Pick a place**, after the design pass (D384).
 5. **The four 3D steps** (terrain above terrain; #71 is the reference, never adopted in TypeScript, D448): the Rust water
    has the stacked-column engine (adopted, the computation alone, not wired in), then Foundations, the view, creating them (Erode in Rust, D438, and the Block tool),
@@ -896,6 +896,8 @@ reported. PLAN §20 D357 has the whole decision.
 
 ## The dam sketch tool (D383)
 
+Parked: out of the order (D485, 2026-10-14); its branches are kept.
+
 At the end of step 1, after the Weather view (it needs the Rust water and "The page is the editor"). The player draws a
 wall of any shape and height under the game's dam, levee and floodgate rules; the reservoir fills behind it, simulated
 with the game-exact water; the tool shows the water held, the days of drought covered, the tiles needed and what it
@@ -917,6 +919,8 @@ wall) built in the game, comparing level, volume and dry-out day with the engine
 its stacked-dams scene (which predicts dry) is fixed first, and its calibration needs a Probe wall-building bridge.
 
 ## Collaborative editing (D349)
+
+Ships complete (D486): all of the brief, nothing cut, tested between real peers over the real relay, with reconnects, conflicts and a dropped peer.
 
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
 (step 3 of D349's order); nothing is built before then. Two players edit one map live, sharing one ordered list of

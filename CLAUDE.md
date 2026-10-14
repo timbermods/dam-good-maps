@@ -51,7 +51,7 @@ maps the documents.
 ## Coordination (D470, D484)
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14).** Claude completes the whole order without him (D349 as
-  amended by D481). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
+  amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
   (or the owning session's), decided against his recorded decisions and the project's identity, recorded when it is a real
   choice, merged when CI and the checks are green. Every such decision is reversible; he may reverse any later.
 - **His hands are replaced, not dropped.** Forces and editor behaviour: use the page yourself in a real browser
@@ -59,7 +59,7 @@ maps the documents.
   visible effect. Look and feel: before a look or interaction change merges, a separate reviewer agent that hasn't seen the
   work judges its captures against the page rules (nothing cut off or overlapping, lined up to the pixel, every control
   named, keys only in tooltips, short text). The game: probe batches on the dedicated machine when they decide something
-  (D218, D483). Collaborative editing: tested with two peers.
+  (D218, D483). Collaborative editing: complete, between real peers over the real relay, reconnects, conflicts and a dropped peer tested (D486).
 - **The only questions for Kyler are design direction:** the answer changes what the product is, or how it looks, feels or
   behaves to a player, in a way his recorded decisions don't settle. Engineering, thresholds, wording, test results,
   performance, order inside a step and "is this good enough" are ours. One issue per question, labelled `needs-kyler`:
