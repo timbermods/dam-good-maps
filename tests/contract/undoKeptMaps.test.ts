@@ -5,12 +5,12 @@
 // byte: the .timber file the game loads and the settled map's hash.
 
 import { describe, expect, it } from "vitest";
-import { settledHash } from "../../src/core/collab";
+import { applyForce, settledHash } from "../../src/core/collab";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { applySelection } from "../../src/core/doc/start";
-import { CHEAP_KINDS, mapProject, Stream } from "./collabFixtures";
+import { CHEAP_KINDS, GUID, mapProject, Stream } from "./collabFixtures";
 import { rng } from "./forceEverywhere";
 
 const W = 64;
@@ -83,6 +83,83 @@ describe("undo and redo put back each step's map; a followed or spliced log rebu
       expect(s.built, `redo to step ${k}`).toBe(kept[k]);
       expect(s.waterPending).toBe(false);
     }
+  }, 600_000);
+
+  it("a splice among a batch step, a feature edit with undo data, a force and undo history ends as the log built afresh; saved after, its map matches its log", () => {
+    const s = live(mapProject(13, "riverValley", W));
+    const stream = new Stream(21, W);
+    // three Pines as one step whose log marks no steps (a placement stroke's, applyBatch)
+    const pines: EditOp[] = [];
+    for (let i = 0; pines.length < 3 && i < W * W; i += 37) {
+      const op = { op: "placeEntity", params: { id: GUID(900 + pines.length), template: "Pine", x: i % W, y: Math.floor(i / W), orientation: "Cw0" } } as EditOp;
+      if (!s.check(op).length && !pines.some((p) => p.op === "placeEntity" && op.op === "placeEntity" && p.params.x === op.params.x && p.params.y === op.params.y)) pines.push(op);
+    }
+    expect(s.applyBatch(pines, "user", "Plant 3 pines").ok).toBe(true);
+    const box = (x0: number, y0: number, mode: "raise" | "lower") => {
+      const cells: [number, number, number][] = [];
+      const tiles: number[] = [];
+      for (let y = y0; y < y0 + 6; y++) {
+        cells.push([y, x0, x0 + 5]);
+        for (let x = x0; x < x0 + 6; x++) tiles.push(y * W + x);
+      }
+      expect(applySelection(s, [{ op: "sculpt", params: { mode, cells, amount: 1 } } as EditOp], mode, tiles).ok).toBe(true);
+    };
+    box(10, 10, "raise");
+    box(12, 12, "lower");
+    // a feature taken away: its operation keeps undo data (the feature, its place)
+    const forest = s.features.find((f) => f.kind === "forest");
+    if (forest) expect(s.applyAll([{ op: "deleteFeature", params: { id: forest.id } } as EditOp], "user", "Delete a forest").ok).toBe(true);
+    s.settleCanonical();
+    const g = stream.command("craterize", s);
+    expect(g?.kind).toBe("force");
+    if (g?.kind === "force") expect(applyForce(s, g.gesture).ok).toBe(true);
+    // undo history: the force undone, Redo would bring it back
+    s.undo();
+    const steps = s.history().filter((h) => h.applied);
+    expect(steps[0].count).toBe(3);
+    const a = steps[1].seq!;
+    const ops = s.stepOps(a);
+    const label = s.stepLabel(a);
+    expect(s.spliceStep({ remove: a })).toBe(true);
+    // (the batch stays one step, and nothing is left to redo)
+    expect(s.history().filter((h) => h.applied).map((h) => h.seq)).toEqual(steps.filter((h) => h.seq !== a).map((h) => h.seq));
+    expect(s.canRedo).toBe(false);
+    expectSame(s, fresh(s), "the first sculpt spliced out");
+    // undo after the splice puts back a map that matches its log, never one kept from before it
+    expect(s.undo()).toBe(true);
+    expectSame(s, fresh(s), "spliced out, then undone");
+    expect(s.redo()).toBe(true);
+    expect(s.spliceStep({ insert: ops, ...(label ? { label } : {}) })).toBe(true);
+    expectSame(s, fresh(s), "spliced back");
+    expect(s.history().filter((h) => h.applied).map((h) => h.seq)).toEqual(steps.map((h) => h.seq));
+    while (s.undo());
+    expectSame(s, fresh(s), "every step undone");
+    while (s.redo());
+    expect(MapSession.replayMatchesStored(decodeProject(s.project()))).toBe(true);
+  }, 600_000);
+
+  it("a splice below the save point of a map opened from its stored map waits on the replay comparison (D455)", () => {
+    const s = live(mapProject(14, "highlands", W));
+    const stream = new Stream(4, W);
+    for (let n = 0, k = 0; n < 3 && k < 50; k++) if (edit(s, stream)) n++;
+    s.settleCanonical();
+    const saved = s.project();
+    const first = s.history()[0].seq!;
+    // the comparison owed: the splice does it, and goes on when it matches
+    const o = live(saved);
+    expect(o.replayPending).toBe(true);
+    expect(o.spliceStep({ remove: first })).toBe(true);
+    expect(o.replayPending).toBe(false);
+    expectSame(o, fresh(o), "spliced below the save point");
+    // the replay differed: the save point stops a splice below it, never one above it
+    const d = live(saved);
+    d.confirmReplay(false);
+    expect(d.spliceStep({ remove: first })).toBe(false);
+    for (let k = 0; k < 50 && !edit(d, stream); k++);
+    const top = d.history().at(-1)!.seq!;
+    expect(d.spliceStep({ remove: top })).toBe(true);
+    while (d.undo());
+    expect(d.undoStopped).not.toBeNull();
   }, 600_000);
 
   it("a replica following the log grow and shrink, and a step spliced out and back, is the log built afresh", () => {

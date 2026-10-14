@@ -393,12 +393,22 @@ export class MapSession {
 
   /** Follow another session of the same generation (a replica: the editor's checks run on one in
    *  a worker of their own): its log becomes this one's, and the map is rebuilt incrementally from
-   *  where it stood, as after an edit: the operations both logs share from the start stay as they
-   *  are (their state, and the caches the build keys on them), those after are taken back and the
-   *  new ones applied in order. The history becomes the log's steps, with nothing to redo; the
-   *  kept maps of the steps the logs share stay. The same map, byte for byte, as replaying the
-   *  whole log (`replay`). */
+   *  where it stood, as after an edit (`relog`). The history becomes the log's steps, with nothing to
+   *  redo and no save point. The same map, byte for byte, as replaying the whole log (`replay`). */
   followLog(log: readonly AppliedOp[], nextSeq: number): void {
+    this.floor = 0;
+    this.pending = null;
+    this.relog(log, nextSeq, null);
+  }
+
+  /** The log becomes `log`: the operations both logs share from the start stay as they are (their
+   *  state, and the caches the build keys on them), those after are taken back and the new ones
+   *  applied in order, and the map is rebuilt from where it stood, as after an edit. The history is
+   *  `steps` (each step's operation numbers, and its label), or the log's own steps; nothing is left
+   *  to redo. The kept maps stay for the leading steps that hold the very same operations as before
+   *  (whether or not the log marks its steps), and only those. */
+  private relog(log: readonly AppliedOp[], nextSeq: number, steps: readonly { seqs: readonly number[]; label?: string }[] | null): void {
+    const before = this.undoStack;
     let keep = 0;
     while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
     for (let k = this.log.length - 1; k >= keep; k--) invertOp(this.st, this.log[k]);
@@ -409,45 +419,60 @@ export class MapSession {
       this.log.push(copy);
     }
     this.seqNext = nextSeq;
-    this.undoStack = stepsOf(this.log);
-    // (the steps wholly inside the shared operations: their maps stand as they were)
+    const bySeq = new Map(this.log.map((o) => [o.seq, o]));
+    this.undoStack = steps ? steps.map((g) => ({ kind: "ops" as const, ops: g.seqs.map((n) => bySeq.get(n)!), ...(g.label ? { label: g.label } : {}) })) : stepsOf(this.log);
+    // (the leading steps of the very same operations: their maps stand as they were)
     let shared = 0;
-    for (let n = 0; shared < this.undoStack.length; shared++) {
-      n += this.undoStack[shared].ops.length;
-      if (n > keep) break;
-    }
-    this.floor = 0;
-    this.pending = null;
+    while (shared < before.length && shared < this.undoStack.length && sameItems(before[shared].ops, this.undoStack[shared].ops)) shared++;
     this.redoStack = [];
     for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
     this.cur = this.rebuilt();
   }
 
   /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
-   *  redo of a step that is not the latest, D362): `remove` names the step by its first operation's
-   *  number (`seq`), `insert` gives its operations as the log kept them (`stepOps`). The operations
-   *  after it are applied again in order, and the map rebuilt from where it stood, as an edit is
-   *  (`followLog`): one edit's cost, never a rebuild of the whole log. False, and nothing changes,
-   *  when there is no such step to take out, or an operation to put back is in the log already. */
-  spliceStep(change: { remove: number } | { insert: readonly AppliedOp[] }): boolean {
+   *  redo of a step that is not the latest, D362): `remove` names a step of the history by its first
+   *  operation's number (`seq`), `insert` gives its operations as the log kept them (`stepOps`), with
+   *  its label. The operations after it are applied again in order, and the map rebuilt from where it
+   *  stood, as an edit is (`relog`): about one edit's cost, never a rebuild of the whole log. The other
+   *  steps stay as they were, each one step; nothing is left to redo. A step below the save point of a
+   *  map opened from its stored map waits on the replay comparison, as undo does (D455). False, and
+   *  nothing changes, when there is no such step to take out, an operation to put back is in the log
+   *  already, or the save point stops it. */
+  spliceStep(change: { remove: number } | { insert: readonly AppliedOp[]; label?: string }): boolean {
+    const steps = this.undoStack.map((e) => ({ seqs: e.ops.map((o) => o.seq), ...(e.label ? { label: e.label } : {}) }));
+    let at: number;
     let log: AppliedOp[];
     if ("remove" in change) {
-      const n = change.remove;
-      log = this.log.filter((o) => o.seq !== n && o.step !== n);
-      if (log.length === this.log.length) return false;
+      at = steps.findIndex((g) => g.seqs[0] === change.remove);
+      if (at < 0) return false;
+      const gone = new Set(steps[at].seqs);
+      steps.splice(at, 1);
+      log = this.log.filter((o) => !gone.has(o.seq));
     } else {
+      const ops = [...change.insert].sort((a, b) => a.seq - b.seq);
       const seqs = new Set(this.log.map((o) => o.seq));
-      if (!change.insert.length || change.insert.some((o) => seqs.has(o.seq))) return false;
-      log = [...this.log, ...change.insert].sort((a, b) => a.seq - b.seq);
+      if (!ops.length || ops.some((o) => seqs.has(o.seq)) || new Set(ops.map((o) => o.seq)).size !== ops.length) return false;
+      at = steps.findIndex((g) => g.seqs[0] > ops[0].seq);
+      if (at < 0) at = steps.length;
+      steps.splice(at, 0, { seqs: ops.map((o) => o.seq), ...(change.label ? { label: change.label } : {}) });
+      log = [...this.log, ...ops].sort((a, b) => a.seq - b.seq);
     }
-    this.followLog(log, Math.max(this.seqNext, ...log.map((o) => o.seq + 1)));
+    // (below the save point: the replay comparison first, here, when it is owed; it decides, D455)
+    if (at < this.floor && (!this.pending || !this.checkReplay())) return false;
+    this.relog(log, Math.max(this.seqNext, ...log.map((o) => o.seq + 1)), steps);
     return true;
   }
 
-  /** The operations of the step whose first operation is `seq`, as the log keeps them (for
-   *  `spliceStep`'s `insert`); empty when there is none. Copies. */
+  /** The operations of the history's step whose first operation is `seq`, as the log keeps them
+   *  (for `spliceStep`'s `insert`); empty when there is none. Copies. */
   stepOps(seq: number): AppliedOp[] {
-    return clone(this.log.filter((o) => o.seq === seq || o.step === seq)) as AppliedOp[];
+    const e = this.undoStack.find((s) => s.ops[0].seq === seq);
+    return e ? (clone(e.ops) as AppliedOp[]) : [];
+  }
+
+  /** The label of the history's step whose first operation is `seq` (for `spliceStep`'s `insert`). */
+  stepLabel(seq: number): string | undefined {
+    return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a

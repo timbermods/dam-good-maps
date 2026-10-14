@@ -93,9 +93,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
+      let counted = false;
       try {
         const u = await fn();
         pendingTerrain.current--;
+        counted = true;
         if (pendingTerrain.current === 0) checkStroke.current = true;
         if (!u.ok) {
           // the worker refused it: the page takes the worker's terrain again
@@ -110,8 +112,15 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         }
         applyUpdate(u);
       } catch (e) {
-        pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
+        if (!counted) pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
         setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+        // (no answer came: the worker's land, as it stands, once nothing else the page painted is on its way; no
+        // check, the page's may be what failed)
+        checkStroke.current = false;
+        await api.terrainNow().then(
+          (now) => ed.applyView({ heights: now.heights, terrain: now.terrain }),
+          () => ed.takeLand(),
+        );
       } finally {
         setBusy((b) => b - 1);
       }
