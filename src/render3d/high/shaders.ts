@@ -9,9 +9,11 @@
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
 //   section), the water's finish (a continuous crown, an irregular landing, bubbly froth, rough
-//   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons wait (D286
-//   (4)); its dark stain on contaminated soil is superseded by D334 (contamination's orange-red veins,
-//   the game's own, in every look: materials.ts `veinsOf`).
+//   water), the landmarks' fine detail and slopes' natural material; and stage 4's seasons on a held
+//   Drought or Badtide day (D250, D286 (4); render3d/high/seasons.ts): pale dusty dry ground with straw
+//   where grass was, a heat shimmer over it, and a faint sickly sky in a badtide. Its dark stain on
+//   contaminated soil is superseded by D334 (contamination's orange-red veins, the game's own, in every
+//   look: materials.ts `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
 //   caustics and rolling light on moving water, pink highlights and red contact at rock on
@@ -169,7 +171,39 @@ export function terrainHooks(): ShaderHooks {
     ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
+  uniform sampler2D hlSeasonMask;
+  uniform vec2 hlSeasonSize;
+  uniform float hlDry, hlHeat;
 `),
+    // the seasons (#67 stage 4): the held day's mask (R: dry ground with no water on it, A: grass the map's own soil had),
+    // read at the tile itself, never blended across a moist one. The heat shimmer moves the ground's own pattern by under
+    // half a pixel over dry ground (no pass of its own: D334's crisp map)
+    groundStart: /* glsl */ `
+        vec2 gTile = g;
+        if (hlHeat > 0.5) {
+          vec4 shim = texture2D(hlSeasonMask, (floor(g) + 0.5) / hlSeasonSize);
+          if (shim.r > 0.5) {
+            float px = max(fwidth(g.x), fwidth(g.y));
+            g += vec2(sin(g.y * 31.0 + time * 1.1) * sin(g.x * 9.0 - time * 0.73), sin(g.x * 27.0 - time * 1.3) * sin(g.y * 11.0 + time * 0.9)) * px * 0.45;
+          }
+        }
+`,
+    // pale dusty earth over dry ground, its cracks kept, straw where grass stood (before contamination's veins are laid
+    // over, so they stay as they are)
+    groundEnd: /* glsl */ `
+        if (hlDry > 0.5) {
+          vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
+          if (season.r > 0.5) {
+            float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
+            float splits = cracks(gTile * 1.41 + 29.3).x;
+            vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
+            earth *= 1.0 - splits * 0.25 * detail;
+            float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
+            earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
+            c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
+          }
+        }
+`,
     skyLight: "ambientVisibility(vWorld, n) * ",
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
@@ -582,7 +616,7 @@ export function vegetationHooks(slots: number): ShaderHooks {
  *  glow toward the sun instead of a disc; graded like the land. */
 export function skyHooks(): ShaderHooks {
   return {
-    decl: switches(["hlSky", "hlTone", "hlGrade"]) + GRADE_GLSL,
+    decl: switches(["hlSky", "hlTone", "hlGrade"]) + "\n  uniform float hlSickly;" + GRADE_GLSL,
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
@@ -596,6 +630,8 @@ export function skyHooks(): ShaderHooks {
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
         }
+        // a badtide's sky (#67 stage 4): slightly sickly
+        c = mix(c, vec3(0.66, 0.72, 0.46), hlSickly);
         if (hlTone > 0.5 || hlGrade > 0.5) c = hlGradeColour(c);`,
   };
 }

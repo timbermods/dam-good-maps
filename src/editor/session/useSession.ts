@@ -519,6 +519,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherTarget(null);
       mirror.current.daySoil = null;
       renderer.current?.setWithered(null);
+      renderer.current?.setSeason(null, null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
@@ -554,6 +555,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     renderer.current?.updateSoil(soil);
     // (the plants the days up to this one have surely killed, drawn withered in High, D250)
     renderer.current?.setWithered(withered ?? null);
+    // (the High look's dry ground, heat and sky: the day's soil against the map's own, the page's copy of it)
+    renderer.current?.setSeason(weatherRef.current, mirror.current.soil ?? null);
   }
 
   function applyUpdate(u: SessionUpdate): void {

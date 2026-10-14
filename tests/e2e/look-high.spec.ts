@@ -524,3 +524,48 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   expect(await withered()).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test("High's seasons: a held drought draws dry ground and the heat shimmer, a badtide the sickly sky; each switches; Standard draws none (D250)", async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
+  expect(await look(page)).toBe("high");
+  const now = () => page.evaluate(() => window.dgm3d!.renderer.seasonLook);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
+  const day = bar.locator(".day-label");
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(now, { timeout: 30_000 }).toEqual({ dry: 1, heat: 1, sickly: 0 });
+  // each effect has its own switch
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", false));
+  expect(await now()).toEqual({ dry: 0, heat: 1, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("dryGround", true));
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", false));
+  expect(await now()).toEqual({ dry: 1, heat: 0, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("heat", true));
+  // Standard stays as it is, and High again draws them
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+  expect(await now()).toEqual({ dry: 1, heat: 1, sickly: 0 });
+  // Day 0 is the map's own ground and water: the effects are still on, but nothing is dry that was not
+  // (the mask reads the day's soil; checked by the unit tests), and the badtide has the sky
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(async () => (await now()).sickly, { timeout: 30_000 }).toBeGreaterThan(0);
+  expect(await now()).toMatchObject({ dry: 0, heat: 0 });
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", false));
+  expect((await now()).sickly).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setHighEffect("badtideSky", true));
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
+  expect(await now()).toEqual({ dry: 0, heat: 0, sickly: 0 });
+  // (every shader compiled and nothing threw)
+  expect(errors).toEqual([]);
+});

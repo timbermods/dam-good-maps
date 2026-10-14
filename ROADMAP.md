@@ -739,8 +739,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    soil on any day (any plant, 0.2 to 0.3 days), and dead for good once dead. So a normal drought's 9 days kill no pine,
    birch or oak; a badtide kills on every poisoned tile. The worker adds the held day's dead tiles to its held-day event
    (it keeps each day's soil as the day is kept); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
-   heat shimmer and the badtide's sky follow (#67's stage 4).
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
+   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
+   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
+   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
+   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. D334 retired the poisoned-soil
+   stain (contamination is the veins in every look), so it stays retired.
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
