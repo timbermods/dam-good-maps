@@ -680,3 +680,27 @@ describe("races", () => {
     rig.identical("after the force again");
   }, 180_000);
 });
+
+describe("a host between Invite and the guest’s arrival", () => {
+  test("its edits go through the session (a direct one is refused) and the guest who then joins matches", async () => {
+    const rig = makeRig(bytes);
+    rig.host.startHosting();
+    expect(rig.host.editBlocked()).toBe("Edits in a shared session go through the session");
+    // (a host with no guest yet may open another map; a guest may not)
+    expect(rig.host.editBlocked(true)).toBeNull();
+    const a = rig.host.submit(raise(10, 10));
+    const b = rig.host.submit(lower(30, 30));
+    expect(await a).toMatchObject({ ok: true, seq: 1 });
+    expect(await b).toMatchObject({ ok: true, seq: 2 });
+    rig.settle();
+    rig.connect();
+    expect(rig.guest.state).toBe("live");
+    expect(rig.guest.editBlocked(true)).toBe("Only the host can open a new map");
+    rig.identical("joining after the host’s edits");
+    // and each resync repeats nothing wrong
+    const c = rig.guest.submit(raise(34, 12));
+    rig.drain();
+    expect(await c).toMatchObject({ ok: true, seq: 3 });
+    rig.identical("after the guest’s first edit");
+  }, 120_000);
+});

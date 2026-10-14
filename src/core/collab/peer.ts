@@ -211,8 +211,12 @@ export class CollabPeer {
 
   /** Why a direct edit of the map is refused now (one line), or null: paused, out of step, loading, and (once a session is on) every
    *  edit that does not go through the session. The worker checks it before it applies anything itself. */
-  editBlocked(): string | null {
-    if (this.state === "idle" || this.state === "ended") return null;
+  editBlocked(wholeMap = false): string | null {
+    if (this.state === "ended") return null;
+    // changing the whole map is the host's alone (§9); a guest's map is the host's copy
+    if (wholeMap) return this.role === "guest" ? "Only the host can open a new map" : null;
+    // (from Invite on, the host’s map is the session’s: an edit that skipped the log would leave the checkpoint a guest joins behind it)
+    if (!this.host && !this.replica) return null;
     return this.readOnly() ?? "Edits in a shared session go through the session";
   }
 

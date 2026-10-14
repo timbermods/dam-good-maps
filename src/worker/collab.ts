@@ -105,7 +105,7 @@ export const collabApi = {
       events: (e) => emit(e),
     });
     // (a direct edit of the map would diverge from the host's log: the session says when the map is read-only or edited only through it)
-    ed.collabGate(() => peer?.editBlocked() ?? null);
+    ed.collabGate((wholeMap) => peer?.editBlocked(wholeMap) ?? null);
     if (role === "host") peer.startHosting();
     return { ok: true, sessionId: peer.sessionId };
   },

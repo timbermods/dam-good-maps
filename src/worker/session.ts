@@ -1097,6 +1097,8 @@ function opened(s: MapSession): SessionOpen {
 
 /** Opens the map the generator just made in the editor. */
 export function refine(): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
   if (!r.report.passed) throw new Error("this map did not pass its checks: generate another one first");
@@ -1105,11 +1107,15 @@ export function refine(): SessionOpen {
 
 /** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
 export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
   return opened(MapSession.importMap(bytes, fileName));
 }
 
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
   // (a project saved before its water settled shows its saved base water while the checks replica builds
   // the canonical water)
   const s = MapSession.open(decodeProject(bytes), { deferWater: true });
@@ -1119,17 +1125,17 @@ export function openProject(bytes: Uint8Array): SessionOpen {
 }
 
 // the collaboration layer (worker/collab.ts) reaches the open map through these four; nothing else here knows it exists
-let editGate: (() => string | null) | null = null;
+let editGate: ((wholeMap: boolean) => string | null) | null = null;
 
 /** While a shared session is on, a direct edit would diverge from the host's log: the layer says when the map is read-only
  *  (paused, out of step) or edited only through the session. Null clears it. */
-export function collabGate(gate: (() => string | null) | null): void {
+export function collabGate(gate: ((wholeMap: boolean) => string | null) | null): void {
   editGate = gate;
 }
 
 /** The reason a direct edit is refused now (one line), or null. */
-function gated(): string | null {
-  return editGate?.() ?? null;
+function gated(wholeMap = false): string | null {
+  return editGate?.(wholeMap) ?? null;
 }
 
 /** The open map, or null. */
@@ -1481,6 +1487,8 @@ function planTool(req: ToolRequest, id: string): ToolPlan {
 export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan: ToolPlan } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), plan: { ok: false, errors: [blocked] } as ToolPlan };
   const plan = planTool(req, id);
   // (a refused draft's water goes, and the map's own shows again)
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), plan };
@@ -1496,6 +1504,8 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 export function plantAt(template: string, tiles: readonly number[]): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
   const p = planPlant(s, template, tiles, () => crypto.randomUUID());
   if (!p.ok) return { ...changed(s, false, p.errors, t0), planted: [] };
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1507,6 +1517,8 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), removed: [] };
   const p = planRemove(s, tiles, kinds, label);
   if (!p.ok) return { ...changed(s, false, p.errors, t0), removed: [] };
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1551,6 +1563,8 @@ export function applySelection(ops: EditOp[], label: string, tiles: readonly num
 export function strokeClearing(op: EditOp, label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planStrokeClearing(s, op, label, tiles);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
@@ -1562,6 +1576,8 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planMoveEntity(s, id, dx, dy);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1574,6 +1590,8 @@ export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate 
 export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
@@ -2517,6 +2535,8 @@ export function forceCancel(gesture?: number): ForceTakenBack {
 export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), kept: false };
   const f = force;
   if (f && f.session !== s) force = null;
   // (a gesture taken back is never kept, D341: nothing lands after Esc)
