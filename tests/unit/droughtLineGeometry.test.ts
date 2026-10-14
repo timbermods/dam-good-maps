@@ -2,7 +2,7 @@
 // tint goes, and that the start's water is a little stronger.
 
 import { describe, expect, it } from "vitest";
-import { emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, DROUGHT_LINE_CAVES, type DroughtLine } from "../../src/core/sim/droughtLine";
+import { emptyDroughtLine, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST, type DroughtLine } from "../../src/core/sim/droughtLine";
 import { droughtLineGeometry, FACE_INSET, LINE_ALPHA, LINE_WIDTH, TINT_ALPHA, TINT_LIFT, type QuadBuffers } from "../../src/render3d/droughtLineGeometry";
 
 const W = 8;
@@ -38,7 +38,7 @@ function quads(g: QuadBuffers): { b: Box; a: number }[] {
 
 describe("the drought line's geometry", () => {
   it("draws a refused or empty line as nothing", () => {
-    for (const l of [emptyDroughtLine(W, H, 9), emptyDroughtLine(W, H, 9, DROUGHT_LINE_CAVES)]) {
+    for (const l of [emptyDroughtLine(W, H, 9), emptyDroughtLine(W, H, 9, "refused")]) {
       const g = droughtLineGeometry(l, heights);
       expect(g.line.indices.length + g.tint.indices.length).toBe(0);
     }
