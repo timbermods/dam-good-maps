@@ -54,7 +54,9 @@ const dist2 = (px: number, py: number, ax: number, ay: number, bx: number, by: n
   const dx = bx - ax;
   const dy = by - ay;
   const t = dx || dy ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
-  return (px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2;
+  const ex = px - ax - t * dx;
+  const ey = py - ay - t * dy;
+  return ex * ex + ey * ey;
 };
 
 const nearPath = (px: number, py: number, path: readonly (readonly number[])[], reach: number, closed: boolean): boolean => {
