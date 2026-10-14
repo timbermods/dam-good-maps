@@ -945,6 +945,8 @@ its stacked-dams scene (which predicts dry) is fixed first, and its calibration 
 
 Ships complete (D486): all of the brief, nothing cut, tested between real peers over the real relay, with reconnects, conflicts and a dropped peer.
 
+**Built:** part 1, the host-ordered log and replicas (`src/core/collab/`, [docs/progress/collab.md](docs/progress/collab.md)): the ordered log with literal operations, forces as gestures planned on the settled water, records with literal patches, the water settling in the background and compared at the sequence the host names, rejoin from a checkpoint plus its records and the entries since, whole-map changes the host's alone, one seam for claims; headless, no page yet.
+
 **The brief: [docs/COLLAB-BRIEF.md](docs/COLLAB-BRIEF.md) (D362, 2026-10-01).** It is what gets built. After the polish
 (step 3 of D349's order); nothing is built before then. Two players edit one map live, sharing one ordered list of
 operations; each browser rebuilds the map from it, so both see identical terrain and water (every change is a deterministic
