@@ -7,8 +7,9 @@ is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/RE
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
 As of 2026-10-14, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
-`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`, which comes first: local runs use
-about half the 12 threads and CI does the rest. Probe batches run here without asking (D218), only what D483 allows. The
+`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`, the machine is theirs alone
+(D484): testing and probing need no asking, all 12 threads split between them as the work needs, Timberborn whenever it
+helps, within D483. The
 page session is stopped (worktree `DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`. Kyler's PC is idle. Work
 stopped from 2026-10-08 to 2026-10-14 when the old account's usage ran out; dev was unchanged (4a699b80).
 
@@ -22,7 +23,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
-  decision numbers (**next free: D484**). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D485**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF.
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.

@@ -8,8 +8,10 @@ them for detail on any decision.
 
 ## Roles
 
-- **Kyler** (he/him) decides everything; his eye is the final judge. A one-person passion project with no launch date:
-  realising his vision matters more than speed.
+- **Kyler** (he/him) owns the project. Since 2026-10-14 he is done testing and giving feedback (D484): Claude completes the
+  whole order without him, deciding against his recorded decisions, and asks him only design-direction questions (one
+  `needs-kyler` issue each, with options and a default the work proceeds on; at most one batch a day). Any decision stays
+  reversible. A one-person passion project with no launch date: realising his vision matters more than speed.
 - **The planning chat** (claude.ai) is his advisor and reviewer. It reads the repo, branches, PRs and captures itself, gives
   brutally honest and specific feedback, and writes the exact prompts he sends elsewhere.
 - **Three Claude Code sessions** work at once: the milestone session, the page session and the renderer session. The renderer
@@ -82,11 +84,12 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - Kyler batches hands-on reviews into single sittings: collect what's ready on the preview and give him one checklist of
   only what changed.
 
-## How sessions coordinate (D470)
+## How sessions coordinate (D470, D484)
 
-- Kyler reviews no PR or code, only design, taste and human-facing behaviour; the milestone session reviews every diff.
-- PR labels: `hold`, `needs-kyler`, `approved`. A PR that changes what a player sees, hears or feels needs approved; the
-  rest merges on review and green CI. Theme rounds are real PRs into dev, re-pin included; Codex stays on investigation branches.
+- Kyler reviews nothing now (D484). The milestone session reviews every diff and judges what players see, hear and feel
+  itself: the page in a real browser, a separate reviewer agent for looks, probe batches for the game.
+- PR labels: `hold`, and `needs-kyler` only for design questions and account-only items; `approved` is no longer needed.
+  PRs merge on review and green CI. Theme rounds are real PRs into dev, re-pin included; Codex stays on investigation branches.
 - Sessions talk on the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issues/236)), not through Kyler.
   Kyler only decides what a player sees, hears or feels, new direction, rules, adopting Codex work, releases, probe batches,
   spending usage, and anything unsure. Pings reach his phone too.
@@ -111,7 +114,7 @@ sub-agents at max. The table is in `docs/HANDOFF.md`, "Models and agent definiti
 - **History** (progress logs, old handoffs and chats, feedback files, the story of the project): `docs/archive/`, its README
   is the index; `investigation/README.md` indexes the investigations. `docs/README.md` maps every document.
 - **Open pending defaults:** `docs/decisions-pending.md`. **Findings:** `docs/FINDINGS.md`. **Terms:** `docs/GLOSSARY.md`.
-- **The next free decision number is D484.**
+- **The next free decision number is D485.**
 
 ## How the planning chat checks in
 

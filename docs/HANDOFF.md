@@ -82,6 +82,9 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 
 ## 5. How things are run here
 
+- **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
+  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Where the
+  points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
   - *Review:* Kyler reviews no PR or code, except for design, taste or human-facing behaviour. This session reviews every
     PR's diff before it merges (correctness, scope, ownership of files); its own PRs that touch the core or the water get a
@@ -161,7 +164,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   A batch is asked for when it is worth it, with its maps named (for example: whether the current generator's maps and an exported edited map play right on a new game version).
   On a new game version the runner asks for a smoke run before a batch (`--smoke`, then `--allow-new-version`): that is
   two launches, so the ask names both. **On this machine D218 lifts the ask:** run a batch whenever the plan
-  calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed, the machine quiet).
+  calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed; D484: no need for a quiet machine, only a line on #236 while the batch holds the game).
   Every probe runs from the dedicated worktree `C:\Users\krams\code\DamGoodMaps-probe`, checked out detached at the branch to
   probe (`git checkout --detach origin/<branch>`), with `npm ci` at the root and in `investigation/probe` if the lockfiles
   changed. Build the mod with `run build-mod -- --no-install`; make a settings backup first (`--backup-settings`) and pass it
@@ -176,7 +179,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D484**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D485**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
@@ -225,8 +228,9 @@ on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. U
 
 Each worktree has its own `node_modules`: run `npm ci` in one only if its `package-lock.json` changed. Every folder that
 isn't the milestone session's belongs to another session or to Codex: never touch it, and check no session is working in a
-folder before installing or checking out there. Forces play shares the 12 threads and comes first: keep local runs to about
-half and leave the rest to CI. **Probe batches run here without asking** (D218), only what D483 allows.
+folder before installing or checking out there. The machine is the two sessions' own (D484): nobody else uses it, so test and probe without asking or holding back (all
+12 threads, Timberborn whenever it helps), within D483 for what a probe plays; split the threads with forces play as the
+work needs, and say on #236 when a probe batch holds the game.
 
 - **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Rust 1.90 with
   `wasm32-unknown-unknown`; Python 3.12.10 (numpy and pillow from `prototype/requirements.txt`); the .NET 8 SDK
