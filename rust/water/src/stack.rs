@@ -412,6 +412,11 @@ impl Stack {
     }
     /// The water after `ticks` more ticks run elsewhere (the multi-core settle's strips), written whole:
     /// checked, and the run's bookkeeping started again from it.
+    ///
+    /// Only depth, pressure and contamination are written: the momentum (`out`) and old depth (`dold`) stay
+    /// as this engine last left them, stale. That is harmless today, since the strips stop exactly at a check
+    /// and only depth, pressure, contamination and saturation are read afterwards; don't run this engine on
+    /// after a settle on several threads without bringing them up to date first.
     pub fn accept_elsewhere(&mut self, ticks: u64) -> Result<(), Refusal> {
         self.validate_state()?;
         self.wet = (0..self.d.len()).filter(|&c| self.d[c] + self.o[c] > 0.0).collect();
