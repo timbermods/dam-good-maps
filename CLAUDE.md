@@ -80,6 +80,12 @@ maps the documents.
   probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
   it fires, and do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
   Kyler can unblock every piece of work (said on #236).
+- **Going faster (D484):** work in parallel through sub-agents, each in its own worktree, branch and PR, with a complete
+  brief: Sonnet for well-specified building, Haiku for mechanical work (watching CI and #236, logs, searches, clean dev
+  merges, regenerated files, status lines), Opus (the milestone session) for the order, decisions, verdicts and merges,
+  and a fresh Opus agent as the look and interaction reviewer. Work ahead on steps that need nothing else; the split is
+  posted on #236. Merges come first: a "ready to merge" is merged before anything new starts. About three heavy local
+  runs at once across both sessions (builds, Playwright, Rust), each said on #236; the rest goes to CI.
 - **Resuming:** after every merge, the milestone session's #236 post says where it is and what's next, so "Resume from
   #236" restarts it. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
   steps, one line to Kyler.

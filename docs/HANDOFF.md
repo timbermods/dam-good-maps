@@ -62,6 +62,8 @@ where the job is written down, scripts where it's only waiting.
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
+| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | `model: haiku` | Haiku |
+| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5 |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
@@ -83,7 +85,9 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). This session never ends its turn while work is left (D484, "Never idle"): it keeps
+  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
+  a fresh Opus agent reviews looks); merges come first; about three heavy local runs at once across both sessions. This
+  session never ends its turn while work is left (D484, "Never idle"): it keeps
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
