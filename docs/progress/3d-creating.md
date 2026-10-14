@@ -40,9 +40,18 @@ surface equal to the base's gives the base, voxel for voxel: an unedited import 
 **Recorded strokes** replay onto the same runs: the floors come from the stored base, which never changes (D336).
 Projects saved before this replay strokes over roofs differently (D475: no old-project compatibility).
 
-**For the page and the renderer (not this branch's files):** the worker's `ViewUpdate` carries `columns` when an
-edit reshaped a roof's top; the renderer must take them (the mesher draws those tiles from their columns, not from
-`heights`). The page may show `StrokePreview.falls()` in red while a stroke is painted. Lines in the PR.
+**The page and the renderer** (two lines, okayed on #236): the worker's `ViewUpdate` carries `columns` when an
+edit reshaped a roof's top, and `renderer.updateTerrain(heights, columns)` takes them and remeshes their chunks (the
+mesher draws those tiles from their columns). While a stroke is still being painted a roof shows its old shape; it
+takes the new one as the worker answers. The page may later show `StrokePreview.falls()` in red while painting.
+A step refused this way costs no full build: a stroke or force is checked on its terrain alone first
+(`MapSession.fallsAhead`), the build's check after it covering the rest.
+
+**Judged in the browser** (D484; `docs/sheets/3d-strokes-on-runs.jpg`): Hollows, a Raise and two Lowers on a floating
+ledge show its new shape at once (its column 4–10 → 4–11 → 4–9), a Lower by a roof is refused with "1 block of
+ground would fall: nothing would hold it up" and nothing changes; a generated map's stroke as before; light and dark,
+1280 and 1920. Seen in passing, not from this change: strokes painted back to back, before the worker's answer,
+sometimes differ from the worker's map (the page's own warning), on a generated map too.
 
 **Checked:**
 - On a map without caves, byte for byte: `tools/stroke-hashes.ts` (480 strokes, every brush, sizes ½ to 9, soft,
