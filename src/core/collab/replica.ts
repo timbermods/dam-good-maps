@@ -1,0 +1,179 @@
+// A replica: one browser's copy of the map, rebuilt from the host's ordered list. It applies commits
+// strictly in order (a gap or a duplicate is refused with its reason and changes nothing), keeps the
+// same records the host keeps, and compares the hash of its map with the host's after every entry. A
+// whole-map change (the host opening another map) tells the page first, then waits for the new map.
+
+import { decodeProject } from "../doc/document";
+import { MapSession } from "../doc/session";
+import { MapApplier, type TransactionRecord } from "./transaction";
+import { RecordLog } from "./records";
+import type { Command, LogEntry, MapOpening, PlayerId, Reject, Request, Snapshot } from "./types";
+import { messageProblem } from "./validate";
+
+/** live: edits flow. opening: the host announced a new map. needs-map: the host opened it, adopt its snapshot.
+ *  out-of-sync: this copy differs from the host's; ask for a fresh snapshot. */
+export type ReplicaStatus = "live" | "opening" | "needs-map" | "out-of-sync";
+
+export interface ReplicaEvents {
+  /** The host is about to open another map: "<name> is opening a new map". */
+  opening?(e: { author: PlayerId; name: string }): void;
+  /** The host opened it: `previousProject` is this copy of the old map, for Your maps. Adopt the new map's snapshot next. */
+  newMap?(e: { author: PlayerId; name: string; previousProject: Uint8Array }): void;
+  /** An entry was applied (also the player's own, once the host has ordered it). */
+  applied?(entry: LogEntry, record: TransactionRecord): void;
+  /** The host refused one of this player's requests. */
+  rejected?(r: Reject): void;
+  /** This copy differs from the host's. */
+  outOfSync?(reason: string): void;
+}
+
+export type Received = { ok: true } | { ok: false; reason: string };
+
+export class CollabReplica {
+  session: MapSession;
+  status: ReplicaStatus = "live";
+  epoch: number;
+  /** The sequence of the last entry applied. */
+  seq: number;
+  readonly records = new RecordLog();
+  private applier: MapApplier;
+  private counter: number;
+  private opening: string | null = null;
+
+  constructor(
+    session: MapSession,
+    readonly playerId: PlayerId,
+    start: { epoch: number; seq: number; counter?: number },
+    readonly events: ReplicaEvents = {},
+    /** Called on each session this copy opens from a snapshot (the page sets the water mode here). */
+    readonly configure?: (s: MapSession) => void,
+  ) {
+    this.session = session;
+    this.applier = new MapApplier(session);
+    this.epoch = start.epoch;
+    this.seq = start.seq;
+    this.counter = start.counter ?? 0;
+  }
+
+  /** A replica restored from a snapshot: the host's checkpoint opened as the project, then the entries since applied. */
+  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void): CollabReplica {
+    const session = MapSession.open(decodeProject(snapshot.project));
+    configure?.(session);
+    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure);
+    const done = r.adopt(snapshot, false);
+    if (!done.ok) throw new Error(done.reason);
+    return r;
+  }
+
+  /** Take a snapshot as this copy: a rejoin, or the new map after a whole-map change. */
+  adopt(snapshot: Snapshot, reopen = true): Received {
+    const problem = snapshotProblem(snapshot);
+    if (problem) return { ok: false, reason: problem };
+    if (reopen) {
+      this.session = MapSession.open(decodeProject(snapshot.project));
+      this.configure?.(this.session);
+      this.applier = new MapApplier(this.session);
+      this.records.clear();
+    }
+    this.epoch = snapshot.epoch;
+    this.seq = snapshot.checkpointSeq;
+    this.counter = snapshot.counters[this.playerId] ?? this.counter;
+    this.status = "live";
+    this.opening = null;
+    for (const entry of snapshot.tail) {
+      const r = this.applyInOrder(entry);
+      if (!r.ok) return r;
+    }
+    if (this.applier.hash() !== snapshot.endHash) return this.diverged("This copy of the map differs from the host's after loading it");
+    return { ok: true };
+  }
+
+  /** This player's next request for `command`, or why they can't ask now. */
+  request(command: Command): Request | { refused: string } {
+    if (this.status === "opening") return { refused: `${this.opening ?? "The host"} is opening a new map` };
+    if (this.status !== "live") return { refused: this.status === "needs-map" ? "A new map is loading" : "This copy of the map is out of step with the host's" };
+    return { kind: "request", epoch: this.epoch, counter: ++this.counter, baseSeq: this.seq, command };
+  }
+
+  /** What the host sends: a commit, a refusal of this player's request, or the announcement of a new map. */
+  receive(message: unknown): Received {
+    const problem = messageProblem(message);
+    if (problem) return { ok: false, reason: problem };
+    const m = message as { kind: string };
+    switch (m.kind) {
+      case "commit": {
+        const c = message as { entry: LogEntry; hash: string };
+        return this.commit(c.entry, c.hash);
+      }
+      case "reject":
+        this.events.rejected?.(message as Reject);
+        return { ok: true };
+      case "map-opening": {
+        const o = message as MapOpening;
+        this.status = "opening";
+        this.opening = o.name;
+        this.events.opening?.({ author: o.author, name: o.name });
+        return { ok: true };
+      }
+      default:
+        return { ok: false, reason: "A replica takes commits, refusals and map announcements" };
+    }
+  }
+
+  /** The hash of this copy's map now. */
+  hash(): string {
+    return this.applier.hash();
+  }
+
+  private diverged(reason: string): Received {
+    this.status = "out-of-sync";
+    this.events.outOfSync?.(reason);
+    return { ok: false, reason };
+  }
+
+  /** Order check only: the next entry, none before it missing and none twice. */
+  private order(entry: LogEntry): Received {
+    if (entry.epoch !== this.epoch) return { ok: false, reason: entry.epoch < this.epoch ? "That entry belongs to an earlier map" : "That entry belongs to a map this copy has not loaded yet" };
+    if (entry.seq <= this.seq) return { ok: false, reason: `Entry ${entry.seq} was already applied` };
+    if (entry.seq > this.seq + 1) return { ok: false, reason: `Entry ${this.seq + 1} is missing: entries must be applied in order` };
+    return { ok: true };
+  }
+
+  private applyInOrder(entry: LogEntry): Received {
+    const ordered = this.order(entry);
+    if (!ordered.ok) return ordered;
+    const done = this.applier.apply(entry);
+    if (!done.ok) return this.diverged(`Entry ${entry.seq} would not apply here: ${done.reason}`);
+    this.seq = entry.seq;
+    this.records.add(done.record);
+    this.events.applied?.(entry, done.record);
+    return { ok: true };
+  }
+
+  private commit(entry: LogEntry, hash: string): Received {
+    if (this.status === "out-of-sync" || this.status === "needs-map") return { ok: false, reason: this.status === "needs-map" ? "A new map is loading" : "This copy of the map is out of step with the host's" };
+    const ordered = this.order(entry);
+    if (!ordered.ok) return ordered;
+    if (entry.command.kind === "newMap") {
+      this.seq = entry.seq;
+      this.status = "needs-map";
+      this.session.settleCanonical();
+      this.events.newMap?.({ author: entry.author, name: entry.command.name, previousProject: this.session.project() });
+      return { ok: true };
+    }
+    const done = this.applyInOrder(entry);
+    if (!done.ok) return done;
+    if (this.applier.hash() !== hash) return this.diverged(`This copy of the map differs from the host's after entry ${entry.seq}`);
+    return { ok: true };
+  }
+}
+
+/** Why a snapshot can't be used (one line), or null: its entries must follow its checkpoint one by one. */
+export function snapshotProblem(s: Snapshot): string | null {
+  const { project: _project, ...rest } = s;
+  const bad = messageProblem({ kind: "snapshot", ...rest });
+  if (bad) return bad;
+  if (!(s.project instanceof Uint8Array) || !s.project.length) return "The snapshot has no map";
+  for (const [k, e] of s.tail.entries()) if (e.seq !== s.checkpointSeq + k + 1 || e.epoch !== s.epoch) return "The snapshot's entries are not in order after its checkpoint";
+  return null;
+}
