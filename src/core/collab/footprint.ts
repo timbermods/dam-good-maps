@@ -507,8 +507,7 @@ export function trialWrites(session: MapSession, ops: EditOp | readonly EditOp[]
   const mark = session.mark();
   const r = list.length === 1 ? session.apply(list[0]) : session.applyAll(list);
   if (!r.ok) return { ok: false, reason: r.errors[0] ?? "The edit could not be applied" };
-  const applied = session.lastStepOps().map((o) => ({ op: o.op, params: structuredClone(o.params) }) as EditOp);
-  const t = touchesOf(applied, earlier, captureState(session));
+  const t = touchesOf(session.lastStepOps(), earlier, captureState(session));
   const step = session.stepSince(mark);
   if (!step || !session.takeBack(step)) throw new Error("A trial edit could not be taken back");
   return { ok: true, writes: t.writes };

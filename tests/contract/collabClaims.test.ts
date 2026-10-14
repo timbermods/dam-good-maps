@@ -498,11 +498,14 @@ describe("forces: the plan's footprint and the gesture's band, held against what
     const written = trialWrites(kept, second);
     expect(written.ok).toBe(true);
     // every tile the host records is in the footprint, but for an object the replaced force had removed that
-    // stands again (its place is not in the map this footprint reads; the host's record holds it)
+    // stands again (its place is not in the map this footprint reads) ...
     const prior = (first.find((o) => o.op === "forceResult") as unknown as { params: { removed: string[]; tiles: number[] } }).params;
     kept.applyAll(second);
     const restored = new Set(kept.built.entities.filter((e) => prior.removed.includes(e.id)).map((e) => e.y * W + e.x));
     if (written.ok) for (const i of written.writes.tiles()) if (!fp2.tiles.has(i)) expect(restored.has(i), `tile ${i} escapes the footprint`).toBe(true);
+    // ... and the host's record has it: what the first force removed and the second left standing is written
+    expect(restored.size).toBeGreaterThan(0);
+    if (written.ok) for (const i of restored) expect(written.writes.has(i), `the restored object at ${i}`).toBe(true);
     // the force it replaced is in it, so a claim only the first force reached still refuses the second
     for (const i of prior.tiles) expect(fp2.tiles.has(i)).toBe(true);
     ed.undo();
