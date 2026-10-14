@@ -2,6 +2,7 @@ export const LIGHT_PACKAGE_FIELDS: string[];
 export function isDocument(path: string): boolean;
 export function isInvestigation(path: string): boolean;
 export function isUiOnly(path: string): boolean;
+export function isCollabOnly(path: string): boolean;
 export function isRustInput(path: string): boolean;
 export function onlyLightFieldsDiffer(oldText: string, newText: string, where?: "package" | "lock"): boolean;
 export function classify(
