@@ -11,12 +11,25 @@ const SPEC = "s=4242&z=96&d=n&t=highlands";
 
 /** The player's map as the page has it: its history (and what can be undone or redone), its land, its view, and the
  *  choices the browser keeps. */
-async function state(page: Page) {
+async function readState(page: Page) {
   return page.evaluate(() => {
     const i = window.dgmEditor!.info();
     const m = window.dgm3d!.renderer.mapState()!;
     let h = 2166136261;
     for (const v of m.heights) h = Math.imul(h ^ v, 16777619) >>> 0;
+    // the ground's colours and the water as drawn (the copy's soil and water must never be drawn on the player's map)
+    let soil = 2166136261;
+    let wet = 0;
+    for (const v of m.soil?.moisture ?? []) {
+      soil = Math.imul(soil ^ v, 16777619) >>> 0;
+      if (v > 127) wet++;
+    }
+    let water = 2166136261;
+    let depth = 0;
+    for (const v of m.surface.depth) {
+      water = Math.imul(water ^ Math.round(v * 100), 16777619) >>> 0;
+      depth += v;
+    }
     return {
       version: i.version,
       edits: i.edits,
@@ -24,12 +37,35 @@ async function state(page: Page) {
       canUndo: i.canUndo,
       canRedo: i.canRedo,
       lands: h,
+      soil,
+      wet,
+      water,
+      depth: Math.round(depth * 100),
       objects: m.entities.count,
       view: window.dgm3d!.renderer.getView(),
       prefs: ["dgm.brush", "dgm.forces", "dgm.firstRun"].map((k) => localStorage.getItem(k)),
     };
   });
 }
+
+/** The same, once it has stopped changing (the soil grows into new water over two seconds, a held weather day arrives, the
+ *  water settles): two reads a second apart agree. A late write onto the map (the copy's soil, say) lands inside the wait and
+ *  stays, so the second read of the player's map still shows it. */
+async function state(page: Page) {
+  let last = JSON.stringify(await readState(page));
+  for (let k = 0; k < 30; k++) {
+    await page.waitForTimeout(1000);
+    const now = JSON.stringify(await readState(page));
+    if (now === last) break;
+    last = now;
+  }
+  return JSON.parse(last) as Awaited<ReturnType<typeof readState>>;
+}
+
+/** With a Drought day held the ground is drawn in the day's own soil, which the page draws differently when a map is opened
+ *  with the day held again than when the day was first asked for (the soil's colours are not part of what these two tests
+ *  compare: the picked-source test below compares them, with no weather held). */
+const withoutSoil = (s: Awaited<ReturnType<typeof readState>>) => ({ ...s, soil: 0, wet: 0 });
 
 /** A map with a history to keep: two edits, one of them undone (so there is something to redo too). */
 async function withHistory(page: Page) {
@@ -140,13 +176,14 @@ test("File → Watch a 20-second tour plays through on a copy: the keys are show
 
   // what it advertised: the keys and what they do
   const words = await seen(page);
-  for (const w of ["F", "Shift", "Ctrl", "move to size", "scroll for power", "click to lower", "take its level", "Save to Timberborn"]) expect(words, `the tour showed ${w}`).toContain(w);
+  for (const w of ["F", "Shift", "Ctrl", "move to size", "scroll for power", "click to lower", "click for its level", "Save to Timberborn"]) expect(words, `the tour showed ${w}`).toContain(w);
   // (Save to Timberborn was shown, never done: no file, no saving)
   await expect(page.getByRole("button", { name: "Save to Timberborn" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Save to Timberborn" })).not.toHaveClass(/tour-lit/);
 
-  // the player's map, exactly as it was
-  expect(await state(page)).toEqual(before);
+  // the player's map, exactly as it was, soil and water too: the copy was still settling when it ended, and what it was
+  // drawing (a soil that grows over two seconds) must not land on the player's map (waited out, then compared once)
+  expect(withoutSoil(await state(page))).toEqual(withoutSoil(before));
   // (and the editor itself: the tool in hand and its settings, the selection, what is open, the Drought day, the focus)
   await expect.poll(() => uiSignature(page), { timeout: 60_000 }).toEqual(ui);
   await expect(page.getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeEnabled();
@@ -173,7 +210,7 @@ test("Esc ends the tour at any moment, and everything is as it was", async ({ pa
   await page.keyboard.press("Escape");
   await expect(page.locator(".tour")).toHaveCount(0, { timeout: 30_000 });
   await waitForEditor(page);
-  expect(await state(page)).toEqual(before);
+  expect(withoutSoil(await state(page))).toEqual(withoutSoil(before));
   await expect.poll(() => uiSignature(page), { timeout: 60_000 }).toEqual(ui);
 
   // (it can be watched again, and Esc at its very start ends it too)
@@ -181,7 +218,7 @@ test("Esc ends the tour at any moment, and everything is as it was", async ({ pa
   await page.keyboard.press("Escape");
   await expect(page.locator(".tour")).toHaveCount(0, { timeout: 30_000 });
   await waitForEditor(page);
-  expect(await state(page)).toEqual(before);
+  expect(withoutSoil(await state(page))).toEqual(withoutSoil(before));
 });
 
 test("the first visit's hint offers the tour, and watching it leaves the hints as they were", async ({ page }) => {
@@ -307,7 +344,7 @@ test("the four hidden controls each stay up for a second and a half, the caption
   await waitForEditor(page);
   expect(await state(page)).toEqual(before);
   const shown = await times(page);
-  for (const words of ["move to size", "scroll for power", "click to lower", "take its level"]) {
+  for (const words of ["move to size", "scroll for power", "click to lower", "click for its level"]) {
     const spans = shown.flatMap(([w, t], k) => (w === words && shown[k + 1] ? [shown[k + 1][1] - t] : []));
     expect(spans.length, words).toBeGreaterThan(0);
     for (const d of spans) expect(d, `${words} stays up long enough`).toBeGreaterThanOrEqual(1500);

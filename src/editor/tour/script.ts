@@ -136,7 +136,7 @@ export async function playTour(s: Stage): Promise<void> {
   s.say({ keys: ["4"], words: "Flatten" });
   await c.tap("Digit4");
   await c.sleep(ms(300));
-  s.say({ keys: ["Ctrl"], words: "take its level" });
+  s.say({ keys: ["Ctrl"], words: "click for its level" });
   c.hold("Control");
   await c.sleep(ms(250));
   await c.moveTo(near(s, hill), ms(600));

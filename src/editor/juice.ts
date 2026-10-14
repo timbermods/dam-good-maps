@@ -104,6 +104,10 @@ export interface SoundEngine {
   readonly playing?: number;
 }
 
+/** The page's one sound engine, kept across editors (each map re-mounts the editor): its audio device opens once, and its
+ *  decoded recordings stay (making a context blocks the page for a few hundred milliseconds). */
+let shared: SoundEngine | null = null;
+
 export class Juice {
   private last = new Map<string, number>();
   settings: SoundSettings;
@@ -122,7 +126,13 @@ export class Juice {
     engine?: SoundEngine,
   ) {
     this.settings = settings;
-    this.engine = engine ?? new JuiceEngine({ enabled: settings.on, volume: engineVolume(settings.volume), ambience: settings.ambience === true });
+    const mine = { enabled: settings.on, volume: engineVolume(settings.volume), ambience: settings.ambience === true };
+    if (engine) this.engine = engine;
+    else {
+      shared ??= new JuiceEngine(mine);
+      shared.setSettings(mine);
+      this.engine = shared;
+    }
     // the first click or key opens the sound (as browsers ask); leaving the page pauses it
     if (typeof window !== "undefined") {
       window.addEventListener("pointerdown", this.unlock, true);
@@ -306,6 +316,8 @@ export class Juice {
       window.removeEventListener("blur", this.blur);
     }
     this.strokeEnd();
-    void this.engine.dispose();
+    // (the page's own engine goes on to the next editor; only a sound stopped here)
+    if (this.engine === shared) this.engine.stopAll();
+    else void this.engine.dispose();
   }
 }
