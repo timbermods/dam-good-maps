@@ -655,15 +655,18 @@ Make a valley, drop a source, and there's a river.
   within a frame or two, the rest of the map follows, always at one brisk pace (D197, D268): small edits settle
   nearby in a second or two, big changes (a new river, a breach) still flow visibly. The water row: Drought and
   Badtide and the day (the dot says "Settling…"); no controls for the water's journey (D268; Kyler, 2026-10-04).
-- **Drought and Badtide, day by day** (D267, D268): clicking one shows the hazard's last day at once (with progress
-  while it's worked out); clicking again returns to the map's own water. While one is shown, a day strip on the
-  water bar runs from Day 0 to the last day: previous and next, a click on any day, play, and **Speed** (slower,
-  normal, faster, instant; it appears only here). Stepping animates that day's water at that speed; Instant jumps
-  and stays; nothing reverts on its own. A length of 1 to 30 days per hazard (defaults drought 9, badtide 8),
-  remembered. The start's water is highlighted, and the strip marks the day it leaves a pump's reach (or, in a
-  badtide, the day badwater reaches it or its farmland); hovering any water says when it dries or turns bad. Any
-  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. The Weather
-  step's summary and map-card lines build on these buttons (D133).
+- **Drought and Badtide, day by day** (D267, D268; held, not played, D133 as amended by the page): clicking one
+  shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
+  holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
+  **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
+  hazard's days are kept until the map changes and worked out in the background once the water has settled. Any
+  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged.
+- **The drought line** (the Weather view, D133, D269): in the normal view every lake and river shows a faint line on
+  its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
+  tint over its bed; the start's water (the lakes and rivers its pumps draw from) is marked a little more strongly.
+  It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
+  comes in the background with the drought's days after each edit, never blocking. None on a map with caves yet.
+  The core and the worker's channel (`watchDroughtLine`) are built; the drawing is next. The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
 

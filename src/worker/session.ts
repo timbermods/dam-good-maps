@@ -31,6 +31,8 @@ import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, type Hazard } from "../core/sim/weather";
+import { droughtLineRefusal, mapDroughtLine } from "../core/doc/droughtLine";
+import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
@@ -780,6 +782,8 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
   // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
   const copy = structuredClone(view);
   listener({ kind: "settled", version, view, info: sessionInfo(s) });
+  // (a map with caves has no drought line: the page is told so once its water settles)
+  if (droughtLineRefusal(s)) droughtWatch?.(currentDroughtLine()!);
   return copy;
 }
 
@@ -924,6 +928,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       if (!currentRun(run)) return;
       const { D, C, out } = run.sim;
       run.kept.push({ depth: D.slice(), contamination: C.slice(), out: out.slice() });
+      if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
           const shown = run.show;
@@ -936,6 +941,46 @@ async function driveWeather(run: WeatherRun): Promise<void> {
     run.running = false;
     if (run.prep !== null && run.kept.length > run.days) run.prep = null;
   }
+}
+
+// ------------------------------------------------------------------------------- the drought line
+
+/** The drought line (D133, D269): read from the drought's last day as the run above keeps it, so the line and the
+ *  Drought view's last day agree tile for tile. It comes in the background after each edit with the drought's days
+ *  (`prepareWeather`, which the page asks for once the water has settled and Kyler is idle, and stops the moment he
+ *  acts), never blocking: an edit makes a new version, and the old run, its line with it, is dropped. */
+let droughtLineNow: { session: MapSession; version: number; line: DroughtLine } | null = null;
+/** The drought line of a version of the map, as the page is told it. */
+export interface DroughtLineNews {
+  version: number;
+  line: DroughtLine;
+}
+let droughtWatch: ((n: DroughtLineNews) => void) | null = null;
+
+function droughtLineFrom(run: WeatherRun): void {
+  const k = run.kept[run.days];
+  if (!k) return;
+  const line = mapDroughtLine(run.session, k.depth, run.days);
+  droughtLineNow = { session: run.session, version: run.version, line };
+  droughtWatch?.({ version: run.version, line });
+}
+
+/** The drought line of the map as it is (its refusal on a map with caves), or null while it is still to come. */
+function currentDroughtLine(): DroughtLineNews | null {
+  const s = session;
+  if (!s) return null;
+  const refused = droughtLineRefusal(s);
+  if (refused) return { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought"), refused) };
+  const now = droughtLineNow;
+  return now && now.session === s && now.version === version ? { version, line: now.line } : null;
+}
+
+/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, and a map with caves' refusal
+ *  when its water settles. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now,
+ *  when there is one already. */
+export function watchDroughtLine(fn: ((n: DroughtLineNews) => void) | null): DroughtLineNews | null {
+  droughtWatch = fn;
+  return fn ? currentDroughtLine() : null;
 }
 
 /** Stop the weather view: the map's own water (each hazard's kept days stay, until the map changes). */
@@ -999,6 +1044,7 @@ function discardSessionWork(): void {
     weatherRuns[h]?.sim.dispose();
     delete weatherRuns[h];
   }
+  droughtLineNow = null;
   force = null;
   series = null;
   lastKept = null;
