@@ -686,7 +686,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
               vec2 p = clamp(q.xy, c.xy, c.xy + 1.0);
               if (o.x != 0.0) p.x = c.x + 0.5 + o.x * 0.52;
               else p.y = c.y + 0.5 + o.y * 0.52;
-              return vec4(p.x, top, -p.y, 1.0);
+              return vec4(p.x, max(top, c.z), -p.y, 1.0);
             }
             float r = texelFetch(caveTex, ivec3(nc), 0).r;
             if (r > best) {

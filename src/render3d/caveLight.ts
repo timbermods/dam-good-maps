@@ -6,9 +6,10 @@
 //   open cell, that cell's sky; beside the map's edge, 229; then 26 less per step through
 //   roofed air, never below 64 (a cave's mouth as bright as the open ground before it, never brighter,
 //   its depths dim; the shader keeps a 0.30 floor so a cave stays readable). An open cell beside roofed
-//   air holds the sky the baked light gives the ground there (light.ts: 0.55 + 0.45 × the tile's sky
-//   visibility), so the texture's filtering blends a cave's mouth into the ground before it; any other
-//   open cell 255. 0 in rock.
+//   air holds the sky the baked light would give ground at its height there (light.ts: 0.55 + 0.45 × the
+//   sky visibility; on the ground the tile's own, higher up, over a drop, the sky seen from that height),
+//   so the texture's filtering blends a cave's mouth into the ground before it; any other open cell 255.
+//   0 in rock.
 // - G, the sun: 255 where a ray toward the sun leaves the land without meeting rock, else 0, marched
 //   from every roofed cell and every open cell beside one; 255 in any other open cell, 0 in rock.
 // The shader's rule (materials.ts `caveAt`, mirrored by `caveSample` for the tests): only a face whose
@@ -21,7 +22,7 @@
 // the sky walk round it and the sun's reach down-sun (`relight`): the same bytes as building the whole
 // volume again. Pure TypeScript.
 
-import { SKY_REACH } from "./light";
+import { SKY_REACH, skyAt } from "./light";
 import { columnMask, type TerrainSource } from "./mesh";
 import { LAYERS } from "./model";
 import { LIGHT } from "./palette";
@@ -169,7 +170,7 @@ export class CaveLight {
           const o = (z * N + i) * 2;
           if (z < top) {
             if (!((m >>> z) & 1)) data[o] = FLOOR;
-          } else data[o] = z <= zTop && this.roofedBeside(x, y, z) ? openSky(sky[i]) : OPEN;
+          } else data[o] = z <= zTop && this.roofedBeside(x, y, z) ? openSky(z === top ? sky[i] : skyAt(W, H, src.heights, x, y, z)) : OPEN;
         }
       }
     const queue: number[] = [];

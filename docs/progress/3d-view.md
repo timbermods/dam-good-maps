@@ -38,14 +38,15 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **What:** `src/render3d/caveLight.ts`, Erode's light volume (`lightVolume`) on the mesher's column masks: two
   bytes a cell, W × H × 24 levels, a 3D texture (`caveTex`, RG, filtered). R the sky: roofed air (below its
   column's top, not rock) walks it in from its openings: beside an open cell, that cell's sky (an open cell beside
-  roofed air holds the sky the baked light gives its ground, 0.55 + 0.45 × the tile's sky visibility); beside the
-  map's edge 229; then 26 less per step, never below 64; 0 in rock. G the sun: a ray marched toward the sun from
+  roofed air holds the sky the baked light would give ground at its height, 0.55 + 0.45 × the sky visibility: on
+  the ground the tile's own, over a drop the sky seen from that height, `light.ts` `skyAt`); beside the map's edge
+  229; then 26 less per step, never below 64; 0 in rock. G the sun: a ray marched toward the sun from
   every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts` `caveAt`, both
   looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face takes
   `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
   `light.ts` stands. `caveLightOf` carries the light on from the open ground at the roof line the air opens by
-  (`caveMouth`, walked toward the brightest neighbour): the sky never below 0.30, with the look's occlusion as at
-  that line (`ShaderHooks.caveSky`: High's ambient field, never more than at the point); the sun the open ground's
+  (`caveMouth`, walked toward the brightest neighbour; over a drop, at the cave's own level): the sky never below
+  0.30, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's ambient field, never more than at the point); the sun the open ground's
   at the line, fading over 0.6 of a tile to the cave's own and never above the line's (`caveSun`: Standard marches
   the ray through the volume until rock or the open sky's baked shadow, High uses its soft shadow of the real
   meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the roof
