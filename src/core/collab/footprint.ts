@@ -4,9 +4,9 @@
 // never counts (it flows across claims, §4, waterNotes.ts); the tiles an edit itself writes in the water
 // (Fill, Remove unfed water, a force's lake) do.
 //   - The host decides. After it applies an entry its record holds the exact writes (`record.writes`, #397's
-//     `touchesOf`); `writtenBy` adds the generated trees and bushes the entry names (felled, moved), which
-//     the record's patch leaves out. `trialWrites(session, ops)` asks the same of an edit before it is
-//     sent: it tries it and takes it back. Both are what claims.ts refuses on.
+//     `touchesOf`, which counts the objects a force removes, carries or fells, generated trees and bushes
+//     included, at the tiles they stood on). `trialWrites(session, ops)` asks the same of an edit before it
+//     is sent: it tries it and takes it back. Both are what claims.ts refuses on.
 //   - `bandOf(ops, map)` and `forceBand(gesture, map)`: the quick, cautious warning while a stroke is drawn:
 //     the stroke's band plus the force's reach. It may reach past what the host will record (and warn near a
 //     border when the edit would not really reach in), but never falls short of it. Carve Unleash and Glaciate
@@ -33,7 +33,6 @@ import type { Feature, StartFeature } from "../features/schema";
 import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
-import { entityTiles as forceEntityTiles } from "../forces/force";
 import { quakeReach, slideTiles } from "../forces/quake";
 import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
@@ -396,10 +395,11 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *    up to 4.84 × max(0.7, radius / 22) wide;
  *  - Quake: lift moves ground out to max(reach, 1.3 × the fault's length) from it, slide to
  *    max(reach, 1.3 × length, slide + 12) + 12, then a slide's travel on (9346, 9530, 9567; quake.ts);
- *  - an aimed Carve stays within the aim's length + 20.25 of its end (3262, 4226), a half-width of 0.72 × 24
+ *  - an aimed Carve stays within the drawn path's length + 20.25 of its end (3262, 4226), a half-width of 0.72 × 24
  *    either side (4848) and its banks, 1.8 × banks + 14;
- *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size and a margin for hanging
- *    valleys and outwash (5992);
+ *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size (5992) and a margin for
+ *    hanging valleys and outwash: 0.5 × Size + 10 is not derived, it is the margin the long sweep
+ *    (collabClaims.heavy.test.ts) shows to hold;
  *  - Rift and Deposit: their size (their width) and the ground they move.
  *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
 function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
@@ -433,8 +433,9 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
     case "carve": {
       if (s.mode !== "aim" || pts.length < 2) return null;
       const end = pts[pts.length - 1];
+      // (the drawn path's length: the carve follows the line drawn through its points)
       let far = 0;
-      for (const p of pts) far = Math.max(far, dist(p[0], p[1], end[0], end[1]));
+      for (let k = 1; k < pts.length; k++) far += dist(pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1]);
       const banks = typeof s.banks === "number" ? s.banks : 0;
       return { pts: [end], r: far + 20.25 + 0.72 * 24 + 1.8 * banks + 14 + 2 };
     }
@@ -496,49 +497,8 @@ const START_CARRY = 28;
 
 // ------------------------------------------------------------------- what the host decides on
 
-/** The tiles an applied entry wrote, for the claims check: the host's record (`writes`, exact for the ground,
- *  the objects the players made and the lakes) and the generated trees and bushes it names. Those are not in
- *  the record's patch (they follow from the settled water), but a crater's knockdown ring or a quake can fell
- *  or move them on ground that did not change, and a force can remove them outright: `fallen:` and `entity:`
- *  keys are read to the tiles those objects stand on, as the host's map shows them now, and for the ones that
- *  are gone now, where they stood before the step (`before`: asked for the ids that are missing; `peekBefore`
- *  answers it on the host, whose map already shows the step). */
-export function writtenBy(record: { writes: Mask; keys: Iterable<string> }, session: Pick<MapSession, "built">, before?: (ids: string[]) => Map<string, number[]>): Mask {
-  const { W, H } = session.built;
-  const out = new Mask(W * H).union(record.writes);
-  let byId: Map<string, EntitySpec> | null = null;
-  const gone: string[] = [];
-  for (const key of record.keys) {
-    const id = key.startsWith("fallen:") ? key.slice(7) : key.startsWith("entity:") ? key.slice(7) : null;
-    if (id === null) continue;
-    byId ??= new Map(session.built.entities.map((e) => [e.id, e]));
-    const e = byId.get(id);
-    if (e) for (const i of forceEntityTiles(W, H, e)) out.add(i);
-    else gone.push(id);
-  }
-  if (gone.length && before) for (const tiles of before(gone).values()) for (const i of tiles) out.add(i);
-  return out;
-}
-
-/** Where the objects `ids` stood before the step the host's map shows (the latest): the step is taken back
- *  for a moment and put again, which leaves the map, its history and its numbers as they were. */
-export function peekBefore(session: MapSession): (ids: string[]) => Map<string, number[]> {
-  return (ids) => {
-    const out = new Map<string, number[]>();
-    if (!session.undo()) return out;
-    try {
-      const want = new Set(ids);
-      const { W, H } = session.built;
-      for (const e of session.built.entities) if (want.has(e.id)) out.set(e.id, forceEntityTiles(W, H, e));
-    } finally {
-      if (!session.redo()) throw new Error("A step could not be put again after looking behind it");
-    }
-    return out;
-  };
-}
-
 /** What an edit would write, by trying it: applied to `session` and taken back, so the numbers of its
- *  operations and the map are as they were. The host's own rule (the record's writes, `writtenBy`), asked
+ *  operations and the map are as they were. The host's own rule (the record's writes), asked
  *  before anything is ordered. `session` is the player's own copy; a refusal is `ok: false` with the
  *  reason the edit itself would be refused for (not a claims matter). */
 export function trialWrites(session: MapSession, ops: EditOp | readonly EditOp[]): { ok: true; writes: Mask } | { ok: false; reason: string } {
@@ -547,17 +507,8 @@ export function trialWrites(session: MapSession, ops: EditOp | readonly EditOp[]
   const mark = session.mark();
   const r = list.length === 1 ? session.apply(list[0]) : session.applyAll(list);
   if (!r.ok) return { ok: false, reason: r.errors[0] ?? "The edit could not be applied" };
-  const applied = session.lastStepOps().map((o) => ({ op: o.op, params: structuredClone(o.params) }) as EditOp);
-  const t = touchesOf(applied, earlier, captureState(session));
-  const stood = (ids: string[]) => {
-    const out = new Map<string, number[]>();
-    const want = new Set(ids);
-    for (const [id, tiles] of earlier.derived) if (want.has(id)) out.set(id, tiles);
-    for (const e of earlier.entities) if (want.has(e.id)) out.set(e.id, forceEntityTiles(earlier.W, earlier.H, e));
-    return out;
-  };
-  const writes = writtenBy({ writes: t.writes, keys: t.keys }, session, stood);
+  const t = touchesOf(session.lastStepOps(), earlier, captureState(session));
   const step = session.stepSince(mark);
   if (!step || !session.takeBack(step)) throw new Error("A trial edit could not be taken back");
-  return { ok: true, writes };
+  return { ok: true, writes: t.writes };
 }

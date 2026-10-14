@@ -9,7 +9,8 @@
 import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { claimsCheck, ClaimsState, parseCommand, reachInto, refusal, refusalForWrites, type ClaimCommand, type PlayerNames, type Role } from "../../src/core/collab/claims";
-import { bandOf, footprintOf, forceBand, peekBefore, trialWrites, TileMask, writtenBy } from "../../src/core/collab/footprint";
+import { bandOf, footprintOf, forceBand, trialWrites, TileMask } from "../../src/core/collab/footprint";
+import { captureState, cloneState, difference } from "../../src/core/collab/mapState";
 import { Mask } from "../../src/core/collab/mask";
 import { describeWaterNote, waterNote, waterNotes } from "../../src/core/collab/waterNotes";
 import { decodeProject } from "../../src/core/doc/document";
@@ -497,11 +498,14 @@ describe("forces: the plan's footprint and the gesture's band, held against what
     const written = trialWrites(kept, second);
     expect(written.ok).toBe(true);
     // every tile the host records is in the footprint, but for an object the replaced force had removed that
-    // stands again (its place is not in the map this footprint reads; the host's record holds it)
+    // stands again (its place is not in the map this footprint reads) ...
     const prior = (first.find((o) => o.op === "forceResult") as unknown as { params: { removed: string[]; tiles: number[] } }).params;
     kept.applyAll(second);
     const restored = new Set(kept.built.entities.filter((e) => prior.removed.includes(e.id)).map((e) => e.y * W + e.x));
     if (written.ok) for (const i of written.writes.tiles()) if (!fp2.tiles.has(i)) expect(restored.has(i), `tile ${i} escapes the footprint`).toBe(true);
+    // ... and the host's record has it: what the first force removed and the second left standing is written
+    expect(restored.size).toBeGreaterThan(0);
+    if (written.ok) for (const i of restored) expect(written.writes.has(i), `the restored object at ${i}`).toBe(true);
     // the force it replaced is in it, so a claim only the first force reached still refuses the second
     for (const i of prior.tiles) expect(fp2.tiles.has(i)).toBe(true);
     ed.undo();
@@ -545,74 +549,86 @@ describe("the host's check (#397's seam): claimsCheck", () => {
     expect(claimsCheck(() => none, roleOf)({ author: GUEST } as never, { writes: new Mask(W * W).add(1), keys: [] } as never, t.host as never)).toBeNull();
   }, 120_000);
 
-  it("a crater's knocked-down trees count: they lie on ground the crater did not change", () => {
-    // a Light crater with Rays at the middle fells twelve generated trees; the record's patch has no tile for them
-    const gesture = crater(32, 32, 5, "light", 24, 60, true);
-    const probe = sit(bytes, {}, [GUEST]);
-    let extra: number[] = [];
-    probe.host.setCheck((_e, record, state) => {
-      const all = writtenBy({ writes: record.writes, keys: record.keys }, state.session);
-      extra = all.tiles().filter((i) => !record.writes.has(i));
+  /** The tiles of the map's own trees and bushes a force fells or takes away that the host records as written
+   *  though the ground under them did not change (run on a host that only looks). */
+  const treesOffGround = (gesture: never): number[] => {
+    const probe = sit(bytes, {}, []);
+    const stood = new Map(probe.host.session.built.entities.map((e) => [e.id, e.y * W + e.x]));
+    let out: number[] = [];
+    probe.host.setCheck((_e, record) => {
+      const ground = new Set(record.patch.ground.map((g) => g[0]));
+      const direct = new Set(record.patch.objects.map((o) => o[0]));
+      out = [...record.keys]
+        .filter((k) => k.startsWith("entity:"))
+        .map((k) => k.slice(7))
+        .filter((id) => !direct.has(id) && stood.has(id) && !ground.has(stood.get(id)!) && record.writes.has(stood.get(id)!))
+        .map((id) => stood.get(id)!);
       return "probe";
     });
     act(probe, HOST, gesture);
-    expect(extra.length, "no tree felled off the ground the record says was written").toBeGreaterThan(0);
-    // her claim is one such tree's ground, and nothing else the crater wrote: the record alone lets it through
+    return out;
+  };
+  /** A claim of one of those tiles: the force may not take it. */
+  const refusedAt = (gesture: never, tile: number) => {
     const claims = new ClaimsState(W, W);
-    const tile = extra[0];
     claims.apply("guest", { kind: "claim", runs: [run(Math.floor(tile / W), tile % W, tile % W)] }, NAMES2);
-    const t = sit(bytes, {}, [GUEST]);
-    const seam = claimsCheck(() => claims, roleOf, NAMES2);
-    t.host.setCheck((entry, record, state) => {
-      expect(refusalForWrites(record.writes, claims, "host", NAMES2), "the record alone").toBeNull();
-      return seam(entry, record, state);
-    });
-    const answer = act(t, HOST, gesture);
-    expect(answer.kind).toBe("reject");
-    expect((answer as unknown as { reason: string }).reason).toBe("Reaches into Bo's area");
-    expect(t.host.seq).toBe(0);
-  }, 120_000);
-});
-
-describe("the host's check: trees a force removes", () => {
-  const NAMES2: PlayerNames = { host: "Ada", guest: "Bo" };
-  const roleOf = (a: string): Role => (a === HOST ? "host" : "guest");
-
-  it("a generated tree gone from the map counts at the tile it stood on, even where the ground did not change", () => {
-    // a Light crater with Rays takes trees (the map's own, not placed by a player) off ground the record does not list
-    const gesture = { kind: "force", gesture: { id: GUID(5036), request: { verb: "craterize", settings: { mode: "strike", power: 60, size: 16, walls: "terraced", centre: "auto", debris: "light", rays: true, seed: 5 }, origin: [36, 36], cut: null, natural: true } } } as never;
-    const probe = sit(bytes, {}, [GUEST]);
-    let extra: number[] = [];
-    probe.host.setCheck((_e, record, state) => {
-      const gone = [...record.keys].filter((k) => k.startsWith("entity:")).map((k) => k.slice(7)).filter((id) => !state.session.built.entities.some((e) => e.id === id));
-      extra = [...peekBefore(state.session)(gone).values()].flat().filter((i) => !record.writes.has(i));
-      return "probe";
-    });
-    act(probe, HOST, gesture);
-    expect(extra.length, "no tree removed off the ground the record says was written").toBeGreaterThan(0);
-    // her claim is one such tree's ground: the record alone lets the crater through, the seam does not
-    const claims = new ClaimsState(W, W);
-    const tile = extra[0];
-    claims.apply("guest", { kind: "claim", runs: [run(Math.floor(tile / W), tile % W, tile % W)] }, NAMES2);
-    const t = sit(bytes, {}, [GUEST]);
-    const seam = claimsCheck(() => claims, roleOf, NAMES2);
-    t.host.setCheck((entry, record, state) => {
-      expect(refusalForWrites(record.writes, claims, "host", NAMES2), "the record alone").toBeNull();
-      return seam(entry, record, state);
-    });
+    const t = sit(bytes, { check: claimsCheck(() => claims, roleOf, NAMES2) }, [GUEST]);
     const hash = t.host.hash();
     const answer = act(t, HOST, gesture);
     expect(answer.kind).toBe("reject");
     expect((answer as unknown as { reason: string }).reason).toBe("Reaches into Bo's area");
-    // looking behind the step left the host as it was
     expect(t.host.seq).toBe(0);
     expect(t.host.hash()).toBe(hash);
-    // her own claim elsewhere does not stop him
+  };
+
+  it("a crater's knocked-down trees count: they lie on ground the crater did not change", () => {
+    // a Light crater with Rays at the middle fells twelve generated trees
+    const gesture = crater(32, 32, 5, "light", 24, 60, true);
+    const felled = treesOffGround(gesture);
+    expect(felled.length, "no tree felled off the ground the crater changed").toBeGreaterThan(0);
+    refusedAt(gesture, felled[0]);
+  }, 120_000);
+
+  it("a generated tree a force takes away counts at the tile it stood on, even where the ground did not change", () => {
+    const gesture = crater(36, 36, 5, "light", 16, 60, true);
+    const gone = treesOffGround(gesture);
+    expect(gone.length, "no tree taken off the ground the crater changed").toBeGreaterThan(0);
+    refusedAt(gesture, gone[0]);
+    // her claim elsewhere does not stop him
     const elsewhere = new ClaimsState(W, W);
     elsewhere.apply("guest", { kind: "claim", runs: square(0, 0, 3, 3) }, NAMES2);
     const free = sit(bytes, { check: claimsCheck(() => elsewhere, roleOf, NAMES2) }, [GUEST]);
     expect(act(free, HOST, gesture).kind).toBe("commit");
   }, 120_000);
+
+  it("only the lakes and drained tiles an action changed are its writes", () => {
+    const s = session();
+    const a = captureState(s);
+    const lake = (at: number) => ({ tiles: [at, at + 1, at + 2, at + 3], floor: [3, 3, 3, 3], depth: [1, 1, 1, 1], contamination: [0, 0, 0, 0] }) as never;
+    const mine = cloneState(a);
+    mine.water = { retained: [lake(10 * W + 10)], drained: [20 * W + 5, 20 * W + 6] };
+    // a Fill elsewhere (a new lake) writes its own tiles and not hers, nor the drained ones
+    const filled = cloneState(mine);
+    filled.water = { retained: [...mine.water.retained, lake(30 * W + 30)], drained: mine.water.drained };
+    const w = difference(mine, filled).writes;
+    expect(w.tiles()).toEqual([30 * W + 30, 30 * W + 31, 30 * W + 32, 30 * W + 33]);
+    // a drained tile added: that tile only
+    const drained = cloneState(mine);
+    drained.water = { retained: mine.water.retained, drained: [...mine.water.drained, 25 * W + 7] };
+    expect(difference(mine, drained).writes.tiles()).toEqual([25 * W + 7]);
+    // her lake taken away, or changed: its tiles
+    const gone = cloneState(mine);
+    gone.water = { retained: [], drained: mine.water.drained };
+    expect(difference(mine, gone).writes.tiles()).toEqual([10 * W + 10, 10 * W + 11, 10 * W + 12, 10 * W + 13]);
+    // so a claim on her lake and her drained tiles does not stop a Fill elsewhere, and does stop the one that takes it away
+    const claims = new ClaimsState(W, W);
+    claims.apply("guest", { kind: "claim", runs: [run(10, 10, 13), run(20, 5, 6)] }, NAMES2);
+    expect(refusalForWrites(difference(mine, filled).writes, claims, "host", NAMES2)).toBeNull();
+    expect(refusalForWrites(difference(mine, gone).writes, claims, "host", NAMES2)).toBe("Reaches into Bo's area");
+    // and the page's question agrees: the band of a Fill is its lake
+    const op = { op: "fillHollow", params: { at: [31, 30], level: 4, lake: lake(30 * W + 30) } } as unknown as EditOp;
+    expect(refusal(op, claims, "host", s, NAMES2)).toBeNull();
+  });
 });
 
 describe("water notes (§4)", () => {

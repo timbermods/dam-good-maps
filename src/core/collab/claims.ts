@@ -21,7 +21,7 @@
 import type { EditOp } from "../doc/ops";
 import type { MapSession } from "../doc/session";
 import { checkSchema } from "../spec/schema";
-import { bandOf, peekBefore, trialWrites, writtenBy, type Footprint, type TileMask } from "./footprint";
+import { bandOf, trialWrites, type Footprint, type TileMask } from "./footprint";
 import type { EntryCheck } from "./host";
 import schema from "./claims.schema.json" with { type: "json" };
 
@@ -344,8 +344,7 @@ export function refusal(ops: EditOp | readonly EditOp[], claims: ClaimsState, by
 /** The seam the host calls with each entry after it has applied it and made its record (`EntryCheck`,
  *  host.ts): the entry may not have written into the other player's area. `claims()` is the claims as they
  *  stand when the entry is ordered, `roleOf` says which player an author is, and `names` the names the
- *  refusal uses. The tiles are the record's writes and the generated trees and bushes it names
- *  (`writtenBy`); the host takes the step back when this gives a reason. */
+ *  refusal uses. The tiles are the record's writes; the host takes the step back when this gives a reason. */
 export function claimsCheck(claims: () => ClaimsState, roleOf: (author: string) => Role, names: PlayerNames | (() => PlayerNames) = DEFAULT_NAMES): EntryCheck {
   return (entry, record, state) => {
     const by = roleOf(entry.author);
@@ -353,6 +352,6 @@ export function claimsCheck(claims: () => ClaimsState, roleOf: (author: string) 
     const theirs = otherPlayer(by);
     const c = claims();
     if (!c.owner.some((o) => o === CODE[theirs])) return null;
-    return refusalForWrites(writtenBy({ writes: record.writes, keys: record.keys }, state.session, peekBefore(state.session)), c, by, typeof names === "function" ? names() : names);
+    return refusalForWrites(record.writes, c, by, typeof names === "function" ? names() : names);
   };
 }

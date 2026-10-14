@@ -177,7 +177,8 @@ export class MapApplier {
     this.water.invalidate();
     const after = captureState(s);
     this.seen = { built: s.built, state: after };
-    const t = touchesOf(plainOps(s), before, after);
+    // (the operations as the document keeps them: a Try another's undo data names the force it replaced)
+    const t = touchesOf(s.lastStepOps(), before, after);
     const record: TransactionRecord = {
       seq: entry.seq,
       epoch: entry.epoch,
