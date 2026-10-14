@@ -4,6 +4,7 @@ import { proxy } from "comlink";
 import { chooseMapsFolder, chooseSaveFolder, saveFile, saveIntoFolder, TIMBERBORN_MAPS_PATH, wrongFolderNote } from "../../platform";
 import type { CheckProgress } from "../../worker/session";
 import { plain } from "../panels";
+import { NO_START, NO_START_REFUSAL } from "../../core/doc/checkItems";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 
@@ -19,7 +20,7 @@ export interface SaveSlice {
 }
 
 export function useSave(ed: Ed): SaveSlice {
-  const { api, info, setMessage, setDotOpen, saving, setSaving, enqueue } = ed;
+  const { api, info, instant, check, setMessage, setDotOpen, saving, setSaving, enqueue } = ed;
 
   // ------------------------------------------------------------------------------ export
 
@@ -41,6 +42,12 @@ export function useSave(ed: Ed): SaveSlice {
     setSaving({ kind, progress: null });
     setMessage(null);
     try {
+      // (a map without a start is refused before the folder is asked for: nobody should pick a folder to be told no)
+      if ([...instant, ...(check?.blocking ?? [])].some((c) => c.id === "start.count" && c.message === NO_START)) {
+        setDotOpen(true);
+        setMessage({ kind: "error", text: `Not saved: ${NO_START_REFUSAL}` });
+        return;
+      }
       const choice = kind === "timberborn" ? await chooseSaveFolder() : null;
       if (choice?.via === "cancelled") return; // the picker was closed: no file, no note
       if (choice?.via === "wrong-folder") {
