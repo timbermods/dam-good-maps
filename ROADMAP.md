@@ -719,6 +719,13 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
 
+3. **On every import** (#391): Drought, Badtide and the drought line run on a map with caves or overhangs too, on the
+   stacked-column engine (`sim/stackWater.ts` `StackRun`, the same sources-stop, badwater and evaporation rules on every
+   water column), from the water the map shows (an unedited import's own). On a map with no caves the stacked weather is
+   the heightfield's, bit for bit. Only Fill and Remove unfed water are still refused on such maps (`cavesOf`).
+   Probe, when one is next worth asking for (D483): an edited cave import as the app exports it, played through a drought
+   (the PR, #391's, says what it plays and checks).
+
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
 

@@ -682,7 +682,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const base = input.base ?? null;
   const frozen = base?.frozen;
   // the base's terrain when it has caves or overhangs (null: a heightfield)
-  const caves = base ? cavesOf(base) : null;
+  const caves = base ? caveTerrainOf(base) : null;
   const live = (f: Feature) => !frozen?.has(f.id);
   const features = input.features;
   const fields: FieldCache = prev ? prev.fields : opts.fieldCache ? sharedFields(opts.fieldCache) : new Map();
@@ -1385,7 +1385,7 @@ const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string 
 const baseCaves = new WeakMap<BaseLayer, ColumnTerrain | null>();
 /** A base's terrain when some tile of it is not one plain run from the bottom (a cave, an overhang),
  *  else null. */
-function cavesOf(base: BaseLayer): ColumnTerrain | null {
+function caveTerrainOf(base: BaseLayer): ColumnTerrain | null {
   let c = baseCaves.get(base);
   if (c === undefined) {
     c = base.terrain && !base.terrain.allPlain() ? base.terrain : null;
@@ -1399,7 +1399,7 @@ function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel
   if (!bm) {
     const flat = modelOf({ W, H, heights: base.heights, entities: base.entities });
     // (with its caves and overhangs, as every build of the map has them)
-    const m = cavesOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
+    const m = caveTerrainOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }

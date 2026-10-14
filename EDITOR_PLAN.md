@@ -662,7 +662,8 @@ Make a valley, drop a source, and there's a river.
   and stays; nothing reverts on its own. A length of 1 to 30 days per hazard (defaults drought 9, badtide 8),
   remembered. The start's water is highlighted, and the strip marks the day it leaves a pump's reach (or, in a
   badtide, the day badwater reaches it or its farmland); hovering any water says when it dries or turns bad. Any
-  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. The Weather
+  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from
+  the water the map shows (an unedited import's own), on every map, caves and overhangs included (#391). The Weather
   step's summary and map-card lines build on these buttons (D133).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
@@ -992,9 +993,12 @@ opened, are listed but never blamed on the player's edits and do not block its e
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
     last water stays on show while the canonical settle runs in the background, in slices, the dot saying
     "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
-    on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
-    refused there with one plain line each until each has its rule for water in caves (a refused Drought or
-    Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).
+    on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
+    same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
+    the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
+    (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water are refused there with one plain
+    line each until each has its rule for water in caves (`sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop

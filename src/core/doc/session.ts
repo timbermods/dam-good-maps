@@ -33,7 +33,7 @@ import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
 import { stackedSoil } from "../sim/soil";
-import { CAVE_REFUSALS, storedStack } from "../sim/stackWater";
+import { CAVE_REFUSALS, cavesOf, storedStack } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
@@ -210,7 +210,7 @@ export class MapSession {
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
       // (a removal an older project stored: it has no rule for water in caves yet and takes nothing)
-      if (this.cur.waterModel.stacked && this.log.some((o) => o.op === "removeUnfedWater")) this.notices.push(CAVE_REFUSALS.removeUnfed);
+      if (cavesOf(this.cur.waterModel) && this.log.some((o) => o.op === "removeUnfedWater")) this.notices.push(CAVE_REFUSALS.removeUnfed);
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -506,6 +506,14 @@ export class MapSession {
   waterNow(): { model: WaterModel; depth: Float64Array } {
     const own = this.showsStoredWater ? this.baseStuff().layer.water : undefined;
     return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
+  }
+
+  /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):
+   *  an unedited import's own water while it keeps it (`showsStoredWater`), else the build's; per tile
+   *  from above, and on a map with caves or overhangs every column of it (`stack`). The same object
+   *  until the map's water changes. */
+  waterShown(): CanonicalWater {
+    return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
   }
 
   /** An imported map's tiles with a cave, tunnel or overhang, which every tool leaves as they are

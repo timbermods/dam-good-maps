@@ -1,6 +1,7 @@
 // A map with caves or overhangs, through the page (3D Foundations, stage 6; D120, D280): after an edit its
 // water settles in the background, the dot saying so, and shows when done, the caves' water with it; the
-// layer is "Caves and overhangs"; and what has no rule for water in caves yet is refused with its one line.
+// layer is "Caves and overhangs"; what has no rule for water in caves yet is refused with its one line; and Drought
+// and Badtide run on every column (#391).
 // The map is T3 of the probe's test maps (tools/terrain3d-maps.ts), built here: never an official map's bytes.
 
 import { expect, test, type Page } from "@playwright/test";
@@ -17,7 +18,7 @@ const depthAt = (page: Page, x: number, y: number) =>
     return m.surface.depth[b * m.W + a] || 0;
   }, [x, y] as [number, number]);
 
-test("a map with caves: an edit's water settles in the background and shows when done, and Drought, Badtide, Fill and Remove unfed water are refused with their lines", async ({ page }) => {
+test("a map with caves: an edit's water settles in the background and shows when done, Fill and Remove unfed water are refused with their lines, and Drought and Badtide show their last days", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   const bytes = build(t3CaveWater()).bytes;
@@ -69,19 +70,19 @@ test("a map with caves: an edit's water settles in the background and shows when
   await expect(page.getByText(CAVE_REFUSALS.fill)).toBeVisible();
   await page.evaluate((t) => window.dgmEditor!.edit({ op: "removeUnfedWater", params: { tiles: [t], pools: 1 } }, "Remove unfed water"), i);
   await expect(page.getByText(CAVE_REFUSALS.removeUnfed)).toBeVisible();
-  // Drought and Badtide: the worker refuses with the line; the page shows it, the button goes back up, the day box reads "Day –"
-  // and the map keeps its own water
-  for (const hazard of ["drought", "badtide"] as const) {
-    const said = await page.evaluate((h) => window.dgmEditor!.worker.showWeatherDay(h, null).then(() => "", (e: unknown) => String((e as Error).message ?? e)), hazard);
-    expect(said).toContain(CAVE_REFUSALS.weather);
-  }
+  // Drought and Badtide run on every column (#391): each shows its last day and holds it; the pit's water drains in the
+  // drought; clicking again brings the map's own water back
   const before = await depthAt(page, 57, 26);
-  for (const name of ["Drought", "Badtide"]) {
+  const day = page.locator(".day-label");
+  for (const [name, last] of [["Drought", 9], ["Badtide", 8]] as const) {
     const button = page.getByRole("button", { name, exact: true });
     await button.click();
-    await expect(page.getByText(CAVE_REFUSALS.weather)).toBeVisible();
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await expect(day).toHaveText(`Day ${last}`);
+    await expect(day).not.toHaveClass(/counting/, { timeout: 120_000 });
+    if (name === "Drought") await expect.poll(() => depthAt(page, 57, 26), { timeout: 30_000 }).toBeLessThan(before);
+    await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator(".day-label")).toHaveText("Day –");
-    expect(await depthAt(page, 57, 26)).toBe(before);
+    await expect.poll(() => depthAt(page, 57, 26), { timeout: 30_000 }).toBe(before);
   }
 });
