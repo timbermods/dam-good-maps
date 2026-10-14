@@ -2,13 +2,13 @@
 // renderer, the tools picked, the panels' state, the sounds, the water's player) and the queue that
 // sends every edit to the worker and shows what comes back.
 
-import type { Remote } from "comlink";
+import { proxy, type Remote } from "comlink";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { rulesFor, type Rules } from "../../core/validate/playability";
 import { surfaceWater, type MapView, type SoilView, type WaterView } from "../../render3d/model";
 import type { MapRenderer } from "../../render3d";
 import type { GeneratorApi } from "../../worker/generator.worker";
-import type { CheckItem, CheckProgress, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
+import type { CheckItem, CheckProgress, DroughtLineNews, EntityInfo, ExportCheck, SessionInfo, SessionUpdate, ViewUpdate, WaterLayers } from "../../worker/session";
 import { FeatureIndex, type StartCheck, type StartStatus } from "../features";
 import { plain, type LayerKind } from "../panels";
 import { DEFAULT_SHELF_OPTIONS, type ShelfItem, type ShelfOptions } from "../shelfItems";
@@ -302,9 +302,31 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
+  // the drought line (D133): the worker's channel, drawn in the normal view only (never while a day is held) and only
+  // for the map's own version, so an edit puts it away until the new map's comes
+  const droughtNews = useRef<DroughtLineNews | null>(null);
+  const syncDroughtLine = () => {
+    const n = droughtNews.current;
+    renderer.current?.setDroughtLine(n && n.version === infoRef.current.version && !weatherRef.current ? n.line : null);
+  };
+  useEffect(() => {
+    if (!ready) return;
+    const take = (n: DroughtLineNews) => {
+      droughtNews.current = n;
+      syncDroughtLine();
+    };
+    void api.watchDroughtLine(proxy(take)).then((n) => n && take(n));
+    // (a map just opened has its line worked out too, not only after the first press: the worker waits for the water)
+    idlePrep();
+    return () => {
+      droughtNews.current = null;
+      void api.watchDroughtLine(null);
+    };
+  }, [ready]);
   const setWeather = (on: Hazard | null) => {
     weatherRef.current = on;
     setWeatherState(on);
+    syncDroughtLine();
   };
   const [weatherDay, setWeatherDay] = useState<number | null>(null);
   const [weatherDays, setWeatherDays] = useState<number | null>(null);
@@ -572,6 +594,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     infoRef.current = i;
     setInfo(i);
     props.onChange(i);
+    syncDroughtLine();
   }
 
   /** Apply what changed on the map to the mirror and the renderer. While strokes the page painted

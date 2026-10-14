@@ -54,6 +54,8 @@ import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { BlockGhost, type GhostTile } from "./blockGhost";
+import { DroughtLineLayer } from "./droughtLine";
+import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
@@ -498,6 +500,7 @@ export class MapRenderer {
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
     this.sliced = null;
+    this.droughtLayer?.setHidden(level !== null);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
   }
@@ -1080,6 +1083,7 @@ export class MapRenderer {
   }
 
   private clearMap(): void {
+    this.droughtLayer?.clear();
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
@@ -1316,6 +1320,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     const rect = changedRect(m.W, m.H, m.heights, heights);
+    if (rect) this.droughtLayer?.clear();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
       this.landBefore ??= this.drawnLand.slice();
@@ -1587,6 +1592,7 @@ export class MapRenderer {
     const heights = m.heights;
     const c = terrainChanges(m.W, m.H, this.drawnLand, heights, rect, SKY_REACH);
     if (!c) return false;
+    this.droughtLayer?.clear();
     // the water on the land that changed rides it in this same frame (its own water follows, worked
     // out on this land: `rideLand`), and the land it stood on is kept for water still on its way
     const landBefore = (this.landBefore ??= this.drawnLand.slice());
@@ -2083,6 +2089,24 @@ export class MapRenderer {
   private cursorStale = false;
 
   private blockGhost: BlockGhost | null = null;
+  private droughtLayer: DroughtLineLayer | null = null;
+
+  /** The drought line (the Weather view, D133): the faint waterline of the drought's last day and the dry tint over beds
+   *  that dry out, built once here and drawn with the map; null (or a refused line) puts it away. It also goes by
+   *  itself when the land under it changes (the page shows the new map's line when it comes). */
+  setDroughtLine(line: DroughtLine | null): void {
+    const m = this.map;
+    if (line && m && line.W === m.W && line.H === m.H && !line.refused) {
+      (this.droughtLayer ??= new DroughtLineLayer(this.scene)).setHidden(this.slice !== null);
+      this.droughtLayer.set(line, m.heights);
+    } else this.droughtLayer?.clear();
+    this.requestRender();
+  }
+
+  /** Whether the drought line is on the map (tests). */
+  get droughtLineShowing(): boolean {
+    return this.droughtLayer?.showing ?? false;
+  }
 
   /** The blocks an area stroke will add or take away, while it is dragged (the area brush, the
    *  game's Terrain): each tile's level before and after; null or none puts them away. */
@@ -2909,6 +2933,7 @@ export class MapRenderer {
     this.ring?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
+    this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.high?.dispose();
