@@ -1089,6 +1089,11 @@ export class MapRenderer {
   }
 
   private clearMap(): void {
+    // (a held day belonged to the map that goes: the new one withers nothing until it is shown a day of its own)
+    this.withered = null;
+    this.drawnObjects = null;
+    this.witheredCount = 0;
+    clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);

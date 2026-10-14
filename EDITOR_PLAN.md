@@ -690,7 +690,7 @@ Two looks (Map look 2, D147, D242, D250, D284):
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
   splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
-  (the run resets when moisture returns; succulents exempt), or on contaminated soil on any day; dead for good once
+  (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
   dead (`core/sim/withering.ts`, given to the page with the held day). Day 0 and Standard show the map as it is.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam

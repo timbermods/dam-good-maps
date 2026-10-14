@@ -43,7 +43,7 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant") return [];
+  if (e.kind === "instant" || e.kind === "withered") return [];
   if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
