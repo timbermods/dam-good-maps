@@ -642,7 +642,10 @@ export function App() {
         seedWord,
       );
       if (id !== runId.current) return null;
-      if (!r.passed) {
+      // (a test can make the first maps fail: window.__dgmForceFail counts them down)
+      const forced = Number((window as unknown as { __dgmForceFail?: number }).__dgmForceFail ?? 0);
+      if (forced > 0) (window as unknown as { __dgmForceFail?: number }).__dgmForceFail = forced - 1;
+      if (!r.passed || forced > 0) {
         const failed = `No valid map after ${r.attempts} attempts. Try another seed.`;
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
@@ -813,16 +816,16 @@ export function App() {
   /** Open a real place: its .timber is built in the worker and imported. Over an open map it takes seconds, so the
    *  progress dialog says so, with Cancel (the open map comes back as it was); before any map, the editor's frame says
    *  so. */
-  async function openPlace(id: string) {
+  async function openPlace(id: string, name?: string) {
     const run_ = ++runId.current;
     stopBackground();
     setError(null);
     setBusy(true);
     const over = !!session;
     if (over) {
-      setMakingWords("Opening the map…");
+      setMakingWords(name ? `Opening ${name}…` : "Opening the map…");
       setMaking("making");
-    } else setOpening("Opening the map…");
+    } else setOpening(name ? `Opening ${name}…` : "Opening the map…");
     const say = (w: string) => (over ? setMakingWords(w) : setOpening(w));
     try {
       if (over && entry.current && !(await holdBack(run_, "opening a real place"))) return;
@@ -912,7 +915,7 @@ export function App() {
     maps: maps.map((e) => rowOf(e.id === entry.current?.id && name ? { ...e, name } : e)),
     current: entry.current?.id ?? null,
     onOpenMap: (id) => guard(() => void openMap(id), "Opening another map"),
-    onOpenPlace: (id) => guard(() => void openPlace(id), "Opening a real place"),
+    onOpenPlace: (id, name) => guard(() => void openPlace(id, name), "Opening a real place"),
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
     onDeleteMaps: deleteMaps,
@@ -1034,10 +1037,19 @@ export function App() {
     // before any map is on show (a link, a reload, a place opened first): the editor's frame, still, with the first look
     // of the land in the map's place and the progress dialog over it (no Cancel: there is no map to go back to)
     const words = opening ?? (opened ? "Opening the editor…" : stageText(progress));
+    // a first map that failed (and nothing running): the dialog says why, with one way on; the message is its words
+    const stuck = !busy && !opened && !!error;
+    const again = () => {
+      const seed = randomSeed();
+      setSeedText(String(seed));
+      setSeedPinned(false);
+      setError(null);
+      void run({ ...spec, seed });
+    };
     return (
       <>
         {FrameMod ? (
-          <FrameMod name="Your map" subtitle={progress ? `${size.x}×${size.y}` : ""}>
+          <FrameMod name="Your map" subtitle={`${size.x}×${size.y}`}>
             <FirstLook progress={progress} quiet />
           </FrameMod>
         ) : (
@@ -1046,15 +1058,22 @@ export function App() {
           </div>
         )}
         {FrameMod ? (
-          <div class="dialog-backdrop making-backdrop">
-            <div class="dialog making-dialog" role="dialog" aria-modal="true" aria-labelledby="making-words">
+          <div class={`dialog-backdrop making-backdrop${stuck ? " stuck" : ""}`}>
+            <div class="dialog making-dialog" role={stuck ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="making-words">
               <p id="making-words" role="status">
-                {words}
+                {stuck ? error : words}
               </p>
+              {stuck ? (
+                <footer>
+                  <button type="button" class="primary" title="Make a map with another seed" onClick={again}>
+                    Make a new map
+                  </button>
+                </footer>
+              ) : null}
             </div>
           </div>
         ) : null}
-        {message}
+        {stuck && FrameMod ? null : message}
         {confirmDialog}
       </>
     );

@@ -529,8 +529,11 @@ refinements and what the mockups left open:
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
   clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Near Crater Lake…", with
   Cancel); before any map exists (a share link, a reload) the dialog stands over the editor's own frame, the header, bar
-  and shelf held still and the land's first look in the map's place, never a blank page with one line (polish audit,
-  `docs/design/polish-generator-*`). Cancel ends the generator's worker and opens the map that was open again in a new one,
+  and shelf held still (the header with its Look button in place, so nothing moves when the map arrives) and the land's
+  first look in the map's place, never a blank page with one line (polish audit, `docs/design/polish-generator-*`).
+  Nothing is dimmed there and the dialog sits under the land, not across it. If that first map fails (six seeds in a row,
+  or the worker), the dialog turns into the failure's words with one button, **Make a new map** (a random seed); the
+  message is never left dimmed under the dialog, and any message stands above it. Cancel ends the generator's worker and opens the map that was open again in a new one,
   from its project saved just before (its edits, history and view as they were; "Opening your map…" meanwhile). A
   failed map turns the dialog into its words and Close. Generate's button no longer says what is happening.
 - **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
@@ -837,6 +840,6 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **The generator's panel after the polish audit** (`docs/design/polish-generator-*`): an opened file's panel reads "–"
   for the settings it doesn't have (seed, theme, every slider and choice, the species shares; the sliders at a third of
   their strength) and shows the file's own size; "On this map" counts the map's objects (Mine sites, Ruins, Berry bushes,
-  Trees, Water sources). The value column is 62px, so "30 bushes" fits whole: Starting wood "200 logs", Max walk to water
-  "20 tiles", Starting berries and Berries near start "30 bushes". A name too long for the Name box ends in "…" until the
+  Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
+  "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
   field is in hand.

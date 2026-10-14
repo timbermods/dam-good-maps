@@ -89,7 +89,7 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     relief: num("relief", "Relief", s.terrain.relief, 0, 100, (v) => set((c) => (c.terrain.relief = v)), { bandKey: "relief" }),
     verticality: num("verticality", "Verticality", s.terrain.verticality, 0, 100, (v) => set((c) => setVerticality(c.terrain, v)), { bandKey: "verticality" }),
     variety: num("variety", "Variety", s.terrain.variety, 0, 100, (v) => set((c) => (c.terrain.variety = v)), { bandKey: "variety" }),
-    highest: num("highest", "Highest terrain", s.terrain.highestTerrain, 10, highestMax(s.terrain.verticality), (v) => set((c) => (c.terrain.highestTerrain = v)), { bandKey: "highestTerrain" }),
+    highest: num("highest", "Highest terrain", s.terrain.highestTerrain, 10, highestMax(s.terrain.verticality), (v) => set((c) => (c.terrain.highestTerrain = v)), { unit: " tiles", bandKey: "highestTerrain" }),
     terracing: num("terracing", "Terracing", s.terrain.terracing, 0, 100, (v) => set((c) => (c.terrain.terracing = v)), { bandKey: "terracing" }),
     buildable: pick("buildable", "Buildable land", s.terrain.buildableLand, opts(BUILDABLE, "Buildable land"), (v) => set((c) => (c.terrain.buildableLand = v)), "buildableLand"),
     rivers: num("rivers", "Rivers", s.water.rivers, 0, 3, (v) => set((c) => (c.water.rivers = v)), { bandKey: "rivers" }),

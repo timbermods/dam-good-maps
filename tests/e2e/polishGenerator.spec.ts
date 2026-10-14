@@ -19,7 +19,21 @@ test("a share link shows the editor's frame and its progress at once, long befor
   await expect(page.getByRole("dialog").getByRole("status")).toHaveText(/…$/);
   // (still the frame, not the editor: the map is not there yet)
   expect(await page.evaluate(() => !!window.dgmEditor)).toBe(false);
+  // the header's buttons, where they are in the frame: they do not move when the map arrives
+  const spots = () =>
+    page.evaluate(() => {
+      const out: Record<string, number> = {};
+      for (const b of document.querySelectorAll("header.editor-bar button")) {
+        const t = (b.getAttribute("aria-label") ?? b.textContent ?? "").trim().replace(/^Look: .*/, "Look");
+        if (/^(History|Save to Timberborn|File|Look)$/.test(t) || /^Look/.test((b.textContent ?? "").trim())) out[/^Look/.test(t) || /^Look/.test((b.textContent ?? "").trim()) ? "Look" : t] = Math.round(b.getBoundingClientRect().left);
+      }
+      return out;
+    });
+  const inFrame = await spots();
+  expect(Object.keys(inFrame).sort()).toEqual(["File", "History", "Look", "Save to Timberborn"]);
   await waitForEditor(page);
+  const inEditor = await spots();
+  for (const k of Object.keys(inFrame)) expect(Math.abs(inEditor[k] - inFrame[k]), k).toBeLessThanOrEqual(1);
   await expect(frame).toHaveCount(0);
 });
 
@@ -90,4 +104,19 @@ test("the shelf's pictures never go blank when a new map is made", async ({ page
   const seen = await page.evaluate(() => ({ blank: (window as unknown as { __blank: number }).__blank, frames: (window as unknown as { __frames: number }).__frames }));
   expect(seen.frames).toBeGreaterThan(0);
   expect(seen.blank).toBe(0);
+});
+
+test("a first map that fails turns the dialog into its words and a way on, never stuck on Generating", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  // (the first six maps fail their checks: the page tried six seeds)
+  await page.addInitScript(() => ((window as unknown as { __dgmForceFail: number }).__dgmForceFail = 6));
+  await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByRole("status")).toHaveText(/^No valid map after [0-9]+ attempts/, { timeout: 180_000 });
+  // (the message is the dialog's words, once; nothing is dimmed under it)
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Make a new map" }).click();
+  await waitForEditor(page);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect((await page.evaluate(() => window.dgmEditor!.info())).kind).toBe("generated");
 });

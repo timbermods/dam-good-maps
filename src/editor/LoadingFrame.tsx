@@ -52,6 +52,13 @@ export function LoadingFrame(p: LoadingFrameProps) {
         onMaps={nothing}
         placesOpen={false}
         onPlaces={nothing}
+        look={
+          <button type="button" class="ghost" tabIndex={-1}>
+            <span class="look-words">
+              <span>Look: Standard</span>
+            </span>
+          </button>
+        }
       />
       <div class="editor-main">
         <section class="editor-map" aria-label="Map">
