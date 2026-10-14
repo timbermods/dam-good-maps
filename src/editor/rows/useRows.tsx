@@ -14,7 +14,7 @@ import type { RiftSettings } from "../../core/forces/rift";
 import type { DepositSettings } from "../../core/forces/deposit";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
 import type { Verb } from "../../core/forces/op";
-import { FORCES } from "../TopBar";
+import { FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
 import { ObjectChoice, ObjectSlider, type ObjectPanel } from "../ObjectWindow";
 
 /** An object's four turns before it is placed (R steps through them): its facing on the map. */
@@ -295,7 +295,7 @@ export function useRows(ed: Ed): RowsSlice {
             key: "size",
             label: "Size",
             value: `${size} tiles`,
-            node: <ObjectSlider label="Size" min={PAINT_SIZE_MIN} max={PAINT_SIZE_MAX} step={1} value={size} words={`${size} tiles`} tipText="How wide the brush is" onInput={(v) => set({ size: v })} />,
+            node: <ObjectSlider label="Size" min={PAINT_SIZE_MIN} max={PAINT_SIZE_MAX} step={1} value={size} words={`${size} tiles`} tipText="How wide the brush is" keys={[...SIZE_KEYS]} onInput={(v) => set({ size: v })} />,
           },
           {
             key: "density",
@@ -310,6 +310,7 @@ export function useRows(ed: Ed): RowsSlice {
                 value={Math.round(density * 100)}
                 words={`${Math.round(density * 100)}%`}
                 tipText={`How thickly it plants ${kind}`}
+                keys={[...STRENGTH_KEYS]}
                 onInput={(v) => set({ density: v / 100 })}
               />
             ),

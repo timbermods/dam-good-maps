@@ -178,3 +178,46 @@ test("the Badwater caption shows its colours as swatches, not their names", asyn
   await expect(caption.locator(".layer-row .swatch")).toHaveCount(2);
   await expect(caption).not.toContainText(/brown/i);
 });
+
+test("a plant brush takes the one key habit: { } its Size, [ ] and F+scroll its Density, F and the mouse its Size", async ({ page }) => {
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Pine", exact: true }).click();
+  const win = page.getByRole("group", { name: "Pine options" });
+  const value = (n: number) => win.locator(".ow-value").nth(n);
+  const at = await client(page, 40, 50);
+  await page.mouse.move(at.x + 3, at.y);
+  await page.mouse.move(at.x, at.y);
+  // (their tooltips end with the keys)
+  await expect(win.getByRole("slider", { name: "Size" })).toHaveAttribute("data-keys", "F|{|}");
+  await expect(win.getByRole("slider", { name: "Density" })).toHaveAttribute("data-keys", "F+scroll|[|]");
+  await expect(value(0)).toHaveText("4 tiles");
+  await page.keyboard.press("}");
+  await page.keyboard.press("}");
+  await expect(value(0)).toHaveText("6 tiles");
+  await page.keyboard.press("{");
+  await expect(value(0)).toHaveText("5 tiles");
+  await expect(value(1)).toHaveText("80%");
+  await page.keyboard.press("]");
+  await expect(value(1)).toHaveText("85%");
+  await page.keyboard.press("[");
+  await page.keyboard.press("[");
+  await expect(value(1)).toHaveText("75%");
+  // F held with the wheel: the density, never the zoom
+  await page.keyboard.down("f");
+  await page.mouse.wheel(0, 120);
+  await page.keyboard.up("f");
+  await expect(value(1)).toHaveText("70%");
+  // F and the mouse: the ring's size follows the pointer, a click keeps it
+  await page.keyboard.down("f");
+  const far = await client(page, 50, 50);
+  await page.mouse.move(far.x, far.y, { steps: 6 });
+  await expect(value(0)).not.toHaveText("5 tiles");
+  const sized = await value(0).textContent();
+  await page.mouse.click(far.x, far.y);
+  await page.keyboard.up("f");
+  await expect(value(0)).toHaveText(sized!);
+  // the shortcuts panel lists them
+  await page.keyboard.press("?");
+  await expect(page.getByText("Strength, power or density").first()).toBeVisible();
+});

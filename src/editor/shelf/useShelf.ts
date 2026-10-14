@@ -106,7 +106,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     const r = renderer.current;
     if (!item || !r) return;
     shelfTile.current = [x, y];
-    paintRing(x, y);
+    // (F held: the ring stays where it is, its size following the pointer)
+    if (!ed.paintSizing.current) paintRing(x, y);
     const W = info.W;
     const h = mirror.current.heights;
     if (item.id === "start") {
@@ -274,7 +275,7 @@ export function useShelf(ed: Ed): ShelfSlice {
   }
   // (the size changed in the object window: the ring takes it where the pointer last was)
   useEffect(() => {
-    const at = shelfTile.current;
+    const at = ed.paintSizing.current?.tile ?? shelfTile.current;
     if (at) paintRing(at[0], at[1]);
   }, [shelfOptions]);
   const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });

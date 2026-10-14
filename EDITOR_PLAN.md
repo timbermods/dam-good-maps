@@ -170,7 +170,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
     ring round the pointer at the size in the object window (Size, tiles across, 2–24, and Density, 5–100%, per kind;
-    the keys for them are not wired yet); a drag is the core's `paintObjects` over the tiles the brush covered
+    the one key habit: { and } or F and the mouse for Size, [ and ] or F+scroll for Density, the ring following); a drag is the core's `paintObjects` over the tiles the brush covered
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"

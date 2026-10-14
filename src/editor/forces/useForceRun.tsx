@@ -24,6 +24,7 @@ import { Words, type Group } from "../settings";
 import { FLOOR_DEFAULT } from "../../core/forces/floor";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "../forceSize";
 import { hasTarget, nextSize, sizeMax } from "../brushes";
+import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN, type PaintedKind, type PaintSettings } from "../shelfItems";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
 
@@ -49,6 +50,8 @@ export interface ForceRunSlice {
   cursorFrame: { current: number };
   showForceCursor: (at: [number, number] | null, dot?: boolean) => void;
   forceSizing: { current: { verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null };
+  /** F held with a tree, bush or thorn brush in hand: its Size follows the pointer (the ring's middle and the Size it had). */
+  paintSizing: { current: { kind: PaintedKind; tile: [number, number]; level: number; from: number; size: number; stop(): void } | null };
   fHeld: { current: boolean };
   stepHabit: (habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent) => boolean;
   wheelHabit: (ev: WheelEvent) => boolean;
@@ -502,6 +505,15 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** F is held (D368 (11): the wheel then sets the strength). */
   const fHeld = useRef(false);
 
+  /** The brush of a tree, bush or thorn in hand (the shelf's own Size and Density, D235), set as a force's are. */
+  const paintSizing = useRef<{ kind: PaintedKind; tile: [number, number]; level: number; from: number; size: number; stop(): void } | null>(null);
+  function setPaint(kind: PaintedKind, c: Partial<PaintSettings>) {
+    const o = ed.shelfOptionsRef.current;
+    const next = { ...o, paint: { ...o.paint, [kind]: { ...o.paint[kind], ...c } } };
+    ed.shelfOptionsRef.current = next;
+    ed.setShelfOptions(next);
+  }
+
   /** One key habit for every tool (D368 (1), (11)): a step of the Size or the strength of the tool
    *  out, beside the pointer (a force's Power; Smooth and Naturalize's strength; nothing on Raise,
    *  Lower and Flatten, whose target level is theirs); a force's Size set so is off Auto. False when no
@@ -509,6 +521,21 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
     const forcePicked = ed.toolRef.current;
     const brushTool = brushToolRef.current;
+    // a plant brush in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer
+    const held = ed.shelfRef.current;
+    if (held?.paint && !forcePicked && !brushTool) {
+      const now = ed.shelfOptionsRef.current.paint[held.paint];
+      if (habit.what === "size") {
+        const size = Math.max(PAINT_SIZE_MIN, Math.min(PAINT_SIZE_MAX, now.size + habit.dir));
+        setPaint(held.paint, { size });
+        flashNote(`size ${size}`, ev);
+      } else {
+        const density = Math.max(PAINT_DENSITY_MIN, Math.min(1, Math.round(now.density * 20) / 20 + habit.dir * 0.05));
+        setPaint(held.paint, { density });
+        flashNote(`density ${Math.round(density * 100)}%`, ev);
+      }
+      return true;
+    }
     if (forcePicked && !brushTool) {
       if (habit.what === "strength") {
         const power = stepPower(forcePowerOf(forcePicked), habit.dir);
@@ -540,7 +567,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** F held and the wheel (D368 (11)): the strength, never the zoom; F's sizing so far is kept. */
   function wheelHabit(ev: WheelEvent): boolean {
     const habit = keyHabit({ delta: ev.deltaY || ev.deltaX, f: fHeld.current, shift: ev.shiftKey, ctrl: ev.ctrlKey || ev.metaKey, alt: ev.altKey });
-    if (!habit || (!ed.toolRef.current && !brushToolRef.current)) return false;
+    if (!habit || (!ed.toolRef.current && !brushToolRef.current && !ed.shelfRef.current?.paint)) return false;
     // (the wheel's number, not the size, beside the pointer from here)
     painter.current?.endResize(true);
     endForceSize(true);
@@ -580,6 +607,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** F went down with a sized force picked and its ring on the map: the ring stays where it is, and
    *  its size follows the pointer's distance from its middle. */
   function startForceSize() {
+    if (ed.shelfRef.current?.paint && !ed.toolRef.current && !brushToolRef.current) return startPaintSize();
     const verb = ed.toolRef.current;
     const ring = gestureRef.current.forceRing;
     const r = renderer.current;
@@ -623,8 +651,59 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     pointerWords.current!.sizing(`size ${size}`);
   }
 
+  /** F went down with a plant brush in hand and the pointer on the map: its ring stays, and its Size follows the
+   *  pointer's distance from the ring's middle. */
+  function startPaintSize() {
+    const held = ed.shelfRef.current;
+    const at = ed.shelfTile.current;
+    const r = renderer.current;
+    if (!held?.paint || !at || !r || paintSizing.current) return;
+    const kind = held.paint;
+    const level = r.heightAt(at[0], at[1]);
+    const move = (ev: PointerEvent) => {
+      const f = paintSizing.current;
+      const p = renderer.current?.pickAtLevel(ev.clientX, ev.clientY, f?.level ?? level);
+      notePointer(ev);
+      if (!f || !p) return;
+      const size = Math.max(PAINT_SIZE_MIN, Math.min(PAINT_SIZE_MAX, Math.round(2 * Math.hypot(p.point[0] - (at[0] + 0.5), -p.point[2] - (at[1] + 0.5)))));
+      if (size !== f.size) {
+        f.size = size;
+        setPaint(kind, { size });
+      }
+      pointerWords.current!.sizing(`size ${size}`);
+    };
+    const down = (ev: PointerEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      endForceSize(ev.button === 0);
+    };
+    const from = ed.shelfOptionsRef.current.paint[kind].size;
+    paintSizing.current = {
+      kind,
+      tile: [at[0], at[1]],
+      level,
+      from,
+      size: from,
+      stop: () => {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerdown", down, true);
+      },
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerdown", down, true);
+    pointerWords.current!.sizing(`size ${from}`);
+  }
+
   /** The size is set (F let go, a click) or put back (Esc, a right click). */
   function endForceSize(keep: boolean) {
+    const q = paintSizing.current;
+    if (q) {
+      q.stop();
+      paintSizing.current = null;
+      if (!keep) setPaint(q.kind, { size: q.from });
+      pointerWords.current!.sizing(null);
+      return;
+    }
     const f = forceSizing.current;
     if (!f) return;
     f.stop();
@@ -632,11 +711,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     if (!keep) setForceSize(f.verb, f.from);
     pointerWords.current!.sizing(null);
   }
-  useEffect(() => () => forceSizing.current?.stop(), []);
+  useEffect(() => () => (forceSizing.current?.stop(), paintSizing.current?.stop()), []);
 
   return {
     deferred, forceCalls, forcer, lastUnleash, unleashPower, setUnleashPower, unleash, unleashAgain, unleashDown,
     unleashRow, startForce, steerTiles, pathFrame, showPath, strokeRadius, gestureTiles, bandRadius, forceAgain,
-    cursorFrame, showForceCursor, forceSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
+    cursorFrame, showForceCursor, forceSizing, paintSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
   };
 }
