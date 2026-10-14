@@ -127,6 +127,26 @@ describe("light under roofs on terrains with roofs", () => {
 });
 
 describe("relighting after an edit", () => {
+  it("rock raised above the map's old highest ground on a cave's sun path shades its floor", () => {
+    // ground 2 high, a low hill (6) with an overhang (two levels high) at its north-west corner open to the sun, and a plain
+    // tile two tiles up the sun's way to raise
+    const W = 24;
+    const H = 24;
+    const hill = (x: number, y: number) => x >= 10 && x < 16 && y >= 8 && y < 12;
+    let src = terrain(W, H, (x, y, z) => z < 2 || (hill(x, y) && z < 6 && !(x === 10 && y === 11 && z < 4)));
+    const sky = () => skyVisibility(W, H, src.heights);
+    const v = CaveLight.build(src, sky())!;
+    const floor = () => caveSample(v, [10.5, 2, -11.5], [0, 1, 0])!;
+    expect(v.highest).toBe(6);
+    expect(floor()[1], "the mouth's floor in sun").toBeGreaterThan(0.5);
+    const heights = src.heights.slice();
+    heights[13 * W + 8] = 20;
+    src = { ...src, heights };
+    v.relight(src, sky(), { x0: 8, y0: 13, x1: 8, y1: 13 });
+    expect(v.highest).toBe(20);
+    expect(floor()[1], "in the new rock's shadow").toBeLessThan(0.5);
+  });
+
   it("redoes only the box round the change, with the same bytes as building the volume again", () => {
     let seed = 7;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);

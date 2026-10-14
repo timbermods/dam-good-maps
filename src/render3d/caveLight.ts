@@ -69,7 +69,11 @@ export class CaveLight {
   /** On those tiles, the highest level an open cell beside roofed air can have (one over the highest
    *  roofed cell round it). */
   private readonly besideTop: Uint8Array;
-  /** At least the highest top on the map: a ray toward the sun above it has left the land. */
+  /** At least the highest top on the map, raised as edits raise the land (never lowered: it only bounds
+   *  the rays): a ray toward the sun above it has left the land. The shader's march stops there too. */
+  get highest(): number {
+    return this.maxTop;
+  }
   private maxTop = 0;
 
   private constructor(src: TerrainSource) {

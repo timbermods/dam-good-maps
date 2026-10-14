@@ -129,6 +129,9 @@ export interface SceneUniforms {
    *  (0, 0, 0 on a map with no air under a roof: the baked light everywhere). */
   caveTex: { value: Data3DTexture };
   caveSize: { value: Vector3 };
+  /** At least the highest ground (caveLight.ts `highest`, kept as edits raise it): the sun's march
+   *  under roofs has left the land above it. */
+  caveTop: { value: number };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
@@ -160,6 +163,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     flowTex: { value: stillFlow() },
     caveTex: { value: caveTexture(null) },
     caveSize: { value: new Vector3(0, 0, 0) },
+    caveTop: { value: 0 },
   };
 }
 
@@ -633,6 +637,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       float heightOf(vec4 d) { return floor(d.r * 255.0 + 0.5); }
       uniform highp sampler3D caveTex;
       uniform vec3 caveSize;
+      uniform float caveTop;
       /** Whether a cell (a tile and a level) is air under a roof: in the map, below its tile's top, not
        *  rock (caveLight.ts). */
       bool roofedAir(vec3 cell) {
@@ -652,12 +657,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       }
       /** The sun on a point under a roof: a ray marched toward the sun through the voxels (open air and
        *  roofed air alike, so it passes under an overhang as the light does); rock stops it, and once it is
-       *  over the map's highest ground the baked shadow there decides (the objects' shadows); a ray still
+       *  over the map's highest ground (kept as edits raise it) the baked shadow there decides (the objects' shadows); a ray still
        *  among the land after its run takes the volume's own sun. */
       float caveSunMarch(vec3 world, vec3 n, float fallback) {
         vec3 dir = vec3(sunDir.x, -sunDir.z, sunDir.y);
         vec3 q = vec3(world.x, -world.z, world.y) + vec3(n.x, -n.z, n.y) * 0.02;
-        float clear = min(heightRange.y + 0.5, caveSize.z);
+        float clear = min(caveTop, caveSize.z);
         for (int k = 0; k < 80; k++) {
           q += dir * 0.3;
           if (q.x < 0.0 || q.y < 0.0 || q.x >= caveSize.x || q.y >= caveSize.y) return 1.0;

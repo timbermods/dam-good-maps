@@ -1011,7 +1011,10 @@ export class MapRenderer {
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
     u.caveTex.value = this.caveTex ?? this.noCave;
-    if (this.cave) u.caveSize.value.set(W, H, this.cave.D);
+    if (this.cave) {
+      u.caveSize.value.set(W, H, this.cave.D);
+      u.caveTop.value = this.cave.highest;
+    }
     else u.caveSize.value.set(0, 0, 0);
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
@@ -1291,6 +1294,8 @@ export class MapRenderer {
     if (!m || !this.cave) return;
     const box = this.cave.relight(m.source, m.sky, rect);
     this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
+    // (the land may have risen: the march under roofs runs up to the highest ground)
+    this.uniforms.caveTop.value = this.cave.highest;
   }
 
   /** The terrain shader's tile data again (heights, soil, sky, water). */
