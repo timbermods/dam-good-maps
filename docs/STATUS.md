@@ -22,8 +22,11 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 ## The sessions (D388, D398, D468, D470)
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
-  generator, the Rust order, the Codex adoptions and the documents. It reviews every PR, merges, releases and hands out
+  generator, the Rust order, the Codex adoptions and the documents. It hands out
   decision numbers (**next free: D487**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF.
+- **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14) coordinates: it merges
+  every "ready to merge" posted on #236, releases to `main`, settles cross-session questions, and sends Kyler only the
+  design questions his decisions don't settle.
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.

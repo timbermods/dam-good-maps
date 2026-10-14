@@ -33,8 +33,12 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 ## 2. The sessions (D388, D398, D468, D470)
 
 - **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
-  water, the generator, the Rust order (D381), the Codex adoptions and the documents. It reviews every PR, merges, releases,
-  and owns the decisions' numbering, STATUS and HANDOFF.
+  water, the generator, the Rust order (D381), the Codex adoptions and the documents. It owns the decisions' numbering,
+  STATUS and HANDOFF.
+- **The planning session** (Opus 5.5, high; the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14,
+  replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it merges every "ready to merge", releases
+  to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
+  the rest to him.
 - **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
   `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
@@ -60,7 +64,8 @@ where the job is written down, scripts where it's only waiting.
 | The document prune; mechanical work touching layout or other work's tests; building from a written spec; review sets and contact sheets; mechanical merges and CI fix-ups without real conflicts | `build-light` | Sonnet 5.5, high |
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
-| The milestone session: orchestrating, merging, releasing, probe batches | (the session) | Opus 5.5, high |
+| The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
+| The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
 | Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | any agent, `model: haiku` | Haiku 4.5 |
 | The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
@@ -91,13 +96,13 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
-  - *Review:* Kyler reviews nothing (D484). This session reviews every PR's diff before it merges (correctness, scope,
-    ownership of files); its own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
+  - *Review:* Kyler reviews nothing (D484). The planning session checks every PR before it merges (correctness, scope,
+    ownership of files); this session's own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
     or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
     interaction change's captures).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
-    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; this session
-    checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
+    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
+    session checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
     with a full CI run by hand first for core and Rust changes).
   - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
     question's issue is closed.
