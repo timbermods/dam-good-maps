@@ -5,7 +5,7 @@
 // and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after Badwater
 // (Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
-// 2560×1440). Whole pixels throughout. The positions go to CSS variables on the editor's main area.
+// 2560×1440); the objects' dock likewise, its list scrolling so the picked object's window is never cut off. Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 
 import { useEffect } from "preact/hooks";
 
@@ -105,6 +105,9 @@ export function useBandLayout(ready: boolean): void {
         // (the panel sits in the main area, the view's own top and left)
         "--panel-top": `${Math.round(v.top - m.top + panelTop)}px`,
         "--panel-max": `${roomAbove(TOP, TOP + PANEL_W, panelTop)}px`,
+        // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
+        // list scrolling inside when a short window can't hold both)
+        "--dock-max": `${Math.max(0, Math.floor(v.height - (corner.bottom - v.top) - 8 - TOP))}px`,
       };
       for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
     };
