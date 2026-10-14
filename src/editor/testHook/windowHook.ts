@@ -12,6 +12,8 @@ export {};
 
 declare global {
   interface Window {
+    /** Test hook: a wait, in ms, before Save to Timberborn builds the map (tests/e2e/save-to-timberborn.spec.ts). */
+    dgmSaveDelayMs?: number;
     /** Test hook: the open editor (tests/e2e). */
     dgmEditor?: {
       info: () => SessionInfo;

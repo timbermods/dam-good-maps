@@ -50,6 +50,8 @@ async function pickerThat(page: Page, pick: string) {
     w.__picks = 0;
     window.showDirectoryPicker = async () => {
       w.__picks++;
+      // (as Chrome: the picker needs the click's user activation, which lapses after a few seconds)
+      if (!navigator.userActivation.isActive) throw new DOMException("Must be handling a user gesture to show a file picker.", "SecurityError");
       if (w.__pick === "abort") throw new DOMException("The user aborted a request.", "AbortError");
       return (await navigator.storage.getDirectory()).getDirectoryHandle(w.__pick, { create: true });
     };
@@ -78,6 +80,19 @@ test.describe("the editor's header", () => {
     await expect(saveButton(page)).toBeEnabled();
     expect(downloads).toBe(0);
     await expect(page.locator(".editor-message")).toHaveCount(0);
+  });
+
+  test("the folder is asked for first, so a slow build cannot lose the click's activation", async ({ page }) => {
+    await pickerThat(page, "Maps");
+    let downloads = 0;
+    page.on("download", () => downloads++);
+    await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+    await page.evaluate(() => void (window.dgmSaveDelayMs = 7000)); // longer than the five seconds Chrome keeps a click fresh
+    await saveButton(page).click();
+    await expect(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: /^Saving/ })).toBeDisabled(); // the progress shows while the map is built
+    await expect(page.getByRole("status").filter({ hasText: /^Saved dgm-.* to Maps./ })).toBeVisible({ timeout: 120_000 });
+    expect(await filesIn(page, "Maps")).toHaveLength(1);
+    expect(downloads).toBe(0);
   });
 
   test("a folder not named Maps is refused and the previous choice stands", async ({ page }) => {

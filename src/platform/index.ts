@@ -345,19 +345,19 @@ export const liveDeps: SaveToTimberbornDeps = {
   download: saveFile,
 };
 
+/** Where a save will go, found before the map is built: the folder, or why it has to be a download or nothing. */
+export type FolderChoice = { via: "folder"; folder: FileSystemDirectoryHandle } | { via: "download"; failed?: true } | { via: "cancelled" } | { via: "wrong-folder"; picked: string };
+
 /**
- * Save straight into the player's Timberborn Maps folder (D162): the first call asks the player
- * to pick it and remembers the folder; later calls reuse it, asking again only if permission has
- * lapsed. Only a folder named Maps is accepted. Never overwrites an existing map: a taken name is
- * saved as "name-2" (then "-3", and so on), reported back as `savedAs`. A closed picker is a cancel
- * and does nothing. Other browsers get the normal download - the same bytes, just not placed in the
- * folder - and so does a failure (permission refused, a missing folder, the write failing).
+ * Step one of Save to Timberborn (D162): find the Maps folder. The first call asks the player to pick it and
+ * remembers it; later calls reuse it, asking again only if permission has lapsed. This runs first, straight
+ * from the click: the picker and a permission request need the click's fresh user activation, which lapses
+ * within seconds, long before a big map has been built and checked. Only a folder named Maps is accepted.
+ * A closed picker is `cancelled`: nothing is saved and nothing is said. Another browser, or a refused
+ * permission, is a `download`.
  */
-export async function saveToTimberborn(bytes: Uint8Array, name: string, deps: SaveToTimberbornDeps = liveDeps): Promise<SaveToTimberbornResult> {
-  if (!deps.supported()) {
-    deps.download(bytes, name);
-    return { via: "download" };
-  }
+export async function chooseSaveFolder(deps: SaveToTimberbornDeps = liveDeps): Promise<FolderChoice> {
+  if (!deps.supported()) return { via: "download" };
   try {
     let folder = await deps.recall();
     if (folder && !isMapsFolder(folder.name)) folder = null; // a folder remembered before only Maps was accepted
@@ -367,15 +367,38 @@ export async function saveToTimberborn(bytes: Uint8Array, name: string, deps: Sa
       await deps.remember(picked);
       folder = picked;
     }
-    const savedName = await deps.freeName(folder, name);
-    await deps.write(folder, savedName, bytes);
-    return { via: "fsa", folder: folder.name, ...(savedName !== name ? { savedAs: savedName } : {}) };
+    return { via: "folder", folder };
   } catch (e) {
-    if (isCancel(e)) return { via: "cancelled" };
-    // the player's browser refused permission or the write failed: fall back to the download
+    return isCancel(e) ? { via: "cancelled" } : { via: "download", failed: true };
+  }
+}
+
+/**
+ * Step two, once the map is built: write it into the folder `chooseSaveFolder` found. Never overwrites an
+ * existing map: a taken name is saved as "name-2" (then "-3", and so on), reported back as `savedAs`. Other
+ * browsers get the normal download - the same bytes, just not placed in the folder - and so does a failure
+ * (a missing folder, the write failing). A cancel or a wrong folder writes nothing.
+ */
+export async function saveIntoFolder(choice: FolderChoice, bytes: Uint8Array, name: string, deps: SaveToTimberbornDeps = liveDeps): Promise<SaveToTimberbornResult> {
+  if (choice.via === "cancelled" || choice.via === "wrong-folder") return choice;
+  if (choice.via === "folder") {
+    try {
+      const savedName = await deps.freeName(choice.folder, name);
+      await deps.write(choice.folder, savedName, bytes);
+      return { via: "fsa", folder: choice.folder.name, ...(savedName !== name ? { savedAs: savedName } : {}) };
+    } catch {
+      // the folder could not be written: fall back to the download
+      deps.download(bytes, name);
+      return { via: "download", failed: true };
+    }
   }
   deps.download(bytes, name);
-  return { via: "download", failed: true };
+  return choice;
+}
+
+/** Both steps in a row, for a caller that already has the bytes (the Real places gallery builds the map after asking). */
+export async function saveToTimberborn(bytes: Uint8Array, name: string, deps: SaveToTimberbornDeps = liveDeps): Promise<SaveToTimberbornResult> {
+  return saveIntoFolder(await chooseSaveFolder(deps), bytes, name, deps);
 }
 
 export type ChooseMapsFolderResult = { via: "chosen"; folder: string } | { via: "cancelled" } | { via: "wrong-folder"; picked: string } | { via: "failed" };

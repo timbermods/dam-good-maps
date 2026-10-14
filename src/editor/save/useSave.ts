@@ -1,7 +1,7 @@
 // Export and save: the project file and the map for Timberborn; an opened file's import flags for the quiet dot.
 
 import { proxy } from "comlink";
-import { chooseMapsFolder, saveFile, saveToTimberborn, TIMBERBORN_MAPS_PATH, wrongFolderNote } from "../../platform";
+import { chooseMapsFolder, chooseSaveFolder, saveFile, saveIntoFolder, TIMBERBORN_MAPS_PATH, wrongFolderNote } from "../../platform";
 import type { CheckProgress } from "../../worker/session";
 import { plain } from "../panels";
 import type { ImportFlag } from "../../core/format/normalize";
@@ -34,14 +34,23 @@ export function useSave(ed: Ed): SaveSlice {
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
    *  button; problems that would stop the map loading open the quiet dot's list instead; warnings
    *  go into the map's description (never a confirmation). Into the game's Maps folder where the
-   *  browser can, else a download. */
+   *  browser can, else a download. The folder is found first, straight from the click: the picker needs the
+   *  click's fresh user activation, which lapses within seconds, long before a big map is built. */
   async function saveMap(kind: "timberborn" | "download") {
     if (saving) return;
     setSaving({ kind, progress: null });
     setMessage(null);
     try {
+      const choice = kind === "timberborn" ? await chooseSaveFolder() : null;
+      if (choice?.via === "cancelled") return; // the picker was closed: no file, no note
+      if (choice?.via === "wrong-folder") {
+        setMessage({ kind: "error", text: wrongFolderNote(choice.picked) });
+        return;
+      }
       // (a force at work is kept first: its land lives outside the map until then, investigation/page-qa F1)
       await ed.forcer.current?.stop();
+      // (tests only: a slow build, to show the folder was asked for first)
+      if (window.dgmSaveDelayMs) await new Promise((done) => setTimeout(done, window.dgmSaveDelayMs));
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
       const r = await enqueue(() => api.exportTimber(true, onProgress));
       if (!r.ok) {
@@ -56,11 +65,9 @@ export function useSave(ed: Ed): SaveSlice {
         setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
         return;
       }
-      const v = await saveToTimberborn(r.bytes, fileName);
-      if (v.via === "cancelled") return; // the picker was closed: no file, no note
-      if (v.via === "wrong-folder") setMessage({ kind: "error", text: wrongFolderNote(v.picked) });
-      else if (v.via === "fsa") setMessage({ kind: "info", text: `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` });
-      else if (v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.` });
+      const v = await saveIntoFolder(choice!, r.bytes, fileName);
+      if (v.via === "fsa") setMessage({ kind: "info", text: `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` });
+      else if (v.via === "download" && v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.` });
       else setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });

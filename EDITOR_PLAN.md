@@ -254,7 +254,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   its path); any other is refused with one line naming `DocumentsTimberbornMaps`, and the previous choice stands.
   Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
   refused, the folder gone, a write error) falls back to the download with a plain note. **File → Choose Maps folder…**
-  picks or changes the remembered folder without saving.
+  picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
+  the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
+  picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
   highlighted on the map. Never a pop-up.
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet

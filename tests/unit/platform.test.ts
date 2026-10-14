@@ -6,7 +6,7 @@
 
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { chooseMapsFolder, isMapsFolder, liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
+import { chooseMapsFolder, chooseSaveFolder, saveIntoFolder, isMapsFolder, liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
 
 function fakeFolder(name: string, writes: { name: string; bytes: Uint8Array }[]): FileSystemDirectoryHandle {
   return {
@@ -242,6 +242,29 @@ describe("saveToTimberborn: the fallback", () => {
 
     expect(r).toEqual({ via: "download", failed: true });
     expect(downloads).toEqual([{ bytes, name: "a.timber" }]);
+  });
+});
+
+describe("saving in two steps: the folder first, the write after the build", () => {
+  it("finds the folder without writing, then writes into it", async () => {
+    const writes: { name: string; bytes: Uint8Array }[] = [];
+    const maps = fakeFolder("Maps", writes);
+    const deps: SaveToTimberbornDeps = { supported: () => true, recall: async () => maps, remember: neverCalled, pick: neverCalled, freeName: async (_f, n) => n, write: liveDeps.write, download: neverCalled };
+
+    const choice = await chooseSaveFolder(deps);
+    expect(choice).toEqual({ via: "folder", folder: maps });
+    expect(writes).toEqual([]);
+
+    const r = await saveIntoFolder(choice, new Uint8Array([1]), "a.timber", deps);
+    expect(r).toEqual({ via: "fsa", folder: "Maps" });
+    expect(writes).toHaveLength(1);
+  });
+
+  it("a cancel or a wrong folder writes and downloads nothing", async () => {
+    for (const choice of [{ via: "cancelled" }, { via: "wrong-folder", picked: "Documents" }] as const) {
+      const deps = { supported: neverCalled, recall: neverCalled, remember: neverCalled, pick: neverCalled, freeName: neverCalled, write: neverCalled, download: neverCalled } as unknown as SaveToTimberbornDeps;
+      expect(await saveIntoFolder(choice, new Uint8Array([1]), "a.timber", deps)).toEqual(choice);
+    }
   });
 });
 
