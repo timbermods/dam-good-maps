@@ -178,10 +178,18 @@ export function difference(a: MapState, b: MapState): Diff {
   if (stable(a.water) !== stable(b.water)) {
     patch.water = { before: structuredClone(a.water), after: structuredClone(b.water) };
     keys.add("lakes");
-    for (const w of [a.water, b.water]) {
-      for (const r of w.retained) for (const i of r.tiles) writes.add(i);
-      for (const i of w.drained) writes.add(i);
-    }
+    // (only the lakes added, removed or changed, and the tiles drained or no longer drained: a lake or a
+    // drained tile the action left as it was is not something it wrote)
+    const lakes = (x: StoredWater, y: StoredWater) => {
+      const there = new Set(y.retained.map((r) => stable(r)));
+      for (const r of x.retained) if (!there.has(stable(r))) for (const i of r.tiles) writes.add(i);
+    };
+    lakes(a.water, b.water);
+    lakes(b.water, a.water);
+    const drainedA = new Set(a.water.drained);
+    const drainedB = new Set(b.water.drained);
+    for (const i of drainedA) if (!drainedB.has(i)) writes.add(i);
+    for (const i of drainedB) if (!drainedA.has(i)) writes.add(i);
   }
   return { patch, writes, keys };
 }
