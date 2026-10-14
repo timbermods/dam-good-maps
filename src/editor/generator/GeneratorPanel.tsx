@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type { SessionInfo } from "../../worker/session";
 import { tip } from "../../ui/Tooltip";
+import { fitsHeaderTwoLines, limitName } from "../nameFit";
 import { genFields, GROUPS, onThisMap, type GroupName } from "./fields";
 import type { GeneratorModel } from "./model";
 
@@ -80,7 +81,7 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
         maxLength={80}
         spellcheck={false}
         autoComplete="off"
-        onInput={(e) => setText((e.target as HTMLInputElement).value)}
+        onInput={(e) => setText(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             // (Enter renames here; it never makes a new map)

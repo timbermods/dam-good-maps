@@ -75,13 +75,12 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
         <div class="menu look-menu" id="look-menu" role="group" aria-label="Look">
           {/* the page's own controls: a segmented choice (the chosen cell lit as the page's choices are) and checkbox
               rows as the Show column's, a wrapped word hanging under its own first letter */}
-          <div class="look-choices" role="radiogroup" aria-label="Drawing">
+          <div class="set-seg" role="group" aria-label="Drawing">
             {CHOICES.map((c) => (
               <button
                 key={c.key}
                 type="button"
-                role="radio"
-                aria-checked={choice === c.key}
+                aria-pressed={choice === c.key}
                 title={c.note}
                 onClick={() => {
                   r.setLookChoice(c.key);

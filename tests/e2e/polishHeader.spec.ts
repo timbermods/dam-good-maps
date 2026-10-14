@@ -3,7 +3,7 @@
 // arrows and the checks pill read right, and the checks' list never lies over an open Legend.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openLegend } from "./open";
+import { openDrawer, openEditor, openLegend } from "./open";
 
 test.beforeEach(async ({ page }) => {
   // (software drawing would hide the Look menu: treat the machine as having a graphics card, as look-high.spec does)
@@ -44,11 +44,24 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   // the name takes two lines at most (the 13px lines at 1280), never overflows, and the header keeps its height
   expect(
     await button.evaluate((e) => {
-      const line = parseFloat(getComputedStyle(e).lineHeight);
-      return { lines: Math.round(e.getBoundingClientRect().height / line), wide: e.scrollWidth > e.clientWidth + 0.5 };
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      const tops = new Set([...r.getClientRects()].map((q) => Math.round(q.top)));
+      return { lines: tops.size, wide: e.scrollWidth > e.clientWidth + 0.5 };
     }),
   ).toEqual({ lines: 2, wide: false });
   expect((await box(page, "header.editor-bar")).height).toBe(header.height);
+  // deleting is never limited: a name filling the field loses its first letter and its last whole, and the rest stays
+  await button.click();
+  await field.fill(long);
+  const filled = await field.inputValue();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Delete");
+  await expect(field).toHaveValue(filled.slice(1));
+  await page.keyboard.press("End");
+  await page.keyboard.press("Backspace");
+  await expect(field).toHaveValue(filled.slice(1, -1));
+  await page.keyboard.press("Escape");
   // the longest name Rename allowed before still goes in whole
   await button.click();
   await field.fill("Where the Long Winding River Meets");
@@ -101,8 +114,8 @@ test("the Look menu is built of the page's own controls: a segmented choice and 
   await open(page);
   await page.getByRole("button", { name: /^Look: / }).click();
   const menu = page.getByRole("group", { name: "Look" });
-  await menu.getByRole("radio", { name: /^High/ }).click();
-  await expect(menu.getByRole("radio", { name: /^High/ })).toHaveAttribute("aria-checked", "true");
+  await menu.getByRole("button", { name: /^High/ }).click();
+  await expect(menu.getByRole("button", { name: /^High/ })).toHaveAttribute("aria-pressed", "true");
   // no browser radios or checkboxes
   await expect(menu.locator("input")).toHaveCount(0);
   const parts = menu.getByRole("checkbox");
@@ -127,8 +140,8 @@ test("the Look menu is built of the page's own controls: a segmented choice and 
 test("the tooltips read right: the layer arrows say less and more, the checks pill says what to fix", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
-  await expect(page.getByRole("button", { name: "Lower the visible layer" })).toHaveAttribute("title", "Show a layer less");
-  await expect(page.getByRole("button", { name: "Raise the visible layer" })).toHaveAttribute("title", "Show a layer more");
+  await expect(page.getByRole("button", { name: "Lower the visible layer" })).toHaveAttribute("title", "Show one layer less");
+  await expect(page.getByRole("button", { name: "Raise the visible layer" })).toHaveAttribute("title", "Show one layer more");
   await expect(page.getByRole("button", { name: /^Checks: / })).toHaveAttribute("title", "What to fix before playing");
 });
 
@@ -149,4 +162,30 @@ test("the checks' list closes the Legend while it is open, never lying over it, 
     await expect(list).toHaveCount(0);
     await expect(legend).toBeVisible();
   }
+});
+
+test("the generator's Name field stops at the same two lines as Rename, and deleting in it is never limited", async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  await openDrawer(page);
+  const field = page.locator("#map-name");
+  const long = "The Long Quiet Winding River Valley Of The Forgotten Beaver Kingdom Up North Again";
+  await field.fill(long);
+  const kept = await field.inputValue();
+  expect(kept.length).toBeLessThan(long.length);
+  expect(long.startsWith(kept)).toBe(true);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Delete");
+  await expect(field).toHaveValue(kept.slice(1));
+  // what it keeps is what the header shows in two lines
+  await page.keyboard.press("Enter");
+  const title = page.locator(".editor-title .title-button");
+  await expect(title).toHaveText(kept.slice(1).trim());
+  expect(
+    await title.evaluate((e) => {
+      const r = document.createRange();
+      r.selectNodeContents(e);
+      return new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size;
+    }),
+  ).toBeLessThanOrEqual(2);
 });

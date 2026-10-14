@@ -46,17 +46,17 @@ test("High is the default where it can be drawn, and the look's menu switches it
   await button.click();
   const menu = page.getByRole("group", { name: "Look" });
   await expect(menu).toContainText("Drawing High");
-  await menu.getByRole("radio", { name: /^Standard/ }).check();
+  await menu.getByRole("button", { name: /^Standard/ }).click();
   expect(await look(page)).toBe("standard");
   await expect(page.getByRole("button", { name: "Look: Standard" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("dgm.look"))).toBe("standard");
-  await menu.getByRole("radio", { name: /^High/ }).check();
+  await menu.getByRole("button", { name: /^High/ }).click();
   expect(await look(page)).toBe("high");
-  await menu.getByRole("radio", { name: /^Automatic/ }).check();
+  await menu.getByRole("button", { name: /^Automatic/ }).click();
   expect(await look(page)).toBe("high");
   expect(await page.evaluate(() => localStorage.getItem("dgm.look"))).toBeNull();
   // a new page keeps the choice
-  await menu.getByRole("radio", { name: /^Standard/ }).check();
+  await menu.getByRole("button", { name: /^Standard/ }).click();
   await page.reload();
   await waitForEditor(page);
   expect(await look(page)).toBe("standard");
@@ -170,8 +170,8 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   expect(await look(page)).toBe("standard");
   // choosing Automatic again gives High another try
   await page.getByRole("button", { name: "Look: Standard" }).click();
-  await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Standard/ }).check();
-  await page.getByRole("group", { name: "Look" }).getByRole("radio", { name: /^Automatic/ }).check();
+  await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Standard/ }).click();
+  await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Automatic/ }).click();
   expect(await look(page)).toBe("high");
   expect(errors).toEqual([]);
 });
