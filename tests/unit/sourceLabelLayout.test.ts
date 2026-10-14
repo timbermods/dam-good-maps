@@ -126,4 +126,47 @@ describe("the sources' labels", () => {
       expect(p.map((o) => [o.into, o.hidden, o.words])).toEqual(merges);
     }
   });
+
+  it("puts a moved label back at its own spot, and lets a merge go, once the crowd has cleared", () => {
+    const withPrev = (ls: LabelIn[], prev: LabelOut[] | null): LabelIn[] =>
+      ls.map((l) => {
+        const o = prev?.find((q) => q.id === l.id);
+        return { ...l, prev: o ? { dx: o.dx, dy: o.dy, into: o.into } : null };
+      });
+    // two labels, one nudged off the other; then pulled 300px apart
+    const near = layoutLabels(withPrev([label(0, 300, 300), label(1, 300, 300)], null), env());
+    expect(near.some((o) => o.dx !== 0 || o.dy !== 0)).toBe(true);
+    const far = layoutLabels(withPrev([label(0, 300, 300), label(1, 600, 300)], near), env());
+    expect(far.map((o) => [o.dx, o.dy])).toEqual([[0, 0], [0, 0]]);
+    // a crowd of eight merged into a few labels; then spread out to about 150px apart
+    const tight = layoutLabels(withPrev(Array.from({ length: 8 }, (_, i) => label(i, 400 + (i % 2), 60 + (i % 3), { strength: 0.5 })), null), env([], 1700, 110));
+    expect(drawn(tight).length).toBeLessThan(8);
+    const spread = layoutLabels(withPrev(Array.from({ length: 8 }, (_, i) => label(i, 100 + i * 150, 60, { strength: 0.5 })), tight), env([], 1700, 110));
+    expect(drawn(spread)).toHaveLength(8);
+    expect(spread.every((o) => o.dx === 0 && o.dy === 0 && o.into === null)).toBe(true);
+  });
+
+  it("never runs a moved label's line behind another label, or ends it under one", () => {
+    // (a line's points, tested against the other labels' boxes)
+    const through = (o: LabelOut, r: Rect) => {
+      const x2 = Math.max(o.box.x, Math.min(o.ax, o.box.x + o.box.w));
+      const y2 = Math.max(o.box.y, Math.min(o.ay, o.box.y + o.box.h));
+      for (let t = 0; t <= 1; t += 0.02) {
+        const x = o.ax + (x2 - o.ax) * t;
+        const y = o.ay + (y2 - o.ay) * t;
+        if (x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) return true;
+      }
+      return false;
+    };
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let round = 0; round < 40; round++) {
+      const ls = Array.from({ length: 4 + Math.floor(rnd() * 8) }, (_, i) => label(i, 60 + rnd() * 280, 50 + rnd() * 90, { bad: rnd() < 0.3, strength: Math.round(rnd() * 300) / 100 }));
+      const out = drawn(layoutLabels(ls, env([], 420, 180)));
+      for (const o of out) {
+        if (Math.hypot(o.dx, o.dy) <= 24) continue;
+        for (const q of out) if (q !== o) expect(through(o, q.box), `round ${round}: the line of ${o.words} behind ${q.words}`).toBe(false);
+      }
+    }
+  });
 });

@@ -81,6 +81,37 @@ const NEARBY = 160;
 /** Moves tried one after another when a label is in the way of something. */
 const DEPTH = 4;
 
+type Seg = [number, number, number, number];
+
+/** Whether a line crosses a box. */
+function crosses(s: Seg, r: Rect): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = s[2] - s[0];
+  const dy = s[3] - s[1];
+  for (const [p, q] of [
+    [-dx, s[0] - r.x],
+    [dx, r.x + r.w - s[0]],
+    [-dy, s[1] - r.y],
+    [dy, r.y + r.h - s[1]],
+  ]) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else {
+      const t = q / p;
+      if (p < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+    }
+  }
+  return t0 <= t1;
+}
+
+/** Whether two lines cross. */
+function segs(a: Seg, b: Seg): boolean {
+  const o = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) => Math.sign((x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1));
+  return o(a[0], a[1], a[2], a[3], b[0], b[1]) !== o(a[0], a[1], a[2], a[3], b[2], b[3]) && o(b[0], b[1], b[2], b[3], a[0], a[1]) !== o(b[0], b[1], b[2], b[3], a[2], a[3]);
+}
+
 const rounded = (n: number) => Math.round(n * 100) / 100;
 
 function hits(a: Rect, b: Rect, gap: number): boolean {
@@ -119,12 +150,38 @@ function absorb(keep: Item, victim: Item, byId: Map<number, Item>) {
 
 /** Lay the labels out. The same input always gives the same output. */
 export function layoutLabels(labels: readonly LabelIn[], env: LayoutEnv): LabelOut[] {
+  // the merges of the last frame (who went into whom) stay while they still hold: the two are alike and near, and the
+  // merged-in label's own spot is still blocked (a crowd that has cleared lets it go back to its own spot)
+  const carried = new Map<number, number>();
+  const first = new Map(labels.map((l) => [l.id, l]));
+  for (const l of labels) {
+    const keep = l.prev?.into != null ? first.get(l.prev.into) : undefined;
+    if (keep && keep.id !== l.id && !l.target && !keep.target && l.bad === keep.bad && l.feeding === keep.feeding && Math.hypot(l.ax - keep.ax, l.ay - keep.ay) <= NEARBY) carried.set(l.id, keep.id);
+  }
+  for (;;) {
+    const out = lay(labels, env, carried);
+    // (a merge is let go once the label's own spot is clear by a little more than a label needs, so it does not flicker)
+    let letGo = false;
+    for (const [id] of carried) {
+      const l = first.get(id)!;
+      const w = env.width(labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
+      const own: Rect = { x: l.ax - w / 2, y: l.ay - env.height * LIFT, w, h: env.height };
+      const clear = own.x >= 0 && own.y >= 0 && own.x + w <= env.bounds.w && own.y + own.h <= env.bounds.h && !env.obstacles.some((o) => hits(own, o, GAP + 6)) && !out.some((o) => !o.hidden && hits(own, o.box, GAP + 6));
+      if (clear) {
+        carried.delete(id);
+        letGo = true;
+      }
+    }
+    if (!letGo) return out;
+  }
+}
+
+function lay(labels: readonly LabelIn[], env: LayoutEnv, carried: Map<number, number>): LabelOut[] {
   const items: Item[] = labels.map((l) => ({ ...l, members: [], gone: false, into: null, boosted: false }));
   const byId = new Map(items.map((i) => [i.id, i]));
-  // the merges of the last frame stay while they still hold
   for (const it of items) {
-    const keep = it.prev?.into != null ? byId.get(it.prev.into) : undefined;
-    if (keep && keep !== it && !keep.gone && !it.gone && it.members.length === 0 && mergeable(it, keep) && apart(it, keep) <= NEARBY) absorb(keep, it, byId);
+    const keep = byId.get(carried.get(it.id) ?? NaN);
+    if (keep && !keep.gone && !it.gone && it.members.length === 0) absorb(keep, it, byId);
   }
   const stuck = new Set<number>();
   // (each step merges a label or raises one once, so it ends)
@@ -162,6 +219,8 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
   const placed: Rect[] = [];
   const out = new Map<number, LabelOut>();
   const crowded: number[] = [];
+  /** The lines of the moved labels placed so far: from the source's point to the label. */
+  const leaders: Seg[] = [];
 
   for (const i of order) {
     const it = items[i];
@@ -179,18 +238,31 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
     const at = (dx: number, dy: number): Rect => ({ x: natural.x + dx, y: natural.y + dy, w, h });
     type Block = { kind: "edge"; dx: number; dy: number } | { kind: "panel" | "label"; r: Rect };
     // the first thing a box is in the way of: the view's edge (as the move that brings it in), a panel or a label
-    const blocker = (b: Rect): Block | null => {
+    const blocker = (b: Rect, gap = GAP): Block | null => {
       const dx = b.x < view.x ? view.x - b.x : b.x + b.w > view.w ? view.w - (b.x + b.w) : 0;
       const dy = b.y < view.y ? view.y - b.y : b.y + b.h > view.h ? view.h - (b.y + b.h) : 0;
       if (dx || dy) return { kind: "edge", dx, dy };
-      for (const o of obstacles) if (hits(b, o, GAP)) return { kind: "panel", r: o };
-      for (const p of placed) if (hits(b, p, GAP)) return { kind: "label", r: p };
+      for (const o of obstacles) if (hits(b, o, gap)) return { kind: "panel", r: o };
+      for (const p of placed) if (hits(b, p, gap)) return { kind: "label", r: p };
       return null;
     };
+    // a spot is fit when its box (and the line to its source, if it is moved off it) is clear of the other labels and
+    // their lines, and no other label's source lies under it or this one's under another label
+    const fit = (dx: number, dy: number): boolean => {
+      const b = at(dx, dy);
+      const line: Seg | null = Math.hypot(dx, dy) > h ? [it.ax, it.ay, Math.max(b.x, Math.min(it.ax, b.x + b.w)), Math.max(b.y, Math.min(it.ay, b.y + b.h))] : null;
+      if (leaders.some((l) => inside(b, l[0], l[1]) || crosses(l, b))) return false;
+      if (line && placed.some((q) => inside(q, line[0], line[1]) || crosses(line, q))) return false;
+      return !line || !leaders.some((l) => segs(line, l));
+    };
     // where it stood last frame, if that is still clear
+    // (its own spot first, a moved label returning to it only once it is clear by a little more than it needs; else
+    // where it stood last frame while that is still fit; else the nearest fit spot)
     let found: { dx: number; dy: number } | null = null;
     const p = it.prev;
-    if (p && Math.hypot(p.dx, p.dy) <= REACH && !blocker(at(p.dx, p.dy))) found = { dx: p.dx, dy: p.dy };
+    const moved = !!p && (p.dx !== 0 || p.dy !== 0);
+    if (!blocker(natural, moved ? GAP + 6 : GAP) && fit(0, 0)) found = { dx: 0, dy: 0 };
+    else if (p && moved && Math.hypot(p.dx, p.dy) <= REACH && !blocker(at(p.dx, p.dy)) && fit(p.dx, p.dy)) found = { dx: p.dx, dy: p.dy };
     // else the nearest free spot: from where the label stands, each move that clears what is in its way, a few deep,
     // the moves off other labels adding up to a label height or two at most
     if (!found) {
@@ -204,7 +276,7 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
         const hit = blocker(b);
         if (!hit) {
           const d = Math.hypot(dx, dy);
-          if (d < nearest) {
+          if (d < nearest && fit(dx, dy)) {
             nearest = d;
             found = { dx, dy };
           }
@@ -235,6 +307,7 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
     }
     const box = at(f.dx, f.dy);
     placed.push(box);
+    if (Math.hypot(f.dx, f.dy) > h) leaders.push([it.ax, it.ay, Math.max(box.x, Math.min(it.ax, box.x + box.w)), Math.max(box.y, Math.min(it.ay, box.y + box.h))]);
     out.set(i, { ...base, dx: f.dx, dy: f.dy, x: it.ax + f.dx, y: it.ay + f.dy, box });
   }
   // the absorbed labels are drawn nowhere
