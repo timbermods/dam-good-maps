@@ -104,3 +104,38 @@ it("a press or a key stops the work, and the next idle moment takes it up again"
   await until(() => witheredEvent(12), "the withered plants once idle");
   ed.stopWeatherPrep();
 });
+
+it("a press and release while a day's soil is being worked out does not stall the withering", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  let first = true;
+  ed.setSoilRunner(async (job: SoilJob) => {
+    if (first) first = false;
+    else await gate;
+    return computeDaySoil(job);
+  });
+  ed.showWeatherDay("drought", 12);
+  await until(() => dayEvent(12), "day 12");
+  // (the press and the release both come while a job waits; the loop wakes after them)
+  ed.stopWeatherPrep();
+  void ed.prepareWeather();
+  release();
+  await until(() => witheredEvent(12), "the withered plants after a short press");
+  ed.stopWeatherPrep();
+});
+
+it("a soil worker that fails twice gives the day as it is held, without soil of its own or withered plants, and never works the soil out here", async () => {
+  let tries = 0;
+  ed.setSoilRunner(() => {
+    tries++;
+    return Promise.reject(new Error("worker gone"));
+  });
+  ed.showWeatherDay("drought", 6);
+  const day = await until(() => dayEvent(6), "day 6");
+  expect(day.water).toBeDefined();
+  expect(day.soil).toBeDefined();
+  expect(day.withered).toBeUndefined();
+  await new Promise((r) => setTimeout(r, 300));
+  expect(events.some((e) => e.kind === "withered")).toBe(false);
+  expect(tries).toBeGreaterThan(0);
+});

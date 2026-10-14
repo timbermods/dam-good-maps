@@ -303,10 +303,12 @@ function soilOf(s: MapSession): SoilView {
 
 /** Under an edited import's roofs the file's own soil stays (its water there is the file's, not the settle's): the map's soil,
  *  and every held day's, take its values on the roofed tiles, so the soil does not jump between Day 0 and day 1. Changes `soil`. */
-function underRoofs(s: MapSession, soil: SoilView): SoilView {
+function underRoofs(s: MapSession, soil: SoilView, run?: WeatherRun): SoilView {
   const roofed = s.roofedTiles;
   if (!roofed.size || s.showsStoredWater) return soil;
-  return soilUnderRoofs(soil, roofed, s.storedSoil());
+  // (the file's soil is two whole-map strings to read, 20 to 45 ms at 256²: a run reads it once)
+  const file = run ? (run.fileSoil ??= s.storedSoil()) : s.storedSoil();
+  return soilUnderRoofs(soil, roofed, file);
 }
 
 /** What the sent soil depends on: the settled soil arrays, or the file's. */
@@ -835,9 +837,11 @@ interface WeatherRun {
   shown: number;
   witherDue: number | null;
   /** The soil jobs under way, by day. */
-  soilJobs: Map<number, Promise<SoilView>>;
+  soilJobs: Map<number, Promise<SoilView | null>>;
   /** What the day soil reads of the map (its heights and objects), taken once and sent to the soil worker once. */
   base?: SoilBase;
+  /** The file's own soil under the roofs of an edited import, read once for the run. */
+  fileSoil?: { moisture: ArrayLike<number>; contamination: ArrayLike<number> };
   /** How far the run simulates: the day to show, or the default last day for the background's work. */
   want: number;
   /** The day the page asked to see, while it waits for it, or null. */
@@ -904,6 +908,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
 export async function prepareWeather(): Promise<void> {
   if (!session || (waterJob && waterJob.session === session)) return;
   const token = ++prepToken;
+  pressed = false;
   resumeWithering();
   for (const hazard of ["drought", "badtide"] as const) {
     if (token !== prepToken || !session) return;
@@ -925,9 +930,14 @@ function resumeWithering(): void {
   }
 }
 
+/** Kyler is busy (a press or a key) from `stopWeatherPrep` until the page's next `prepareWeather`: the withering work stops while
+ *  he is, and a stop that was over before its loop woke does not stall it. */
+let pressed = false;
+
 /** Stop the background work now (Kyler edits, paints or uses a force). */
 export function stopWeatherPrep(): void {
   prepToken++;
+  pressed = true;
 }
 
 /** Where a day's soil is worked out: a worker of its own where the page has one (generator.worker.ts), else here (Node, the
@@ -950,6 +960,8 @@ async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   const soil = await soilOfDay(run, day);
   // (another day asked for, or the map changed, while the soil was being worked out)
   if (!currentRun(run) || run.shown !== day) return;
+  // the soil worker failed: the day as it is held, its water with the map's own soil and nothing withered or changed
+  if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil: soilOf(s) });
   // a map with caves has none until the stacked engine's Drought and Badtide give it day soil (#404): the page keeps its plants
   run.soils[0] ??= soilOf(s);
   const caves = stackedMap(s);
@@ -974,22 +986,21 @@ function cachedUpTo(run: WeatherRun, day: number): boolean {
  *  dead, if it is still on that day. A press or a key (the prep token) stops it where it is, and the next `prepareWeather`, when
  *  Kyler is idle, takes it up again. */
 async function witherLater(run: WeatherRun, day: number): Promise<void> {
-  const token = prepToken;
   const still = () => currentRun(run) && weatherShown === run.session && run.shown === day;
   // (the messages waiting go first)
   await breathe();
   for (let d = 0; d <= day; d++) {
     if (!still()) return;
-    if (token !== prepToken) return void (run.witherDue = day);
-    if (!run.soils[d]) await soilOfDay(run, d);
+    if (pressed) return void (run.witherDue = day);
+    if (!run.soils[d] && !(await soilOfDay(run, d))) return;
   }
   if (!still()) return;
-  if (token !== prepToken) return void (run.witherDue = day);
+  if (pressed) return void (run.witherDue = day);
   listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredTiles(run, day) });
 }
 
 /** The soil of a kept day, worked out once and off this worker (day 0: the map's own, cheap). */
-function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
+function soilOfDay(run: WeatherRun, day: number): Promise<SoilView | null> {
   const have = run.soils[day];
   if (have) return Promise.resolve(have);
   const s = run.session;
@@ -1006,10 +1017,11 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView> {
     try {
       soil = await soilRunner(job);
     } catch {
-      // (the worker failed: here, once, rather than no withering)
-      soil = computeDaySoil(job);
+      // (the worker failed twice: never the whole-map pass here, on the session worker: no soil for this day, so no withering)
+      run.soilJobs.delete(day);
+      return null;
     }
-    underRoofs(s, soil);
+    underRoofs(s, soil, run);
     run.soils[day] = soil;
     run.soilJobs.delete(day);
     return soil;
