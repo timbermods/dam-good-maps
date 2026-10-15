@@ -486,14 +486,15 @@ describe("forces: the plan's footprint and the gesture's band, held against what
     const force = first.find((o) => o.op === "forceResult");
     const band = forceBand({ verb: "craterize", settings: (force as unknown as { params: { settings: never } }).params.settings, origin: [30, 30] }, mirror);
     expect(reachInto(band, c, "host").length).toBeGreaterThan(0);
-    // Try another: the force is kept, then replaced by the next seed; the footprint holds both
+    // a force that replaces the one before it (the operation's `replaces`; the editor's Try another keeps its
+    // rolls as one step instead, D488): the next seed's result, replacing the first; the footprint holds both
     const kept = open();
-    const n1 = decodeProject(ed.project().bytes).edits.length;
+    const firstSeq = kept.logOps.filter((o) => o.op === "forceResult").at(-1)!.seq;
     expect(ed.forceAgain().errors).toEqual([]);
     for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++);
     expect(ed.forceStop().errors).toEqual([]);
-    const second = decodeProject(ed.project().bytes).edits.slice(n1).map((e) => ({ op: e.op, params: e.params }) as EditOp);
-    expect((second.find((o) => o.op === "forceResult") as { params: { replaces?: number } }).params.replaces).toBeDefined();
+    const roll = decodeProject(ed.project().bytes).edits.filter((e) => e.op === "forceResult").at(-1)! as unknown as { params: Record<string, unknown> };
+    const second = [{ op: "forceResult", params: { ...roll.params, replaces: firstSeq } } as unknown as EditOp];
     const fp2 = footprintOf(second, kept);
     const written = trialWrites(kept, second);
     expect(written.ok).toBe(true);
@@ -508,7 +509,6 @@ describe("forces: the plan's footprint and the gesture's band, held against what
     if (written.ok) for (const i of restored) expect(written.writes.has(i), `the restored object at ${i}`).toBe(true);
     // the force it replaced is in it, so a claim only the first force reached still refuses the second
     for (const i of prior.tiles) expect(fp2.tiles.has(i)).toBe(true);
-    ed.undo();
     ed.undo();
   }, 120_000);
 });

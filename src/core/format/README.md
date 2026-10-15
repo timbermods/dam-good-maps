@@ -9,7 +9,7 @@ Reading and writing the game's own files: the `.timber` zip, `world.json`, JSON 
 - Heights up to 22 are allowed; the editor's own ceiling is a separate constant (`world.ts`, D172).
 
 **Start from**
-- `timber.ts` `readTimber`, `writeTimber`; `world.ts` (the world in memory, `GAME_VERSION`, height constants).
+- `timber.ts` `readTimber`, `writeTimber`, `replaceThumbnail` (the page's 3D picture into a saved file, D488); `world.ts` (the world in memory, `GAME_VERSION`, height constants).
 - `json.ts` `parse`, `stringify` (floats stay `JsonFloat`); `entities.ts` (entity builders); `footprints.ts` (block footprints of every template).
 - `normalize.ts` `normalizeImport`; `base64.ts`; `vendor/` (third-party code).
 

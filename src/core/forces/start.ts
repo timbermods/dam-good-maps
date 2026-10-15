@@ -15,6 +15,7 @@ import { SOURCES_DEFAULT } from "./clear";
 import { edgeAim } from "./carve/edge";
 import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
 import { DepositRun, type DepositSettings } from "./deposit";
+import { ErodeRun, withMasks, type ErodeSettings } from "./erode";
 import { RiftRun, type RiftSettings } from "./rift";
 import type { CraterSettings } from "./craterize";
 import { fissureBreadth, type EruptSettings, type Point } from "./erupt";
@@ -35,6 +36,7 @@ import { CraterRun, EruptRun, QuakeRun, type Finalize, type StagedRun } from "./
  *  A5: only its showing; its operation and its land are the same). A painted Lift (`painting`) shows its result as it is painted
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
+  | { verb: "erode"; settings: ErodeSettings; path: Point[]; cut: number | null }
   | { verb: "deposit"; settings: DepositSettings; path: Point[]; cut: number | null }
   | { verb: "rift"; settings: RiftSettings; path: Point[]; cut: number | null }
   | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
@@ -55,7 +57,7 @@ export type ForceRequest = (
   gesture?: number;
 };
 
-export type AnyForceSettings = DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
+export type AnyForceSettings = ErodeSettings | DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands
@@ -203,7 +205,8 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   // the ground no force touches here: above the layer showing, and an imported map's caves
   const keep = new Uint8Array(N);
   if (cut !== null) for (let i = 0; i < N; i++) if (base.heights[i] > cut) keep[i] = 1;
-  for (const i of input.caves) keep[i] = 1;
+  // (Erode is the force that works under roofs, D281: it reads the map's voxels, caves and all)
+  if (req.verb !== "erode") for (const i of input.caves) keep[i] = 1;
   // the working area (D254, D259): the land outside it is locked, unbreakable rock to the force
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
@@ -218,19 +221,26 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       const t: [number, number] = [Math.round(p0.x), Math.round(p0.y)];
       return cut !== null && inMap(t) && inside[at(t)] && base.heights[at(t)] > cut ? hidden : why;
     }
-    if (req.verb !== "rift" || !why.startsWith("the Floor")) return why;
+    if (req.verb === "erode" && why.startsWith("There is no rock here")) {
+      // (the gesture's tiles: all outside the working area, or all above the layer showing, is why)
+      const tiles = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter(inMap);
+      if (inside && tiles.length && tiles.every((p) => !inside[at(p)])) return "Outside the working area: clear it to work there";
+      if (cut !== null && tiles.length && tiles.every((p) => base.heights[at(p)] > cut)) return hidden;
+      return why;
+    }
+    if ((req.verb !== "rift" && req.verb !== "erode") || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;
     const above = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter((p) => inMap(p) && base.heights[at(p)] > floor);
     if (!above.length || !keep.includes(1)) return why;
     return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: clear it to work there" : hidden;
   };
-  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
+  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: clear it to work there");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
   // a drawn line's points are the map's too (a fault, a rift, a fan's reach, a fissure)
-  const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erupt" ? req.path : undefined;
+  const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "erupt" ? req.path : undefined;
   if (line?.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return refuse("Pick a spot on the map");
   let carve: CarveRun | null = null;
   let staged: StagedRun | null = null;
@@ -307,6 +317,15 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         map = stagedForceMap(base);
         // Rust budgets material after Keep/Floor/area feathering; never weather or feather its result independently.
         staged = new DepositRun(map, req.settings, { path: req.path }, keep, inside);
+        break;
+      }
+      case "erode": {
+        // (its map carries its voxels: the heightfield's when it has no caves yet)
+        map = withMasks(stagedForceMap(base));
+        if (!req.path.length) throw new Error("Draw Erode on the map");
+        const run = new ErodeRun(map, req.settings, { path: req.path }, keep, inside);
+        run.finalize = buildTouches(state, base.heights);
+        staged = run;
         break;
       }
       case "rift": {

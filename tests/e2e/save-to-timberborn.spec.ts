@@ -7,12 +7,11 @@
 // folder, Choose Maps folder... and the write itself are covered here, the rest at the unit level
 // (tests/unit/platform.test.ts).
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, openFileMenu } from "./open";
+import { expectSavedFile } from "./savedFile";
 
-const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytesOf = async (path: string | null) => new Uint8Array(readFileSync(path!));
 // A "download" event fires when the download starts. A test that ends right after it can close the browser
 // context while the file is still being written ("browserContext.close: Test ended"), so tests wait for `path()`.
@@ -157,7 +156,7 @@ test.describe("the editor's header", () => {
     await saveButton.click();
     const saved = await savedDownload;
     expect(saved.suggestedFilename()).toBe(plain.suggestedFilename());
-    expect(sha256(await bytesOf(await saved.path()))).toBe(sha256(expected));
+    await expectSavedFile(page, await bytesOf(await saved.path()), expected, "the saved file against the download");
     await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
   });
 

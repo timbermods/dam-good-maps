@@ -45,7 +45,9 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
     const tried = open();
     const b = tried.logOps.filter((o) => o.op === "forceResult").at(-1)!;
     if (b.op !== "forceResult") throw new Error("no force");
-    expect(b.params.replaces).toBeDefined();
+    // (another roll of the force's one step, D488: the log holds only the roll shown)
+    expect(b.params.replaces).toBeUndefined();
+    expect(tried.logOps.filter((o) => o.op === "forceResult").length).toBe(1);
     // (it never touches the start's own ground, nor the ground two tiles round it)
     const near = new Set<number>();
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.add((orig[1] + dy) * W + orig[0] + dx);

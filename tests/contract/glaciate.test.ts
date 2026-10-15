@@ -141,20 +141,20 @@ describe("Glaciate in the editor's worker", () => {
     expect(op1.settings.mode).toBe("flow");
     expect(op1.where.end).toBeUndefined();
     expect(op1.sources?.length).toBeGreaterThan(0);
-    // Try another: the same glacier from the same land, the next personality; it replaces the first
+    // Try another: the same glacier from the same land, the next personality; another roll of its one step (D488)
     const again = ed.forceAgain();
     expect(again.errors).toEqual([]);
     expect(again.verb).toBe("glaciate");
     expect(again.settings!.seed).toBe(glaciateNextSeed(GLACIATE_DEFAULTS.seed));
     for (let k = 0; k < 400 && !ed.forceAdvance(4)!.done; k++);
     expect(ed.forceStop().kept).toBe(true);
-    expect(lastOp().label).toBe("Try another");
-    expect(history().length).toBe(n0 + 2);
+    expect(lastOp().label).toBe("Glaciate, roll 2");
+    expect(history().length).toBe(n0 + 1);
     const second = ed.terrainNow().heights.slice();
     let differ = 0;
     for (let i = 0; i < second.length; i++) if (second[i] !== first[i]) differ++;
     expect(differ).toBeGreaterThan(50);
-    ed.undo();
+    expect(ed.forceRoll({ step: -1 }).ok).toBe(true);
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     ed.undo();
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(before));
