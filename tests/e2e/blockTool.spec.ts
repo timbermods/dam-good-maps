@@ -72,7 +72,10 @@ async function click(page: Page, x: number, y: number, layer: number, side: Side
   const before = await edits(page);
   const p = await face(page, x, y, layer, side);
   await page.mouse.move(p.x, p.y);
-  await expect.poll(async () => (await block(page)).preview !== null).toBe(true);
+  // (straight after the click before it: CI draws in software, a frame of the map holds the page for a few hundred
+  // milliseconds while the last edit's water and soil are drawn, and the hover and its answer each wait their turn
+  // between frames; on a GPU the preview answers in tens of milliseconds. What is asserted is unchanged.)
+  await expect.poll(async () => (await block(page)).preview !== null, { timeout: 15_000 }).toBe(true);
   if (shift) await page.keyboard.down("Shift");
   await page.mouse.down();
   await page.mouse.up();
