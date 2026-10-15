@@ -507,7 +507,14 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function showWater(w: WaterView, soon = false, held = false) {
     // (a held weather day stays on screen: only the day itself replaces it, Kyler, 2026-10-04)
     if (weatherRef.current && !held) return;
-    endFlip();
+    // (the other version on show: the water that arrives waits in the page's copy and is drawn when the key lets go)
+    if (comparing.current) {
+      const W = infoRef.current.W;
+      const H = infoRef.current.H;
+      mirror.current.water = surfaceWater(W, H, w);
+      mirror.current.waterView = w;
+      return;
+    }
     const r = renderer.current;
     // (water on its way, a stroke's or the journey's: its chunks meshed a few a frame, so painting
     // and turning the view keep the display's rate)
@@ -644,7 +651,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function takeLand(): void {
     const held = heldLand.current;
     if (!held.heights && !held.terrain) return;
-    endFlip();
+    if (held.heights) endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
     const m = mirror.current;
@@ -666,8 +673,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  are on their way to the worker, or one is being painted, the page's own terrain is ahead of the
    *  worker's: the worker's waits for them (it is the same, byte for byte). */
   function applyView(v: ViewUpdate): void {
-    endFlip();
-    const r = renderer.current;
+    // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
+    // copy, and are drawn when the key lets go)
+    if (v.heights) endFlip();
+    const flipped = comparing.current;
+    const r = flipped ? null : renderer.current;
     const m = mirror.current;
     // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
@@ -698,8 +708,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       m.entitiesAt = null;
       m.coverAt = null;
       r?.updateEntities(v.entities);
-      ed.reglow();
-      ed.sourcesChanged();
+      if (!flipped) {
+        ed.reglow();
+        ed.sourcesChanged();
+      }
     }
     if (v.water || v.entities) setWaterTick((t) => t + 1);
   }

@@ -39,6 +39,8 @@ export interface GeneratorModel extends SettingsProps {
   onDeleteMaps(ids: readonly string[]): void;
   /** Compare a map of Your maps with the open one (the same size): the editor flips between them while a key is held. */
   onCompareMap(id: string): void;
+  /** The open map's size (an unedited map is not in the list), for what compares with it. */
+  openSize?: { w: number; h: number };
   /** The map's name (the title's), and renaming it through the core: null, or why not. */
   name: string;
   onRename(name: string): Promise<string | null>;

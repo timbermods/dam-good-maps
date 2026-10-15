@@ -95,7 +95,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   };
   const menuItems = (id: string) => {
     // (maps of another size cannot flip: the item is greyed, the reason its tooltip)
-    const why = id === m.current ? null : compareProblem(m.maps.find((e) => e.id === m.current)?.size, m.maps.find((e) => e.id === id)?.size);
+    const why = id === m.current ? null : compareProblem(m.openSize, m.maps.find((e) => e.id === id)?.size);
     return [
     ...(id === m.current ? [] : [{ label: "Compare with the open map", title: why ?? "Flip between it and the open map", disabled: !!why, run: () => m.onCompareMap(id) }]),
     { label: "Download .timber", title: "Download it for Timberborn's Maps folder", run: () => m.onDownloadMap(id) },

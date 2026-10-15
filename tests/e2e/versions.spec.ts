@@ -135,3 +135,63 @@ test("an undo while the other version is held ends the flip: the open map comes 
   expect(await drawn(page)).toBe(landTwo);
   expect(await drawn(page)).not.toBe(landOne);
 });
+
+/** An open map with one step kept in Your maps and compared with (the note is up). */
+async function comparing(page: Page): Promise<string> {
+  const name = (await info(page)).name;
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  await history(page).click();
+  const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await first.hover();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await history(page).click();
+  const yours = await openYourMaps(page);
+  await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Compare with the open map" }).click();
+  await expect(page.locator(".compare-note")).toBeVisible();
+  return name;
+}
+
+test("holding B right after an edit holds the flip while the water settles, and a brush stroke's undo ends it", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await comparing(page);
+  const veil = page.locator(".compare-veil");
+
+  // an edit, and B at once: the water is still flowing in, and the other version stays on show
+  await edit(page, [[60, 60, 70]], "Raise a wall");
+  await page.keyboard.down("b");
+  await expect(veil).toHaveCount(1);
+  const other = await drawn(page);
+  await page.waitForTimeout(1500);
+  await expect(veil).toHaveCount(1);
+  expect(await drawn(page)).toBe(other);
+  await page.keyboard.up("b");
+  await expect(veil).toHaveCount(0);
+  await idle(page);
+  const open = await drawn(page);
+  expect(open).not.toBe(other);
+
+  // a brush stroke, then B held and Ctrl+Z on it: the flip ends, the open map is the one before the stroke
+  await page.keyboard.press("2");
+  const a = await page.evaluate(() => window.dgmEditor!.tileToClient(30, 30));
+  const b = await page.evaluate(() => window.dgmEditor!.tileToClient(34, 34));
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  const stroked = await drawn(page);
+  expect(stroked).not.toBe(open);
+  await page.keyboard.down("b");
+  await expect(veil).toHaveCount(1);
+  await page.keyboard.press("Control+z");
+  await expect(veil).toHaveCount(0);
+  await page.keyboard.up("b");
+  await idle(page);
+  await page.waitForTimeout(300);
+  expect(await drawn(page)).toBe(open);
+});

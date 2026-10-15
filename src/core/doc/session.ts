@@ -263,6 +263,12 @@ export class MapSession {
     return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
   }
 
+  /** Whether only the step the history stands at can be kept as a version: the replay differed, so the map as saved is the
+   *  earliest state and no other step can be built (D455). */
+  get keepOnlyHere(): boolean {
+    return !this.pending && this.floor > 0;
+  }
+
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
   get storedState(): StoredState | null {
     return this.pending?.state ?? null;

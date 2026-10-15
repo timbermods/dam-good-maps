@@ -453,8 +453,8 @@ export function App() {
           picture = { heights: o.view.heights, W: o.view.W, H: o.view.H, water: surfaceWater(o.view.W, o.view.H, o.view.water).depth };
         } finally {
           bg.stop();
+          setNote(null);
         }
-        setNote(null);
       }
       const now = new Date().toISOString();
       const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
@@ -915,6 +915,7 @@ export function App() {
     onRenameMap: renameMap,
     onDeleteMaps: deleteMaps,
     onCompareMap: (id) => void compareWith(id),
+    openSize: session ? { w: session.W, h: session.H } : undefined,
     name,
     onRename: rename,
   };

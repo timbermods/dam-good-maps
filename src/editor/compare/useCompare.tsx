@@ -49,10 +49,18 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
       r.updateWater(v.water);
       r.updateEntities(v.entities);
       if (v.soil) r.updateSoil(v.soil);
+      if (!on) {
+        // (what came while the other version was on show is in the page's copy: its surface, and its objects' glow)
+        m.water = r.mapState()?.surface ?? m.water;
+        ed.reglow();
+        ed.sourcesChanged();
+      }
     };
     const onKey = (ev: KeyboardEvent) => {
       if (ev.code !== "KeyB" || ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey || ev.repeat) return;
       if (document.querySelector<HTMLElement>(".editor")?.inert) return;
+      // (a stroke being painted or a force at work draws the open map: the other version waits)
+      if (ed.painter.current?.painting || ed.forcer.current?.running) return;
       const t = ev.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
       ev.preventDefault();

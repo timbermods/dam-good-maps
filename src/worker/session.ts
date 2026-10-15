@@ -93,6 +93,8 @@ export interface SessionInfo {
   badwaterRemoved: boolean;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
+  /** Only the step the history stands at can be kept as a version (the replay differed, D455). */
+  keepOnlyHere?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -200,6 +202,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
     waterPending: s.waterPending,
+    keepOnlyHere: s.keepOnlyHere,
     version,
   };
 }
