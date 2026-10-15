@@ -521,6 +521,19 @@ fn check_sources_in_flow(model: &Model, objects: &[&Entity], depth: &[f64], surf
     let open: Vec<&Entity> = objects.iter().copied().filter(|o| !roofed(o, surface, model.w, model.h)).collect();
     let r = water::sources_in_flow(model, &open, depth);
     if r.sources == 0 {
+        // (every source under a roof: there are sources, and no flow on the surface reaches one)
+        let under = objects.iter().filter(|o| (o.template == "WaterSource" || o.template == "BadwaterSource") && roofed(o, surface, model.w, model.h)).count();
+        if under > 0 {
+            c.add(vec![
+                ("id", s("water.source_in_flow")),
+                ("class", s("design")),
+                ("ok", b(true)),
+                ("value", n(0.0)),
+                ("limit", n(0.0)),
+                ("message", s(format!("{} under a roof, where no other source's flow reaches", counted(under as f64, "water source")))),
+            ]);
+            return;
+        }
         c.not_applicable("water.source_in_flow", "design", "No water sources on this map", false);
         return;
     }

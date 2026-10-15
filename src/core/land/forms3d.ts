@@ -267,11 +267,20 @@ function springCaves(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
     const g = gallery(c, s.x, s.y, s.d, s.z, flow);
     if (!g) continue;
     tried.add(key);
-    const change = new Map<number, number>();
-    for (const [i, floor] of g.floors) change.set(i, c.mask[i] & ~bits(floor, g.ceil));
+    // (worn where the rock holds it, else cut plain)
+    const carve = (worn: boolean) => {
+      const out = new Map<number, number>();
+      for (const [i, floor] of g.floors) out.set(i, c.mask[i] & ~bits(floor, g.ceil) & ~(worn ? (g.wear.get(i) ?? 0) : 0));
+      if (worn) for (const [i, w] of g.wear) if (!out.has(i)) out.set(i, c.mask[i] & ~w);
+      return out;
+    };
+    let change = carve(true);
     if (!commit(c, change)) {
-      why = "a cave's roof would fall";
-      continue;
+      change = carve(false);
+      if (!commit(c, change)) {
+        why = "a cave's roof would fall";
+        continue;
+      }
     }
     for (const i of s.stream) c.used[i] = 1;
     // its stream's course: from the spring at the back, out of the mouth, over the bank to the river
@@ -309,6 +318,8 @@ interface Gallery {
   length: number;
   width: number;
   roof: number;
+  /** Voxels worn away round the mouth and in the walls, by tile (bits). */
+  wear: Map<number, number>;
 }
 
 /** A gallery from its mouth at (x, y) into the rock along `d`, its floor at the spring's level `z0`
@@ -380,7 +391,27 @@ function gallery(c: Ctx, x0: number, y0: number, d: readonly [number, number], z
   });
   const mid = (sec: number[]) => sec[Math.floor((sec.length - 1) / 2)];
   const course = sections.map(mid).reverse();
-  return { floors, tiles: [...floors.keys()], ceil, spring: course[0], course, length: sections.length, width, roof };
+  // worn, not cut: the mouth's jambs eaten back a tile to a varying height, its lintel a level higher
+  // here and there where the rock above allows, and the walls notched inside; never at the floor, so
+  // the water still leaves by the mouth alone (the support rule checks what is left)
+  const wear = new Map<number, number>();
+  const step = p[0] + p[1] * W;
+  const rock = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return inside(W, H, x, y) && !keep[i] && !c.near?.[i] && !inp.plants[i] && !used[i] && !floors.has(i) && mask[i] === plainMask(heights[i]) && heights[i] >= ceil + 1;
+  };
+  const eat = (i: number, lo: number, hi: number) => {
+    if (hi > lo) wear.set(i, (wear.get(i) ?? 0) | bits(lo, hi));
+  };
+  sections.forEach((sec, k) => {
+    const sides = [sec[0] - step, sec[sec.length - 1] + step];
+    if (k === 0) {
+      for (const j of sides) if (rock(j) && rng.float() < 0.7) eat(j, z0 + 1, Math.min(ceil, z0 + 2 + rng.int(0, high)));
+      for (const i of sec) if (heights[i] >= ceil + 2 && rng.float() < 0.5) eat(i, ceil, ceil + 1);
+    } else if (k < sections.length - pool) for (const j of sides) if (rock(j) && rng.float() < 0.2) eat(j, z0 + 1, z0 + 2);
+  });
+  return { floors, tiles: [...floors.keys()], ceil, spring: course[0], course, length: sections.length, width, roof, wear };
 }
 
 // --------------------------------------------------------------------------------- start overhang
@@ -624,8 +655,8 @@ function arch(c: Ctx, s: Site): FormPlan | null {
   const { inp, mask, used, rng } = c;
   const { W, H, heights, keep, plants } = inp;
   const along: [number, number] = [s.across[1], s.across[0]];
-  // the deck 1–3 wide along the river
-  const wide = 1 + rng.int(0, inp.vt >= 60 ? 3 : 2);
+  // the deck 2–3 wide along the river, so it reads as an arch from the gorge, not a plank
+  const wide = 2 + rng.int(0, 2);
   const band: number[] = [];
   for (let o = 0; o < wide; o++)
     for (let k = s.lo; k <= s.hi; k++) {
@@ -639,30 +670,34 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     }
   if (band.length < 3) return null;
   const topLayer = s.rim - 1;
-  // the thinnest arch that closes, then sometimes a layer more
-  for (let zb = topLayer; zb >= s.water + ARCH_CLEAR; zb--) {
-    const change = new Map<number, number>();
-    for (const i of band) change.set(i, mask[i] | bits(Math.max(zb, heights[i]), s.rim));
-    const trial = mask.slice();
-    for (const [i, m] of change) trial[i] = m;
-    const falls = unsupportedVoxels({ W, H, mask: trial });
-    const N = W * H;
-    for (const i of band) for (let z = zb; z < s.rim; z++) if (falls[z * N + i]) trial[i] &= ~(1 << z);
-    if (!band.every((i) => trial[i] & (1 << topLayer))) continue;
-    // a layer thicker now and then, where the water leaves room
-    if (zb - 1 >= s.water + ARCH_CLEAR && rng.float() < 0.35) zb--;
+  const N = W * H;
+  // its feet stand 2 or more over the water under every row of it, not only the middle one
+  let wet = s.water;
+  for (const i of band) wet = Math.max(wet, Math.ceil(heights[i] + (inp.water[i] > 0 ? inp.water[i] : 0)));
+  const feet = wet + ARCH_CLEAR;
+  if (feet > topLayer) return null;
+  // an arch's curve: its underside low at the feet and high at the crown, (1 − (2t − 1)²) across the
+  // span, worn a level higher or lower here and there; a crown 2 layers thick where the gorge leaves
+  // room (one where it does not), sometimes 3, and thicker only where a thinner one would not stand
+  const span = Math.max(1, s.hi - s.lo);
+  const wear = band.map(() => (rng.float() < 0.25 ? (rng.float() < 0.5 ? -1 : 1) : 0));
+  const first = topLayer - 1 - (rng.float() < 0.35 ? 1 : 0);
+  for (let crown = Math.max(feet, first); crown >= feet; crown--) {
     const kept = new Map<number, number>();
-    for (const i of band) {
-      let m = mask[i] | bits(Math.max(zb, heights[i]), s.rim);
-      kept.set(i, m);
-    }
+    band.forEach((i, q) => {
+      const k = s.across[0] ? (i % W) - s.x : Math.floor(i / W) - s.y;
+      const t = (k - s.lo) / span;
+      const lift = 1 - (2 * t - 1) * (2 * t - 1);
+      const under = Math.max(feet, Math.min(crown, feet + Math.round((crown - feet) * lift) + wear[q]));
+      kept.set(i, mask[i] | bits(Math.max(under, heights[i]), s.rim));
+    });
     // the rule's own shape: what nothing holds up is not there
-    const t2 = mask.slice();
-    for (const [i, m] of kept) t2[i] = m;
-    const f2 = unsupportedVoxels({ W, H, mask: t2 });
+    const trial = mask.slice();
+    for (const [i, m] of kept) trial[i] = m;
+    const falls = unsupportedVoxels({ W, H, mask: trial });
     for (const i of band) {
       let m = kept.get(i)!;
-      for (let z = zb; z < s.rim; z++) if (f2[z * N + i]) m &= ~(1 << z);
+      for (let z = feet; z < s.rim; z++) if (falls[z * N + i]) m &= ~(1 << z);
       kept.set(i, m);
     }
     if (!band.every((i) => kept.get(i)! & (1 << topLayer))) continue;
@@ -674,7 +709,7 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     const my = Math.floor(mid / W);
     const fx = Math.max(0, Math.min(W - 1, mx + along[0] * 12));
     const fy = Math.max(0, Math.min(H - 1, my + along[1] * 12));
-    return { id: "gorge-arch", at: mid, from: fy * W + fx, tiles: band.slice().sort((a, b) => a - b), note: `a span ${s.hi - s.lo + 1} across and ${wide} wide at level ${s.rim}, ${under - s.water} levels of air over the water at its crown` };
+    return { id: "gorge-arch", at: mid, from: fy * W + fx, tiles: band.slice().sort((a, b) => a - b), note: `a span ${s.hi - s.lo + 1} across and ${wide} wide at level ${s.rim}, ${under - wet} levels of air over the water at its crown` };
   }
   return null;
 }

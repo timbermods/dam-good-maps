@@ -15,16 +15,19 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   2–3 high, 3–10 long, wiggling, its floor half a level or more above the river's water and a pool a level lower at its
   back. A spring rises in the pool (a small row, 0.3–0.7 blocks a second, `river/caveSpring/<k>`, D171: a tributary at
   its own head) and its stream runs out of the mouth and over the bank into the river. Its walls hold everywhere but the
-  mouth, so its water leaves by the mouth alone. The surface does not change.
+  mouth, so its water leaves by the mouth alone. Its mouth is worn, not cut: the jambs eaten back a tile to varying
+  heights, the lintel a level higher here and there, the walls notched inside, never at the floor (cut plain where the
+  rock would not hold the wear). The surface does not change.
 - **An overhang sheltering the start** (`start-overhang`). Where the start's level ground meets a cliff 3 or more above it
   within 8–12 tiles, a stretch of 3–14 tiles of the face is worn back 1–3 tiles, as soft rock under a harder cap, 2–3 high,
   its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Level ground at the
   start's floor runs on under the rock. The surface does not change. The start itself is never roofed (cave starts are
   for Verticality 70+, later).
 - **An arch over a gorge** (`gorge-arch`). Where a river runs between rims at one height 3 to 6 + Verticality/6 tiles apart
-  with 3 or more levels of air over its water, the span between the rims is filled from a layer 2 or more above the water
-  to the rims' level, 1–3 wide along the river, and the support rule takes away what nothing would hold up (the rule's
-  own corbelled shape, sometimes a layer thicker): the remnant of a roof the river wore through. Its deck joins the two
+  with 3 or more levels of air over its water, the span between the rims is filled to the rims' level, 2–3 wide along the
+  river, over an arch's curve: its underside 2 or more above the water under every row at its feet, rising as
+  1 − (2t − 1)² to a crown 2 layers thick (sometimes 3, 1 where the gorge leaves no room), worn a level here and there;
+  the support rule then takes away what nothing would hold up: the remnant of a roof the river wore through. Its deck joins the two
   rims at their level. The surface rises on the deck's tiles only.
 
 **How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no Fill
@@ -59,10 +62,14 @@ field's terrain.
 
 **Changed for every map with terrain above terrain** (no heightfield map changes):
 - the settle cache compares a stacked model's terrain too (`sameModel`): the same surface over other caves is other water;
-- the checks read the water seen through the roofs on its own floor (`validate/rust.ts`, `sim/stackWater.ts` `seenFloor`):
-  a cave's pool and a river under an arch stand on their floors, not on the roof over them;
+- on a generated map only (not an import), the checks read the water seen through the roofs on its own floor
+  (`validate/rust.ts`, `sim/stackWater.ts` `seenFloor`): a cave's pool and a river under an arch stand on their floors,
+  not on the roof over them; an imported map keeps the surface's floor, as its rows were pinned against the official maps;
 - `water.source_in_flow` leaves out a source under a roof (`rust/checks` `playability.rs` `roofed`): the surface's spill
-  levels cannot see into a cave, whose water leaves by its own mouth;
+  levels cannot see into a cave, whose water leaves by its own mouth; when every source is under a roof the row says so
+  ("9 water sources under a roof, where no other source's flow reaches"), not that there are none. On the 22 official
+  maps this changes two rows: Terraces' `water.source_in_flow` turns from 3 of 19 flagged to ok (its 3 were under a
+  roof), and Pressure's reads as above (it was ok);
 - the water story and the intentions' checks read the water seen through the roofs (`seenWater`), and a cave's spring and
   its few tiles of stream are no river of the map's story (`analysis/story.ts`).
 
@@ -80,7 +87,8 @@ it should be, the same draw the same terrain, none where the land offers none); 
 reopens to the same .timber; none at Verticality 0); the batches and the 84 maps below.
 
 **Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; this
-machine shared with other sessions' runs, so times are high; the batches ran with up to three builds, now two):
+machine shared with other sessions' runs, so times are high; the batches ran before the worn mouths, the arch's curve
+and its 2–3 wide deck, with up to three builds, now two):
 
 | Verticality | final | spring caves | overhangs | arches | forms a map, median by theme | project round trip |
 |---|---|---|---|---|---|---|

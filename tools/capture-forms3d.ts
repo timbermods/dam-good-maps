@@ -51,10 +51,11 @@ for (const m of maps) {
     const [fx, fy] = x.from;
     // (the camera stands toward `from` and looks at the form, low for an arch, at its floor or under
     // its crown; yaw as the 3D view's orbit takes it)
+    // (an arch from down the gorge, low over its river, close enough to stay between its walls)
     const yaw = Math.atan2(fx - ax, -(fy - ay));
     const arch = x.id === "gorge-arch";
-    const z = bottomRunTop(t.mask[ay * 128 + ax]) + (arch ? 1 : 1.5);
-    shots.push({ label: `${x.id} · ${m.theme} ${m.seed} · Verticality ${m.vt}`, fragment: `#${encodeSpecFragment(r.spec)}`, view: { yaw, pitch: arch ? 0.5 : 0.3, distance: arch ? 30 : 11, x: ax, y: ay, z } });
+    const z = bottomRunTop(t.mask[ay * 128 + ax]) + (arch ? 4 : 1.5);
+    shots.push({ label: `${x.id} · ${m.theme} ${m.seed} · Verticality ${m.vt}`, fragment: `#${encodeSpecFragment(r.spec)}`, view: { yaw, pitch: arch ? 0.12 : 0.3, distance: arch ? 9 : 11, x: ax, y: ay, z } });
   }
 }
 console.log(`${shots.length} forms to capture`);

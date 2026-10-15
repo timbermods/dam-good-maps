@@ -2942,12 +2942,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (const f of streams) contains.add(f.id);
         const f3 = [...features, ...streams];
         const b3 = build(f3, null);
-        const file3 = toTimberFile(spec, b3);
-        const v3 = validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0 });
+        // (each form's own check first: a form that did not stand costs no validation)
         let k = 0;
         const checks = plans.map((p) => checkForm(p, b3, p.id === "spring-cave" ? streams[k++].id : null));
+        const own = checks.every((c) => c.ok);
+        const file3 = own ? toTimberFile(spec, b3) : null;
+        const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0 }) : null;
         const ctx3 = finalCtx(b3, hy);
         const holds =
+          !!v3 &&
           v3.report.passed &&
           v3.report.checks.every((c) => c.ok || failing.has(c.id)) &&
           !b3.dropped &&
@@ -2956,11 +2959,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           (g.tall || maxOf(b3.heights) <= 16) &&
           emerged.every((id) => checkIntention(id, ctx3).ok) &&
           outcomesOf({ spec: shown, built: b3, features: f3, intentions }).score >= before;
-        if (holds && checks.every((c) => c.ok)) {
+        if (holds && own) {
           features = f3;
           built = b3;
-          file = file3;
-          v = v3;
+          file = file3!;
+          v = v3!;
           const xy = (i: number): [number, number] => [i % W, Math.floor(i / W)];
           records.unshift(...plans.map((p, q): IntentionResult => ({ id: p.id, ok: true, note: `${p.note}; ${checks[q].note}`, ...(checks[q].say ? { say: checks[q].say } : {}), at: xy(p.at), from: xy(p.from), outcome: "emerged" })));
           plans = [];
@@ -2971,7 +2974,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (const f of streams) contains.delete(f.id);
         // (the forms whose own check failed go; when the map's checks failed, the forms near where
         // they failed, else the boldest kind there is: the arches, then an overhang, then the caves)
-        const failed = checks.some((c) => !c.ok) ? plans.filter((_, q) => !checks[q].ok) : culprits(plans, v3, failing, b3.entities, W);
+        const failed = !own ? plans.filter((_, q) => !checks[q].ok) : culprits(plans, v3!, failing, b3.entities, W);
         for (const p of failed) {
           const c = checks[plans.indexOf(p)];
           records.push({ id: p.id, ok: false, note: `${p.note}; ${c.ok ? "the map's checks did not hold with it" : c.note}`, outcome: "dropped" });
