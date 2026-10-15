@@ -139,10 +139,12 @@ export const collabEditApi = {
   },
 
   /** Another roll of a force: not in a session yet (a force that replaces another is not an entry kind). */
-  async forceRoll(_to: { step: 1 | -1 } | { index: number }): Promise<Answer> {
-    return ed.collabAnswer(false, ["Another roll isn't available in a shared session yet"]);
+  async forceRoll(_to: { step: 1 | -1 } | { index: number }): Promise<ed.RollShown> {
+    return { ...ed.collabAnswer(false, ["Another roll isn't available in a shared session yet"]), settings: null };
   },
-  forceSettle(): void {},
+  forceSettle(): ed.SessionInfo {
+    return ed.sessionInfo();
+  },
 
   forceAdvance(_steps: number): ed.ForceFrame | null {
     return routedForce ? finishedFrame(routedForce.request) : null;
