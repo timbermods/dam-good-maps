@@ -607,8 +607,10 @@ else the baked light stands, so maps without caves draw exactly as before. Part 
 ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
 (`pickTerrain.test.ts`); Select reads the run hit. Part 6, the level-slice cutaway (`render3d/cutaway.ts`): under a
 layer cut the clipped columns are drawn, a cap only where rock crosses the cut, so the cut opens into caves and under
-overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Next:
-the masks from the worker, soil per run top, water per column.
+overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Part
+3, soil per run top (`render3d/runSoil.ts`): a cave's floor takes its own run's moisture, contamination and water from
+a run texture the worker's per-run soil fills, soil3d's value for every run top; maps without caves build no texture
+and draw with the same program (`runSoil.test.ts`). Next: the masks from the worker, water per column.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -635,8 +637,8 @@ After the view (D280 (3)).
    or outline). Wind and water wear rock: a cave or alcove at a cliff's foot, an overhang where hard
    rock caps softer rock, an arch through a thin ridge; the land decides which; every shape obeys
    the support rule; a click or a drawn sweep; Power, Size, Try another; two to four seconds of
-   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281); held, like the
-   other forces' investigations, until Kyler has tried it.
+   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281). Its core and
+   Rust are built (the rules and what the page and renderer take: docs/progress/3d-creating.md).
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
