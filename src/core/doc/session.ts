@@ -61,6 +61,7 @@ import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
@@ -1635,7 +1636,7 @@ export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
   return { mask, heights, entities };
 }
 
-/** A stroke's history label, when the page gave none ("Raise, 38 tiles" when it did). */
+/** A stroke's history label, when the page gave none ("Raise 38 tiles" when it did). */
 const BRUSH_NAMES: Record<string, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
 
 const KIND_NAMES: Record<string, string> = {
@@ -1654,8 +1655,10 @@ const KIND_NAMES: Record<string, string> = {
 export function labelOf(op: AppliedOp): string {
   if (op.label) return op.label;
   switch (op.op) {
-    case "addFeature":
-      return `Add ${KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind}`;
+    case "addFeature": {
+      const name = KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind;
+      return `Add ${name === "start" ? "the start" : withArticle(name)}`;
+    }
     case "updateFeature":
       return `Change a feature`;
     case "deleteFeature":
@@ -1669,7 +1672,7 @@ export function labelOf(op: AppliedOp): string {
     case "forceResult":
       return forceLabel(op.params);
     case "placeEntity":
-      return `Place ${op.params.template}`;
+      return placeLabel("Place", op.params.template);
     case "moveEntity":
       return "Move an object";
     case "deleteEntities":
@@ -1681,7 +1684,7 @@ export function labelOf(op: AppliedOp): string {
     case "removeSlope":
       return "Remove a slope";
     case "removeUnfedWater":
-      return op.params.pools ? `Remove unfed water, ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
+      return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
     case "blocks":

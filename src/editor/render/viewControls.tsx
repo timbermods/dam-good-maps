@@ -62,11 +62,12 @@ export function cornerButtons(ed: Ed) {
         Slow forces
       </button>
       <span class="reveal-group sound-cell">
-        {/* (the volume opens beneath the speaker, so the cluster stays as it is) */}
+        {/* (the volume opens beneath the speaker, so the cluster stays as it is; the speaker's tooltip sits to its left,
+            clear of the slider) */}
         <label class="slider-field reveal" title="Volume">
           <input type="range" min="0" max="1" step="0.02" aria-label="Sound volume" value={sound.volume} disabled={!sound.on} onInput={(e) => setSound({ ...sound, volume: Number((e.target as HTMLInputElement).value) })} />
         </label>
-        <button type="button" class="icon-button speaker" aria-label="Sound" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} title={sound.on ? "Mute sounds" : "Turn sounds on"}>
+        <button type="button" class="icon-button speaker" aria-label="Sound" aria-pressed={sound.on} onClick={() => setSound({ ...sound, on: !sound.on })} {...tip(sound.on ? "Mute sounds" : "Turn sounds on")} data-tip-side="left">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" />
             {sound.on ? <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /> : <path d="M3 3l18 18" class="crossed" />}

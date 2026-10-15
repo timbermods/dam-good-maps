@@ -154,9 +154,13 @@ button[aria-pressed="true"] {
   right: 10px;
   width: 44px;
   height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--overlay);
   box-shadow: var(--shadow);
+  /* a button: it turns the view to face north */
+  cursor: pointer;
 }
 
 .compass .needle {
