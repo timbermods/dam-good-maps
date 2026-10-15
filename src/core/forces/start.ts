@@ -221,16 +221,23 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       const t: [number, number] = [Math.round(p0.x), Math.round(p0.y)];
       return cut !== null && inMap(t) && inside[at(t)] && base.heights[at(t)] > cut ? hidden : why;
     }
+    if (req.verb === "erode" && why.startsWith("There is no rock here")) {
+      // (the gesture's tiles: all outside the working area, or all above the layer showing, is why)
+      const tiles = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter(inMap);
+      if (inside && tiles.length && tiles.every((p) => !inside[at(p)])) return "Outside the working area: clear it to work there";
+      if (cut !== null && tiles.length && tiles.every((p) => base.heights[at(p)] > cut)) return hidden;
+      return why;
+    }
     if ((req.verb !== "rift" && req.verb !== "erode") || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;
     const above = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter((p) => inMap(p) && base.heights[at(p)] > floor);
     if (!above.length || !keep.includes(1)) return why;
-    return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: Esc clears it" : hidden;
+    return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: clear it to work there" : hidden;
   };
   const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
-  if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: Esc clears it");
+  if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: clear it to work there");
   if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
   // a drawn line's points are the map's too (a fault, a rift, a fan's reach, a fissure)
   const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "erupt" ? req.path : undefined;
@@ -324,7 +331,6 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       case "rift": {
         map = stagedForceMap(base);
         const run = new RiftRun(map, req.settings, { path: req.path }, keep, inside);
-
         run.finalize = buildTouches(state, base.heights);
         staged = run;
         break;

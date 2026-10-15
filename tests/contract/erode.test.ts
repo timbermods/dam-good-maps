@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { ERODE_DEFAULTS, ErodeRun, withMasks, type ErodeSettings } from "../../src/core/forces/erode";
+import { ERODE_DEFAULTS, ErodeRun, plainMasks, withMasks, type ErodeSettings } from "../../src/core/forces/erode";
 import type { FullForceMap } from "../../src/core/forces/force";
 import { geology, nextSeed } from "../../src/core/forces/random";
 import { fullForceMapOf } from "../../src/core/forces/start";
@@ -54,7 +54,6 @@ describe("the land decides the form (D281)", () => {
   // a cliff: level 3 west of x = 20, level 12 from it; its rock soft
   const W = 40;
   const cliff = (hard: number[] = []) => ground(W, W, (x) => (x < 20 ? 3 : 12), hard);
-
   it("a cliff's foot wears into a cave under a roof, its surface and floor as they were", () => {
     for (const power of [0, 55, 100]) {
       const { after, falls, run } = erode(cliff(), { power }, [{ x: 19, y: 20 }]);
@@ -126,7 +125,6 @@ describe("nothing falls, and a click anywhere wears something (D121, D356)", () 
     ["lake", fixture("lake", 48)],
     ["slide", fixture("slide", 48)],
   ];
-
   it("random gestures leave no ground the game drops, in any frame", () => {
     for (const [name, m] of maps())
       for (let k = 0; k < 6; k++) {
@@ -139,10 +137,19 @@ describe("nothing falls, and a click anywhere wears something (D121, D356)", () 
       }
   });
 
-  it("at Power 0, a click anywhere changes the land, its edges and corners too, and adds no object", () => {
+  it("at Power 0, a click anywhere on dry ground changes the land, its edges and corners too, and adds no object", () => {
     for (const [name, m0] of maps()) {
+      if (name === "lake") continue;
       const m = { ...m0, entities: [{ id: "tree-1", owner: "test", template: "Pine", x: 10, y: 10, z: m0.heights[10 * m0.W + 10], orientation: "Cw0" as const, flipped: false, components: {} }] };
-      for (const p of [{ x: 0, y: 0 }, { x: 47, y: 47 }, { x: 24, y: 24 }, { x: 10, y: 10 }, { x: Math.floor(next() * 48), y: Math.floor(next() * 48) }])
+      // (dry: no water within three tiles, so nothing it could breach)
+      const dry = (p: P) => {
+        for (let y = Math.max(0, p.y - 3); y <= Math.min(47, p.y + 3); y++) for (let x = Math.max(0, p.x - 3); x <= Math.min(47, p.x + 3); x++) if (m.water.depth[y * 48 + x] > 0) return false;
+        return true;
+      };
+      let random = { x: 0, y: 0 };
+      do random = { x: Math.floor(next() * 48), y: Math.floor(next() * 48) };
+      while (!dry(random));
+      for (const p of [{ x: 0, y: 0 }, { x: 47, y: 47 }, { x: 10, y: 10 }, { x: 40, y: 8 }, random].filter(dry))
         for (const size of [4, 40]) {
           const { after, run } = erode(m, { power: 0, size }, [p]);
           const changed = changedTiles(after.masks!, run.before.masks!);
@@ -150,6 +157,65 @@ describe("nothing falls, and a click anywhere wears something (D121, D356)", () 
           expect(after.entities.map((e) => e.id)).toEqual(["tree-1"]);
         }
     }
+  });
+
+  it("leaves water and the ground that holds it alone: a lake's rim and its bed", () => {
+    const m = fixture("lake", 48);
+    const W = 48;
+    for (const [p, power] of [[{ x: 26, y: 41 }, 0], [{ x: 26, y: 41 }, 50], [{ x: 24, y: 24 }, 0], [{ x: 26, y: 33 }, 100]] as [P, number][]) {
+      let after: FullForceMap;
+      try {
+        after = erode(m, { power }, [p]).after;
+      } catch (e) {
+        // (nothing it may wear there: it says why)
+        expect((e as Error).message, `${p.x},${p.y} at ${power}`).toBe("Erode leaves water and the ground that holds it as they are");
+        continue;
+      }
+      for (let i = 0; i < W * W; i++) {
+        if (m.water.depth[i] > 0.01) {
+          expect(after.heights[i], `wet tile ${i % W},${Math.floor(i / W)}`).toBe(m.heights[i]);
+          continue;
+        }
+        // beside water, no ground goes below the water line
+        const level = Math.max(...[i - 1, i + 1, i - W, i + W].filter((j) => j >= 0 && j < W * W).map((j) => (m.water.depth[j] > 0.01 ? Math.ceil(m.heights[j] + m.water.depth[j] - 0.02) : 0)));
+        if (after.heights[i] !== m.heights[i]) expect(after.heights[i], `${i % W},${Math.floor(i / W)} beside water`).toBeGreaterThanOrEqual(level);
+      }
+    }
+  });
+
+  it("leaves the rock that holds back a cave's water and the ground an object stands on, and wears at the gesture", () => {
+    const W = 40;
+    const m = ground(W, W, (x) => (x < 20 ? 3 : 16));
+    const masks = plainMasks(m.heights);
+    const wet = new Uint32Array(W * W);
+    // a pool in a chamber behind the face (tiles 22–24, rows 18–22, air at levels 3–4, water at 3)
+    for (let y = 18; y <= 22; y++)
+      for (let x = 22; x <= 24; x++) {
+        masks[y * W + x] &= ~0b11000;
+        wet[y * W + x] = 0b1000;
+      }
+    // a ledge in the face's tile at row 26 (solid 5–7, air 8–9) with a tree on it
+    for (const y of [25, 26, 27]) masks[y * W + 20] &= ~(0b11 << 8);
+    const tree = { id: "ledge-tree", owner: "test", template: "Pine", x: 20, y: 26, z: 8, orientation: "Cw0" as const, flipped: false, components: {} };
+    const map = { ...m, masks, wet, entities: [tree] };
+    for (const p of [{ x: 19, y: 20 }, { x: 19, y: 26 }]) {
+      const after = erode(map, { power: 100 }, [p]).after.masks!;
+      for (let y = 17; y <= 23; y++)
+        for (let x = 21; x <= 25; x++) {
+          const i = y * W + x;
+          if (wet[i]) continue;
+          // beside the pool, at its level: rock that was there stays
+          const nextTo = [i - 1, i + 1, i - W, i + W].some((j) => wet[j]);
+          if (nextTo && solid(masks, i, 3)) expect(solid(after, i, 3), `${x},${y}`).toBe(true);
+        }
+      for (let z = 5; z < 8; z++) expect(solid(after, 26 * W + 20, z), `under the tree, level ${z}`).toBe(true);
+    }
+    // Power 0 on open ground eight tiles from a cliff: the ground at the pointer changes, not the cliff
+    const open = ground(W, W, (x) => (x < 28 ? 4 : 14));
+    const { after, run } = erode(open, { power: 0 }, [{ x: 12, y: 20 }]);
+    const near = Array.from(after.masks!).some((v, i) => v !== run.before.masks![i] && Math.hypot((i % W) - 12, Math.floor(i / W) - 20) <= 4);
+    expect(near).toBe(true);
+    expect(Array.from(after.masks!).some((v, i) => v !== run.before.masks![i] && i % W >= 26)).toBe(false);
   });
 
   it("Try another changes the seams; the same seed wears the same", () => {
@@ -177,7 +243,7 @@ function cliffFeet(m: FullForceMap, drop: number): { foot: number; face: number 
 
 describe("on generated maps (D281)", () => {
   const maps = (["canyon", "highlands"] as const).map((theme) => {
-    const r = generate(makeSpec({ seed: 3, theme, size: { x: 96, y: 96 } }));
+    const r = generate(makeSpec({ seed: 3, theme, size: { x: 128, y: 128 } }));
     const s = MapSession.fromGenerated(r);
     return [theme, fullForceMapOf(s.built, { rockLayers: geology(s.openedHeights), lava: null, down: new Map(), usedIds: new Set() })] as const;
   });
@@ -203,24 +269,46 @@ describe("on generated maps (D281)", () => {
   it("a thin ridge, where the map has one, opens into an arch", () => {
     let ridges = 0;
     for (const [theme, m] of maps) {
-      const { W, H } = m;
-      for (let y = 4; y < H - 4 && ridges < 3; y++)
-        for (let x = 4; x < W - 4 && ridges < 3; x++) {
-          const i = y * W + x;
-          const h = m.heights[i];
-          const across = m.heights[i - 1] <= h - 6 && m.heights[i + 1] <= h - 6 ? 1 : m.heights[i - W] <= h - 6 && m.heights[i + W] <= h - 6 ? W : 0;
-          if (!across || m.water.depth[i - across] > 0.01 || m.water.depth[i + across] > 0.01) continue;
-          ridges++;
-          const [a, b] = across === 1 ? [{ x: x - 4, y }, { x: x + 4, y }] : [{ x, y: y - 4 }, { x, y: y + 4 }];
-          const { after, falls } = erode(m, { power: 80 }, [a, b]);
-          expect(falls, theme).toBe(0);
-          const masks = after.masks!;
-          let open = false;
-          for (let z = Math.max(m.heights[i - across], m.heights[i + across]); z < h - 2; z++) if (!solid(masks, i, z)) open = true;
-          expect(open, `${theme} ridge at ${x},${y}`).toBe(true);
+      const { W, H, heights: h } = m;
+      // a dry fin two to four tiles thick, at least 5 over the ground on both sides, five tiles long
+      const fin = (x: number, y: number, dx: number, dy: number): number => {
+        for (let t = 1; t <= 4; t++) {
+          const at = (k: number) => (y + dy * k) * W + x + dx * k;
+          let lo = 99;
+          let wet = false;
+          for (let k = -1; k <= t; k++) if (m.water.depth[at(k)] > 0.01) wet = true;
+          for (let k = 0; k < t; k++) lo = Math.min(lo, h[at(k)]);
+          if (!wet && lo >= 6 && h[at(-1)] <= lo - 5 && h[at(t)] <= lo - 5) return t;
         }
+        return 0;
+      };
+      for (let y = 10; y < H - 10 && !ridges; y++)
+        for (let x = 10; x < W - 10 && !ridges; x++)
+          for (const [dx, dy] of [[1, 0], [0, 1]]) {
+            const t = fin(x, y, dx, dy);
+            if (!t || ridges) continue;
+            let along = 0;
+            for (let s = -2; s <= 2; s++) if (fin(x + dy * s, y + dx * s, dx, dy)) along++;
+            if (along < 5) continue;
+            ridges++;
+            const { after, falls } = erode(m, { power: 85 }, [{ x: x - dx * 5, y: y - dy * 5 }, { x: x + dx * (t + 4), y: y + dy * (t + 4) }]);
+            expect(falls, theme).toBe(0);
+            const masks = after.masks!;
+            // light through it: every tile across the fin open at one level, somewhere along it
+            let through = false;
+            for (let s = -6; s <= 6 && !through; s++)
+              for (let z = 1; z < 22 && !through; z++) {
+                let all = true;
+                for (let k = 0; k < t; k++) {
+                  const i = (y + dy * k + dx * s) * W + x + dx * k + dy * s;
+                  if (solid(masks, i, z) || !solid(m.masks ?? plainMasks(m.heights), i, z)) all = false;
+                }
+                if (all) through = true;
+              }
+            expect(through, `${theme} fin at ${x},${y}`).toBe(true);
+          }
     }
-    // (the generated maps here have at least one; if a generator change takes them all away, find another seed)
+    // (Canyon seed 3 has one; if a generator change takes it away, find another seed)
     expect(ridges).toBeGreaterThan(0);
   });
 });
@@ -235,7 +323,7 @@ describe("Erode as an operation (D342)", () => {
     expect(before.terrain.columns.length).toBe(0);
     const W = 96;
     const m = { heights: before.heights, W, H: W, water: { depth: before.terrain.water } } as unknown as FullForceMap;
-    const [{ foot }] = cliffFeet(m, 5);
+    const [{ foot }] = cliffFeet(m, 7);
     const path = [{ x: foot % W, y: Math.floor(foot / W) }];
     expect(ed.forceStart({ verb: "erode", settings: { ...ERODE_DEFAULTS, power: 70, seed: 3 }, path, cut: null }).errors).toEqual([]);
     const shown = new Map<number, Uint8Array>();

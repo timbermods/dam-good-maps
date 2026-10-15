@@ -6,12 +6,14 @@ import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
+import type { BlocksParams } from "../core/doc/blockTool";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
+import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
+import { viewBuffers, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
@@ -144,6 +146,8 @@ const api = {
     return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`, place.id));
   },
   sessionView: () => sendOpen(ed.sessionView()),
+  /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
+  blockFalls: (params: BlocksParams) => ed.blockFalls(params),
   terrainNow() {
     const t = ed.terrainNow();
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);
@@ -216,6 +220,13 @@ const api = {
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
+  /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
+  keepVersion(k: number, parentId?: string) {
+    const v = ed.keepVersion(k, parentId);
+    return v ? transfer(v, [v.bytes.buffer as ArrayBuffer, ...(v.picture ? [v.picture.heights.buffer as ArrayBuffer, v.picture.water.buffer as ArrayBuffer] : [])]) : null;
+  },
+  /** A version's project opened by replaying it (a worker of the page's own), settled: `project` then has its stored map. */
+  openVersion: (bytes: Uint8Array) => ed.openVersion(bytes),
   // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
@@ -241,6 +252,11 @@ const api = {
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
+  unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
+  removeUnfedWater: (tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)),
+  fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
@@ -277,9 +293,16 @@ const api = {
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);
   },
-  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void) {
-    const r = await ed.exportTimber(confirmWarnings, onProgress);
-    return transfer(r, [r.bytes.buffer as Transferable]);
+  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void, opts?: { picture?: boolean }, onPicture?: (view: MapView) => void) {
+    // (the page's answer is not waited for: it draws while the checks run)
+    const early = onPicture && ((v: MapView) => void Promise.resolve(onPicture(transfer(v, viewBuffers(v) as Transferable[]))).catch(() => undefined));
+    const r = await ed.exportTimber(confirmWarnings, onProgress, opts, early);
+    return transfer(r, [r.bytes.buffer as Transferable, ...((r.picture ? viewBuffers(r.picture) : []) as Transferable[])]);
+  },
+  /** A .timber file with another map_thumbnail.jpg (the page's 3D picture, D488), or the reason it can't take it. */
+  replaceThumbnail(timber: Uint8Array, jpeg: Uint8Array) {
+    const r = replaceThumbnail(timber, jpeg);
+    return r.ok ? transfer(r, [r.bytes.buffer as Transferable]) : r;
   },
   project(level?: number) {
     const r = ed.project(level);

@@ -1,5 +1,5 @@
 // The held tool's settings above the bar (Kyler's option B, 2026-10-03): one panel at the bar's exact width and one
-// fixed height for every tool, two rows on one grid (Kyler, 2026-10-05: never a third), the bar's own 14 cells, every
+// fixed height for every tool, two rows on one grid (Kyler, 2026-10-05: never a third), the bar's own 15 cells, every
 // group spanning whole cells, so each edge in one row lines up with the other and with the bar's cells below; no empty
 // cells. One look per kind of control: a number is a slider with its value at the right of its name; a choice is one segmented look (a toggle is
 // Off and On); Auto is one small word in the same place on every control that has it, and Auto's pick is outlined
@@ -8,13 +8,13 @@
 import type { ComponentChildren } from "preact";
 import { tip } from "../ui/Tooltip";
 
-/** The bar's cells: six tools, the hairline, eight forces. */
-export const BAR_CELLS = 14;
-const TOOLS_CELLS = 6;
+/** The bar's cells: seven tools (Select, the five brushes, Block), the hairline, eight forces (Erode last). */
+export const BAR_CELLS = 15;
+const TOOLS_CELLS = 7;
 /** A cell's grid column: the hairline takes a column of its own after the tools. */
 const column = (cell: number) => (cell <= TOOLS_CELLS ? cell : cell + 1);
 
-/** A group on the grid: `span` whole cells from `at` (1–14) on `row` (1 or 2; `rows: 2` takes both). */
+/** A group on the grid: `span` whole cells from `at` (1–15) on `row` (1 or 2; `rows: 2` takes both). */
 export interface Group {
   key: string;
   row: 1 | 2;
@@ -26,18 +26,23 @@ export interface Group {
   centre?: boolean;
 }
 
-/** A row laid out before Erode's cell was added to the bar (its cells 1–13), on the bar's 14: the new cell is the last,
- *  after Glaciate's, so a group ending at the old last cell takes it and every other group stays where it was, over the
- *  buttons it was over. */
+/** A row laid out before the Block tool's and Erode's cells were added to the bar (its cells 1–13), on the bar's 15: the
+ *  Block cell comes after Naturalize's (cell 7), so a group ending at Naturalize's takes it and every cell after it moves
+ *  one on; the Erode cell is the last, so a group ending at the old last cell takes it. Each force's settings stay over
+ *  the buttons they were over. */
 export function fromThirteen(g: Group): Group {
-  return g.at + g.span - 1 >= 13 ? { ...g, span: g.span + 1 } : g;
+  const from = g.at >= 7 ? g.at + 1 : g.at;
+  const end = g.at + g.span - 1;
+  const to = end + (end >= 6 ? 1 : 0) + (end >= 13 ? 1 : 0);
+  return { ...g, at: from, span: to - from + 1 };
 }
 
-/** The settings of the tool in hand: its groups on the two rows of the bar's cells (laid out on 13, `fromThirteen`). */
-export function SettingsGrid(p: { label: string; groups: readonly Group[] }) {
+/** The settings of the tool in hand: its groups on the two rows of the bar's cells. `fresh`: the groups are laid out on
+ *  the bar's 15 cells already (the Block tool's and Select's); the others were laid out on 13. */
+export function SettingsGrid(p: { label: string; groups: readonly Group[]; fresh?: boolean }) {
   return (
     <div class="settings-grid" role="group" aria-label={p.label}>
-      {p.groups.map(fromThirteen).map((g) => (
+      {(p.fresh ? p.groups : p.groups.map(fromThirteen)).map((g) => (
         <div
           key={g.key}
           class={`set-group${g.centre ? " centre" : ""}`}

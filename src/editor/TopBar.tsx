@@ -1,6 +1,6 @@
-// The bar (PLAN §20 D184, D212; Layout 2): Select, the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, a
-// hairline, then the forces (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode,
-// Kyler 2026-10-06; keys 1 Select, 2–6 the brushes, Shift+1–8 the forces), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
+// The bar (PLAN §20 D184, D212; Layout 2): Select, the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, Block (D335,
+// key 7: add or carve blocks; its Size, Shape and Action), a hairline, then the forces (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode,
+// Kyler 2026-10-06; keys 1 Select, 2–6 the brushes, 7 Block, Shift+1–8 the forces), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
 // the bar's width and one height for every tool, every setting always shown (More is gone). The brushes: Size, Level
 // (Raise, Lower and Flatten's target, D322 item 37: Auto follows the ground, Free sculpts softly) or Strength
 // (Smooth, Naturalize), Mode (item 2), Sources (item 31), Brush (round, square or straight lines, one at a time) and
@@ -18,13 +18,15 @@ import { forcesShownIn } from "./release";
 import { tip } from "../ui/Tooltip";
 import { ChoiceSetting, NumberSetting, SettingsGrid, type Group } from "./settings";
 import type { Verb } from "../core/forces/op";
+import { BLOCK_SIZE_MAX, BLOCK_SIZE_MIN } from "../core/doc/blockTool";
+import type { BlockSettings } from "./block/blockTool";
 
 const ICON = { width: 20, height: 20, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
 /** The tools' icons: an arrow up, an arrow down, a level line, a wave, a weathered peak; a river
  *  cut through a gorge, a crater and its falling star, a fault splitting the ground, a volcano, a
  *  U-shaped valley under its ice; a dashed frame. */
-function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
+function Icon({ tool }: { tool: BrushTool | "select" | "block" | Verb }) {
   switch (tool) {
     case "raise":
       return (
@@ -104,6 +106,12 @@ function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
           <path d="M2 17V9c0-4 3-6 8-6s8 2 8 6v8M6 17v-4c0-2 1.8-3 4-3s4 1 4 3v4M10 6v1M7 7v1M13 7v1" />
         </svg>
       );
+    case "block":
+      return (
+        <svg {...ICON}>
+          <path d="M10 2.5l6.5 3.5v8L10 17.5 3.5 14V6zM3.5 6L10 9.5 16.5 6M10 9.5v8" />
+        </svg>
+      );
     case "select":
       return (
         <svg {...ICON}>
@@ -114,7 +122,7 @@ function Icon({ tool }: { tool: BrushTool | "select" | Verb }) {
 }
 
 /** A tool the top bar picks. */
-export type TopTool = BrushTool | Verb;
+export type TopTool = BrushTool | Verb | "block";
 
 /** The forces (D203, D206): their slots in the bar, each hidden until it is ready. One shared core
  *  builds them once adopted; the bar needs only a force's name, whether it is ready, and its one
@@ -192,11 +200,19 @@ export const STRENGTH_KEYS = ["F+scroll", "[", "]"] as const;
 export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint), b.key);
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
 export const SELECT_TIP = tip("Mark an area to change", "1");
+/** The Block tool, on the tools row after the brushes (D335; key 7). */
+export const BLOCK_TIP = tip("Add or remove blocks", "7");
 
 export interface TopBarProps {
   /** The brush out, or null. */
   active: BrushTool | null;
   settings: BrushSettings;
+  /** The Block tool is out (D335), its settings and where they change. */
+  block?: boolean;
+  blockSettings?: BlockSettings;
+  /** Shift is down: Add and Remove trade places for a click. */
+  blockFlip?: boolean;
+  onBlockSettings?(s: BlockSettings): void;
   onPick(tool: TopTool | null): void;
   /** The force picked (its id), its settings, and whether one is at work (the other tools wait). */
   force?: string | null;
@@ -368,6 +384,57 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   return groups;
 }
 
+/** The Block tool's settings on the bar's cells (D335, D184): the footprint on the first row, its Size from the first cell
+ *  (where the brushes' Size starts) and its Shape beside it; what a click does across the second, with Shift for the
+ *  other. */
+function blockGroups(s: BlockSettings, set: (patch: Partial<BlockSettings>) => void, flip: boolean): Group[] {
+  return [
+    {
+      key: "size",
+      row: 1,
+      at: 1,
+      span: 7,
+      node: <NumberSetting label="Size" title="Blocks across" keys={SIZE_KEYS} value={s.size} min={BLOCK_SIZE_MIN} max={BLOCK_SIZE_MAX} step={1} onChange={(size) => set({ size })} />,
+    },
+    {
+      key: "shape",
+      row: 1,
+      at: 8,
+      span: 8,
+      node: (
+        <ChoiceSetting<"square" | "round">
+          label="Shape"
+          value={s.shape}
+          options={[
+            ["square", "Square", "A square footprint"],
+            ["round", "Round", "A round footprint"],
+          ]}
+          onChange={(shape) => set({ shape })}
+        />
+      ),
+    },
+    {
+      key: "action",
+      row: 2,
+      at: 1,
+      span: 15,
+      node: (
+        <ChoiceSetting<"add" | "remove">
+          label="Action"
+          title="What a click does"
+          value={flip ? (s.mode === "add" ? "remove" : "add") : s.mode}
+          keys={["Shift flips it"]}
+          options={[
+            ["add", "Add", "Add blocks onto the face"],
+            ["remove", "Remove", "Remove blocks"],
+          ]}
+          onChange={(mode) => set({ mode })}
+        />
+      ),
+    },
+  ];
+}
+
 export function TopBar(p: TopBarProps) {
   const s = p.settings;
   const set = (patch: Partial<BrushSettings>) => p.onSettings({ ...s, ...patch });
@@ -378,7 +445,10 @@ export function TopBar(p: TopBarProps) {
   const off = p.loading || p.forceAtWork;
   const why = p.loading ? tip("The map is still loading") : tip("A force is at work", "Esc skips it");
   // one panel, one grid at a time: the brush's, the force's, a source unleashed at work, or Select's
-  const grid = t ? (
+  const setBlock = (patch: Partial<BlockSettings>) => p.blockSettings && p.onBlockSettings?.({ ...p.blockSettings, ...patch });
+  const grid = p.block && p.blockSettings ? (
+    <SettingsGrid label="Block options" groups={blockGroups(p.blockSettings, setBlock, !!p.blockFlip)} fresh />
+  ) : t ? (
     <SettingsGrid label={`${BRUSHES.find((b) => b.tool === t)!.name} options`} groups={brushGroups(t, s, set, p.sizeMax ?? 24, lastLevel)} />
   ) : p.force && p.forceRow ? (
     p.forceRow
@@ -387,7 +457,7 @@ export function TopBar(p: TopBarProps) {
   ) : (
     (p.selectRow ?? null)
   );
-  const button = (tool: BrushTool | "select" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
+  const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
       <span class="icon-word">{name}</span>
@@ -413,6 +483,7 @@ export function TopBar(p: TopBarProps) {
       <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
         {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
         {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
+        {p.blockSettings ? button("block", "Block", "Block tool (7)", !!p.block, off ? why : BLOCK_TIP, off, () => p.onPick(p.block ? null : "block")) : null}
         {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}
         {SHOWN_FORCES.length ? (
           // (a group of its own, laid out on the bar's cells as if it weren't there)

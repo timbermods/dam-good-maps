@@ -193,7 +193,7 @@ function erodeJobs(): { name: string; job: RustJob }[] {
   const cliff = ground((x) => (x < 24 ? 3 : 12));
   const ridge = ground((x) => (x === 24 || x === 25 ? 14 : 2));
   const caved = ground((x) => (x < 24 ? 3 : 12));
-  caved.masks = Uint32Array.from(caved.heights, (h, i) => ((2 ** h - 1) >>> 0) & (i % n >= 24 && i % n < 27 && Math.floor(i / n) > 20 && Math.floor(i / n) < 26 ? ~0b11000 : ~0));
+  caved.masks = Uint32Array.from(caved.heights, (h, i) => ((((1 << h) >>> 0) - 1) >>> 0) & (i % n >= 24 && i % n < 27 && Math.floor(i / n) > 20 && Math.floor(i / n) < 26 ? ~0b11000 : ~0));
   const out: { name: string; job: RustJob }[] = [];
   for (const [name, map, path] of [
     ["cliff", cliff, [{ x: 23.5, y: 24 }]],
@@ -234,7 +234,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const output = executeInRust(f.job);
     if (/^(rift|deposit) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
     if (/^erode (cliff|sweep|ridge|caved|flat) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
-
     pins[f.name] = sha256(output);
   }
   console.log(JSON.stringify(pins, null, 2));

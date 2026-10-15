@@ -107,7 +107,6 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
   // the working area's feathered edge (D254): inside it, the land eases to the locked land a level a
   // tile, never in a cliff along its edge
   if (request.area && request.verb !== "rift" && request.verb !== "deposit" && request.verb !== "erode") { // Rift, Deposit and Erode feather their terrain in Rust, before playback.
-
     params = featherForce(params, before.heights, areaDepth(request.area, before.W, before.H));
     if (!params) return refused("Nothing changed inside the working area");
   }

@@ -22,6 +22,7 @@
 // Try another's replaced force counts through its tiles and the objects still standing; the objects it had
 // removed that stand again are in the host's record, not in the map this reads.
 
+import { blockTileBits } from "../terrain/blocks";
 import { entityTiles, type PlaceEntityParams } from "../features/edits";
 import { brushBounds, markBrushTiles, weathersLikeNature, type BrushParams } from "../features/raster/brush";
 import type { BuildResult } from "../features/build";
@@ -268,6 +269,7 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
   switch (op.op) {
     case "brush": t.union(brushTiles(op.params, W, H)); break;
     case "sculpt": t.addRuns(op.params.cells); break;
+    case "blocks": for (const i of blockTileBits(op.params, W, H).keys()) t.add(i); break;
     case "forceResult": t.union(forceTiles(op.params, m, W, H)); break;
     case "placeEntity": {
       const p: PlaceEntityParams = op.params;
@@ -305,6 +307,8 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
     case "fillHollow":
       for (const i of op.params.lake.tiles) t.add(i);
       break;
+    // a crop changes the whole map (D340); collaborative editing leaves it to the host
+    case "crop": everywhere(acc); break;
     case "paintObjects": {
       const s = m as MapSession;
       const plan = typeof s.check === "function" ? planPaintObjects(s, op.params) : null;

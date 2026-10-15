@@ -171,7 +171,6 @@ export function natureOf(req: ForceRequest, base: { W: number; H: number; height
       return req;
     case "rift":
       return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };
-
     case "deposit":
       return { ...req, settings: { ...req.settings, channels: req.settings.channels ?? "auto" } };
     case "carve":

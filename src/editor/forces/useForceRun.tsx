@@ -92,6 +92,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const e = v.entities;
     v.entities = null;
     if (drop || !e) return;
+    ed.endFlip();
     const m = mirror.current;
     m.entities = e;
     m.entitiesAt = null;
@@ -103,6 +104,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** A frame of a force at work: the ground it changed, its objects. */
   function showForceFrame(f: ForceFrame) {
+    ed.endFlip();
     const r = renderer.current;
     const m = mirror.current;
     if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);
@@ -550,6 +552,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
    *  Lower and Flatten, whose target level is theirs); a force's Size set so is off Auto. False when no
    *  tool takes it. */
   function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
+    // the Block tool: { and } its Size (it has no strength)
+    if (ed.blockRef.current) return ed.blockStep(habit, ev);
     const forcePicked = ed.toolRef.current;
     const brushTool = brushToolRef.current;
     // a tree, bush or thorn in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer

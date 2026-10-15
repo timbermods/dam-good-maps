@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import { shadeTiles } from "../core/render/shade";
 import type { MapRenderer } from "../render3d";
+import { minimapSize } from "./minimapSize";
 
 export interface MinimapProps {
   W: number;
@@ -18,15 +19,10 @@ export interface MinimapProps {
   stamp: string;
 }
 
-/** The minimap's size on the page, in pixels (the map's longer side). */
-const SIZE = 168;
-
 export function Minimap(p: MinimapProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef(false);
-  const scale = SIZE / Math.max(p.W, p.H);
-  const w = Math.round(p.W * scale);
-  const h = Math.round(p.H * scale);
+  const { w, h } = minimapSize(p.W, p.H);
 
   // the picture: one pixel a tile, north up, drawn when the page is idle
   useEffect(() => {

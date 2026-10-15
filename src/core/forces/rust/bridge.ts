@@ -90,6 +90,9 @@ const FORCE_ERRORS = [
   "Invalid Erode settings",
   "Draw Erode on the map",
   "the Floor leaves no rock to wear here",
+  "Nothing here can wear away without leaving ground to fall",
+  "There is no rock here that Erode may wear",
+  "Erode leaves water and the ground that holds it as they are",
 ];
 
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";
@@ -250,7 +253,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
   const metadata = encode(
     {
       ...jobMetadata(job),
-      map: { ...m, _plainEntities: plain, _rockLength: m.rockLayers.length, heights: [], lava: [], rockLayers: [], water: { depth: [], contamination: [] }, masks: [], ...(m.masks ? { _masks: true } : {}) },
+      map: { ...m, _plainEntities: plain, _rockLength: m.rockLayers.length, heights: [], lava: [], rockLayers: [], water: { depth: [], contamination: [] }, masks: [], wet: [], ...(m.masks ? { _masks: true } : {}), ...(m.wet ? { _wet: true } : {}) },
       keep: [],
     },
     false,
@@ -270,7 +273,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
       const d = new Uint32Array(x.memory.buffer, descriptor, 160);
       return new Type(x.memory.buffer, d[slot * 2], d[slot * 2 + 1]);
     };
-    for (const a of [m.heights, m.lava, m.water.depth, m.water.contamination, ...(m.masks ? [m.masks] : [])]) if (a.length !== N) throw new Error("a force's map must be W × H");
+    for (const a of [m.heights, m.lava, m.water.depth, m.water.contamination, ...(m.masks ? [m.masks] : []), ...(m.wet ? [m.wet] : [])]) if (a.length !== N) throw new Error("a force's map must be W × H");
     view(0, Uint8Array).set(m.heights);
     view(1, Uint32Array).set(m.lava);
     view(2, Float64Array).set(m.water.depth);
@@ -279,6 +282,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     if (job.keep) view(5, Uint8Array).set(job.keep);
     if (job.areaDepth) view(67, Uint8Array).set(job.areaDepth);
     if (m.masks) view(68, Uint32Array).set(m.masks);
+    if (m.wet) view(69, Uint32Array).set(m.wet);
     x.forces_checkpoint(task);
     const error = x.forces_plan(task);
     if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
@@ -427,7 +431,6 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
       break;
     }
     case "deposit": {
-
       const mouth=point(), direction=point(), reach=n(), width=n(), placement=(["fan","slope","sheet","delta","hollow"] as const)[n()], count=n();
       const branches=counted(count,()=>counted(n(),point));
       const stages=view(25,Uint8Array).slice(); const N=raw.W*raw.H;

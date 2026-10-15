@@ -67,7 +67,7 @@ export interface ForceResultParams {
   rock?: { tiles: number[]; bits: number[] };
   /** Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (a
    *  bit per level, set where solid: terrain/runs.ts). Their surfaces are as they were (`tiles` lists
-   *  only the ground it scoured); the build lays these over the map's terrain (terrain/carved.ts). */
+   *  only the ground it scoured); the build gives those tiles these masks, as the Block tool's (features/raster/terrain.ts `applyHollows`). */
   runs?: { tiles: number[]; masks: number[] };
   /** Objects that lost their ground. */
   removed: string[];
@@ -292,5 +292,4 @@ export function forceLabel(p: ForceResultParams): string {
     case "erode":
       return "Erode";
   }
-
 }

@@ -15,6 +15,7 @@ import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
 import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
+import { surfaceWater } from "../../render3d/model";
 import { coreNotes } from "../../core/sim/coreMoment";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
@@ -27,7 +28,7 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, heldTick,
-    shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
+    shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
   } = ed;
   const drawerOpen = props.drawerOpen;
 
@@ -40,13 +41,13 @@ export function editorView(ed: Ed, props: EditorProps) {
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
+        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
               view={view}
               class="editor-view"
-              label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
+              label={`3D view of ${info.name}. Middle-drag to turn, right-drag to move, wheel to zoom.`}
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               markersToggle={ed.markersToggle}
@@ -67,8 +68,9 @@ export function editorView(ed: Ed, props: EditorProps) {
               onHover={hoverHandler(ed)}
               hoverText={hover}
             >
-              {sourceMarkers()}
-              {startHintTag()}
+              {ed.compareFlipped ? null : sourceMarkers()}
+              {ed.compareVeil()}
+              {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}
               {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
@@ -80,13 +82,18 @@ export function editorView(ed: Ed, props: EditorProps) {
                 W={info.W}
                 H={info.H}
                 renderer={renderer.current}
-                heights={() => mirror.current.heights}
-                depth={() => mirror.current.water?.depth ?? null}
-                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}`}
+                heights={() => (ed.compareFlipped && props.compare ? props.compare.view.heights : mirror.current.heights)}
+                depth={() => (ed.compareFlipped && props.compare ? surfaceWater(info.W, info.H, props.compare.view.water).depth : (mirror.current.water?.depth ?? null))}
+                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
               />
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>
                   {shapeNote.text}
+                </div>
+              ) : null}
+              {blockNote ? (
+                <div class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} role="status" style={{ left: `${blockNote.x + 16}px`, top: `${blockNote.y + 16}px` }}>
+                  {blockNote.text}
                 </div>
               ) : null}
               {startDrag ? (
@@ -94,11 +101,6 @@ export function editorView(ed: Ed, props: EditorProps) {
               ) : startReach ? (
                 <div class={`start-reach${startReach.fading ? " fading" : ""}`}>
                   <StartIndicators check={startReach.check} rules={needs.rules} />
-                </div>
-              ) : null}
-              {busy > 0 ? (
-                <div class="working" role="status">
-                  Working…
                 </div>
               ) : null}
             </View3D>

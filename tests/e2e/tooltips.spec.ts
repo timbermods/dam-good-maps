@@ -106,7 +106,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("the editor as it opens");
 
   // every brush, with its options row
-  for (const k of ["2", "3", "4", "5", "6"]) {
+  for (const k of ["2", "3", "4", "5", "6", "7"]) {
     await page.keyboard.press(k);
     await check(`brush ${k}`);
   }

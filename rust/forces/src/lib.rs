@@ -488,6 +488,8 @@ struct Map {
     /// The terrain as voxels, a mask per tile (bit z: voxel z solid), when the map has caves or
     /// overhangs or the force reads them (Erode); empty: every tile one run from z = 0, its height.
     masks: Vec<u32>,
+    /// Water in the caves, a bit per level of each tile (an imported map's own, Erode reads it); empty: none.
+    wet: Vec<u32>,
     base: std::sync::Arc<V>,
     ceiling: f64,
     initial_rock_len: usize,
@@ -516,6 +518,7 @@ impl Map {
                 .collect(),
             fallen: arr(&v["fallen"]).iter().map(Fallen::from).collect(),
             masks: arr(&v["masks"]).iter().map(|v| num(v) as u32).collect(),
+            wet: arr(&v["wet"]).iter().map(|v| num(v) as u32).collect(),
             base: std::sync::Arc::new(V::Object(
                 v.as_object()
                     .unwrap()
@@ -523,7 +526,7 @@ impl Map {
                     .filter(|(k, _)| {
                         !matches!(
                             k.as_str(),
-                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities" | "_rockLength" | "masks" | "_masks"
+                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities" | "_rockLength" | "masks" | "_masks" | "wet" | "_wet"
                         )
                     })
                     .map(|(k, v)| (k.clone(), v.clone()))
@@ -568,6 +571,9 @@ impl Map {
         if m.masks.is_empty() && v["_masks"].as_bool() == Some(true) {
             m.masks = vec![0; m.w * m.h];
         }
+        if m.wet.is_empty() && v["_wet"].as_bool() == Some(true) {
+            m.wet = vec![0; m.w * m.h];
+        }
         m
     }
     fn value(&self) -> V {
@@ -575,6 +581,9 @@ impl Map {
         v["heights"] = json!(self.heights);
         if !self.masks.is_empty() {
             v["masks"] = json!(self.masks);
+        }
+        if !self.wet.is_empty() {
+            v["wet"] = json!(self.wet);
         }
         v["lava"] = json!(self.lava);
         v["rockLayers"] = json!(self.rock);
@@ -1042,6 +1051,7 @@ pub fn reset(task: &mut Job) {
     m.contamination.copy_from_slice(&b.contamination);
     m.rock.copy_from_slice(&b.rock);
     m.masks.clone_from(&b.masks);
+    m.wet.clone_from(&b.wet);
     m.entities.clone_from(&b.entities);
     m.fallen.clone_from(&b.fallen);
     for e in &m.entities {
@@ -1074,7 +1084,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 38] = [
+const FORCE_ERRORS: [&str; 41] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1113,6 +1123,9 @@ const FORCE_ERRORS: [&str; 38] = [
     "Invalid Erode settings",
     "Draw Erode on the map",
     "the Floor leaves no rock to wear here",
+    "Nothing here can wear away without leaving ground to fall",
+    "There is no rock here that Erode may wear",
+    "Erode leaves water and the ground that holds it as they are",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -1881,6 +1894,7 @@ fn describe(task: &mut Job) {
     pair(d, 5, &task.keep);
     pair(d, 67, &task.area_depth);
     pair(d, 68, &m.masks);
+    pair(d, 69, &m.wet);
     pair(d, 16, task.command.as_ref());
     pair(d, 17, &task.path);
     pair(d, 62, &task.command_bytes);

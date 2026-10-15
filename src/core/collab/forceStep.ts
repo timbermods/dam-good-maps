@@ -35,7 +35,9 @@ export function forceMapOfSession(s: MapSession): FullForceMap {
   const b = s.built;
   const m = fullForceMapOf(b, { rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
-  return s.columns.size ? { ...m, masks: s.terrain.mask } : m;
+  if (!s.columns.size) return m;
+  const wet = s.caveWater();
+  return { ...m, masks: s.terrain.mask, ...(wet ? { wet } : {}) };
 }
 
 /** What a force would keep: its operation, and a short hash of it (what the author's preview shows). */

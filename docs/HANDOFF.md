@@ -36,8 +36,8 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
   water, the generator, the Rust order (D381), the Codex adoptions and the documents. It owns the decisions' numbering,
   STATUS and HANDOFF.
 - **The planning session** (Opus 5.5, high; the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14,
-  replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it merges every "ready to merge", releases
-  to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
+  replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it watches dev's runs after merges and sends
+  each failure to its owner, releases to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
   the rest to him. Its own PRs are merged by this session after a fresh sub-agent's review.
 - **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
@@ -48,7 +48,7 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
-  `dev`; the planning session merges them on their owner's "ready to merge".
+  `dev`, and merge them themselves once a fresh reviewer agent has approved them and their quick checks are green (D490).
 - **No session touches another's files.** Sessions talk on the Coordination issue (#236); what needs Kyler carries
   `needs-kyler` (D470).
 
@@ -65,13 +65,13 @@ where the job is written down, scripts where it's only waiting.
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
-| The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
+| The planning session: coordination, dev's health after merges, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
-| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines, small well-specified fixes and test updates, simple reviews | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
+| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status lines, small well-specified fixes and test updates that change nothing a player reads or where things sit | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
 | The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
-Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15).
+Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15). Haiku never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet, since a Haiku fix once renamed a History step and undid a layout a review had settled.
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
 and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
@@ -92,21 +92,20 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
+  only design-direction questions and account-only items reach him (docs/RULES.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
   a fresh Opus agent reviews looks); merges come first; about three heavy local runs at once across both sessions. This
   session never ends its turn while work is left (D484, "Never idle"): it keeps
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
-  - *Review:* Kyler reviews nothing (D484). The planning session checks every PR before it merges (correctness, scope,
-    ownership of files); this session's own PRs get a review from a fresh sub-agent that didn't write them. What a player sees, hears
+  - *Review:* Kyler reviews nothing (D484). Every PR gets a review from a fresh sub-agent that didn't write it
+    (correctness, scope, ownership of files) before its owner merges it (D490). What a player sees, hears
     or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
     interaction change's captures).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
-    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
-    session checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
-    with a full CI run by hand first for core and Rust changes). The planning session's own PRs are merged by this session
-    after a fresh sub-agent's review.
+    PR merges once a fresh reviewer agent that didn't write it has approved it and its quick checks (typecheck, quick
+    suite, build) are green; the owning session may merge it itself and posts on #236 what merged (D489, D490). The browser specs and the suites run on dev after the merge; the planning session watches those runs
+    and sends each failure to its owner.
   - *Design questions* go to the planning session first, on #236: it answers those Kyler's recorded decisions settle,
     citing them, and sends only the rest to him as `needs-kyler` issues.
   - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
@@ -136,20 +135,23 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   "<where>"`, a chat line such as "🔔🔔 … 🔔🔔", and one line on #57. If `%USERPROFILE%\.dgm-ntfy-topic` exists the script also posts to ntfy, so it reaches his phone; never print, log or commit the topic.
   **The `needs-kyler` label is itself a ping:** labelling an issue or PR sends one ntfy notification from GitHub
   (`.github/workflows/needs-kyler-ping.yml`, the `NTFY_TOPIC` secret Kyler sets), its number and title, its link as the click target.
-- **When CI runs:**
-  - a **pull request into `dev`** runs the light set: `test` (typecheck, the quick suite in two shards, build) and the four browser shards. Not
-    while it is a draft; a newer push cancels the run it supersedes;
-  - the **merge queue** (a merge group) runs the full suite on the merged state, once per batch: oracle, generation, engines and rust as
-    well. Nothing merges into `dev` without it. `dev` has no CI of its own on a push; the nightly checks its tip;
+- **When CI runs (D489):**
+  - a **pull request into `dev`** runs the quick checks: `changes` and `test` (typecheck, the quick suite in two shards,
+    build). Not while it is a draft; a newer push cancels the run it supersedes;
+  - a **push to `dev`** (a merge) runs the suites its change needs, browser shards included, classified against dev's last
+    tip whose run passed: one run at a time, and while one runs only the newest merge waits. A failure there is fixed
+    forward at once by whoever's merge broke it, or that merge is reverted; the planning session sends it to its owner.
+    The nightly checks dev's tip too;
   - a **push to `main`, a pull request into `main` (a release) and a manual run** run the full suite, never cancelled;
   - the rest is skipped by what changed (`tools/ci-changes.mjs`): only documents, `investigation/`, `LICENSE` or `package.json`'s
     descriptive fields run just the document tests and the build (a pull request into dev touching only `investigation/`
     runs nothing beyond `changes`); only `src/editor/`, `src/ui/` and `tests/e2e/` skip oracle,
     generation, engines and rust; the Rust checks run only when `rust/`, `tools/rust/`, the Wasm's TypeScript wrapper or the
-    workflow changes. CodeQL runs on pushes and weekly, not on PRs.
-- **Merging into `dev`** goes through the queue: open the PR ready, wait for the light set to go green, then add it to the
-  merge queue (`gh pr merge <n> --merge --auto`, or the button). The queue's run must pass; a red run drops the PR out. A fix for dev's own failure
-  is still a PR through the queue.
+    workflow changes. CodeQL runs on pushes and weekly, not on PRs. The collaboration connection test (collab.yml) runs
+    after a merge into dev that touches it, on a release and nightly.
+- **Merging into `dev`** (D489, D490): once a fresh reviewer agent that didn't write the PR has approved it and its quick
+  checks are green, its owner merges it (`gh pr merge <n> --merge`) and posts on #236 what merged; never a PR labelled
+  `hold`. dev has no merge queue. A fix for dev's own failure is a PR like any other.
 - **Before pushing:** run the typecheck and the tests that touch the change; CI runs the rest (D454).
 - **Tests:** `npm run typecheck`, `npm run test:quick` (CI's PR checks), `npm run test:heavy` (nightly), `npx playwright test`
   (the installed Chrome, channel "chrome"; never `npx playwright install`; each e2e run its own free port), `npm run oracle`
@@ -161,7 +163,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   page's preview after every release.
 - **The roadmap canvas** is at <https://timbermods.github.io/dam-good-maps/roadmap/> (noindex), taken from dev by every deploy;
   `roadmap-sync.yml` runs a deploy when dev's copy changes and republishes the live preview commit (`/preview/ref.txt`).
-- **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
+- **Releases** (docs/RULES.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
   `dev` commit that the queue's run passed (a commit with no run is refused): pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
   cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
   once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
@@ -187,13 +189,18 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   `--confirmed-launch` prints the plan and a one-time code; rerun with `--confirmed-launch <code>`. A group whose maps are made outside the repository has its writer in the runner's catalog, and
   `batch -- --group <name>` writes its maps first (`Tall maps` and `Sizes` have one; `Parity` on `feature/parity`; `Terrain
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
+  `batch -- --companion` checks the companion mod in the game (`mods/companion`, `investigation/probe/README.md` "Companion mode"): `--dry-run` prints the plan, then the same command with `--reference` and the code, like any batch.
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
-- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit
-  word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
+- **Merging** (D341, amended by D489 and D490): a change merges into `dev` once a fresh reviewer agent that
+  didn't write it has approved it and its quick checks (typecheck, the quick suite, the build) are green; the owning
+  session may merge it itself. The browser specs and the suites the change needs run on dev's tip
+  after the merge (one run at a time; only the newest merge waits), and the nightly checks dev's tip; a failure there is
+  fixed forward at once by whoever's merge broke it, or that merge is reverted. No full run by hand except for a
+  release. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D489**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D491**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
   work from before/after captures (with greyscale and colour-blindness sheets).

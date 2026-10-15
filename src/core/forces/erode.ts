@@ -18,7 +18,7 @@ import { forceSettingsProblem } from "./settings";
 import type { Point } from "./quake";
 import { clamp } from "./random";
 import { trimRock } from "./rock";
-import { maskPlain, maskSurface } from "../terrain/runs";
+import { isPlainMask, surfaceOfMask } from "../terrain/runs";
 
 export interface ErodeSettings { mode: "wear"; power: number; size: number | null; floor: number; seed: number; sources?: SourcesRule }
 /** A click (one point) or a drawn sweep. */
@@ -38,7 +38,7 @@ export function validateErode(s: ErodeSettings): void {
 
 /** The voxels of a heightfield: one plain run per tile, up to its height. */
 export function plainMasks(heights: ArrayLike<number>): Uint32Array {
-  return Uint32Array.from(heights as ArrayLike<number>, (h) => (h >= 32 ? 0xffffffff : h > 0 ? (2 ** h - 1) >>> 0 : 0));
+  return Uint32Array.from(heights as ArrayLike<number>, (h) => (h >= 32 ? 0xffffffff : h > 0 ? (((1 << h) >>> 0) - 1) >>> 0 : 0));
 }
 
 /** A force's map with its voxels (the heightfield's when it has none of its own). */
@@ -55,7 +55,6 @@ export class ErodeRun extends Staged implements StagedRun {
   private went: Uint32Array = new Uint32Array(0);
   /** How many of the plan's voxels have gone by the stage shown. */
   private gone = 0;
-
   constructor(before: FullForceMap, readonly settings: ErodeSettings, readonly intent: ErodeIntent, keep: Uint8Array | null = null, areaDepth: Uint8Array | null = null) {
     validateErode(settings);
     const m = withMasks(before);
@@ -70,7 +69,7 @@ export class ErodeRun extends Staged implements StagedRun {
     const was = raw.heights.slice();
     this.finalize?.(raw);
     const masks = raw.masks!;
-    for (let i = 0; i < was.length; i++) if (raw.heights[i] !== was[i] && maskPlain(masks[i])) masks[i] = plainMasks([raw.heights[i]])[0];
+    for (let i = 0; i < was.length; i++) if (raw.heights[i] !== was[i] && isPlainMask(masks[i])) masks[i] = plainMasks([raw.heights[i]])[0];
     trimRock(raw);
   }
 
@@ -101,7 +100,7 @@ export class ErodeRun extends Staged implements StagedRun {
       touched.add(i);
     }
     for (const i of touched) {
-      out.heights[i] = maskSurface(masks[i]);
+      out.heights[i] = surfaceOfMask(masks[i]);
       out.lava[i] &= masks[i];
     }
     // what stands on scoured ground rides it down; nothing else moves

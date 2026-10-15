@@ -10,18 +10,19 @@
 // - from both sides at once where a ridge is thin: it opens right through, an arch;
 // - hard rock (the map's beds, fresh volcanic rock) wears at a ninth of the rate.
 // Wear starts only at faces the gesture touched (Size sets how wide along them), and reaches into the
-// rock as far as Power lets it. A voxel goes when its wear passes its own resistance (noise from the
-// seed: Try another changes the seams). Only rock under a roof wears: every tile keeps its top two
-// blocks (or its top one, when that is hard), so the map's surface and every object on it stay where they are,
-// and nothing wears next to water at its level (the hollow would fill: the editor's water is the
-// heightfield's), under a water source's ground (a source stands on its tile's lowest run) or on the
-// map's edge tiles.
+// rock as far as Power lets it, deepest at the base and with a crown rising toward the middle of the
+// opening. A voxel goes when its wear passes its own resistance (noise from the seed: Try another
+// changes the seams). Only rock under a roof wears: every tile keeps its top three blocks, so the map's
+// surface and every object on it stay where they are. No rock that holds back water wears (the
+// heightfield's on top, a map's own in its caves), nor a tile with water, an object's ground, a water
+// source's tile (a source stands on its tile's lowest run) or the map's edge tiles. Then worn shapes,
+// not cut ones: no rock one block thick between hollows, no hollow one block high, none sealed off.
 //
 // Held, not dropped (the game's support rule, terrain/support.ts): after the wear, where a roof would
-// hang more than 3 tiles from support, the rock that wore least under it comes back as a pillar down to
-// the floor; nothing the game would delete is ever left. Where no face can wear (flat ground, low
-// steps), water and wind scour the ground instead: a shallow hollow round the gesture, deeper with Power
-// (D356: a force always has a visible effect).
+// hang more than 3 tiles from support, the rock that wore least under it comes back as a ragged
+// remnant down to the floor; nothing the game would delete is ever left. Where no face can wear (flat
+// ground, low steps), water and wind scour the ground at the gesture instead: a shallow hollow, deeper
+// with Power (D356: a force always has a visible effect).
 //
 // A gesture's points are in tiles, a tile's centre at its whole coordinates (as every force's).
 //
@@ -211,6 +212,36 @@ fn distance2(path: &[Point], x: f64, y: f64) -> f64 {
     best
 }
 
+/// The solid voxels the game deletes that it kept in `was`, within the tiles [x0, x1] × [y0, y1]
+/// (ground beyond them taken as absent, so only ever stricter), by cell (z·N + tile), ascending.
+fn falls_in(t: &[u32], was: &[u32], w: usize, h: usize, b: (usize, usize, usize, usize)) -> Vec<usize> {
+    let (x0, y0, x1, y1) = b;
+    let (bw, bh) = (x1 + 1 - x0, y1 + 1 - y0);
+    let n = w * h;
+    let cut = |a: &[u32]| -> Vec<u32> {
+        let mut out = Vec::with_capacity(bw * bh);
+        for y in y0..=y1 {
+            out.extend_from_slice(&a[y * w + x0..=y * w + x1]);
+        }
+        out
+    };
+    let now = unsupported(&cut(t), bw, bh);
+    if !now.iter().any(|&v| v != 0) {
+        return vec![];
+    }
+    let then = unsupported(&cut(was), bw, bh);
+    let bn = bw * bh;
+    let mut out = vec![];
+    for c in 0..now.len() {
+        if now[c] != 0 && then[c] == 0 {
+            let (z, q) = (c / bn, c % bn);
+            out.push(z * n + (y0 + q / bw) * w + x0 + q % bw);
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
 pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, keep: &[u8], area_depth: &[u8]) -> Plan {
     let (w, h) = (map.w, map.h);
     let n = w * h;
@@ -218,47 +249,63 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     let size = s.size.unwrap_or_else(|| auto_size(s.power));
     let r = size * 0.5;
     let depth = 1.5 + 8.5 * power;
-    let hmax = (1.0 + round(4.0 * power)) as usize;
+    // how high a hollow stands over the ground at its mouth, at most (levels above its floor)
+    let tall = 2.4 + 3.6 * power;
+    let hmax = tall.ceil() as usize;
     let floor_cut = (s.floor.unwrap_or(1.0) as usize).max(1);
     let seed = s.seed;
     let steps = (2.0 * depth).ceil() as usize + 3;
     let orig = masks_of(before);
     let mut t = orig.clone();
     let hard = |i: usize, z: usize| (before.lava[i] >> z) & 1 != 0 || before.rock.get(z).copied().unwrap_or(0.0) > 0.5;
-    // the ground no wear reaches: kept tiles, outside the working area, the map's edge, a source's own
+    let solid = |t: &[u32], i: usize, z: usize| z < Z && (t[i] >> z) & 1 != 0;
+    // water in every column: the heightfield's on top, and what the map holds in its caves (an
+    // imported map's own, `Map::wet`), a bit per level
+    let wet: Vec<u32> = (0..n)
+        .map(|i| {
+            let mut m = before.wet.get(i).copied().unwrap_or(0);
+            let (f, d) = (before.heights[i] as usize, before.depth[i]);
+            if d > 0.02 {
+                let top = min(Z as f64, (f as f64 + d - 0.02).ceil()) as usize;
+                for z in f..top {
+                    m |= 1 << z;
+                }
+            }
+            m
+        })
+        .collect();
+    // the ground no wear reaches: kept tiles, outside the working area, a source's own, a tile with
+    // water on it or in its caves, the map's edge (no hollow on it: its outer face is the map's end)
     let mut fixed = vec![false; n];
-    // (no hollow on the map's edge tiles: their outer face is the map's end)
     let mut edge = vec![false; n];
     for i in 0..n {
         let (x, y) = (i % w, i / w);
         fixed[i] = keep.get(i).copied().unwrap_or(0) != 0 || area_depth.get(i).copied().unwrap_or(255) == 0;
-        edge[i] = x == 0 || y == 0 || x + 1 == w || y + 1 == h;
+        edge[i] = fixed[i] || x == 0 || y == 0 || x + 1 == w || y + 1 == h || wet[i] != 0;
     }
+    // the ground every object stands on (a ledge's under a cave's roof too), three levels down
+    let mut held_up = vec![0u32; n];
     for e in &before.entities {
-        if emitter(&e.template) {
-            for j in before.footprint(e, 0) {
+        let ez = max(0.0, e.z) as usize;
+        for j in before.footprint(e, 0) {
+            if emitter(&e.template) {
                 fixed[j] = true;
+                edge[j] = true;
+            }
+            for z in ez.saturating_sub(3)..ez.min(Z) {
+                held_up[j] |= 1 << z;
             }
         }
     }
-    // the gesture, on the map
-    let mut path: Vec<Point> = intent.path.iter().map(|p| Point { x: clamp(p.x, 0.0, w as f64 - 1.0), y: clamp(p.y, 0.0, h as f64 - 1.0) }).collect();
-    let solid = |t: &[u32], i: usize, z: usize| z < Z && (t[i] >> z) & 1 != 0;
-    let wet_beside = |t: &[u32], i: usize, z: usize| {
+    let path: Vec<Point> = intent.path.iter().map(|p| Point { x: clamp(p.x, 0.0, w as f64 - 1.0), y: clamp(p.y, 0.0, h as f64 - 1.0) }).collect();
+    let nbrs = |i: usize| {
         let (x, y) = (i % w, i / w);
-        let mut wet = false;
-        for (ok, j) in [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)] {
-            if ok && !solid(t, j, z) && (before.heights[j] as usize) <= z && before.heights[j] as f64 + before.depth[j] > z as f64 + 0.02 {
-                wet = true;
-            }
-        }
-        wet
+        [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)]
     };
-    // a voxel the wind and water may take: under a roof, above the Floor, away from water at its level
-    let wearable = |t: &[u32], i: usize, z: usize| {
-        let top = surface(orig[i]);
-        !fixed[i] && !edge[i] && z >= floor_cut && (z + 2 < top || (z + 2 == top && hard(i, top - 1))) && solid(t, i, z) && !wet_beside(t, i, z)
-    };
+    // rock that holds back water stays: next to water at its level, or under it
+    let holds_water = |i: usize, z: usize| nbrs(i).iter().any(|&(ok, j)| ok && (wet[j] >> z) & 1 != 0) || (z + 1 < Z && (wet[i] >> (z + 1)) & 1 != 0);
+    // a voxel the wind and water may take: under a roof of three blocks at least, above the Floor
+    let wearable = |t: &[u32], i: usize, z: usize| !edge[i] && z >= floor_cut && z + 3 < surface(orig[i]) && solid(t, i, z) && (held_up[i] >> z) & 1 == 0 && !holds_water(i, z);
     let air_below = |t: &[u32], j: usize, z: usize| {
         let mut a = 0;
         while a < z && !solid(t, j, z - a - 1) {
@@ -268,44 +315,8 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     };
     // how far the gesture's weight reaches: 1 within about half its Size, none beyond it
     let weight = |d: f64| smooth((r - d) / max(0.5, 0.45 * r));
-    // a click on open ground reaches for the nearest face it can wear, a few tiles away
-    let length: f64 = path.windows(2).map(|p| hypot(p[1].x - p[0].x, p[1].y - p[0].y)).sum();
-    let exposed = |i: usize| {
-        let (x, y) = (i % w, i / w);
-        (1..surface(orig[i]).min(Z)).any(|z| {
-            wearable(&orig, i, z)
-                && [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)]
-                    .iter()
-                    .any(|&(ok, j)| ok && !solid(&orig, j, z) && air_below(&orig, j, z) <= hmax)
-        })
-    };
-    if length < 1.5 {
-        let p = path[0];
-        let (px, py) = (round(p.x) as i64, round(p.y) as i64);
-        let near = |rad: i64, best: &mut Option<(f64, usize)>| {
-            for y in (py - rad).max(0)..=(py + rad).min(h as i64 - 1) {
-                for x in (px - rad).max(0)..=(px + rad).min(w as i64 - 1) {
-                    let i = y as usize * w + x as usize;
-                    let (dx, dy) = (x as f64 - p.x, y as f64 - p.y);
-                    let d = dx * dx + dy * dy;
-                    if d <= (rad * rad) as f64 && best.map_or(true, |b| d < b.0) && exposed(i) {
-                        *best = Some((d, i));
-                    }
-                }
-            }
-        };
-        let mut here = None;
-        near(r.ceil() as i64, &mut here);
-        if here.is_none() {
-            let mut far = None;
-            near(10, &mut far);
-            if let Some((_, i)) = far {
-                path = vec![Point { x: (i % w) as f64, y: (i / w) as f64 }];
-            }
-        }
-    }
-    // the tiles it can reach: within its Size and the depth Power gives of the gesture
     let tile_d = |i: usize| portable_math::sqrt(distance2(&path, (i % w) as f64, (i / w) as f64));
+    // the tiles it can reach: within its Size and the depth Power gives of the gesture
     let (mut x0, mut y0, mut x1, mut y1) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
     for p in &path {
         x0 = min(x0, p.x);
@@ -318,6 +329,8 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     let by0 = max(0.0, (y0 - margin).floor()) as usize;
     let bx1 = min(w as f64 - 1.0, (x1 + margin).ceil()) as usize;
     let by1 = min(h as f64 - 1.0, (y1 + margin).ceil()) as usize;
+    // the support rule's working area: the tiles it may change and ground round them
+    let worked = (bx0.saturating_sub(6), by0.saturating_sub(6), (bx1 + 6).min(w - 1), (by1 + 6).min(h - 1));
     let mut tiles: Vec<usize> = vec![];
     let mut dist = vec![f64::INFINITY; n];
     for y in by0..=by1 {
@@ -331,7 +344,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
     }
     // each air voxel's way in from the face (0 for the air that was there), the weight of the
-    // gesture where that face met it and the ground at the face's foot (a hollow's height above it
+    // gesture where that face met it, and the ground at the face's foot (a hollow's height above it
     // is what the wind and splash read); each voxel's wear so far, and the step it went at
     let mut din = vec![255u8; Z * n];
     let mut gin = vec![0f32; Z * n];
@@ -352,17 +365,23 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         let grain = 0.6 * noise3(seed, x, y, z as f64, 2.3, 0x51) + 0.4 * lattice(seed, x as i64, y as i64, z as i64, 0x93);
         (if hard(i, z) { 9.0 } else { 1.0 }) * (0.6 + 0.8 * grain)
     };
-    let limit = |i: usize, z: usize, g: f64| depth * portable_math::sqrt(g) * (0.8 + 0.4 * noise3(seed, (i % w) as f64, (i / w) as f64, z as f64, 3.1, 0x2d));
-    let nbrs = |i: usize| {
-        let (x, y) = (i % w, i / w);
-        [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)]
+    // the shape a hollow wears to: deepest at its base and where the gesture met the face, its crown
+    // rising toward the middle of the opening and falling toward its back, the rock's grain varying both
+    let reach = |i: usize, z: usize, g: f64, above: f64| {
+        let grain = 0.75 + 0.5 * noise3(seed, (i % w) as f64, (i / w) as f64, z as f64, 4.5, 0x2d);
+        depth * portable_math::sqrt(g) * grain * (1.0 - 0.55 * pow(min(1.0, above / (tall + 1.0)), 1.5))
+    };
+    let crown = |i: usize, g: f64, d: f64, lim: f64| {
+        let lump = 0.85 + 0.3 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 5.0, 0x6b);
+        let q = min(1.0, max(0.0, d - 1.0) / max(1.0, lim));
+        tall * (0.4 + 0.6 * g) * lump * (1.0 - 0.45 * q * q)
     };
     // what wears this step, read from the land as it was when the step began
     let mut worn = 0usize;
     for step in 1..=steps {
         let mut go: Vec<(usize, u8, f32, u8)> = vec![];
         for &i in &tiles {
-            if fixed[i] || edge[i] {
+            if edge[i] {
                 continue;
             }
             let top = surface(t[i]).min(Z);
@@ -402,8 +421,9 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
                 if sum == 0.0 {
                     continue;
                 }
-                let lim = limit(i, z, g_new as f64);
-                if d_new as f64 > lim {
+                let above = z as f64 - f_new as f64;
+                let lim = reach(i, z, g_new as f64, above);
+                if d_new as f64 > lim || above + 1.0 > crown(i, g_new as f64, d_new as f64, depth * portable_math::sqrt(g_new as f64)) {
                     continue;
                 }
                 let cap = if hard(i, z + 1) { 1.8 } else if z + 2 < Z && hard(i, z + 2) { 1.3 } else { 1.0 };
@@ -423,59 +443,219 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
         worn += go.len();
     }
-    // a lone soft spike standing in the hollow, open on three sides or more, goes with it
-    if worn > 0 {
-        let mut spikes = vec![];
-        for &i in &tiles {
-            let top = surface(t[i]).min(Z);
-            for z in floor_cut..top {
-                if !wearable(&t, i, z) || hard(i, z) {
+    let removed = |t: &[u32], i: usize, z: usize| (orig[i] >> z) & 1 != 0 && (t[i] >> z) & 1 == 0;
+    let take = |t: &mut Vec<u32>, c: usize| t[c % n] &= !(1u32 << (c / n));
+    let put = |t: &mut Vec<u32>, c: usize| t[c % n] |= 1u32 << (c / n);
+    // worn shapes, not cut ones: no rock one block thick left between hollows, or between a hollow and
+    // the open air; no hollow one block high; nothing hollow that does not open to the outside, and no
+    // hollow of a voxel or two
+    let thin = |t: &mut Vec<u32>| -> Vec<usize> {
+        let mut all = vec![];
+        for _ in 0..2 {
+            let mut go = vec![];
+            let mut back = vec![];
+            for &i in &tiles {
+                let (x, y) = (i % w, i / w);
+                if x == 0 || y == 0 || x + 1 == w || y + 1 == h {
                     continue;
                 }
-                let mut open = 0;
-                let (mut d, mut g, mut f) = (255u8, 0f32, 255u8);
-                for (ok, j) in nbrs(i) {
-                    let a = z * n + j;
-                    if ok && !solid(&t, j, z) && din[a] != 255 && din[a] > 0 {
-                        open += 1;
-                        d = d.min(din[a] + 1);
-                        g = fmax32(g, gin[a]);
-                        f = f.min(fl[a]);
+                for z in 1..surface(orig[i]).min(Z - 1) {
+                    if !solid(t, i, z) {
+                        continue;
+                    }
+                    let air = |j: usize| !solid(t, j, z);
+                    let worn_at = |j: usize| removed(t, j, z);
+                    let across = (air(i - 1) && air(i + 1) && (worn_at(i - 1) || worn_at(i + 1))) || (air(i - w) && air(i + w) && (worn_at(i - w) || worn_at(i + w)));
+                    let shelf = removed(t, i, z - 1) && removed(t, i, z + 1);
+                    if !across && !shelf {
+                        continue;
+                    }
+                    if wearable(t, i, z) && !hard(i, z) {
+                        go.push(z * n + i);
+                    } else if shelf {
+                        // rock that may not wear stays thick: the hollow over it fills back
+                        back.push((z + 1) * n + i);
+                    } else {
+                        for j in [i - 1, i + 1, i - w, i + w] {
+                            if worn_at(j) {
+                                back.push(z * n + j);
+                            }
+                        }
                     }
                 }
-                if open >= 3 && d as f64 <= limit(i, z, g as f64) + 1.0 {
-                    spikes.push((z * n + i, d, g, f));
+            }
+            if go.is_empty() && back.is_empty() {
+                break;
+            }
+            for &c in &back {
+                put(t, c);
+            }
+            for &c in &go {
+                take(t, c);
+            }
+            all.extend(go);
+        }
+        all
+    };
+    let tidy = |t: &mut Vec<u32>| {
+        // a hollow one block high (rock right over it and right under it) is filled back
+        let mut back = vec![];
+        for &i in &tiles {
+            if t[i] == orig[i] {
+                continue;
+            }
+            for z in 1..Z - 1 {
+                if removed(t, i, z) && solid(t, i, z - 1) && solid(t, i, z + 1) {
+                    back.push(z * n + i);
                 }
             }
         }
-        for (c, d, g, f) in spikes {
-            t[c % n] &= !(1u32 << (c / n));
-            din[c] = d;
-            gin[c] = g;
-            fl[c] = f;
+        for c in back {
+            put(t, c);
+        }
+        // the hollows that open to the outside, through air; the rest, and any of a voxel or two, filled
+        let (x0, y0, x1, y1) = worked;
+        let bw = x1 + 1 - x0;
+        let inside = |i: usize| {
+            let (x, y) = (i % w, i / w);
+            x >= x0 && x <= x1 && y >= y0 && y <= y1
+        };
+        let mut open = vec![false; Z * (y1 + 1 - y0) * bw];
+        let key = |c: usize| {
+            let (z, i) = (c / n, c % n);
+            z * (y1 + 1 - y0) * bw + (i / w - y0) * bw + i % w - x0
+        };
+        let mut queue: Vec<usize> = vec![];
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let i = y * w + x;
+                for z in 0..Z {
+                    if !solid(t, i, z) && !removed(t, i, z) {
+                        open[key(z * n + i)] = true;
+                        queue.push(z * n + i);
+                    }
+                }
+            }
+        }
+        let mut k = 0;
+        while k < queue.len() {
+            let c = queue[k];
+            k += 1;
+            let (z, i) = (c / n, c % n);
+            let mut next = vec![];
+            for (ok, j) in nbrs(i) {
+                if ok && inside(j) {
+                    next.push(z * n + j);
+                }
+            }
+            if z > 0 {
+                next.push(c - n);
+            }
+            if z + 1 < Z {
+                next.push(c + n);
+            }
+            for q in next {
+                if !solid(t, q % n, q / n) && !open[key(q)] {
+                    open[key(q)] = true;
+                    queue.push(q);
+                }
+            }
+        }
+        let mut back = vec![];
+        let mut seen = vec![false; open.len()];
+        for &i in &tiles {
+            if t[i] == orig[i] {
+                continue;
+            }
+            for z in 0..Z {
+                let c = z * n + i;
+                if !removed(t, i, z) || seen[key(c)] {
+                    continue;
+                }
+                // the worn voxels joined to this one
+                let mut part = vec![c];
+                seen[key(c)] = true;
+                let mut q = 0;
+                while q < part.len() {
+                    let d = part[q];
+                    q += 1;
+                    let (dz, di) = (d / n, d % n);
+                    let mut next = vec![];
+                    for (ok, j) in nbrs(di) {
+                        if ok && inside(j) {
+                            next.push(dz * n + j);
+                        }
+                    }
+                    if dz > 0 {
+                        next.push(d - n);
+                    }
+                    if dz + 1 < Z {
+                        next.push(d + n);
+                    }
+                    for e in next {
+                        if removed(t, e % n, e / n) && !seen[key(e)] {
+                            seen[key(e)] = true;
+                            part.push(e);
+                        }
+                    }
+                }
+                if part.len() < 3 || !part.iter().any(|&d| open[key(d)]) {
+                    back.extend(part);
+                }
+            }
+        }
+        for c in back {
+            put(t, c);
+        }
+    };
+    if worn > 0 {
+        for c in thin(&mut t) {
             went[c] = steps as u16;
         }
+        tidy(&mut t);
     }
-    let removed = |t: &[u32], i: usize, z: usize| (orig[i] >> z) & 1 != 0 && (t[i] >> z) & 1 == 0;
-    let any_removed = |t: &[u32]| tiles.iter().any(|&i| t[i] != orig[i]);
-    // where no face could wear (flat ground, low steps), the ground is scoured: a shallow hollow
+    // where no face could wear (flat ground, low steps), the ground is scoured: a shallow hollow round
+    // the gesture, the tile under it always among it
     let mut scoured = 0usize;
-    if !any_removed(&t) {
+    let mut floor_held = false;
+    let mut water_held = false;
+    // (whether any hollow is left: the shaping passes below are for hollows, never for scoured ground)
+    let hollowed = tiles.iter().any(|&i| t[i] != orig[i]);
+    // the water level beside a tile: the scoured ground stays at or above it, so no water spills in
+    let water_beside = |i: usize| -> usize {
+        let mut top = 0usize;
+        for (ok, j) in nbrs(i) {
+            if ok && wet[j] != 0 {
+                top = top.max(32 - wet[j].leading_zeros() as usize);
+            }
+        }
+        top
+    };
+    if !hollowed {
         for &i in &tiles {
             let d = dist[i];
             let ragged = r * (0.7 + 0.45 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 2.7, 0x7a));
-            // (the tile under the gesture always: a click anywhere wears something, D356)
             if fixed[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
+                continue;
+            }
+            // (water and the ground that holds it stay: no wet tile scoured, none below the water beside)
+            if wet[i] != 0 {
+                water_held = true;
                 continue;
             }
             let top = surface(orig[i]);
             if top <= floor_cut {
+                floor_held = true;
                 continue;
             }
             let k = 1.0 + (power * 2.0 * portable_math::sqrt(max(0.0, 1.0 - d / max(0.5, ragged))) + 0.5 * lattice(seed, (i % w) as i64, (i / w) as i64, 0, 0x5c)).floor();
             let k = (clamp(k, 1.0, 3.0) as usize).min(area_depth.get(i).copied().unwrap_or(255) as usize);
-            let low = top.saturating_sub(k).max(floor_cut);
+            let shore = water_beside(i);
+            let low = top.saturating_sub(k).max(floor_cut).max(shore);
             if low >= top {
+                if shore >= top {
+                    water_held = true;
+                }
                 continue;
             }
             t[i] = mask(low as u8);
@@ -485,12 +665,8 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             scoured += 1;
         }
     }
-    // held, not dropped: what the game would delete that it kept before, a pillar at a time
-    let was = unsupported(&orig, w, h);
-    let fresh = |t: &[u32]| -> Vec<usize> {
-        let u = unsupported(t, w, h);
-        (0..u.len()).filter(|&c| u[c] != 0 && was[c] == 0).collect()
-    };
+    // held, not dropped: what the game would delete that it kept before, the rock that wore least
+    // brought back a remnant at a time; first in the worked area (the cheap check), then on the whole map
     let restore = |t: &mut Vec<u32>, i: usize, mut z: usize| -> usize {
         let mut k = 0;
         loop {
@@ -507,83 +683,113 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         k
     };
     let mut held = 0usize;
-    loop {
-        let u = fresh(&t);
-        if u.is_empty() {
-            break;
-        }
-        let zs = u.iter().map(|&c| c / n).min().unwrap();
-        let loose: Vec<usize> = u.iter().filter(|&&c| c / n == zs).map(|&c| c % n).collect();
-        let mut gain: HashMap<usize, f64> = HashMap::new();
-        if zs > 0 {
-            for &l in &loose {
-                // the voxels of this layer within support's reach of the loose one, through rock
-                let mut seen: Vec<(usize, u8)> = vec![(l, 0)];
-                let mut k = 0;
-                while k < seen.len() {
-                    let (j, d) = seen[k];
-                    k += 1;
-                    if removed(&t, j, zs - 1) {
-                        *gain.entry(j).or_insert(0.0) += 1.0;
-                    }
-                    if d == REACH {
-                        continue;
-                    }
-                    for (ok, q) in nbrs(j) {
-                        if ok && solid(&t, q, zs) && !seen.iter().any(|s| s.0 == q) {
-                            seen.push((q, d + 1));
+    let mut given_up = false;
+    let whole = (0, 0, w - 1, h - 1);
+    // (twice: what holding the roofs left one block thick wears through, and is held again)
+    for pass in 0..2 {
+    for area in [worked, whole] {
+        loop {
+            let u = falls_in(&t, &orig, w, h, area);
+            if u.is_empty() {
+                break;
+            }
+            let zs = u.iter().map(|&c| c / n).min().unwrap();
+            let loose: Vec<usize> = u.iter().filter(|&&c| c / n == zs).map(|&c| c % n).collect();
+            let mut gain: HashMap<usize, f64> = HashMap::new();
+            if zs > 0 {
+                for &l in &loose {
+                    // the voxels of this layer within support's reach of the loose one, through rock
+                    let mut seen: Vec<(usize, u8)> = vec![(l, 0)];
+                    let mut k = 0;
+                    while k < seen.len() {
+                        let (j, d) = seen[k];
+                        k += 1;
+                        if removed(&t, j, zs - 1) {
+                            *gain.entry(j).or_insert(0.0) += 1.0;
+                        }
+                        if d == REACH {
+                            continue;
+                        }
+                        for (ok, q) in nbrs(j) {
+                            if ok && solid(&t, q, zs) && !seen.iter().any(|s| s.0 == q) {
+                                seen.push((q, d + 1));
+                            }
                         }
                     }
                 }
             }
-        }
-        let mut best: Option<(f64, usize)> = None;
-        let mut keys: Vec<_> = gain.keys().copied().collect();
-        keys.sort_unstable();
-        for c in keys {
-            // the rock that wore least, set back from the open air, in the grain of the rock
-            let b = (zs - 1) * n + c;
-            let late = went[b] as f64 / steps as f64;
-            let set_back = if din[b] <= 1 { 0.35 } else if din[b] == 2 { 0.75 } else { 1.0 };
-            let score = gain[&c] * (0.7 + 0.6 * noise3(seed, (c % w) as f64, (c / w) as f64, 0.0, 2.0, 0x77)) * (1.0 + 0.5 * late) * set_back;
-            if best.map_or(true, |b| score > b.0) {
-                best = Some((score, c));
-            }
-        }
-        let mut back = 0;
-        if let Some((_, c)) = best {
-            // a broad remnant: the pillar and the rock beside it on its grain's side, two by two
-            back += restore(&mut t, c, zs - 1);
-            let (cx, cy) = (c % w, c / w);
-            let sx = if hash(seed, c as f64 + 0.5) < 0.5 { -1i64 } else { 1 };
-            let sy = if hash(seed + 1.0, c as f64) < 0.5 { -1i64 } else { 1 };
-            for (dx, dy) in [(sx, 0), (0, sy), (sx, sy)] {
-                let (qx, qy) = (cx as i64 + dx, cy as i64 + dy);
-                if qx < 0 || qy < 0 || qx >= w as i64 || qy >= h as i64 {
-                    continue;
-                }
-                let q = qy as usize * w + qx as usize;
-                if removed(&t, q, zs - 1) && solid(&t, q, zs) {
-                    back += restore(&mut t, q, zs - 1);
+            let mut best: Option<(f64, usize)> = None;
+            let mut keys: Vec<_> = gain.keys().copied().collect();
+            keys.sort_unstable();
+            for c in keys {
+                // the rock that wore least, set back from the open air, best grown from a wall
+                let b = (zs - 1) * n + c;
+                let late = went[b] as f64 / steps as f64;
+                let set_back = if din[b] <= 1 { 0.35 } else if din[b] == 2 { 0.75 } else { 1.0 };
+                let wall = if nbrs(c).iter().any(|&(ok, j)| ok && solid(&t, j, zs - 1) && !removed(&t, j, zs - 1)) { 1.6 } else { 1.0 };
+                let score = gain[&c] * (0.7 + 0.6 * noise3(seed, (c % w) as f64, (c / w) as f64, 0.0, 2.0, 0x77)) * (0.6 + late * late) * set_back * wall;
+                if best.map_or(true, |b| score > b.0) {
+                    best = Some((score, c));
                 }
             }
-        } else {
-
-            // nothing under it to stand a pillar on: its own layer's rock beside it comes back
-            for &l in &loose {
-                for (ok, q) in nbrs(l) {
-                    if ok && removed(&t, q, zs) {
-                        back += restore(&mut t, q, zs);
+            let mut back = 0;
+            if let Some((_, c)) = best {
+                // a remnant of rock left standing: two by two at least, a ragged three by three at most
+                back += restore(&mut t, c, zs - 1);
+                let (cx, cy) = (c % w, c / w);
+                let sx = if hash(seed, c as f64 + 0.5) < 0.5 { -1i64 } else { 1 };
+                let sy = if hash(seed + 1.0, c as f64) < 0.5 { -1i64 } else { 1 };
+                let mut around = vec![(sx, 0, 1.0), (0, sy, 1.0), (sx, sy, 1.0)];
+                for (dx, dy) in [(-sx, 0), (0, -sy), (-sx, sy), (sx, -sy), (-sx, -sy)] {
+                    around.push((dx, dy, lattice(seed, cx as i64 + dx, cy as i64 + dy, zs as i64, 0x4f)));
+                }
+                for (dx, dy, keep) in around {
+                    let (qx, qy) = (cx as i64 + dx, cy as i64 + dy);
+                    if keep < 0.55 || qx < 0 || qy < 0 || qx >= w as i64 || qy >= h as i64 {
+                        continue;
+                    }
+                    let q = qy as usize * w + qx as usize;
+                    if removed(&t, q, zs - 1) {
+                        back += restore(&mut t, q, zs - 1);
+                    }
+                }
+            } else {
+                // nothing under it to stand on: its own layer's rock beside it comes back
+                for &l in &loose {
+                    for (ok, q) in nbrs(l) {
+                        if ok && removed(&t, q, zs) {
+                            back += restore(&mut t, q, zs);
+                        }
                     }
                 }
             }
+            if back == 0 {
+                // (never met: the land as it was holds; the wear is taken back whole)
+                t.clone_from(&orig);
+                given_up = true;
+                break;
+            }
+            held += back;
         }
-        if back == 0 {
-            // (never met: the land as it was holds; the wear is taken back whole)
-            t.clone_from(&orig);
+        if given_up {
             break;
         }
-        held += back;
+    }
+    if given_up || !hollowed || pass == 1 {
+        break;
+    }
+    let more = thin(&mut t);
+    if more.is_empty() {
+        break;
+    }
+    for c in more {
+        went[c] = steps as u16;
+    }
+    tidy(&mut t);
+    }
+    if !given_up && hollowed {
+        // filling back never takes support away
+        tidy(&mut t);
     }
     // the voxels it took, in the order they are shown
     let mut cells: Vec<u32> = vec![];
@@ -598,7 +804,8 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
     }
     if cells.is_empty() {
-        map.error = 37;
+        // why: the Floor; every voxel taken back to hold the ground; or no rock it may touch
+        map.error = if given_up || hollowed { 38 } else if water_held { 40 } else if floor_held { 37 } else { 39 };
         return rift::result(map, Records::Erode(Box::new(ErodeRecords { tiles: vec![], masks: vec![], cells: vec![], buckets: vec![], stats: [0.0; 8] })));
     }
     cells.sort_by(|&a, &b| {
@@ -618,17 +825,19 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             }
         }
         loop {
-            let u = fresh(&show);
-            if u.is_empty() {
-                break;
-            }
-            for c in u {
+            let mut moved = false;
+            for c in falls_in(&show, &orig, w, h, worked) {
                 // (only a voxel still to go can hang: the final land holds, and more rock holds more)
-                let c32 = c as u32;
-                if let Some(e) = bucket.get_mut(&c32) {
-                    *e = b;
+                if let Some(e) = bucket.get_mut(&(c as u32)) {
+                    if *e > b {
+                        *e = b;
+                        show[c % n] &= !(1u32 << (c / n));
+                        moved = true;
+                    }
                 }
-                show[c % n] &= !(1u32 << (c / n));
+            }
+            if !moved {
+                break;
             }
         }
     }
@@ -657,7 +866,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     }
     rift::ride(before, &mut map);
     let k = total as f64;
-    let reached = (0..Z * n).filter(|&c| din[c] != 255).map(|c| din[c] as f64).fold(0.0, max);
+    let reached = cells.iter().map(|&c| din[c as usize]).filter(|&d| d != 255).map(|d| d as f64).fold(0.0, max);
     let stats = [k, held as f64, scoured as f64, fx / k, fy / k, round(fz / k), size, reached];
     rift::result(map, Records::Erode(Box::new(ErodeRecords { tiles: changed, masks, cells, buckets, stats })))
 }
@@ -665,7 +874,6 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
 #[cfg(test)]
 mod tests {
     use super::*;
-
     /// A map W × H from heights, with its rock beds and the given masks.
     fn map_of(w: usize, h: usize, heights: Vec<u8>, rock: Vec<f64>, masks: Vec<u32>) -> Map {
         let n = w * h;

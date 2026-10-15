@@ -216,7 +216,7 @@ pub fn game_name(template: &str) -> Option<&'static str> {
         "ChestnutTree" => Some("Chestnut tree"),
         "Mangrove" => Some("Mangrove"),
         "Succulent" => Some("Succulent"),
-        "BlueberryBush" => Some("Blueberry bush"),
+        "BlueberryBush" => Some("Berry bush"),
         "Slope" => Some("Slope"),
         "WaterSource" => Some("Water source"),
         "BadwaterSource" => Some("Badwater source"),
