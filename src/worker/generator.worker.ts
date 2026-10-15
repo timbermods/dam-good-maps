@@ -263,6 +263,10 @@ const api = {
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
   removeUnfedWater: routed((tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)), (...a) => collabEditApi.removeUnfedWater(...a).then(sendUpdate)),
   fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. A crop changes the map's size, which
+   *  a shared session cannot carry: refused with a plain line while one is on. */
+  cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
+  cropTo: routed((r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)), () => sendUpdate(collabEditApi.cropTo())),
   fillAt: routed((x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)), (...a) => collabEditApi.fillAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),

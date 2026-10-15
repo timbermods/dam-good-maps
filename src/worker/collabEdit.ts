@@ -142,6 +142,10 @@ export const collabEditApi = {
   async forceRoll(_to: { step: 1 | -1 } | { index: number }): Promise<ed.RollShown> {
     return { ...ed.collabAnswer(false, ["Another roll isn't available in a shared session yet"]), settings: null };
   },
+  /** Crop map to selection changes the map's size, which a session's replicas cannot follow: refused, plainly. */
+  cropTo(): Answer & { removedObjects: number } {
+    return { ...ed.collabAnswer(false, ["The map can't be cropped in a shared session. Leave it first."]), removedObjects: 0 };
+  },
   forceSettle(): ed.SessionInfo {
     return ed.sessionInfo();
   },
