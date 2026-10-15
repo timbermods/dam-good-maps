@@ -42,6 +42,7 @@ import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { DIRS8 } from "./num";
+import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
 import { REACH as STORY_REACH } from "../analysis/story";
 
@@ -459,7 +460,26 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const wander = g.wander;
   const wanderCell = g.wanderCell;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) Er[y * W + x] = E[y * W + x] + wander * fbm(rs, x, y, wanderCell, 2);
-  const dr = drainage(Er, W, H, { outlet: (i) => !onUp(i), epsilon: 1e-6 });
+  // (D357: down a long map the water's way runs its length, to the far end: its long sides don't take it,
+  // else every course left by the nearer side a few dozen tiles in and the long map had no long river)
+  const lengthwise = g.tiltKind === "linear" && mapShape(W, H).long;
+  const onSide = (i: number) => {
+    const e = edgeOf(i, W, H);
+    return !!e && !up.includes(e) && !down.includes(e);
+  };
+  // (and it keeps off the long sides: led along a side's edge, a course was refused for hugging it, or its water
+  // would leave there in the game; a bank rising up to 8 within a quarter of the width of each side, and a wall
+  // no course crosses within the 4 tiles a course keeps from an edge, so a hollow by the side never draws one)
+  if (lengthwise) {
+    const across = W >= H ? H : W;
+    const m = Math.max(6, 0.25 * across);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const d = W >= H ? Math.min(y, H - 1 - y) : Math.min(x, W - 1 - x);
+        if (d < m) Er[y * W + x] += (8 * (m - d)) / m + (d < 5 ? 100 : 0);
+      }
+  }
+  const dr = drainage(Er, W, H, { outlet: lengthwise ? (i) => !onUp(i) && !onSide(i) : (i) => !onUp(i), epsilon: 1e-6 });
   // (M9b: the spill of each tile's lowest way down on the land's levels, as the game's water moves)
   const drH = natural ? drainage(h, W, H, { outlet: (i) => !onUp(i), eight: false }) : null;
   // (and the level each tile's water spills out at by any edge: a hollow on a course fills to it)
@@ -546,9 +566,13 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
     // and the water beyond would stand higher than where it begins: it could never flow that way
     // (an inflow's water runs back out by the edge beside its mouth)
-    if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 || drH.filled[hd.cell] > h[hd.cell])) return false;
+    // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
+    // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
+    // stopped every inflow at its edge, so the long map had no long river)
+    const rise = lengthwise ? 1 : 0;
+    if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
     // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
-    if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell]) return false;
+    if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
     // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
     // does not drain)
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
@@ -562,6 +586,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // edge inflows: low points of the upstream edges with long paths inland. When the player set the
   // Rivers setting, that many rivers enter (PLAN §5.3): if the first search finds too few, shorter
   // paths and closer heads are taken (a stream of its own, so other maps are as they were)
+  // (D357: a long map's river enters at its near end, so the river runs its length: from springs alone it
+  // began inland and reached half the map. A Rivers count the player set is kept; a sea's map keeps its own)
+  if (lengthwise && !g.seaLayout && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(1, g.hydro.inflows);
   if (g.hydro.inflows > 0) {
     // (Canyon from 128² up prefers the mouth with the longest way across, so the main river crosses
     // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27)
@@ -1556,7 +1583,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       main.params.bedProfile = {start:bed[0],steps};
     }
 
-    const s0 = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    const s0Drawn = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    // (D357: down a long map the fan opens in its last stretch, about as long as the map is wide, the
+    // river running the length above it; drawn from a third of the way down, its arms ran side by side
+    // for hundreds of tiles)
+    const s0 = fan && mapShape(W, H).long ? Math.max(s0Drawn, m.L - 1.2 * Math.min(W, H)) : s0Drawn;
     const { p: p0 } = pointAt(m.path, s0);
     const end = m.path[m.path.length - 2];
     // (River style Braided: one more mouth, PLAN §5.3's 2–4 channels)

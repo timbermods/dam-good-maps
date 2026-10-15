@@ -232,7 +232,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
-| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed. Maps too small or thin for a start are refused with a one-line reason until the generator shapes for them (D357 part 2). |
+| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed, and the generator uses the shape: a map 1.5 times as long as wide or more gets its water down its length and its start at an end or the middle by theme (D357 part 2). Generate refuses a side under the theme's least (48, Islands 64) at once with a one-line reason naming it; a smaller map is still made by hand. |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
@@ -816,9 +816,10 @@ has run for a day, and maps are written pre-filled with it, as official maps are
 stacked-column rules (sideways flow between overlapping gaps, pressure (overflow × 8), the overflow cap of (34 −
 ceiling)/8, and roofs); on heightfields it moves no wet tile; on the official cave maps wet columns agree at IoU ≥ 0.99
 on 17 of 19 (Oasis and Spillage hold aquifer and seep water no steady state shows); the pre-fill is a priority flood
-over the graph of gaps. Imported maps can still have water the port cannot show (Cliffside 24 wet cells under roofs,
-Canyon 180, Terraces 473): there the editor keeps the file's saved water and marks the preview approximate
-(EDITOR_PLAN.md, Checks and water). Only the steady state is used. The port was also checked against a game save
+over the graph of gaps. An imported map with caves or overhangs is settled by that engine once it is edited, on
+every water column (`sim/stackWater.ts`, the Rust engine; D448), in the background, and its file gets the settle
+slot by slot with the soil per run top; unedited, it keeps its file's own water (EDITOR_PLAN.md, Checks and
+water). Only the steady state is used. The port was also checked against a game save
 written with mods active (none known to touch water); in-game check B confirms the result on vanilla.
 
 **Drought.** Sources ramp to 0 for the whole drought. The drought check is analytic (`sim/drought.ts`, D29): water
@@ -882,7 +883,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 512; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator its theme's least side or more, 48, Islands 64, `GENERATOR_MIN_SIDE`); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`

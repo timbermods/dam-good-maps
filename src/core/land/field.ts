@@ -22,6 +22,7 @@ import { polyDist } from "../math/polyline";
 import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
+import { mapShape } from "./shape";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
 export function landSeed(seed: number, variation: number): number {
@@ -60,8 +61,26 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
-  const each = (f: (x: number, y: number, i: number) => void) => {
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) f(x, y, y * W + x);
+  // (D357: a part reaches only so far from where it stands; past that it adds nothing, so only the box
+  // it can reach is visited, the same land at a fraction of the cost on a large map. Each box below is
+  // drawn wider than the part's furthest reach, with its noise at its extremes, -1 and 1)
+  const each = (f: (x: number, y: number, i: number) => void, box?: readonly [number, number, number, number]) => {
+    const x0 = box ? Math.max(0, Math.floor(box[0])) : 0;
+    const y0 = box ? Math.max(0, Math.floor(box[1])) : 0;
+    const x1 = box ? Math.min(W - 1, Math.ceil(box[2])) : W - 1;
+    const y1 = box ? Math.min(H - 1, Math.ceil(box[3])) : H - 1;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) f(x, y, y * W + x);
+  };
+  const round = (R: number): [number, number, number, number] => [cx - R - 2, cy - R - 2, cx + R + 2, cy + R + 2];
+  const around = (pts: readonly (readonly [number, number])[], R: number): [number, number, number, number] => {
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [x, y] of pts) {
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+    return [x0 - R - 2, y0 - R - 2, x1 + R + 2, y1 + R + 2];
   };
   switch (p.kind) {
     case "ridge":
@@ -70,7 +89,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       each((x, y, i) => {
         const w = p.extra * (1 + 0.5 * fbm(s, x, y, 16, 2));
         U[i] += p.height * bump(polyDist(x, y, line) / w) * (1 + 0.5 * fbm(s + 1, x, y, 9, 2));
-      });
+      }, around(line, 1.5 * p.extra));
       return;
     }
     case "basin": {
@@ -98,7 +117,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
           const d = portable.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
           U[i] += p.height * bump(d) + p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45);
           if (p.soft > 0) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (p.size * 0.3 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
-        });
+        }, round(4 * p.size));
         return;
       }
       const sea = shape === "sea";
@@ -126,6 +145,20 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         arms.push({ ax, ay, bx: ax + vx * len, by: ay + vy * len, w: (sea ? 0.14 : 0.3) * (0.8 + 0.4 * r.float()) * (sea ? p.size : minor) });
       }
       const [rimX, rimY] = tarn ? unit(r.float()) : [0, 0];
+      // (a valley lake adds nothing where its distance d is 1.5 or more: along its axis that is past
+      // 2.175 of its major radius, across it past 2.175 of its minor and its bend's 2.84 of the major;
+      // each arm past 2.175 of its width from its line)
+      const valleyBox = (): [number, number, number, number] => {
+        const b = round(5.02 * major + 2.18 * minor);
+        for (const arm of arms) {
+          const q = around([[arm.ax, arm.ay], [arm.bx, arm.by]], 2.2 * arm.w);
+          b[0] = Math.min(b[0], q[0]);
+          b[1] = Math.min(b[1], q[1]);
+          b[2] = Math.max(b[2], q[2]);
+          b[3] = Math.max(b[3], q[3]);
+        }
+        return b;
+      };
       each((x, y, i) => {
         const dx = x - cx;
         const dy = y - cy;
@@ -156,7 +189,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const arc = !tarn ? 1 : r0 > 0 ? smoothstep(((dx * rimX + dy * rimY) / r0 + 0.1) / 0.7) : 1;
         U[i] += p.height * keepRim * (sea ? smoothstep((1.05 - d) / 0.18) : bump(d)) + (sea ? 0 : arc * p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45));
         if (p.soft > 0 && !sea) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (minor * 0.45 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
-      });
+      }, sea ? undefined : valleyBox());
       return;
     }
     case "caldera": {
@@ -186,7 +219,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const inside = d < r ? smoothstep((r - d) / 5) : 0;
         U[i] += p.height * (0.65 + 0.35 * (fbm(s + 3, x, y, 8, 2) + 1)) * ring - (p.height + 1.5) * inside;
         if (p.extra > 0) U[i] += (p.height + 2) * bump(d / p.extra);
-      });
+      }, round(1.4 * Math.max(1.6 * p.size + 4.3 * p.soft, p.extra)));
       return;
     }
     case "mesa":
@@ -194,14 +227,15 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       let top = -Infinity;
       each((x, y, i) => {
         if (dist(x, y, cx, cy) < p.size * 0.5) top = Math.max(top, U[i]);
-      });
+      }, round(0.5 * p.size));
       top += p.height;
+      // (the blob is 0 from 1.45 of its radius and half its softness out)
       each((x, y, i) => {
         const m = blob(x, y, cx, cy, p.size, s, p.soft);
         if (m <= 0) return;
         const lifted = Math.max(U[i], top - p.extra * 0.5 * (1 + fbm(s + 2, x, y, 10, 2)));
         U[i] = U[i] * (1 - m) + lifted * m;
-      });
+      }, round(1.45 * p.size + 0.5 * Math.max(0.5, p.soft)));
       return;
     }
     case "mesaField": {
@@ -267,7 +301,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
           n = 0.5 * n + 0.5 * (1 - 2 * Math.abs(n));
           const t = smoothstep((1.15 - d) / 0.4);
           U[i] += p.height * t * (0.72 + 0.4 * n);
-        });
+        }, round(1.41 * Math.max(major, minor) + 0.54 * p.size));
         return;
       }
       // (round 4: the coast's warp and wobble are a 14-tile island's at most, in tiles: grown with a
@@ -313,7 +347,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // in a shelf at the water's level, which joined them and joined them to the shore.)
         const t = smoothstep((1.05 - d) / 0.25);
         U[i] += p.height * t * (0.85 + 0.3 * n);
-      });
+      }, round(1.41 * Math.max(major, minor) + 0.54 * wob));
       return;
     }
     case "cone": {
@@ -321,7 +355,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const d = dist(x, y, cx, cy) / (p.size * (1 + 0.15 * fbm(s, x, y, 10, 2)));
         if (d < 1) U[i] += p.height * (1 - d);
         if (p.extra > 0) U[i] -= p.height * 0.55 * bump(dist(x, y, cx, cy) / (p.extra * (1 + 0.3 * fbm(s + 7, x, y, 5, 2))));
-      });
+      }, round(Math.max(1.15 * p.size, 1.3 * p.extra)));
       return;
     }
     case "knolls": {
@@ -370,13 +404,20 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
   const wy = hash32(ls, "warp-y");
   const rs = hash32(ls, "regional");
   const nz = g.noise;
+  // (D357: down a long map the slope falls as steeply per tile as across a square one, so its water runs the
+  // length: drawn across the map's length, it fell a quarter as fast down a 4-to-1 strip, and the land's own
+  // hollows stopped every river partway)
+  const form = mapShape(W, H);
+  const lengthTilt = form.long ? form.ratio : 1;
+  // (and falls at least half as far as its broad highs and its noise rise, so they never wall a river in)
+  const tilt = form.long ? Math.max(g.tilt, 0.5 * (g.regional.amp + nz.amp)) : g.tilt;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const u = (x / (W - 1)) * 2 - 1;
       const v = (y / (H - 1)) * 2 - 1;
       const proj = (u * fx + v * fy) / (Math.abs(fx) + Math.abs(fy));
       let h = 0;
-      if (g.tiltKind === "linear") h += g.tilt * -0.5 * proj;
+      if (g.tiltKind === "linear") h += tilt * -0.5 * proj * lengthTilt;
       else {
         const du = x / (W - 1) - g.focus[0];
         const dv = y / (H - 1) - g.focus[1];
@@ -433,12 +474,12 @@ export function caprock(U: Float64Array, g: Genome, seed: number, W: number, H: 
 
 /** Stream-power incision (implicit, Braun and Willett 2013, m = 0.5, n = 1) and diffusion, with hardness: hard rock resists incision, and
  *  diffusion keeps its edges. */
-export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: number, iterations: number, k: number, diffusion: number): Float64Array {
+export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: number, iterations: number, k: number, diffusion: number, outlet?: (i: number) => boolean): Float64Array {
   const h = U.slice();
   const N = W * H;
   const tmp = new Float64Array(N);
   for (let it = 0; it < iterations; it++) {
-    const d = drainage(h, W, H, { epsilon: 1e-6 });
+    const d = drainage(h, W, H, outlet ? { epsilon: 1e-6, outlet } : { epsilon: 1e-6 });
     for (let q = 0; q < d.order.length; q++) {
       const i = d.order[q];
       const r = d.rcv[i];
@@ -505,7 +546,17 @@ export function weather(E: Float64Array, hard: Float64Array, stratum: Float64Arr
 export function makeField(g: Genome, seed: number, W: number, H: number): Field {
   const U = uplift(g, seed, W, H);
   const { hard, stratum } = caprock(U, g, seed, W, H);
-  let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion);
+  // (D357: down a long map the land is worn toward its far end, as its water will run: worn toward every edge,
+  // a strip's valleys ran out by its long sides and its near end, and the land at its head stood in a hollow no
+  // river could leave by the far end)
+  const [fx, fy] = DIRS8[g.flowDir];
+  const lengthwise = g.tiltKind === "linear" && mapShape(W, H).long;
+  const farEnd = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return (fx > 0.1 && x === W - 1) || (fx < -0.1 && x === 0) || (fy > 0.1 && y === H - 1) || (fy < -0.1 && y === 0);
+  };
+  let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion, lengthwise ? farEnd : undefined);
   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
   if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
   // (round 6: an island sea's lip, a tile or two at the map's edge between it and a fall of a dozen

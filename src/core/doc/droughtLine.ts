@@ -7,7 +7,9 @@ import { droughtLine, emptyDroughtLine, startWaterMask, DROUGHT_LINE_CAVES, type
 import type { MapSession } from "./session";
 
 /** Why the map has no drought line, or null: terrain above terrain (a stacked water model, or an
- *  imported map's caves and overhangs) has no drought rule yet. */
+ *  imported map's caves and overhangs) has no drought rule yet. An import with caves or overhangs
+ *  always has a stacked model (features/build.ts `cavesOf`), the test that refuses its Drought and
+ *  Badtide too (sim/weather.ts `hazardRefusal`). */
 export function droughtLineRefusal(s: MapSession): string | null {
   return s.built.waterModel.stacked || s.columns.size ? DROUGHT_LINE_CAVES : null;
 }

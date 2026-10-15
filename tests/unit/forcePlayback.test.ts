@@ -1,5 +1,6 @@
 // The forces' moments on the land, clicked quickly (D378): a force started while the last one's tail
-// still plays (a crater's dust, a fault's dust, an eruption's cooling, a glacier's melt) plays in full,
+// still plays (a crater's dust, a fault's dust, an eruption's cooling, a glacier's melt, an erosion's
+// dust and stones) plays in full,
 // from its own start, and the last one skips to its end. Every force, each after itself and after the
 // others; within one force, its own later moments never start it again.
 //
@@ -22,7 +23,11 @@ function wait(ms: number): void {
   for (const f of frames.splice(0)) f();
 }
 
-type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit" | "erode">; // New Rift, Deposit and Erode effects belong to the page session.
+type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift and Deposit effects belong to the page session.
+
+/** The ground every moment acts on: level 5 everywhere, 64 tiles across (an erosion's stones land on it). */
+const SIDE = 64;
+const flat = { W: SIDE, H: SIDE, mask: () => 0b11111 };
 
 /** A moment of `verb` at (x, y). */
 function moment(verb: Verb, phase: string, x: number, y: number, progress = 0): ForceMoment {
@@ -35,6 +40,8 @@ function moment(verb: Verb, phase: string, x: number, y: number, progress = 0): 
       seconds: phase === "gather" ? 0 : 3 * progress,
       ...(phase === "gather" ? {} : { path: [0, 0.5, 1].map((s) => ({ x: x + s * 8, y, s, r: 3, floor: 2 })) }),
     };
+  // (a stage of an erosion: a few voxels of the ground's top went, by the focus)
+  if (verb === "erode") m.erode = { went: phase === "rumble" ? [] : [0, 1, 2].map((k) => 4 * SIDE * SIDE + y * SIDE + x + k), worn: 60, scoured: true };
   return m;
 }
 
@@ -46,6 +53,7 @@ function play(fx: ForceEffects, verb: Verb, x: number, y: number): void {
     quake: ["rumble", "crack", "crack", "slide", "done"],
     glaciate: ["gather", "advance", "advance", "retreat", "done"],
     carve: ["carve", "carve", "carve", "carve", "done"],
+    erode: ["rumble", "wear", "wear", "wear", "done"],
   };
   phases[verb].forEach((phase, k) => {
     fx.set(moment(verb, phase, x, y, k / 4));
@@ -61,16 +69,17 @@ function begun(fx: ForceEffects, verb: Verb, x: number, y: number): void {
   if (verb === "erupt") expect(s.erupt).toMatchObject({ x, y, cooling: 0, age: expect.closeTo(0, 3) });
   if (verb === "quake") expect(s.quake).toMatchObject({ x, y, age: expect.closeTo(0, 3) });
   if (verb === "glaciate") expect(s.glaciate).toEqual({ x, y, seconds: null });
+  if (verb === "erode") expect(s.erode).toMatchObject({ x, y, age: expect.closeTo(0, 3) });
 }
 
-const FORCES: Exclude<Verb, "carve">[] = ["craterize", "erupt", "quake", "glaciate"];
+const FORCES: Exclude<Verb, "carve">[] = ["craterize", "erupt", "quake", "glaciate", "erode"];
 
 describe("a force clicked quickly after another (D378)", () => {
   let fx: ForceEffects;
   beforeEach(() => {
     now = 1000;
     frames.length = 0;
-    fx = new ForceEffects(new Scene(), () => {}, () => 5);
+    fx = new ForceEffects(new Scene(), () => {}, () => 5, () => flat);
   });
 
   for (const first of [...FORCES, "carve" as const])
@@ -97,7 +106,7 @@ describe("a force clicked quickly after another (D378)", () => {
     play(fx, "erupt", 10, 10);
     expect(fx.showing().erupt).not.toBeNull();
     fx.set(moment("carve", "carve", 40, 30));
-    expect(fx.showing()).toEqual({ craterize: null, quake: null, erupt: null, glaciate: null });
+    expect(fx.showing()).toEqual({ craterize: null, quake: null, erupt: null, glaciate: null, erode: null });
   });
 
   it("within one force, its later moments never start it again", () => {
@@ -130,6 +139,22 @@ describe("a force clicked quickly after another (D378)", () => {
       }
       expect(fx.heat(now)).toBeNull();
     });
+
+  it("an erosion's dust and stones start with its rumble and are gone within its two to four seconds once kept (D240)", () => {
+    fx.set(moment("erode", "rumble", 10, 10));
+    expect(fx.showing().erode).toMatchObject({ x: 10, y: 10 });
+    for (let k = 1; k <= 20; k++) {
+      wait(100);
+      fx.set(moment("erode", k === 20 ? "done" : "wear", 10, 10, k / 20));
+    }
+    fx.finish();
+    expect(fx.active).toBe(true);
+    wait(1000);
+    expect(fx.showing().erode).not.toBeNull();
+    wait(2000);
+    expect(fx.showing().erode).toBeNull();
+    expect(fx.active).toBe(false);
+  });
 
   it("the last force's tail plays out when nothing follows it", () => {
     play(fx, "erupt", 10, 10);

@@ -9,7 +9,7 @@
 import { entityJson, type EntitySpec } from "../format/entities";
 import type { JsonObject } from "../format/json";
 import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
-import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, mixedSimulationSingletons, settledSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
+import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, settledSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
 import { thumbnailJpeg } from "../render/shade";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import type { BuildResult } from "../features/build";
@@ -110,18 +110,25 @@ export function builtWater(built: BuildResult): FileWater {
   };
 }
 
-/** An opened map's file, which an export rewrites (doc/session.ts): its world as opened, its voxels
- *  with the edited ground, and the tiles under roofs (caves, tunnels, overhangs), where the
- *  heightfield's water cannot go and the file's own stays. */
+/** An opened map's file, which an export rewrites (doc/session.ts): its world as opened and its
+ *  voxels with the edited ground. */
 export interface OpenedWorld {
   world: WorldModel;
   voxels: Uint8Array;
-  roofed?: ReadonlySet<number> | null;
 }
 
 /** The singletons an opened file's export rewrites with the settled water: every other singleton
  *  stays as the file has it. */
 const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
+
+/** An opened file's singletons with its water and soil from `water` (the singletons a settle
+ *  writes), every other singleton as the file has it. */
+export function withWaterSingletons(file: JsonObject, water: JsonObject): JsonObject {
+  const out: JsonObject = {};
+  for (const k in file) out[k] = WATER_SINGLETONS.includes(k) ? water[k] : file[k];
+  for (const k of WATER_SINGLETONS) if (!(k in out)) out[k] = water[k];
+  return out;
+}
 
 /** The one path to a file's world (PLAN §19.7): a heightfield map's ground, its objects, and its
  *  settled water and soil (`water`, from one settle: `FileWater`).
@@ -129,20 +136,12 @@ const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "Wat
  *    voxels from the heights, the settled singletons (none written when `water` is null: the game
  *    fills the rivers itself) and the entities.
  *  - An opened map (`opened`) keeps everything it holds but its ground, its objects and, unless
- *    `water` is null, its water and soil: the heightfield's settled water everywhere, the file's own
- *    under roofs (world.ts `mixedSimulationSingletons`); with `water` null its own water stays. */
+ *    `water` is null, its water and soil (a map with caves or overhangs writes its own: doc/session.ts
+ *    `exportFile`); with `water` null its own water stays. */
 export function worldOf(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], water: FileWater | null, opened?: OpenedWorld): WorldModel {
   if (opened) {
     const w = opened.world;
-    let singletons = w.singletons;
-    if (water) {
-      const roofed = opened.roofed?.size ? opened.roofed : null;
-      const s = roofed ? mixedSimulationSingletons(w.singletons, W, H, water, roofed) : settledSimulationSingletons(W, H, water);
-      const out: JsonObject = {};
-      for (const k in w.singletons) out[k] = WATER_SINGLETONS.includes(k) ? s[k] : w.singletons[k];
-      for (const k of WATER_SINGLETONS) if (!(k in out)) out[k] = s[k];
-      singletons = out;
-    }
+    const singletons = water ? withWaterSingletons(w.singletons, settledSimulationSingletons(W, H, water)) : w.singletons;
     return { ...w, voxels: opened.voxels, singletons, entities: entities.map(entityJson) };
   }
   return {

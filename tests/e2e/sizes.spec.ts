@@ -20,9 +20,22 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   page.on("pageerror", (e) => errors.push(String(e)));
   await openTopDown(page);
 
-  // the objects menu (Layout 2, Kyler, 2026-10-03): Start, Water source, Badwater source, Natural dam, Pine, then the rest
-  const names = await page.getByRole("navigation", { name: "Place" }).getByRole("button").allTextContents();
-  expect(names.map((n) => n.trim())).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush", "Ruin", "Mine site", "Relic", "Slope", "Thorns", "Blockage", "Geothermal field"]);
+  // the objects menu: Start, Water source, Badwater source first (Layout 2, Kyler, 2026-10-03), the trees in the order Pine,
+  // Birch, Oak, and the rest of the game's objects after them (every 1.x object is on the shelf, #434); no name twice, and the
+  // list scrolls inside the menu rather than running off the page
+  const menu = page.getByRole("navigation", { name: "Place" });
+  const names = (await menu.getByRole("button").allTextContents()).map((n) => n.trim());
+  expect(names.slice(0, 3)).toEqual(["Start", "Water source", "Badwater source"]);
+  expect(names).toEqual(expect.arrayContaining(["Natural dam", "Pine", "Birch", "Oak", "Berry bush", "Ruin", "Mine site", "Relic", "Slope", "Thorns", "Blockage", "Geothermal field"]));
+  expect(new Set(names).size).toBe(names.length);
+  expect(names.indexOf("Pine")).toBeLessThan(names.indexOf("Birch"));
+  expect(names.indexOf("Birch")).toBeLessThan(names.indexOf("Oak"));
+  const fit = await menu.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, view: window.innerHeight };
+  });
+  expect(fit.top).toBeGreaterThanOrEqual(0);
+  expect(fit.bottom).toBeLessThanOrEqual(fit.view);
 
   // every brush's row: its size, a number and a slider
   for (const [key, name] of [

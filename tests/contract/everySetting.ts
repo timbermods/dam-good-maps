@@ -3,7 +3,7 @@
 // suite; `npx tsx tests/contract/everySetting.ts <index>` generates one by hand.
 import { expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { makeSpec, type Difficulty, type MapSpec, type Settings, type ThemeId } from "../../src/core/spec/mapspec";
+import { GENERATOR_MIN_SIDE, makeSpec, type Difficulty, type MapSpec, type Settings, type ThemeId } from "../../src/core/spec/mapspec";
 import { highestMax, reserveGuard } from "../../src/ui/settingsModel";
 
 export interface SettingCase {
@@ -85,15 +85,21 @@ const THEMES: ThemeId[] = ["any", "lakeBasin", "islands", "canyon", "highlands",
  *  more seeds each; a long thin custom map at both extremes; and Kyler's map. */
 export function settingCases(): SettingCase[] {
   const out: SettingCase[] = [kylersMap()];
-  const sizes = [48, 96, 128, 192, 256];
+  // (the smallest custom size is the generator's least side (D357); a theme whose least is larger, Islands' 64, is
+  // swept at its own)
+  const sizes = [Math.min(...Object.values(GENERATOR_MIN_SIDE)), 96, 128, 192, 256];
   sizes.forEach((n, k) => {
-    const size = { x: n, y: n };
+    const at = (theme: ThemeId) => {
+      const m = Math.max(n, GENERATOR_MIN_SIDE[theme]);
+      return { x: m, y: m };
+    };
     const seed = 101 + k;
-    out.push(caseOf("all minimums", "any", "hard", size, seed, allMin));
-    out.push(caseOf("all maximums", "any", "easy", size, seed, allMax));
-    out.push(caseOf("wild land, most water", THEMES[k % THEMES.length], "normal", size, seed, wildWet));
-    out.push(caseOf("flat, dry, water at 4", THEMES[(k + 2) % THEMES.length], "easy", size, seed, flatDry));
-    out.push(caseOf("starved start", THEMES[(k + 4) % THEMES.length], "hard", size, seed, starvedStart));
+    const [wild, flat, starved] = [THEMES[k % THEMES.length], THEMES[(k + 2) % THEMES.length], THEMES[(k + 4) % THEMES.length]];
+    out.push(caseOf("all minimums", "any", "hard", at("any"), seed, allMin));
+    out.push(caseOf("all maximums", "any", "easy", at("any"), seed, allMax));
+    out.push(caseOf("wild land, most water", wild, "normal", at(wild), seed, wildWet));
+    out.push(caseOf("flat, dry, water at 4", flat, "easy", at(flat), seed, flatDry));
+    out.push(caseOf("starved start", starved, "hard", at(starved), seed, starvedStart));
   });
   // (the stacked combinations that once made no map, on more seeds each, so a lucky seed hides no gap)
   for (const seed of [1, 2, 3]) {

@@ -55,11 +55,12 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
+import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect, type ShadowRock } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -556,6 +557,20 @@ export class MapRenderer {
     }
   }
 
+  /** Whether objects and falls read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
+   *  roof, so every other map draws them with the same program as before (the define is not there at all). */
+  private caveBranch = false;
+
+  private setCaveBranch(on: boolean): void {
+    this.caveBranch = on;
+    for (const mat of [this.std.object, this.std.fall, ...(this.high?.roofedMaterials() ?? [])]) {
+      if (("CAVES" in mat.defines) === on) continue;
+      if (on) mat.defines.CAVES = 1;
+      else delete mat.defines.CAVES;
+      mat.needsUpdate = true;
+    }
+  }
+
   /** Whether the terrain's shaders read the run tops' own soil (runSoil.ts): only on a map with run tops below a
    *  tile's top, so every other map draws with the same program as before (the define is not there at all). */
   private setRunSoilBranch(on: boolean): void {
@@ -860,6 +875,7 @@ export class MapRenderer {
         this.high.shareTerrainUniforms(this.std.terrain);
         this.setCutaway(this.cutaway);
         this.setRunSoilBranch(!!this.runSoil);
+        this.setCaveBranch(this.caveBranch);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -1108,7 +1124,7 @@ export class MapRenderer {
     this.tileTex = tileTexture(W, H, tiles);
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops));
+    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
     this.cave = CaveLight.build(source, sky);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
@@ -1119,6 +1135,7 @@ export class MapRenderer {
     }
     else u.caveSize.value.set(0, 0, 0);
     this.setCutaway(cutawayOn(source));
+    this.setCaveBranch(!!this.cave);
     this.syncRunSoil();
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
@@ -1389,13 +1406,20 @@ export class MapRenderer {
     this.casters = casters;
     if (rect === null) return;
     if (rect && this.tops) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
       this.touchShadows(rect);
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops));
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
       this.lightTex.needsUpdate = true;
     }
+  }
+
+  /** The rock the baked shadows are cast from on a map with terrain above terrain (light.ts `shadowRock`, kept for
+   *  the same columns); null elsewhere, where the shadows are the heightfield's. */
+  private rock(): ShadowRock | null {
+    const m = this.map;
+    return m ? shadowRock(m.W, m.H, m.source.columns) : null;
   }
 
   /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
@@ -1504,7 +1528,7 @@ export class MapRenderer {
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
       this.touchShadows(rect);
     } else this.bakeShadows();
     this.relightCaves(rect);
@@ -1833,7 +1857,7 @@ export class MapRenderer {
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true);
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
     this.relightCaves(c.rect);
@@ -2086,7 +2110,7 @@ export class MapRenderer {
   private surge: Surge | null = null;
   private forceFx: ForceEffects | null = null;
 
-  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+  /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
@@ -2125,8 +2149,22 @@ export class MapRenderer {
       if (!m) return 0;
       const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
       return m.heights[i];
-    }));
+    }, () => this.voxelsShown));
   }
+
+  /** The map's voxels as shown, for Erode's stones (one object, read as the map changes). */
+  private voxelsShown: Voxels = ((r: () => MapState | null) => ({
+    get W() {
+      return r()?.W ?? 0;
+    },
+    get H() {
+      return r()?.H ?? 0;
+    },
+    mask: (i: number) => {
+      const m = r();
+      return m ? columnMask(m.source, i) : 0;
+    },
+  }))(() => this.map);
 
   /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null.
    *  The ground as the heat comes, before the eruption raises it (it comes with the force's first

@@ -148,6 +148,22 @@ describe("the editor's juice", () => {
     expect(log.indexOf("stop force-3-plume")).toBeLessThan(log.indexOf("play erupt:cool"));
   });
 
+  it("Erode's cues (D281): the grind held under the whole moment, stone landing as rock goes (a tenth of a second apart at most), the heavier fall once as it clears", () => {
+    const { r } = fakeRenderer();
+    const { e, log } = fakeEngine();
+    const j = new Juice(() => r, DEFAULT_SOUND, e);
+    const at = (phase: ForceCue["phase"], went: number[]): ForceCue => ({ ...cue("erode", phase), erode: { went: Uint32Array.from(went), worn: 120, scoured: false } });
+    j.forceMoment(at("rumble", []));
+    j.forceMoment(at("wear", [1, 2, 3, 4]));
+    j.forceMoment(at("wear", [5, 6, 7, 8]));
+    j.forceMoment(at("done", []));
+    j.forceMoment(at("done", []));
+    j.forceEnded(true);
+    expect(log.filter((l) => l.startsWith("play"))).toEqual(["play erode:land", "play erode:fall"]);
+    expect(log.filter((l) => l.startsWith("start")).length).toBe(1);
+    expect(log.some((l) => l.startsWith("stop force-") && l.endsWith("-wear"))).toBe(true);
+  });
+
   it("sounds are on at the round-two mix's own clearly audible level unless the player turned them off (D226), a quarter lower by default since D313, and a saved choice is kept as it is", () => {
     expect(loadSound()).toEqual(DEFAULT_SOUND);
     expect(DEFAULT_SOUND).toEqual({ on: true, volume: 0.54, ambience: false });

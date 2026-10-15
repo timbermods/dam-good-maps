@@ -4,7 +4,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, generatorSizeRefusal, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -82,11 +82,12 @@ describe("URL codec (PLAN §14.5)", () => {
     }
   });
 
-  it("the generator refuses a side under 48 with a one-line reason, at once (D357)", () => {
-    expect(generatorSizeRefusal(48, 512)).toBeNull();
-    expect(generatorSizeRefusal(16, 200)).toBe("16×200 is too small to generate: the generator needs 48 tiles on each side for a start and a river");
+  it("the generator refuses a side under its theme's least with a one-line reason naming it, at once (D357)", () => {
+    expect(generatorSizeRefusal(48, 256, "canyon")).toBeNull();
+    expect(generatorSizeRefusal(47, 200, "canyon")).toBe("Canyon needs at least 48 tiles a side to generate");
+    for (const theme of THEMES) expect(generatorSizeRefusal(GENERATOR_MIN_SIDE[theme], GENERATOR_MIN_SIDE[theme], theme)).toBeNull();
     const t0 = performance.now();
-    expect(() => generate(makeSpec({ seed: 1, size: { x: 4, y: 4 } }))).toThrow("4×4 is too small to generate");
+    expect(() => generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 4, y: 4 } }))).toThrow("River Valley needs at least 48 tiles a side");
     expect(performance.now() - t0).toBeLessThan(1000);
   });
 

@@ -8,14 +8,16 @@
 // view is a window into the module's memory: read or fill it at once and ask again after any
 // operation, since memory may have moved. Every refusal is the engine's own one line (D342).
 //
-// The canonical settle of a model with terrain above terrain runs here (prefill.ts, `WaterModel.stacked`);
-// no map the app builds has such a model yet (an imported map's caves keep the file's water until
-// Foundations' stage 6), and a heightfield never comes here. Its results on the eight
+// The canonical settle of a model with terrain above terrain runs here (prefill.ts, `WaterModel.stacked`):
+// an imported map with caves or overhangs, once it is edited (features/build.ts). A heightfield never
+// comes here. Its results on the
 // game-verified fixtures (tests/golden/stacked-water.json) are checked natively and in WebAssembly on
 // every push (tools/rust/stack-identity.ts), and in every browser engine (tools/determinism).
 
-import type { VoxelMasks } from "./columns";
-import { isDelayed, specifiedStrength, type MapObject } from "./model";
+import { OPEN_CEILING, type VoxelMasks, type WaterColumns } from "./columns";
+import { surfaceOf, type WorldModel } from "../format/world";
+import { ColumnTerrain } from "../terrain/runs";
+import { isDelayed, mapObjects, specifiedStrength, waterModel, type MapObject } from "./model";
 import { rustWater } from "./rustWater";
 import type { RetainedWater, StackedTerrain, WaterModel } from "./water";
 
@@ -157,19 +159,28 @@ const ROTATIONS: Record<string, number> = { Cw0: 0, Cw90: 1, Cw180: 2, Cw270: 3 
 
 /** The map's objects as the engine takes them, in file order: eight numbers each (kind, x, y, z,
  *  rotation, flipped, delayed, strength). Objects that neither shape a water column nor emit are
- *  left out. An emitter whose strength is not a number emits nothing; a strength below 0 is a sink
- *  (D337), which takes water away. */
+ *  left out, and so is one outside the water's levels (below 0 or at 34 and above: a file from a
+ *  taller, modded game). An emitter whose strength is not a number emits nothing; a strength below 0
+ *  is a sink (D337), which takes water away. */
 export function stackObjectRows(objects: readonly MapObject[]): Float64Array {
   const rows: number[] = [];
   for (const o of objects) {
     const kind = KINDS[o.template];
-    if (kind === undefined) continue;
+    if (kind === undefined || !(o.z >= 0 && o.z < OPEN_CEILING)) continue;
     let strength = kind >= 7 ? specifiedStrength(o.components) : 0;
     if (!Number.isFinite(strength)) strength = 0;
     rows.push(kind, o.x, o.y, o.z, ROTATIONS[o.orientation] ?? 0, o.flipped ? 1 : 0, isDelayed(o.components) ? 1 : 0, strength);
   }
   return Float64Array.from(rows);
 }
+
+/** What a map with caves or overhangs refuses for now, one plain line each (D280, Kyler 2026-10-07):
+ *  each waits for its rule for water in caves. */
+export const CAVE_REFUSALS = {
+  weather: "Drought and Badtide aren't worked out for maps with caves yet",
+  fill: "Fill isn't worked out for maps with caves yet",
+  removeUnfed: "Removing unfed water isn't worked out for maps with caves yet",
+} as const;
 
 /** A settle on stacked columns: geometry and water per column id (slot·N + tile). */
 export interface StackSettle {
@@ -206,6 +217,14 @@ export function stackedModel(model: WaterModel, terrain: VoxelMasks, objects: re
   return plain ? model : { ...model, stacked: { mask, objects: stackObjectRows(objects) } };
 }
 
+/** The water model of a file's world: its surface and objects (sim/model.ts), with its terrain above
+ *  terrain when it has caves or overhangs (`stackedModel`). What the checks settle when no settle
+ *  is handed to them (validate/rust.ts), and the editor's check of an imported map. */
+export function worldWaterModel(w: WorldModel): WaterModel {
+  const objects = mapObjects(w);
+  return stackedModel(waterModel(w.sizeX, w.sizeY, surfaceOf(w), objects), ColumnTerrain.fromVoxels(w.voxels, w.sizeX, w.sizeY, w.layers), objects);
+}
+
 /** The most ticks one `advance` may be asked for (the engine's own limit). */
 const MAX_ADVANCE = 10_000_000;
 
@@ -214,8 +233,21 @@ const MAX_ADVANCE = 10_000_000;
  *  given and returns the settle once it is done; `ticks` over `maxTicks` is how far it is, for a
  *  caller to show. `retained` is water sealed basins keep (water.ts `RetainedWater`). */
 export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
+  // (a tile two lakes hold keeps the later one's water, as the pre-fill would leave it: the engine
+  // takes at most one entry a tile)
+  const last = new Map<number, number[]>();
+  for (const r of retained)
+    for (let k = 0; k < r.tiles.length; k++) {
+      const f = r.floor[k];
+      const d = r.depth[k];
+      const c = r.contamination[k];
+      // (water outside the water's levels, a file from a taller, modded game, is left out, as its objects are)
+      if (!(f >= 0 && d >= 0 && f + d <= OPEN_CEILING && c >= 0 && c <= 1)) continue;
+      last.delete(r.tiles[k]);
+      last.set(r.tiles[k], [r.tiles[k], f, d, c]);
+    }
   const kept: number[] = [];
-  for (const r of retained) for (let k = 0; k < r.tiles.length; k++) kept.push(r.tiles[k], r.floor[k], r.depth[k], r.contamination[k]);
+  for (const row of last.values()) kept.push(...row);
   const m = new StackWater(W, H, t.objects.length / 8, kept.length / 4);
   let done: StackSettle | null = null;
   let ticks = 0;
@@ -285,4 +317,82 @@ export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[
   let r = run.advance(MAX_ADVANCE);
   while (!r) r = run.advance(MAX_ADVANCE);
   return r;
+}
+
+/** Water on stacked columns that is not a settle of them, on the columns `cols`: a file's own stored
+ *  water (`stored`, world.ts `storedWater`: each entry on the column whose floor it names, or the one
+ *  it stands in), or water carried over from other columns (`staleStack`). Never written to a file. */
+export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number>; floor: ArrayLike<number>; depth: ArrayLike<number>; contamination: ArrayLike<number> }): StackSettle {
+  const { W, H, N, L } = cols;
+  const out = emptyStack(cols);
+  for (let k = 0; k < stored.tile.length; k++) {
+    const i = stored.tile[k];
+    const f = stored.floor[k];
+    let slot = -1;
+    for (let q = 0; q < cols.count[i] && slot < 0; q++) if (cols.floor[q * N + i] === f) slot = q;
+    for (let q = 0; q < cols.count[i] && slot < 0; q++) if (cols.floor[q * N + i] <= f && cols.ceil[q * N + i] > f) slot = q;
+    // (a token without its floor, an old file's: the tile's top column)
+    if (slot < 0 && f < 0 && cols.count[i]) slot = cols.count[i] - 1;
+    if (slot < 0) continue;
+    out.depth[slot * N + i] = stored.depth[k];
+    out.contamination[slot * N + i] = stored.contamination[k];
+  }
+  return { ...out, W, H, L };
+}
+
+/** The water of stacked columns seen through the roofs: per tile, its highest wet column's depth and
+ *  contamination (none: a dry tile). A river under a bridge or through a tunnel is
+ *  then one water with the stretches before and after it, as the map's own stored water is read at
+ *  any level (analysis/mechanics.ts `storedWetMask`). What the checks read until they walk the floor
+ *  graph (Foundations' stage 3); the build's own water stays each tile's top column. */
+export function seenThroughRoofs(s: StackSettle): { depth: Float64Array; contamination: Float64Array } {
+  const N = s.W * s.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let i = 0; i < N; i++)
+    for (let q = s.count[i] - 1; q >= 0; q--) {
+      const c = q * N + i;
+      if (!(s.depth[c] > 0)) continue;
+      depth[i] = s.depth[c];
+      contamination[i] = s.contamination[c];
+      break;
+    }
+  return { depth, contamination };
+}
+
+function emptyStack(cols: WaterColumns): StackSettle {
+  const M = cols.L * cols.N;
+  return { W: cols.W, H: cols.H, L: cols.L, stacked: true, count: cols.count, floor: cols.floor, ceil: cols.ceil, depth: new Float64Array(M), overflow: new Float64Array(M), contamination: new Float64Array(M), sat: new Uint8Array(M), settled: false, ticks: 0 };
+}
+
+/** The last water on stacked columns carried over to the map as it now stands (`cols`), to show until
+ *  it settles again: each tile's top column holds the water seen from above (`depth` and
+ *  `contamination` per tile, preview.ts `staleWater`), and the columns under it keep what they held
+ *  (`prev`, by their floors; null: nothing). Never written to a file. */
+export function staleStack(prev: StackSettle | null | undefined, cols: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>): StackSettle {
+  const N = cols.N;
+  const out = emptyStack(cols);
+  const same = !!prev && prev.L === cols.L && prev.count.length === N;
+  for (let i = 0; i < N; i++) {
+    const n = cols.count[i];
+    if (!n) continue;
+    const top = (n - 1) * N + i;
+    if (prev && n > 1) {
+      for (let q = 0; q < n - 1; q++) {
+        const c = q * N + i;
+        // the column it was: the same slot when the tile's columns are as they were, else by its floor
+        let from = same && prev.count[i] === n && prev.floor[c] === cols.floor[c] && prev.ceil[c] === cols.ceil[c] ? c : -1;
+        for (let p = 0; from < 0 && p < prev.count[i]; p++) if (prev.floor[p * N + i] === cols.floor[c]) from = p * N + i;
+        if (from < 0) continue;
+        const cap = cols.ceil[c] - cols.floor[c];
+        out.depth[c] = prev.depth[from] < cap ? prev.depth[from] : cap;
+        out.contamination[c] = prev.contamination[from];
+        if (prev.ceil[from] === cols.ceil[c]) out.overflow[c] = prev.overflow[from];
+      }
+    }
+    const cap = cols.ceil[top] - cols.floor[top];
+    out.depth[top] = depth[i] < cap ? depth[i] : cap;
+    out.contamination[top] = contamination[i];
+  }
+  return out;
 }
