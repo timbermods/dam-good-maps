@@ -518,3 +518,31 @@ On `feature/3d-foundations-probe`. Nothing in the app changes.
 - **Not covered by this group now:** the support rule's own check ran on T1 (`t3d-support` still runs on every
   map, but no map here has voxels that fall), and walking and pumps stay not measurable, as in September.
 
+
+## RESULTS: the `3d-foundations-done` gate batch (2026-10-15)
+
+Run `20261015-1011-batch` on Timberborn 1.1.2.7, with the installed mods (`--keep-mods`), after the smoke run
+`20261015-0947-smoke` (passed) that the runner asks for on a game version it has not stamped. Dev at a1dd3592 (#370 and
+Erode in). D483: only the cave edits players get, written by the Terrain 3D group's writer through the app's core and
+exported as the app exports them; T1–T7 not replayed (`--only`).
+
+| Map | What it is | Verdict |
+|---|---|---|
+| `hollows-edited` | Hollows, three plain tiles raised (4117 wet columns, 988 roofed, 23 under pressure) | passed |
+| `canyon-edited` | Canyon, the same edit (1831 wet, 185 roofed) | passed |
+| `pillars-roof-stroke` | Pillars, a Lower stroke (Area, 3 × 3) cutting a roof over cave water to its lowest layer; the settle stopped unsettled at 3072 ticks | passed |
+| `hollows-block-dig` | Hollows, a 3 × 3 Block tool Remove into a cave wall beside the cave's water | passed |
+| `erode-cave` | Highlands seed 21 at 128², an Erode cave (Power 60) at a cliff's foot by water; written as a generated map (heightfield water, voxels with the cave) | passed |
+| `hollows-unedited` | the control: Hollows imported and exported unedited, its world the file's byte for byte | passed |
+
+- **Every check passed on every map:** loads with no issue or error, 0 voxels dropped (the support rule predicts 0),
+  every object at its tile and level, plants as predicted.
+- **Water (`t3d-water`, now judged at the load too):** at the load and after 1 and 1.18 days, 100.0% of wet columns
+  within 0.1 deep on all six maps, roofed ones included, wet IoU 1.000, every column under pressure in the engine under
+  pressure in the game. The largest difference 0.033 (Pillars, an open column the unsettled settle was still moving;
+  volume 1840 against the game's 1844); 0.013 on the control; 0.005 or less on the other four.
+- **Soil per run:** moist and dry agree on 100.0% of runs on every map (99.9–100% within 0.05).
+- Screenshots (`C:\dgm-probe\shots\20261015-1011-batch\`, contact sheet `C:\dgm-probe\sheet\20261015-1011-batch.html`):
+  nothing broken; the cut roof, the dig and the Erode cave show as built.
+- **The gate is green** for `3d-foundations-done`. Regenerate the maps with `npx tsx tools/probe-3d.ts` (the official
+  maps from `.scratch/official`).
