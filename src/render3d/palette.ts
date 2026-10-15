@@ -446,7 +446,7 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(`<rect width="24" height="16" fill="${c(wallColor(5))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
-      label: "Level lines",
+      label: "Wall levels",
       markers: true,
     },
     {

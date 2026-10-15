@@ -54,7 +54,7 @@ export interface View3DProps {
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
-  /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
+  /** A view switch right beside **Height colours** (the editor's **Lines**, D248). */
   besideHeight?: ComponentChildren;
   /** Whether the legend shows beside the view (the editor has it in its corner instead). */
   showLegend?: boolean;
@@ -395,6 +395,13 @@ export function View3D(props: View3DProps) {
             {e.label}
           </span>
         )}
+        {/* Heights' own line keeps the map's lowest and highest level, as its key does with the legend folded */}
+        {e.key === "height" && range ? (
+          <div class="height-ends" aria-label="Ground height range">
+            <span>Low {range[0]}</span>
+            <span>High {range[1]}</span>
+          </div>
+        ) : null}
       </li>
     );
   };
@@ -433,7 +440,7 @@ export function View3D(props: View3DProps) {
         Heights
       </ShowRow>
       {props.besideHeight}
-      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and level lines", "M")}>
+      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and wall levels", "M")}>
         Markers
       </ShowRow>
       <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the water's currents")}>
@@ -446,7 +453,7 @@ export function View3D(props: View3DProps) {
         Height colours
       </button>
       {props.besideHeight}
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and wall levels">
         Markers
       </button>
     </>

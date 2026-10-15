@@ -224,7 +224,7 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   }
   if (p.cleared !== undefined) {
     if (p.settings.sources === "ride") return ["a force set to ride clears no sources"];
-    if (!Array.isArray(p.cleared) || !p.cleared.length || p.cleared.length > 65536) return ["a force's cleared sources are a list of 1 to 65536"];
+    if (!Array.isArray(p.cleared) || !p.cleared.length || p.cleared.length > W * H) return ["a force's cleared sources are a list of 1 or more, at most one for each tile of the map"];
     const own = new Set([...p.removed, ...(p.moved ?? []).map((m) => m.id), ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
     const seen = new Set<string>();
     for (const c of p.cleared) {

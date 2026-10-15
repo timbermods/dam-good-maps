@@ -28,8 +28,23 @@ export async function expectReady(page: Page, timeout = 120_000): Promise<void> 
 
 /** Open the File menu in the header and return it (Open…, Download project, Download .timber, Clear everything, About). */
 export async function openFileMenu(page: Page): Promise<Locator> {
-  await page.getByRole("button", { name: "File", exact: true }).click();
-  return page.getByRole("menu", { name: "File" });
+  const button = page.getByRole("button", { name: "File", exact: true });
+  // (the button toggles: a click on a menu left open would shut it)
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  const menu = page.getByRole("menu", { name: "File" });
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+/** Close the File menu with Esc. The menu hears Esc only once its key listener is set, which the page does a
+ *  moment after drawing it, so on a busy page (CI's software 3D) an Esc straight after opening it can be
+ *  missed: press again until it is shut. */
+export async function closeFileMenu(page: Page): Promise<void> {
+  const menu = page.getByRole("menu", { name: "File" });
+  await expect(async () => {
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden({ timeout: 500 });
+  }).toPass({ timeout: 15_000 });
 }
 
 /** Open the map generator's panel from the header (Map Generator; a panel already open is left open) and return it.
