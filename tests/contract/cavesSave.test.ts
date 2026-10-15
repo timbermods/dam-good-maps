@@ -5,10 +5,6 @@
 // bytes are the same; both validators' export profile passes; undone back to plain, the map is a
 // heightfield again and exports the same bytes as before the hollow.
 
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rowWords } from "../../src/core/doc/checkItems";
 import { decodeProject } from "../../src/core/doc/document";
@@ -18,20 +14,12 @@ import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { HazardRun } from "../../src/core/sim/weather";
-import { blocks, failing } from "../../src/core/validate/report";
+import { failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { caveSession, dig, hillside } from "./caveMap";
-
-/** Python with numpy for prototype/validate.py (CI installs it; a machine without it skips that half). */
-const PY = (() => {
-  for (const exe of [process.env.PYTHON ?? "python", "python3"]) {
-    const r = spawnSync(exe, ["-c", "import numpy"], { encoding: "utf8" });
-    if (!r.error && r.status === 0) return exe;
-  }
-  return null;
-})();
+import { exportProblems } from "./caveChecks";
 
 /** The first dry tile at the foot of a cliff `drop`+ high (Erode wears a cave into its face). */
 function cliffFoot(s: MapSession, drop: number): number {
@@ -42,27 +30,6 @@ function cliffFoot(s: MapSession, drop: number): number {
       if (water[i] <= 0.01 && [i - 1, i + 1, i - W, i + W].some((j) => heights[j] - heights[i] >= drop)) return i;
     }
   throw new Error("no cliff");
-}
-
-/** The export's blocking checks (load and principle, D3) that fail, in the TypeScript validator and in
- *  prototype/validate.py, by id. */
-function exportProblems(bytes: Uint8Array, name: string): { ts: string[]; py: string[] | null } {
-  const v = validateMap(readTimber(bytes), { profile: "export" });
-  const ts = v.report.checks.filter((c) => blocks("export", c)).map((c) => `${c.id}: ${c.message}`);
-  const blocking = new Set(v.report.checks.filter((c) => c.class === "load" || c.class === "principle").map((c) => c.id));
-  if (!PY) return { ts, py: null };
-  const dir = mkdtempSync(join(tmpdir(), "caves-save-"));
-  try {
-    const path = join(dir, name);
-    writeFileSync(path, bytes);
-    const out = spawnSync(PY, ["-B", "prototype/validate.py", "--profile", "export", "--json", path], { encoding: "utf8", maxBuffer: 64 << 20 });
-    const line = (out.stdout ?? "").split(/\r?\n/).find((l) => l.startsWith("{"));
-    expect(line, out.stderr).toBeDefined();
-    const j = JSON.parse(line!) as { checks: { id: string; ok: boolean; advisory: boolean; information: boolean; detail: string }[] };
-    return { ts, py: j.checks.filter((c) => !c.ok && !c.advisory && !c.information && blocking.has(c.id)).map((c) => `${c.id}: ${c.detail}`) };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
 }
 
 /** What the file's water arrays hold: their levels, which must cover every column the terrain has. */

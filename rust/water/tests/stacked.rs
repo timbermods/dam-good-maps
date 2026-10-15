@@ -290,3 +290,70 @@ fn a_sink_under_a_roof_takes_pressure_first_and_never_goes_below_dry() {
     assert!(s.depth[6 * 12 + 6] < 0.5);
     assert!(s.depth.iter().chain(&s.contamination).all(|v| v.is_finite() && *v >= 0.0));
 }
+/// A 12 × 12 block of rock to 10 with a sealed cave (air at z 3–5) under x, y 4–7 and no objects.
+fn dry_cave() -> Model {
+    let mut mask = vec![(1 << 10) - 1; 144];
+    for y in 4..=7 {
+        for x in 4..=7 {
+            mask[y * 12 + x] &= !(7 << 3);
+        }
+    }
+    columns::model(12, 12, &mask, &[]).unwrap()
+}
+fn cave_lake(m: &mut Model, depth: f64) {
+    for y in 4..=7 {
+        for x in 4..=7 {
+            m.retained.push(water::stack::Retained {
+                tile: (y * 12 + x) as u32,
+                floor: 3.0,
+                depth,
+                contamination: 0.0,
+            });
+        }
+    }
+}
+#[test]
+fn a_lake_in_a_cave_stands_in_the_cave_and_past_its_roof_under_pressure() {
+    let mut m = dry_cave();
+    cave_lake(&mut m, 4.0);
+    let mut e = Engine::new(m, true).unwrap();
+    e.prefill().unwrap();
+    let s = e.state();
+    let c = 5 * 12 + 5;
+    // the cave column (slot 0), full; the pressure of the water a level over its roof; the top dry
+    assert_eq!(s.depth[c], 3.0);
+    assert_eq!(s.overflow[c], 1.0 / 8.0);
+    assert_eq!(s.depth[144 + c], 0.0);
+}
+#[test]
+fn a_sealed_lake_only_evaporating_is_stored_as_it_began() {
+    let mut m = dry_cave();
+    cave_lake(&mut m, 2.0);
+    let mut e = Engine::new(m, true).unwrap();
+    e.start_settle(4.0).unwrap();
+    let r = e.advance(10_000_000).unwrap().unwrap();
+    // it stopped at the first check where only the lake changed (it evaporates), and the lake is as it began
+    assert!(r.steady_ticks.is_some() || r.settled);
+    assert_eq!(r.ticks, 128);
+    let s = e.state();
+    for y in 4..=7 {
+        for x in 4..=7 {
+            assert_eq!(s.depth[y * 12 + x], 2.0);
+        }
+    }
+}
+#[test]
+fn a_settle_goes_on_from_the_water_as_written() {
+    let mut e = Engine::new(dry_cave(), true).unwrap();
+    let Flow::Stacked(s) = &mut e.flow else { panic!() };
+    s.d[5 * 12 + 5] = 1.5;
+    e.settle_from_state(1.0).unwrap();
+    e.advance(10_000_000).unwrap().unwrap();
+    // not pre-filled (which would leave the cave dry): the water written spreads over the cave's floor
+    let s = e.state();
+    let total: f64 = (4..=7).flat_map(|y| (4..=7).map(move |x| y * 12 + x)).map(|c| s.depth[c]).sum();
+    assert!(total > 0.0 && total <= 1.5);
+    // an open field has no such settle
+    let mut flat = Engine::new(columns::model(4, 4, &[7; 16], &[]).unwrap(), true).unwrap();
+    assert!(flat.settle_from_state(1.0).is_err());
+}

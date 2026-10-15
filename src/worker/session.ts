@@ -1588,7 +1588,7 @@ function importModel(s: MapSession, opened = false): WaterModel {
   if (kept?.length) m.retained = kept;
   // and the unfed water Remove unfed water took stays gone (D387 (2))
   const drained = opened ? undefined : s.built.waterModel.drained;
-  if (drained?.length && !m.stacked) m.drained = drained;
+  if (drained?.length) m.drained = drained;
   return m;
 }
 
@@ -1902,18 +1902,20 @@ export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number 
   return { ...changed(s, res.ok, res.errors, t0), removedObjects: res.removedObjects ?? 0 };
 }
 
-/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the
- *  plain reason it holds no water at that level (core/doc/waterEdits.ts `planFill`, D387 (3), D394). */
-export function fillPlanAt(x: number, y: number, level: number): { reason: string | null; tiles: number[]; volume: number; days: number } {
-  const p = planFill(need(), x, y, level);
-  return { reason: p.reason, tiles: p.op ? [...p.op.params.lake.tiles] : [], volume: p.volume, days: p.days };
+/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles (each once, however many of its columns it fills on a
+ *  map with caves), its water and roughly how many days it lasts, or the plain reason it holds no water at that level
+ *  (core/doc/waterEdits.ts `planFill`, D387 (3), D394). `floor`: on a map with caves, the water column at (x, y) to measure
+ *  from (a cave's floor); by default the tile's highest one below the level. */
+export function fillPlanAt(x: number, y: number, level: number, floor?: number | null): { reason: string | null; tiles: number[]; volume: number; days: number } {
+  const p = planFill(need(), x, y, level, floor);
+  return { reason: p.reason, tiles: p.op ? [...new Set(p.op.params.lake.tiles)] : [], volume: p.volume, days: p.days };
 }
 
 /** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */
-export function fillAt(x: number, y: number, level: number): SessionUpdate {
+export function fillAt(x: number, y: number, level: number, floor?: number | null): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const p = planFill(s, x, y, level);
+  const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
   return changed(s, r.ok, r.errors, t0);
