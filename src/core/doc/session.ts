@@ -3,8 +3,9 @@
 //
 // - `apply` checks an operation, applies it to the state, appends it to the log and rebuilds the
 //   dirty region. Invalid operations are rejected with reasons, never clamped.
-// - `undo` and `redo` step through the history: operations invert with their undo data. Built maps
-//   are kept as snapshots every few steps, so stepping back is instant on 256² maps.
+// - `undo` and `redo` step through the history: operations invert with their undo data. The built map
+//   of every step near where the history stands is kept (one every few steps further back), so
+//   undo and redo put it back as it was, its own water with it, never rebuilding it.
 // - Edits never replay onto new land (PLAN §20, D336): a document keeps the generation it was
 //   made on. Generate makes a new map; the log replays only onto the same land (undo and redo,
 //   reopening a project, share links).
@@ -19,7 +20,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, groundDropped, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -27,23 +28,27 @@ import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
-import { ColumnTerrain, terrainColumns } from "../terrain/runs";
+import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
+import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
+import { fallsReason, newFalls, stackableTops, unsupportedVoxels } from "../terrain/support";
+import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
+import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
 import { stackedSoil } from "../sim/soil";
-import { CAVE_REFUSALS, cavesOf, storedStack } from "../sim/stackWater";
+import { storedStack } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { stackedSimulationSingletons, storedOutflows, storedSoil, storedWater } from "../format/world";
+import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { builtWater, fileName as timberFileName, namedFile, toTimberFile, worldOf } from "../gen/pack";
+import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -52,24 +57,46 @@ import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
+import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { versionName } from "../library/keptVersions";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
+  emptyState,
   invertOp,
+  isCrop,
   replay,
   validateOp,
+  schemaProblems,
   type AppliedOp,
   type DocState,
   type EditOp,
   type OpName,
+  type OpParams,
   type OpOrigin,
 } from "./ops";
 
 export type SessionMode = "live" | "frozen" | "import";
+
+/** What the Block tool's operation would do (`MapSession.blockFalls`): the blocks it adds and removes
+ *  and the blocks of ground the support rule would drop because of it, each [x, y, layer]. */
+export interface BlockFalls {
+  /** The one line the operation is refused with, or null when it would be taken. */
+  reason: string | null;
+  errors: string[];
+  added: [number, number, number][];
+  removed: [number, number, number][];
+  falls: [number, number, number][];
+  /** The plants its blocks fill in or take the ground from, which the build removes, and the plants on a
+   *  tile's top that rise or sink with it. */
+  plantsRemoved: number;
+  plantsRiding: number;
+}
 export type WaterMode = "canonical" | "preview" | "defer";
 
 interface Generation {
@@ -81,10 +108,18 @@ interface Generation {
   baseFeatures: Feature[];
   kept: KeptContent | null;
   meta: DocMeta;
+  /** The generation a crop made (D340): its base is the cropped map, and its water settles again. */
+  cropped?: boolean;
 }
 
-/** One undo step: one operation, or a group applied together (a fix, a proposal). */
-type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
+/** One undo step: one operation, or a group applied together (a fix, a proposal). `cropped`: the generation a
+ *  crop step made, kept while the step is undone so redo is that very map again. */
+type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string; cropped?: Generation };
+
+/** The generation a document holds (not its earlier generations, `MapDocument.prior`). */
+function generationOf(doc: MapDocument): Generation {
+  return { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta, ...(doc.prior ? { cropped: true } : {}) };
+}
 
 /** A log as its history: the operations of a step of several (`step`, D456) one entry, every other
  *  operation one of its own (a project saved before D456 undoes operation by operation). */
@@ -105,6 +140,19 @@ export interface HistoryMark {
   readonly below: unknown;
   readonly redo: readonly unknown[];
   readonly step: unknown;
+  /** The next operation number at the mark: a step taken back leaves it as it was. */
+  readonly seq: number;
+}
+
+/** A step of the history kept to be put back exactly (`MapSession.keptStep`, `putStep`): a force's
+ *  roll (core/forces/rolls.ts). */
+export interface KeptStep {
+  readonly ops: readonly AppliedOp[];
+  readonly label?: string;
+  /** The next operation number after the step. */
+  readonly nextSeq: number;
+  /** The map the step built, as it stood. */
+  readonly built: BuildResult;
 }
 
 export interface HistoryItem {
@@ -124,6 +172,8 @@ export interface ApplyResult {
   errors: string[];
   applied: AppliedOp[];
   dirty: DirtyInfo | null;
+  /** A crop (D340): how many objects the new edge cut and removed. */
+  removedObjects?: number;
 }
 
 /** An operation with no effect, and why (PLAN §19.4): shown to the player, never dropped. */
@@ -134,12 +184,24 @@ export interface DocOrphan {
   reason: string;
 }
 
-/** Built maps kept for undo and redo. */
+/** Built maps kept for undo and redo: every step's within reach of where the history stands (undo and
+ *  redo put the map back as it was, a copy, never a rebuild: D158, D453), and one every eight steps
+ *  further back (at most eight of those). A kept build holds about 92 bytes a tile beyond the builds
+ *  round it (6 MB at 256²): `NEAR_TILES` keeps 8 steps either side at 256² (about 50 MB with the
+ *  history at its latest step, 100 MB at most, half way back), 32 at 128², 2 at 512². */
 const SNAPSHOT_EVERY = 8;
 const MAX_SNAPSHOTS = 8;
+const NEAR_TILES = 8 * 256 * 256;
+const MIN_NEAR = 2;
 
 export class MapSession {
   private gen: Generation;
+  /** The generations before the current one, oldest first, each with its state and where its operations start
+   *  in the log: a crop (D340) makes the map's next generation, and undo of the crop is the one before. */
+  private past: { gen: Generation; st: DocState; start: number }[] = [];
+  /** Where the current generation's operations start in `log` (its first is the crop that made it). */
+  private segStart = 0;
+  /** The log of every generation, oldest first (the document splits it at each crop). */
   private log: AppliedOp[];
   private st: DocState;
   private seqNext: number;
@@ -166,6 +228,7 @@ export class MapSession {
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
@@ -176,9 +239,21 @@ export class MapSession {
   private waterMode: WaterMode = "canonical";
 
   private constructor(doc: MapDocument, built?: BuildResult, opts: { rebuild?: boolean; deferWater?: boolean } = {}) {
-    this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+    this.gen = generationOf(doc);
+    // a cropped map's earlier generations (D340), each with its own operations: a cheap replay of their state,
+    // never a build; the map is built from the current generation's base
+    const earlier: AppliedOp[] = [];
+    const chain: MapDocument[] = [];
+    for (let d = doc.prior; d; d = d.prior) chain.unshift(d);
+    for (const d of chain) {
+      const g = generationOf(d);
+      const rp = replay(g.baseFeatures, d.edits);
+      this.past.push({ gen: g, st: rp.state, start: earlier.length });
+      earlier.push(...rp.log);
+    }
+    this.segStart = earlier.length;
     const r = replay(this.gen.baseFeatures, doc.edits);
-    this.log = r.log;
+    this.log = [...earlier, ...r.log];
     this.st = r.state;
     this.seqNext = doc.nextSeq;
     for (const n of (doc as MapDocument & RetiredNotes).__retiredNotes ?? []) this.notices.push(n);
@@ -209,8 +284,6 @@ export class MapSession {
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
-      // (a removal an older project stored: it has no rule for water in caves yet and takes nothing)
-      if (cavesOf(this.cur.waterModel) && this.log.some((o) => o.op === "removeUnfedWater")) this.notices.push(CAVE_REFUSALS.removeUnfed);
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -227,19 +300,16 @@ export class MapSession {
    *  generation's layers bound to this session's (the incremental build compares them by identity);
    *  null when the project opens by rebuilding. Only for a document with a stored base. */
   private restored(doc: MapDocument): BuildResult | null {
-    if (!storedFits(doc.stored, this.log.length, this.seqNext) || this.gen.base.world === null) return null;
+    if (!storedFits(doc.stored, doc.edits.length, this.seqNext) || this.gen.base.world === null) return null;
     const b = restoreBuilt(doc.stored, this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0);
     if (!b) return null;
-    // a map with caves or overhangs stored before its water was the stacked-column engine's (D120):
-    // it is built again, as every project was before maps were stored
-    if (this.mode !== "live" && !b.waterModel.stacked && !this.baseStuff().terrain.terrain.allPlain()) return null;
     const input = this.input();
     const slopes = input.generatedSlopes ?? null;
     const list = b.cache.terrain.slopeList;
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
-    const dropped = groundDropped(input.base, b.heights, b.entities);
+    const dropped = groundDropped(input.base, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
     if (dropped) b.dropped = dropped;
     return b;
   }
@@ -259,6 +329,12 @@ export class MapSession {
   /** Why undo cannot go below the save point now, or null (the replay differed, D455). */
   get undoStopped(): string | null {
     return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
+  }
+
+  /** Whether only the step the history stands at can be kept as a version: the replay differed, so the map as saved is the
+   *  earliest state and no other step can be built (D455). */
+  get keepOnlyHere(): boolean {
+    return !this.pending && this.floor > 0;
   }
 
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
@@ -398,18 +474,137 @@ export class MapSession {
 
   /** Follow another session of the same generation (a replica: the editor's checks run on one in
    *  a worker of their own): its log becomes this one's, and the map is rebuilt incrementally from
-   *  where it stood. The history is not kept; the replica never undoes. */
+   *  where it stood, as after an edit (`relog`). The history becomes the log's steps, with nothing to
+   *  redo and no save point. The same map, byte for byte, as replaying the whole log (`replay`). */
   followLog(log: readonly AppliedOp[], nextSeq: number): void {
-    const r = replay(this.gen.baseFeatures, log);
-    this.log = r.log;
-    this.st = r.state;
-    this.seqNext = nextSeq;
-    this.undoStack = stepsOf(this.log);
     this.floor = 0;
     this.pending = null;
+    this.relog(log, nextSeq, null);
+  }
+
+  /** The log becomes `log`: the operations both logs share from the start stay as they are (their
+   *  state, and the caches the build keys on them), those after are taken back and the new ones
+   *  applied in order, and the map is rebuilt from where it stood, as after an edit. The history is
+   *  `steps` (each step's operation numbers, and its label), or the log's own steps; nothing is left
+   *  to redo. The kept maps stay for the leading steps that hold the very same operations as before
+   *  (whether or not the log marks its steps), and only those. */
+  private relog(log: readonly AppliedOp[], nextSeq: number, steps: readonly { seqs: readonly number[]; label?: string }[] | null): void {
+    const before = this.undoStack;
+    let keep = 0;
+    while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
+    for (let k = this.log.length - 1; k >= keep; k--) {
+      invertOp(this.st, this.log[k]);
+      if (isCrop(this.log[k])) this.leaveCrop();
+    }
+    this.log.length = keep;
+    for (let k = keep; k < log.length; k++) {
+      const copy = clone(log[k]) as AppliedOp;
+      applyOp(this.st, copy);
+      this.log.push(copy);
+      // (the map as it stands before the crop, then the crop)
+      if (isCrop(copy)) {
+        this.cur = this.rebuilt();
+        this.enterCrop(this.cropGeneration(copy.params).gen);
+      }
+    }
+    this.seqNext = nextSeq;
+    const bySeq = new Map(this.log.map((o) => [o.seq, o]));
+    this.undoStack = steps ? steps.map((g) => ({ kind: "ops" as const, ops: g.seqs.map((n) => bySeq.get(n)!), ...(g.label ? { label: g.label } : {}) })) : stepsOf(this.log);
+    // (the leading steps of the very same operations: their maps stand as they were)
+    let shared = 0;
+    while (shared < before.length && shared < this.undoStack.length && sameItems(before[shared].ops, this.undoStack[shared].ops)) shared++;
     this.redoStack = [];
-    this.snaps.clear();
+    for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
     this.cur = this.rebuilt();
+  }
+
+  /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
+   *  redo of a step that is not the latest, D362): `remove` names a step of the history by its first
+   *  operation's number (`seq`), `insert` gives its operations as the log kept them (`stepOps`), with
+   *  its label. The operations after it are applied again in order, and the map rebuilt from where it
+   *  stood, as an edit is (`relog`): about one edit's cost, never a rebuild of the whole log. The other
+   *  steps stay as they were, each one step; nothing is left to redo. A step below the save point of a
+   *  map opened from its stored map waits on the replay comparison, as undo does (D455). False, and
+   *  nothing changes, when there is no such step to take out, an operation to put back is in the log
+   *  already, or the save point stops it. */
+  spliceStep(change: { remove: number } | { insert: readonly AppliedOp[]; label?: string }): boolean {
+    const steps = this.undoStack.map((e) => ({ seqs: e.ops.map((o) => o.seq), ...(e.label ? { label: e.label } : {}) }));
+    let at: number;
+    let log: AppliedOp[];
+    if ("remove" in change) {
+      at = steps.findIndex((g) => g.seqs[0] === change.remove);
+      if (at < 0) return false;
+      const gone = new Set(steps[at].seqs);
+      steps.splice(at, 1);
+      log = this.log.filter((o) => !gone.has(o.seq));
+    } else {
+      const ops = [...change.insert].sort((a, b) => a.seq - b.seq);
+      const seqs = new Set(this.log.map((o) => o.seq));
+      if (!ops.length || ops.some((o) => seqs.has(o.seq)) || new Set(ops.map((o) => o.seq)).size !== ops.length) return false;
+      at = steps.findIndex((g) => g.seqs[0] > ops[0].seq);
+      if (at < 0) at = steps.length;
+      steps.splice(at, 0, { seqs: ops.map((o) => o.seq), ...(change.label ? { label: change.label } : {}) });
+      log = [...this.log, ...ops].sort((a, b) => a.seq - b.seq);
+    }
+    // (below the save point: the replay comparison first, here, when it is owed; it decides, D455)
+    if (at < this.floor && (!this.pending || !this.checkReplay())) return false;
+    this.relog(log, Math.max(this.seqNext, ...log.map((o) => o.seq + 1)), steps);
+    return true;
+  }
+
+  /** The operations of the history's step whose first operation is `seq`, as the log keeps them
+   *  (for `spliceStep`'s `insert`); empty when there is none. Copies. */
+  stepOps(seq: number): AppliedOp[] {
+    const e = this.undoStack.find((s) => s.ops[0].seq === seq);
+    return e ? (clone(e.ops) as AppliedOp[]) : [];
+  }
+
+  /** The label of the history's step whose first operation is `seq` (for `spliceStep`'s `insert`). */
+  stepLabel(seq: number): string | undefined {
+    return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
+  }
+
+  /** The map as it stood after History step `k` (the index `history()` lists; −1: before the first step, or at the save
+   *  point of a map whose earlier steps cannot be undone), steps undone since included, as a project file of its own:
+   *  the same land, the History's first steps replayed on it (the operations with their step grouping, so the copy opens
+   *  with its History up to that step, D456), named "<map name> — <step label>", with where it came from in its meta.
+   *  The project carries the stored map, so it reopens byte for byte (D455), when the session has that step's settled
+   *  build (the one it stands at, or a kept one near it: no rebuild). Otherwise it is rebuilt here (`rebuild`, the default,
+   *  a full build: seconds at 256²), or, with `rebuild: false`, the project comes without the stored map and `built` is null
+   *  (the caller builds it elsewhere: it opens by replaying, as a project with no stored map does). A step other than where
+   *  the history stands waits on the replay comparison of a map opened from its stored map, and once that replay differed
+   *  there is none to give (D455). Null when there is no such step. */
+  versionProject(k: number, from: { id?: string } = {}, level = 6, opts: { rebuild?: boolean } = {}): { bytes: Uint8Array; name: string; parent: VersionParent; built: BuildResult | null; stored: boolean } | null {
+    const steps = [...this.undoStack, ...this.redoStack.slice().reverse()];
+    const upto = this.reach + k + 1;
+    if (k < -1 || upto > steps.length) return null;
+    const here = upto === this.undoStack.length;
+    if (!here) {
+      if (this.pending && !this.checkReplay()) return null;
+      if (!this.pending && this.floor > 0) return null;
+    }
+    const label = upto === 0 ? (this.gen.spec ? "The generated map" : "Opened the map") : upto === this.reach ? "The map as saved" : (steps[upto - 1].label ?? labelOf(steps[upto - 1].ops[0]));
+    const parent: VersionParent = { ...(from.id ? { id: from.id } : {}), name: this.gen.meta.name, label, steps: upto };
+    const name = versionName(this.gen.meta.name, label);
+    const doc = this.document;
+    const cut = clone(steps.slice(0, upto).flatMap((e) => e.ops)) as AppliedOp[];
+    const { state } = replay(baseFeaturesOf(doc), cut);
+    const meta = { ...doc.meta, name, parent };
+    delete meta.views;
+    const version: MapDocument = { ...doc, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut, meta };
+    const kept = here ? this.cur : this.snaps.get(upto);
+    if (kept && kept.settle.preview !== true && kept.settle.stale !== true) {
+      let stored: StoredState | null = null;
+      try {
+        stored = storeBuilt(kept, cut.length, this.seqNext);
+      } catch {
+        // a map the stored format cannot carry: kept without it, and reopened by rebuilding
+      }
+      return { bytes: encodeProject(stored ? { ...version, stored } : version, level), name, parent, built: kept, stored: !!stored };
+    }
+    if (opts.rebuild === false) return { bytes: encodeProject(version, level), name, parent, built: null, stored: false };
+    const s = new MapSession(version, undefined, { rebuild: true });
+    return { bytes: s.project(level), name, parent, built: s.built, stored: true };
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
@@ -429,9 +624,10 @@ export class MapSession {
     return new MapSession(doc, r.built);
   }
 
-  /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
-  static importMap(bytes: Uint8Array, fileName: string): MapSession {
-    return new MapSession(importDocument(bytes, fileName));
+  /** Import any .timber map (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Throws
+   *  ImportError for saves. */
+  static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
+    return new MapSession(importDocument(bytes, fileName, place));
   }
 
   // --------------------------------------------------------------------------------- reading
@@ -439,6 +635,12 @@ export class MapSession {
   get mode(): SessionMode {
     if (!this.gen.spec) return "import";
     return this.gen.generatorVersion !== GENERATOR_VERSION && this.gen.base.world !== null ? "frozen" : "live";
+  }
+
+  /** Whether the map was cropped (D340): it is built from the cropped file, and has no "as opened" map to compare
+   *  its problems with, so every problem it has is the player's own. */
+  get cropped(): boolean {
+    return !!this.gen.cropped;
   }
 
   get spec(): MapSpec | null {
@@ -465,23 +667,154 @@ export class MapSession {
     return { x: this.gen.base.sizeX, y: this.gen.base.sizeY };
   }
 
-  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, with an imported
-   *  map's caves and overhangs kept exactly. A fresh copy. */
+  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, an imported map's
+   *  caves and overhangs with their top runs shaped as the edits left them and everything under a
+   *  roof kept exactly (D280 (3)), and the ground the Block tool dug or built (D335). A fresh copy. */
   get terrain(): ColumnTerrain {
-    const { x: W, y: H } = this.size;
-    return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
+    const t = this.terrainOf(this.cur);
+    return new ColumnTerrain(t.W, t.H, t.mask.slice());
   }
 
-  /** Whether a tile is one plain run from the bottom: no cave or overhang, so the tools may shape it.
-   *  Every tile of a generated map. */
+  private readonly terrains = new WeakMap<BuildResult, ColumnTerrain>();
+
+  /** The ground of a build of this document (shared, never to be changed): its base under its surface
+   *  with the Block tool's tiles as they left them (terrain/blocks.ts `terrainUnder`). */
+  private terrainOf(b: BuildResult): ColumnTerrain {
+    let t = this.terrains.get(b);
+    if (!t) {
+      const { x: W, y: H } = this.size;
+      t = terrainUnder(this.mode === "live" ? null : this.baseStuff().terrain.terrain, b.heights, masksOf(b.cache.terrain), W, H);
+      this.terrains.set(b, t);
+    }
+    return t;
+  }
+
+  /** Whether a build's ground has any tile that is not one plain run from the bottom: an imported map's
+   *  caves and overhangs, or ground the Block tool dug. A heightfield drops nothing, and none of the
+   *  support rule's work is done on one. */
+  private layered(b: BuildResult): boolean {
+    return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
+  }
+
+  /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
+   *  the forces shape it (the brushes shape every tile's top run, D487).
+   *  Every tile of a generated map until the Block tool digs one. */
   plainAt(i: number): boolean {
+    const m = masksOf(this.cur.cache.terrain).get(i);
+    if (m !== undefined) return isPlainMask(m);
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
   }
 
-  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels), for the voxel
-   *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
+  /** The map's voxel columns that are not one plain run (tile index → its 23 voxels) as they stand,
+   *  for the voxel mesher: an imported map's caves and overhangs with their tops as the brushes left
+   *  them (D280 (3)), and the ground the Block tool dug or built (D335). Empty for a heightfield. */
   get columns(): ReadonlyMap<number, Uint8Array> {
-    return this.mode === "live" ? new Map() : this.baseStuff().terrain.columns;
+    const c = this.columnsCache;
+    if (c && c.key === this.cur) return c.columns;
+    const columns = new Map<number, Uint8Array>();
+    if (this.layered(this.cur)) {
+      const t = this.terrainOf(this.cur);
+      for (const i of t.notPlain()) columns.set(i, t.column(i, LAYERS));
+    }
+    this.columnsCache = { key: this.cur, columns };
+    return columns;
+  }
+  private columnsCache: { key: BuildResult; columns: Map<number, Uint8Array> } | null = null;
+
+  /** The blocks of ground the map as it stands would lose that it did not lose as `before` (D121,
+   *  D280 (3)): what the last step makes fall, by cell (z·N + tile). Empty on a heightfield, and
+   *  when neither the ground nor the objects holding ground changed. */
+  private fallsSince(before: BuildResult): number[] {
+    const now = this.cur;
+    if (!this.layered(before) && !this.layered(now)) return [];
+    const { x: W, y: H } = this.size;
+    const tops0 = this.topsOf(before.entities);
+    const tops1 = this.topsOf(now.entities);
+    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k]) && sameMasks(masksOf(before.cache.terrain), masksOf(now.cache.terrain))) return [];
+    return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
+  }
+
+  /** How many blocks of ground an operation just put in the log would make fall, worked out from the
+   *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
+   *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
+   *  it covers the rest, D280 (3)). */
+  private fallsAhead(op: EditOp): number {
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return 0;
+    if (!this.layered(this.cur)) return 0;
+    const { x: W, y: H } = this.size;
+    const { heights } = previewTerrain(this.cur, this.input());
+    if (sameBytes(heights, this.cur.heights)) return 0;
+    // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
+    const tops = this.topsOf(this.cur.entities);
+    const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
+    const masks = masksOf(this.cur.cache.terrain);
+    return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
+  }
+
+  /** The Block tool's query (D335, docs/progress/3d-creating.md): what an operation would do to the
+   *  ground as it stands, and what the game's support rule would drop because of it, before anything
+   *  is applied. `added` and `removed` are the blocks it changes, as [x, y, layer]; `falls` the blocks
+   *  of ground that would drop (nothing holding them up), the cells `apply` refuses with
+   *  `fallsReason`. `errors` is the one line why it cannot be taken at all (a cell off the map or the
+   *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
+  blockFalls(params: OpParams["blocks"]): BlockFalls {
+    const { x: W, y: H } = this.size;
+    const none = (errors: string[]): BlockFalls => ({ reason: errors[0], errors, added: [], removed: [], falls: [], plantsRemoved: 0, plantsRiding: 0 });
+    const bad = schemaProblems({ op: "blocks", params });
+    if (bad.length) return none(bad);
+    const t = this.terrainOf(this.cur);
+    const effect = blockEffect(params, t, this.groundOf(this.cur.entities));
+    if (effect.errors.length) return none(effect.errors);
+    const after = withBlocks(t, effect.added, effect.removed);
+    const cells = (list: readonly number[]) => list.map((c): [number, number, number] => [c % W, Math.floor((c % (W * H)) / W), Math.floor(c / (W * H))]);
+    // (what falls now was falling before, or it is not this step's)
+    const now = unsupportedVoxels(after, this.topsOf(this.cur.entities));
+    const was = this.unsupportedOf(this.cur);
+    const fell: number[] = [];
+    for (let c = 0; c < now.length; c++) if (now[c] && !was[c]) fell.push(c);
+    const falls = cells(fell);
+    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+  }
+
+  // What a build's objects mean to the Block tool and the support rule, worked out once per build (the
+  // page asks on every pointer tile).
+  private readonly grounds = new WeakMap<object, BlockGround>();
+  private readonly tops = new WeakMap<object, number[]>();
+  private readonly unsupported = new WeakMap<BuildResult, Uint8Array>();
+
+  private groundOf(entities: BuildResult["entities"]): BlockGround {
+    let g = this.grounds.get(entities);
+    if (!g) {
+      const { x: W, y: H } = this.size;
+      this.grounds.set(entities, (g = blockGround(entities, W, H)));
+    }
+    return g;
+  }
+
+  private topsOf(entities: BuildResult["entities"]): number[] {
+    let t = this.tops.get(entities);
+    if (!t) {
+      const { x: W, y: H } = this.size;
+      this.tops.set(entities, (t = stackableTops(W, H, entities)));
+    }
+    return t;
+  }
+
+  /** The blocks of a build's ground the game deletes (support.ts `unsupportedVoxels`), once per build. */
+  private unsupportedOf(b: BuildResult): Uint8Array {
+    let u = this.unsupported.get(b);
+    if (!u) this.unsupported.set(b, (u = unsupportedVoxels(this.terrainOf(b), this.topsOf(b.entities))));
+    return u;
+  }
+
+  /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
+   *  taken, the map back to `before`. */
+  private refuseStep(mark: HistoryMark, seq: number, before: BuildResult): void {
+    const step = this.stepSince(mark);
+    if (!step) return;
+    this.snaps.set(mark.depth, before);
+    if (this.takeBack(step)) this.seqNext = seq;
   }
 
   /** The ground of the map as it was opened (its stored base, before the edits): the forces derive
@@ -518,11 +851,32 @@ export class MapSession {
     return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
   }
 
-  /** An imported map's tiles with a cave, tunnel or overhang, which every tool leaves as they are
-   *  (the "Caves and overhangs" layer marks them). Their water is simulated with the rest of the
-   *  map's (D120). Empty for generated maps. */
+  /** The tiles with a cave, tunnel or overhang (an imported map's, and the ground the Block tool
+   *  dug), which the tools leave as they are but for the brushes, which shape their top runs (D487;
+   *  the "Caves and overhangs" layer marks them). An import's are simulated with the rest of its
+   *  water (D120). Empty for a heightfield map. */
   get roofedTiles(): ReadonlySet<number> {
-    return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
+    return new Set(this.columns.keys());
+  }
+
+  /** The water an imported map holds under its roofs (the file's own, which the editor shows and the
+   *  export keeps), a bit per level of each tile; null when it has none. Erode never wears rock that
+   *  holds it back (D281). */
+  caveWater(): Uint32Array | null {
+    if (this.mode === "live") return null;
+    const roofed = this.roofedTiles;
+    if (!roofed.size) return null;
+    const w = this.storedWater();
+    const { x: W, y: H } = this.size;
+    let out: Uint32Array | null = null;
+    for (let k = 0; k < w.tile.length; k++) {
+      const i = w.tile[k];
+      if (!roofed.has(i) || !(w.depth[k] > 0.02) || w.floor[k] < 0) continue;
+      out ??= new Uint32Array(W * H);
+      const top = Math.min(LAYERS, Math.ceil(w.floor[k] + w.depth[k] - 0.02));
+      for (let z = Math.floor(w.floor[k]); z < top; z++) out[i] |= 1 << z;
+    }
+    return out;
   }
 
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
@@ -542,10 +896,25 @@ export class MapSession {
       channel: t.channel.slice(),
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
-      columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+      columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
+      ...(this.columns.size ? this.roofState() : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
+    };
+  }
+
+  /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
+   *  each roof's top may go, the terrain's masks of those tiles as they stand, and the objects' tops
+   *  that hold ground (StrokePreview `falls`). The ground the Block tool dug counts as caves. */
+  private roofState(): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
+    const t = this.terrainOf(this.cur);
+    const { x: W, y: H } = this.size;
+    const tiles = [...this.columns.keys()].sort((a, b) => a - b);
+    return {
+      floor: t.topFloors(),
+      masks: Uint32Array.from(tiles, (i) => t.mask[i]),
+      stackTops: Int32Array.from(this.topsOf(this.cur.entities)),
     };
   }
 
@@ -565,30 +934,75 @@ export class MapSession {
 
   /** The soil the base file stores on each tile's top (moisture and contamination), for the 3D
    *  view's ground colours (Map look, D86). */
-  storedSoil(): ReturnType<typeof storedSoil> {
+  storedSoil(): ReturnType<typeof storedSoilTops> {
+    const t = this.baseStuff().terrain.terrain;
+    // a tile's top column is its last run of solid voxels; the game's runs start with an empty one under a
+    // column whose bottom voxel is air (sim/columns.ts `terrainColumns`), so its top is one slot further
+    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - (t.mask[i] & 1 ? 1 : 0));
+    return storedSoilTops(this.storedSoilRuns(), this.gen.base.sizeX * this.gen.base.sizeY, topSlot);
+  }
+
+  /** The soil the base file stores on every run top (slot j of tile i at j·N + i), read once a base: the 3D
+   *  view's ground colours on caves' floors too (3D view, part 3). */
+  storedSoilRuns(): ReturnType<typeof storedSoilRuns> {
     const b = this.baseStuff();
-    const t = b.terrain.terrain;
-    // a tile's top column is its last run of solid voxels
-    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - 1);
-    return storedSoil(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, topSlot);
+    if (this.storedSoilCache?.key !== this.gen.base) this.storedSoilCache = { key: this.gen.base, soil: storedSoilRuns(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    return this.storedSoilCache.soil;
+  }
+
+  /** The soil on every run top of a map with caves or overhangs whose water is a settle (or water
+   *  carried over to its ground), as the file stores it (slot j of tile i at j·N + i): the 3D view's
+   *  ground colours on caves' floors (`stackedSoil`, the soil the export writes). Null on a heightfield
+   *  and while the file's own water stands (`storedSoilRuns` then). */
+  settledSoilRuns(built: BuildResult = this.cur): { moisture: { slots: number; values: Float64Array }; contamination: { slots: number; values: Float64Array } } | null {
+    if (built.waterFromFile) return null;
+    const cs = this.caveSoilOf(built);
+    return cs ? { moisture: { slots: cs.soil.runs.T, values: cs.soil.moisture }, contamination: { slots: cs.soil.runs.T, values: cs.soil.contamination } } : null;
+  }
+
+  private readonly caveSoils = new WeakMap<BuildResult, { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null>();
+
+  /** A build's water columns and its soil per run when its water is on stacked columns that fit its
+   *  ground (`settle.stack`), else null; worked out once a build. */
+  private caveSoilOf(built: BuildResult): { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null {
+    if (this.caveSoils.has(built)) return this.caveSoils.get(built)!;
+    const stack = built.settle.stack;
+    let out: { cols: ReturnType<typeof waterColumns>; soil: ReturnType<typeof stackedSoil> } | null = null;
+    if (stack) {
+      const terrain = this.terrainOf(built);
+      const objects = built.entities.map(toMapObject);
+      const cols = waterColumns(terrain, objects);
+      if (cols.L === stack.L && cols.count.every((c, i) => c === stack.count[i])) out = { cols, soil: stackedSoil(terrain, cols, stack, objects) };
+    }
+    this.caveSoils.set(built, out);
+    return out;
   }
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {
-    return {
-      formatVersion: 3,
-      app: "dam-good-maps",
-      generatorVersion: this.gen.generatorVersion,
-      spec: this.gen.spec,
-      base: this.gen.base,
-      ...(this.gen.field ? { field: this.gen.field } : {}),
-      baseFeatures: this.gen.baseFeatures,
-      kept: this.gen.kept,
-      features: clone(this.st.features),
-      edits: clone(this.log),
-      nextSeq: this.seqNext,
-      meta: this.gen.meta,
-    };
+    // one document per generation, each holding the one before it (a crop starts the next, D340)
+    const gens = [...this.past, { gen: this.gen, st: this.st, start: this.segStart }];
+    let prior: MapDocument | undefined;
+    gens.forEach(({ gen, st, start }, k) => {
+      const next = gens[k + 1];
+      const doc: MapDocument = {
+        formatVersion: 3,
+        app: "dam-good-maps",
+        generatorVersion: gen.generatorVersion,
+        spec: gen.spec,
+        base: gen.base,
+        ...(gen.field ? { field: gen.field } : {}),
+        baseFeatures: gen.baseFeatures,
+        kept: gen.kept,
+        features: clone(st.features),
+        edits: clone(this.log.slice(start, next ? next.start : this.log.length)),
+        nextSeq: next ? this.log[next.start].seq : this.seqNext,
+        meta: gen.meta,
+        ...(prior ? { prior } : {}),
+      };
+      prior = doc;
+    });
+    return prior!;
   }
 
   /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens).
@@ -601,7 +1015,8 @@ export class MapSession {
     let stored: StoredState | null = null;
     try {
       // (unchanged since it opened from its stored map: that map again, as decoded)
-      stored = p && p.built === this.cur && p.state.edits === this.log.length && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, this.log.length, this.seqNext);
+      const local = this.log.length - this.segStart;
+      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, local, this.seqNext);
     } catch {
       // a map the stored format cannot carry: saved without it, and reopened by rebuilding
     }
@@ -614,7 +1029,7 @@ export class MapSession {
   usedEntityIds(): ReadonlySet<string> {
     const ids = new Set<string>();
     for (const e of this.cur.entities) ids.add(e.id);
-    for (const e of this.st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
+    for (const st of [...this.past.map((p) => p.st), this.st]) for (const e of st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
     return ids;
   }
 
@@ -686,11 +1101,13 @@ export class MapSession {
       generated: !!this.gen.spec,
       entityIds,
       slopeTiles,
-      lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
+      lockedColumns: this.layered(this.cur) ? new Set(this.columns.keys()) : null,
+      ...(op.op === "blocks" ? { blocks: { terrain: this.terrainOf(this.cur), ground: this.groundOf(this.cur.entities) } } : {}),
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
       startObjects,
+      cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -706,15 +1123,35 @@ export class MapSession {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
+    // (the Block tool's ground that would fall is refused before anything is built: the query the page shows)
+    if (op.op === "blocks") {
+      const f = this.blockFalls(op.params);
+      if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
+    }
+    if (op.op === "crop") return this.applyCrop(op, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
+    // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
+    const ahead = this.fallsAhead(op);
+    if (ahead) {
+      invertOp(this.st, applied);
+      this.log.pop();
+      this.seqNext = seq;
+      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+    }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
     const again = this.rideTilted([op], before, mark, seq);
     if (again) return this.ridden(() => this.apply(again[0], origin, label));
+    // nothing an edit does may leave ground the game would drop (D121, D280 (3)): refused, with why
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
 
@@ -756,26 +1193,88 @@ export class MapSession {
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : this.check(op);
+      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
           this.log.pop();
         }
         if (done.length) this.cur = this.rebuilt();
+        this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
-      done.push(this.applyChecked(op, origin, label));
+      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
-    // (a step of several is marked in the log, so it stays one step when the project is reopened)
-    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+  }
+
+  /** Crop map to selection (D340): the map becomes the rectangle, as the next generation (the cropped map as an
+   *  imported one, its water settling again) and one undo step; undo is the map as it was. */
+  private applyCrop(op: EditOp & { op: "crop" }, origin: OpOrigin, label?: string): ApplyResult {
+    const { gen, objects } = this.cropGeneration(op.params);
+    const applied = this.applyChecked(op, origin, label);
+    this.enterCrop(gen);
+    this.pushHistory({ kind: "ops", ops: [applied], cropped: gen });
+    this.cur = this.freshBuild();
+    this.snapshot();
+    return { ok: true, errors: [], applied: [applied], dirty: null, removedObjects: objects.crossing.length };
+  }
+
+  /** The generation a crop makes of the map as it stands: its settled water (a file always gets the canonical
+   *  settle, so every replay of the log makes the same bytes), cropped as a file, as an imported map. */
+  private cropGeneration(r: CropParams): { gen: Generation; objects: ReturnType<typeof cropFile>["objects"] } {
+    this.settleCanonical();
+    const { file, objects } = cropFile(this.exportFile(this.cur, { thumbnail: false }), r);
+    const meta = { ...this.gen.meta };
+    // (camera bookmarks name places on the map as it was)
+    delete meta.views;
+    return { gen: { spec: null, generatorVersion: GENERATOR_VERSION, base: baseFromFile(file, "import"), field: null, baseFeatures: [], kept: null, meta, cropped: true }, objects };
+  }
+
+  /** The map goes on as `gen`: the crop is already the last operation of the log. The map's name goes with it
+   *  (D443: a rename is never undone, so no crop or undo of one brings an older name back). */
+  private enterCrop(gen: Generation): void {
+    this.past.push({ gen: this.gen, st: this.st, start: this.segStart });
+    this.gen = this.named(gen);
+    this.st = emptyState(gen.baseFeatures);
+    this.segStart = this.log.length - 1;
+  }
+
+  /** `gen` with the name the map has now. */
+  private named(gen: Generation): Generation {
+    return gen.meta.name === this.gen.meta.name ? gen : { ...gen, meta: { ...gen.meta, name: this.gen.meta.name } };
+  }
+
+  /** The map goes back to the generation before its crop; returns the one it leaves. */
+  private leaveCrop(): Generation {
+    const before = this.past.pop();
+    if (!before) throw new Error("there is no map before this crop");
+    const left = this.gen;
+    this.gen = this.named(before.gen);
+    this.st = before.st;
+    this.segStart = before.start;
+    return left;
+  }
+
+  /** A full build of the current generation (the map changed size), its water carried over to be settled in the
+   *  background when edits do not wait on the water. */
+  private freshBuild(): BuildResult {
+    const input = this.input();
+    if (this.waterMode !== "defer") return buildMap(input, { water: this.waterMode });
+    const { layer } = this.baseStuff();
+    const W = this.gen.base.sizeX, H = this.gen.base.sizeY;
+    return buildMap(input, { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
   }
 
   /** A player's scatter placement: validate all literal placements, then one rebuild and one undo step. */
@@ -800,16 +1299,28 @@ export class MapSession {
         taken.add(i);
       }
     }
-    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    // (a batch of several is one step in the log too, so it stays one step when the project is reopened: D456)
+    const first = this.seqNext;
+    const done = ops.map((op) => this.applyChecked(op, origin, label, ops.length > 1 ? first : undefined));
     this.cur = this.rebuilt();
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
-  private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
+  /** `step`: the `seq` of the first operation of the step, when the step holds several (D456). It is
+   *  set here, before `applyOp` adds the undo data, so a log entry's keys come in one order live and
+   *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
+  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
-    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
+    // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
+    if (applied.op === "blocks") {
+      const { x: W, y: H } = this.size;
+      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), this.groundOf(this.cur.entities));
+      const { plants: _asked, stands: _stands, ...rest } = applied.params;
+      applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
+    }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
@@ -857,9 +1368,12 @@ export class MapSession {
       const last = this.log.pop();
       if (last?.seq !== e.ops[k].seq) throw new Error("the log and the history disagree");
       invertOp(this.st, last);
+      // (the map is the generation before the crop again)
+      if (isCrop(last)) e.cropped = this.leaveCrop();
     }
     this.redoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+    this.snapshot();
     return true;
   }
 
@@ -869,6 +1383,7 @@ export class MapSession {
     for (const op of e.ops) {
       applyOp(this.st, op);
       this.log.push(op);
+      if (isCrop(op)) this.enterCrop(e.cropped ?? this.cropGeneration(op.params).gen);
     }
     this.undoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
@@ -885,7 +1400,7 @@ export class MapSession {
   /** Where the history stands now, before a step that may have to be taken back as if it had never
    *  been taken (a force whose Esc arrives after its keep, PLAN §20 D341). */
   mark(): HistoryMark {
-    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null };
+    return { depth: this.undoStack.length, below: this.undoStack.at(-1) ?? null, redo: this.redoStack.slice(), step: null, seq: this.seqNext };
   }
 
   /** The operations of the latest step on the history (empty when there is none undo can reach). */
@@ -906,8 +1421,50 @@ export class MapSession {
     const top = this.undoStack.length;
     if (!mark.step || top !== mark.depth + 1 || this.undoStack[mark.depth] !== mark.step || (this.undoStack[mark.depth - 1] ?? null) !== mark.below) return false;
     this.undo();
+    this.seqNext = mark.seq;
     this.redoStack = (mark.redo as HistoryEntry[]).slice();
     for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
+    return true;
+  }
+
+  /** The latest step of the history, named for `takeBack` (as `stepSince` names one), with what
+   *  Redo holds now; null when undo cannot reach a step. */
+  latestStep(): HistoryMark | null {
+    const depth = this.undoStack.length - 1;
+    if (depth < this.reach) return null;
+    const e = this.undoStack[depth];
+    return { depth, below: this.undoStack[depth - 1] ?? null, redo: this.redoStack.slice(), step: e, seq: e.ops[0].seq };
+  }
+
+  /** The latest step kept as it stands, to put back later exactly (`putStep`): its operations as the
+   *  log keeps them, its label, the next operation number after it, and the map it built (never
+   *  rebuilt when put back). Null when undo cannot reach a step. */
+  keptStep(): KeptStep | null {
+    const top = this.latestStep();
+    if (!top) return null;
+    const e = top.step as HistoryEntry;
+    return { ops: clone(e.ops) as AppliedOp[], ...(e.label ? { label: e.label } : {}), nextSeq: this.seqNext, built: this.cur };
+  }
+
+  /** Put a step kept with `keptStep` back as the latest step, exactly as it was: its operations (their
+   *  numbers too), the map it built as it was (no rebuild: D453), the next operation number after it;
+   *  `label` names it in the history (else its own). Only where it was made (a force's rolls,
+   *  core/forces/rolls.ts): false, and nothing changes, when the log holds an operation numbered at or
+   *  after its first. Nothing is left to redo. */
+  putStep(step: KeptStep, label?: string): boolean {
+    const first = step.ops[0]?.seq;
+    if (first === undefined || (this.log.at(-1)?.seq ?? -Infinity) >= first) return false;
+    const ops = clone(step.ops) as AppliedOp[];
+    for (const op of ops) {
+      delete op.undo;
+      applyOp(this.st, op);
+      this.log.push(op);
+    }
+    const text = label ?? step.label;
+    this.pushHistory({ kind: "ops", ops, ...(text ? { label: text } : {}) });
+    this.seqNext = step.nextSeq;
+    this.cur = step.built;
+    this.snapshot();
     return true;
   }
 
@@ -917,14 +1474,15 @@ export class MapSession {
     for (const k of [...this.snaps.keys()]) if (k >= this.undoStack.length) this.snaps.delete(k);
   }
 
-  private snapshot(force = false): void {
+  /** Keep the map as it stands for this place in the history (see `NEAR_TILES`). */
+  private snapshot(): void {
     const at = this.undoStack.length;
-    if (!force && at % SNAPSHOT_EVERY !== 0) return;
     this.snaps.set(at, this.cur);
-    while (this.snaps.size > MAX_SNAPSHOTS) {
-      const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
-      this.snaps.delete(oldest);
-    }
+    const near = Math.max(MIN_NEAR, Math.floor(NEAR_TILES / (this.gen.base.sizeX * this.gen.base.sizeY)));
+    // (the steps further away go, but the map as opened and one every few steps)
+    for (const k of [...this.snaps.keys()]) if (k !== 0 && k % SNAPSHOT_EVERY !== 0 && Math.abs(k - at) > near) this.snaps.delete(k);
+    const sparse = [...this.snaps.keys()].filter((k) => k !== 0 && k % SNAPSHOT_EVERY === 0 && Math.abs(k - at) > near).sort((a, b) => a - b);
+    while (sparse.length > MAX_SNAPSHOTS) this.snaps.delete(sparse.shift()!);
   }
 
   // ------------------------------------------------------------------------------ building
@@ -940,7 +1498,7 @@ export class MapSession {
     // with caves or overhangs: the file's water on every column, for the view and the water carried
     // over to the first edit's ground (sim/stackWater.ts)
     if (!terrain.terrain.allPlain()) water.stack = storedStack(waterColumns(terrain.terrain, entities.map(toMapObject)), storedWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY));
-    const layer: BaseLayer = { terrain: terrain.terrain, heights: terrain.heights, entities, water };
+    const layer: BaseLayer = { terrain: terrain.terrain, heights: terrain.heights, entities, water, ...(this.gen.cropped ? { resettle: true } : {}) };
     this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
   }
@@ -1162,30 +1720,29 @@ export class MapSession {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
-    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") {
+      const file = toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+      // (ground the Block tool dug or built is written as it stands: the heightfield file has none)
+      return layeredMasks(masksOf(built.cache.terrain)) ? { ...file, world: { ...file.world, voxels: this.terrainOf(built).voxels(LAYERS) } } : file;
+    }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
-    const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
     // the settled water is written, unless the file's own still stands
-    const terrain = b.terrain.terrain.withSurface(built.heights);
+    // (the ground as it stands: the file's caves and overhangs under the edits' surface, and the
+    // ground the Block tool dug or built, the same the build's water settled on)
+    const terrain = this.terrainOf(built);
     const stack = built.waterFromFile ? undefined : built.settle.stack;
-    let world = worldOf(W, H, built.heights, built.entities, built.waterFromFile || stack ? null : builtWater(built), { world: w, voxels: terrain.voxels(), roofed: null });
+    let world = worldOf(W, H, built.heights, built.entities, built.waterFromFile || stack ? null : builtWater(built), { world: w, voxels: terrain.voxels() });
     if (stack) {
       // a map with caves or overhangs: the settle on every water column and the soil on every run
       // (D120), the way the game saves such a map (world.ts `stackedSimulationSingletons`)
-      const objects = built.entities.map(toMapObject);
-      const cols = waterColumns(terrain, objects);
-      if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
-      const soil = stackedSoil(terrain, cols, stack, objects);
-      const s = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });
-      const singletons: JsonObject = {};
-      for (const k in w.singletons) singletons[k] = WATER_SINGLETONS.includes(k) ? s[k] : w.singletons[k];
-      for (const k of WATER_SINGLETONS) if (!(k in singletons)) singletons[k] = s[k];
-      world = { ...world, singletons };
+      const cs = this.caveSoilOf(built);
+      if (!cs) throw new Error("the settled water does not fit the map's caves: settle the water again");
+      const s = stackedSimulationSingletons(W, H, { cols: cs.cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: cs.soil.moisture, soilContamination: cs.soil.contamination });
+      world = { ...world, singletons: withWaterSingletons(w.singletons, s) };
     }
-    // the thumbnail shows terrain and water: a new one when either changed
-    const redraw = terrainChanged || !built.waterFromFile;
+    const redraw = this.drawsThumbnail(built);
     let metadata = parse(this.gen.base.metadata) as JsonObject;
     // its player removed its last badwater spring: it says it is a No badwater map (D213)
     if (this.badwaterRemoved(built)) {
@@ -1201,15 +1758,24 @@ export class MapSession {
     }, built.heights);
   }
 
-  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
-   *  profile, PLAN §19.5): they are noted at the end of the map's description. */
+  /** Whether the file's thumbnail is drawn (the core's top-down one): always for a generated map; for an
+   *  imported one when its terrain or water changed, else the file keeps its own picture (PLAN §19.6). */
+  drawsThumbnail(built: BuildResult = this.cur): boolean {
+    if (this.mode === "live") return true;
+    // the thumbnail shows terrain and water: a new one when either changed
+    return !built.waterFromFile || !sameBytes(built.heights, this.baseStuff().terrain.heights);
+  }
+
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
     return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
-  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
+  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
+   *  profile, PLAN §19.5): they are noted at the end of the map's description. `thumbnailDrawn`: the
+   *  file carries the core's top-down thumbnail, which the page may replace with its 3D picture (D488). */
+  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string; thumbnailDrawn: boolean } {
     // a file always gets the canonical settle, never the preview's water (PLAN §19.7)
     this.settleCanonical();
     const name = this.exportTimberName();
@@ -1220,7 +1786,7 @@ export class MapSession {
       const note = `Exported with ${opts.warnings.length === 1 ? "a warning" : `${opts.warnings.length} warnings`}: ${opts.warnings.join("; ")}.`;
       file.metadata = { ...md, MapDescription: text ? `${text}\n\n${note}` : note };
     }
-    return { bytes: writeTimber(file), fileName: name };
+    return { bytes: writeTimber(file), fileName: name, thumbnailDrawn: this.drawsThumbnail() };
   }
 
   /** The map as it was opened, before any edit: the load and design checks of an imported
@@ -1316,7 +1882,11 @@ function topWater(singletons: JsonObject, W: number, H: number, heights: Uint8Ar
     depth[i] = w.depth[k];
     contamination[i] = w.contamination[k];
   }
-  return { settled: true, ticks: 0, depth, contamination, sat: new Uint8Array(N), preview: true };
+  // (its saturation, as the settle's own is worked out from where water stands: the soil the build
+  // makes from this water before its first settle is the file's water's, not a dry map)
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0 ? 1 : 0;
+  return { settled: true, ticks: 0, depth, contamination, sat: clusterSaturation(wet, W, H), preview: true };
 }
 
 /** Whether two water models are the same map for the water (floors, obstacles and emitters). */
@@ -1329,13 +1899,17 @@ function sameWaterModel(a: WaterModel, b: WaterModel): boolean {
   return JSON.stringify(a.emitters) === JSON.stringify(b.emitters) && sameKeptWater(a, b);
 }
 
-/** The singletons an export rewrites with the settled water (gen/pack.ts keeps the same list for a
- *  heightfield's): every other singleton stays as the file has it. */
-const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
-
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** The same tiles with the same masks (the Block tool's ground). */
+function sameMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [i, m] of a) if (b.get(i) !== m) return false;
   return true;
 }
 
@@ -1344,6 +1918,11 @@ function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/** The same logged operation: the very object, or its number, kind, step, origin and parameters alike. */
+function sameOp(a: AppliedOp, b: AppliedOp): boolean {
+  return a === b || (a.seq === b.seq && a.op === b.op && a.step === b.step && a.origin === b.origin && (a as { label?: string }).label === (b as { label?: string }).label && JSON.stringify(a.params) === JSON.stringify(b.params));
 }
 
 /** A stored field as the build takes it. */
@@ -1381,7 +1960,7 @@ export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
   return { mask, heights, entities };
 }
 
-/** A stroke's history label, when the page gave none ("Raise, 38 tiles" when it did). */
+/** A stroke's history label, when the page gave none ("Raise 38 tiles" when it did). */
 const BRUSH_NAMES: Record<string, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
 
 const KIND_NAMES: Record<string, string> = {
@@ -1400,8 +1979,10 @@ const KIND_NAMES: Record<string, string> = {
 export function labelOf(op: AppliedOp): string {
   if (op.label) return op.label;
   switch (op.op) {
-    case "addFeature":
-      return `Add ${KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind}`;
+    case "addFeature": {
+      const name = KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind;
+      return `Add ${name === "start" ? "the start" : withArticle(name)}`;
+    }
     case "updateFeature":
       return `Change a feature`;
     case "deleteFeature":
@@ -1415,7 +1996,7 @@ export function labelOf(op: AppliedOp): string {
     case "forceResult":
       return forceLabel(op.params);
     case "placeEntity":
-      return `Place ${op.params.template}`;
+      return placeLabel("Place", op.params.template);
     case "moveEntity":
       return "Move an object";
     case "deleteEntities":
@@ -1427,9 +2008,13 @@ export function labelOf(op: AppliedOp): string {
     case "removeSlope":
       return "Remove a slope";
     case "removeUnfedWater":
-      return op.params.pools ? `Remove unfed water, ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
+      return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
+    case "crop":
+      return `Crop to ${op.params.w}×${op.params.h}`;
+    case "blocks":
+      return op.params.mode === "add" ? "Add blocks" : "Remove blocks";
     default:
       return (op as { op: string }).op;
   }

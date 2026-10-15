@@ -11,7 +11,8 @@ how things are and what is next, not how they got there.
 
 | Document | What it covers, and when to read it |
 |---|---|
-| [CLAUDE.md](../CLAUDE.md) | The standing rules for working in this repository. Every session reads it first. |
+| [CLAUDE.md](../CLAUDE.md) | The absolutes and how we work, on one page. Every session reads it first. |
+| [RULES.md](RULES.md) | The rules in full: coordination, standing rules, writing player text, deploying. |
 | [HANDOFF.md](HANDOFF.md) | The milestone session's handoff: how to start, the two sessions, the models, how things are run, the lessons, the machine. Read it first when starting a session. |
 | [STATUS.md](STATUS.md) | Where things stand now: what's released, what's in flight (branches, PRs, worktrees, owning session) and what waits for Kyler. |
 | [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | The planning session's role (coordination, merging, releases) and how Kyler works. Read it when starting the planning session. |
@@ -21,9 +22,10 @@ how things are and what is next, not how they got there.
 | [decisions/](decisions/README.md) | The decisions in force, by topic, one file per topic, with an index. Read the index, then `how-we-work.md`, then only the topic files your task touches. |
 | [EDITOR_PLAN.md](../EDITOR_PLAN.md) | The editor: its vision first, then the technical reference, then what's gone and must not come back. Read it before any editor work. |
 | [FORMAT.md](../FORMAT.md) | The Timberborn map format as the repository verified it. |
-| [README.md](../README.md) | The player-facing text (written by CLAUDE.md's rules for README and website text). |
+| [README.md](../README.md) | The player-facing text (written by docs/RULES.md's rules for README and website text). |
 | [UI-BRIEF.md](UI-BRIEF.md) | Kyler's UI brief for "The page is the editor": what gets built (D330). |
 | [COLLAB-BRIEF.md](COLLAB-BRIEF.md) | Kyler's collaborative editing brief: what gets built at that milestone (D362). |
+| [collab-worker/README.md](../collab-worker/README.md), [src/collab/README.md](../src/collab/README.md) | Collaborative editing's connection: the room-code function and the browser side (D431, D486). |
 | [FINDINGS.md](FINDINGS.md) | The findings later work builds on, one line each with its number and where it is measured: the game's rules, the official maps, the probe's confirmed behaviours, measured performance. |
 | [GLOSSARY.md](GLOSSARY.md) | The shared terms (force, working area, candidate, the absolutes and the rest), each defined once with the decision that set it. |
 | [decisions-pending.md](decisions-pending.md) | The open pending defaults only: choices the session made while Kyler was away, with the next pending number. |

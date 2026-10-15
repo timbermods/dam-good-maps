@@ -6,7 +6,7 @@
 // a tree, a splash and bubbles for a source, a reversed wooden catch for undo, a torrent for Carve, a
 // crack, a boom and falling stone for Craterize, a grinding fault for Quake, a roaring plume and a
 // cooling hiss for Erupt; a split, a deep drop and tumbling stone for Rift; muddy water and settling earth for
-// Deposit (both from the same bank); for Glaciate, investigation/glaciate's recipe from the same bank (#69: a
+// Deposit (both from the same bank); for Erode, the investigation's four CC0 recordings (a grinding wear and stone falling); for Glaciate, investigation/glaciate's recipe from the same bank (#69: a
 // low grinding bed of stone and pitched wood as the ice advances, two slow cracks, falling meltwater
 // as it retreats; its bank.json lists the same five recordings, byte for byte). Repeating an action
 // climbs a small ladder (0, 2, 4, 7 semitones) and resets after a pause; a held stroke is a looping
@@ -49,6 +49,7 @@ export const SOUNDS: readonly SoundInfo[] = (
     ["glaciate", "Glaciate", "Forces", "Grinding stone · a low wooden groan · slow cracks · meltwater"],
     ["rift", "Rift", "Forces", "The ground splits · a deep drop · falling stone"],
     ["deposit", "Deposit", "Forces", "Muddy water spreading · settling earth"],
+    ["erode", "Erode", "Forces", "Grinding rock · stone falling · a heavier fall"],
     ["undo", "Undo", "Utility", "A short reversed wooden catch"],
     ["waterfall", "Waterfall", "Ambience", "Recorded falling water · a broad, quiet bed"],
     ["stream", "Stream", "Ambience", "A close trickle · a few gentle bubbles"],
@@ -235,6 +236,17 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
       add("earth-bed", 1, 0.03, { duration: 2.4, rate: 0.6, attack: 0.2, release: 0.8 });
       add("bubbles", 0.5, 0.4, { duration: 1.6, rate: 0.7, lowpass: 2200, attack: 0.2, release: 0.6 });
       break;
+    case "erode": {
+      // (investigation/erode `audio.ts`: stone landing is a slice of a recorded rockfall, pitched by size, and a
+      // heavier fall as the opening clears; the grinding wear under it all is `texture`)
+      if (!phase || phase === "land") add(pick("rocks", "rockfall"), 0.6, 0, { rate: r * (0.85 + random() * 0.4), duration: 0.8, offset: random() * 2.5, attack: 0.01, release: 0.25 });
+      if (!phase || phase === "fall") {
+        const t = phase ? 0 : 0.35;
+        add("rockfall", 1.2, t, { rate: 0.8 + random() * 0.1, duration: 2.4, attack: 0.01, release: 1.1 });
+        add("boom", 0.45, t + 0.03, { offset: 0.3, rate: 0.5, duration: 2, lowpass: 480, attack: 0.02, release: 0.8 });
+      }
+      break;
+    }
     case "erupt": {
       if (!phase || phase === "rumble") add("boom", 1.1, 0, { offset: 0.18, duration: 2.1, rate: 0.52, lowpass: 520, attack: 0.1, release: 0.7 });
       if (!phase || phase === "plume") {
@@ -304,6 +316,9 @@ export function texture(name: string): Layer[] {
       return [bed("stone-bed", 1.1, 0.55), bed("boom", 0.8, 0.45, 420)];
     case "deposit":
       return [bed("waterfall", 0.9, 0.7, 2600), bed("earth-bed", 0.9, 0.6)];
+    case "erode":
+      // the wear: recorded rock scraped on rock, with the same scrape slowed and darkened under it
+      return [bed("grind-bed", 1, 0.8, 2400), bed("grind-bed", 0.6, 0.55, 1400)];
     case "glaciate":
       // the ice's grind while it advances: stone, and a low groan of pitched wood
       return [bed("stone-bed", 0.8, 0.42, 1100), bed("wood-body", 0.8, 0.28, 1100)];

@@ -61,7 +61,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
       const e = m.entities;
       const extras: [number, number][] = [];
       for (let k = 0; k < e.count; k++) if (/Relic|Geothermal|Mine|Underground/i.test(e.templates[e.template[k]])) extras.push([e.x[k], e.y[k]]);
-      for (let y = 4; y < m.H - 4; y++)
+      // (from row 15: a spring on row 14 leaves the water still changing at the check, which the dot rightly counts)
+      for (let y = 15; y < m.H - 4; y++)
         for (let x2 = 4; x2 < m.W - 4; x2++) {
           const i = y * m.W + x2;
           if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) continue;
@@ -101,7 +102,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.keyboard.press("Escape");
   await toolPutAway(page);
   i = await info(page);
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source"]);
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower \d+ tiles$/), "Place a water source"]);
   const springs = () => page.evaluate(async ([a, b]) => (await window.dgmEditor!.worker.entitiesAt(a, b)).filter((e) => e.template === "WaterSource").length, spring!);
   expect(await springs()).toBe(1);
 
@@ -125,7 +126,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await page.evaluate(() => window.dgmEditor!.idle());
   // (History, a button in the bar since Kyler's 2026-10-06 sitting)
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
-  await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move start" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "History" }).getByRole("button", { name: "Move the start" })).toBeVisible();
 
   // saved from the editor (export profile): the quiet dot says it is ready to play, and the File menu's
   // Download .timber gives the file
@@ -142,7 +143,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await generateButton(page).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
-  await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
+  // (Generate mounts the editor afresh: its hook is missing for a moment, so the poll reads it only when it is there)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().spec?.settings.resources.groveSize), { timeout: 60_000 }).toBe("bigWoods");
   expect((await info(page)).edits).toBe(0);
   // (the new map, unedited, is never kept: Your maps holds only the edited one, D330)
   const yours = await openYourMaps(page);
@@ -156,7 +158,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // the edited map as it was, its edits all there
   i = await info(page);
   expect(i.spec!.settings.resources.groveSize).not.toBe("bigWoods");
-  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower, \d+ tiles$/), "Place water source", "Move start"]);
+  expect(i.history.map((h) => h.label)).toEqual([expect.stringMatching(/^Lower \d+ tiles$/), "Place a water source", "Move the start"]);
   expect(i.edits).toBe(3);
   expect(i.orphans).toEqual([]);
   expect((i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position).toEqual(moved.position);

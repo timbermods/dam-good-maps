@@ -16,8 +16,8 @@ import { CEILING } from "../core/format/world";
 
 import { wanderWord, type ForceStatus } from "./forceDriver";
 import { FloorSetting, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
-import { ButtonSetting, ChoiceSetting, NumberSetting, SettingsGrid, Words } from "./settings";
-import { SOURCES_DEFAULT, SourcesSetting, type ForceSources } from "./ForceRows";
+import { ChoiceSetting, NumberSetting, SettingsGrid, Words } from "./settings";
+import { again, SOURCES_DEFAULT, SourcesSetting, type ForceSources } from "./ForceRows";
 import { tip } from "../ui/Tooltip";
 
 /** What the player set for the next carve (the page keeps it for the visit). Its details (wander,
@@ -84,6 +84,9 @@ export interface CarveRowProps {
   /** Try another path is there. */
   canAgain: boolean;
   onAgain(): void;
+  /** Its rolls on offer (D488), and showing the next. */
+  rolls?: { shown: number; count: number } | null;
+  onRoll?(): void;
   onPause(): void;
   onRevert(): void;
   /** The settings the last carve actually ran with (D309): what an Auto detail shows until pinned. */
@@ -160,7 +163,7 @@ export function CarveRow(p: CarveRowProps) {
           key: "size",
           row: 1,
           at: 4,
-          span: 2,
+          span: 3,
           node: (
             <NumberSetting
               label="Size"
@@ -179,7 +182,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "leaves",
           row: 1,
-          at: 6,
+          at: 10,
           span: 2,
           node: (
             <ChoiceSetting<"river" | "canyon">
@@ -196,7 +199,7 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "walls",
           row: 1,
-          at: 8,
+          at: 12,
           span: 2,
           node: (
             <ChoiceSetting<"steep" | "wide">
@@ -214,8 +217,8 @@ export function CarveRow(p: CarveRowProps) {
         {
           key: "wander",
           row: 1,
-          at: 10,
-          span: 4,
+          at: 7,
+          span: 3,
           node: <NumberSetting label="Wander" title="How much it winds" value={wander} words={wanderWord(wander)} min={0} max={100} step={5} onChange={(v) => set({ wander: v })} auto={{ on: u.wander === null, onAuto: (on) => set({ wander: on ? null : wander }) }} />,
         },
         {
@@ -263,7 +266,7 @@ export function CarveRow(p: CarveRowProps) {
         },
         { key: "floor", row: 2, at: 8, span: 2, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: <ButtonSetting label="Try another" title="Carve it another way" disabled={!p.canAgain} onClick={p.onAgain} /> },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Carve it another way") },
       ]}
     />
   );

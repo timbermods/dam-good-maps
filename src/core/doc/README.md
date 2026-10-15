@@ -10,7 +10,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - Headless: it runs in the page's worker and in Node.
 
 **Start from**
-- `session.ts` `MapSession`: `apply`, undo and redo, export. Edits never replay onto new land (D336): no regeneration under a document's edits.
+- `session.ts` `MapSession`: `apply`, undo and redo (each step's map kept near where the history stands, put back as it was), export; `followLog` and `spliceStep` (a step out of the log or back in, for collaborative editing) rebuild from where the map stood, as an edit does. Edits never replay onto new land (D336): no regeneration under a document's edits.
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `stored.ts`: the stored map (`storeBuilt`, `restoreBuilt`, `sameMap`).
@@ -30,6 +30,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).
 - `droughtLine.ts` `mapDroughtLine`: the open map's drought line (D133; `sim/droughtLine.ts`) from the Drought view's last day.
+- `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.

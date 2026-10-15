@@ -90,11 +90,11 @@ async function settled(page: Page) {
   await idle(page);
 }
 
-test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
+test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another makes another roll, Tab shows the first again; on the start it strikes and the start is carried", async ({ page }) => {
   await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate", "Erode"]);
   await page.keyboard.press("Shift+Digit2");
   await expect(forces.getByRole("button", { name: "Craterize (Shift+2)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });
@@ -147,15 +147,20 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   expect(kept).not.toEqual(before);
   expect(await worker(page)).toEqual(kept);
 
-  // Try another: the same impact from the same land, another personality, replacing it
+  // Try another: the same impact from the same land, another personality: another roll of its one step (D488)
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 2");
   const other = await heights(page);
   expect(other).not.toEqual(kept);
-  await page.keyboard.press("Control+z");
+  // Tab: the next roll (round to the first), exactly, at once; "2 of 2" a click shows the next too; undo: the land
+  // before it, the step whole
+  await page.keyboard.press("Tab");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(kept);
+  await row.getByRole("button", { name: "Roll 1 of 2" }).click();
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(other);
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
@@ -245,6 +250,36 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   }
 });
 
+test("Try another stays where it was (D488): four clicks at the same point make four more rolls, its place and size never changing; the counter has its own space", async ({ page }) => {
+  await openTopDown(page);
+  await page.keyboard.press("Shift+Digit2");
+  const row = page.getByRole("group", { name: "Craterize options" });
+  await row.getByRole("slider", { name: "Power" }).fill("30");
+  const { far } = await places(page);
+  const h = await client(page, far[0], far[1]);
+  await page.mouse.move(h.x + 3, h.y);
+  await page.mouse.move(h.x, h.y);
+  await page.mouse.click(h.x, h.y);
+  await settled(page);
+  const again = row.getByRole("button", { name: "Try another" });
+  const box = (await again.boundingBox())!;
+  // (its right half, where a second click would land)
+  const at = { x: box.x + box.width * 0.8, y: box.y + box.height / 2 };
+  const seen = new Set([(await heights(page)).join()]);
+  for (let k = 2; k <= 5; k++) {
+    await page.mouse.click(at.x, at.y);
+    await settled(page);
+    await expect(page.getByRole("button", { name: `Roll ${k} of ${k}` })).toBeVisible();
+    seen.add((await heights(page)).join());
+    expect(await again.boundingBox()).toEqual(box);
+    // (the counter is clear of Try another)
+    const c = (await page.getByRole("button", { name: `Roll ${k} of ${k}` }).boundingBox())!;
+    expect(c.y + c.height <= box.y || c.x >= box.x + box.width || c.x + c.width <= box.x).toBe(true);
+  }
+  expect(seen.size).toBe(5);
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 5");
+});
+
 test("Craterize's details (D309): always shown, each on Auto (choices and an Off and On); a pin survives Try another", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("Shift+Digit2");
@@ -266,7 +301,7 @@ test("Craterize's details (D309): always shown, each on Auto (choices and an Off
   await expect(details.getByRole("button", { name: "Rays follows the land" })).toHaveAttribute("aria-pressed", "false");
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 2");
   expect(await raysOn()).toBe(rays);
 });
 

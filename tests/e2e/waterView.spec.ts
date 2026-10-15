@@ -153,14 +153,14 @@ test("water is never an object; clear water, layers, strength, sources findable 
   const sp = await client(page, ...spot!);
   await page.mouse.click(sp.x, sp.y);
   await idle(page);
-  await lastStep(page, "Place water source");
+  await lastStep(page, "Place a water source");
   await page.keyboard.press("Escape");
   await settled(page);
   // clean or bad belongs to the source: selected, it becomes a badwater source in one step
   await page.mouse.click(sp.x, sp.y);
   const insp = page.getByRole("group", { name: /Water source, selected/ });
   await expect(insp).toBeVisible();
-  await insp.getByRole("combobox", { name: "Water" }).selectOption("bad");
+  await insp.getByRole("group", { name: "Water" }).getByRole("button", { name: "Badwater" }).click();
   await idle(page);
   await lastStep(page, "Make a source badwater");
   await settled(page);

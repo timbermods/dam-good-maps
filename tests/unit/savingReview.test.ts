@@ -74,8 +74,10 @@ test("Generate makes no map over a kept map whose save just failed", async () =>
     performance: { mark() {} },
     seedText: "",
     proxy: (v: unknown) => v,
+    setMakingWords() {},
   });
-  runInContext(compile(functions(["run"])), env);
+  // (run holds the open map back, saving it first, through holdBack)
+  runInContext(compile(functions(["run", "holdBack"])), env);
   expect(await env.run({ seed: 2 })).toBe(null);
   expect(generated).toBe(0);
   expect(making).toEqual({ failed: expect.stringContaining("Your map was not saved") });
@@ -95,6 +97,7 @@ test("a deleted map's waiting save is dropped before it is removed, so nothing b
     setConfirm: (c: { onYes(): void }) => void (onYes = c.onYes),
     setMaps() {},
     setSaveState() {},
+    setCompare() {},
     openMap: async () => void order.push("open"),
     generate: async () => void order.push("generate"),
   });

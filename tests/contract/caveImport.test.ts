@@ -19,6 +19,7 @@ import { CAVE_REFUSALS, cavesOf, surfaceWater } from "../../src/core/sim/stackWa
 import { TICKS_PER_DAY } from "../../src/core/sim/water";
 import { HazardRun, hazardSoil } from "../../src/core/sim/weather";
 import { build, t3CaveWater } from "../../tools/terrain3d-maps";
+import * as ed from "../../src/worker/session";
 
 const T3 = build(t3CaveWater()).bytes;
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
@@ -155,6 +156,7 @@ describe("an imported map with caves or overhangs", () => {
       for (let k = 0; k < line.bed.count; k++) expect([first[line.bed.tile[k]] > WATER_BODY, last[line.bed.tile[k]] <= WATER_BODY]).toEqual([true, true]);
       const soil = hazardSoil(s.built.waterModel, s.built.heights, drought.water(), s.built.entities.map(toMapObject));
       expect(soil.moisture.length).toBe(N);
+      expect(soil.runs, "every run top's soil").not.toBeNull();
       drought.dispose();
       // a badtide: the clean sources give badwater, which spreads
       const badtide = new HazardRun(s.built.waterModel, { ...from, stack: from.stack }, "badtide", 3);
@@ -166,4 +168,28 @@ describe("an imported map with caves or overhangs", () => {
       badtide.dispose();
     }
   });
+
+  it("the worker: a held Drought day comes with its own soil, every run top's too, and no plant withers yet", async () => {
+    ed.openTimber(T3, "T3.timber");
+    ed.setAutoWater(false);
+    type Day = Extract<ed.EditorEvent, { kind: "weather" }>;
+    let day: Day | null = null;
+    ed.listen((e) => {
+      if (e.kind === "weather" && e.phase === "day" && e.day === 2) day = e;
+    });
+    try {
+      ed.showWeatherDay("drought", 2);
+      const end = performance.now() + 60_000;
+      while (!day && performance.now() < end) await new Promise((r) => setTimeout(r, 5));
+      const d = day as Day | null;
+      expect(d, "day 2 came").not.toBeNull();
+      expect(d!.water!.count).toBeGreaterThan(0);
+      expect(d!.soil!.runs!.tile.length, "the soil under the roofs").toBeGreaterThan(0);
+      expect(d!.withered).toEqual(new Int32Array(0));
+    } finally {
+      ed.listen(null);
+      ed.stopWeather();
+      ed.closeSession();
+    }
+  }, 90_000);
 });

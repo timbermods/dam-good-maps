@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
+import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -60,7 +60,7 @@ async function wordy(page: Page): Promise<string[]> {
   return page.evaluate((max) => {
     const out: string[] = [];
     const seen = new Set<string>();
-    // (a key in brackets: "(7)", "(Ctrl+Z)", "(F, [ and ])", "(X or Esc)", "(R turns it)"; "(48 to 256)" is no key)
+    // (a key in brackets: "(7)", "(Ctrl+Z)", "(F, [ and ])", "(X or Esc)", "(R turns it)"; "(4 to 512)" is no key)
     const keyWord = /\b(Ctrl|Shift|Alt|Esc|Space|Delete|Enter|Tab|Up|Down|scroll|click)\b/;
     const bracketedKey = (t: string) => [...t.matchAll(/\(([^)]*)\)/g)].some(([, inner]) => /^\s*\S\s*$/.test(inner) || keyWord.test(inner) || /[[\]{}]/.test(inner) || /(^|\s)[A-Z0-9](,|\s|$)/.test(inner));
     for (const el of Array.from(document.querySelectorAll<HTMLElement>("[title], [data-tip-held]"))) {
@@ -106,7 +106,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await check("the editor as it opens");
 
   // every brush, with its options row
-  for (const k of ["2", "3", "4", "5", "6"]) {
+  for (const k of ["2", "3", "4", "5", "6", "7"]) {
     await page.keyboard.press(k);
     await check(`brush ${k}`);
   }
@@ -121,7 +121,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.keyboard.press("x");
 
   // every force, with its More
-  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7"]) {
+  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7", "Shift+Digit8"]) {
     await page.keyboard.press(k);
     await check(`force ${k}`);
     const open = page.locator('.force-options button:text-is("More")');
@@ -195,12 +195,16 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   // the header's File menu, the history, the checks dot, the legend, the minimap and the water bar
   await openFileMenu(page);
   await check("the File menu");
-  await page.keyboard.press("Escape");
+  await closeFileMenu(page);
   // (its help entries' dialogs)
   for (const name of ["Keyboard shortcuts", "Help"]) {
     await (await openFileMenu(page)).getByRole("menuitem", { name, exact: true }).click();
     await check(`the ${name} dialog`);
-    await page.keyboard.press("Escape");
+    // (Esc is heard once the dialog's key listener is set, a moment after it shows: press until it is gone)
+    await expect(async () => {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 500 });
+    }).toPass({ timeout: 15_000 });
   }
   await page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "History", exact: true }).click();
   await check("the history");
@@ -298,6 +302,8 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (5)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["5"], last: "tip-key", native: null });
   // a few more, keys of every kind: a force's own, a shelf item's (none), the header's, a size's
   expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (Shift+7)" }))).caps).toEqual(["Shift+7"]);
+  // Erode (D281): a short phrase and its key cap; its Power and Size say what they do
+  expect(await tooltipOf(forces.getByRole("button", { name: "Erode (Shift+8)" }))).toEqual({ text: "Wear caves and arches", caps: ["Shift+8"], last: "tip-key", native: null });
   const shelf = page.getByRole("navigation", { name: "Place" });
   expect(await tooltipOf(shelf.getByRole("button", { name: "Water source", exact: true }))).toMatchObject({ text: "Where water starts", caps: [] });
   expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
@@ -306,6 +312,12 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
   const power = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Power"])');
   expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
+  await page.keyboard.press("Shift+Digit8");
+  const erode = page.getByRole("group", { name: "Erode options" });
+  expect(await tooltipOf(erode.locator('.set:has(input[aria-label="Power"])'))).toMatchObject({ text: "How deep the rock wears", caps: ["F+scroll", "[", "]"] });
+  expect(await tooltipOf(erode.locator('.set:has(input[aria-label="Size"])'))).toMatchObject({ text: "How wide it wears", caps: ["F", "{", "}"] });
+  expect(await tooltipOf(erode.getByRole("button", { name: "Try another" }))).toMatchObject({ text: "Another erosion, same land", caps: [] });
+  await page.keyboard.press("Escape");
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });
   // the pointer gone: no tooltip, and the control's own title back

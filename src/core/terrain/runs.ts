@@ -5,9 +5,10 @@
 //
 // - In memory: one 23-bit mask per tile (bit z set: voxel z is solid), the surface derived from it
 //   (`ColumnTerrain`; sim/columns.ts `VoxelMasks` is its shape). It is the terrain of a stored base
-//   (doc/base.ts), of the build's base layer and of the map a session exports; the build's own steps
-//   still shape the surface only (the brushes move onto runs in step 3, D280), so a build's terrain is
-//   its surface with the base's other tiles kept (`withSurface`).
+//   (doc/base.ts), of the build's base layer and of the map a session exports. The build's steps,
+//   the brushes and the forces shape each tile's top run (D280 (3)): a build's terrain is its base
+//   with every top run reshaped to the surface it built (`withSurface`); what lies below a roof's
+//   underside is never touched, and a roof keeps at least its lowest layer (`topFloor`).
 // - In the document (project format 3, `TerrainData`): the surface per tile, plus the runs of every
 //   tile that is not one plain run from z = 0, in index order. A generated map without 3D forms
 //   stores an empty list, so the format needs no change when terrain above terrain arrives (I-1).
@@ -22,8 +23,36 @@ export const TERRAIN_LAYERS = LAYERS;
 const FULL = (1 << TERRAIN_LAYERS) - 1;
 
 /** The mask of one plain run from z = 0 up to `h` (a heightfield tile of that surface). */
-function plainMask(h: number): number {
+export function plainMask(h: number): number {
   return h >= TERRAIN_LAYERS ? FULL : h > 0 ? (1 << h) - 1 : 0;
+}
+
+/** Whether a tile's mask is one plain run from z = 0 (or empty). */
+export function isPlainMask(m: number): boolean {
+  return (m & (m + 1)) === 0;
+}
+
+/** The surface of a tile's mask: the first free layer above its highest solid voxel. */
+export function surfaceOfMask(m: number): number {
+  return m === 0 ? 0 : 32 - Math.clz32(m);
+}
+
+/** Where a tile's top run starts (the layer above the highest air below its top), for a mask that
+ *  is not one plain run from z = 0; 0 for one that is. */
+export function topRunFloor(m: number): number {
+  const top = m === 0 ? 0 : 32 - Math.clz32(m);
+  const air = ~m & plainMask(top);
+  return air === 0 ? 0 : 32 - Math.clz32(air);
+}
+
+/** A tile's mask under a new surface `h` (D280 (3)): a plain tile becomes one run up to `h`; on any
+ *  other only its top run changes, growing up to `h` or cut down to it, never below its own
+ *  underside's next layer, and every voxel below the top run is kept exactly. */
+export function reshapeTop(m: number, h: number): number {
+  if (isPlainMask(m)) return plainMask(h);
+  const f = topRunFloor(m);
+  const top = Math.max(f + 1, Math.min(TERRAIN_LAYERS, h));
+  return (m & plainMask(f)) | (plainMask(top) & ~plainMask(f));
 }
 
 /** The mask of a tile's runs ([floor, ceiling) pairs); voxels outside the layers are left out. */
@@ -130,14 +159,37 @@ export class ColumnTerrain {
     return new ColumnTerrain(W, H, mask);
   }
 
-  /** This terrain under a new surface: every plain tile becomes one run up to `heights`, and the
-   *  tiles that are not plain (caves, overhangs) are kept exactly. What a build makes of its base
-   *  while its steps shape the surface only; there the build keeps those tiles' surface too, so
-   *  `heights()` of the result is `heights`. */
+  /** This terrain under a new surface (D280 (3)): every tile's top run reshaped to end at
+   *  `heights`. A plain tile becomes one run up to its height; on a tile that is not plain (a cave's
+   *  roof, an overhang, floating ground) only its top run changes: it grows up to the new surface or
+   *  is cut down to it, never below its own underside's next layer (`topFloor`: what a surface tool
+   *  may give it, which the build never goes under), and every voxel below the top run is kept
+   *  exactly. A surface equal to this terrain's gives this terrain, voxel for voxel. */
   withSurface(heights: ArrayLike<number>): ColumnTerrain {
     const mask = new Uint32Array(this.N);
-    for (let i = 0; i < this.N; i++) mask[i] = this.isPlain(i) ? plainMask(heights[i]) : this.mask[i];
+    for (let i = 0; i < this.N; i++) mask[i] = reshapeTop(this.mask[i], heights[i]);
     return new ColumnTerrain(this.W, this.H, mask);
+  }
+
+  /** The lowest surface a tool that shapes the top may give a tile (D280 (3)): 0 on a plain tile;
+   *  on a tile that is not plain, one above its top run's underside, so the roof over a cave (or an
+   *  overhang, or floating ground) keeps its lowest layer and what is under it stays as it is. */
+  topFloor(i: number): number {
+    const m = this.mask[i];
+    return (m & (m + 1)) === 0 ? 0 : topRunFloor(m) + 1;
+  }
+
+  /** Every tile's `topFloor`, or null when every tile is plain (a heightfield: nothing limits a
+   *  surface tool but the map's bottom). */
+  topFloors(): Uint8Array | null {
+    let out: Uint8Array | null = null;
+    for (let i = 0; i < this.N; i++) {
+      const m = this.mask[i];
+      if ((m & (m + 1)) === 0) continue;
+      out ??= new Uint8Array(this.N);
+      out[i] = topRunFloor(m) + 1;
+    }
+    return out;
   }
 
   /** The surface of a tile: the first free layer above its highest solid voxel. */

@@ -1,25 +1,25 @@
-// The options rows of Craterize, Erupt and Quake (PLAN §20 D202, D203, D206, D219, D226, D289, D309):
-// every force's row is Power, Size, at most one signature choice, Try another and a small More button
-// for its other settings. Craterize: Power, Size (following Power, or set by hand), Try another; a
-// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: Power, Size (its breadth), Try another; a click
-// vents, a drag opens a fissure. Quake: its one choice, Lift or Slide, and Power (its drawn line sets
-// its length); V flips the side that moves. More opens the rest of each force's character (Craterize's
-// walls, centre, debris and rays; Erupt's shape, summit, flows and ridges; Quake's scarp), each on
-// Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins
-// it with a small way back to Auto (D309; the controls themselves are back from before D289); Try
-// another re-rolls only the details still on Auto. While a force is at work its row is its status, the
-// hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Glaciate: Power, Size and its one choice, Meltwater (a click Flows, a drag Aims),
-// and behind More its benches, its steps, its tarn and its scree. Carve's row is its own (CarveRow.tsx). Built from the shared bar styles (D176).
+// The options rows of every force but Carve (PLAN §20 D202, D203, D206, D219, D226, D289, D309; Carve's is CarveRow.tsx).
+// Every row starts with Power (cells 1–3) and Size (cells 4–6; Quake has none), the same on all of them, then the force's
+// own settings, the Floor, Sources and Try another (Sources at cells 10–11, Try another at 12–13 of row 2). Craterize: a
+// click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: a click vents, a drag
+// opens a fissure. Quake: Power (its drawn line sets its length), then Lift or Slide, Scarp and Side (V flips the side
+// that moves). Glaciate: Meltwater (a click Flows, a drag Aims), benches, steps, tarn and scree. Rift: Walls. Deposit:
+// Channels. Erode: no choice of its own (the land decides). Every detail (walls, centre, debris, rays, shape, summit, flows, ridges, scarp, benches, steps, tarn, scree,
+// channels) is on Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins it
+// with a small way back to Auto (D309); Try another re-rolls only the details still on Auto. While a force is at work its
+// row is its status, the hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
 import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
+import { ERODE_DEFAULTS, erodeSize, type ErodeSettings } from "../core/forces/erode";
+import { ERODE_SIZE_MAX, ERODE_SIZE_MIN } from "../core/forces/settings";
 import { DEPOSIT_DEFAULTS, DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN, depositWidth, type DepositSettings } from "../core/forces/deposit";
 import { type ForceStatus } from "./forceDriver";
 import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
-import { ButtonSetting, ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
+import { ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
 import { tip } from "../ui/Tooltip";
 
 /** A force's Sources (Kyler, 2026-10-05): the sources it reaches ride with the ground, or it removes them (the
@@ -128,6 +128,15 @@ export interface DepositUi {
 export const DEFAULT_DEPOSIT: DepositUi = { power: DEPOSIT_DEFAULTS.power, size: null, channels: null, sources: SOURCES_DEFAULT };
 export const depositDetails = (u: DepositUi): Record<string, unknown> => ({ channels: u.channels });
 
+export interface ErodeUi {
+  power: number;
+  /** How wide it wears along a face, tiles across, or null: it follows Power. */
+  size: number | null;
+}
+export const DEFAULT_ERODE: ErodeUi = { power: ERODE_DEFAULTS.power, size: null };
+/** (Erode has no choice of its own: the land decides every form, so Try another has no pins to send.) */
+export const erodeDetails = (): Record<string, unknown> => ({});
+
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
  *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
@@ -143,11 +152,14 @@ export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: 
 export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, power: u.power, size: u.size, walls: u.walls ?? "auto", sources: u.sources });
 export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto", sources: u.sources });
 
+/** Erode's settings (the wear is one rule; a drawn sweep or a click is its gesture, a band for the one, a point for the other). */
+export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size });
+
 /** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
  *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : p.force.id === "erode" ? "The rock is wearing…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
   return (
     <SettingsGrid
       label={`${p.force.name} at work`}
@@ -171,13 +183,35 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   );
 }
 
-function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit", value: number, onChange: (v: number) => void, title: string) {
+function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode", value: number, onChange: (v: number) => void, title: string) {
   return <NumberSetting label="Power" title={title} keys={STRENGTH_KEYS} value={value} words={String(value)} min={0} max={100} step={5} onChange={onChange} />;
 }
 
-/** Try another: always in its place, ready once a run is kept. */
-function again(p: { canAgain: boolean; onAgain(): void }, what: string) {
-  return <ButtonSetting label="Try another" title={`Another ${what}, same land`} disabled={!p.canAgain} onClick={p.onAgain} />;
+/** Try another: always in its place, ready once a run is kept, its size and place never changing; with its rolls
+ *  on offer (D488), "2 of 4" in its own space just above the panel over it, a click showing the next. */
+export function again(p: { canAgain: boolean; onAgain(): void; rolls?: { shown: number; count: number } | null; onRoll?(): void }, title: string) {
+  const r = p.rolls;
+  return (
+    <div class="set again">
+      <button type="button" class="set-button" disabled={!p.canAgain} {...tip(title)} onClick={p.onAgain}>
+        Try another
+      </button>
+      {r && p.onRoll ? (
+        <span class="rolls-tab">
+          <RollsButton rolls={r} onRoll={p.onRoll} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** "2 of 4": which of a force's rolls is shown (D488); a click shows the next. */
+export function RollsButton(p: { rolls: { shown: number; count: number }; onRoll(): void; class?: string }) {
+  return (
+    <button type="button" class={`set-button rolls${p.class ? ` ${p.class}` : ""}`} aria-label={`Roll ${p.rolls.shown} of ${p.rolls.count}`} {...tip("Show the next roll", "Tab", "Shift+Tab back")} onClick={p.onRoll}>
+      {p.rolls.shown} of {p.rolls.count}
+    </button>
+  );
 }
 
 /** A force's Size: following Power (Auto) until the player sets it. */
@@ -192,6 +226,9 @@ export interface RowProps<U, S> {
   /** Try another is there. */
   canAgain: boolean;
   onAgain(): void;
+  /** Its rolls on offer (D488), and showing the next. */
+  rolls?: { shown: number; count: number } | null;
+  onRoll?(): void;
   /** The settings the last run actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: S | null;
 }
@@ -269,10 +306,10 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
             />
           ),
         },
-        { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
+        { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" off="No streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "impact") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another impact, same land") },
       ]}
     />
   );
@@ -351,10 +388,10 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
             />
           ),
         },
-        { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
+        { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" off="No ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "eruption") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another eruption, same land") },
       ]}
     />
   );
@@ -368,10 +405,11 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
     <SettingsGrid
       label="Quake options"
       groups={[
+        { key: "power", row: 1, at: 1, span: 3, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
         {
           key: "mode",
           row: 1,
-          at: 1,
+          at: 4,
           span: 3,
           node: (
             <ChoiceSetting<"lift" | "slide">
@@ -385,7 +423,24 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "power", row: 1, at: 4, span: 6, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
+        {
+          key: "scarp",
+          row: 1,
+          at: 7,
+          span: 3,
+          node: (
+            <ChoiceSetting<"sheer" | "stepped">
+              label="Scarp"
+              value={scarp}
+              options={[
+                ["sheer", "Sheer", "One sheer cliff"],
+                ["stepped", "Stepped", "Benches stepping down"],
+              ]}
+              onChange={(v) => set({ scarp: v })}
+              auto={{ on: u.scarp === null, onAuto: (on) => set({ scarp: on ? null : scarp }) }}
+            />
+          ),
+        },
         {
           key: "side",
           row: 1,
@@ -404,27 +459,9 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        {
-          key: "scarp",
-          row: 2,
-          at: 1,
-          span: 3,
-          node: (
-            <ChoiceSetting<"sheer" | "stepped">
-              label="Scarp"
-              value={scarp}
-              options={[
-                ["sheer", "Sheer", "One sheer cliff"],
-                ["stepped", "Stepped", "Benches stepping down"],
-              ]}
-              onChange={(v) => set({ scarp: v })}
-              auto={{ on: u.scarp === null, onAuto: (on) => set({ scarp: on ? null : scarp }) }}
-            />
-          ),
-        },
-        { key: "floor", row: 2, at: 4, span: 6, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "quake") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another quake, same land") },
       ]}
     />
   );
@@ -447,7 +484,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("glaciate", u.power, (v) => set({ power: v }), "How deep the ice carves") },
         { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
-        { key: "melt", row: 1, at: 7, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
+        { key: "melt", row: 1, at: 7, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" off="No springs, falls or lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
         {
           key: "benches",
           row: 1,
@@ -486,11 +523,11 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
             />
           ),
         },
-        { key: "tarn", row: 2, at: 1, span: 3, node: <OnOffSetting label="Tarn" title="A small lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
-        { key: "scree", row: 2, at: 4, span: 3, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
+        { key: "tarn", row: 2, at: 1, span: 3, node: <OnOffSetting label="Tarn" title="A small lake at its head" off="No lake at its head" on={tarn} onChange={(v) => set({ tarn: v })} auto={{ on: u.tarn === null, onAuto: (on) => set({ tarn: on ? null : tarn }) }} /> },
+        { key: "scree", row: 2, at: 4, span: 3, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" off="No fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "glacier") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another glacier, same land") },
       ]}
     />
   );
@@ -508,13 +545,13 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
     <SettingsGrid
       label="Rift options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 6, node: power("rift", u.power, (v) => set({ power: v }), "How far the land drops") },
-        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How wide it opens", sz, String(sz), RIFT_SIZE_MIN, RIFT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 3, node: power("rift", u.power, (v) => set({ power: v }), "How far the land drops") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it opens", sz, String(sz), RIFT_SIZE_MIN, RIFT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "walls",
-          row: 2,
-          at: 1,
-          span: 6,
+          row: 1,
+          at: 7,
+          span: 7,
           node: (
             <ChoiceSetting<"sheer" | "stepped">
               label="Walls"
@@ -528,9 +565,9 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "rift") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another rift, same land") },
       ]}
     />
   );
@@ -548,13 +585,13 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
     <SettingsGrid
       label="Deposit options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 6, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
-        { key: "size", row: 1, at: 7, span: 7, node: size("Size", "How far the fan spreads", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "power", row: 1, at: 1, span: 3, node: power("deposit", u.power, (v) => set({ power: v }), "How much sediment it lays") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the fan is", sz, String(sz), DEPOSIT_SIZE_MIN, DEPOSIT_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         {
           key: "channels",
-          row: 2,
-          at: 1,
-          span: 6,
+          row: 1,
+          at: 7,
+          span: 7,
           node: (
             <ChoiceSetting<"few" | "many">
               label="Channels"
@@ -568,9 +605,29 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "fan") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another fan, same land") },
+      ]}
+    />
+  );
+}
+
+/** Erode's settings (D281): Power and Size, on Auto until pinned; the land decides the form (a cave, an overhang, an arch). */
+export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
+  const u = p.ui;
+  const set = (patch: Partial<ErodeUi>) => p.onUi({ ...u, ...patch });
+  const sz = u.size ?? Math.round(erodeSize(u.power) / 2) * 2;
+  return (
+    <SettingsGrid
+      label="Erode options"
+      groups={[
+        { key: "power", row: 1, at: 1, span: 3, node: power("erode", u.power, (v) => set({ power: v }), "How deep the rock wears") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        // (no choice of its own, and no Sources: it never wears a source's tile; so Try another takes the row's end and the
+        // Floor the second row, and both rows stay full)
+        { key: "again", row: 1, at: 7, span: 7, node: again(p, "erosion") },
+        { key: "floor", row: 2, at: 1, span: 13, node: <FloorSetting /> },
       ]}
     />
   );

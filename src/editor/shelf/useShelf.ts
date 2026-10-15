@@ -8,8 +8,13 @@ import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { SessionUpdate, ToolRequest } from "../../worker/session";
 import { startProblemAt, newId, startStatus } from "../features";
 import { modalLevel } from "../../core/features/footprintLevel";
-import { paintTiles, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
+import { tilesToRuns } from "../../core/math/grid";
+import type { PaintParams } from "../../core/doc/paintParams";
+import { hasOptions, placeComponents } from "../../core/doc/objectOps";
+import { FLUIDS } from "../../core/data/parity";
+import { hasAge, objectOptionsOf, paintDisc, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
 import { shelfTool } from "../placeTools";
+import { rememberShelfIcon, shelfIcons } from "./iconCache";
 import { PointerWords } from "../pointerWords";
 import { GHOST_OK, coordinatesAt } from "../tools";
 import { NO_START_HERE, type StartHere } from "../start/startHere";
@@ -104,6 +109,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     const r = renderer.current;
     if (!item || !r) return;
     shelfTile.current = [x, y];
+    // (F held: the ring stays where it is, its size following the pointer)
+    if (!ed.paintSizing.current) paintRing(x, y);
     const W = info.W;
     const h = mirror.current.heights;
     if (item.id === "start") {
@@ -150,7 +157,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!item.source) {
       const under: number[] = [];
       for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) under.push(h[ty * W + tx]);
-      if (under.length) z = modalLevel(under);
+      // (a water object is cut-only, D290: it stands at its lowest tile)
+      if (under.length) z = FLUIDS[template]?.tiles ? Math.min(...under) : modalLevel(under);
     }
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
@@ -174,6 +182,8 @@ export function useShelf(ed: Ed): ShelfSlice {
   function shelfWord(problem: string | null) {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
+    // (a tree, bush or thorn has its ring: no "Place here" over it, only the reason it can't grow there)
+    if (item.paint && !problem) return setShapeNote(null);
     setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
@@ -206,11 +216,15 @@ export function useShelf(ed: Ed): ShelfSlice {
       return;
     }
     if (item.source) return placeSource(item.source === "bad", x, y);
+    // (Mixed woods has no object of its own: a click plants one of its mix there)
+    if (item.paint === "woods") return plantShelf([y * info.W + x], 1);
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
+    // (a water object, an unstable core or a reserve carries the options set in its window: the core writes them as the game does)
+    const components = hasOptions(template) ? placeComponents(template, objectOptionsOf(shelfOptionsRef.current, template)) : undefined;
     void run(
-      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o }, newId()),
+      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o, ...(components ? { components } : {}) }, newId()),
       (u) => {
         if (!u.ok) return;
         feel("place", cx, cy, 1, false, template);
@@ -235,13 +249,24 @@ export function useShelf(ed: Ed): ShelfSlice {
     placeShelf(hit.x, hit.y);
     pickShelf(null);
   }
-  /** Trees and bushes painted by a drag: planted where they can grow, one step, each with its pop. */
-  function plantShelf(tiles: number[]) {
+  /** Trees, bushes and thorns painted by a drag (D235): the core's stroke over the tiles the brush covered, at the
+   *  object window's density (and a tree's age), planted where they can grow, one step, each with its pop. */
+  function plantShelf(tiles: number[], density?: number) {
     const item = shelfRef.current;
-    if (!item || !tiles.length) return;
-    const template = templateOf(item, shelfOptionsRef.current);
+    if (!item?.paint || !tiles.length) return;
+    const o = shelfOptionsRef.current;
+    const kind = item.paint;
+    const template = templateOf(item, o);
+    const params: PaintParams = {
+      kind,
+      ...(kind === "thorns" || kind === "woods" ? {} : { template }),
+      area: tilesToRuns(tiles, infoRef.current.W),
+      density: density ?? o.paint[kind].density,
+      ...(hasAge(kind) ? { age: o.treeAge } : {}),
+      seed: paintSeed.current,
+    };
     void run(
-      () => api.plantAt(template, tiles),
+      () => api.paintAt(params),
       (u) => {
         const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
         if (!u.ok || !planted.length) return;
@@ -253,6 +278,16 @@ export function useShelf(ed: Ed): ShelfSlice {
     );
   }
   const paintSeed = useRef((Math.random() * 0x7fffffff) | 0);
+  /** The brush's size as a ring round the pointer (the force ring's, the one calm ring), while a plant is held. */
+  function paintRing(x: number, y: number) {
+    const item = shelfRef.current;
+    if (item?.paint) renderer.current?.setForceRing({ x: x + 0.5, y: y + 0.5, r: Math.max(1, shelfOptionsRef.current.paint[item.paint].size / 2) });
+  }
+  // (the size changed in the object window: the ring takes it where the pointer last was)
+  useEffect(() => {
+    const at = ed.paintSizing.current?.tile ?? shelfTile.current;
+    if (at) paintRing(at[0], at[1]);
+  }, [shelfOptions]);
   const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });
   shelfCalls.current = { shelfHover, placeShelf, plantShelf };
   // the shelf's object takes the map's left button while it is picked (at once, when the pick is drawn: a click
@@ -269,6 +304,7 @@ export function useShelf(ed: Ed): ShelfSlice {
         notePointer(ev);
         if (!hit) {
           r.setGhost(null);
+          r.setForceRing(null);
           ghostAt.current = null;
           fitWant.current = null;
           shownFit.current = null;
@@ -281,7 +317,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       place: (x, y) => shelfCalls.current.placeShelf(x, y),
       paintAround: (x, y) => {
         const it = shelfRef.current;
-        return it?.fill ? paintTiles(x, y, 2, it.fill, paintSeed.current, W, H) : null;
+        return it?.paint ? paintDisc(x, y, shelfOptionsRef.current.paint[it.paint].size / 2, W, H) : null;
       },
       painting: (tiles) => {
         setPainted(tiles);
@@ -295,6 +331,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     return () => {
       if (r.tool === t) r.tool = null;
       r.setGhost(null);
+      r.setForceRing(null);
       ghostAt.current = null;
     };
   }, [shelf, ready, info.W, info.H]);
@@ -319,7 +356,12 @@ export function useShelf(ed: Ed): ShelfSlice {
       c.removeEventListener("pointerup", onUp);
     };
   }, [ready]);
-  // the shelf's icons: each object drawn once by the view, when the page is idle
+  // the shelf's icons: those of the map before are shown at once, and each object is drawn again by the view, when the
+  // page is idle (the pictures never go blank between maps)
+  useLayoutEffect(() => {
+    const kept = shelfIcons();
+    if (Object.keys(kept).length) setIcons((m) => ({ ...kept, ...m }));
+  }, []);
   useEffect(() => {
     const r = renderer.current;
     if (!r) return;
@@ -328,7 +370,11 @@ export function useShelf(ed: Ed): ShelfSlice {
     const draw = (k: number) => {
       if (!live || k >= templates.length) return;
       const url = r.thumbnail(templates[k]);
-      if (url) setIcons((m) => ({ ...m, [templates[k]]: url }));
+      if (url) {
+        rememberShelfIcon(templates[k], url);
+        setIcons((m) => ({ ...m, [templates[k]]: url }));
+      }
+      if (k + 1 === templates.length) void composePictures(r);
       const idle = typeof window.requestIdleCallback === "function" ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 500 }) : (fn: () => void) => window.setTimeout(fn, 30);
       idle(() => draw(k + 1));
     };
@@ -338,5 +384,33 @@ export function useShelf(ed: Ed): ShelfSlice {
     };
   }, [ready]);
 
+  /** The pictures made of other pictures (Mixed woods: a pine, a birch and an oak side by side), once theirs are drawn. */
+  async function composePictures(r: NonNullable<typeof renderer.current>) {
+    for (const it of SHELF) {
+      if (!it.picture) continue;
+      const urls = it.picture.map((t) => r.thumbnail(t));
+      if (urls.some((u) => !u)) continue;
+      const imgs = await Promise.all(urls.map((u) => new Promise<HTMLImageElement>((ok, no) => {
+        const im = new Image();
+        im.onload = () => ok(im);
+        im.onerror = no;
+        im.src = u!;
+      })));
+      const c = document.createElement("canvas");
+      c.width = 56;
+      c.height = 56;
+      const g = c.getContext("2d");
+      if (!g) continue;
+      // (each at 0.62 of its size, the middle one in front, so they read as one grove)
+      const w = 56 * 0.62;
+      const at = [0, (56 - w) / 2, 56 - w];
+      const top = [56 - w - 2, 56 - w - 8, 56 - w - 2];
+      [0, 2, 1].forEach((k) => g.drawImage(imgs[k], at[k], top[k], w, w));
+      // (kept like the rest, so the next map's shelf shows it at once)
+      const url = c.toDataURL("image/png");
+      rememberShelfIcon(it.id, url);
+      setIcons((m) => ({ ...m, [it.id]: url }));
+    }
+  }
   return { pointerWords, flashNote, fitWant, ghostAt, shelfTile, shelfHover, dropShelf };
 }

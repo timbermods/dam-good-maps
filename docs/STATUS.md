@@ -6,12 +6,11 @@ the Coordination issue ([#236](https://github.com/timbermods/dam-good-maps/issue
 is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/README.md); the order of work is the top of
 [ROADMAP.md](../ROADMAP.md). The earlier STATUS is [archive/status-2026-10-01.md](archive/status-2026-10-01.md).
 
-As of 2026-10-14, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
-`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`, the machine is theirs alone
+As of 2026-10-15, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
+`C:\Users\krams\code\DamGoodMaps` and the renderer session in `DamGoodMaps-forces-play`. The machine is theirs alone
 (D484): testing and probing need no asking, all 12 threads split between them as the work needs, Timberborn whenever it
-helps, within D483. The
-page session is stopped (worktree `DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`. Kyler's PC is idle. Work
-stopped from 2026-10-08 to 2026-10-14 when the old account's usage ran out; dev was unchanged (4a699b80).
+helps, within D483. The page session is stopped (worktree `DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`.
+Kyler's PC is idle.
 
 ## Released
 
@@ -23,7 +22,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It hands out
-  decision numbers (**next free: D487**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D491**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
 - **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14) coordinates: it merges
   every "ready to merge" posted on #236, releases to `main`, settles cross-session questions, and sends Kyler only the
   design questions his decisions don't settle.
@@ -31,52 +30,54 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
 - **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play: #311, #322 (Craterize), #275, #225 and #323 (#312's renderer part) are merged. Next: #329 (the lake
-  jump), #312's worker part now the page part is on dev, and Deposit's outline (#348, on `fix/deposit-outline`; its Rust is a core
-  change, reviewed with a full CI run when its PR comes).
+  Carve's smooth play and builds the 3D view. Merged on 2026-10-15: #398, #407, #400, #420, #429, #430, #459, #437, #441, #444,
+  #450, #452 and #462; #463 (Erode's dust and falling stones) is ready. Next: the 3D view's water per column
+  (`feature/3d-view-water-columns`).
 - **Codex** builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
 
 ## Open pull requests
 
-Merge order and owner. Everything merges through the planning session's checks and green CI; the owning session judges
-what a player sees and posts "ready to merge" on #236 (D484); Rust and core PRs also need a full CI run by hand (`gh workflow run ci.yml --ref <branch>`), since a PR
-into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet.
+Merge order and owner. A PR merges on its owner's verdict, a fresh reviewer agent's approval and its quick checks (D489);
+the owning session may merge it itself (D490). The browser specs and the suites a change needs run on dev after the merge;
+no full run by hand except for a release.
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
-| #348 | Deposit: nothing changes outside its outline (#341) | forces play | Forces play judges it in the browser (D484) and posts "ready to merge" on #236; the planning session merges; a core Rust change, so a full CI run before it merges |
-| (branch) | 3D, step 1: Foundations (D481, D280 (1)) | milestone | `feature/3d-foundations`, worktree `DamGoodMaps-3d-foundations`, `build` agents; the stages are in `docs/progress/3d-foundations.md`. **Stage 1 is merged** (#354, 2026-10-07: the terrain in memory as runs; 84 generated maps and all 22 official maps byte-identical through import, project, reopen, strokes and export). **Stage 2 is merged** (#355, 2026-10-08, `approved`: the support check on every map with terrain above terrain; slope and start checks read the floor an object stands on). **Stage 3 is PR #369** (`needs-kyler`; worktree `DamGoodMaps-3d-foundations-3`): the floor graph in `rust/checks`, three new rows live (walking between levels, a sealed water source, room above plants) and D482; generated maps unchanged, all new rows passing on them; on imports "Slopes connect" turns into a warning on seven maps and the sealed-source warning shows on three. Five small choices are Kyler's on the PR (the walking row isn't visible in today's editor; the 400-tile area size; singular wording; the dropped-ground row built but not yet fed by the build; a broken slope on an import only in the full check). Full run 37751415225 green. `checksWasm.ts` must be rebuilt from the merged Rust when stage 6's rest merges after it. **Stage 4 is merged** (#356, 2026-10-07: the multi-slot writer, the engine's core binding `src/core/sim/stackWater.ts`, the T1–T6 writers; nothing in the app calls them). T1 and T2 are byte for byte the files the game played; T3–T6 differ only in water tokens (nine digits since #310, seven in the played files; at most 6e-7), so they go into stage 6's probe batch. **Stage 5 is merged** (#357, 2026-10-08: the stacked engine behind one switch in the canonical settle, `WaterModel.stacked`; the terrain decides the path, and no map the app builds takes it yet; 84 generated and all 32 official, workshop and user maps byte-identical through export, a stroke, save and reopen). **Stage 6, first part, is merged** (#358) (`feature/3d-foundations-6`: a sink in the stacked engine, from the game's own code, not yet played; nothing a player sees; merged 2026-10-08). **Stage 6, the rest, is PR #370** (`needs-kyler`; `feature/3d-foundations-6b`, worktree `DamGoodMaps-3d-foundations-8`; full run 37753392734): imported caves' water simulated with Kyler's choices (#359). Generated maps and projects unchanged; every import exports byte for byte unedited; the settle matches all 19 official maps' own water. Four things are Kyler's on the PR: nearly every import has a cave or overhang tile, so the background settle applies to almost all imports; the page drops Drought and Badtide's refusal and needs a few lines in a fourth page file (`src/editor/session/useSession.ts`); Tower of Beaverlon gets worse; verdicts become real on seven maps and some fail. Not merged without the page fix. The batch ran on 2026-10-08 (#361, closed): T7's sink rule is game-verified on 1.1.2.7. No further batch is planned for Foundations: from here a batch plays only what players get (D483), asked with its maps named when it is worth it. |
+| (branch) | 3D in generation, part 1: spring caves, sheltering overhangs, arches | milestone | `feature/3d-generation` |
+| (branch) | Real places' open edges | milestone | `fix/places-open-edges` |
+| (branch) | The Block tool's preview answers ahead of the settle | milestone | `fix/block-preview-first` |
+| (branch) | The `3d-foundations-done` release's probe batch | milestone | `probe/3d-foundations-gate`; the release also waits on the full run on dev and the nightly |
+| #467 | Islands: first-visit and import checks (maps pass `water.no_flood` again; unblocks the deploy) | milestone | Open |
+| #468 | Erode: its wear plays in the editor; its operation test follows force rolls (D488) | milestone | Open |
+| #469, #470 | Real places: the tool runs again, and the nightly checks they stay current; an opened file's generator size uses each theme's smallest side | planning | Open |
+| #463 | Erode: dust and falling stones | forces play | Ready to merge |
+| #464 | CSS foundations: one set of colour tokens, motion tokens, safe overflow and focus (no layout change) | planning | In look review |
+| #443 | Collaborative editing, part 6a: the Together panel, invite and join, pause, notes and the partner's cursor | page | Open; parts 1, 2, 4 and 5 are in dev (D486) |
+| #404, #403 | Drought, Badtide and the drought line on cave imports (the stacked engine, #391); cave imports settle fast after an edit (#380) | milestone | Retargeted to dev after #370; dev being merged in |
+| #399 | The 20-second tour (D377) | planning | Paused by D488 |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Closed, out of the order (D485); branch kept |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
 | #73, #71, #35 | Weather days, 3D step 1, Real places 2 | parked drafts | Parked by Kyler |
 
-## Left for the next milestone session, in order
+## Done, and next
 
-1. **Merged on 2026-10-07:** #344 (Naturalize rule 5, D479) and #343 (@types/node 26).
-2. **Canyon and Highlands is merged** (#261, generator 0.8.8, 2026-10-08): the main river's walls at Canyon 128² a median 6.3
-   levels (2.8 before); all three outcomes of 20 at 96² / 128² / 256²: Canyon 14 / 15 / 13, Highlands 14 / 17 / 16. The
-   generator queue is empty. D480's extension is merged too (#366, generator 0.8.9: the main water is never dropped from the
-   story for being mostly badwater; no map's land or water changed). **Islands round 6 is merged** (#235, generator 0.8.7, 2026-10-07; all three outcomes of 30: 96² 28, 128² 27, 256² 30).
-   Generation takes more attempts than the round Kyler approved (96² mean 13.2 against 4.9): a look for later.
-   **River Valley round 2 is merged** (#346, generator 0.8.5, 2026-10-07; Kyler approved). Held with it: naturalizeNature's
-   River Valley 6 beside Lake Basin 3, one known gap under D479. Kyler's two looks for later, not blocking: seed 9's start
-   beside an all-badwater main river (it missed readable water before the round too) and seed 20's new badwater pool. Then Islands round 6 (#235), then
-   Canyon and Highlands (#261), one re-pin each with sheets.
-3. **The page is on dev** (2026-10-07): #163 squashed as #347 (merge 59b4f1e9, from feature/page 5faf94d8), #163 closed. The
-   350 earlier captures are in the pre-release `page-design-2026-10-07`, linked from DESIGN.md; D352 is amended (Glaciate last;
-   1 Select, 2–6 the brushes, Shift+1–7 the forces, M Markers). The page session restarts `feature/page` from dev. Folded into docs/decisions
-   (#362): the page's rules are amendments to D184, D205, D235, D330, D352 and D133; DESIGN.md stays the look's record.
-4. **TypeScript 7 is merged** (#342, 2026-10-07, ec107345; full run and nightly green); every clone and worktree needs
-   `npm ci`. **#329** is at /preview/ for Kyler's try, as in the table.
-5. Then (D485, amending D481): 3D Foundations first, in work; after it the Weather view, custom map sizes (D357; #313's "every side from 4" question is Kyler's then),
-   3D's view, Erode and the Block tool, polish until mature, collaborative editing (complete, D486), M12. The dam sketch is out of the order (D485); its branches are kept.
-
-Done on 2026-10-05 and 06 (details on #57): #319, #304, #321 (tag `ts-checks-final`), #311, #265, #322, #324, #325, #275,
-#225, #323, #327, #328, #331, #333, #326 and #332 (records), #334, #336 (record), #337, #330 (D476), #338, #340, #339; Drought
-reserve held for settings round 2 and Designed for off that list (D466).
+1. **3D Foundations is complete** (#370 merged, #369's checks were in; stages 1 to 6 are in dev). Its release, `3d-foundations-done`,
+   is under way: the full run on dev, the nightly and a D483 probe batch (`probe/3d-foundations-gate`).
+2. **In dev from 2026-10-14 and 15:** the Block tool (core #432, #453; page #448); Erode (#447; page #454; dust and stones #463
+   waiting); custom sizes part 2 (#451); Crop map to selection (#442, #445); the shelf with every 1.x object (#434); versions
+   (#433); force rolls (#461); the companion mod (#431) and the probe's companion mode (#439); the polish pass; collaborative
+   editing parts 1, 2, 4 and 5.
+3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
+   full suites run on dev after the merge.
+4. **Next in the order (D488, the three weeks to showcase-quality maps):** fixes first (Real places' open edges, Islands'
+   checks, dev's red tests); 3D in generation part 1 (spring caves, sheltering overhangs, arches; in flight), with weather on
+   cave imports (#404) and their fast settle (#403) brought onto dev; then generation with intent: Showcase mode, landmarks
+   steered into view, ruins placed with meaning, the opening shot. The renderer and the page follow D488's (3) and (4).
+   Paused until then: collaborative editing after #443, sizes above 256, the tour (#399), M13's passes, Pick a place, Real
+   places' second round. The dam sketch is out of the order (D485); its branches are kept.
 
 ## Expected failures, in one place
 
@@ -98,15 +99,15 @@ Tests marked as expected failures, each a named gap. One comes off the list only
   run; if the save comes to this machine, check 974–976 ticks before touching the bound, and the game's rules (D308) if
   none passes.
 - `mechanics.test.ts` (local only): Oasis is no longer approximate because, since D337, aquifers are off at the start, so
-  its settle matches its own water exactly (0% differ) and the rule finds no evidence. #370 rewrites this test (none
-  approximate), so it is left to #370; its comment credits Oasis's change to the stacked pre-fill, but on dev it is D337.
+  its settle matches its own water exactly (0% differ) and the rule finds no evidence. #370 rewrote this test (none
+  approximate); its comment credits Oasis's change to the stacked pre-fill, but it is D337.
 
 ## Waiting for Kyler
 
 One list: the [`needs-kyler` issues](https://github.com/timbermods/dam-good-maps/issues?q=label%3Aneeds-kyler+is%3Aopen) and
-[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (today:
-#329, #348, #369, #370). Closed with his answers: #352, #359. Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it isn't
-set.
+[pull requests](https://github.com/timbermods/dam-good-maps/pulls?q=is%3Apr+label%3Aneeds-kyler+is%3Aopen) (none on a PR
+today). Also his: the merge-queue ruleset for `dev` (none exists; the clicks are in #57) and the `NTFY_TOPIC` secret if it
+isn't set.
 
 ## Probe batches
 

@@ -90,6 +90,9 @@ export const JUICE = {
   /** Glaciate's ice (D246, from investigation/glaciate `effects.ts`): its deep blue and its white. */
   iceDeep: [0.32, 0.66, 0.78] as Rgb,
   ice: [0.9, 0.97, 1.0] as Rgb,
+  /** Erode's dust (D281): fine rock dust, the walls' olive-grey stone ground pale, and a warmer brown. */
+  wearDust: [0.64, 0.62, 0.52] as Rgb,
+  wearDustWarm: [0.62, 0.54, 0.43] as Rgb,
 } as const;
 
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
@@ -446,7 +449,7 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(`<rect width="24" height="16" fill="${c(wallColor(5))}"/><rect y="5" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="6.6" width="24" height="0.8" fill="${c(WALL.groove)}"/><rect y="12" width="24" height="1.6" fill="${c(WALL.ledge)}"/><rect y="13.6" width="24" height="0.8" fill="${c(WALL.groove)}"/>`),
-      label: "Level lines",
+      label: "Wall levels",
       markers: true,
     },
     {

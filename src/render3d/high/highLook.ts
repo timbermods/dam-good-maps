@@ -6,7 +6,7 @@
 // High and back when it isn't; the Standard materials are never touched, so the Standard look stays
 // exactly as it was. Every effect is a switch (effects.ts).
 
-import { Color, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
+import { Color, DataTexture, NearestFilter, RGBAFormat, UnsignedByteType, Vector2, type Camera, type Group, type InstancedMesh, type Mesh, type Object3D, type Scene, type ShaderMaterial, type WebGLRenderer } from "three";
 import { fallMaterial, objectMaterial, skyMaterial, terrainMaterial, waterMaterial, type SceneUniforms } from "../materials";
 import type { EntityView, SurfaceWater } from "../model";
 import { allEffects, effectiveEffects, type HighEffects } from "./effects";
@@ -16,6 +16,7 @@ import { buildLandmarks, disposeLandmarks, type Replacement } from "./landmarks"
 import { Mist } from "./mist";
 import { paletteDefaults, slots } from "./models";
 import { fallHooks, landmarkHooks, objectHooks, skyHooks, slopeHooks, SWITCHES, terrainHooks, vegetationHooks, waterHooks, type Switch } from "./shaders";
+import { seasonLook, seasonMask, type SeasonDay } from "./seasons";
 import { CASTER_LAYER, SHADOW_SIZE, SunShadows } from "./shadows";
 
 /** Warm sunlight (#65): the sun ×(1.48, 1.30, 1.10) and the sky ×0.97 of Standard's; with only the
@@ -70,6 +71,17 @@ export class HighLook {
   private vegTime = { value: 0 };
   private vegSway = { value: 1 };
   private shadows = new SunShadows();
+  /** The Weather view's seasons (seasons.ts): the held day's tile mask and what each effect draws (0 when no day is held). */
+  private season = {
+    mask: { value: null as unknown },
+    size: { value: new Vector2(1, 1) },
+    dry: { value: 0 },
+    heat: { value: 0 },
+    sickly: { value: 0 },
+  };
+  private seasonTexture: DataTexture | null = null;
+  private seasonHazard: "drought" | "badtide" | null = null;
+  private badWater = 0;
   private ambient: AmbientField | null = null;
   readonly mist: Mist;
   private forest: Forest | null = null;
@@ -100,6 +112,11 @@ export class HighLook {
       hlFlow: { value: null as unknown },
       hlFlowSize: { value: new Vector2(1, 1) },
       hlRough: { value: null as unknown },
+      hlSeasonMask: this.season.mask,
+      hlSeasonSize: this.season.size,
+      hlDry: this.season.dry,
+      hlHeat: this.season.heat,
+      hlSickly: this.season.sickly,
     };
     const own = (m: ShaderMaterial, extra: Record<string, { value: unknown }> = {}) => {
       // the material's own uniforms (the terrain's height range, hover and ground mode) stay the
@@ -173,6 +190,7 @@ export class HighLook {
     this.sun.value.copy(u.sunColor.value).multiply(new Color(balance.sun[0], balance.sun[1], balance.sun[2]));
     this.sky.value.copy(u.skyColor.value).multiplyScalar(balance.sky);
     this.vegSway.value = e.sway && this.host.motion() ? 1 : 0;
+    this.applySeason();
     this.mist.show(e.mist, e.rings);
     this.showObjects();
     this.shadows.dirty = true;
@@ -187,7 +205,46 @@ export class HighLook {
 
   /** Whether the look moves on its own (the wind in the trees): the renderer keeps drawing. */
   get animates(): boolean {
-    return this.vegSway.value > 0 && !!this.forest?.meshes.length;
+    return (this.vegSway.value > 0 && !!this.forest?.meshes.length) || this.season.heat.value > 0;
+  }
+
+  /** The held Drought or Badtide day's ground and water (null: none held): the mask the ground shader reads, and what each
+   *  seasons effect draws now (dry ground and straw and the heat in a drought, the sky in a badtide). */
+  setSeason(hazard: "drought" | "badtide" | null, day: SeasonDay | null): void {
+    if (!hazard || !day) {
+      this.seasonHazard = null;
+      this.badWater = 0;
+      this.applySeason();
+      return;
+    }
+    const tex = this.seasonTexture;
+    const made = seasonMask(day, tex && tex.image.width === day.W && tex.image.height === day.H ? (tex.image.data as Uint8Array) : undefined);
+    if (tex && made.bytes === tex.image.data) tex.needsUpdate = true;
+    else {
+      tex?.dispose();
+      const fresh = new DataTexture(made.bytes, day.W, day.H, RGBAFormat, UnsignedByteType);
+      fresh.minFilter = fresh.magFilter = NearestFilter;
+      fresh.needsUpdate = true;
+      this.seasonTexture = fresh;
+      this.season.mask.value = fresh;
+    }
+    this.season.size.value.set(day.W, day.H);
+    this.seasonHazard = hazard;
+    this.badWater = made.badWater;
+    this.applySeason();
+  }
+
+  /** What the seasons effects draw now (the tests read it). */
+  get seasonNow(): { dry: number; heat: number; sickly: number } {
+    return { dry: this.season.dry.value, heat: this.season.heat.value, sickly: this.season.sickly.value };
+  }
+
+  private applySeason(): void {
+    const look = seasonLook(this.seasonHazard, this.effects, this.host.motion(), this.badWater);
+    this.season.dry.value = look.dry;
+    this.season.heat.value = look.heat;
+    this.season.sickly.value = look.sickly;
+    this.host.requestRender();
   }
 
   // ------------------------------------------------------------------------------------ the map
@@ -231,6 +288,7 @@ export class HighLook {
     }
     this.objects = group;
     const forest = this.forest!;
+    forest.parent = group;
     for (const m of forest.meshes) {
       m.renderOrder = 1;
       group.add(m);
@@ -241,6 +299,17 @@ export class HighLook {
     if (this.map) this.ambient?.objects(this.map.heights, entities);
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
+  }
+
+  /** Plants change state in place (the Weather view's withering): the plants whose DEAD flag differs move to the other
+   *  state's batches. Returns how many changed. */
+  setPlantsDead(flags: ArrayLike<number>): number {
+    const forest = this.forest;
+    if (!forest) return 0;
+    const changed = forest.setDead(flags);
+    // (a layout shows every batch that has plants: the effect's switch still hides them)
+    if (changed && !this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    return changed;
   }
 
   /** The replacements drawn for a group of its own (the shelf's ghost and icons): the originals
@@ -364,6 +433,12 @@ export class HighLook {
     }
   }
 
+  /** The materials of what can stand under a roof (objects of every kind and falls): the ones that read the light
+   *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
+  roofedMaterials(): ShaderMaterial[] {
+    return [this.materials.object, this.materials.fall, this.vegetation, this.landmark, this.slope];
+  }
+
   private allMaterials(): ShaderMaterial[] {
     return [...Object.values(this.materials), this.vegetation, this.landmark, this.slope];
   }
@@ -375,6 +450,7 @@ export class HighLook {
     this.mist.dispose();
     this.shadows.dispose();
     this.ambient?.dispose();
+    this.seasonTexture?.dispose();
     for (const m of this.allMaterials()) m.dispose();
   }
 }

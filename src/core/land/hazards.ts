@@ -218,6 +218,8 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, area: Float64Array | 
   const near = distanceFrom(avoid, W, H);
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
+  const wind1 = new Float64Array(N).fill(NaN);
+  const wind2 = new Float64Array(N);
   const heap = new MinHeap();
   for (const i of from) {
     cost[i] = 0;
@@ -260,7 +262,12 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, area: Float64Array | 
       // land's own slope
       const climb = E ? 6 * Math.max(0, E[n] - E[c]) : 0;
       const hug = near[n] < 4 ? 1.5 * (4 - near[n]) : 0;
-      const nk = k + len * (1 + side + valley + hug + 1.6 * (1 + fbm(wander, xx, yy, 5, 2)) + 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2))) + 3 * rise + cliff + climb;
+      // (each tile's noise once, kept: a tile is reached from up to eight sides, D357's 512² maps)
+      if (wind1[n] !== wind1[n]) {
+        wind1[n] = 1.6 * (1 + fbm(wander, xx, yy, 5, 2));
+        wind2[n] = 1.4 * (1 + fbm(wander + 7, xx, yy, 13, 2));
+      }
+      const nk = k + len * (1 + side + valley + hug + wind1[n] + wind2[n]) + 3 * rise + cliff + climb;
       if (nk < cost[n]) {
         cost[n] = nk;
         prev[n] = c;

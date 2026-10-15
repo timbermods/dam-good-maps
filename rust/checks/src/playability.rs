@@ -408,7 +408,7 @@ fn check_mines(objects: &[&Entity], w: usize, h: usize, reach: Option<&[u8]>, c:
     r.push(("limit", n(want)));
     r.push((
         "message",
-        s(if reach.is_none() {
+        s(if reach.is_none() || mines == 0.0 {
             format!("{}, at least {} needed", counted(mines, "mine site"), num(want))
         } else if !cut.is_empty() {
             format!(
@@ -895,7 +895,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         ("ok", b(bushes >= rules.bushes_within20)),
         ("value", n(bushes)),
         ("limit", n(rules.bushes_within20)),
-        ("message", s(format!("{} within 20 tiles' walk of the start (at least {})", counted_as(bushes, "living blueberry bush", "living blueberry bushes"), num(rules.bushes_within20)))),
+        ("message", s(format!("{} within 20 tiles' walk of the start (at least {})", counted_as(bushes, "living berry bush", "living berry bushes"), num(rules.bushes_within20)))),
     ];
     if !plant.0.is_empty() {
         r.push(("fix", arr(plant.0)));
@@ -1002,7 +1002,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             ("ok", b(true)),
             ("value", n(0.0)),
             ("limit", n(0.0)),
-            ("message", s(format!("{} droughts ({} days) are shorter than a blueberry bush survives dry", diff, num(rules.drought_days)))),
+            ("message", s(format!("{} droughts ({} days) are shorter than a berry bush survives dry", diff, num(rules.drought_days)))),
         ]);
     } else {
         let cd: Vec<f64> = (0..nn).map(|i| if kept[i] > 0.0 { cn[i] } else { 0.0 }).collect();
@@ -1014,7 +1014,8 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
                 continue;
             }
             let i = (o.y * wi + o.x) as usize;
-            if sd[i] > NEAR || md[i] > 0.0 {
+            // (within 20 tiles' walk, the measure the start's food row counts by)
+            if water::reach_at(&walk, w, h, i) > NEAR || md[i] > 0.0 {
                 continue;
             }
             thirsty_count += 1.0;
@@ -1032,9 +1033,9 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             (
                 "message",
                 s(if thirsty_count != 0.0 {
-                    format!("{} near the start dry out in a {}-day drought", counted_as(thirsty_count, "blueberry bush", "blueberry bushes"), num(rules.drought_days))
+                    format!("{} near the start dry out in a {}-day drought", counted_as(thirsty_count, "berry bush", "berry bushes"), num(rules.drought_days))
                 } else {
-                    format!("Blueberry bushes near the start stay moist through a {}-day drought", num(rules.drought_days))
+                    format!("Berry bushes near the start stay moist through a {}-day drought", num(rules.drought_days))
                 }),
             ),
         ];
@@ -1127,7 +1128,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
             bush_total += 1.0;
         }
     }
-    let res: [(&str, f64, &str, usize); 3] = [("scrap", scrap, "scrap metal in ruins", 0), ("trees", tree_total, "living trees", 1), ("bushes", bush_total, "blueberry bushes", 2)];
+    let res: [(&str, f64, &str, usize); 3] = [("scrap", scrap, "scrap metal in ruins", 0), ("trees", tree_total, "living trees", 1), ("bushes", bush_total, "berry bushes", 2)];
     for (key, have, what, mk) in res {
         let all = official_range(key, area);
         let (la, lb) = (LIVING_SHARE[0], LIVING_SHARE[1]);

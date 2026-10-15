@@ -8,10 +8,9 @@ import * as portable from "../math/portable";
 import type { Difficulty } from "../spec/mapspec";
 import { ColumnTerrain } from "../terrain/runs";
 import { waterColumns } from "./columns";
-import { soilContamination } from "./contamination";
 import type { MapObject } from "./model";
-import { moisture } from "./moisture";
-import { stackedSoil, topRuns } from "./soil";
+import { gameSoil, stackedSoil, topRuns } from "./soil";
+import type { Soil3d } from "./soil3d";
 import { StackRun, type StackSettle } from "./stackWater";
 import { TICKS_PER_DAY, WaterSim, type Emitter, type WaterModel, type WaterState } from "./water";
 
@@ -133,14 +132,15 @@ export class HazardRun {
 }
 
 /** The ground's moisture and contamination on a hazard's day, per tile from above (each tile's top run
- *  on terrain above terrain), for the view: on a heightfield the steady-state rules on the day's water
- *  (moisture.ts, contamination.ts, as the editor has always shown a day); with caves or overhangs the
- *  game's soil rules per run top on every column's water (soil.ts `stackedSoil`, as the build's). */
-export function hazardSoil(model: WaterModel, heights: Uint8Array, w: HazardWater, objects: readonly MapObject[]): { moisture: Float64Array; contamination: Float64Array } {
+ *  on terrain above terrain), for the view: the game's soil rules on the day's water, as the build's
+ *  (soil.ts `gameSoil` on a heightfield, `stackedSoil` on every column's water with caves or
+ *  overhangs, `runs` then holding every run top's). */
+export function hazardSoil(model: WaterModel, heights: Uint8Array, w: HazardWater, objects: readonly MapObject[]): { moisture: Float64Array; contamination: Float64Array; runs: Soil3d | null } {
   if (model.stacked && w.stack) {
     const t = new ColumnTerrain(model.W, model.H, model.stacked.mask);
     const s = stackedSoil(t, waterColumns(t, objects), w.stack, objects);
-    return { moisture: topRuns(s, s.moisture), contamination: topRuns(s, s.contamination) };
+    return { moisture: topRuns(s, s.moisture), contamination: topRuns(s, s.contamination), runs: s };
   }
-  return { moisture: moisture(heights, w.depth, w.contamination, model.W, model.H, null), contamination: soilContamination(heights, w.depth, w.contamination, model.W, model.H, null) };
+  const s = gameSoil(model.W, model.H, heights, w.depth, w.contamination, objects);
+  return { moisture: s.moisture, contamination: s.contamination, runs: null };
 }

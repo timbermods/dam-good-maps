@@ -2,17 +2,22 @@
 // responsive on 256² maps (PLAN §2.2, EDITOR_PLAN §8). The same core runs in Node for tests and
 // batch runs.
 
-import { expose, proxy, transfer, wrap } from "comlink";
+import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { PaintParams } from "../core/doc/paintParams";
+import type { BlocksParams } from "../core/doc/blockTool";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
+import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers, type WaterView } from "../render3d/model";
+import { viewBuffers, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { collabApi } from "./collab";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -43,13 +48,51 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant") return [];
+  if (e.kind === "instant" || e.kind === "withered") return [];
   if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
 ed.setAutoWater(true);
+
+// A hazard day's soil (the Weather view's soil and withered plants, D250) is one whole-map pass of the game's soil, 150 to 350 ms
+// on a 256² map: it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
+// never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker is made again and the job tried once more;
+// failing twice, the session sends the day without its soil, never working it out itself.
+if (typeof Worker !== "undefined") {
+  let soilWorker: Worker | null = null;
+  let jobs = 0;
+  let sent: { id: number; base: SoilBase } | null = null;
+  const waiting = new Map<number, { resolve: (s: SoilView) => void; reject: (e: unknown) => void }>();
+  const failed = (e: unknown) => {
+    for (const w of waiting.values()) w.reject(e);
+    waiting.clear();
+    soilWorker?.terminate();
+    soilWorker = null;
+    sent = null;
+  };
+  const attempt = (job: SoilJob) =>
+    new Promise<SoilView>((resolve, reject) => {
+        if (!soilWorker) {
+          soilWorker = new Worker(new URL("./daySoil.worker.ts", import.meta.url), { type: "module" });
+          soilWorker.onmessage = (m: MessageEvent<{ id: number; soil?: SoilView; error?: string }>) => {
+            const w = waiting.get(m.data.id);
+            waiting.delete(m.data.id);
+            if (m.data.soil) w?.resolve(m.data.soil);
+            else w?.reject(new Error(m.data.error ?? "soil failed"));
+          };
+          soilWorker.onerror = failed;
+        }
+        const id = ++jobs;
+        waiting.set(id, { resolve, reject });
+        const first = sent?.base !== job.base;
+        if (first) sent = { id: (sent?.id ?? 0) + 1, base: job.base };
+        soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination });
+      });
+  // (a failed worker is made again and the job tried once more; failing twice, the session sends the day without soil)
+  ed.setSoilRunner((job) => attempt(job).catch(() => attempt(job)));
+}
 
 // The checks worker joins once the map is editable (D367): a page that calls `deferChecks` before opening a map
 // keeps its replica (and the checks code it loads) out of the way until `editorReady`; a page that never calls it
@@ -71,6 +114,7 @@ function connectChecksWhenEditable() {
   connected = true;
   ed.useChecksWorker(client);
 }
+let droughtFn: ((n: ed.DroughtLineNews) => void) | null = null;
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -98,9 +142,12 @@ const api = {
     const place = decodePlaceFile(data);
     const r = placeTimber(place);
     // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
-    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
+    // (marked as the place, so its checks follow the place's rules: D245, D331)
+    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`, place.id));
   },
   sessionView: () => sendOpen(ed.sessionView()),
+  /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
+  blockFalls: (params: BlocksParams) => ed.blockFalls(params),
   terrainNow() {
     const t = ed.terrainNow();
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);
@@ -162,6 +209,8 @@ const api = {
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
     });
   },
+  /** Collaborative editing's side in the worker (worker/collab.ts). */
+  collab: proxy(collabApi),
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
@@ -171,6 +220,13 @@ const api = {
   undo: () => sendUpdate(ed.undo()),
   redo: () => sendUpdate(ed.redo()),
   jump: (index: number) => sendUpdate(ed.jump(index)),
+  /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
+  keepVersion(k: number, parentId?: string) {
+    const v = ed.keepVersion(k, parentId);
+    return v ? transfer(v, [v.bytes.buffer as ArrayBuffer, ...(v.picture ? [v.picture.heights.buffer as ArrayBuffer, v.picture.water.buffer as ArrayBuffer] : [])]) : null;
+  },
+  /** A version's project opened by replaying it (a worker of the page's own), settled: `project` then has its stored map. */
+  openVersion: (bytes: Uint8Array) => ed.openVersion(bytes),
   // the shelf: an object or a source placed, as one step
   applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
@@ -179,6 +235,10 @@ const api = {
   /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
    *  one. (Small, and the worker keeps its own: copied, not taken over.) */
   watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
+    // (the page's last callback is let go, or its port stays open for good; each crossing makes a new proxy, so the
+    // check is only against releasing the one kept)
+    if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
+    droughtFn = fn;
     return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
   },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
@@ -187,10 +247,19 @@ const api = {
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
+  paintAt: (params: PaintParams) => sendUpdate(ed.paintAt(params)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
+  unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
+  removeUnfedWater: (tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)),
+  fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. */
+  cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
+  cropTo: (r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)),
+  fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
@@ -211,6 +280,10 @@ const api = {
   forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+  /** Another of the force's rolls (D488): the next or the one before (`step`), or roll `index`. */
+  forceRoll: (to: { step: 1 | -1 } | { index: number }) => sendUpdate(ed.forceRoll(to)),
+  /** The player moved on from the rolls (another tool, Esc, a save): only the roll shown stays. */
+  forceSettle: () => ed.forceSettle(),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
   forceCancel(gesture?: number) {
     const v = ed.forceCancel(gesture);
@@ -227,9 +300,16 @@ const api = {
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);
   },
-  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void) {
-    const r = await ed.exportTimber(confirmWarnings, onProgress);
-    return transfer(r, [r.bytes.buffer as Transferable]);
+  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void, opts?: { picture?: boolean }, onPicture?: (view: MapView) => void) {
+    // (the page's answer is not waited for: it draws while the checks run)
+    const early = onPicture && ((v: MapView) => void Promise.resolve(onPicture(transfer(v, viewBuffers(v) as Transferable[]))).catch(() => undefined));
+    const r = await ed.exportTimber(confirmWarnings, onProgress, opts, early);
+    return transfer(r, [r.bytes.buffer as Transferable, ...((r.picture ? viewBuffers(r.picture) : []) as Transferable[])]);
+  },
+  /** A .timber file with another map_thumbnail.jpg (the page's 3D picture, D488), or the reason it can't take it. */
+  replaceThumbnail(timber: Uint8Array, jpeg: Uint8Array) {
+    const r = replaceThumbnail(timber, jpeg);
+    return r.ok ? transfer(r, [r.bytes.buffer as Transferable]) : r;
   },
   project(level?: number) {
     const r = ed.project(level);

@@ -359,8 +359,9 @@ Beaverome has 25 such tiles, Diorama 3. Generated maps and heightfield imports a
   (`doc/ops.ts`; the questions in `doc/waterEdits.ts` answer with the same line). A removal an older project
   stored takes nothing on such a map and the session's notices say the line.
 - **Wording:** the opening notice is "This map has caves or overhangs. The tools leave them as they are."; the
-  layer is "Caves and overhangs", its tooltip "Show caves and overhangs", its caption "Violet tiles: caves or
-  overhangs, which the tools leave as they are". The old words are retired interface text
+  layer is "Caves and overhangs", its tooltip "Show caves and overhangs", its caption the violet swatch with
+  "Caves or overhangs, which the tools leave as they are" (dev's swatch captions, #418). The opening notice
+  is shown as the status dot's "Caves or overhangs on N tiles" line (there is no notices strip). The old words are retired interface text
   (`tools/retired-terms.json`, three patterns).
 - **A file from a taller, modded game** (Tower of Beaverlon, objects and water up to level 87): objects and
   stored water outside the water's 34 levels are left out of the stacked model, so the map still opens, edits

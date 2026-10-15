@@ -70,7 +70,8 @@ calls; Vitest and Playwright, with the Python prototype as an oracle in CI (§15
 DOM access, so it runs identically in the Web Worker, in Node (tests, batch runs) and in Vitest. The 2D preview is
 Canvas 2D (an `ImageData` buffer); the 3D preview is three.js in a lazy-loaded chunk. The zip is fflate `zipSync` with a
 fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker (0.4.4, vendored, D20), because canvas
-`toBlob` encoders differ between browsers; both keep files byte-reproducible. Hosting is GitHub Pages from GitHub
+`toBlob` encoders differ between browsers; both keep files byte-reproducible. The editor's saves then swap in the map's
+3D picture as the thumbnail (D488), the one entry that depends on the GPU. Hosting is GitHub Pages from GitHub
 Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
 cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
@@ -231,7 +232,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
-| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 48–256 (the game allows 4–256; under 48 there is no room for a start zone and a river). Non-square is allowed. |
+| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed, and the generator uses the shape: a map 1.5 times as long as wide or more gets its water down its length and its start at an end or the middle by theme (D357 part 2). Generate refuses a side under the theme's least (48, Islands 64) at once with a one-line reason naming it; a smaller map is still made by hand. |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
@@ -882,7 +883,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 256; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator its theme's least side or more, 48, Islands 64, `GENERATOR_MIN_SIDE`); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`
@@ -1039,7 +1040,8 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 ### 14.4 Download
 
 - **The file:** `dgm-<theme>-<seed>.timber` (§13): a zip built in the worker, with the 960×540 thumbnail rendered from
-  the preview palette; water, moisture and contamination pre-filled; byte-identical per seed and settings. **Install
+  the preview palette; water, moisture and contamination pre-filled; byte-identical per seed and settings, except the
+  editor's saves' thumbnail: the map's 3D picture (D488), drawn on the player's GPU, is the one entry that is not. **Install
   help** (after download): move the file to `Documents\Timberborn\Maps` (macOS `~/Documents/Timberborn/Maps`), then
   Timberborn → New game → the map is listed under your maps; the map editor can open it too. **Internal only:** a file
   without pre-filled water, for the in-game A/B check (§18), the probe and the tests (D237).
@@ -1145,7 +1147,7 @@ current.
 
 `MapSpec` is a TypeScript type (`core/spec/mapspec.ts`) and a versioned JSON Schema (`core/spec/mapspec.schema.json`).
 The settings panel, the URL codec and Claude all produce it. It holds `specVersion` (1), `generatorVersion`, the `seed`
-(uint32; text seeds are hashed, §5.1), the `size` (48–256 for generation), the `theme` (the preset the settings started
+(uint32; text seeds are hashed, §5.1), the `size` (4–512 a side), the `theme` (the preset the settings started
 from, §6: "any" or one of the six), the `archetype` (the theme: no per-theme layout planner, §8), an optional
 `premise`, `designedFor` (easy, normal or hard), `settings` (every §5 value, complete, never a diff), `colonies`
 (`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5) and `accepted` (`{attempt, candidate}`,

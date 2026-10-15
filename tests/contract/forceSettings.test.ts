@@ -13,6 +13,7 @@ import { forceSettingsProblems, VERBS, type Verb } from "../../src/core/forces/o
 import { DEPOSIT_DEFAULTS, validateDeposit } from "../../src/core/forces/deposit";
 import { RIFT_DEFAULTS, validateRift } from "../../src/core/forces/rift";
 import { QUAKE_DEFAULTS, validateQuake } from "../../src/core/forces/quake";
+import { ERODE_DEFAULTS, validateErode } from "../../src/core/forces/erode";
 import { FORCE_SETTINGS, POWER_MAX, POWER_MIN, SEED_MAX } from "../../src/core/forces/settings";
 
 type Prop = { type?: string | string[]; enum?: unknown[]; minimum?: number; maximum?: number };
@@ -26,6 +27,7 @@ const DEFAULTS: Record<Verb, Record<string, unknown>> = {
   glaciate: { ...GLACIATE_DEFAULTS },
   rift: { ...RIFT_DEFAULTS },
   deposit: { ...DEPOSIT_DEFAULTS },
+  erode: { ...ERODE_DEFAULTS },
 };
 
 const W = 16;
@@ -43,6 +45,8 @@ function atStart(verb: Verb, s: Record<string, unknown>): string | null {
     }
   };
   switch (verb) {
+    case "erode":
+      return thrown(() => validateErode(s as never));
     case "deposit":
       return thrown(() => validateDeposit(s as never));
     case "rift":

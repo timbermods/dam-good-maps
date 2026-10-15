@@ -319,42 +319,6 @@ export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: St
   return s;
 }
 
-/** An edited import's simulation singletons (EDITOR_PLAN §6, the roofed-water rule): the settled
- *  water of the heightfield on every tile with one floor (slot 0, the other slots empty), and the
- *  file's own water, outflows, moisture, contamination and evaporation, every slot, on the tiles
- *  under roofs (`roofed`: caves, tunnels, overhangs), which the heightfield model cannot simulate.
- *  An array whose length does not fit its own size field is written as the settled one alone. */
-export function mixedSimulationSingletons(file: JsonObject, W: number, H: number, st: SettledState, roofed: ReadonlySet<number>): JsonObject {
-  const fresh = settledSimulationSingletons(W, H, st);
-  const plane = W * H;
-  const out: JsonObject = {};
-  const mix = (singleton: string, slotsKey: string, keys: string[], empty: string): void => {
-    const n = fresh[singleton] as JsonObject;
-    const f = file[singleton];
-    out[singleton] = n;
-    if (!isObject(f)) return;
-    const slots = slotsKey in f ? num(f[slotsKey]) : 1;
-    const arrays = keys.map((k) => (isObject(f[k]) ? String((f[k] as JsonObject).Array).split(" ") : null));
-    if (arrays.some((a) => !a || a.length !== slots * plane)) return;
-    const o: JsonObject = { ...f, [slotsKey]: slots };
-    keys.forEach((k, q) => {
-      const tokens = arrays[q]!;
-      const settled = String((n[k] as JsonObject).Array).split(" ");
-      const merged: string[] = new Array(slots * plane);
-      for (let s2 = 0; s2 < slots; s2++)
-        for (let i = 0; i < plane; i++) merged[s2 * plane + i] = roofed.has(i) ? tokens[s2 * plane + i] : s2 === 0 ? settled[i] : empty;
-      o[k] = { Array: merged.join(" ") };
-    });
-    out[singleton] = o;
-  };
-  mix("WaterMapNew", "Levels", ["WaterColumns", "ColumnOutflows"], "0");
-  mix("SoilMoistureSimulator", "Size", ["MoistureLevels"], "0");
-  mix("SoilContaminationSimulator", "Size", ["ContaminationCandidates", "ContaminationLevels"], "0");
-  mix("WaterEvaporationMap", "Levels", ["EvaporationModifiers"], "1");
-  out.WaterSimulationMigrator = fresh.WaterSimulationMigrator;
-  return out;
-}
-
 export function repeatToken(token: string, n: number): string {
   if (n <= 0) return "";
   return (token + " ").repeat(n - 1) + token;
@@ -420,18 +384,40 @@ export function decodeWorld(text: string, tv?: { voxels: Uint8Array; layers: num
  *  slot of its top column (`topSlot`, 0 on a tile of one column). Zeros where a singleton is
  *  missing or its array does not fit the map. For the 3D view's ground colours (Map look, D86). */
 export function storedSoil(singletons: JsonObject, W: number, H: number, topSlot: (tile: number) => number = () => 0): { moisture: Float32Array; contamination: Float32Array } {
+  return storedSoilTops(storedSoilRuns(singletons, W, H), W * H, topSlot);
+}
+
+/** One soil array as a map stores it: a value per run top, slot j of tile i at j·N + i (`slots` 0 when the
+ *  singleton is missing or its array does not fit the map). */
+export interface SoilSlots {
+  slots: number;
+  values: Float32Array;
+}
+
+/** The soil a map stores on every run top (SoilMoistureSimulator, SoilContaminationSimulator: slot j of tile i
+ *  at j·N + i, the runs as sim/columns.ts `terrainColumns` lays them out), read once: the 3D view's ground
+ *  colours on a cave's floor as well as on each tile's top (`storedSoilTops`). */
+export function storedSoilRuns(singletons: JsonObject, W: number, H: number): { moisture: SoilSlots; contamination: SoilSlots } {
   const plane = W * H;
-  const read = (name: string, key: string): Float32Array => {
-    const out = new Float32Array(plane);
+  const read = (name: string, key: string): SoilSlots => {
     const s = singletons[name];
-    if (!isObject(s) || !isObject(s[key])) return out;
+    if (!isObject(s) || !isObject(s[key])) return { slots: 0, values: new Float32Array(0) };
     const t = String((s[key] as JsonObject).Array).split(" ");
-    if (!t.length || t.length % plane) return out;
-    const slots = t.length / plane;
-    for (let i = 0; i < plane; i++) out[i] = Number(t[Math.min(slots - 1, topSlot(i)) * plane + i]) || 0;
-    return out;
+    if (!t.length || t.length % plane) return { slots: 0, values: new Float32Array(0) };
+    return { slots: t.length / plane, values: Float32Array.from(t, (v) => Number(v) || 0) };
   };
   return { moisture: read("SoilMoistureSimulator", "MoistureLevels"), contamination: read("SoilContaminationSimulator", "ContaminationLevels") };
+}
+
+/** Each tile's value at its slot `topSlot` (its top run's), from the stored runs; zeros where none is stored. */
+export function storedSoilTops(runs: { moisture: SoilSlots; contamination: SoilSlots }, plane: number, topSlot: (tile: number) => number = () => 0): { moisture: Float32Array; contamination: Float32Array } {
+  const top = (a: SoilSlots): Float32Array => {
+    const out = new Float32Array(plane);
+    if (!a.slots) return out;
+    for (let i = 0; i < plane; i++) out[i] = a.values[Math.min(a.slots - 1, topSlot(i)) * plane + i];
+    return out;
+  };
+  return { moisture: top(runs.moisture), contamination: top(runs.contamination) };
 }
 
 /** The water a map stores (WaterMapNew, every level): one entry per wet column, with its floor

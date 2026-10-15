@@ -52,11 +52,26 @@ export interface DocMeta {
   generatedName?: string;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
+  /** A real place (its id, "near-colca-canyon"), opened from Real places: its checks follow the place's
+   *  rules (D245, D331; core/doc/checkItems.ts `groupChecks`), not an imported map's. */
+  place?: string;
   /** Set by the app when it saves (ISO 8601); never part of a build. */
   created?: string;
   modified?: string;
   /** The editor's camera bookmarks (D205): a view per slot 1–9; never part of a build. */
   views?: SavedView[];
+  /** A map kept or branched from another's History (src/core/library/keptVersions.ts): where it came from. Never part of a build. */
+  parent?: VersionParent;
+}
+
+/** Where a kept version came from: the map it was made from (its Your maps id, when it had one), that map's name,
+ *  and the History step it was taken at (the step's label, and how many steps the version holds), so Your maps can
+ *  say it quietly. */
+export interface VersionParent {
+  id?: string;
+  name: string;
+  label: string;
+  steps: number;
 }
 
 /** A camera bookmark: where the editor's view was, in the renderer's terms. */
@@ -125,6 +140,10 @@ export interface MapDocument {
    *  session opens from it without rebuilding. Absent in older files and in projects saved while
    *  their water was still pending, which open by rebuilding. */
   stored?: StoredState;
+  /** The map before its latest crop (D340): this document's base is the cropped map and its log starts with the
+   *  crop; the earlier document holds the generation the crop was made on and the operations before it, so undo
+   *  of the crop is that map exactly. Never has a stored map. */
+  prior?: MapDocument;
 }
 
 export function baseFeaturesOf(doc: MapDocument): Feature[] {
@@ -157,9 +176,9 @@ export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built
   return doc;
 }
 
-/** The document of an imported map: normalized once, with the changes listed (PLAN §19.6).
- *  Throws ImportError for saves. */
-export function importDocument(bytes: Uint8Array, fileName: string): MapDocument {
+/** The document of an imported map: normalized once, with the changes listed (PLAN §19.6);
+ *  `place` marks a real place's map (`DocMeta.place`). Throws ImportError for saves. */
+export function importDocument(bytes: Uint8Array, fileName: string, place?: string): MapDocument {
   const file = readTimber(bytes);
   const report = normalizeImport(file);
   const name = fileName.replace(/^.*[\\/]/, "").replace(/\.timber$/i, "") || "Imported map";
@@ -180,6 +199,7 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
       designedFor: "normal",
       appVersion: GENERATOR_VERSION,
       source: { fileName: fileName.replace(/^.*[\\/]/, ""), report },
+      ...(place ? { place } : {}),
     },
   };
 }
@@ -189,8 +209,13 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
 /** The project file's bytes. `level` is the gzip level (9 for downloads; autosave may use a
  *  faster one): the JSON inside is the same either way. */
 export function encodeProject(doc: MapDocument, level = 9): Uint8Array {
-  const out: MapDocument = { ...doc };
-  if (doc.baseFeatures && jsonEqual(doc.baseFeatures, doc.features)) delete out.baseFeatures;
+  const trim = (d: MapDocument): MapDocument => {
+    const t: MapDocument = { ...d };
+    if (d.baseFeatures && jsonEqual(d.baseFeatures, d.features)) delete t.baseFeatures;
+    if (d.prior) t.prior = trim(d.prior);
+    return t;
+  };
+  const out = trim(doc);
   return gzipSync(strToU8(JSON.stringify(out)), { level: level as 9, mtime: 0 });
 }
 
@@ -350,6 +375,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
     throw new ProjectError("not a Dam Good Maps project file");
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+  // (the retire and upgrade passes below read the top document only; `prior` is written by this version, D475)
   const notes = dropRetired(raw as Record<string, unknown>);
   upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs
@@ -410,6 +436,11 @@ export function checkDocument(doc: MapDocument): void {
   if (!jsonEqual(state.features, doc.features)) throw new ProjectError("the project file is damaged: its features do not match its edits");
   const top = doc.edits.reduce((m, e) => Math.max(m, e.seq), 0);
   if (doc.nextSeq <= top) throw new ProjectError("the project file is damaged: its edits are numbered past nextSeq");
+  if (doc.prior) {
+    if (doc.edits[0]?.op !== "crop") throw new ProjectError("the project file is damaged: a cropped map's edits do not start with the crop");
+    if (doc.prior.stored) throw new ProjectError("the project file is damaged: a map before a crop holds a stored map");
+    checkDocument(doc.prior);
+  }
 }
 
 /** The document as it stood after its first `edits` operations (the save point of a stored map):

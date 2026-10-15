@@ -125,7 +125,7 @@ describe("Remove unfed water (D387 (2))", () => {
     const r = s.apply(removal.op!);
     expect(r.errors).toEqual([]);
     expect(s.history().length).toBe(steps + 1);
-    expect(s.history().at(-1)!.label).toBe(`Remove unfed water, ${removal.pools} pools`);
+    expect(s.history().at(-1)!.label).toBe(`Remove unfed water from ${removal.pools} pools`);
     const after = s.built.water;
     const taken = new Set(removal.op!.params.tiles);
     for (const i of taken) expect(after[i]).toBeLessThanOrEqual(WATER);

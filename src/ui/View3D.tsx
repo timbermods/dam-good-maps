@@ -54,7 +54,7 @@ export interface View3DProps {
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
-  /** A view switch right beside **Height colours** (the editor's **Level lines**, D248). */
+  /** A view switch right beside **Height colours** (the editor's **Lines**, D248). */
   besideHeight?: ComponentChildren;
   /** Whether the legend shows beside the view (the editor has it in its corner instead). */
   showLegend?: boolean;
@@ -72,6 +72,8 @@ export interface View3DProps {
   frameInsets?(view: HTMLElement): Partial<FrameInsets>;
   /** The first map keeps the view the kept renderer had (the same map back). */
   keepView?: boolean;
+  /** The view mode the first map starts in (the editor after a crop keeps top-down, framed to the new map). */
+  startMode?: ViewMode;
 }
 
 /** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
@@ -160,7 +162,7 @@ function saveMarkers(on: boolean): void {
 
 export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const compass = useRef<HTMLDivElement>(null);
+  const compass = useRef<HTMLSpanElement>(null);
   const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
   /** The renderer, for the look's menu (High or Standard, D284). */
@@ -286,9 +288,10 @@ export function View3D(props: View3DProps) {
     // the legend reads the new map now
     setMapTick((n) => n + 1);
     // (the same map back keeps its view, top-down or not)
-    const m: ViewMode = keep ? r.getView().mode : "orbit";
+    const first = mapsShown.current === 1;
+    const m: ViewMode = keep ? r.getView().mode : first && props.startMode ? props.startMode : "orbit";
     setMode(m);
-    if (!keep) r.setMode("orbit");
+    if (!keep) r.setMode(m);
     window.dgm3d = { renderer: r, build: stats };
     props.onReady?.(r, stats);
   }, [props.view]);
@@ -395,6 +398,13 @@ export function View3D(props: View3DProps) {
             {e.label}
           </span>
         )}
+        {/* Heights' own line keeps the map's lowest and highest level, as its key does with the legend folded */}
+        {e.key === "height" && range ? (
+          <div class="height-ends" aria-label="Ground height range">
+            <span>Low {range[0]}</span>
+            <span>High {range[1]}</span>
+          </div>
+        ) : null}
       </li>
     );
   };
@@ -433,7 +443,7 @@ export function View3D(props: View3DProps) {
         Heights
       </ShowRow>
       {props.besideHeight}
-      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and level lines", "M")}>
+      <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and wall levels", "M")}>
         Markers
       </ShowRow>
       <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the water's currents")}>
@@ -446,7 +456,7 @@ export function View3D(props: View3DProps) {
         Height colours
       </button>
       {props.besideHeight}
-      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and level lines">
+      <button type="button" aria-pressed={markers} onClick={toggleMarkers} title="Show sources, slope arrows and wall levels">
         Markers
       </button>
     </>
@@ -469,12 +479,14 @@ export function View3D(props: View3DProps) {
       ) : null}
     </>
   );
+  // the compass turns the view to face north, as Timberborn's does: a glide round to yaw 0 by the shorter way (the
+  // top-down view always has north up already)
   const compassDial = (
-    <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
-      <div ref={compass} class="needle">
+    <button type="button" class="compass" {...tip("Face north")} aria-label="Face north" onClick={() => renderer.current?.glideTo({ ...renderer.current.getView(), yaw: 0 })}>
+      <span ref={compass} class="needle" aria-hidden="true">
         <span>N</span>
-      </div>
-    </div>
+      </span>
+    </button>
   );
   const topDown = (
     <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>

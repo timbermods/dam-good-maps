@@ -203,7 +203,7 @@ describe("forces clear sources (D474)", () => {
     const problem = (q: object) => forceProblems({ ...p, ...q } as ForceResultParams, W, W, 22);
     expect(problem({ settings: { ...p.settings, sources: "sweep" } })).toEqual(["a rift's sources are ride or clear"]);
     expect(problem({ settings: { ...p.settings, sources: "ride" } })).toEqual(["a force set to ride clears no sources"]);
-    expect(problem({ cleared: [] })).toEqual(["a force's cleared sources are a list of 1 to 65536"]);
+    expect(problem({ cleared: [] })).toEqual(["a force's cleared sources are a list of 1 or more, at most one for each tile of the map"]);
     expect(problem({ cleared: [{ id: p.cleared![0].id, step: -1 }] })).toEqual(["a cleared source is its id and the step that took it (a whole number from 0)"]);
     expect(problem({ cleared: [p.cleared![0], p.cleared![0]] })[0]).toMatch(/is cleared once/);
   });

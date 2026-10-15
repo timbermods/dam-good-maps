@@ -60,6 +60,7 @@ import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
+import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, type IntentionId } from "../land/intentions";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -69,7 +70,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, EDITOR_LEVEL, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
+import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -128,6 +129,12 @@ export function easedBadwater(asked: number, W: number, H: number, ease: number)
 /** Places for a start prepared before the land is shown past the plan's start and its second place
  *  (D373 (3)): their pads levelled as the land is shaped, so a start on the shown land needs none. */
 const PREPARED_MORE = 2;
+/** How hard a long map's start leans to where its theme wants it along the length (D357; added to a start
+ *  intention's pull, which the start's score weighs at 0.8 beside a random 0.25). */
+const SHAPE_PULL = 1;
+/** The least share of a long Islands map its planned sea holds (D357); under it the sea has drained. Islands' maps
+ *  hold 47–66% (`tools/size-smoke.ts`). */
+const DRAINED_SEA = 0.2;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -422,6 +429,8 @@ const ROUND_GENOMES = 1000;
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
   assertSpec(specIn);
+  const tooSmall = generatorSizeRefusal(specIn.size.x, specIn.size.y, specIn.theme);
+  if (tooSmall) throw new Error(tooSmall);
   if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
   const t0 = performance.now();
@@ -1726,7 +1735,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (reusePlanned) plannedStart = data;
     }
     const { kept, storage, view, prepared } = data;
-    const prefer = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
+    const intended = view ? (x: number, y: number, L: number, w: number) => weight * Math.max(...g.intentions.map((id) => view.prefer(id, x, y, L, w))) : null;
+    // (D357: on a long map the start leans to where its theme wants it along the length, an end for a
+    // journey or the middle with two ways to grow, land/shape.ts; a lean, never a rule)
+    const lengthwise = mapShape(W, H).long;
+    const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => (intended ? intended(x, y, L, w) : 0) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
     return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, rule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}) });
   };
@@ -1905,6 +1918,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         // reachable from the shore across water as the game allows; a land without one is drawn again
         // like one missing the promise. The size is Kyler's 150 tiles at 128², by area.)
         if (shown.theme === "islands" && g.seaLayout) {
+          // (D357: on a long map a sea the land doesn't hold is drawn again whatever the screens spent: its
+          // water drained to a lake at the mainland's end and the map passed with no sea and no island, 96×64
+          // seed 1)
+          if (!lastAttempt && mapShape(W, H).long) {
+            let wet = 0;
+            for (let i = 0; i < N; i++) if (est[i] > 0.05) wet++;
+            if (wet < DRAINED_SEA * N) return fail("a drained sea (planned)", null, false);
+          }
           const island = islandToExpandTo(hLand, est, W, H);
           info.planned.island = island;
           // (from 128² up: at 96² the sea has little room for islands and the shore little for a

@@ -30,7 +30,7 @@ describe("check messages read as player text", () => {
     const lines = placement.message.split("\n");
     expect(lines.length).toBe(2);
     for (const [k, line] of lines.entries()) {
-      expect(line).toMatch(/^(Pine|Blueberry bush) floating · X \d+ · Y \d+ · Z \d+$/);
+      expect(line).toMatch(/^(Pine|Berry bush) floating · X \d+ · Y \d+ · Z \d+$/);
       expect(at).toContain(line.split(" · ").slice(1).join(" · "));
       expect(k).toBeLessThan(2);
     }
@@ -43,6 +43,6 @@ describe("check messages read as player text", () => {
     expect(nameOf("RuinColumnH3")).toBe("Ruin");
     expect(counted(1, "mine site")).toBe("1 mine site");
     expect(counted(2, "mine site")).toBe("2 mine sites");
-    expect(counted(2, "blueberry bush", "blueberry bushes")).toBe("2 blueberry bushes");
+    expect(counted(2, "berry bush", "berry bushes")).toBe("2 berry bushes");
   });
 });

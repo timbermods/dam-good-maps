@@ -318,6 +318,11 @@ export function sameMap(a: BuildResult, b: BuildResult): boolean {
     [a.settle.stack?.contamination, b.settle.stack?.contamination],
   ];
   for (const [x, y] of arrays) if (!sameBytes(x, y)) return false;
+  // (the ground the Block tool dug under its surface is the map's too)
+  const ma = a.cache.terrain.masks;
+  const mb = b.cache.terrain.masks;
+  if ((ma?.size ?? 0) !== (mb?.size ?? 0)) return false;
+  if (ma && mb) for (const [i, m] of ma) if (mb.get(i) !== m) return false;
   if (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview) return false;
   if (a.entities.length !== b.entities.length) return false;
   for (let i = 0; i < a.entities.length; i++) if (exactJson(a.entities[i]) !== exactJson(b.entities[i])) return false;

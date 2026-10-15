@@ -13,7 +13,7 @@
 label.button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   font: inherit;
   border-radius: 6px;
   padding: 8px 12px;
@@ -23,9 +23,9 @@ label.button {
   position: relative;
 }
 
-label.button:focus-within {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+label.button:has(:focus-visible) {
+  outline: max(2px, 0.08em) solid var(--accent);
+  outline-offset: 0.25em;
 }
 
 .settings label.button {
@@ -89,7 +89,7 @@ button[aria-pressed="true"] {
   display: flex;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
   background: var(--map-bg);
 }
 
@@ -97,7 +97,7 @@ button[aria-pressed="true"] {
   position: relative;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .view3d > canvas {
@@ -110,6 +110,12 @@ button[aria-pressed="true"] {
 .view3d > canvas:focus-visible:not([data-mouse]) {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
+}
+
+/* (the pointer put the focus here: no ring, as the line above means; the browser's own would only be a 1px line at the
+   frame's edge once a key is pressed) */
+.view3d > canvas[data-mouse]:focus-visible {
+  outline: none;
 }
 
 .preview3d {
@@ -134,8 +140,7 @@ button[aria-pressed="true"] {
 }
 
 .view3d-controls button,
-.readout,
-.working {
+.readout {
   background: var(--overlay);
   box-shadow: var(--shadow);
 }
@@ -155,9 +160,13 @@ button[aria-pressed="true"] {
   right: 10px;
   width: 44px;
   height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--overlay);
   box-shadow: var(--shadow);
+  /* a button: it turns the view to face north */
+  cursor: pointer;
 }
 
 .compass .needle {
@@ -165,7 +174,7 @@ button[aria-pressed="true"] {
   width: 44px;
   height: 44px;
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .compass .needle span {
@@ -235,7 +244,7 @@ button[aria-pressed="true"] {
   margin: 0;
   font-size: 1.15rem;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -256,6 +265,7 @@ button[aria-pressed="true"] {
 .editor-main > .shelf {
   border-right: 1px solid var(--rule);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* the map column: the view's area, with the notices as a strip under it when there are any */
@@ -290,24 +300,6 @@ button[aria-pressed="true"] {
   border-radius: 0;
 }
 
-.working {
-  position: absolute;
-  top: 100px;
-  left: 10px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  /* the map under it still takes clicks (the map's north edge often lies there) */
-  pointer-events: none;
-}
-
-.working {
-  left: auto;
-  right: 64px;
-  top: 16px;
-}
-
-.history header,
 .dialog header {
   display: flex;
   justify-content: space-between;
@@ -315,7 +307,6 @@ button[aria-pressed="true"] {
   gap: 8px;
 }
 
-.history h2,
 .dialog h2 {
   margin: 0;
   font-size: 1rem;
@@ -346,6 +337,39 @@ button[aria-pressed="true"] {
   pointer-events: auto;
 }
 
+/* Compare: the note while comparing (the flip button and Stop), and the veil while the other version is on show */
+.compare-note .compare-flip {
+  font-weight: 600;
+}
+
+.compare-note .linkish + .linkish {
+  margin-left: 14px;
+}
+
+.compare-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  cursor: default;
+}
+
+.compare-veil .compare-name {
+  position: absolute;
+  left: 50%;
+  top: 128px;
+  transform: translateX(-50%);
+  max-width: min(640px, 90%);
+  padding: 8px 14px;
+  overflow: clip;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-message.error {
   color: var(--bad);
   border-color: var(--bad);
@@ -358,26 +382,7 @@ button[aria-pressed="true"] {
   border-left: 1px solid var(--rule);
   background: var(--panel);
   overflow-y: auto;
-}
-
-.history ol,
-.history ul {
-  padding-left: 18px;
-  font-size: 0.9rem;
-}
-
-.history li {
-  margin: 3px 0;
-}
-
-.history li.undone button {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.history button[aria-current="true"] {
-  font-weight: 700;
-  color: var(--ink);
+  overscroll-behavior: contain;
 }
 
 .orphan {
@@ -439,6 +444,19 @@ button[aria-pressed="true"] {
   margin-top: 4px;
 }
 
+/* a caption's colour as a swatch, then its name (the map's overlay colours, shown rather than named) */
+.layer-legend .layer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.layer-legend .layer-row .swatch {
+  width: 22px;
+  height: 13px;
+  margin-top: 2px;
+}
+
 .dialog progress {
   display: block;
   width: 100%;
@@ -457,7 +475,7 @@ button[aria-pressed="true"] {
   inset: 0;
   z-index: 10;
   display: grid;
-  place-items: center;
+  place-items: safe center;
   padding: 16px;
   background: rgba(20, 16, 10, 0.45);
 }
@@ -466,6 +484,7 @@ button[aria-pressed="true"] {
   width: min(560px, 100%);
   max-height: 88vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   border-radius: 10px;
   background: var(--panel);
@@ -581,18 +600,13 @@ button[aria-pressed="true"] {
 
 /* the start's reach while the pointer is on it: it fades when the pointer leaves (D184) */
 .start-reach {
-  transition: opacity 0.6s ease;
+  transition: opacity var(--dur-fade) var(--ease-out);
 }
 
 .start-reach.fading {
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .start-reach {
-    transition: none;
-  }
-}
 
 /* the minimap's corner: the map's lower left, above the hover readout */
 .editor-view .minimap {
@@ -616,7 +630,32 @@ button[aria-pressed="true"] {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
+  overflow: clip;
+}
+
+/* a label moved off its source keeps a thin line to it */
+.source-leaders {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.source-leaders line {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.source-leaders circle {
+  fill: var(--accent);
+}
+
+.source-leaders .bad line {
+  stroke: var(--warn);
+  stroke-dasharray: 3 2;
+}
+
+.source-leaders .bad circle {
+  fill: var(--warn);
 }
 
 .source-marker {
@@ -692,7 +731,8 @@ button[aria-pressed="true"] {
   border-radius: 8px;
   background: var(--overlay);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  min-width: 0;
+  overflow: clip;
 }
 
 .view3d-corner .layer-widget button {
@@ -709,7 +749,7 @@ button[aria-pressed="true"] {
   height: var(--corner-h);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   font-size: 1.25rem;
   padding: 0 8px;
 }
@@ -748,7 +788,7 @@ button[aria-pressed="true"] {
   width: var(--corner-h);
   padding: 0;
   display: inline-grid;
-  place-items: center;
+  place-items: safe center;
 }
 
 /* its volume opens beneath it, so nothing in the cluster moves */
@@ -778,4 +818,65 @@ button[aria-pressed="true"] {
 /* the view bar leaves room for the corner's level control */
 .editor-view .view3d-controls {
   right: 230px;
+}
+
+/* every × that closes a hint, a note, History or an object's window: one 24px icon button, quiet at rest, lit on
+   hover and focus. (The page's and the object window's own × use the same look through their selectors.) */
+.icon-close,
+button.linkish.ow-close,
+.history-panel .ym-act.hist-close,
+.dock-notes > * > button[aria-label="Dismiss"] {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: safe center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.icon-close:focus-visible,
+button.linkish.ow-close:focus-visible,
+.history-panel .ym-act.hist-close:focus-visible,
+.dock-notes > * > button[aria-label="Dismiss"]:focus-visible {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .icon-close:hover,
+  button.linkish.ow-close:hover,
+  .history-panel .ym-act.hist-close:hover,
+  .dock-notes > * > button[aria-label="Dismiss"]:hover {
+    background: color-mix(in srgb, var(--ink) 14%, transparent);
+    color: var(--ink);
+  }
+}
+
+/* in the hints' box the × lies 6px from the right edge, level with the first line */
+.map-note > .icon-close {
+  margin: -2px -4px -2px 0;
+}
+
+/* in a message the same: 6px in from the right edge, level with its first line */
+.tool-dock > .dock-notes > * > button[aria-label="Dismiss"] {
+  position: absolute;
+  top: 7px;
+  right: 5px;
+}
+
+/* an object's window: its name line is the × button's height, so the hover square shows whole */
+.object-window .cell-head.ow-head:has(> .ow-close) {
+  height: 24px;
+  line-height: 24px;
+  overflow: visible;
 }

@@ -28,7 +28,7 @@ describe("a badwater spring under the brushes and the Select tool (#89, D270)", 
     // to a level (what Select's Raise and Set level send)
     const cells: [number, number, number][] = [];
     for (let row = Math.max(0, y - 3); row <= Math.min(95, y + 5); row++) cells.push([row, Math.max(0, x - 3), Math.min(95, x + 5)]);
-    const raised = s.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, "user", "Raise 81 tiles by 1");
+    const raised = s.apply({ op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, "user", "Raise 81 tiles");
     expect(raised.errors).toEqual([]);
     expect(raised.ok).toBe(true);
     const level = s.apply({ op: "sculpt", params: { mode: "flatten", cells, level: s.built.heights[y * 96 + x] } }, "user", "Set 81 tiles to a level");
