@@ -21,15 +21,20 @@ export interface ShortcutGroup {
 /** The panel's own key. */
 export const SHORTCUTS_KEY = "?";
 
-/** Shorter words than the tooltip's, where its hint would take a second line here. */
-const SHORT: Record<string, string> = { Rift: "a crack that drops the land", Deposit: "a fan of sediment" };
+/** What each force does, as the panel says it after the force's name ("Erupt: a volcano"): its own short noun phrase, not the
+ *  tooltip's. A force with no phrase shows its name alone. */
+const FORCE_WHAT: Record<string, string> = {
+  Carve: "a river",
+  Craterize: "a crater",
+  Erupt: "a volcano",
+  Rift: "a crack that drops the land",
+  Quake: "a fault that lifts or slides the land",
+  Deposit: "a fan of sediment",
+  Glaciate: "a glacier's valley",
+};
 
 /** A force's line: its name as the bar shows it, then what it does ("Carve: a river"). */
-const forceWhat = (name: string, hint?: string) => {
-  hint = SHORT[name] ?? hint;
-  const rest = hint?.toLowerCase().startsWith(`${name.toLowerCase()} `) ? hint.slice(name.length + 1) : hint;
-  return rest ? `${name}: ${rest}` : name;
-};
+const forceWhat = (name: string) => (FORCE_WHAT[name] ? `${name}: ${FORCE_WHAT[name]}` : name);
 
 /** The groups, in the panel's order: the tools, holding them, the mouse, the view and editing. */
 export function shortcutGroups(): readonly ShortcutGroup[] {
@@ -39,7 +44,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Select", keys: ["1"] },
         ...BRUSHES.map((b) => ({ what: b.name, keys: [b.key] })),
-        ...SHOWN_FORCES.map((f) => ({ what: forceWhat(f.name, f.hint), keys: [f.key ?? ""] })).filter((r) => r.keys[0]),
+        ...SHOWN_FORCES.map((f) => ({ what: forceWhat(f.name), keys: [f.key ?? ""] })).filter((r) => r.keys[0]),
         { what: "Put the tool down", keys: ["X", "Esc"] },
       ],
     },

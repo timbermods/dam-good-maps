@@ -339,7 +339,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
-  - **Carve** and the other forces: Power 3 · Size 3 (with Auto) · What it leaves 3 · More 2.
+  - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
     group on whole cells; the bar never moves.
@@ -380,10 +380,15 @@ refinements and what the mockups left open:
   no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
-  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; every tool's rows share their
-  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it): Craterize and Erupt
-  on cells 3, 6 and 9, Rift and Deposit on 6 and 9, Quake on 3 and 9, Glaciate on 3, 6, 9
-  and 11, Carve on 3, 5, 7 and 9 (its ten settings two cells each, Power, Wander and Canyon depth wider); the brushes
+  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; each gap between plates lines
+  up with a gap in the other row or a plate there spans it (Rift and Deposit share none and Quake only cell 9,
+  because of their wide Floor). **Power is always
+  cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
+  setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
+  Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
+  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve Wander 7–9, What it leaves 10–11, Walls 12–13 (its rows share 3, 9 and 11), then
+  Canyon depth 1–3, River depth 4–5, Banks 6–7 and the Floor 8–9 on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.
   The rest of this item describes the build before.
@@ -473,8 +478,10 @@ refinements and what the mockups left open:
   edge).
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
-  scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
-  ("Crater Lake"; two lines kept) and its size;
+  scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
+  ("Near Crater Lake"; two lines kept; the polish audit found "Crater Lake" here and "Near Crater Lake" on the map, in its
+  file and on the gallery page, and D136's plain titles never reached the data, so the panel follows the data until
+  the places are rebuilt) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
@@ -525,7 +532,13 @@ refinements and what the mockups left open:
   (`docs/design/close-question-1920x1080`). Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
-  clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
+  clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Near Crater Lake…", with
+  Cancel); before any map exists (a share link, a reload) the dialog stands over the editor's own frame, the header, bar
+  and shelf held still (the header with its Look button in place, so nothing moves when the map arrives) and the land's
+  first look in the map's place, never a blank page with one line (polish audit, `docs/design/polish-generator-*`).
+  Nothing is dimmed there and the dialog sits under the land, not across it. If that first map fails (six seeds in a row,
+  or the worker), the dialog turns into the failure's words with one button, **Make a new map** (a random seed); the
+  message is never left dimmed under the dialog, and any message stands above it. Cancel ends the generator's worker and opens the map that was open again in a new one,
   from its project saved just before (its edits, history and view as they were; "Opening your map…" meanwhile). A
   failed map turns the dialog into its words and Close. Generate's button no longer says what is happening.
 - **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
@@ -568,7 +581,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything and About, then after a hairline
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
   lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
@@ -601,7 +614,7 @@ D380 work.
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
   (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
-  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
+  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything,
   About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
@@ -835,6 +848,12 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+- **The generator's panel after the polish audit** (`docs/design/polish-generator-*`): an opened file's panel reads "–"
+  for the settings it doesn't have (seed, theme, every slider and choice, the species shares; the sliders at a third of
+  their strength) and shows the file's own size; "On this map" counts the map's objects (Mine sites, Ruins, Berry bushes,
+  Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
+  "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
+  field is in hand.
 - **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
   open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
   generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when

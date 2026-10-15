@@ -54,15 +54,17 @@ test("a removed source's marker goes at once, and its water drains away in the e
   // let it settle (the journey and the background check)
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   await page.getByRole("checkbox", { name: "Markers" }).click();
-  const markers = page.locator(".source-marker");
-  const n0 = await markers.count();
+  // (sources, not labels: labels crowded together merge into one, "N sources nearby", D249, so each label says how many
+  // sources it speaks for)
+  const sources = () => page.locator(".source-marker").evaluateAll((els) => els.reduce((n, e) => n + Number(e.getAttribute("data-sources")), 0));
+  const n0 = await sources();
   expect(n0).toBeGreaterThan(0);
   // removed (pointed at and Delete): its marker goes at once
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.move(p.x, p.y);
   const t0 = Date.now();
   await page.keyboard.press("Delete");
-  await expect(markers).toHaveCount(n0 - 1, { timeout: 2_000 });
+  await expect.poll(sources, { timeout: 2_000 }).toBe(n0 - 1);
   // and its water drains in the journey, well before any background check could settle it
   await expect.poll(() => waterNear(page, x, y), { timeout: 8_000, intervals: [100] }).toBeLessThan(0.005);
   expect(Date.now() - t0).toBeLessThan(4_000);

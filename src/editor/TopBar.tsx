@@ -120,7 +120,7 @@ export interface Force {
   /** Its one choice as a switch that starts its options row (the first is the default): Quake's
    *  Lift or Slide. The others' click or drag is their mode (D289). */
   modes?: readonly [string, string];
-  /** Its key, and what it does, for its button's title. */
+  /** Its key, and what it does as a phrase that starts with a verb ("Strike a crater"), for its button's title. */
   key?: string;
   hint?: string;
 }
@@ -138,13 +138,13 @@ export const FORCE_GROUPS: readonly (readonly string[])[] = [
 
 const FORCE_LIST: readonly Force[] = [
   // (the keys, Kyler 2026-10-06: Shift and the number of its place in the bar, matched on the key's code)
-  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "carve a river" },
-  { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "an impact crater" },
-  { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "a volcano" },
-  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "a fault that lifts or slides the land" },
-  { id: "glaciate", name: "Glaciate", ready: true, key: "Shift+7", hint: "a glacier carves a valley" },
-  { id: "rift", name: "Rift", ready: true, key: "Shift+4", hint: "the land cracks open and drops" },
-  { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "a fan of sediment at a valley's mouth" },
+  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river" },
+  { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "Strike a crater" },
+  { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "Build a volcano" },
+  { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "Lift or slide the land along a fault" },
+  { id: "glaciate", name: "Glaciate", ready: true, key: "Shift+7", hint: "Cut a valley with a glacier" },
+  { id: "rift", name: "Rift", ready: true, key: "Shift+4", hint: "Crack the land open" },
+  { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "Lay a fan of sediment" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */

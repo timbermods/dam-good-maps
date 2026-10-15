@@ -10,6 +10,7 @@ import { MapSession } from "../doc/session";
 import { planKeptForce } from "./forceStep";
 import { MapApplier, recordFromJson, BUSY, type TransactionRecord } from "./transaction";
 import { RecordLog } from "./records";
+import { redoPlan, undoPlan, type HistoryPlan, type Names, type Veto } from "./undo";
 import type { Command, ForceGesture, LogEntry, MapOpening, PlayerId, Reject, Request, Settled, Snapshot } from "./types";
 import { messageProblem } from "./validate";
 import { settledHash } from "./water";
@@ -51,6 +52,9 @@ export class CollabReplica {
   /** This copy's own settle: the sequence the water settled for, and its hash. */
   private own: { seq: number; hash: string } | null = null;
   private announced: Settled | null = null;
+  /** The undos and redos the host refused since the last entry, by target: the plans skip them until then. */
+  private refused = new Map<number, string>();
+  private vetoed: Veto | undefined;
 
   constructor(
     session: MapSession,
@@ -59,6 +63,8 @@ export class CollabReplica {
     readonly events: ReplicaEvents = {},
     /** Called on each session this copy opens from a snapshot (the page sets its own options here). */
     readonly configure?: (s: MapSession) => void,
+    /** How players are called in an undo's refusal; the ids by default. */
+    readonly names?: Names,
   ) {
     this.session = session;
     this.applier = new MapApplier(session);
@@ -68,10 +74,10 @@ export class CollabReplica {
   }
 
   /** A replica restored from a snapshot: the host's checkpoint opened as the project, its records, then the entries since applied. */
-  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void): CollabReplica {
+  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void, names?: Names): CollabReplica {
     const session = MapSession.open(decodeProject(snapshot.project));
     configure?.(session);
-    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure);
+    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure, names);
     const done = r.adopt(snapshot, false);
     if (!done.ok) throw new Error(done.reason);
     return r;
@@ -87,11 +93,14 @@ export class CollabReplica {
       this.applier = new MapApplier(this.session);
     }
     this.records.clear();
+    this.refused.clear();
     const N = this.session.built.W * this.session.built.H;
     for (const j of snapshot.records) this.records.add(recordFromJson(N, j));
+    this.records.restoreFences(N, snapshot.fences);
     this.epoch = snapshot.epoch;
     this.seq = snapshot.checkpointSeq;
-    this.counter = snapshot.counters[this.playerId] ?? this.counter;
+    // (a host that restarted counts from nothing: a guest that kept its old number would be refused for good)
+    this.counter = snapshot.counters[this.playerId] ?? 0;
     this.status = "live";
     this.opening = null;
     // (the checkpoint's water is settled: the project was saved only so)
@@ -104,6 +113,23 @@ export class CollabReplica {
     if (this.applier.hash() !== snapshot.endHash) return this.diverged("This copy of the map differs from the host's after loading it");
     return { ok: true };
   }
+
+  /** What Undo does for this player now: the action it takes back (null when none can be) and the blocked ones it skips, each named. */
+  undoPlan(): HistoryPlan {
+    return undoPlan(this.records, this.playerId, this.names, this.skip);
+  }
+
+  /** What Redo does for this player now. */
+  redoPlan(): HistoryPlan {
+    return redoPlan(this.records, this.playerId, this.names, this.skip);
+  }
+
+  /** Another reason for the plans to skip an action besides the rule (claims answer with a mask test of `r.writes`). */
+  setVeto(veto: Veto | undefined): void {
+    this.vetoed = veto;
+  }
+
+  private skip: Veto = (r) => this.vetoed?.(r) ?? this.refused.get(r.seq) ?? null;
 
   /** This player's next request for `command`, or why they can't ask now. */
   request(command: Command): Request | { refused: string } {
@@ -142,9 +168,12 @@ export class CollabReplica {
         const c = message as { entry: LogEntry; hash: string };
         return this.commit(c.entry, c.hash);
       }
-      case "reject":
-        this.events.rejected?.(message as Reject);
+      case "reject": {
+        const rej = message as Reject;
+        if (rej.target !== undefined) this.refused.set(rej.target, rej.reason);
+        this.events.rejected?.(rej);
         return { ok: true };
+      }
       case "map-opening": {
         const o = message as MapOpening;
         this.status = "opening";
@@ -180,6 +209,7 @@ export class CollabReplica {
     if (!this.own || this.own.seq !== a.seq) return { ok: true };
     this.announced = null;
     if (this.own.hash !== a.hash) return this.diverged(`The water settled differently here than on the host's map after entry ${a.seq}`);
+    this.records.settled(a.since);
     this.events.settled?.({ seq: a.seq, since: a.since });
     return { ok: true };
   }
@@ -201,10 +231,12 @@ export class CollabReplica {
   private applyInOrder(entry: LogEntry): Received {
     const ordered = this.order(entry);
     if (!ordered.ok) return ordered;
-    const done = this.applier.apply(entry, { role: "replica" });
+    const done = this.applier.apply(entry, { role: "replica", records: this.records, names: this.names });
     if (!done.ok) return this.diverged(`Entry ${entry.seq} would not apply here: ${done.reason}`);
     this.seq = entry.seq;
-    this.records.add(done.record);
+    this.refused.clear();
+    if (done.effect) this.records.addEffect(done.record);
+    else this.records.add(done.record);
     this.events.applied?.(entry, done.record);
     return { ok: true };
   }
