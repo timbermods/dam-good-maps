@@ -4,8 +4,8 @@ import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
 import { newId, shortStrengthWords, sourceStrengths, sourceStrengthWords } from "../features";
-import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial } from "../panels";
-import type { ShelfOptions } from "../shelfItems";
+import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial, waterWords } from "../panels";
+import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems";
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
 import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
@@ -14,8 +14,8 @@ import type { RiftSettings } from "../../core/forces/rift";
 import type { DepositSettings } from "../../core/forces/deposit";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
 import type { Verb } from "../../core/forces/op";
-import { FORCES } from "../TopBar";
-import type { ObjectPanel } from "../ObjectWindow";
+import { FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
+import { ObjectChoice, ObjectSlider, type ObjectPanel } from "../ObjectWindow";
 
 /** An object's four turns before it is placed (R steps through them): its facing on the map. */
 const TURNS: [number, string, string][] = [
@@ -140,38 +140,30 @@ export function useRows(ed: Ed): RowsSlice {
         {
           key: "strength",
           label: "Strength",
-          node: (
-            <select aria-label="Strength" {...tip("Water a second", "Ctrl+scroll over it")} value={String(strength)} onChange={(ev) => changeSource(e, { strength: Number((ev.target as HTMLSelectElement).value) })}>
-              {[...new Set([...steps, strength])]
-                .sort((a, b) => a - b)
-                .map((v) => (
-                  <option key={v} value={String(v)}>
-                    {Number(v.toFixed(2))} water/s
-                  </option>
-                ))}
-            </select>
-          ),
+          value: waterWords(strength),
+          node: <StrengthSlider label="Strength" value={strength} steps={steps} keys={["Ctrl+scroll over it"]} onChange={(v) => changeSource(e, { strength: v })} />,
         },
         { key: "readout", label: "This source", node: <SourceReadout plain label="This source" words={shortStrengthWords(pickedWords(e))} /> },
         {
           key: "water",
           label: "Water",
           node: (
-            <select aria-label="Water" title="Clean water or badwater" value={bad ? "bad" : "clean"} onChange={(ev) => changeSource(e, { kind: (ev.target as HTMLSelectElement).value as "clean" | "bad" })}>
-              <option value="clean">Clean</option>
-              <option value="bad">Badwater</option>
-            </select>
+            <ObjectChoice
+              label="Water"
+              value={bad ? "bad" : "clean"}
+              options={[
+                ["clean", "Clean", "Make it clean water"],
+                ["bad", "Badwater", "Make it badwater"],
+              ]}
+              onPick={(kind) => kind !== (bad ? "bad" : "clean") && changeSource(e, { kind })}
+            />
           ),
         },
         {
           key: "power",
           label: "Power",
-          node: (
-            <label class="slider-field" title="How hard its river cuts">
-              <input type="range" min={0} max={100} step={5} aria-label="Unleash power" aria-valuetext={`${unleashPower}, ${powerWord(unleashPower)}`} value={unleashPower} onInput={(ev) => setUnleashPower(Number((ev.target as HTMLInputElement).value))} />
-              <output>{powerWord(unleashPower)}</output>
-            </label>
-          ),
+          value: powerWord(unleashPower),
+          node: <ObjectSlider label="Unleash power" min={0} max={100} step={5} value={unleashPower} words={`${unleashPower}, ${powerWord(unleashPower)}`} tipText="How hard its river cuts" onInput={setUnleashPower} />,
         },
         {
           key: "act",
@@ -210,24 +202,17 @@ export function useRows(ed: Ed): RowsSlice {
       key: "turn",
       label: "Turn",
       node: (
-        <div class="segmented" role="group" aria-label="Turn">
-          {TURNS.map(([k, word, title]) => (
-            <button
-              type="button"
-              key={k}
-              aria-pressed={ed.turn === k}
-              {...tip(title, "R")}
-              onClick={() => {
-                ed.turnRef.current = k;
-                ed.setTurn(k);
-                const at = ed.shelfTile.current;
-                if (at) ed.shelfHover(at[0], at[1]);
-              }}
-            >
-              {word}
-            </button>
-          ))}
-        </div>
+        <ObjectChoice
+          label="Turn"
+          value={ed.turn}
+          options={TURNS.map(([k, word, title]) => [k, word, title, "R"] as const)}
+          onPick={(k) => {
+            ed.turnRef.current = k;
+            ed.setTurn(k);
+            const at = ed.shelfTile.current;
+            if (at) ed.shelfHover(at[0], at[1]);
+          }}
+        />
       ),
     };
     return { label: p?.label ?? `${shelf.name} options`, groups: [...(p?.groups ?? []), turnGroup] };
@@ -246,6 +231,7 @@ export function useRows(ed: Ed): RowsSlice {
           {
             key: "next",
             label: "Next source",
+            value: waterWords(value),
             node: <StrengthSlider label="Next source" value={value} steps={steps} onChange={(v) => setOptions({ ...optionsRef.current, ...(bad ? { badwaterStrength: v } : { sourceStrength: v }) })} />,
           },
           ...(pointedWords ? [{ key: "pointing", label: "Pointing at", node: <SourceReadout plain label="Pointing at" words={shortStrengthWords(pointedWords)} /> }] : []),
@@ -260,14 +246,18 @@ export function useRows(ed: Ed): RowsSlice {
           {
             key: "height",
             label: "Height",
+            value: `${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`,
             node: (
-              <select aria-label="Height" title="How tall the ruin is" value={String(shelfOptions.ruinHeight)} onChange={(ev) => setShelfOptions({ ...shelfOptions, ruinHeight: Number((ev.target as HTMLSelectElement).value) })}>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((k) => (
-                  <option key={k} value={String(k)}>
-                    {k} {k === 1 ? "level" : "levels"}
-                  </option>
-                ))}
-              </select>
+              <ObjectSlider
+                label="Height"
+                min={1}
+                max={8}
+                step={1}
+                value={shelfOptions.ruinHeight}
+                words={`${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`}
+                tipText="How tall the ruin is"
+                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinHeight: v })}
+              />
             ),
           },
         ],
@@ -280,15 +270,74 @@ export function useRows(ed: Ed): RowsSlice {
             key: "size",
             label: "Size",
             node: (
-              <select aria-label="Size" title="How big the relic is" value={shelfOptions.relicSize} onChange={(ev) => setShelfOptions({ ...shelfOptions, relicSize: (ev.target as HTMLSelectElement).value as ShelfOptions["relicSize"] })}>
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
+              <ObjectChoice
+                label="Size"
+                value={shelfOptions.relicSize}
+                options={[
+                  ["small", "Small", "A small relic"],
+                  ["medium", "Medium", "A medium relic"],
+                  ["large", "Large", "A large relic"],
+                ]}
+                onPick={(relicSize) => setShelfOptions({ ...shelfOptions, relicSize })}
+              />
             ),
           },
         ],
       };
+    // trees, bushes and thorns: a drag paints them, so the brush's size and density, and a tree's age (D235)
+    if (shelf.paint) {
+      const kind = shelf.paint;
+      const { size, density } = shelfOptions.paint[kind];
+      const set = (c: Partial<{ size: number; density: number }>) => setShelfOptions({ ...shelfOptions, paint: { ...shelfOptions.paint, [kind]: { size, density, ...c } } });
+      return {
+        label: `${shelf.name} options`,
+        groups: [
+          {
+            key: "size",
+            label: "Size",
+            value: `${size} tiles`,
+            node: <ObjectSlider label="Size" min={PAINT_SIZE_MIN} max={PAINT_SIZE_MAX} step={1} value={size} words={`${size} tiles`} tipText="How wide the brush is" keys={[...SIZE_KEYS]} onInput={(v) => set({ size: v })} />,
+          },
+          {
+            key: "density",
+            label: "Density",
+            value: `${Math.round(density * 100)}%`,
+            node: (
+              <ObjectSlider
+                label="Density"
+                min={PAINT_DENSITY_MIN * 100}
+                max={100}
+                step={5}
+                value={Math.round(density * 100)}
+                words={`${Math.round(density * 100)}%`}
+                tipText={`How thickly it plants ${kind}`}
+                keys={[...STRENGTH_KEYS]}
+                onInput={(v) => set({ density: v / 100 })}
+              />
+            ),
+          },
+          ...(kind === "trees"
+            ? [
+                {
+                  key: "age",
+                  label: "Age",
+                  node: (
+                    <ObjectChoice
+                      label="Age"
+                      value={shelfOptions.treeAge}
+                      options={[
+                        ["grown", "Grown", "Fully grown trees"],
+                        ["mixed", "Mixed", "Grown trees and saplings"],
+                      ]}
+                      onPick={(treeAge) => setShelfOptions({ ...shelfOptions, treeAge })}
+                    />
+                  ),
+                },
+              ]
+            : []),
+        ],
+      };
+    }
     return null;
   }
 

@@ -135,7 +135,7 @@ export function outlineTiles(points: readonly [number, number][], W: number, H: 
 }
 
 /** The ground at the clicked tile's level joined to it (four neighbours), at most `limit` tiles. */
-export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = 65536): number[] {
+export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = W * H): number[] {
   const start = y * W + x;
   const level = heights[start];
   const seen = new Uint8Array(W * H);

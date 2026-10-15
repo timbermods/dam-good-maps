@@ -142,7 +142,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await generateButton(page).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.waitForFunction((n) => (window.dgm!.current!()?.made ?? 0) > n, madeBefore, { timeout: 120_000 });
-  await expect.poll(async () => (await info(page)).spec?.settings.resources.groveSize, { timeout: 60_000 }).toBe("bigWoods");
+  // (Generate mounts the editor afresh: its hook is missing for a moment, so the poll reads it only when it is there)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().spec?.settings.resources.groveSize), { timeout: 60_000 }).toBe("bigWoods");
   expect((await info(page)).edits).toBe(0);
   // (the new map, unedited, is never kept: Your maps holds only the edited one, D330)
   const yours = await openYourMaps(page);
