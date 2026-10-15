@@ -282,7 +282,8 @@ impl Session {
     /// 17 terrain count u8, 18 terrain floor i16, 19 terrain top i16 (read-only).
     /// 20 drained mask u8, writable before build (flat maps, D387).
     /// 21 the block of rows op 7 handed out f64 (a copy); 22 the block op 10 takes f64 (sized by op 9).
-    /// 23 emitting u8 per column (a running emitter gives water there), 24 allowed u8 per edge (read-only).
+    /// 24 emitting u8 per column (a running emitter gives water there), 25 allowed u8 per edge (read-only); 23 is
+    /// left for the settle's reach (#491).
     /// A view of the state (6..10, 15) makes the next run check the whole state again.
     /// Lengths are element counts, never byte counts. Flat momentum remains four per tile.
     pub fn field(&mut self, which: u32) -> Option<(*mut u8, usize)> {
@@ -310,8 +311,8 @@ impl Session {
             17 => view!(self.terrain_count),
             18 => view!(self.terrain_floor),
             19 => view!(self.terrain_ceil),
-            23 => view!(self.emitting),
-            24 => view!(self.allowed),
+            24 => view!(self.emitting),
+            25 => view!(self.allowed),
             6..=10 | 15 => {
                 self.trusted = false;
                 let e = self.engine.as_mut()?;
