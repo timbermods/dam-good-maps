@@ -33,7 +33,9 @@ export const MAX_SIDE = 512;
  *  absolutes (the starting-logs floor, a start with its water, item 47's must-haves) and its theme. Every side from
  *  4 stays valid (the file, the link and the validator take it) for a map shaped by hand. Tried on seeds 1 and 2: at
  *  40² every theme makes its map within the rescue rounds (10–42 s); at 32² six of the seven find no start, badwater
- *  source or mine site after all 1,960 attempts (Islands made seed 1 on its 1,882nd), so the line is 40 for each. */
+ *  source or mine site after all 1,960 attempts (Islands made seed 1 on its 1,882nd), so the line is 40. Islands'
+ *  is 64: under it no river reaches its sea, which drains (seed 1: 3% water and no island at 40×160, 5% at 48×160;
+ *  60% at 64×160). */
 export const GENERATOR_MIN_SIDE: Record<ThemeId, number> = {
   any: 40,
   riverValley: 40,
@@ -41,7 +43,7 @@ export const GENERATOR_MIN_SIDE: Record<ThemeId, number> = {
   highlands: 40,
   lakeBasin: 40,
   delta: 40,
-  islands: 40,
+  islands: 64,
 };
 
 /** Why the generator will not build a map of this size for this theme, in one line, or null when it will (D342:

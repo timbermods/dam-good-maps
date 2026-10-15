@@ -987,18 +987,22 @@ reported. PLAN §20 D357 has the whole decision.
   tiles that changed. There is no cave light volume (`caveLight.ts`) in the tree yet; it needs its own check at 512x512 when it lands.
 - **Part 2 (`feature/custom-sizes-2`):** the generator uses the shape, from its floor to 256 a side (D488: sizes above 256
   wait, since the game's editor can't open them; they open, edit and export as part 1 made them). A map 1.5 times as long
-  as wide or more is a long map (`src/core/land/shape.ts`): its flow runs its length and its water's way leads to the far
-  end, not out by the nearer long side, so River Valley, Canyon, Highlands and Delta get a river down the length (Delta's
-  fan in its last stretch, about as long as the map is wide); Lake Basin's lake runs down it; Islands is a chain of
-  islands down it from a mainland at one end and along one side; the start leans to the middle (River Valley, Lake
+  as wide or more is a long map (`src/core/land/shape.ts`): its land falls along its length as steeply per tile as a
+  square map's across it, and at least half as far as its broad highs and noise rise; it is worn toward its far end; its
+  river enters at its near end and its water's way keeps off the long sides to the far end; so River Valley, Canyon,
+  Highlands, Delta and Any get a river down the length (Delta's fan in its last stretch, about as long as the map is
+  wide); Lake Basin's lake runs down it; Islands is a chain of islands down it from a mainland at one end that runs on
+  as a shore along one side; the start leans to the middle (River Valley, Lake
   Basin, Highlands, Any) or an end (Canyon, Delta, Islands), a lean the land's own places for a start can outweigh. Square
   and near-square maps are drawn as before: the standard sizes are byte-identical. The floor is 40 a side for every
-  theme (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`; at 32² six of seven themes find no start, badwater source
-  or mine site in all their rescue rounds), refused below it at once with "Canyon needs at least 40 tiles a side to
+  theme but Islands, 64 (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`; at 32² six of seven themes find no start,
+  badwater source or mine site in all their rescue rounds; under 64 wide Islands' sea gets no river and drains), refused below it at once with "Canyon needs at least 40 tiles a side to
   generate"; the size stays choosable from 4 for a map shaped by hand. A map that is not square no longer loses half its
   land when its orientation turns it half round (`land/orient.ts`). The field's parts visit only the tiles they reach,
   byte-identical and quicker on large maps. Smoke: `tools/size-smoke.ts --thumbs`, laid out by `tools/size-sheet.py`
-  (`docs/sheets/custom-sizes-2.png`). Next: the named shapes in the size setting, a layout question for the page.
+  (`docs/sheets/custom-sizes-2.png`). Out of scope: Islands' slowness on some odd sizes (its spring retries settle the
+  whole map again) and the start's lean, a preference the land can outweigh. Next: the named shapes in the size
+  setting, a layout question for the page.
 
 ## The dam sketch tool (D383)
 

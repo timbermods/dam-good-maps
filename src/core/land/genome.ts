@@ -700,7 +700,12 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   };
   // (D357: on a long map the water runs its length, a long river down a long map, a canyon along it;
   // the orientation of a map that is not square keeps its sides, so it stays along it)
-  if (mapShape(W, H).long) g.flowDir = alongLongAxis(g.flowDir, W, H);
+  // (a slope toward a bowl gathers the water in the map's middle, half its length: a long map's falls along it;
+  // a sea's map and Lake Basin keep their bowl, drawn later)
+  if (mapShape(W, H).long) {
+    g.flowDir = alongLongAxis(g.flowDir, W, H);
+    g.tiltKind = "linear";
+  }
   g.terrace.step = (() => {
     const s = stepsFor(p.terrace.step, vt);
     return s[rng.int(0, s.length)];
@@ -887,19 +892,22 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     const drawnSide = layout === "edge" ? 2 : Math.floor(4 * rng.float());
     // (D357: Islands' mainland on a long map stands at one of its ends, its chain running away from it;
     // the sides are 0 and 2 across a map long north to south, 1 and 3 across one long east to west)
-    // (and along one long side from that end, so the sea is no more of the map than on a square map's: the end
-    // alone left a sea over Islands' water cap, D369, and the maps that passed had drained it)
+    // (reaching in along the length further than a square map's, the chain beginning past it, and running on
+    // as a shore along one long side, so the sea is no more of the map than on a square map's and the
+    // mainland's rivers fill it: the end alone left a sea over Islands' water cap, D369, or, reaching further,
+    // too few rivers, and the maps that passed had drained it)
     const endMain = form.long && g.theme === "islands";
     const s0 = endMain ? (form.alongX ? 1 : 0) + 2 * (drawnSide & 1) : drawnSide;
     main.push(s0);
     if (endMain) main.push((s0 + (drawnSide & 2 ? 1 : 3)) % 4);
     else if (layout !== "edge" && layout !== "central" && rng.float() < 0.45) main.push((s0 + 1) % 4);
+    const endReach = endMain ? Math.max(1, form.ratio / 2) : 1;
     // (three or four a side, of reach from a tenth of the side to a third, so the coast bends in deep
     // bays and broad points; two of like reach a side ran it straight along the edge)
     for (const s of main) {
       const m = 3 + Math.floor(2 * rng.float());
       for (let k = 0; k < m; k++) {
-        const deep = layout === "edge" ? 0.22 + 0.18 * rng.float() : 0.13 + 0.2 * rng.float();
+        const deep = (layout === "edge" ? 0.22 + 0.18 * rng.float() : 0.13 + 0.2 * rng.float()) * (s === s0 ? endReach : 1);
         lobes.push([(s + (k + 0.5) / m + 0.12 * (rng.float() - 0.5) + 4) % 4, 0.38 / m + 0.04 + 0.06 * rng.float(), deep]);
       }
     }
@@ -923,7 +931,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     // for a start; the basin no longer sets the sea's size, so the open sea's share shrinks with it)
     // (Any's sea maps keep under half, their lobes reaching further: their water cap is 0.55, Islands' 0.70)
     const openMost = (thin ? 0.58 : 0.46) * shrink;
-    const lobeMost = g.theme === "islands" ? 0.5 : 0.6;
+    const lobeMost = g.theme === "islands" ? (endMain ? Math.max(0.5, 0.3 * form.ratio) : 0.5) : 0.6;
     for (let k = 0; k < 14 && openSea() > openMost && Math.max(...lobes.map((l) => l[2])) * 1.1 <= lobeMost; k++) for (const l of lobes) l[2] *= 1.1;
   }
   // (the land along an edge, from it: the lip (1–2 tiles) and its fall, its lobe, and as far as its
@@ -1022,7 +1030,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         sea([0.5, 0.5], open(), depth, axisTurn, 1.1 + 0.3 * rng.float());
         const L = Math.max(W, H);
         const low = main[0] === (form.alongX ? 3 : 0);
-        const a0 = Math.min(0.74 * side + 8, 0.3 * L);
+        // (past the mainland's reach from its end, in the sea's half off its shore along the long side)
+        const deepest = Math.max(0, ...lobes.filter((l) => Math.floor(l[0]) === main[0]).map((l) => l[2]));
+        const off = main[1] === 0 || main[1] === 3 ? 1 : -1;
+        const a0 = Math.min(1.35 * side * deepest + 0.12 * side * deepest + 10, 0.5 * L);
         const length = L - 0.08 * L - 6 - a0;
         const count = 1 + Math.round((2 + rng.float()) * portable.sqrt(form.ratio));
         const spacing = length / (count - 1);
@@ -1032,8 +1043,6 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         for (let k = 0; k < count; k++) {
           const t = k / (count - 1);
           const along = low ? a0 + t * length : L - 1 - (a0 + t * length);
-          // (in the sea's half, off the mainland along the long side)
-          const off = main[1] === 0 || main[1] === 3 ? 1 : -1;
           const across = (0.5 + 0.12 * off) * (side - 1) + sway * sinDet(TWO_PI * (waves * t + phase));
           const mid = 1 - Math.abs(t - 0.5) * 0.9;
           const asp = 1 + 1.2 * rng.float();

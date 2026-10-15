@@ -1,5 +1,6 @@
 """Lay out the pictures tools/size-smoke.ts --thumbs wrote as one labelled contact sheet (PLAN §20 D144, D357):
-a row per theme, a column per shape, each picture's longer side 128 pixels, the start marked red; a quantized PNG
+a row per theme, a column per shape, each picture's longer side 128 pixels, the start marked red, each labelled with its time
+and its share of water (or "refused" under its theme's least side); a quantized PNG
 under 1 MB.
 
     python tools/size-sheet.py <thumbs dir> docs/sheets/<step>.png "<title>"
@@ -46,7 +47,12 @@ def main():
             if row and row.get("png"):
                 im = Image.open(os.path.join(src, row["png"])).convert("RGB")
                 sheet.paste(im, (x0 + (CELL - 8 - im.width) // 2, y0 + (CELL - 8 - im.height) // 2))
-            label = "no map" if not row else ("" if row["result"] == "ok" else "refused") + f" {row['ms'] / 1000:.0f} s"
+            if not row:
+                label = "no map"
+            elif row["result"] != "ok":
+                label = "refused"
+            else:
+                label = f"{row['ms'] / 1000:.0f} s, water {row.get('water', '?')}%"
             draw.text((x0 + 4, y0 + CELL - 6), label.strip(), fill=(90, 90, 90), font=small)
     sheet.quantize(colors=128, method=Image.Quantize.MEDIANCUT).save(dst, optimize=True)
     print(dst, os.path.getsize(dst), "bytes")

@@ -5,7 +5,8 @@
 //                               [--thumbs <dir>]
 //
 // One line per run: shape, theme, ok or the refusal/crash, milliseconds, attempts, and where the start stands
-// along the map's longer side (0 one end, 1 the other). --md also prints the table as Markdown. --thumbs writes
+// along the map's longer side (0 one end, 1 the other), the share of the map under water and the share of its length
+// the water reaches (a slice across the longer side holding any). --md also prints the table as Markdown. --thumbs writes
 // each map's top-down picture (the longer side 128 pixels, the start marked red) and an index.json, which
 // tools/size-sheet.py lays out as the step's contact sheet.
 
@@ -29,13 +30,15 @@ const seed = Number(arg("seed", "1"));
 const thumbs = arg("thumbs", "");
 if (thumbs) mkdirSync(thumbs, { recursive: true });
 
-const rows: { shape: string; theme: ThemeId; result: string; ms: number; attempts: number; along: number | null; png: string | null }[] = [];
+const rows: { shape: string; theme: ThemeId; result: string; ms: number; attempts: number; along: number | null; water: number; reach: number; png: string | null }[] = [];
 for (const [x, y] of shapes)
   for (const theme of themes) {
     const t0 = performance.now();
     let result: string;
     let attempts = 0;
     let along: number | null = null;
+    let water = 0;
+    let reach = 0;
     let png: string | null = null;
     try {
       const r = generate(makeSpec({ seed, theme, size: { x, y } }));
@@ -43,6 +46,15 @@ for (const [x, y] of shapes)
       result = r.report.passed ? "ok" : `refused: ${r.report.checks.filter((c) => !c.ok).map((c) => `${c.id} (${c.message})`).join("; ")}`;
       const b = r.built;
       if (b.start) along = Math.round((x >= y ? b.start.x / (x - 1) : b.start.y / (y - 1)) * 100) / 100;
+      const L = Math.max(x, y);
+      const slices = new Uint8Array(L);
+      for (let i = 0; i < x * y; i++)
+        if (b.water[i] > 0.05) {
+          water++;
+          slices[x >= y ? i % x : Math.floor(i / x)] = 1;
+        }
+      water = Math.round((100 * water) / (x * y));
+      reach = Math.round((100 * slices.reduce((a, v) => a + v, 0)) / L);
       if (thumbs && b.heights.length) {
         const t = thumbnailPixels(b.heights, b.W, b.H, b.water, 128);
         const rgb = new Uint8Array(t.w * t.h * 3);
@@ -65,8 +77,8 @@ for (const [x, y] of shapes)
       result = `CRASH: ${(e as Error).message.split("\n")[0]}`;
     }
     const ms = Math.round(performance.now() - t0);
-    rows.push({ shape: `${x}×${y}`, theme, result, ms, attempts, along, png });
-    console.log(`${x}x${y}\t${theme}\t${ms} ms\t${attempts} attempts\tstart at ${along ?? "-"}\t${result}`);
+    rows.push({ shape: `${x}×${y}`, theme, result, ms, attempts, along, water, reach, png });
+    console.log(`${x}x${y}\t${theme}\t${ms} ms\t${attempts} attempts\tstart at ${along ?? "-"}\twater ${water}%\treach ${reach}%\t${result}`);
   }
 
 if (thumbs) writeFileSync(join(thumbs, "index.json"), JSON.stringify({ seed, shapes: shapes.map(([x, y]) => `${x}×${y}`), themes, rows }, null, 1));

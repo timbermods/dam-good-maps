@@ -22,6 +22,7 @@ import { polyDist } from "../math/polyline";
 import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
+import { mapShape } from "./shape";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
 export function landSeed(seed: number, variation: number): number {
@@ -403,13 +404,20 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
   const wy = hash32(ls, "warp-y");
   const rs = hash32(ls, "regional");
   const nz = g.noise;
+  // (D357: down a long map the slope falls as steeply per tile as across a square one, so its water runs the
+  // length: drawn across the map's length, it fell a quarter as fast down a 4-to-1 strip, and the land's own
+  // hollows stopped every river partway)
+  const form = mapShape(W, H);
+  const lengthTilt = form.long ? form.ratio : 1;
+  // (and falls at least half as far as its broad highs and its noise rise, so they never wall a river in)
+  const tilt = form.long ? Math.max(g.tilt, 0.5 * (g.regional.amp + nz.amp)) : g.tilt;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const u = (x / (W - 1)) * 2 - 1;
       const v = (y / (H - 1)) * 2 - 1;
       const proj = (u * fx + v * fy) / (Math.abs(fx) + Math.abs(fy));
       let h = 0;
-      if (g.tiltKind === "linear") h += g.tilt * -0.5 * proj;
+      if (g.tiltKind === "linear") h += tilt * -0.5 * proj * lengthTilt;
       else {
         const du = x / (W - 1) - g.focus[0];
         const dv = y / (H - 1) - g.focus[1];
@@ -466,12 +474,12 @@ export function caprock(U: Float64Array, g: Genome, seed: number, W: number, H: 
 
 /** Stream-power incision (implicit, Braun and Willett 2013, m = 0.5, n = 1) and diffusion, with hardness: hard rock resists incision, and
  *  diffusion keeps its edges. */
-export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: number, iterations: number, k: number, diffusion: number): Float64Array {
+export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: number, iterations: number, k: number, diffusion: number, outlet?: (i: number) => boolean): Float64Array {
   const h = U.slice();
   const N = W * H;
   const tmp = new Float64Array(N);
   for (let it = 0; it < iterations; it++) {
-    const d = drainage(h, W, H, { epsilon: 1e-6 });
+    const d = drainage(h, W, H, outlet ? { epsilon: 1e-6, outlet } : { epsilon: 1e-6 });
     for (let q = 0; q < d.order.length; q++) {
       const i = d.order[q];
       const r = d.rcv[i];
@@ -538,7 +546,17 @@ export function weather(E: Float64Array, hard: Float64Array, stratum: Float64Arr
 export function makeField(g: Genome, seed: number, W: number, H: number): Field {
   const U = uplift(g, seed, W, H);
   const { hard, stratum } = caprock(U, g, seed, W, H);
-  let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion);
+  // (D357: down a long map the land is worn toward its far end, as its water will run: worn toward every edge,
+  // a strip's valleys ran out by its long sides and its near end, and the land at its head stood in a hollow no
+  // river could leave by the far end)
+  const [fx, fy] = DIRS8[g.flowDir];
+  const lengthwise = g.tiltKind === "linear" && mapShape(W, H).long;
+  const farEnd = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return (fx > 0.1 && x === W - 1) || (fx < -0.1 && x === 0) || (fy > 0.1 && y === H - 1) || (fy < -0.1 && y === 0);
+  };
+  let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion, lengthwise ? farEnd : undefined);
   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
   if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
   // (round 6: an island sea's lip, a tile or two at the map's edge between it and a fall of a dozen
