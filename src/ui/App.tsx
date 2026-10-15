@@ -447,8 +447,9 @@ export function App() {
     return result.ok ? { ...data, info } : data;
   }
 
-  /** Your maps' menu (Kyler, 2026-10-03): a map's .timber, as File's download makes it for the open map; a closed
-   *  map's from its project, in a worker of its own. */
+  /** Your maps' menu (Kyler, 2026-10-03): a map's .timber; a closed map's from its project, in a worker of its own.
+   *  It keeps the core's top-down thumbnail, unlike File's download: a map that isn't open has no view to draw its
+   *  3D picture from (D488). */
   async function downloadMap(id: string) {
     const e = maps.find((m) => m.id === id);
     if (!e) return;

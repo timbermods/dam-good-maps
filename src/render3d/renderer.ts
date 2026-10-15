@@ -76,7 +76,7 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, type HighMaterials } from "./high/highLook";
 import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
-import { WaterMotion } from "./motion";
+import { stillFlowTexture, WaterMotion } from "./motion";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -320,6 +320,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** A still view (the constructor's `still`). */
+  private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
   /** The Flow view (off by default): the current's streaks over the water. */
@@ -404,8 +406,12 @@ export class MapRenderer {
   /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
   private season: { hazard: "drought" | "badtide"; own: SoilView } | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
+   *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
+   *  worker for them). */
+  constructor(canvas: HTMLCanvasElement, opts: { still?: boolean } = {}) {
     this.canvas = canvas;
+    this.still = !!opts.still;
     // a browser that draws in software gets the light look, without multisampling (D110)
     this.software = softwareRendering() && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
@@ -442,12 +448,14 @@ export class MapRenderer {
     }
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reducedMotion = !!motion?.matches;
-    motion?.addEventListener?.("change", () => {
-      this.reducedMotion = motion.matches;
-      // (the High look's wind stops and starts with it)
-      this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
-      this.requestRender();
-    });
+    // (removed with the view's other listeners when it is disposed)
+    if (motion && typeof motion.addEventListener === "function")
+      this.on(motion, "change", () => {
+        this.reducedMotion = motion.matches;
+        // (the High look's wind stops and starts with it)
+        this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+        this.requestRender();
+      });
     if (typeof IntersectionObserver !== "undefined") {
       this.seen = new IntersectionObserver((entries) => {
         this.inView = entries.some((e) => e.isIntersecting);
@@ -458,7 +466,7 @@ export class MapRenderer {
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
     this.fit();
-    this.bindInput();
+    if (!this.still) this.bindInput();
     if (!this.software) {
       this.gpuName = this.gpu().renderer;
       this.chosenEffects = effectsFrom(savedOff());
@@ -758,6 +766,14 @@ export class MapRenderer {
     this.choice = tier === "standard" ? "standard" : "high";
     this.governor = null;
     this.applyLook(tier);
+  }
+
+  /** The map's picture's look (D488, `hero.ts`): High with every effect, held (Standard where High can't
+   *  be drawn); nothing saved, so the player's own choices stay. */
+  holdShowcase(): void {
+    if (this.software) return;
+    this.chosenEffects = allEffects();
+    this.holdTier(this.canHigh ? "high" : "standard");
   }
 
   /** Report this frame cost instead of the measured one (the fallback's tests), or measure again. */
@@ -1063,13 +1079,13 @@ export class MapRenderer {
     const waterQuads = this.meshAllWater();
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
-    if (!this.software) {
+    if (!this.software && !this.still) {
       this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    }
+    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -2528,26 +2544,8 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
     const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
-    const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
-    const box = () => {
-      this.placeCamera();
-      const cam = this.camera();
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (let k = 0; k < outline.length; k += 3) {
-        v.set(outline[k], outline[k + 1], outline[k + 2]).project(cam);
-        const x = ((v.x + 1) / 2) * w;
-        const y = ((1 - v.y) / 2) * h;
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-      return { x0, y0, x1, y1 };
-    };
+    const box = () => this.screenBox(outline);
     const r = this.canvas.getBoundingClientRect();
     // the part of the canvas the page's controls leave
     const ins = this.insets;
@@ -2569,6 +2567,30 @@ export class MapRenderer {
       if (!at || !mid) break;
       this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
     }
+  }
+
+  /** The box round world points (x, y, z, three to a point; `drawnOutline`'s) as the camera sees them now, in
+   *  CSS pixels relative to the canvas. */
+  screenBox(points: Float32Array): { x0: number; y0: number; x1: number; y1: number } {
+    this.placeCamera();
+    const cam = this.camera();
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    const v = new Vector3();
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let k = 0; k < points.length; k += 3) {
+      v.set(points[k], points[k + 1], points[k + 2]).project(cam);
+      const x = ((v.x + 1) / 2) * w;
+      const y = ((1 - v.y) / 2) * h;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    return { x0, y0, x1, y1 };
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
