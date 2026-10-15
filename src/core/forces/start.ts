@@ -221,6 +221,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       const t: [number, number] = [Math.round(p0.x), Math.round(p0.y)];
       return cut !== null && inMap(t) && inside[at(t)] && base.heights[at(t)] > cut ? hidden : why;
     }
+    if (req.verb === "erode" && why.startsWith("There is no rock here")) return cut !== null ? hidden : inside ? "Outside the working area: Esc clears it" : why;
     if ((req.verb !== "rift" && req.verb !== "erode") || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;
@@ -324,7 +325,6 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       case "rift": {
         map = stagedForceMap(base);
         const run = new RiftRun(map, req.settings, { path: req.path }, keep, inside);
-
         run.finalize = buildTouches(state, base.heights);
         staged = run;
         break;

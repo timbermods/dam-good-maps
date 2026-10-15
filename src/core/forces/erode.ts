@@ -38,7 +38,7 @@ export function validateErode(s: ErodeSettings): void {
 
 /** The voxels of a heightfield: one plain run per tile, up to its height. */
 export function plainMasks(heights: ArrayLike<number>): Uint32Array {
-  return Uint32Array.from(heights as ArrayLike<number>, (h) => (h >= 32 ? 0xffffffff : h > 0 ? (2 ** h - 1) >>> 0 : 0));
+  return Uint32Array.from(heights as ArrayLike<number>, (h) => (h >= 32 ? 0xffffffff : h > 0 ? (((1 << h) >>> 0) - 1) >>> 0 : 0));
 }
 
 /** A force's map with its voxels (the heightfield's when it has none of its own). */
@@ -55,7 +55,6 @@ export class ErodeRun extends Staged implements StagedRun {
   private went: Uint32Array = new Uint32Array(0);
   /** How many of the plan's voxels have gone by the stage shown. */
   private gone = 0;
-
   constructor(before: FullForceMap, readonly settings: ErodeSettings, readonly intent: ErodeIntent, keep: Uint8Array | null = null, areaDepth: Uint8Array | null = null) {
     validateErode(settings);
     const m = withMasks(before);

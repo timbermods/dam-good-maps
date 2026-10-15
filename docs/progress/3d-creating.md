@@ -13,27 +13,34 @@ step by step, from each open side; more near the foot of the face (the height ab
 wear hardest near the ground), more just under a hard bed (the map's beds, every fourth level, and fresh volcanic
 rock; hard rock wears at a ninth of the rate), and from both sides at once where a ridge is thin. Wear starts only at
 faces within the gesture's reach (Size, 4–40 tiles across, Auto 6 + 0.14 × Power) and reaches into the rock as far as
-Power gives (1.5 to 10 tiles; a hollow up to 2 to 6 levels high); each voxel goes when its wear passes its resistance
-(noise from the seed: Try another changes the seams). So a cliff's foot becomes a cave or an alcove, a hard bed over
-softer rock a lip over an undercut, a thin ridge an arch. A click on open ground reaches for the nearest face it can
-wear, up to 10 tiles away.
+Power gives (1.5 to 10 tiles; a hollow up to 2.4 to 6 levels high); each voxel goes when its wear passes its
+resistance (noise from the seed: Try another changes the seams). The shape is worn, not cut: deepest at its base,
+its crown rising toward the middle of the opening and falling toward its back, both varying with the rock's grain. So a
+cliff's foot becomes a cave or an alcove, a hard bed over softer rock a lip over an undercut, a thin ridge an arch.
+Then no rock one block thick is left between hollows or between a hollow and the open air (it wears through, or the
+hollow fills back where it may not wear), no hollow is one block high, and every hollow opens to the outside (a sealed
+one, or one of a voxel or two, fills back).
 
-**What it never touches:** every tile keeps its top two blocks (its top one when that is hard), so the surface, the
-objects on it and the water on it stay where they are; no voxel wears next to water at its level (the hollow would
-fill, and the editor's water is the heightfield's), under a water source or seep (a source stands on its tile's lowest
-run), on the map's edge tiles, below the Floor, outside the working area or above the layer showing.
+**What it never touches:** every tile keeps its top three blocks, so the surface, the objects on it and the water on
+it stay where they are; no rock that holds back water wears (beside or under water at its level, the heightfield's on
+top and an imported map's own in its caves, `ForceMap.wet`), nor any tile with water on it or in its caves, nor the
+three levels under any object (a tree on a cave's ledge keeps its ground), nor a water source's or seep's tile (a
+source stands on its tile's lowest run), nor the map's edge tiles, below the Floor, outside the working area or above
+the layer showing. It plans only on settled water ("Erode waits for the water to settle: try again in a moment").
 
 **Held, not dropped (D121, D487).** Where a roof would hang more than 3 tiles from support, the rock that wore least,
-set back from the open air, comes back as a pillar two tiles by two down to the floor, until nothing is left that the
-game would delete (the rule as `terrain/support.ts`, in Rust, objects' tops left out, so only ever stricter). The
+set back from the open air and best grown from a wall, comes back down to the floor as a ragged remnant two to three
+tiles across, until nothing is left that the game would delete (the rule as `terrain/support.ts`, in Rust, objects'
+tops left out, so only ever stricter; checked in the worked area, then on the whole map). The
 showing is 24 buckets in the order the rock wore, over 2 s (Power 0) to 4 s (Power 100); a voxel that would hang at
 the end of a bucket goes in that bucket, so no frame shows ground the game would drop. The session checks the result
 as every edit (`newFalls`) and would refuse it with D487's words; Erode never gives it cause.
 
 **A visible effect everywhere (D356).** Where no face can wear (flat ground, steps under three levels), water and wind
 scour the ground into a shallow hollow round the gesture, 1 to 3 levels deep with Power, the tile under the pointer
-always among it; what stands there rides it down. Only the Floor (or ground it may not touch) refuses it: "the Floor
-leaves no rock to wear here".
+always among it; what stands there rides it down. It refuses only with the true reason: "the Floor leaves no rock to
+wear here", "Nothing here can wear away without leaving ground to fall", or "There is no rock here that Erode may
+wear" (the layer showing or the working area named instead when they are why).
 
 **It writes runs.** Its operation (`forceResult`, verb `erode`, mode `wear`) keeps the tiles it hollowed and each one's
 whole mask (`runs`); `tiles`/`heights` hold only scoured ground. The build lays the masks over the map's terrain in the
@@ -50,8 +57,9 @@ Powers, and the shared fixtures; the same bytes natively and in Node's Wasm; the
 hand-made maps and on generated Canyon and Highlands maps; no frame of any random gesture drops ground; Power 0 changes
 the land at any click, corners included, and adds no object; Try another; on a generated map the last frame is the
 land kept, undo and redo exact, the project reopens with the same voxels and the export holds them, dropping none);
-generated maps unchanged (`tools/map-hashes.ts`). Sheet: `docs/sheets/erode-1.jpg` (six erosions, top-down and in
-profile; `tools/erode-sheet.ts`).
+generated maps unchanged (`tools/map-hashes.ts`). Sheet: `docs/sheets/erode-1.jpg` (six erosions on generated maps
+and an arch on a hand-made fin, generated maps having few dry fins: top-down, a plan slice that marks any sealed
+hollow, two profiles at right angles and an oblique cutaway; `tools/erode-sheet.ts`).
 
 **For the page and the renderer** (not built here): Erode's row on the forces bar (after Glaciate, D352; its key the number of its place
 in the bar), its tooltip "Wear caves and arches" with its key cap; Power, Size (Auto), Try another, Sources;

@@ -13,7 +13,7 @@ import type { StagedRun } from "./runs";
 import { maskPlain } from "../terrain/runs";
 
 /** The voxels of a plain tile of height `h`. */
-const maskOfHeight = (h: number): number => (h >= 32 ? 0xffffffff : h > 0 ? (2 ** h - 1) >>> 0 : 0);
+const maskOfHeight = (h: number): number => (h >= 32 ? 0xffffffff : h > 0 ? (((1 << h) >>> 0) - 1) >>> 0 : 0);
 
 
 type Literal = Pick<ForceResultParams, "tiles" | "heights" | "rock" | "runs" | "removed" | "moved" | "felled">;

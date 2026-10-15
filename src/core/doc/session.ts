@@ -611,7 +611,6 @@ export class MapSession {
     return columns;
   }
   private columnsCache: { key: Uint8Array; carved: ReadonlyMap<number, number> | null; columns: Map<number, Uint8Array> } | null = null;
-
   /** Erode's hollows as the map stands, a key that changes when they do (the worker sends the
    *  columns again then), or null when there are none. */
   get carvedKey(): unknown {
@@ -699,6 +698,25 @@ export class MapSession {
    *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
   get roofedTiles(): ReadonlySet<number> {
     return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
+  }
+
+  /** The water an imported map holds under its roofs (the file's own, which the editor shows and the
+   *  export keeps), a bit per level of each tile; null when it has none. Erode never wears rock that
+   *  holds it back (D281). */
+  caveWater(): Uint32Array | null {
+    const roofed = this.roofedTiles;
+    if (!roofed.size) return null;
+    const w = this.storedWater();
+    const { x: W, y: H } = this.size;
+    let out: Uint32Array | null = null;
+    for (let k = 0; k < w.tile.length; k++) {
+      const i = w.tile[k];
+      if (!roofed.has(i) || !(w.depth[k] > 0.02) || w.floor[k] < 0) continue;
+      out ??= new Uint32Array(W * H);
+      const top = Math.min(LAYERS, Math.ceil(w.floor[k] + w.depth[k] - 0.02));
+      for (let z = Math.floor(w.floor[k]); z < top; z++) out[i] |= 1 << z;
+    }
+    return out;
   }
 
   /** Every tile with a cave or an overhang as the map stands (an imported map's own and Erode's,
@@ -1409,7 +1427,6 @@ export class MapSession {
     const terrainNow = carvedNow ?? b.terrain.terrain.withSurface(built.heights);
     const opened = worldOf(W, H, built.heights, built.entities, built.waterFromFile && !hollowed.length ? null : builtWater(built), { world: w, voxels: terrainNow.voxels(), roofed });
     const world = hollowed.length ? { ...opened, singletons: withCarvedColumns(opened.singletons, terrainNow, hollowed) } : opened;
-
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
     let metadata = parse(this.gen.base.metadata) as JsonObject;

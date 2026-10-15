@@ -437,7 +437,6 @@ export function withCarvedColumns(singletons: JsonObject, t: { W: number; H: num
 }
 
 export function repeatToken(token: string, n: number): string {
-
   if (n <= 0) return "";
   return (token + " ").repeat(n - 1) + token;
 }

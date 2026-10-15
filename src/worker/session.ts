@@ -1922,7 +1922,6 @@ export interface ForceFrame {
    *  their chunks, as for an imported map's caves. */
   columns?: MapView["columns"];
   /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
-
    *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
    *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
    *  sources they reach themselves (as any object they take, not listed here). A carve's own water stops
@@ -2051,7 +2050,9 @@ function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
-  return s.columns.size ? { ...m, masks: s.terrain.mask } : m;
+  if (!s.columns.size) return m;
+  const wet = s.caveWater();
+  return { ...m, masks: s.terrain.mask, ...(wet ? { wet } : {}) };
 }
 
 function lastSeq(s: MapSession, history: HistoryItem[] = s.history()): number | undefined {
@@ -2117,6 +2118,8 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
+  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 

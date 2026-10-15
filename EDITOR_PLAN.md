@@ -506,9 +506,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the
   core (`rust/forces/src/erode.rs`, `core/forces/erode.ts`; its rules in `docs/progress/3d-creating.md`): wear starts
   at the faces the gesture touches, hardest at a face's foot and just under a hard bed, from both sides of a thin
-  ridge; every tile keeps its top two blocks, so the surface and its objects stay; nothing wears next to water at its
-  level or under a source; the rock that wore least comes back as pillars wherever a roof would hang; where no face
-  can wear, the ground is scoured into a shallow hollow (D356). Its result writes runs (the operation's `runs`), so
+  ridge, into worn shapes (no one-block walls or slots, nothing sealed); every tile keeps its top three blocks, so the
+  surface and its objects stay; no rock that holds back water wears, nor an object's ground or a source's tile; the
+  rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the ground at
+  the pointer is scoured into a shallow hollow (D356). Its result writes runs (the operation's `runs`), so
   any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key), effects and sounds are still
   to come.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's

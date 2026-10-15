@@ -36,16 +36,22 @@ function mapOf(theme: ThemeId, seed: number): FullForceMap {
   return m;
 }
 
-/** The foot of the tallest dry cliff near the map's middle, and which way the face is. */
-function cliffFoot(m: FullForceMap, skip = 0): { x: number; y: number } {
+/** The foot of a tall dry cliff near the map's middle (`skip`: the how-manyth such), `under` a hard bed
+ *  for an overhang: one at least three levels over the foot and four under the top. */
+function cliffFoot(m: FullForceMap, skip = 0, under = false): { x: number; y: number } {
   const { W, H } = m;
   const found: { i: number; drop: number }[] = [];
   for (let y = 8; y < H - 8; y++)
     for (let x = 8; x < W - 8; x++) {
       const i = y * W + x;
       if (m.water.depth[i] > 0.01) continue;
-      const drop = Math.max(...[i - 1, i + 1, i - W, i + W].map((j) => m.heights[j] - m.heights[i]));
-      if (drop >= 4) found.push({ i, drop });
+      for (const j of [i - 1, i + 1, i - W, i + W]) {
+        const drop = m.heights[j] - m.heights[i];
+        if (drop < (under ? 7 : 5) || m.water.depth[j] > 0.01) continue;
+        if (under && !m.rockLayers.some((r, z) => r > 0.5 && z >= m.heights[i] + 3 && z <= m.heights[j] - 4)) continue;
+        found.push({ i, drop });
+        break;
+      }
     }
   if (!found.length) throw new Error("no cliff on this map");
   found.sort((a, b) => b.drop - a.drop || a.i - b.i);
@@ -53,16 +59,32 @@ function cliffFoot(m: FullForceMap, skip = 0): { x: number; y: number } {
   return { x: f.i % W, y: Math.floor(f.i / W) };
 }
 
-/** A thin ridge's crossing (a tile with ground at least 6 lower on both sides), or null. */
-function ridge(m: FullForceMap): { x: number; y: number }[] | null {
-  const { W, H } = m;
-  for (let y = 8; y < H - 8; y++)
-    for (let x = 8; x < W - 8; x++) {
-      const i = y * W + x;
-      const h = m.heights[i];
-      if (m.heights[i - 1] <= h - 6 && m.heights[i + 1] <= h - 6) return [{ x: x - 4, y }, { x: x + 4, y }];
-      if (m.heights[i - W] <= h - 6 && m.heights[i + W] <= h - 6) return [{ x, y: y - 4 }, { x, y: y + 4 }];
+/** A thin ridge's crossing: a dry fin two to four tiles thick, at least 5 over the ground on both
+ *  sides, running on for five tiles; null when the map has none. */
+export function ridge(m: FullForceMap): { x: number; y: number }[] | null {
+  const { W, H, heights: h } = m;
+  const fin = (x: number, y: number, dx: number, dy: number): number => {
+    for (let t = 1; t <= 4; t++) {
+      const at = (k: number) => (y + dy * k) * W + x + dx * k;
+      let lo = 99;
+      let wet = false;
+      for (let k = -1; k <= t; k++) if (m.water.depth[at(k)] > 0.01) wet = true;
+      for (let k = 0; k < t; k++) lo = Math.min(lo, h[at(k)]);
+      if (!wet && lo >= 6 && h[at(-1)] <= lo - 5 && h[at(t)] <= lo - 5) return t;
     }
+    return 0;
+  };
+  for (let y = 10; y < H - 10; y++)
+    for (let x = 10; x < W - 10; x++)
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const t = fin(x, y, dx, dy);
+        if (!t) continue;
+        let along = 0;
+        for (let s = -2; s <= 2; s++) if (fin(x + dy * s, y + dx * s, dx, dy)) along++;
+        if (along < 5) continue;
+        const c = { x: x + (dx * (t - 1)) / 2, y: y + (dy * (t - 1)) / 2 };
+        return [{ x: c.x - dx * 5, y: c.y - dy * 5 }, { x: c.x + dx * 5, y: c.y + dy * 5 }];
+      }
   return null;
 }
 
@@ -87,6 +109,17 @@ interface Case {
   what: string;
   settings: Partial<ErodeSettings>;
   path: (m: FullForceMap) => { x: number; y: number }[];
+  /** A hand-made map instead of a generated one (the shape of an arch, which generated maps rarely
+   *  give: a dry fin a few tiles thick). */
+  made?: () => FullForceMap;
+}
+
+/** A fin two tiles thick and 14 high over dry ground at level 2, its beds every fourth level. */
+function fin(): FullForceMap {
+  const W = 128;
+  const heights = new Uint8Array(W * W);
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) heights[y * W + x] = x === 64 || x === 65 ? 14 : 2;
+  return { W, H: W, heights, entities: [], water: { depth: new Float64Array(W * W), contamination: new Float64Array(W * W) }, maxHeight: 22, rockLayers: Array.from({ length: 23 }, (_, z) => (z % 4 === 3 ? 1 : 0)), lava: new Uint32Array(W * W), fallen: [] };
 }
 const CASES: Case[] = [
   { theme: "canyon", seed: 3, what: "a click at a cliff's foot", settings: { power: 30 }, path: (m) => [cliffFoot(m)] },
@@ -95,15 +128,16 @@ const CASES: Case[] = [
     const p = cliffFoot(m, 1);
     return [{ x: p.x, y: p.y - 6 }, { x: p.x, y: p.y + 6 }];
   } },
-  { theme: "highlands", seed: 5, what: "under a hard bed: an overhang", settings: { power: 60 }, path: (m) => [cliffFoot(m, 2)] },
-  { theme: "canyon", seed: 5, what: "across a thin ridge: an arch", settings: { power: 85 }, path: (m) => ridge(m) ?? [cliffFoot(m, 3)] },
+  { theme: "canyon", seed: 7, what: "under a hard bed: an overhang", settings: { power: 60 }, path: (m) => [cliffFoot(m, 0, true)] },
+  { theme: "canyon", seed: 3, what: "across a thin ridge: an arch", settings: { power: 85 }, path: (m) => ridge(m) ?? [cliffFoot(m, 3)] },
+  { theme: "canyon", seed: 0, what: "a hand-made fin, swept across: the arch's shape", settings: { power: 85 }, made: fin, path: () => [{ x: 59, y: 64 }, { x: 70, y: 64 }] },
   { theme: "highlands", seed: 3, what: "flat ground: a scoured hollow", settings: { power: 60 }, path: (m) => [flat(m)] },
 ];
 
 const CROP = 32;
 const index: object[] = [];
 CASES.forEach((c, k) => {
-  const m = withMasks(mapOf(c.theme, c.seed));
+  const m = withMasks(c.made ? c.made() : mapOf(c.theme, c.seed));
   const path = c.path(m);
   const settings = { ...ERODE_DEFAULTS, ...c.settings };
   const run = new ErodeRun(m, settings, { path });

@@ -292,5 +292,4 @@ export function forceLabel(p: ForceResultParams): string {
     case "erode":
       return "Erode";
   }
-
 }
