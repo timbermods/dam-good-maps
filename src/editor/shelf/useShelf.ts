@@ -295,14 +295,14 @@ export function useShelf(ed: Ed): ShelfSlice {
   }
   /** Whether the held plant's ring is amber now: some tile it would plant on is soil it would die on. */
   const dryRing = useRef(false);
-  /** Trees, bushes and mixed woods die on dry or poisoned soil (core/doc/plantSoil.ts); the soil the page shows,
+  /** Trees, bushes and mixed woods die on dry or contaminated ground (core/doc/plantSoil.ts); the soil the page shows,
    *  a held weather day's while one is on. */
   function dryUnder(item: ShelfItem, x: number, y: number, r: number): boolean {
     if (item.paint !== "trees" && item.paint !== "bushes" && item.paint !== "woods") return false;
     const m = mirror.current;
     const soil = m.daySoil ?? m.soil;
     if (!soil) return false;
-    return dyingTiles(templateOf(item, shelfOptionsRef.current), paintDisc(x, y, r, info.W, info.H), soil, m.water.depth).length > 0;
+    return dyingTiles(templateOf(item, shelfOptionsRef.current), paintDisc(x, y, r, info.W, info.H), { moisture: soil.moisture, contamination: soil.contamination, depth: m.water.depth }).length > 0;
   }
   // (the size changed in the object window: the ring takes it where the pointer last was)
   useEffect(() => {
