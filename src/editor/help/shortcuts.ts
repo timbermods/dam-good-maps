@@ -67,6 +67,9 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     {
       title: "With the mouse",
       rows: [
+        { what: "Turn the view", keys: ["Middle-drag"] },
+        { what: "Move the view", keys: ["Right-drag"] },
+        { what: "Zoom", keys: ["Scroll"] },
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
         { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
