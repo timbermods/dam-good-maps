@@ -2,20 +2,26 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
     branches: [dev, main]
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
 
-# What runs, by event:
-#   pull request into dev    the light set: `changes`, `test` (typecheck, quick suite in two shards, build) and the browser shards.
-#                            Not while a PR is a draft: marking it ready runs CI. A newer push cancels the run.
-#                            One that touches only investigation/ (Codex's investigation PRs) runs `changes` alone.
-#   merge group (the queue)  the full suite on the merged state, once per batch of queued PRs, classified by the batch's
-#                            change (below). Nothing merges into dev without it. Pushes to dev run no CI; the
-#                            nightly (nightly.yml) checks dev's tip every night.
+# What runs, by event (Kyler, 2026-10-15: a change merges once it is reviewed and its quick checks pass; the slow
+# suites run after it is in, on dev's tip):
+#   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
+#                            browser shards and the heavier suites wait for the merge. Not while a PR is a draft: marking
+#                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
+#                            (Codex's investigation PRs) runs `changes` alone.
+#   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
+#                            one run at a time on dev's tip; while one runs, only the newest merge waits (GitHub drops the
+#                            older waiting run), so a burst of merges costs two runs, not one each. A failure here is
+#                            fixed forward at once by whoever's merge broke it. The nightly (nightly.yml) also checks
+#                            dev's tip every night.
+#   merge group (the queue)  the full suite on the merged state, classified by the batch's change (unused while dev has
+#                            no merge queue).
 #   push to main, pull request into main (a release), manual run
 #                            the full suite, always, and never cancelled.
 # No run for other branches or tags. Merge-group runs have their own ref each, so they never cancel one another.
@@ -59,8 +65,8 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-          # merge group: by the change; pull request into dev: light; pushes to main, pull requests into main, manual: full
-          MODE: ${{ github.event_name == 'merge_group' && 'auto' || github.event_name == 'pull_request' && github.base_ref == 'dev' && 'light' || 'full' }}
+          # merge group and push to dev: by the change; pull request into dev: light; pushes to main, pull requests into main, manual: full
+          MODE: ${{ (github.event_name == 'merge_group' || github.event_name == 'push' && github.ref == 'refs/heads/dev') && 'auto' || github.event_name == 'pull_request' && github.base_ref == 'dev' && 'light' || 'full' }}
         run: node tools/ci-changes.mjs "$BASE" "$HEAD" "--$MODE"
 
   test:
@@ -110,7 +116,8 @@ jobs:
   # branch's specs outgrow the 30 minutes a job gets, never a longer limit.
   browser:
     needs: changes
-    if: needs.changes.outputs.heavy == 'true'
+    # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
+    if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
     name: browser (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 30
