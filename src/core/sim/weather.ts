@@ -45,17 +45,17 @@ export function badtideContamination(sinceStart: number, days: number): number {
   return 1;
 }
 
-/** A hazard run on a map's water (the editor's Drought and Badtide, D180 (8), D181 (3)): its own
- *  simulation from `water`, on its own copies of the sources (a badtide changes what the clean ones
- *  give). A drought stops every source; a badtide gives each clean source `badtideContamination` for
- *  the time it has run, set before each step. `ticksPerDay` is the game's (TICKS_PER_DAY) unless a
- *  check runs it faster (the determinism cases). The caller paces the steps and shows the frames. */
 /** Why a map's water has no Drought or Badtide to show, in one plain line, or null: terrain above
  *  terrain has no rule for either yet (the runs below step one water column a tile). */
 export function hazardRefusal(model: WaterModel): string | null {
   return model.stacked ? CAVE_REFUSALS.weather : null;
 }
 
+/** A hazard run on a map's water (the editor's Drought and Badtide, D180 (8), D181 (3)): its own
+ *  simulation from `water`, on its own copies of the sources (a badtide changes what the clean ones
+ *  give). A drought stops every source; a badtide gives each clean source `badtideContamination` for
+ *  the time it has run, set before each step. `ticksPerDay` is the game's (TICKS_PER_DAY) unless a
+ *  check runs it faster (the determinism cases). The caller paces the steps and shows the frames. */
 export class HazardRun {
   readonly sim: WaterSim;
   /** Ticks run so far. */

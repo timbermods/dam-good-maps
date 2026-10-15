@@ -33,7 +33,7 @@ import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
 import { stackedSoil } from "../sim/soil";
-import { CAVE_REFUSALS, storedStack } from "../sim/stackWater";
+import { storedStack } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
@@ -209,8 +209,6 @@ export class MapSession {
     } else this.cur = built ?? stored ?? buildMap(this.input());
     if (this.mode !== "live" && this.baseStuff().terrain.columns.size) {
       this.notices.push("This map has caves or overhangs. The tools leave them as they are.");
-      // (a removal an older project stored: it has no rule for water in caves yet and takes nothing)
-      if (this.cur.waterModel.stacked && this.log.some((o) => o.op === "removeUnfedWater")) this.notices.push(CAVE_REFUSALS.removeUnfed);
     }
     // the log is the history of an opened document: its operations undo step by step (D456)
     this.undoStack = stepsOf(this.log);
@@ -230,9 +228,6 @@ export class MapSession {
     if (!storedFits(doc.stored, this.log.length, this.seqNext) || this.gen.base.world === null) return null;
     const b = restoreBuilt(doc.stored, this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0);
     if (!b) return null;
-    // a map with caves or overhangs stored before its water was the stacked-column engine's (D120):
-    // it is built again, as every project was before maps were stored
-    if (this.mode !== "live" && !b.waterModel.stacked && !this.baseStuff().terrain.terrain.allPlain()) return null;
     const input = this.input();
     const slopes = input.generatedSlopes ?? null;
     const list = b.cache.terrain.slopeList;
