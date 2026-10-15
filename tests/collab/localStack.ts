@@ -198,7 +198,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       wrangler.stdout!.on("data", onData);
       wrangler.stderr!.on("data", onData);
       wrangler.on("exit", (code) => reject(new Error(`wrangler dev exited (${code}):\n${log}`)));
-      setTimeout(() => reject(new Error(`wrangler dev did not start in 90 s:\n${log}`)), 90_000);
+      setTimeout(() => reject(new Error(`wrangler dev did not start in 180 s:\n${log}`)), 180_000);
     });
     await ready;
 

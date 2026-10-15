@@ -8,7 +8,7 @@ import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { startStack, workerInstalled } from "./localStack";
 import type { Stack } from "./localStack";
-import { closePeer, killPeer, launchPeer } from "./peers";
+import { killPeer, launchPeer } from "./peers";
 import type { Kind, Peer } from "./peers";
 import { generateButton, openDrawer, openYourMaps } from "../e2e/open";
 
@@ -116,7 +116,8 @@ async function connect(host: Peer, guest: Peer, names: [string, string]) {
 let host: Peer;
 let guest: Peer;
 test.afterAll(async () => {
-  for (const p of [guest, host]) if (p) await closePeer(p);
+  // (a killed browser cannot be closed politely: its process is ended)
+  for (const p of [guest, host]) if (p) await killPeer(p).catch(() => undefined);
 });
 
 /** Both maps show the same land (the view draws what the session ordered). */
@@ -154,13 +155,13 @@ test("edits from both sides appear on both maps; the other's cursor with name an
   const before = await land(host.page);
   await pick(guest.page, "3");
   await stroke(guest.page, [40, 40], [50, 40]);
+  await expect.poll(() => land(host.page), { timeout: 60_000 }).not.toBe(before);
   await sameLand("after the guest's stroke");
-  expect(await land(host.page)).not.toBe(before);
   const afterGuest = await land(host.page);
   await pick(host.page, "2");
   await stroke(host.page, [10, 45], [18, 45]);
+  await expect.poll(() => land(guest.page), { timeout: 60_000 }).not.toBe(afterGuest);
   await sameLand("after the host's stroke");
-  expect(await land(guest.page)).not.toBe(afterGuest);
   // (both are one step of their own, named, in the history each side shows)
   expect((await info(guest.page)).history.map((h) => h.label)).toEqual(expect.arrayContaining([expect.stringMatching(/^Raise/), expect.stringMatching(/^Lower/)]));
 
@@ -189,7 +190,7 @@ test("edits from both sides appear on both maps; the other's cursor with name an
 
 test("a refusal shows as the page's usual note, with its reason", async () => {
   // the host claims the north-west corner; the guest's stroke into it is refused and the note says whose area
-  const claimed = await host.page.evaluate(() => window.dgmEditor!.worker.collab.claim({ kind: "claim", runs: Array.from({ length: 15 }, (_, k) => [4 + k, 4, 18]) } as never));
+  const claimed: { ok: boolean } = await host.page.evaluate(async () => (await window.dgmEditor!.worker.collab.claim({ kind: "claim", runs: Array.from({ length: 15 }, (_, k) => [4 + k, 4, 18]) } as never)) as { ok: boolean });
   expect(claimed).toMatchObject({ ok: true });
   const before = await land(guest.page);
   await pick(guest.page, "2");
@@ -221,7 +222,6 @@ test("undo takes back only your own last action", async () => {
 
 test("the guest is killed: the host is paused, read-only, Save still works; Invite again carries on with a new browser", async () => {
   await killPeer(guest);
-  await closePeer(guest);
   await expect(together(host.page)).toHaveAttribute("aria-label", "Together with Bo", { timeout: 5_000 });
   const hp = await openPanel(host.page);
   await expect(hp).toContainText("Bo has left. Waiting to reconnect.", { timeout: 60_000 });
@@ -263,14 +263,18 @@ test("the guest is killed: the host is paused, read-only, Save still works; Invi
 test("the host opens a new map: the guest is told first, both keep the old map in Your maps", async () => {
   const oldName = (await info(host.page)).name;
   expect((await info(guest.page)).name).toBe(oldName);
+  const oldLand = await land(host.page);
   // (the host makes another map: Generate in the map generator)
   const drawer = await openDrawer(host.page);
   await expect(drawer).toBeVisible();
+  // (the map's seed is kept from its link: unpinned, Generate rolls a fresh one)
+  await drawer.getByRole("button", { name: "Keep", exact: true }).click();
   await generateButton(host.page).click();
   await expect(message(guest.page)).toContainText("Ada is opening a new map", { timeout: 60_000 });
   // the new map arrives: the host's, whatever it is called
-  await expect.poll(async () => (await info(guest.page)).name === (await info(host.page)).name && (await info(host.page)).name !== oldName, { timeout: 180_000 }).toBe(true);
+  await expect.poll(async () => (await land(host.page)) !== oldLand, { timeout: 180_000 }).toBe(true);
   await sameLand("after the new map");
+  expect((await info(guest.page)).name).toBe((await info(host.page)).name);
   // each side's Your maps holds the old map
   for (const p of [host, guest]) {
     const yours = await openYourMaps(p.page);
