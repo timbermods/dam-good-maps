@@ -583,8 +583,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
   holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
   (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the
-  whole moment, swelling with how much rock goes, stone landing as it goes and a heavier fall as it clears. Its dust
-  and falling stones in the 3D view are the renderer's, still to come.
+  whole moment, swelling with how much rock goes, stone landing as it goes and a heavier fall as it clears. **Its moment** (D240; `render3d/forces.ts` `Wear`, where it starts `render3d/wear.ts`): fine rock dust, the
+  walls' stone ground pale, drifts out of the opening from the rock that went in each stage, more where more went,
+  settling and fading; a few small stones a stage drop from where the rock went, bounce once on the ground below the
+  opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
+  seconds after its land is final, the same in Standard and High, off with reduced motion and in software.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.

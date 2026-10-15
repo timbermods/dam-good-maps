@@ -90,6 +90,9 @@ export const JUICE = {
   /** Glaciate's ice (D246, from investigation/glaciate `effects.ts`): its deep blue and its white. */
   iceDeep: [0.32, 0.66, 0.78] as Rgb,
   ice: [0.9, 0.97, 1.0] as Rgb,
+  /** Erode's dust (D281): fine rock dust, the walls' olive-grey stone ground pale, and a warmer brown. */
+  wearDust: [0.64, 0.62, 0.52] as Rgb,
+  wearDustWarm: [0.62, 0.54, 0.43] as Rgb,
 } as const;
 
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
