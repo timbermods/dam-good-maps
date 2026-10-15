@@ -9,6 +9,8 @@ Terrain as solid runs per tile, the game's own form: each tile's solid intervals
 
 **Start from**: `runs.ts` `ColumnTerrain` (the terrain in memory: a voxel mask per tile, with `heights()`, `runs(i)`, `voxels()` and `toData()` derived from it; `fromHeights`, `fromVoxels`, `fromData` make one; `withSurface` is a build's terrain: the base with each tile's top run reshaped to its new surface; `topFloor`, `topFloors` the lowest a brush may take each tile). `terrainData` and `terrainColumns` are format 3's terrain for the generator's field. `doc/base.ts` holds a stored base's terrain as one, the build's base layer (`features/build.ts` `BaseLayer.terrain`) reads it, and `doc/session.ts` `terrain` is the map's terrain as it stands, which export writes.
 
+`carved.ts` is Erode's hollows (D281): `carvedOf` the masks the log's Erode results left, which the build lays over the map's terrain in the log's order (`features/build.ts`, step 6) and `doc/session.ts` `terrain` and `columns` show; on a generated map they are its only runs.
+
 `support.ts` `unsupportedVoxels` is the game's support rule (what the game deletes on load: nothing hangs more than 3 sideways from supported ground), used by the Unstable Core's blast, the build's rule pass (`supportPass`), the probe's test maps, and the session's refusal of an edit that would make ground fall (`newFalls`); the checks have it in Rust.
 
 `floors.ts` `floorGraph` is where beavers can stand and what they reach on foot (D122): a floor is air on solid ground at any level of a tile, floors join at the same level, and levels are joined only by the map's slopes; no headroom rule. It runs in Rust (`rust/checks/src/floors.rs`); the checks' `walk.levels` row reads the same graph.

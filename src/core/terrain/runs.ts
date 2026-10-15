@@ -42,6 +42,21 @@ function maskOfRuns(r: readonly number[]): number {
   return m;
 }
 
+/** A tile's surface from its mask: the first free layer above its highest solid voxel. */
+export function maskSurface(m: number): number {
+  return m === 0 ? 0 : 32 - Math.clz32(m);
+}
+
+/** Whether a mask is one plain run from z = 0 (a heightfield tile). */
+export function maskPlain(m: number): boolean {
+  return (m & (m + 1)) === 0;
+}
+
+/** The lowest surface a tool that shapes the top may give a tile of this mask (`ColumnTerrain.topFloor`). */
+export function maskTopFloor(m: number): number {
+  return maskPlain(m) ? 0 : topRunFloor(m) + 1;
+}
+
 /** Format 3's terrain, for the document's `field` and `base` (DESIGN.md §2.2). */
 export interface TerrainData {
   /** The surface per tile: base64, one byte per tile, row-major. */

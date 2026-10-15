@@ -3,6 +3,66 @@
 Terrain above terrain's third step (D280 (3); the spec is ROADMAP.md, "Terrain above terrain" → "3. Creating them"):
 Erode, the Block tool, and the brushes, forces and recorded strokes on runs.
 
+## Delivers 1: Erode (built 2026-10-14, core and Rust)
+
+On `feature/erode`, from `feature/3d-strokes-on-runs`. Built directly in Rust (D438, D444): `rust/forces/src/erode.rs`
+plans it, `core/forces/erode.ts` `ErodeRun` shows it; `investigation/erode` is the reference for behaviour and look.
+
+**The land decides (D257, D258).** One rule set, no modes: every solid voxel with open air beside it gathers wear,
+step by step, from each open side; more near the foot of the face (the height above the face's foot: wind and splash
+wear hardest near the ground), more just under a hard bed (the map's beds, every fourth level, and fresh volcanic
+rock; hard rock wears at a ninth of the rate), and from both sides at once where a ridge is thin. Wear starts only at
+faces within the gesture's reach (Size, 4–40 tiles across, Auto 6 + 0.14 × Power) and reaches into the rock as far as
+Power gives (1.5 to 10 tiles; a hollow up to 2 to 6 levels high); each voxel goes when its wear passes its resistance
+(noise from the seed: Try another changes the seams). So a cliff's foot becomes a cave or an alcove, a hard bed over
+softer rock a lip over an undercut, a thin ridge an arch. A click on open ground reaches for the nearest face it can
+wear, up to 10 tiles away.
+
+**What it never touches:** every tile keeps its top two blocks (its top one when that is hard), so the surface, the
+objects on it and the water on it stay where they are; no voxel wears next to water at its level (the hollow would
+fill, and the editor's water is the heightfield's), under a water source or seep (a source stands on its tile's lowest
+run), on the map's edge tiles, below the Floor, outside the working area or above the layer showing.
+
+**Held, not dropped (D121, D487).** Where a roof would hang more than 3 tiles from support, the rock that wore least,
+set back from the open air, comes back as a pillar two tiles by two down to the floor, until nothing is left that the
+game would delete (the rule as `terrain/support.ts`, in Rust, objects' tops left out, so only ever stricter). The
+showing is 24 buckets in the order the rock wore, over 2 s (Power 0) to 4 s (Power 100); a voxel that would hang at
+the end of a bucket goes in that bucket, so no frame shows ground the game would drop. The session checks the result
+as every edit (`newFalls`) and would refuse it with D487's words; Erode never gives it cause.
+
+**A visible effect everywhere (D356).** Where no face can wear (flat ground, steps under three levels), water and wind
+scour the ground into a shallow hollow round the gesture, 1 to 3 levels deep with Power, the tile under the pointer
+always among it; what stands there rides it down. Only the Floor (or ground it may not touch) refuses it: "the Floor
+leaves no rock to wear here".
+
+**It writes runs.** Its operation (`forceResult`, verb `erode`, mode `wear`) keeps the tiles it hollowed and each one's
+whole mask (`runs`); `tiles`/`heights` hold only scoured ground. The build lays the masks over the map's terrain in the
+log's order (`features/build.ts` step 6, `terrain/carved.ts`): from there on those tiles are caves to every later edit
+(the brushes shape their tops, D487; the other forces leave them), on a generated map too. The session's `terrain`,
+`columns`, `terrainState()` (the page's strokes), its falls checks and the export follow them; the export writes each
+hollowed tile's water in its top column and its soil on its top run, the columns under the roof dry
+(`format/world.ts` `withCarvedColumns`).
+
+**Checked:** `cargo test -p forces` (a cliff's foot, an arch, Power, Try another, flat ground); the Rust fixtures
+(`tools/rust/forces-jobs.ts`: a cliff, a sweep, a ridge, a hollowed cliff given as voxels and flat ground at three
+Powers, and the shared fixtures; the same bytes natively and in Node's Wasm; the other forces' pins unchanged);
+`tests/contract/erode.test.ts` (a cave at a cliff's foot, an overhang under a hard bed and an arch through a ridge on
+hand-made maps and on generated Canyon and Highlands maps; no frame of any random gesture drops ground; Power 0 changes
+the land at any click, corners included, and adds no object; Try another; on a generated map the last frame is the
+land kept, undo and redo exact, the project reopens with the same voxels and the export holds them, dropping none);
+generated maps unchanged (`tools/map-hashes.ts`). Sheet: `docs/sheets/erode-1.jpg` (six erosions, top-down and in
+profile; `tools/erode-sheet.ts`).
+
+**For the page and the renderer** (not built here): Erode's row on the forces bar (after Glaciate, D352; its key the number of its place
+in the bar), its tooltip "Wear caves and arches" with its key cap; Power, Size (Auto), Try another, Sources;
+a click or a drawn sweep (a stroke band as it is drawn, a ring for a click, D258), sent as `{ verb: "erode", settings,
+path, cut }`. The worker's force frames carry `columns` (the tiles whose voxels changed since the last frame) for
+`renderer.updateTerrain(heights, columns)`; the cue is phase `rumble`, then `wear`, then `done`, with `erode.went` (the
+voxels that went in the stage just shown, z·N + tile, where the dust and falling stones start), `erode.worn` and
+`erode.scoured`. Effects and two to four seconds of dust, stones bouncing once where they land, a grinding sound that
+swells with how much goes and a heavier fall to close; CC0 sounds (the investigation's four Freesound recordings,
+`investigation/erode/ATTRIBUTION.md`, are candidates).
+
 ## Delivers 3: the brushes, forces and recorded strokes on runs (built 2026-10-14)
 
 On `feature/3d-strokes-on-runs`, core only. Nothing changes on a map without caves or overhangs.

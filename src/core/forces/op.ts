@@ -21,8 +21,8 @@ import type { ClearedSource, SourcesRule } from "./clear";
 
 export { forceSettingsProblems };
 
-export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"];
+export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
+export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"];
 
 /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
@@ -39,6 +39,7 @@ export interface ForceWhere {
 /** A force's settings, as each force's options row sets them (the seed is its personality), and
  *  its Sources choice (D474: Clear when absent). */
 export type ForceSettingsRecord = { sources?: SourcesRule } & (
+  | { mode: "wear"; power: number; size: number | null; seed: number; floor: number }
   | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
   | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
   | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number }
@@ -64,6 +65,10 @@ export interface ForceResultParams {
   /** Fresh volcanic rock where it changed: the tiles, ascending, and each one's levels of it now (a
    *  bit per level, rock.ts). */
   rock?: { tiles: number[]; bits: number[] };
+  /** Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (a
+   *  bit per level, set where solid: terrain/runs.ts). Their surfaces are as they were (`tiles` lists
+   *  only the ground it scoured); the build lays these over the map's terrain (terrain/carved.ts). */
+  runs?: { tiles: number[]; masks: number[] };
   /** Objects that lost their ground. */
   removed: string[];
   /** Objects it carried (a Slide), and where they stand now. */
@@ -139,14 +144,14 @@ export function forceOfCarve(p: SavedCarve): ForceResultParams {
   };
 }
 
-/** The rectangle of tiles a force changed (null: none). */
-export function forceBounds(p: Pick<ForceResultParams, "tiles">, W: number): Rect | null {
-  if (!p.tiles.length) return null;
+/** The rectangle of tiles a force changed (null: none): its levels, and the voxels Erode hollowed. */
+export function forceBounds(p: Pick<ForceResultParams, "tiles" | "runs">, W: number): Rect | null {
+  if (!p.tiles.length && !p.runs?.tiles.length) return null;
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
-  for (const i of p.tiles) {
+  for (const i of p.runs ? [...p.tiles, ...p.runs.tiles] : p.tiles) {
     const x = i % W;
     const y = (i - x) / W;
     if (x < x0) x0 = x;
@@ -168,13 +173,15 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   const mode = p.settings.mode;
   if (w.origin && !inMap(w.origin[0], w.origin[1])) return ["the force's point is off the map"];
   if (w.end && !inMap(w.end[0], w.end[1])) return ["the force's end point is off the map"];
-  if (w.path && !(w.path.length >= ((p.verb === "rift" || p.verb === "deposit") ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [p.verb === "rift" || p.verb === "deposit" ? "a rift's or deposit's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
+  const lined = p.verb === "rift" || p.verb === "deposit" || p.verb === "erode";
+  if (w.path && !(w.path.length >= (lined ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [lined ? "a rift's, deposit's or erosion's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
   if (p.verb === "deposit" && !w.path?.length) return ["a deposit needs its origin"];
   if (p.verb === "rift" && !w.path?.length) return ["a rift needs its fault"];
+  if (p.verb === "erode" && !w.path?.length) return ["an erosion needs where it was drawn"];
   if (p.verb === "quake") {
     if (!w.path) return ["a quake needs its fault"];
     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
-  } else if (p.verb !== "rift" && p.verb !== "deposit" && !w.origin) return ["a force needs the point it started from"];
+  } else if (!lined && !w.origin) return ["a force needs the point it started from"];
   if (p.verb === "erupt" && mode === "fissure" && !w.path) return ["a fissure needs its line"];
   if ((p.verb === "carve" || p.verb === "craterize" || p.verb === "glaciate") && mode === "aim" && !w.end) return ["an aimed force needs its end point"];
   if (w.source !== undefined && !(p.verb === "carve" && typeof w.source === "string" && w.source.length > 0 && !p.source)) return ["only a carve unleashes a source (named by its id), and it adds none of its own"];
@@ -196,6 +203,20 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
       prev = i;
       const b = p.rock.bits[k];
       if (!Number.isInteger(b) || b < 0 || b >= portable.pow(2, 22)) return ["a force's rock is a bit for each of the levels 0 to 21"];
+    }
+  }
+  if (p.runs) {
+    if (p.verb !== "erode") return ["only an erosion hollows the ground under its surface"];
+    const { tiles, masks } = p.runs;
+    if (!Array.isArray(tiles) || !Array.isArray(masks) || tiles.length !== masks.length || !tiles.length) return ["an erosion's hollows need the voxels of each of their tiles"];
+    let prev = -1;
+    for (let k = 0; k < tiles.length; k++) {
+      const i = tiles[k];
+      if (!Number.isInteger(i) || i <= prev || i >= W * H) return ["an erosion's tiles must be on the map, in order, once each"];
+      prev = i;
+      const m = masks[k];
+      // (a hollow under a roof: not one plain run, and nothing in the top layer, which stays empty)
+      if (!Number.isInteger(m) || m <= 0 || m >= portable.pow(2, 22) || (m & (m + 1)) === 0) return ["an erosion's tiles each keep rock over a hollow, in the levels 0 to 21"];
     }
   }
   for (const m of p.moved ?? []) if (!inMap(m.x, m.y)) return ["an object a force carried must stay on the map"];
@@ -268,5 +289,8 @@ export function forceLabel(p: ForceResultParams): string {
       return "Rift";
     case "deposit":
       return "Deposit";
+    case "erode":
+      return "Erode";
   }
+
 }

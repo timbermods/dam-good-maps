@@ -55,7 +55,7 @@ import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
-import type { ColumnTerrain } from "../terrain/runs";
+import { maskPlain, maskSurface, maskTopFloor, type ColumnTerrain } from "../terrain/runs";
 import { supportPass } from "../terrain/support";
 
 export { BuildTarget } from "./target";
@@ -637,8 +637,19 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   checkSlopes();
   if (base && !base.terrain && base.columns?.size) throw new Error("the base layer has caves or overhangs but no terrain: pass its terrain as runs");
   const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
-  const caves = layered ? (i: number) => !layered.isPlain(i) : undefined;
-  const floors = layered ? topFloorsOf(layered) : null;
+  let caves = layered ? (i: number) => !layered.isPlain(i) : undefined;
+  let floors = layered ? topFloorsOf(layered) : null;
+  //    (Erode's hollows, D281: each result that writes runs makes its tiles caves from there on, in
+  //    the log's order, so a stroke after it shapes only their tops and one before it never sees them)
+  const sculpts = input.sculpts ?? [];
+  let hollow: Uint8Array | null = null;
+  if (sculpts.some((s) => isForce(s.params) && s.params.runs)) {
+    const roofed = new Uint8Array(N);
+    if (layered) for (let i = 0; i < N; i++) roofed[i] = layered.isPlain(i) ? 0 : 1;
+    hollow = roofed;
+    floors = floors ? floors.slice() : new Uint8Array(N);
+    caves = (i: number) => roofed[i] === 1;
+  }
   //    (the features never reshape a roof: before the strokes, an import's caves and overhangs stand
   //    as the file has them, and the integrity pass leaves their tops as the strokes leave them)
   if (base && caves) t.forEach((i) => {
@@ -654,10 +665,23 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     cap: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
     outside: prev ? prev.terrain.pre7 : null,
   };
-  for (const s of input.sculpts ?? []) {
+  for (const s of sculpts) {
+    const runs = hollow && isForce(s.params) ? s.params.runs : undefined;
+    if (runs)
+      for (let k = 0; k < runs.tiles.length; k++) {
+        const i = runs.tiles[k];
+        const m = runs.masks[k];
+        hollow![i] = maskPlain(m) ? 0 : 1;
+        floors![i] = maskTopFloor(m);
+        if (t.inRegion(i)) {
+          heights[i] = maskSurface(m);
+          protect[i] = 1;
+        }
+      }
     applySculpt(s, t, caves, shown, floors);
     if (watch.length) checkSlopes();
   }
+
   let pre7: Uint8Array;
   if (prev) {
     pre7 = prev.terrain.pre7.slice();

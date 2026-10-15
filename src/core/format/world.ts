@@ -355,7 +355,89 @@ export function mixedSimulationSingletons(file: JsonObject, W: number, H: number
   return out;
 }
 
+/** The air gaps of a tile's voxels, bottom to top (the game's water columns, sim/columns.ts
+ *  `waterColumns` without objects), and its solid runs (`terrainColumns`: an empty run 0 when the
+ *  bottom voxel is air). */
+function columnCounts(m: number): { gaps: number; runs: number } {
+  let gaps = 0;
+  let runs = 0;
+  let solid = true;
+  for (let z = 0; z < LAYERS; z++) {
+    const s = (m >>> z) & 1;
+    if (s && !solid) solid = true;
+    else if (!s && solid) {
+      runs++;
+      gaps++;
+      solid = false;
+    }
+  }
+  if (solid) {
+    runs++;
+    gaps++;
+  }
+  return { gaps, runs };
+}
+
+/** The simulation singletons of a map whose tiles `tiles` Erode hollowed under their surface (D281;
+ *  forces/erode.ts), from singletons that hold their water and soil in slot 0 (the heightfield's
+ *  settle, `settledSimulationSingletons`, or an edited import's `mixedSimulationSingletons`, those
+ *  tiles left out of its roofs): on each such tile the water goes to its top column (the open air
+ *  above its surface) and its soil to its top run, the columns and runs under the roof dry (Erode
+ *  never hollows next to water at its level, so the game keeps them dry), `Levels` and `Size` growing
+ *  to the most of any tile. Their outflows and their neighbours' are written as "0": the game rebuilds
+ *  the flow in a few ticks (as `stackedSimulationSingletons`). */
+export function withCarvedColumns(singletons: JsonObject, t: { W: number; H: number; mask: ArrayLike<number> }, tiles: readonly number[]): JsonObject {
+  if (!tiles.length) return singletons;
+  const { W, H } = t;
+  const N = W * H;
+  const counts = new Map<number, { gaps: number; runs: number }>();
+  for (const i of tiles) counts.set(i, columnCounts(t.mask[i]));
+  const still = new Set<number>();
+  for (const i of tiles) {
+    const x = i % W;
+    const y = (i - x) / W;
+    still.add(i);
+    if (x > 0) still.add(i - 1);
+    if (x + 1 < W) still.add(i + 1);
+    if (y > 0) still.add(i - W);
+    if (y + 1 < H) still.add(i + W);
+  }
+  const out: JsonObject = { ...singletons };
+  // each array of `slots` per tile, moved for the hollowed tiles: slot 0's token to the top slot
+  const move = (singleton: string, slotsKey: string, keys: string[], empty: string[], top: (c: { gaps: number; runs: number }) => number, zeroed: (key: string, i: number) => boolean) => {
+    const s = singletons[singleton];
+    if (!isObject(s)) return;
+    const slots = slotsKey in s ? num(s[slotsKey]) : 1;
+    let most = slots;
+    for (const c of counts.values()) most = Math.max(most, top(c) + 1);
+    const o: JsonObject = { ...s, [slotsKey]: most };
+    keys.forEach((k, q) => {
+      const a = isObject(s[k]) ? String((s[k] as JsonObject).Array).split(" ") : null;
+      if (!a || a.length !== slots * N) return;
+      const merged: string[] = new Array(most * N);
+      for (let k2 = 0; k2 < most; k2++)
+        for (let i = 0; i < N; i++) merged[k2 * N + i] = k2 < slots ? a[k2 * N + i] : empty[q];
+      for (const [i, c] of counts) {
+        const at = top(c);
+        const token = zeroed(k, i) ? empty[q] : a[i];
+        for (let k2 = 0; k2 < most; k2++) merged[k2 * N + i] = k2 === at ? token : empty[q];
+      }
+      for (const i of still) if (zeroed(k, i) && !counts.has(i)) for (let k2 = 0; k2 < most; k2++) merged[k2 * N + i] = empty[q];
+      o[k] = { Array: merged.join(" ") };
+    });
+    out[singleton] = o;
+  };
+  const gapTop = (c: { gaps: number }) => c.gaps - 1;
+  const runTop = (c: { runs: number }) => c.runs - 1;
+  move("WaterMapNew", "Levels", ["WaterColumns", "ColumnOutflows"], ["0", "0"], gapTop, (k, i) => k === "ColumnOutflows" && still.has(i));
+  move("WaterEvaporationMap", "Levels", ["EvaporationModifiers"], ["1"], gapTop, () => false);
+  move("SoilMoistureSimulator", "Size", ["MoistureLevels"], ["0"], runTop, () => false);
+  move("SoilContaminationSimulator", "Size", ["ContaminationCandidates", "ContaminationLevels"], ["0", "0"], runTop, () => false);
+  return out;
+}
+
 export function repeatToken(token: string, n: number): string {
+
   if (n <= 0) return "";
   return (token + " ").repeat(n - 1) + token;
 }

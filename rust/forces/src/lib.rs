@@ -5,6 +5,7 @@ use portable as portable_math;
 mod json;
 mod rift;
 mod deposit;
+mod erode;
 // The water a force plans with (a carve's oxbow lake, a glacier's floor) is rust/water's simulation and settle,
 // linked without its Wasm exports; the bridge allocates through these two, named apart from the water's so a
 // workspace-wide build, which turns those exports back on, still links (src/core/forces/rust/bridge.ts).
@@ -484,6 +485,9 @@ struct Map {
     contamination: Vec<f64>,
     entities: Vec<Entity>,
     fallen: Vec<Fallen>,
+    /// The terrain as voxels, a mask per tile (bit z: voxel z solid), when the map has caves or
+    /// overhangs or the force reads them (Erode); empty: every tile one run from z = 0, its height.
+    masks: Vec<u32>,
     base: std::sync::Arc<V>,
     ceiling: f64,
     initial_rock_len: usize,
@@ -511,6 +515,7 @@ impl Map {
                 .map(|(i, e)| Entity::from(e, fp, i as u32))
                 .collect(),
             fallen: arr(&v["fallen"]).iter().map(Fallen::from).collect(),
+            masks: arr(&v["masks"]).iter().map(|v| num(v) as u32).collect(),
             base: std::sync::Arc::new(V::Object(
                 v.as_object()
                     .unwrap()
@@ -518,7 +523,7 @@ impl Map {
                     .filter(|(k, _)| {
                         !matches!(
                             k.as_str(),
-                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities" | "_rockLength"
+                            "heights" | "lava" | "entities" | "fallen" | "water" | "_plainEntities" | "_rockLength" | "masks" | "_masks"
                         )
                     })
                     .map(|(k, v)| (k.clone(), v.clone()))
@@ -559,11 +564,18 @@ impl Map {
             });
         }
         m.next_slot.set(next_slot);
+        // (the bridge sets a map's voxels straight into memory: room for them, filled there)
+        if m.masks.is_empty() && v["_masks"].as_bool() == Some(true) {
+            m.masks = vec![0; m.w * m.h];
+        }
         m
     }
     fn value(&self) -> V {
         let mut v = self.base.as_ref().clone();
         v["heights"] = json!(self.heights);
+        if !self.masks.is_empty() {
+            v["masks"] = json!(self.masks);
+        }
         v["lava"] = json!(self.lava);
         v["rockLayers"] = json!(self.rock);
         v["entities"] = json!(self.entities.iter().map(Entity::value).collect::<Vec<_>>());
@@ -740,6 +752,7 @@ fn write_value(out: &mut Vec<u8>, v: &V) {
     }
 }
 enum Records {
+    Erode(Box<erode::ErodeRecords>),
     Rift(Box<rift::RiftRecords>),
     Deposit(Box<deposit::DepositRecords>),
     Glaciate(Box<GlacierPlan>),
@@ -798,6 +811,7 @@ impl Plan {
     // Cold, complete diagnostic serialization. Never called by forces_plan.
     fn value(&self) -> V {
         let mut out = match &self.records {
+            Records::Erode(r) => r.value(),
             Records::Rift(r) => r.value(),
             Records::Deposit(r) => r.value(),
             Records::Glaciate(r) => r.value(),
@@ -869,7 +883,7 @@ pub struct Job {
     id_bytes: Vec<u8>,
     source_strength: Vec<f64>,
     source_kind: Vec<u8>,
-    descriptor: Box<[usize; 136]>,
+    descriptor: Box<[usize; 160]>,
 }
 pub fn prepare(input: &[u8]) -> Job {
     let mut r = Reader { data: input, at: 0 };
@@ -895,6 +909,7 @@ pub fn prepare(input: &[u8]) -> Job {
         "glaciate" => 5.0,
         "rift" => 6.0,
         "deposit" => 7.0,
+        "erode" => 8.0,
         _ => panic!("force not ported"),
     };
     let index =
@@ -948,6 +963,7 @@ pub fn prepare(input: &[u8]) -> Job {
     ]);
     command[33] = map.w as f64;
     if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
+    if opcode == 8.0 { command[9] = if settings.mode == "wear" {0.0} else {-1.0}; }
     if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
@@ -1001,7 +1017,7 @@ pub fn prepare(input: &[u8]) -> Job {
         },
         command_bytes: vec![0; 4096],
         path,
-        descriptor: Box::new([0; 136]),
+        descriptor: Box::new([0; 160]),
     };
     refresh_id_bytes(&mut task);
     describe(&mut task);
@@ -1025,6 +1041,7 @@ pub fn reset(task: &mut Job) {
     m.depth.copy_from_slice(&b.depth);
     m.contamination.copy_from_slice(&b.contamination);
     m.rock.copy_from_slice(&b.rock);
+    m.masks.clone_from(&b.masks);
     m.entities.clone_from(&b.entities);
     m.fallen.clone_from(&b.fallen);
     for e in &m.entities {
@@ -1057,7 +1074,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 35] = [
+const FORCE_ERRORS: [&str; 38] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1093,6 +1110,9 @@ const FORCE_ERRORS: [&str; 35] = [
     "the working area leaves nothing to take sediment from",
     "the Floor leaves nothing to take sediment from",
     "the map leaves no room for sediment here",
+    "Invalid Erode settings",
+    "Draw Erode on the map",
+    "the Floor leaves no rock to wear here",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -1246,6 +1266,12 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
             if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return path_error;}
             0
         }
+        8 => {
+            // (Erode: Size 4 to 40 tiles across, or Auto; the Floor 1 to the ceiling)
+            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],4.0,40.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) {return 35;}
+            if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return 36;}
+            0
+        }
         _ => 11,
     }
 }
@@ -1356,6 +1382,7 @@ pub fn plan(task: &mut Job) {
     };
     let before = m.clone();
     let mut p = match c[0] as u32 {
+        8 => erode::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth),
         7 => deposit::plan(&before,m,&settings,&intent,&task.keep,&task.area_depth,c[5] as u32),
         6 => rift::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth, c[5] as u32),
         1 => crater(&before, m, &settings, &intent, &task.keep),
@@ -1497,6 +1524,7 @@ fn output_views(task: &mut Job) {
     }
     let g = &mut p.geometry;
     match &p.records {
+        Records::Erode(_) => {}
         Records::Rift(r) => r.geometry(g),
         Records::Deposit(r) => r.geometry(g),
         Records::Glaciate(r) => {
@@ -1834,7 +1862,7 @@ fn output_views(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-fn pair<T>(d: &mut [usize; 136], slot: usize, v: &[T]) {
+fn pair<T>(d: &mut [usize; 160], slot: usize, v: &[T]) {
     d[slot * 2] = v.as_ptr() as usize;
     d[slot * 2 + 1] = v.len();
 }
@@ -1852,6 +1880,7 @@ fn describe(task: &mut Job) {
     pair(d, 4, &m.rock);
     pair(d, 5, &task.keep);
     pair(d, 67, &task.area_depth);
+    pair(d, 68, &m.masks);
     pair(d, 16, task.command.as_ref());
     pair(d, 17, &task.path);
     pair(d, 62, &task.command_bytes);
@@ -1891,6 +1920,7 @@ fn describe(task: &mut Job) {
         pair(d, 8, &p.literal.rock_tiles);
         pair(d, 9, &p.literal.bits);
         match &p.records {
+            Records::Erode(r) => {pair(d,10,&r.cells);pair(d,11,&r.buckets);pair(d,12,&r.stats);pair(d,13,&r.tiles);pair(d,14,&r.masks);},
             Records::Rift(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
             Records::Deposit(r) => {pair(d,10,&r.arrival);pair(d,11,&r.channel);pair(d,12,&r.stats);pair(d,25,&r.stages);},
             Records::Glaciate(r) => {

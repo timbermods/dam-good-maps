@@ -28,6 +28,8 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, terrainColumns } from "../terrain/runs";
+import { carvedOf, carvedTiles, withCarved } from "../terrain/carved";
+import { withCarvedColumns } from "../format/world";
 import { fallsReason, newFalls, stackableTops } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
@@ -461,13 +463,48 @@ export class MapSession {
    *  roof kept exactly (D280 (3)). A fresh copy. */
   get terrain(): ColumnTerrain {
     const { x: W, y: H } = this.size;
-    return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
+    const layers = this.layers();
+    return layers ? layers.withSurface(this.cur.heights) : this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
+  }
+
+  /** Erode's hollows in the log (terrain/carved.ts: each tile's last mask), worked out once for the
+   *  log's Erode results; null when it has none. */
+  private carved(): ReadonlyMap<number, number> | null {
+    let key = "";
+    this.st.sculpts.forEach((s, k) => {
+      if (s.op === "forceResult" && s.params.runs) key += `${(s as { seq?: number }).seq ?? `@${k}`},`;
+    });
+    if (!key) return null;
+    if (this.carvedCache?.key !== key) this.carvedCache = { key, carved: carvedOf(this.st.sculpts) };
+    return this.carvedCache.carved;
+  }
+  private carvedCache: { key: string; carved: Map<number, number> | null } | null = null;
+
+  /** The map's terrain under its surface (what each tile's top run is reshaped from): an imported
+   *  map's caves and overhangs with Erode's hollows laid over them, a generated map's heightfield with
+   *  them; null when every tile is one plain run (nothing under a surface to keep). */
+  private layers(): ColumnTerrain | null {
+    const carved = this.carved();
+    const live = this.mode === "live";
+    if (!carved) return live || !this.baseStuff().terrain.columns.size ? null : this.baseStuff().terrain.terrain;
+    const { x: W, y: H } = this.size;
+    return withCarved(live ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain, carved);
+  }
+
+  /** The tiles with caves or overhangs as the map stands: an imported map's own and Erode's. */
+  private layeredTiles(): number[] {
+    const own = this.mode === "live" ? [] : [...this.baseStuff().terrain.columns.keys()];
+    const carved = carvedTiles(this.carved());
+    if (!carved.length) return own;
+    return [...new Set([...own, ...carved])].sort((a, b) => a - b);
   }
 
   /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
    *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map. */
   plainAt(i: number): boolean {
+    const m = this.carved()?.get(i);
+    if (m !== undefined) return (m & (m + 1)) === 0;
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
   }
 
@@ -475,48 +512,69 @@ export class MapSession {
    *  for the voxel mesher: the brushes shape their top runs (D280 (3)), nothing else changes them.
    *  Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
+    const carved = this.carved();
+    if (carved) {
+      // (Erode's hollows, on any map: every layered tile from the terrain as it stands)
+      const c = this.columnsCache;
+      if (c && c.key === this.cur.heights && c.carved === carved) return c.columns;
+      const t = this.layers()!.withSurface(this.cur.heights);
+      const columns = new Map<number, Uint8Array>();
+      for (const i of this.layeredTiles()) columns.set(i, t.column(i, LAYERS));
+      this.columnsCache = { key: this.cur.heights, carved, columns };
+      return columns;
+    }
     if (this.mode === "live") return new Map();
     const b = this.baseStuff().terrain;
     if (!b.columns.size || b.heights === this.cur.heights) return b.columns;
     const c = this.columnsCache;
-    if (c && c.key === this.cur.heights) return c.columns;
+    if (c && c.key === this.cur.heights && c.carved === null) return c.columns;
     const t = b.terrain.withSurface(this.cur.heights);
     const columns = new Map<number, Uint8Array>();
     for (const [i, was] of b.columns) columns.set(i, t.surface(i) === b.heights[i] ? was : t.column(i, LAYERS));
-    this.columnsCache = { key: this.cur.heights, columns };
+    this.columnsCache = { key: this.cur.heights, carved: null, columns };
     return columns;
   }
-  private columnsCache: { key: Uint8Array; columns: Map<number, Uint8Array> } | null = null;
+  private columnsCache: { key: Uint8Array; carved: ReadonlyMap<number, number> | null; columns: Map<number, Uint8Array> } | null = null;
+
+  /** Erode's hollows as the map stands, a key that changes when they do (the worker sends the
+   *  columns again then), or null when there are none. */
+  get carvedKey(): unknown {
+    return this.carved();
+  }
 
   /** The blocks of ground the map as it stands would lose that it did not lose as `before` (D121,
    *  D280 (3)): what the last step makes fall, by cell (z·N + tile). Empty on a heightfield, and
    *  when neither the ground nor the objects holding ground changed. */
-  private fallsSince(before: BuildResult): number[] {
-    if (this.mode === "live") return [];
-    const b = this.baseStuff().terrain;
-    if (!b.columns.size) return [];
-    const { W, H } = b;
+  private fallsSince(before: BuildResult, layersBefore: ColumnTerrain | null): number[] {
+    const layers = this.layers();
+    if (!layers && !layersBefore) return [];
+    const { x: W, y: H } = this.size;
     const now = this.cur;
     const tops0 = stackableTops(W, H, before.entities);
     const tops1 = stackableTops(W, H, now.entities);
-    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k])) return [];
-    return newFalls(b.terrain.withSurface(before.heights), b.terrain.withSurface(now.heights), tops0, tops1);
+    if (layers === layersBefore && sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k])) return [];
+    const was = layersBefore ? layersBefore.withSurface(before.heights) : ColumnTerrain.fromHeights(before.heights, W, H);
+    const is = layers ? layers.withSurface(now.heights) : ColumnTerrain.fromHeights(now.heights, W, H);
+    return newFalls(was, is, tops0, tops1);
   }
 
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
    *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
-  private fallsAhead(op: EditOp): number {
-    if (this.mode === "live" || (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult")) return 0;
-    const b = this.baseStuff().terrain;
-    if (!b.columns.size) return 0;
+  private fallsAhead(op: EditOp, layersBefore: ColumnTerrain | null): number {
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return 0;
+    const layers = this.layers();
+    if (!layers && !layersBefore) return 0;
+    const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
-    if (sameBytes(heights, this.cur.heights)) return 0;
+    if (layers === layersBefore && sameBytes(heights, this.cur.heights)) return 0;
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, b.W, b.H), this.cur.heights, heights, b.W).length) return 0;
-    const tops = stackableTops(b.W, b.H, this.cur.entities);
-    return newFalls(b.terrain.withSurface(this.cur.heights), b.terrain.withSurface(heights), tops, tops).length;
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
+    const tops = stackableTops(W, H, this.cur.entities);
+    const was = layersBefore ? layersBefore.withSurface(this.cur.heights) : ColumnTerrain.fromHeights(this.cur.heights, W, H);
+    const is = layers ? layers.withSurface(heights) : ColumnTerrain.fromHeights(heights, W, H);
+    return newFalls(was, is, tops, tops).length;
   }
 
   /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
@@ -567,12 +625,19 @@ export class MapSession {
     return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
   }
 
+  /** Every tile with a cave or an overhang as the map stands (an imported map's own and Erode's,
+   *  D281): no object stands there and no force but Erode shapes it. Empty on a heightfield. */
+  get layeredTileSet(): ReadonlySet<number> {
+    return new Set(this.layeredTiles());
+  }
+
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
    *  to match the build exactly): copies, safe to hand on. */
   terrainState(): TerrainState {
     const t = this.cur.cache.terrain;
     const live = this.mode === "live";
     const base = live ? null : this.baseStuff().terrain;
+    const layered = this.layeredTiles();
     const locked = live ? (this.keptLayer()?.mask ?? null) : null;
     // a generated map's field: the build's integrity pass compares with it (M9a)
     const field = this.mode !== "import" ? (this.input().field ?? null) : null;
@@ -584,8 +649,8 @@ export class MapSession {
       channel: t.channel.slice(),
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
-      columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
-      ...(base && base.columns.size ? this.roofState(base) : {}),
+      columns: Int32Array.from(layered),
+      ...(layered.length ? this.roofState(layered) : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
@@ -595,13 +660,13 @@ export class MapSession {
   /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
    *  each roof's top may go, the terrain's masks of those tiles as they stand, and the objects' tops
    *  that hold ground (StrokePreview `falls`). */
-  private roofState(base: BaseTerrain): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
-    const tiles = [...base.columns.keys()].sort((a, b) => a - b);
-    const t = base.terrain.withSurface(this.cur.heights);
+  private roofState(tiles: readonly number[]): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
+    const layers = this.layers()!;
+    const t = layers.withSurface(this.cur.heights);
     return {
-      floor: base.terrain.topFloors(),
+      floor: layers.topFloors(),
       masks: Uint32Array.from(tiles, (i) => t.mask[i]),
-      stackTops: Int32Array.from(stackableTops(base.W, base.H, this.cur.entities)),
+      stackTops: Int32Array.from(stackableTops(layers.W, layers.H, this.cur.entities)),
     };
   }
 
@@ -742,7 +807,7 @@ export class MapSession {
       generated: !!this.gen.spec,
       entityIds,
       slopeTiles,
-      lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
+      lockedColumns: this.layeredTiles().length ? new Set(this.layeredTiles()) : null,
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
@@ -763,11 +828,12 @@ export class MapSession {
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
     const before = this.cur;
+    const layersBefore = this.layers();
     const mark = this.mark();
     const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
     // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
-    const ahead = this.fallsAhead(op);
+    const ahead = this.fallsAhead(op, layersBefore);
     if (ahead) {
       invertOp(this.st, applied);
       this.log.pop();
@@ -780,7 +846,7 @@ export class MapSession {
     const again = this.rideTilted([op], before, mark, seq);
     if (again) return this.ridden(() => this.apply(again[0], origin, label));
     // nothing an edit does may leave ground the game would drop (D121, D280 (3)): refused, with why
-    const falls = this.fallsSince(before);
+    const falls = this.fallsSince(before, layersBefore);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
@@ -822,6 +888,7 @@ export class MapSession {
   applyAll(ops: readonly EditOp[], origin: OpOrigin = "user", label?: string): ApplyResult {
     if (!ops.length) return { ok: false, errors: ["nothing to change"], applied: [], dirty: null };
     const before = this.cur;
+    const layersBefore = this.layers();
     const mark = this.mark();
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
@@ -846,7 +913,7 @@ export class MapSession {
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
-    const falls = this.fallsSince(before);
+    const falls = this.fallsSince(before, layersBefore);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
@@ -1239,15 +1306,29 @@ export class MapSession {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
-    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+    // Erode's hollows (D281): their tiles' voxels as the terrain stands, and their water columns with
+    // the heightfield's water on top and dry under the roof (format/world.ts `withCarvedColumns`)
+    const carved = this.carved();
+    const carvedNow = carved ? this.layers()!.withSurface(built.heights) : null;
+    const hollowed = carved ? carvedTiles(carved) : [];
+    if (this.mode === "live") {
+      const file = toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+      if (!carvedNow) return file;
+      return { ...file, world: { ...file.world, voxels: carvedNow.voxels(), singletons: withCarvedColumns(file.world.singletons, carvedNow, hollowed) } };
+    }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
-    const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
+    const terrainChanged = !sameBytes(built.heights, b.terrain.heights) || hollowed.length > 0;
     // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
     // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
-    const roofed = b.terrain.columns.size ? new Set(b.terrain.columns.keys()) : null;
-    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: b.terrain.terrain.withSurface(built.heights).voxels(), roofed });
+    const fresh = new Set(hollowed);
+    const own = [...b.terrain.columns.keys()].filter((i) => !fresh.has(i));
+    const roofed = own.length ? new Set(own) : null;
+    const terrainNow = carvedNow ?? b.terrain.terrain.withSurface(built.heights);
+    const opened = worldOf(W, H, built.heights, built.entities, built.waterFromFile && !hollowed.length ? null : builtWater(built), { world: w, voxels: terrainNow.voxels(), roofed });
+    const world = hollowed.length ? { ...opened, singletons: withCarvedColumns(opened.singletons, terrainNow, hollowed) } : opened;
+
     // the thumbnail shows terrain and water: a new one when either changed
     const redraw = terrainChanged || !built.waterFromFile;
     let metadata = parse(this.gen.base.metadata) as JsonObject;

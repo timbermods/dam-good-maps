@@ -269,7 +269,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
@@ -484,8 +484,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
-  **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
-  until Kyler has tried the other forces.
+  **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the
+  core (`rust/forces/src/erode.rs`, `core/forces/erode.ts`; its rules in `docs/progress/3d-creating.md`): wear starts
+  at the faces the gesture touches, hardest at a face's foot and just under a hard bed, from both sides of a thin
+  ridge; every tile keeps its top two blocks, so the surface and its objects stay; nothing wears next to water at its
+  level or under a source; the rock that wore least comes back as pillars wherever a roof would hang; where no face
+  can wear, the ground is scoured into a shallow hollow (D356). Its result writes runs (the operation's `runs`), so
+  any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key), effects and sounds are still
+  to come.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.

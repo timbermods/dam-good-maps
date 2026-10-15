@@ -175,6 +175,8 @@ function forceTiles(p: ForceResultParams, m: Reader, W: number, H: number): Tile
   for (const i of p.tiles) out.add(i);
   for (const i of p.rock?.tiles ?? []) out.add(i);
   for (const i of p.lake?.tiles ?? []) out.add(i);
+  // (Erode's hollows, under the surface: D281)
+  for (const i of p.runs?.tiles ?? []) out.add(i);
   const byId = new Map(m.built.entities.map((e) => [e.id, e]));
   const standing = (id: string) => {
     const e = byId.get(id);

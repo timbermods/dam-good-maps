@@ -33,7 +33,9 @@ export function forceBasis(s: MapSession): { ready: boolean } {
 export function forceMapOfSession(s: MapSession): FullForceMap {
   if (s.waterPending) throw new Error("The water has not settled: a force plans on the settled water");
   const b = s.built;
-  return fullForceMapOf(b, { rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(b, { rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
+  // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
+  return s.columns.size ? { ...m, masks: s.terrain.mask } : m;
 }
 
 /** What a force would keep: its operation, and a short hash of it (what the author's preview shows). */
