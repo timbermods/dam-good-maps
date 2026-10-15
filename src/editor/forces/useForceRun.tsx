@@ -154,7 +154,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           localUndo.current = [];
           localRedo.current = [];
           applyUpdate(u);
-          endShownColumns(false);
+          // (a kept view with no voxel runs of its own leaves the frames' hollows drawn: put the map's columns back)
+          endShownColumns(!u.view?.columns);
           renderer.current?.refreshShadows();
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
           else if (u.ok) {
