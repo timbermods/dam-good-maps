@@ -18,7 +18,7 @@ import { forceSettingsProblem } from "./settings";
 import type { Point } from "./quake";
 import { clamp } from "./random";
 import { trimRock } from "./rock";
-import { maskPlain, maskSurface } from "../terrain/runs";
+import { isPlainMask, surfaceOfMask } from "../terrain/runs";
 
 export interface ErodeSettings { mode: "wear"; power: number; size: number | null; floor: number; seed: number; sources?: SourcesRule }
 /** A click (one point) or a drawn sweep. */
@@ -69,7 +69,7 @@ export class ErodeRun extends Staged implements StagedRun {
     const was = raw.heights.slice();
     this.finalize?.(raw);
     const masks = raw.masks!;
-    for (let i = 0; i < was.length; i++) if (raw.heights[i] !== was[i] && maskPlain(masks[i])) masks[i] = plainMasks([raw.heights[i]])[0];
+    for (let i = 0; i < was.length; i++) if (raw.heights[i] !== was[i] && isPlainMask(masks[i])) masks[i] = plainMasks([raw.heights[i]])[0];
     trimRock(raw);
   }
 
@@ -100,7 +100,7 @@ export class ErodeRun extends Staged implements StagedRun {
       touched.add(i);
     }
     for (const i of touched) {
-      out.heights[i] = maskSurface(masks[i]);
+      out.heights[i] = surfaceOfMask(masks[i]);
       out.lava[i] &= masks[i];
     }
     // what stands on scoured ground rides it down; nothing else moves

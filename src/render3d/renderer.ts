@@ -65,6 +65,7 @@ import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
+import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
@@ -525,6 +526,19 @@ export class MapRenderer {
     this.onSlice?.(level === null ? null : v);
   }
 
+  /** Whether the terrain's shaders open the layer cut over air (cutaway.ts): only on a map with terrain above
+   *  terrain, so every other map draws with the same program as before. */
+  private cutaway = false;
+
+  private setCutaway(on: boolean): void {
+    this.cutaway = on;
+    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+      if (!mat || (mat.defines.CUTAWAY === 1) === on) continue;
+      mat.defines.CUTAWAY = on ? 1 : 0;
+      mat.needsUpdate = true;
+    }
+  }
+
   /** One layer up (1) or down (-1), as the game steps them (D207, `LevelVisibilityService`): down
    *  from the whole world, the first layer that hides anything (the map's top, less one); up past
    *  it, the whole world again; never below 0. */
@@ -771,6 +785,7 @@ export class MapRenderer {
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
+        this.setCutaway(this.cutaway);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -1028,6 +1043,7 @@ export class MapRenderer {
       u.caveTop.value = this.cave.highest;
     }
     else u.caveSize.value.set(0, 0, 0);
+    this.setCutaway(cutawayOn(source));
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;

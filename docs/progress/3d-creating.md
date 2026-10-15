@@ -43,12 +43,12 @@ wear here", "Nothing here can wear away without leaving ground to fall", or "The
 wear" (the layer showing or the working area named instead when they are why).
 
 **It writes runs.** Its operation (`forceResult`, verb `erode`, mode `wear`) keeps the tiles it hollowed and each one's
-whole mask (`runs`); `tiles`/`heights` hold only scoured ground. The build lays the masks over the map's terrain in the
-log's order (`features/build.ts` step 6, `terrain/carved.ts`): from there on those tiles are caves to every later edit
-(the brushes shape their tops, D487; the other forces leave them), on a generated map too. The session's `terrain`,
-`columns`, `terrainState()` (the page's strokes), its falls checks and the export follow them; the export writes each
-hollowed tile's water in its top column and its soil on its top run, the columns under the roof dry
-(`format/world.ts` `withCarvedColumns`).
+whole mask (`runs`); `tiles`/`heights` hold only scoured ground. The build gives those tiles their masks in the log's
+order as it does the Block tool's (`features/build.ts` step 6, `features/raster/terrain.ts` `applyHollows`): from there
+on they are caves to every later edit (the brushes shape their tops, D487; the other forces leave them), on a
+generated map too, and the session's `terrain`, `columns`, `terrainState()`, falls checks and export follow them as they
+follow the Block tool's. A tile with water never hollows, so the columns under a roof are dry, as the export writes
+them.
 
 **Checked:** `cargo test -p forces` (a cliff's foot, an arch, Power, Try another, flat ground); the Rust fixtures
 (`tools/rust/forces-jobs.ts`: a cliff, a sweep, a ridge, a hollowed cliff given as voxels and flat ground at three
@@ -142,3 +142,69 @@ differ outside roofs); that is stage 6's (the stacked engine).
   build equals the incremental one, the project replays onto the same runs, an unedited cave map exports its voxels.
 - `tests/contract/strokesOnRunsOfficial.test.ts` (local only, skipped on CI): the same on Hollows, Canyon and
   Pillars, 30 strokes each, refusals included; an unedited import exports byte for byte.
+
+## Delivers 2: the Block tool's core (built 2026-10-15)
+
+On `feature/block-tool-core` (on #396's branch), core only: no page, no renderer. Nothing changes on a map that has no
+block operation. Names below are in `src/core/doc/blockTool.ts` (the API) and `src/core/terrain/blocks.ts` (the cells and
+refusals).
+
+**The operation `blocks`** (`ops.schema.json`; in the log like a stroke, one undo step per click or drag):
+`{ op: "blocks", params: { mode: "add" | "remove", side: "+x" | "-x" | "+y" | "-y" | "+z" | "-z", at: [x, y, layer][], size: 1–8, shape?: "square" | "round" } }`.
+- `at[0]` is the block whose `side` face is pointed at (a click names only it); a drag adds the positions it swept, all in
+  that face's plane (same layer for +z/-z, same x for ±x, same y for ±y). Layers count from 0 (bottom); the surface of a
+  tile is its first free layer, so the top of a level-8 tile is layer 7.
+- **Add** puts a block in the cell beyond each swept face (`at + normal`), **remove** takes the swept blocks themselves; each
+  across the footprint in the plane: a square of `size` blocks, or the disc of that diameter (`shape: "round"`); offsets
+  run from −⌊(size−1)/2⌋ for `size` blocks. A cell that already holds a block (add) or none (remove) is skipped, and so is
+  an add's cell with no block to put it against (each swept position and footprint cell checks its own face; a drag over a
+  gap never leaves a floating block). Only an operation that would change nothing at all is refused.
+- The session fills in `params.cells` (the blocks changed, pairs [tile, layers]) when it takes the operation; the build and
+  every replay apply those literally. A caller never sends it. An operation moves no tile but its own: the integrity pass
+  never tidies the tiles beside a dug one.
+- **Refusals**, never clamped, one line, nothing logged: `(x, y) is outside the map`; `layer 22 is above the highest layer
+  (21)` (layer 22 stays empty) or `below the lowest layer (0)`; `(x, y) has no block in layer z to point at` (`at[0]` must be
+  solid); `an object stands at (x, y) in layer z` (an add into an object's cell, or a remove of one); `an object stands on
+  the block at (x, y) in layer z` (a remove of the block an object stands on); `there is no room for a block there` / `there
+  is no block there to remove` (it would change nothing); and the support rule's `N blocks of ground would fall: nothing would
+  hold them up` (`1 block of ground would fall: nothing would hold it up`), counted as the game's rule (#396's `newFalls`)
+  would, before and after, on the whole map.
+
+**The query** `blockFalls(session, op)` (also `session.blockFalls(params)`), plain data, no build, cheap:
+`{ reason: string | null, errors: string[], added: [x, y, layer][], removed: [x, y, layer][], falls: [x, y, layer][] }`.
+`added` and `removed` are exactly the blocks the click changes (the ghost), `falls` the blocks of ground that would drop
+(red), `reason` the one line `apply` would refuse with (the same string), `null` when it would be taken. `errors` is the
+refusal when the operation cannot be taken at all (then the three lists are empty). `apply` runs the same check before it
+logs anything, so the count in the refusal is the length of `falls`. The slope, like any object, holds its block: removing
+the block it stands on is refused with the object line. **The page should call `blockFalls` when the pointer's block
+changes, not on every move**: it costs 13–28 ms at 256² on a loaded machine.
+
+**What the session gives the page after a block edit.** `session.terrain`, `columns` (every tile that is not one plain run,
+for the mesher), `plainAt`, `roofedTiles`, `terrainState()` (`columns`, `floor`, `masks` for `StrokePreview.falls()`) and
+the .timber export all follow the dug and built ground, on a generated map too: a hollow turns a heightfield into a map with
+caves. `built.heights` stays the surface, so a hollow under the surface changes no height. The step's dirty rectangle
+(`built.dirty.terrain`) covers the tiles whose blocks changed. Still the page's and worker's to take: the worker sends
+`ViewUpdate.columns` only when a roof's top changed (`roofIn`), so it must also send them when `dirty.terrain` is set and the
+session has `columns`; collaboration's map state (`collab/mapState.ts`) diffs heights and entities only, so a hollow under
+the surface is not carried to a peer yet.
+
+**How it is built.** The tool's operations run in the build's step 6 in log order, tile by tile (`raster/terrain.ts`
+`applyBlocks`): each touched tile keeps its own mask (`BuildCache.terrain.masks`, tile → bits), its surface follows it, the
+brushes' floor follows its top run (so a stroke after a block shapes the top and nothing under it, a roof keeping its lowest
+layer), the integrity pass leaves it as it is, and the forces and old sculpts leave it as they leave a cave. The terrain of a
+build is `terrainUnder(base, heights, masks)`. Undo, redo, replay and an incremental build are the same as for a stroke (the
+build is a function of the log); a stored map carries the masks and `sameMap` compares them, so a reopened project opens
+from them and the replay check covers them.
+
+**Water.** Nothing in the water engine changed. A block edit that changes the surface settles in the background as any
+stroke does; a hollow under the surface changes no surface height, so no water moves until the stacked engine (#370) reads
+the runs. The export keeps the file's own water under dug and built roofs, as for an imported cave.
+
+**Not done here:** the ghost, the red blocks, the sounds, Shift-dig stepping and Natural Overhangs are the page's; a
+decision number for the tool's rules is the milestone session's.
+
+**Checked:** `tests/contract/blocks.test.ts` (CI): a click on top and against a wall, removing and hollowing, a drag, a round
+footprint, every refusal, a ledge cut from its cliff refused with the count `blockFalls` shows, what the query names is what the
+step changes, random blocks and strokes (nothing falls, an incremental build equals a full one, undo and redo give each state's
+exact runs, the project replays onto the same runs and saves byte for byte), and the same on a generated map (build up, hollow,
+export). The 84 generated maps' hashes (`tools/map-hashes.ts`) are unchanged.

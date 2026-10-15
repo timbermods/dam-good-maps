@@ -10,7 +10,7 @@ import type { EntitySpec } from "../format/entities";
 import type { ForceMap, FullForceMap } from "./force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "./op";
 import type { StagedRun } from "./runs";
-import { maskPlain } from "../terrain/runs";
+import { isPlainMask } from "../terrain/runs";
 
 /** The voxels of a plain tile of height `h`. */
 const maskOfHeight = (h: number): number => (h >= 32 ? 0xffffffff : h > 0 ? (((1 << h) >>> 0) - 1) >>> 0 : 0);
@@ -53,7 +53,7 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
     for (let i = 0; i < after.heights.length; i++) {
       const m = after.masks[i];
       const b = was ? was[i] : maskOfHeight(before.heights[i]);
-      if (m !== b && !maskPlain(m)) {
+      if (m !== b && !isPlainMask(m)) {
         runTiles.push(i);
         masks.push(m);
       }

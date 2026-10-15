@@ -1,0 +1,262 @@
+// The Block tool's operation, as plain data and plain functions (3D step 3, D335, D342): add blocks
+// against a face of the ground, or remove blocks, one by one or across a footprint, in a click or a
+// drag. Nothing here knows the session: the cells an operation acts on, why it cannot be taken
+// (never clamped: a cell off the map or off the layers, an object in the way, nothing to change), the
+// terrain it makes. The support rule (a block that would fall) is `terrain/support.ts`'s, put
+// together with this by `doc/blockTool.ts`; the build applies the operation tile by tile
+// (`features/build.ts` step 6, through `blockTileMask`).
+//
+// The coordinates are the voxels': x and y the tile, z the layer (0 at the bottom). A face is named
+// by the block it belongs to and its outward direction (`side`).
+
+import { FOOTPRINTS, worldBlocks } from "../format/footprints";
+import { CEILING } from "../format/world";
+import { ColumnTerrain, isPlainMask, reshapeTop, surfaceOfMask } from "./runs";
+
+/** The highest layer a block can occupy: the surface may reach CEILING, so the top layer (CEILING)
+ *  stays empty, as everywhere else in the editor. */
+export const BLOCK_TOP_LAYER = CEILING - 1;
+export const BLOCK_SIZE_MIN = 1;
+export const BLOCK_SIZE_MAX = 8;
+/** The most positions a drag may sweep in one operation. */
+export const MAX_BLOCK_POSITIONS = 4096;
+
+/** The six faces of a block, by the axis they face along and their direction. */
+export type BlockSide = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
+export const BLOCK_SIDES: readonly BlockSide[] = ["+x", "-x", "+y", "-y", "+z", "-z"];
+const NORMAL: Record<BlockSide, readonly [number, number, number]> = { "+x": [1, 0, 0], "-x": [-1, 0, 0], "+y": [0, 1, 0], "-y": [0, -1, 0], "+z": [0, 0, 1], "-z": [0, 0, -1] };
+
+export type BlockMode = "add" | "remove";
+
+/** The Block tool's operation (`blocks` in ops.schema.json). */
+export interface BlocksParams {
+  mode: BlockMode;
+  /** The face pointed at: `at[0]` is the block it belongs to, `side` which of its six faces. */
+  side: BlockSide;
+  /** The blocks whose `side` face was swept, in order: a click names one (the face pointed at), a
+   *  drag the face and every position it passed over, all in the face's own plane (the same x for an
+   *  east or west face, y for north or south, z for top or bottom). An add puts its blocks in the
+   *  cells beyond these faces, a remove takes these blocks themselves. */
+  at: [number, number, number][];
+  /** The footprint across the plane, in blocks: 1 to 8 (square), or the disc of that diameter. */
+  size: number;
+  /** "square" when absent. */
+  shape?: "square" | "round";
+  /** The blocks the operation changed, as the session found them when it took it (an add's new
+   *  blocks, a remove's old ones): pairs [tile, layers] by ascending tile, `layers` the bits (layer z =
+   *  1 << z) changed in that tile. The build applies these literally, so a replay never looks at the
+   *  ground again. Absent on the operation a caller gives; the session fills it in. */
+  cells?: number[];
+}
+
+export type Rect = { x0: number; y0: number; x1: number; y1: number };
+
+const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+
+/** Why these parameters are not a block operation on a W × H map (empty when they are): their shape and
+ *  where they point, which does not depend on the ground. */
+export function blockProblems(p: BlocksParams, W: number, H: number): string[] {
+  if (p.mode !== "add" && p.mode !== "remove") return ["a block operation adds or removes"];
+  if (!BLOCK_SIDES.includes(p.side)) return [`a block has six faces: ${BLOCK_SIDES.join(", ")}`];
+  if (!Array.isArray(p.at) || !p.at.length) return ["a block operation needs the face it points at"];
+  if (p.at.length > MAX_BLOCK_POSITIONS) return [`a block operation sweeps at most ${MAX_BLOCK_POSITIONS} positions`];
+  if (!p.at.every((c) => Array.isArray(c) && c.length === 3 && c.every(isInt))) return ["a block is named by three whole numbers: x, y, layer"];
+  if (!isInt(p.size) || p.size < BLOCK_SIZE_MIN || p.size > BLOCK_SIZE_MAX) return [`a block's size is ${BLOCK_SIZE_MIN} to ${BLOCK_SIZE_MAX} blocks across`];
+  if (p.shape !== undefined && p.shape !== "square" && p.shape !== "round") return ["a block's footprint is square or round"];
+  if (p.cells !== undefined && !(Array.isArray(p.cells) && p.cells.length % 2 === 0 && p.cells.every((c, k) => isInt(c) && (k % 2 ? c > 0 && c < 1 << (BLOCK_TOP_LAYER + 1) : c >= 0 && c < W * H)))) return ["a block operation's cells are pairs [tile, layers] on the map"];
+  const axis = axisOf(p.side);
+  for (const c of p.at) {
+    if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return [`(${c[0]}, ${c[1]}) is outside the map`];
+    if (c[2] < 0 || c[2] > BLOCK_TOP_LAYER) return [layerProblem(c[2])];
+    if (c[axis] !== p.at[0][axis]) return [`a sweep stays in the face's plane: ${"xyz"[axis]} is ${p.at[0][axis]}`];
+  }
+  return [];
+}
+
+function layerProblem(z: number): string {
+  return z > BLOCK_TOP_LAYER ? `layer ${z} is above the highest layer (${BLOCK_TOP_LAYER})` : `layer ${z} is below the lowest layer (0)`;
+}
+
+function axisOf(side: BlockSide): 0 | 1 | 2 {
+  return side[1] === "x" ? 0 : side[1] === "y" ? 1 : 2;
+}
+
+/** The footprint's offsets across the plane (a, b), for the two axes of the plane in order. */
+function footprint(size: number, shape: "square" | "round"): [number, number][] {
+  const lo = -Math.floor((size - 1) / 2);
+  const hi = lo + size - 1;
+  const c = (lo + hi) / 2;
+  const out: [number, number][] = [];
+  for (let a = lo; a <= hi; a++)
+    for (let b = lo; b <= hi; b++) if (shape === "square" || (a - c) * (a - c) + (b - c) * (b - c) <= (size / 2) * (size / 2)) out.push([a, b]);
+  return out;
+}
+
+/** The cells an operation acts on, as voxel coordinates, ascending by layer, then y, then x, each
+ *  once: an add's are the cells beyond the swept faces, a remove's the swept blocks, each across the
+ *  footprint. Cells off the map or the layers are returned as they are (`blockEffect` refuses them).
+ *  `face` is the block each one is against (an add) or is (a remove). */
+export function blockTargets(p: BlocksParams): { cell: [number, number, number]; face: [number, number, number] }[] {
+  const axis = axisOf(p.side);
+  const n = NORMAL[p.side];
+  const off = footprint(p.size, p.shape ?? "square");
+  const seen = new Set<string>();
+  const out: { cell: [number, number, number]; face: [number, number, number] }[] = [];
+  // (the plane's two axes, in order)
+  const u = axis === 0 ? 1 : 0;
+  const v = axis === 2 ? 1 : 2;
+  for (const c of p.at) {
+    for (const [a, b] of off) {
+      const cell: [number, number, number] = [c[0], c[1], c[2]];
+      cell[u] += a;
+      cell[v] += b;
+      const face: [number, number, number] = [cell[0], cell[1], cell[2]];
+      if (p.mode === "add") {
+        cell[0] += n[0];
+        cell[1] += n[1];
+        cell[2] += n[2];
+      }
+      const key = `${cell[0]},${cell[1]},${cell[2]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ cell, face });
+    }
+  }
+  return out.sort((a, b) => a.cell[2] - b.cell[2] || a.cell[1] - b.cell[1] || a.cell[0] - b.cell[0]);
+}
+
+/** The tiles an operation can change (its cells' columns), clipped to the map; null when none. */
+export function blockBounds(p: BlocksParams, W: number, H: number): Rect | null {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  const tiles: [number, number][] = [];
+  if (p.cells) for (let k = 0; k < p.cells.length; k += 2) tiles.push([p.cells[k] % W, Math.floor(p.cells[k] / W)]);
+  else for (const t of blockTargets(p)) tiles.push([t.cell[0], t.cell[1]]);
+  for (const [x, y] of tiles) {
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  return x0 <= x1 ? { x0, y0, x1, y1 } : null;
+}
+
+/** The cells (z·N + tile) of the objects standing on the map: every block of every object that has a
+ *  footprint. */
+export function objectCells(entities: readonly { template: string; x: number; y: number; z: number; orientation: "Cw0" | "Cw90" | "Cw180" | "Cw270"; flipped?: boolean; raw?: { Components?: unknown } }[], W: number, H: number): Set<number> {
+  const out = new Set<number>();
+  for (const e of entities) {
+    const fp = FOOTPRINTS[e.template];
+    if (!fp) continue;
+    const comps = e.raw ? (e.raw.Components as { BlockObject?: unknown } | undefined) : undefined;
+    if (e.raw && !(comps && typeof comps === "object" && comps.BlockObject)) continue;
+    const blocks = worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped });
+    // (an object always holds the cell it stands in, whatever its footprint says: a slope's)
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z >= 0) out.add(e.z * W * H + e.y * W + e.x);
+    for (const b of blocks) {
+      if (b.x >= 0 && b.y >= 0 && b.x < W && b.y < H && b.z >= 0) out.add(b.z * W * H + b.y * W + b.x);
+    }
+  }
+  return out;
+}
+
+/** What an operation does to the ground it meets. */
+export interface BlockEffect {
+  /** One line, or none: why the operation cannot be taken. */
+  errors: string[];
+  /** The cells (z·N + tile) that get a block, and the cells that lose one, ascending. */
+  added: number[];
+  removed: number[];
+}
+
+/** What an operation would do on this terrain, with the objects standing on the map (their cells,
+ *  `objectCells`): the cells it adds and removes, or why it cannot be taken. Never clamps: a cell off
+ *  the map or the layers, or on an object, refuses the operation; so does one that changes nothing. */
+export function blockEffect(p: BlocksParams, t: ColumnTerrain, objects: ReadonlySet<number> | null = null): BlockEffect {
+  const refuse = (e: string): BlockEffect => ({ errors: [e], added: [], removed: [] });
+  const { W, H } = t;
+  const N = t.N;
+  const bad = blockProblems(p, W, H);
+  if (bad.length) return refuse(bad[0]);
+  const [fx, fy, fz] = p.at[0];
+  if (!t.solid(fy * W + fx, fz)) return refuse(`(${fx}, ${fy}) has no block in layer ${fz} to point at`);
+  const added: number[] = [];
+  const removed: number[] = [];
+  for (const { cell: [x, y, z], face } of blockTargets(p)) {
+    if (x < 0 || y < 0 || x >= W || y >= H) return refuse(`(${x}, ${y}) is outside the map`);
+    if (z < 0 || z > BLOCK_TOP_LAYER) return refuse(layerProblem(z));
+    const i = y * W + x;
+    const cell = z * N + i;
+    if (objects?.has(cell)) return refuse(`an object stands at (${x}, ${y}) in layer ${z}`);
+    if (p.mode === "add") {
+      // (a block goes only against a block: a cell with no face to put it against is skipped)
+      const inMap = face[0] >= 0 && face[1] >= 0 && face[0] < W && face[1] < H && face[2] >= 0 && face[2] <= BLOCK_TOP_LAYER;
+      if (!t.solid(i, z) && inMap && t.solid(face[1] * W + face[0], face[2])) added.push(cell);
+    } else if (t.solid(i, z)) {
+      // (the block an object stands on stays)
+      if (objects?.has(cell + N)) return refuse(`an object stands on the block at (${x}, ${y}) in layer ${z}`);
+      removed.push(cell);
+    }
+  }
+  if (!added.length && !removed.length) return refuse(p.mode === "add" ? "there is no room for a block there" : "there is no block there to remove");
+  return { errors: [], added, removed };
+}
+
+/** An effect's cells as an operation stores them (`BlocksParams.cells`): pairs [tile, layers] by ascending tile. */
+export function cellPairs(cells: readonly number[], N: number): number[] {
+  const byTile = new Map<number, number>();
+  for (const c of cells) byTile.set(c % N, (byTile.get(c % N) ?? 0) | (1 << Math.floor(c / N)));
+  return [...byTile].sort((a, b) => a[0] - b[0]).flat();
+}
+
+/** The terrain after an effect: a copy of `t` with the cells added and removed. */
+export function withBlocks(t: ColumnTerrain, added: readonly number[], removed: readonly number[]): ColumnTerrain {
+  const mask = t.mask.slice();
+  const N = t.N;
+  for (const c of added) mask[c % N] |= 1 << Math.floor(c / N);
+  for (const c of removed) mask[c % N] &= ~(1 << Math.floor(c / N));
+  return new ColumnTerrain(t.W, t.H, mask);
+}
+
+/** The tiles an operation changes in the build's step 6, with each one's layer bits to set (an add) or
+ *  clear (a remove): tile → bits. The operation's own `cells` when the session filled them in; else
+ *  every cell it names (cells off the map or the layers are left out). */
+export function blockTileBits(p: BlocksParams, W: number, H: number): Map<number, number> {
+  const out = new Map<number, number>();
+  if (p.cells) {
+    for (let k = 0; k + 1 < p.cells.length; k += 2) out.set(p.cells[k], p.cells[k + 1]);
+    return out;
+  }
+  for (const { cell: [x, y, z] } of blockTargets(p)) {
+    if (x < 0 || y < 0 || x >= W || y >= H || z < 0 || z > BLOCK_TOP_LAYER) continue;
+    const i = y * W + x;
+    out.set(i, (out.get(i) ?? 0) | (1 << z));
+  }
+  return out;
+}
+
+/** A tile's mask after an operation's cells in it. */
+export function blockTileMask(mask: number, bits: number, mode: BlockMode): number {
+  return mode === "add" ? mask | bits : mask & ~bits;
+}
+
+/** The terrain a build leaves: `base` (the stored ground; null for a heightfield map) under the
+ *  surface `heights`, with every tile a block operation touched as `masks` has it, its top run
+ *  following `heights` (D280 (3): a brush after a block shapes the top and nothing under it). */
+export function terrainUnder(base: ColumnTerrain | null, heights: ArrayLike<number>, masks: ReadonlyMap<number, number> | null | undefined, W: number, H: number): ColumnTerrain {
+  const t = base ? base.withSurface(heights) : ColumnTerrain.fromHeights(heights, W, H);
+  if (!masks || !masks.size) return t;
+  const mask = t.mask.slice();
+  for (const [i, m] of masks) mask[i] = surfaceOfMask(m) === heights[i] ? m : reshapeTop(m, heights[i]);
+  return new ColumnTerrain(W, H, mask);
+}
+
+/** Whether any tile in `masks` is not one plain run from z = 0. */
+export function layeredMasks(masks: ReadonlyMap<number, number> | null | undefined): boolean {
+  if (!masks) return false;
+  for (const m of masks.values()) if (!isPlainMask(m)) return true;
+  return false;
+}

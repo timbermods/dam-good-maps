@@ -83,11 +83,11 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
             setInfo((cur) => ({ ...cur, views: i.views }));
             props.onChange({ ...infoRef.current, views: i.views });
           });
-          flashNote(`View ${slot} saved: Alt+${slot} comes back to it`);
+          flashNote(`View ${slot} saved`);
         } else {
           const b = infoRef.current.views.find((v) => v.slot === slot);
           if (b) r.glideTo(b);
-          else flashNote(`No view in ${slot} yet: Ctrl+Shift+${slot} keeps this one`);
+          else flashNote(`No view ${slot} saved yet`);
         }
         return;
       }
