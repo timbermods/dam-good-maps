@@ -330,7 +330,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); thirteen cells of one width (76px where there is room,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode (Glaciate and Erode last, Kyler 2026-10-06); fourteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -373,7 +373,7 @@ refinements and what the mockups left open:
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
-  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 13 cells, every setting a plate on whole cells (its edges on
+  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 14 cells, every setting a plate on whole cells (its edges on
   the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
   of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
   (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;
@@ -816,7 +816,7 @@ API, every pinned hash, and every role and accessible name the tests use.
 
 - **The keys go by the bar's places**, on the key's code (any keyboard layout): 1 Select, 2 Raise, 3 Lower, 4 Flatten,
   5 Smooth, 6 Naturalize; Shift+1 Carve, Shift+2 Craterize, Shift+3 Erupt, Shift+4 Rift, Shift+5 Quake, Shift+6
-  Deposit, Shift+7 Glaciate; M Markers. The shelf's items, water sources included, have none. Never while typing in a
+  Deposit, Shift+7 Glaciate, Shift+8 Erode; M Markers. The shelf's items, water sources included, have none. Never while typing in a
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { DEFAULT_CARVE, type CarveUi } from "../CarveRow";
 import { DEFAULT_CRATER, DEFAULT_ERUPT, DEFAULT_QUAKE, type CraterUi, type EruptUi, type QuakeUi } from "../ForceRows";
-import { DEFAULT_DEPOSIT, DEFAULT_GLACIATE, DEFAULT_RIFT, type DepositUi, type GlaciateUi, type RiftUi } from "../ForceRows";
+import { DEFAULT_DEPOSIT, DEFAULT_ERODE, DEFAULT_GLACIATE, DEFAULT_RIFT, type DepositUi, type ErodeUi, type GlaciateUi, type RiftUi } from "../ForceRows";
 import type { Verb } from "../../core/forces/op";
 import { loadForcesPrefs, saveForcesPrefs } from "../prefs/forcesPrefs";
 import type { Ed } from "../ed";
@@ -31,6 +31,9 @@ export interface ForcePrefsSlice {
   depositUi: DepositUi;
   setDepositUi: (u: DepositUi) => void;
   depositUiRef: { current: DepositUi };
+  erodeUi: ErodeUi;
+  setErodeUi: (u: ErodeUi) => void;
+  erodeUiRef: { current: ErodeUi };
   moreOpen: Partial<Record<Verb, boolean>>;
   setMoreOpen: Dispatch<StateUpdater<Partial<Record<Verb, boolean>>>>;
   watch: boolean;
@@ -81,6 +84,13 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
     depositUiRef.current = u;
     setDepositUiState(u);
   };
+  const [erodeUi, setErodeUiState] = useState<ErodeUi>({ ...DEFAULT_ERODE, ...forcesPrefs.erode });
+  const erodeUiRef = useRef(erodeUi);
+  erodeUiRef.current = erodeUi;
+  const setErodeUi = (u: ErodeUi) => {
+    erodeUiRef.current = u;
+    setErodeUiState(u);
+  };
   /** Whether each force's More is open (D309): closed by default, remembered while it stays open. */
   const [moreOpen, setMoreOpen] = useState<Partial<Record<Verb, boolean>>>(forcesPrefs.more);
   /** Slow forces (D321, item 29): the forces played out slowly to be watched; off, Fast. Remembered. */
@@ -106,13 +116,14 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
       glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree, sources: glaciateUi.sources },
       rift: { walls: riftUi.walls, sources: riftUi.sources },
       deposit: { channels: depositUi.channels, sources: depositUi.sources },
+      erode: { sources: erodeUi.sources },
     });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels, carveUi.sources, craterUi.sources, eruptUi.sources, quakeUi.sources, glaciateUi.sources, riftUi.sources, depositUi.sources]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels, carveUi.sources, craterUi.sources, eruptUi.sources, quakeUi.sources, glaciateUi.sources, riftUi.sources, depositUi.sources, erodeUi.sources]);
   const [, setForceTick] = useState(0);
 
   return {
     carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi, craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi,
-    quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi, glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, moreOpen, setMoreOpen, watch, setWatch,
+    quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi, glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, erodeUi, setErodeUi, erodeUiRef, moreOpen, setMoreOpen, watch, setWatch,
     watchRef, floorRef, floorContext, setForceTick
   };
 }

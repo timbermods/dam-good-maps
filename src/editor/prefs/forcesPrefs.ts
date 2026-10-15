@@ -2,7 +2,7 @@
 
 import { RIVER_DEPTH_DEFAULT, type CarveUi } from "../CarveRow";
 import type { CraterUi, EruptUi, QuakeUi } from "../ForceRows";
-import type { DepositUi, GlaciateUi, RiftUi } from "../ForceRows";
+import type { DepositUi, ErodeUi, GlaciateUi, RiftUi } from "../ForceRows";
 import type { Verb } from "../../core/forces/op";
 import { FLOOR_DEFAULT, floorProblem } from "../../core/forces/floor";
 import { SOURCES_DEFAULT, type ForceSources } from "../ForceRows";
@@ -24,6 +24,7 @@ export interface ForcesPrefs {
   glaciate: Pick<GlaciateUi, "benches" | "steps" | "tarn" | "scree" | "sources">;
   rift: Pick<RiftUi, "walls" | "sources">;
   deposit: Pick<DepositUi, "channels" | "sources">;
+  erode: Pick<ErodeUi, "sources">;
 }
 
 export const AUTO_FORCES_PREFS: ForcesPrefs = {
@@ -37,6 +38,7 @@ export const AUTO_FORCES_PREFS: ForcesPrefs = {
   glaciate: { benches: null, steps: null, tarn: null, scree: null, sources: SOURCES_DEFAULT },
   rift: { walls: null, sources: SOURCES_DEFAULT },
   deposit: { channels: null, sources: SOURCES_DEFAULT },
+  erode: { sources: SOURCES_DEFAULT },
 };
 
 /** `v` if it is one of `options`, else `null` (a detail left on Auto: a stray or outdated value
@@ -50,10 +52,10 @@ const sourcesOf = (f: Record<string, unknown> | undefined): ForceSources => (f?.
 
 export function loadForcesPrefs(): ForcesPrefs {
   try {
-    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ watch: unknown; floor: unknown; more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown>; rift: Record<string, unknown>; deposit: Record<string, unknown> }> | null;
+    const s = JSON.parse(localStorage.getItem(FORCES_KEY) ?? "null") as Partial<{ watch: unknown; floor: unknown; more: unknown; carve: Record<string, unknown>; craterize: Record<string, unknown>; erupt: Record<string, unknown>; quake: Record<string, unknown>; glaciate: Record<string, unknown>; rift: Record<string, unknown>; deposit: Record<string, unknown>; erode: Record<string, unknown> }> | null;
     if (!s) return AUTO_FORCES_PREFS;
     const more: Partial<Record<Verb, boolean>> = {};
-    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
+    if (s.more && typeof s.more === "object") for (const v of ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] as const) if ((s.more as Record<string, unknown>)[v] === true) more[v] = true;
     return {
       watch: s.watch === true,
       floor: floorProblem(s.floor) === null && typeof s.floor === "number" ? s.floor : FLOOR_DEFAULT,
@@ -72,6 +74,7 @@ export function loadForcesPrefs(): ForcesPrefs {
       glaciate: { benches: among(s.glaciate?.benches, ["none", "some", "many"]), steps: among(s.glaciate?.steps, ["few", "some", "many"]), tarn: typeof s.glaciate?.tarn === "boolean" ? s.glaciate.tarn : null, scree: typeof s.glaciate?.scree === "boolean" ? s.glaciate.scree : null , sources: sourcesOf(s.glaciate) },
       rift: { walls: among(s.rift?.walls, ["sheer", "stepped"]) , sources: sourcesOf(s.rift) },
       deposit: { channels: among(s.deposit?.channels, ["few", "many"]) , sources: sourcesOf(s.deposit) },
+      erode: { sources: sourcesOf(s.erode) },
     };
   } catch {
     return AUTO_FORCES_PREFS;

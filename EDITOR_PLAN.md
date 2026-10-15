@@ -116,12 +116,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 
 - **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a
   hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
-  Craterize, Erupt, Rift, Quake, Deposit, Glaciate, keys Shift+1 to Shift+7; a force not adopted yet takes its
-  place in the list): thirteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
+  Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode, keys Shift+1 to Shift+8; a force not adopted yet takes its
+  place in the list): fourteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
   map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
   minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
   (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
-  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 13 cells,
+  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 14 cells (the rows were laid out on 13 before Erode; the group that
+  ends a row takes the extra cell),
   every group spanning whole cells, so each edge in one row lines up with the other and with the bar (every gap
   between plates continues through the other row, or a plate there spans it; `layout.spec.ts`); every force's Try
   another one row tall at cells 12–13 of row 2, its Sources at 10–11 beside it; no empty cells, a tool with fewer
@@ -507,8 +508,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   ridge; every tile keeps its top two blocks, so the surface and its objects stay; nothing wears next to water at its
   level or under a source; the rock that wore least comes back as pillars wherever a roof would hang; where no face
   can wear, the ground is scoured into a shallow hollow (D356). Its result writes runs (the operation's `runs`), so
-  any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key), effects and sounds are still
-  to come.
+  any map gains caves. **The page:** Erode is the last button of the forces row (after Glaciate), key Shift+8,
+  tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1 with Sources (it has no choice of its own),
+  the Floor and Try another on row 2; a click acts where it lands, a drawn sweep as a band Size wide, the ring at the
+  cursor (D258). Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the
+  others the map holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back.
+  Sounds (`public/sounds/juice-2`, four CC0 Freesound recordings from `investigation/erode`): a grinding wear held under
+  the whole moment, swelling with how much rock goes, stone landing as it goes and a heavier fall as it clears. Its dust
+  and falling stones in the 3D view are the renderer's, still to come.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -779,8 +786,8 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms, Alt+scroll slices
 the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
-keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+7 Carve,
-Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. The shelf's items have no keys.
+keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
+Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.
 
 - **Z undoes, C redoes and X puts down whatever is held** (D345, B7): a brush, a force, the shelf's object, the
   selection, a picked source or object, leaving Select in hand (§3), which picks **every object on the map**

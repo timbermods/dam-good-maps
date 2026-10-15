@@ -94,7 +94,7 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  await expect(forces.getByRole("button")).toHaveText(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate", "Erode"]);
   await page.keyboard.press("Shift+Digit2");
   await expect(forces.getByRole("button", { name: "Craterize (Shift+2)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Craterize options" });

@@ -9,7 +9,8 @@ import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
 import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
-import { DepositRow, GlaciateRow, RiftRow } from "../ForceRows";
+import { DepositRow, ErodeRow, GlaciateRow, RiftRow } from "../ForceRows";
+import type { ErodeSettings } from "../../core/forces/erode";
 import type { RiftSettings } from "../../core/forces/rift";
 import type { DepositSettings } from "../../core/forces/deposit";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
@@ -40,7 +41,7 @@ export function useRows(ed: Ed): RowsSlice {
     api, info, tool, options, setOptions, shelf, shelfOptions, setShelfOptions, feel, setPicked, picked,
     pickedObject, setPickedObject, optionsRef, enqueue, run, strengthOfEntity, liveStrength, entityIndexOf,
     groupsRef, pointedWords, removeSources, carveUi, setCarveUi, craterUi, setCraterUi, eruptUi, setEruptUi, quakeUi,
-    setQuakeUi, glaciateUi, setGlaciateUi, riftUi, setRiftUi, depositUi, setDepositUi, forcer, lastUnleash, unleashPower, setUnleashPower,
+    setQuakeUi, glaciateUi, setGlaciateUi, riftUi, setRiftUi, depositUi, setDepositUi, erodeUi, setErodeUi, forcer, lastUnleash, unleashPower, setUnleashPower,
     unleash, unleashAgain, unleashDown, forceAgain
   } = ed;
 
@@ -370,6 +371,7 @@ export function useRows(ed: Ed): RowsSlice {
     if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
     if (tool === "rift") return <RiftRow force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
     if (tool === "deposit") return <DepositRow force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
+    if (tool === "erode") return <ErodeRow force={force} ui={erodeUi} onUi={setErodeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erode as ErodeSettings | undefined) ?? null} />;
     return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 

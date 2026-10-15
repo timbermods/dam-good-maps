@@ -124,7 +124,7 @@ const settle = async (page: Page, w: number, h: number) => {
  *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
 /** Where each force's Power and Size stood (x, width, top), by name: every force's must be the first one's (D184: a setting
  *  keeps its place across tools); the brushes' Size is their own, on cells 1–4. */
-const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit"]);
+const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit", "Erode"]);
 const placed = new Map<string, { l: number; w: number; t: number }>();
 
 async function onTheCells(page: Page, state: string) {
@@ -141,7 +141,7 @@ async function onTheCells(page: Page, state: string) {
       groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
-  expect(r.lefts.length, "the bar's thirteen cells").toBe(13);
+  expect(r.lefts.length, "the bar's fourteen cells").toBe(14);
   if (!r.settings) return;
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
@@ -190,8 +190,8 @@ async function onTheCells(page: Page, state: string) {
         expect(ok, `${g.name}'s right edge lines up with the row at ${b} (${state})`).toBe(true);
       }
     }
-  // no empty cells: each row's groups cover its thirteen cells (a group on several rows counts in each)
-  const width = r.rights[12] - r.lefts[0];
+  // no empty cells: each row's groups cover its fourteen cells (a group on several rows counts in each)
+  const width = r.rights[13] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
   for (const top of tops.slice(0, 2)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
@@ -326,7 +326,7 @@ for (const [w, h] of SIZES) {
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
     placed.clear();
     await onTheCells(page, "Select");
-    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
+    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
       await page.keyboard.press("Escape");

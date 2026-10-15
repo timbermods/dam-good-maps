@@ -121,7 +121,7 @@ test("every control in the editor has a tooltip, in every state", async ({ page 
   await page.keyboard.press("x");
 
   // every force, with its More
-  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7"]) {
+  for (const k of ["Shift+Digit1", "Shift+Digit2", "Shift+Digit3", "Shift+Digit4", "Shift+Digit5", "Shift+Digit6", "Shift+Digit7", "Shift+Digit8"]) {
     await page.keyboard.press(k);
     await check(`force ${k}`);
     const open = page.locator('.force-options button:text-is("More")');
@@ -302,6 +302,8 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (5)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["5"], last: "tip-key", native: null });
   // a few more, keys of every kind: a force's own, a shelf item's (none), the header's, a size's
   expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (Shift+7)" }))).caps).toEqual(["Shift+7"]);
+  // Erode (D281): a short phrase and its key cap; its Power and Size say what they do
+  expect(await tooltipOf(forces.getByRole("button", { name: "Erode (Shift+8)" }))).toEqual({ text: "Wear caves and arches", caps: ["Shift+8"], last: "tip-key", native: null });
   const shelf = page.getByRole("navigation", { name: "Place" });
   expect(await tooltipOf(shelf.getByRole("button", { name: "Water source", exact: true }))).toMatchObject({ text: "Where water starts", caps: [] });
   expect(await tooltipOf(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" }))).toMatchObject({ text: "Undo", caps: ["Z", "Ctrl+Z"] });
@@ -310,6 +312,12 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   expect(await tooltipOf(size)).toMatchObject({ text: "How wide it cuts", caps: ["F", "{", "}"] });
   const power = page.getByRole("group", { name: "Carve options" }).locator('.set:has(input[aria-label="Power"])');
   expect(await tooltipOf(power)).toMatchObject({ text: "How hard it cuts", caps: ["F+scroll", "[", "]"] });
+  await page.keyboard.press("Shift+Digit8");
+  const erode = page.getByRole("group", { name: "Erode options" });
+  expect(await tooltipOf(erode.locator('.set:has(input[aria-label="Power"])'))).toMatchObject({ text: "How deep the rock wears", caps: ["F+scroll", "[", "]"] });
+  expect(await tooltipOf(erode.locator('.set:has(input[aria-label="Size"])'))).toMatchObject({ text: "How wide it wears", caps: ["F", "{", "}"] });
+  expect(await tooltipOf(erode.getByRole("button", { name: "Try another" }))).toMatchObject({ text: "Another erosion, same land", caps: [] });
+  await page.keyboard.press("Escape");
   // a control with no key: its words alone, no cap
   expect(await tooltipOf(page.getByRole("button", { name: "Reset view" }))).toMatchObject({ text: "Frame the whole map again", caps: [] });
   // the pointer gone: no tooltip, and the control's own title back

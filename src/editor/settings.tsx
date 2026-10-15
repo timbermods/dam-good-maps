@@ -1,5 +1,5 @@
 // The held tool's settings above the bar (Kyler's option B, 2026-10-03): one panel at the bar's exact width and one
-// fixed height for every tool, two rows on one grid (Kyler, 2026-10-05: never a third), the bar's own 13 cells, every
+// fixed height for every tool, two rows on one grid (Kyler, 2026-10-05: never a third), the bar's own 14 cells, every
 // group spanning whole cells, so each edge in one row lines up with the other and with the bar's cells below; no empty
 // cells. One look per kind of control: a number is a slider with its value at the right of its name; a choice is one segmented look (a toggle is
 // Off and On); Auto is one small word in the same place on every control that has it, and Auto's pick is outlined
@@ -8,13 +8,16 @@
 import type { ComponentChildren } from "preact";
 import { tip } from "../ui/Tooltip";
 
-/** The bar's cells: six tools, the hairline, seven forces. */
-export const BAR_CELLS = 13;
+/** The bar's cells: six tools, the hairline, eight forces. */
+export const BAR_CELLS = 14;
+/** The cells the rows were authored on, before Erode made the eighth force: a group that ended a row there takes the
+ *  bar's extra cell, so every row is still full (the last group is the one that has room: Try another, Revert, Apply). */
+const AUTHORED_CELLS = 13;
 const TOOLS_CELLS = 6;
 /** A cell's grid column: the hairline takes a column of its own after the tools. */
 const column = (cell: number) => (cell <= TOOLS_CELLS ? cell : cell + 1);
 
-/** A group on the grid: `span` whole cells from `at` (1–13) on `row` (1 or 2; `rows: 2` takes both). */
+/** A group on the grid: `span` whole cells from `at` (1–13, as authored; see AUTHORED_CELLS) on `row` (1 or 2; `rows: 2` takes both). */
 export interface Group {
   key: string;
   row: 1 | 2;
@@ -34,7 +37,7 @@ export function SettingsGrid(p: { label: string; groups: readonly Group[] }) {
         <div
           key={g.key}
           class={`set-group${g.centre ? " centre" : ""}`}
-          style={{ gridColumn: `${column(g.at)} / ${column(g.at + g.span - 1) + 1}`, gridRow: `${g.row} / ${g.row + (g.rows ?? 1)}` }}
+          style={{ gridColumn: `${column(g.at)} / ${column(g.at + g.span - 1 + (g.at + g.span - 1 === AUTHORED_CELLS ? BAR_CELLS - AUTHORED_CELLS : 0)) + 1}`, gridRow: `${g.row} / ${g.row + (g.rows ?? 1)}` }}
         >
           {g.node}
         </div>

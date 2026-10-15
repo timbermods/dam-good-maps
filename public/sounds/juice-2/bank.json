@@ -462,5 +462,69 @@
     "gainDb": 3.5,
     "bytes": 73772,
     "sha256": "456d3f29fe8a9821da507d550d1e305087b583c26769ad8d65f7f3e5acfb1e4c"
+  },
+  {
+    "id": "grind-bed",
+    "file": "audio/grind-bed.mp3",
+    "provenance": "vrymaa",
+    "sources": [
+      {
+        "file": "scrape-vrymaa.mp3",
+        "sha256": "95e0a7b97fd6096565ea7486b53a6e07b4d9bd3eb5995ea155170b96a574146d"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), cut on MP3 frame boundaries without re-encoding (from 4.21 s, 4.99 s of 27.64 s; the first frame needs no earlier bytes); no gain change; used as grinding wear (a held loop) (D281).",
+    "duration": 4.9894,
+    "gainDb": 0,
+    "bytes": 110829,
+    "sha256": "e3ae5239364b14a505ec41b36cae4fec26e6c003e6d09b99284e4141a0c25c8f"
+  },
+  {
+    "id": "granite-bed",
+    "file": "audio/granite-bed.mp3",
+    "provenance": "mediaman57",
+    "sources": [
+      {
+        "file": "granite-mediaman57.mp3",
+        "sha256": "d821352f154544053361712e64005248b12efd529caff51c7d7083fd42262e3c"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview as downloaded (investigation/erode), unedited; used as grinding wear, lower layer (a held loop) (D281).",
+    "duration": 1.1755,
+    "gainDb": 0,
+    "bytes": 30267,
+    "sha256": "d821352f154544053361712e64005248b12efd529caff51c7d7083fd42262e3c"
+  },
+  {
+    "id": "rocks",
+    "file": "audio/rocks.mp3",
+    "provenance": "adamgryu",
+    "sources": [
+      {
+        "file": "rocks-adamgryu.mp3",
+        "sha256": "55857f7eca1d95fd4826e643c7ed9d95944145d945398b652e25f0d9d8c9e358"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), cut on MP3 frame boundaries without re-encoding (from 0.00 s, 3.98 s of 6.74 s; the first frame needs no earlier bytes); no gain change; used as falling stone (landings) (D281).",
+    "duration": 3.984,
+    "gainDb": 0,
+    "bytes": 110400,
+    "sha256": "7c11029e4c6b3c9da530ba88e1a2c8c3d8f2b292633884245f52a478469d0a87"
+  },
+  {
+    "id": "rockfall",
+    "file": "audio/rockfall.mp3",
+    "provenance": "iwanplays",
+    "sources": [
+      {
+        "file": "rockfall-iwanplays.mp3",
+        "sha256": "6fdc4ecbc4c1140d9354a64575892f57a5d476cf8b8421fdd2daa90a401342e4"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), cut on MP3 frame boundaries without re-encoding (from 0.00 s, 2.98 s of 4.26 s; the first frame needs no earlier bytes); no gain change; used as falling stone (landings and the closing fall) (D281).",
+    "duration": 2.978,
+    "gainDb": 0,
+    "bytes": 85593,
+    "sha256": "e8e7b4df2f5de48ee8a5ac5e673731e56c1ffd86150097ce55a4da481c0e31b0"
   }
 ]

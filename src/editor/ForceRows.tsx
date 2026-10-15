@@ -4,7 +4,7 @@
 // click strikes, and a drag strikes once where it began (D368 (7): a crater is one impact). Erupt: a click vents, a drag
 // opens a fissure. Quake: Power (its drawn line sets its length), then Lift or Slide, Scarp and Side (V flips the side
 // that moves). Glaciate: Meltwater (a click Flows, a drag Aims), benches, steps, tarn and scree. Rift: Walls. Deposit:
-// Channels. Every detail (walls, centre, debris, rays, shape, summit, flows, ridges, scarp, benches, steps, tarn, scree,
+// Channels. Erode: no choice of its own (the land decides). Every detail (walls, centre, debris, rays, shape, summit, flows, ridges, scarp, benches, steps, tarn, scree,
 // channels) is on Auto (drawn from the land and the seed, core/forces/nature.ts) until the player sets one, which pins it
 // with a small way back to Auto (D309); Try another re-rolls only the details still on Auto. While a force is at work its
 // row is its status, the hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Built from the shared bar styles (D176).
@@ -14,6 +14,8 @@ import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBrea
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
+import { ERODE_DEFAULTS, erodeSize, type ErodeSettings } from "../core/forces/erode";
+import { ERODE_SIZE_MAX, ERODE_SIZE_MIN } from "../core/forces/settings";
 import { DEPOSIT_DEFAULTS, DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN, depositWidth, type DepositSettings } from "../core/forces/deposit";
 import { type ForceStatus } from "./forceDriver";
 import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
@@ -126,6 +128,17 @@ export interface DepositUi {
 export const DEFAULT_DEPOSIT: DepositUi = { power: DEPOSIT_DEFAULTS.power, size: null, channels: null, sources: SOURCES_DEFAULT };
 export const depositDetails = (u: DepositUi): Record<string, unknown> => ({ channels: u.channels });
 
+export interface ErodeUi {
+  power: number;
+  /** How wide it wears along a face, tiles across, or null: it follows Power. */
+  size: number | null;
+  /** Sources it reaches: ride with the ground, or cleared (the default). */
+  sources: ForceSources;
+}
+export const DEFAULT_ERODE: ErodeUi = { power: ERODE_DEFAULTS.power, size: null, sources: SOURCES_DEFAULT };
+/** (Erode has no choice of its own: the land decides every form, so Try another has no pins to send.) */
+export const erodeDetails = (): Record<string, unknown> => ({});
+
 /** A new series' settings (its first personality: the prototypes' own default seeds). The choices
  *  the rows don't show are drafts (D309): `null` where still on Auto, for nature.ts to draw once the
  *  force starts; the gesture sets the mode: `aimed` a glancing impact (no gesture of the editor's
@@ -141,11 +154,14 @@ export const glaciateSettingsOf = (u: GlaciateUi): GlaciateSettings => ({ mode: 
 export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, power: u.power, size: u.size, walls: u.walls ?? "auto", sources: u.sources });
 export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto", sources: u.sources });
 
+/** Erode's settings (the wear is one rule; a drawn sweep or a click is its gesture, a band for the one, a point for the other). */
+export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size, sources: u.sources });
+
 /** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
  *  Lift still drawn: Esc cancels it), and Revert. */
 export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
   const st = p.status;
-  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
+  const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : p.force.id === "erode" ? "The rock is wearing…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
   return (
     <SettingsGrid
       label={`${p.force.name} at work`}
@@ -169,7 +185,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
   );
 }
 
-function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit", value: number, onChange: (v: number) => void, title: string) {
+function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode", value: number, onChange: (v: number) => void, title: string) {
   return <NumberSetting label="Power" title={title} keys={STRENGTH_KEYS} value={value} words={String(value)} min={0} max={100} step={5} onChange={onChange} />;
 }
 
@@ -569,6 +585,26 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
         { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "again", row: 2, at: 12, span: 2, node: again(p, "fan") },
+      ]}
+    />
+  );
+}
+
+/** Erode's settings (D281): Power and Size, on Auto until pinned; the land decides the form (a cave, an overhang, an arch). */
+export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
+  const u = p.ui;
+  const set = (patch: Partial<ErodeUi>) => p.onUi({ ...u, ...patch });
+  const sz = u.size ?? Math.round(erodeSize(u.power) / 2) * 2;
+  return (
+    <SettingsGrid
+      label="Erode options"
+      groups={[
+        { key: "power", row: 1, at: 1, span: 3, node: power("erode", u.power, (v) => set({ power: v }), "How deep the rock wears") },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        // (no choice of its own to fill the row: Sources takes its place, so the two rows stay full)
+        { key: "sources", row: 1, at: 7, span: 7, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
+        { key: "again", row: 2, at: 10, span: 4, node: again(p, "erosion") },
       ]}
     />
   );

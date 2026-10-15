@@ -20,6 +20,12 @@ root) reproduces this pass from the same CC0 sources; `investigation/juice-2/` (
 `investigation/` is history (docs/README.md). This file now describes the shipped copy as it is;
 what follows below the sources table is the round's own text, amended only where noted.
 
+**D281 (2026-10-14):** Erode has four recordings, all from `investigation/erode` (Freesound's public HQ MP3 previews,
+**CC0**, each page's licence read again on 14 October 2026): `grind-bed` (Vrymaa) and `granite-bed` (Mediaman57) are
+the grinding wear under the whole moment, looping; `rocks` (adamgryu) and `rockfall` (iwanPlays) are the falling
+stone and the heavier fall at the end. They are cut on MP3 frame boundaries without re-encoding (no gain change), to
+337,089 bytes in all; bank.json lists each cut and the original's hash. No sign-in was needed.
+
 **D459 (2026-10-03):** Naturalize has a new sound. `leaves` is rustle17 from qubodup's CC0 "20 Rustles of
 dry leaves" (a lossless 96 kHz original, the cleanest source in this bank): downmixed to mono, resampled to
 48 kHz, leading and trailing silence trimmed, one linear gain to -19 dBFS in the strongest 100 ms (peak capped
@@ -43,6 +49,10 @@ for traceability, not because attribution is a condition. Licence checked on
 | I | Independent.nu | [35 wooden cracks/hits/destructions, CC0](https://opengameart.org/content/35-wooden-crackshitsdestructions), uploaded by qubodup, author credited as Independent.nu | [7z archive](https://opengameart.org/sites/default/files/independent_nu_ljudbank-wood_crack_hit_destruction.7z) |
 | E | ezwa (pdsounds.org) | [6 Short water splashes, CC0](https://opengameart.org/content/6-short-water-splashes), uploaded by qubodup, author credited as ezwa | [7z archive](https://opengameart.org/sites/default/files/ezwa-water_splash.7z) |
 | T | TinyWorlds | [Boiling water loops, CC0](https://opengameart.org/content/boiling-water-loops); author recorded a cooking pot | [OGG](https://opengameart.org/sites/default/files/cooking_with_cover_01.ogg) |
+| V | Vrymaa | [Stone heavy - Scraping concrete, CC0](https://freesound.org/people/Vrymaa/sounds/802691/) | [Public HQ MP3 preview](https://cdn.freesound.org/previews/802/802691_13973196-hq.mp3) |
+| M | Mediaman57 | [Stone,Block,Drag,Wood,Grind.wav, CC0](https://freesound.org/people/Mediaman57/sounds/347149/); two pieces of granite scraped together | [Public HQ MP3 preview](https://cdn.freesound.org/previews/347/347149_5501146-hq.mp3) |
+| A | adamgryu | [Rocks.wav, CC0](https://freesound.org/people/adamgryu/sounds/336023/); a mix of public-domain rock sounds | [Public HQ MP3 preview](https://cdn.freesound.org/previews/336/336023_4054883-hq.mp3) |
+| P | iwanPlays | [Bricks/Stones/Rocks/Gravel Falling, CC0](https://freesound.org/people/iwanPlays/sounds/567249/); a mix of CC0 recordings by adamgryu, alancat and spookymodem | [Public HQ MP3 preview](https://cdn.freesound.org/previews/567/567249_7108319-hq.mp3) |
 | W | Tom_Kaszuba | [Waterfall sound, CC0](https://freesound.org/people/Tom_Kaszuba/sounds/660255/); Sony PCM-D100 field recording | [Public HQ MP3 preview](https://cdn.freesound.org/previews/660/660255_11673893-hq.mp3) |
 | Q | qubodup | [20 Rustles of dry leaves, CC0](https://opengameart.org/content/20-rustles-dry-leaves) (OpenGameArt's licence field reads CC0; 24-bit 96 kHz stereo FLAC, recorded in a kitchen, uploaded 19 May 2010; checked 3 October 2026) | [7z archive](https://opengameart.org/sites/default/files/qubodup-rustle.7z) |
 | B | SamsterBirdies | [Large explosion, CC0](https://freesound.org/people/SamsterBirdies/sounds/592000/); recorded garage firecracker, layered and pitched by its author | [Public HQ MP3 preview](https://cdn.freesound.org/previews/592/592000_5487341-hq.mp3) |
@@ -56,7 +66,7 @@ generation. No claim of lossless mastering is made. No sign-in was needed.
 All outputs below are `audio/<id>.mp3`, mono, 48 kHz, **256 kbps** (D313; 192 kbps as PR #64 first
 shipped it). Every row inherits the named author's **CC0** grant from the source table above. Exact
 input/output SHA-256 hashes, byte counts, lengths, crops and gain adjustments are in
-[bank.json](bank.json). Total: **1,186,936 bytes (1.13 MiB)**.
+[bank.json](bank.json). Total: **1,524,025 bytes (1.45 MiB)**.
 
 | Output ID | Source / author ID | Original recording(s) |
 | --- | --- | --- |
@@ -86,6 +96,10 @@ input/output SHA-256 hashes, byte counts, lengths, crops and gain adjustments ar
 | earth-bed | K | footstep_concrete_000–004.ogg |
 | leaf-bed | K | footstep_grass_000–004.ogg |
 | stone-bed | K | impactMining_000–004.ogg |
+| grind-bed | V | 802691_13973196-hq.mp3 (scrape-vrymaa.mp3), from 4.2 s, 5 s |
+| granite-bed | M | 347149_5501146-hq.mp3 (granite-mediaman57.mp3), whole |
+| rocks | A | 336023_4054883-hq.mp3 (rocks-adamgryu.mp3), first 4 s |
+| rockfall | P | 567249_7108319-hq.mp3 (rockfall-iwanplays.mp3), first 3 s |
 
 Impacts retain their attacks and original crest factors. One linear gain aims at
 −19 dBFS in the strongest 100 ms, constrained by a −2 dBFS sample peak. Short edge
