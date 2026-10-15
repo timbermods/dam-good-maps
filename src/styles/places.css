@@ -234,6 +234,11 @@ button.linkish {
     font-size: 0.9rem;
   }
 
+  /* (the three buttons wrap to a second row instead of widening the card past the screen) */
+  .place-actions {
+    flex-wrap: wrap;
+  }
+
   .filters {
     gap: 10px;
   }
