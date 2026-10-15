@@ -205,7 +205,17 @@ function serve(dir: string, done: Set<number>, log: (s: string) => void): void {
     const answer = answerFor(dir, String(ask.what));
     const tmp = join(dir, `answer-${n}.json.tmp`);
     writeFileSync(tmp, JSON.stringify(answer));
-    renameSync(tmp, join(dir, `answer-${n}.json`));
+    // (written whole under another name, then renamed into place: the game never reads half a file; a scanner holding the
+    // new file for a moment only delays the rename, so it is tried again)
+    for (let k = 0; ; k++) {
+      try {
+        renameSync(tmp, join(dir, `answer-${n}.json`));
+        break;
+      } catch (e) {
+        if (k >= 20) throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+      }
+    }
     done.add(n);
     log(`companion test asked for ${ask.what}: ${JSON.stringify(answer)}`);
   }

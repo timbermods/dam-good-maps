@@ -79,9 +79,16 @@ namespace DGMCompanion
         public static void Line(string text)
         {
             CompanionEnv.Log("test: " + text);
-            lock (Gate)
+            try
             {
-                File.AppendAllText(Path.Combine(CompanionEnv.TestDir, "events.log"), DateTime.UtcNow.ToString("HH:mm:ss.fff") + " " + text + "\n", new UTF8Encoding(false));
+                lock (Gate)
+                {
+                    File.AppendAllText(Path.Combine(CompanionEnv.TestDir, "events.log"), DateTime.UtcNow.ToString("HH:mm:ss.fff") + " " + text + "\n", new UTF8Encoding(false));
+                }
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                // the log is a convenience; the result is what counts
             }
         }
 
@@ -119,8 +126,15 @@ namespace DGMCompanion
             }
             string json = "{\n  \"passed\": " + (Failures.Count == 0 ? "true" : "false") + ",\n  \"failures\": [" + string.Join(", ", failures) + "],\n  \"facts\": {" + string.Join(", ", facts) + "}\n}\n";
             string path = Path.Combine(CompanionEnv.TestDir, "result.json");
-            File.WriteAllText(path + ".tmp", json, new UTF8Encoding(false));
-            File.Move(path + ".tmp", path);
+            try
+            {
+                File.WriteAllText(path + ".tmp", json, new UTF8Encoding(false));
+                File.Move(path + ".tmp", path);
+            }
+            catch (Exception e)
+            {
+                CompanionEnv.Warn("could not write result.json: " + e.Message);
+            }
             Line("finished: " + (Failures.Count == 0 ? "passed" : "failed"));
             GameQuitter.Quit();
         }
@@ -189,8 +203,25 @@ namespace DGMCompanion
             string path = Path.Combine(CompanionEnv.TestDir, "answer-" + Waiting + ".json");
             if (File.Exists(path))
             {
-                MiniJson.TryParseObject(File.ReadAllText(path), out _answer);
-                _answer = _answer ?? new Dictionary<string, object>();
+                string text;
+                try
+                {
+                    // Shared with a writer that has not let go yet (the runner renames the finished file in, but a
+                    // scanner may still hold it); on a sharing violation, look again next frame.
+                    using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (StreamReader reader = new StreamReader(stream, new UTF8Encoding(false)))
+                    {
+                        text = reader.ReadToEnd();
+                    }
+                }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                {
+                    return false;
+                }
+                if (!MiniJson.TryParseObject(text, out _answer))
+                {
+                    return false;
+                }
                 TestLog.Line("the runner answered " + Waiting);
                 Waiting = 0;
                 return true;
@@ -293,7 +324,10 @@ namespace DGMCompanion
             TestLog.Line("main menu loaded, phase " + TestLog.Phase);
         }
 
-        public void UpdateSingleton()
+        // Whatever goes wrong in the update ends the variant with a FAIL and a result.json, never an uncaught exception.
+        public void UpdateSingleton() => TestLog.Guard(Tick);
+
+        private void Tick()
         {
             if (_startedAt < 0)
             {
@@ -304,7 +338,7 @@ namespace DGMCompanion
             {
                 return;
             }
-            TestLog.Guard(Step);
+            Step();
         }
 
         // The menu is on screen when the intro is over and the New game button has a size.
@@ -429,7 +463,9 @@ namespace DGMCompanion
             TestLog.Line("game loaded, phase " + _phase);
         }
 
-        public void UpdateSingleton()
+        public void UpdateSingleton() => TestLog.Guard(Tick);
+
+        private void Tick()
         {
             if (_startedAt < 0)
             {
@@ -450,7 +486,7 @@ namespace DGMCompanion
             {
                 return;
             }
-            TestLog.Guard(Step);
+            Step();
         }
 
         private void Press()
