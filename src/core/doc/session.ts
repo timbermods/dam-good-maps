@@ -29,7 +29,10 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, terrainColumns } from "../terrain/runs";
+import { fallsReason, newFalls, stackableTops } from "../terrain/support";
+import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
+import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { rawEntity } from "../format/entities";
@@ -529,23 +532,76 @@ export class MapSession {
     return { x: this.gen.base.sizeX, y: this.gen.base.sizeY };
   }
 
-  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, with an imported
-   *  map's caves and overhangs kept exactly. A fresh copy. */
+  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, an imported map's
+   *  caves and overhangs with their top runs shaped as the edits left them and everything under a
+   *  roof kept exactly (D280 (3)). A fresh copy. */
   get terrain(): ColumnTerrain {
     const { x: W, y: H } = this.size;
     return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
   }
 
-  /** Whether a tile is one plain run from the bottom: no cave or overhang, so the tools may shape it.
+  /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
+   *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map. */
   plainAt(i: number): boolean {
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
   }
 
-  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels), for the voxel
-   *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
+  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels) as they stand,
+   *  for the voxel mesher: the brushes shape their top runs (D280 (3)), nothing else changes them.
+   *  Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
-    return this.mode === "live" ? new Map() : this.baseStuff().terrain.columns;
+    if (this.mode === "live") return new Map();
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size || b.heights === this.cur.heights) return b.columns;
+    const c = this.columnsCache;
+    if (c && c.key === this.cur.heights) return c.columns;
+    const t = b.terrain.withSurface(this.cur.heights);
+    const columns = new Map<number, Uint8Array>();
+    for (const [i, was] of b.columns) columns.set(i, t.surface(i) === b.heights[i] ? was : t.column(i, LAYERS));
+    this.columnsCache = { key: this.cur.heights, columns };
+    return columns;
+  }
+  private columnsCache: { key: Uint8Array; columns: Map<number, Uint8Array> } | null = null;
+
+  /** The blocks of ground the map as it stands would lose that it did not lose as `before` (D121,
+   *  D280 (3)): what the last step makes fall, by cell (z·N + tile). Empty on a heightfield, and
+   *  when neither the ground nor the objects holding ground changed. */
+  private fallsSince(before: BuildResult): number[] {
+    if (this.mode === "live") return [];
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size) return [];
+    const { W, H } = b;
+    const now = this.cur;
+    const tops0 = stackableTops(W, H, before.entities);
+    const tops1 = stackableTops(W, H, now.entities);
+    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k])) return [];
+    return newFalls(b.terrain.withSurface(before.heights), b.terrain.withSurface(now.heights), tops0, tops1);
+  }
+
+  /** How many blocks of ground an operation just put in the log would make fall, worked out from the
+   *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
+   *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
+   *  it covers the rest, D280 (3)). */
+  private fallsAhead(op: EditOp): number {
+    if (this.mode === "live" || (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult")) return 0;
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size) return 0;
+    const { heights } = previewTerrain(this.cur, this.input());
+    if (sameBytes(heights, this.cur.heights)) return 0;
+    // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, b.W, b.H), this.cur.heights, heights, b.W).length) return 0;
+    const tops = stackableTops(b.W, b.H, this.cur.entities);
+    return newFalls(b.terrain.withSurface(this.cur.heights), b.terrain.withSurface(heights), tops, tops).length;
+  }
+
+  /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
+   *  taken, the map back to `before`. */
+  private refuseStep(mark: HistoryMark, seq: number, before: BuildResult): void {
+    const step = this.stepSince(mark);
+    if (!step) return;
+    this.snaps.set(mark.depth, before);
+    if (this.takeBack(step)) this.seqNext = seq;
   }
 
   /** The ground of the map as it was opened (its stored base, before the edits): the forces derive
@@ -605,9 +661,23 @@ export class MapSession {
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+      ...(base && base.columns.size ? this.roofState(base) : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
+    };
+  }
+
+  /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
+   *  each roof's top may go, the terrain's masks of those tiles as they stand, and the objects' tops
+   *  that hold ground (StrokePreview `falls`). */
+  private roofState(base: BaseTerrain): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
+    const tiles = [...base.columns.keys()].sort((a, b) => a - b);
+    const t = base.terrain.withSurface(this.cur.heights);
+    return {
+      floor: base.terrain.topFloors(),
+      masks: Uint32Array.from(tiles, (i) => t.mask[i]),
+      stackTops: Int32Array.from(stackableTops(base.W, base.H, this.cur.entities)),
     };
   }
 
@@ -772,11 +842,25 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
+    // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
+    const ahead = this.fallsAhead(op);
+    if (ahead) {
+      invertOp(this.st, applied);
+      this.log.pop();
+      this.seqNext = seq;
+      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+    }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
     const again = this.rideTilted([op], before, mark, seq);
     if (again) return this.ridden(() => this.apply(again[0], origin, label));
+    // nothing an edit does may leave ground the game would drop (D121, D280 (3)): refused, with why
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
 
@@ -836,6 +920,11 @@ export class MapSession {
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
@@ -1372,7 +1461,11 @@ function topWater(singletons: JsonObject, W: number, H: number, heights: Uint8Ar
     depth[i] = w.depth[k];
     contamination[i] = w.contamination[k];
   }
-  return { settled: true, ticks: 0, depth, contamination, sat: new Uint8Array(N), preview: true };
+  // (its saturation, as the settle's own is worked out from where water stands: the soil the build
+  // makes from this water before its first settle is the file's water's, not a dry map)
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0 ? 1 : 0;
+  return { settled: true, ticks: 0, depth, contamination, sat: clusterSaturation(wet, W, H), preview: true };
 }
 
 /** Whether two water models are the same map for the water (floors, obstacles and emitters). */

@@ -102,6 +102,9 @@ export interface ViewUpdate {
    *  its own copy, exactly as the build applies them). */
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
+   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+  columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
   /** The soil the ground's colours show; it follows the water (Map look, D86). */
@@ -318,6 +321,12 @@ function soilKey(s: MapSession): unknown {
   return s.showsStoredWater ? "stored" : s.built.moisture;
 }
 
+/** Whether a roof's top changed between two surfaces. */
+function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
+  for (const i of s.roofedTiles) if (a[i] !== b[i]) return true;
+  return false;
+}
+
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
@@ -393,6 +402,8 @@ function viewUpdate(s: MapSession): ViewUpdate {
     if (rect) {
       out.heights = b.heights.slice();
       out.terrainRect = rect;
+      // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
+      if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
   if (water !== prev.water) out.water = waterOf(s);

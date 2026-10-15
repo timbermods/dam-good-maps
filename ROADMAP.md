@@ -633,7 +633,10 @@ After the view (D280 (3)).
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop.
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
-   (1)): on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
+   (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
+   that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
+   what the page and renderer still take are in [docs/progress/3d-creating.md](docs/progress/3d-creating.md)):
+   on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
    plan for cave carving to extend the top bar's Carve force (D182, D184; that plan is dropped —
    Erode is the magic tool and the block tool is the precision one, D279).
 4. Undo and generate-keeping-edits. Imported caves become editable (D40 retires).

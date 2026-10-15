@@ -1350,12 +1350,16 @@ export class MapRenderer {
     return instances;
   }
 
-  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed. */
-  updateTerrain(heights: Uint8Array): number {
+  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
+   *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
+   *  roof's top (D280 (3)); those tiles are drawn from them. */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const rect = changedRect(m.W, m.H, m.heights, heights);
+    let rect = changedRect(m.W, m.H, m.heights, heights);
+    // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
+    if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1365,6 +1369,7 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
+    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -3088,4 +3093,26 @@ function oneObject(template: string, orientation: number): EntityView {
     strength: Float32Array.of(0),
     ids: [""],
   };
+}
+
+/** The rectangle of tiles whose column differs between two column maps (null: none). */
+function columnsChanged(a: ReadonlyMap<number, Uint8Array>, b: ReadonlyMap<number, Uint8Array>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  const add = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  };
+  for (const [i, c] of b) {
+    const was = a.get(i);
+    if (!was || was.some((v, z) => v !== c[z])) add(i);
+  }
+  for (const i of a.keys()) if (!b.has(i)) add(i);
+  return r;
+}
+
+/** Two rectangles' bounds (either may be null). */
+function grownRect(a: { x0: number; y0: number; x1: number; y1: number } | null, b: { x0: number; y0: number; x1: number; y1: number } | null): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (!a || !b) return a ?? b;
+  return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
 }

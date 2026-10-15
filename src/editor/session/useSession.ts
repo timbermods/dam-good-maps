@@ -509,6 +509,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
   const soilTimer = useRef(0);
+  // (a map opened while the soil still grows: this map's colours never land on the next one)
+  useEffect(() => () => clearTimeout(soilTimer.current), []);
   function growSoil(r: MapRenderer, from: SoilView, to: SoilView) {
     clearTimeout(soilTimer.current);
     const t0 = performance.now();
@@ -620,7 +622,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   /** The worker's latest land and terrain, held while the page's own is ahead of it (`takeLand`). */
-  const heldLand = useRef<{ heights?: Uint8Array; terrain?: TerrainState }>({});
+  const heldLand = useRef<{ heights?: Uint8Array; columns?: ViewUpdate["columns"]; terrain?: TerrainState }>({});
   /** Put the worker's latest land in place once nothing the page painted is its own alone: no stroke being painted
    *  and none on its way to the worker. Until then the page's land is ahead of the worker's, and the worker's would
    *  take away what the page shows (#410). When it goes in, the page's strokes are checked against it: the same,
@@ -640,7 +642,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         }
       }
       m.heights = held.heights;
-      renderer.current?.updateTerrain(held.heights);
+      renderer.current?.updateTerrain(held.heights, held.columns);
     }
     if (held.terrain) ed.terrain.current = held.terrain;
   }
@@ -654,6 +656,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
     if (v.heights) heldLand.current.heights = v.heights;
+    // (a roof's top an edit reshaped: its columns go in with the land, D487)
+    if (v.columns) heldLand.current.columns = v.columns;
     if (v.terrain) heldLand.current.terrain = v.terrain;
     takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
