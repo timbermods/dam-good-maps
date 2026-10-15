@@ -51,11 +51,12 @@ no full run by hand except for a release.
 | (branch) | The `3d-foundations-done` release's probe batch | milestone | `probe/3d-foundations-gate`; the release also waits on the full run on dev and the nightly |
 | #467 | Islands: first-visit and import checks (maps pass `water.no_flood` again; unblocks the deploy) | milestone | Open |
 | #468 | Erode: its wear plays in the editor; its operation test follows force rolls (D488) | milestone | Open |
-| #469, #470 | Real places: the tool runs again, and the nightly checks they stay current; an opened file's generator size uses each theme's smallest side | page and milestone | Open |
+| #469, #470 | Real places: the tool runs again, and the nightly checks they stay current; an opened file's generator size uses each theme's smallest side | planning | Open |
 | #463 | Erode: dust and falling stones | forces play | Ready to merge |
-| #464 | CSS foundations: one set of colour tokens, motion tokens, safe overflow and focus (no layout change) | page | Open |
+| #464 | CSS foundations: one set of colour tokens, motion tokens, safe overflow and focus (no layout change) | planning | In look review |
 | #443 | Collaborative editing, part 6a: the Together panel, invite and join, pause, notes and the partner's cursor | page | Open; parts 1, 2, 4 and 5 are in dev (D486) |
-| #404, #403, #399 | Drought, Badtide and the drought line on cave imports (the stacked engine, #391); cave imports settle fast after an edit (#380); the 20-second tour (D377) | milestone and page | Open |
+| #404, #403 | Drought, Badtide and the drought line on cave imports (the stacked engine, #391); cave imports settle fast after an edit (#380) | milestone | Retargeted to dev after #370; dev being merged in |
+| #399 | The 20-second tour (D377) | planning | Paused by D488 |
 | #303 | Codex page hunt (draft) | Codex | Running |
 | #279 | Dam sketch round 3 | milestone | Closed, out of the order (D485); branch kept |
 | #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
@@ -71,9 +72,12 @@ no full run by hand except for a release.
    editing parts 1, 2, 4 and 5.
 3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
    full suites run on dev after the merge.
-4. **Next in the order (D485, D488):** 3D in generation part 1 (in flight), the Weather view (#404 and #403 open), the 3D
-   view's remaining parts, collaborative editing's page (#443), polish until mature, M12. The dam sketch is out of the order
-   (D485); its branches are kept.
+4. **Next in the order (D488, the three weeks to showcase-quality maps):** fixes first (Real places' open edges, Islands'
+   checks, dev's red tests); 3D in generation part 1 (spring caves, sheltering overhangs, arches; in flight), with weather on
+   cave imports (#404) and their fast settle (#403) brought onto dev; then generation with intent: Showcase mode, landmarks
+   steered into view, ruins placed with meaning, the opening shot. The renderer and the page follow D488's (3) and (4).
+   Paused until then: collaborative editing after #443, sizes above 256, the tour (#399), M13's passes, Pick a place, Real
+   places' second round. The dam sketch is out of the order (D485); its branches are kept.
 
 ## Expected failures, in one place
 
