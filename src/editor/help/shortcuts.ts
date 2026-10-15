@@ -47,7 +47,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       title: "Brushes, forces and items",
       rows: [
         { what: "Size", keys: [...SIZE_KEYS] },
-        { what: "Strength or power", keys: STRENGTH_KEYS.filter((k) => k !== "F+scroll") },
+        { what: "Strength, power or density", keys: STRENGTH_KEYS.filter((k) => k !== "F+scroll") },
         { what: "Turn the item in hand", keys: ["R"] },
         { what: "Flip the fault's side (Quake)", keys: ["V"] },
         { what: "Pause or resume a force at work", keys: ["Space"] },
@@ -57,7 +57,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     {
       title: "With the mouse",
       rows: [
-        { what: "Set the strength or power", keys: ["F+scroll"] },
+        { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
         { what: "Swap Raise and Lower as you paint", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },

@@ -26,7 +26,7 @@ import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, roofsButto
 export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
-    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick,
+    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, heldTick,
     shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
   } = ed;
   const drawerOpen = props.drawerOpen;
@@ -82,7 +82,7 @@ export function editorView(ed: Ed, props: EditorProps) {
                 renderer={renderer.current}
                 heights={() => mirror.current.heights}
                 depth={() => mirror.current.water?.depth ?? null}
-                stamp={`${info.version}:${waterTick}`}
+                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}`}
               />
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>

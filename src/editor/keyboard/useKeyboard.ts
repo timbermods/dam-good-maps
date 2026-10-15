@@ -149,7 +149,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         painter.current.endResize(false);
         return;
       }
-      if (ev.key === "Escape" && forceSizing.current) {
+      if (ev.key === "Escape" && (forceSizing.current || ed.paintSizing.current)) {
         endForceSize(false);
         return;
       }
