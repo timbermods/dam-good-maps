@@ -56,6 +56,8 @@ declare global {
       /** The open map is kept in Your maps as it stands now: nothing waiting to be saved, and its stored row at the
        *  map's `version` (a test waits on it before leaving the page, never on a fixed time). */
       kept?(version: number): boolean;
+      /** The e2e build only: true while a test (window.__dgmForceFail, a count) wants the next map to fail its checks. */
+      forceFail?(): boolean;
     };
   }
 }
@@ -72,6 +74,16 @@ window.dgm = {
     return { sha256: r.sha256, bytes: r.timber.length, passed: r.passed, ms: r.ms, ticks: r.facts.settle.ticks };
   },
   kept: (version: number) => keptNow(version),
+  ...(import.meta.env.MODE === "e2e"
+    ? {
+        forceFail() {
+          const w = window as unknown as { __dgmForceFail?: number };
+          const n = Number(w.__dgmForceFail ?? 0);
+          if (n > 0) w.__dgmForceFail = n - 1;
+          return n > 0;
+        },
+      }
+    : {}),
   current() {
     return shown ? { made, ms: shown.ms, attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
@@ -642,11 +654,8 @@ export function App() {
         seedWord,
       );
       if (id !== runId.current) return null;
-      // (the end-to-end build lets a test make the first maps fail: window.__dgmForceFail counts them down)
-      const hook = window as unknown as { __dgmForceFail?: number };
-      const forced = import.meta.env.MODE === "e2e" ? Number(hook.__dgmForceFail ?? 0) : 0;
-      if (forced > 0) hook.__dgmForceFail = forced - 1;
-      if (!r.passed || forced > 0) {
+      // (the end-to-end build lets a test make the first maps fail: dgm.forceFail)
+      if (!r.passed || (globalThis as unknown as Window).dgm?.forceFail?.()) {
         const failed = `No valid map after ${r.attempts} attempts.${session ? " Try another seed." : ""}`;
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));

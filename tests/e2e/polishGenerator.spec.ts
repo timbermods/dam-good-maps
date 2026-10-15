@@ -30,9 +30,11 @@ test("a share link shows the editor's frame and its progress at once, long befor
       return out;
     });
   const inFrame = await spots();
-  expect(Object.keys(inFrame).sort()).toEqual(["File", "History", "Look", "Save to Timberborn"]);
+  // (Look is in both, or in neither where the browser draws in software, as CI's does)
+  expect(Object.keys(inFrame)).toEqual(expect.arrayContaining(["File", "History", "Save to Timberborn"]));
   await waitForEditor(page);
   const inEditor = await spots();
+  expect(Object.keys(inEditor).sort()).toEqual(Object.keys(inFrame).sort());
   for (const k of Object.keys(inFrame)) expect(Math.abs(inEditor[k] - inFrame[k]), k).toBeLessThanOrEqual(1);
   await expect(frame).toHaveCount(0);
 });

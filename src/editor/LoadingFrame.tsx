@@ -4,6 +4,8 @@
 // visible at once). It shows the real header, bar and shelf, so it follows them; nothing in it takes a click.
 
 import type { ComponentChildren } from "preact";
+import { useState } from "preact/hooks";
+import { softwareRendering } from "../render3d/renderer";
 import { canSaveToTimberborn } from "../platform";
 import type { SessionInfo } from "../worker/session";
 import type { ItemActions } from "./panels";
@@ -26,6 +28,8 @@ export interface LoadingFrameProps {
 }
 
 export function LoadingFrame(p: LoadingFrameProps) {
+  // (the editor's Look button is there unless the browser draws in software, where the view has only the light look)
+  const [look] = useState(() => !(softwareRendering() && !window.dgmLookTest?.gpu));
   return (
     <div class="editor loading-frame" inert aria-busy="true">
       <Header
@@ -53,11 +57,13 @@ export function LoadingFrame(p: LoadingFrameProps) {
         placesOpen={false}
         onPlaces={nothing}
         look={
-          <button type="button" class="ghost" tabIndex={-1}>
-            <span class="look-words">
-              <span>Look: Standard</span>
-            </span>
-          </button>
+          look ? (
+            <button type="button" class="ghost" tabIndex={-1}>
+              <span class="look-words">
+                <span>Look: Standard</span>
+              </span>
+            </button>
+          ) : null
         }
       />
       <div class="editor-main">
