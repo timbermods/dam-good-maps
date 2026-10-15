@@ -90,7 +90,8 @@ function draw(canvas: HTMLCanvasElement, l: { W: number; H: number; heights: Uin
   ctx.putImageData(img, 0, 0);
 }
 
-export function FirstLook({ progress }: { progress: Progress | null }) {
+/** `quiet`: the land alone, its words said elsewhere (the progress dialog over the editor's frame). */
+export function FirstLook({ progress, quiet = false }: { progress: Progress | null; quiet?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const shown = progress?.candidate ?? progress?.land ?? null;
   useEffect(() => {
@@ -98,10 +99,16 @@ export function FirstLook({ progress }: { progress: Progress | null }) {
   }, [shown]);
   return (
     <div class="first-look">
-      {shown ? <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "Your map, its water settled" : "The land so far, before its water is settled"} /> : null}
-      <p role="status" class="first-look-stage">
-        {progressText(progress)}
-      </p>
+      {shown ? (
+        <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "Your map, its water settled" : "The land so far, before its water is settled"} />
+      ) : quiet ? (
+        <div class="first-look-map first-look-empty" aria-hidden="true" />
+      ) : null}
+      {quiet ? null : (
+        <p role="status" class="first-look-stage">
+          {progressText(progress)}
+        </p>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { View3D } from "../../ui/View3D";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
 import { measureInsets } from "../view/insets";
-import { livingTrees } from "../features";
+import { mapCounts } from "../features";
 import { GeneratorPanel } from "../generator/GeneratorPanel";
 import { YourMaps } from "../generator/YourMaps";
 import { RealPlaces } from "../generator/RealPlaces";
@@ -36,7 +36,7 @@ export function editorView(ed: Ed, props: EditorProps) {
     <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}`} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
-        {drawerOpen ? <GeneratorPanel model={props.drawer} info={info} icon={(t) => icons[t] ?? null} trees={livingTrees(mirror.current.entities)} /> : null}
+        {drawerOpen ? <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} /> : null}
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
@@ -46,7 +46,7 @@ export function editorView(ed: Ed, props: EditorProps) {
             <View3D
               view={view}
               class="editor-view"
-              label={`3D view of ${info.name}. Drag to turn, right-drag to move, wheel to zoom.`}
+              label={`3D view of ${info.name}. Middle-drag to turn, right-drag to move, wheel to zoom.`}
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               markersToggle={ed.markersToggle}
@@ -94,11 +94,6 @@ export function editorView(ed: Ed, props: EditorProps) {
               ) : startReach ? (
                 <div class={`start-reach${startReach.fading ? " fading" : ""}`}>
                   <StartIndicators check={startReach.check} rules={needs.rules} />
-                </div>
-              ) : null}
-              {busy > 0 ? (
-                <div class="working" role="status">
-                  Working…
                 </div>
               ) : null}
             </View3D>

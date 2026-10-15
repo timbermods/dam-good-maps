@@ -26,6 +26,8 @@ Neither the page nor the milestone session touches the other's files: the page s
 interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
 (#236, D470); what waits for Kyler carries the `needs-kyler` label.
 
+For the next three weeks (D488): 3D creation first (#370, the Foundations release, the Block tool, Erode, 3D in generation), then generation with intent (Showcase mode, landmarks, ruins with meaning, custom sizes up to 256², the opening shot), with the renderer and the page working alongside; collaborative editing, sizes above 256, the tour, M13's accessibility and Lighthouse passes, Pick a place and Real places 2 are paused.
+
 **0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
 
 - **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
@@ -375,7 +377,7 @@ Not yet scheduled.
   widen abruptly. Pending #83: the new trees in Standard, only if they cost little on real hardware (D241). Optional, later:
   richer or higher-resolution textures, softened block edges and grass lips, full-resolution rendering and anti-aliasing, more
   detailed bush and ruin models, dry contaminated ground's cracks a little more visible from far away. Visible seasons
-  (#67's stage, with D250's badtide withering) join the Weather view, so they aren't drawn twice (D286 (4)).
+  (#67's stage, with D250's badtide withering) are built with the Weather view, so they aren't drawn twice (D286 (4)).
 
 ---
 
@@ -631,9 +633,14 @@ After the view (D280 (3)).
    other forces' investigations, until Kyler has tried it.
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
-   brushes; shows at once any block the game's support rule would drop.
+   brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
+   operation, the support check and the `blockFalls` query, in
+   [docs/progress/3d-creating.md](docs/progress/3d-creating.md); the interface is the page's.)
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
-   (1)): on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
+   (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
+   that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
+   what the page and renderer still take are in [docs/progress/3d-creating.md](docs/progress/3d-creating.md)):
+   on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
    plan for cave carving to extend the top bar's Carve force (D182, D184; that plan is dropped —
    Erode is the magic tool and the block tool is the precision one, D279).
 4. Undo and generate-keeping-edits. Imported caves become editable (D40 retires).
@@ -747,6 +754,16 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
+   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in High only, the plants the game
+   would surely have killed by then are drawn withered, by the game's timers, not the editor's instant rule
+   (`core/sim/withering.ts`, pure, `tests/unit/withering.test.ts`): dry for 1.1 x the species' `DaysToDieDry` in a row
+   (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
+   soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
+   drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
+   (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
+   heat shimmer and the badtide's sky follow (#67's stage 4).
+
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
    temperate days, drawn from the difficulty's range, so it is a range: a core at cycle 5 and 10.5 days, goes off
@@ -943,6 +960,20 @@ reported. PLAN §20 D357 has the whole decision.
   cleared sources and the flood selection are bounded by the area too. Anything past this map's own edge is still refused
   with its one-line reason (`tests/contract/editLimits.test.ts`). The Rust forces check no coordinates, so none changed.
   The brush radius ladder stays at 128.
+- **The renderer at every size (done, `feature/renderer-custom-sizes`):** checked in real Chrome on the RTX 2070 SUPER at 512x512,
+  512x96, 96x512, 7x300, 4x4 and 256x256 (`tools/size-fixtures.ts` makes the maps, `tools/capture-sizes.ts` captures,
+  measures and profiles them; sheet `docs/sheets/renderer-custom-sizes.jpg`). Chunks, the tile, light, overlay and
+  contamination-edge textures (any size, none a power of two), the sun's shadows (2048 depth map framed to the map), the High
+  passes, water workers, the drought line and picking at the edges all draw correctly at every size. Fixed: the badwater
+  blend was made for the whole map each time a stroke's water was meshed, and is now made for the chunk's window only
+  (`blendInto`, byte-identical), which took painting at 512x512 from frames of 17.6 ms (p95) to 11.8 ms; a map at least 3 times
+  longer than wide opens turned along the view (`openingYaw`, `src/render3d/framing.ts`); the zoom's farthest distance
+  never falls under what holds a 4x4 map; a map under 64 a side is framed with its objects (a start is a building seven levels
+  high); the minimap's short side is at least 14 pixels (`src/editor/minimapSize.ts`). 512x512 builds in about 0.8 s and orbits
+  at the display's 165 Hz (GPU 3.0 ms Standard, 4.1 ms High; about 80 MB of textures). What falls short: every water update still
+  walks the whole map on the page's thread (`surfaceWater`, `waterMovedChunks`, and the arrays copied to the water workers),
+  about 6 ms at 512x512 while painting; making it proportional to the change needs the worker's water updates to name the
+  tiles that changed. There is no cave light volume (`caveLight.ts`) in the tree yet; it needs its own check at 512x512 when it lands.
 - **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
   and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
   side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs

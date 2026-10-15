@@ -74,10 +74,10 @@ export class CollabReplica {
   }
 
   /** A replica restored from a snapshot: the host's checkpoint opened as the project, its records, then the entries since applied. */
-  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void): CollabReplica {
+  static fromSnapshot(snapshot: Snapshot, playerId: PlayerId, events: ReplicaEvents = {}, configure?: (s: MapSession) => void, names?: Names): CollabReplica {
     const session = MapSession.open(decodeProject(snapshot.project));
     configure?.(session);
-    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure);
+    const r = new CollabReplica(session, playerId, { epoch: snapshot.epoch, seq: snapshot.checkpointSeq, counter: snapshot.counters[playerId] ?? 0 }, events, configure, names);
     const done = r.adopt(snapshot, false);
     if (!done.ok) throw new Error(done.reason);
     return r;
@@ -99,7 +99,8 @@ export class CollabReplica {
     this.records.restoreFences(N, snapshot.fences);
     this.epoch = snapshot.epoch;
     this.seq = snapshot.checkpointSeq;
-    this.counter = snapshot.counters[this.playerId] ?? this.counter;
+    // (a host that restarted counts from nothing: a guest that kept its old number would be refused for good)
+    this.counter = snapshot.counters[this.playerId] ?? 0;
     this.status = "live";
     this.opening = null;
     // (the checkpoint's water is settled: the project was saved only so)

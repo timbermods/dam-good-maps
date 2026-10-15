@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { createSocket } from "node:dgram";
 import { createServer as createTcpServer } from "node:net";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -65,7 +65,23 @@ export interface Stack {
   /** The page the harness runs on (an origin the function accepts). */
   pageUrl: string;
   turnPort: number;
+  /** The relay, to be taken away and brought back (a network drop). */
+  relay: { stop(): void; start(): void };
+  /** The session page (the real worker, the real client; tests/collab/sessionPage.ts), when asked for with `sessionPage`. */
+  sessionUrl: string;
   stop(): Promise<void>;
+}
+
+/** The session page built the way the app is (the real worker, bundled by Vite), into a temp folder. */
+export async function buildSessionPage(outDir: string): Promise<void> {
+  await build({
+    root: here,
+    configFile: false,
+    logLevel: "silent",
+    base: "./",
+    worker: { format: "es" },
+    build: { outDir, emptyOutDir: true, target: "es2022", minify: false, rollupOptions: { input: path.join(here, "session.html") } },
+  });
 }
 
 /** The harness page's script, bundled from tests/collab/harness.ts (and src/collab). */
@@ -87,6 +103,8 @@ export interface StackOptions {
   turnTtlSeconds?: number;
   /** More settings of the function (MAX_DAILY_MINTS and the like). */
   vars?: Record<string, string>;
+  /** Build and serve the session page (the real worker); takes a little longer to start. */
+  sessionPage?: boolean;
 }
 
 export async function startStack(options: StackOptions = {}): Promise<Stack> {
@@ -112,7 +130,24 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       debugLevel: "OFF",
     });
     turn.start();
-    cleanups.push(() => turn.stop());
+    let relayUp = true;
+    const relay = {
+      stop: () => {
+        if (relayUp) {
+          try {
+            turn.stop();
+          } catch {
+            /* already stopped */
+          }
+        }
+        relayUp = false;
+      },
+      start: () => {
+        if (!relayUp) turn.start();
+        relayUp = true;
+      },
+    };
+    cleanups.push(() => relay.stop());
 
     // the function
     const workerPort = await freeTcpPort();
@@ -160,8 +195,27 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
 
     // the page
     const bundle = await bundleHarness();
+    let sessionDir: string | null = null;
+    if (options.sessionPage) {
+      sessionDir = mkdtempSync(path.join(tmpdir(), "dgm-collab-page-"));
+      const dir = sessionDir;
+      cleanups.push(() => {
+        try {
+          rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        } catch {
+          /* left to the system's temp cleanup */
+        }
+      });
+      await buildSessionPage(sessionDir);
+    }
+    const TYPES: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json" };
     const page = createServer((req, res) => {
-      if (req.url === "/harness.js") res.writeHead(200, { "content-type": "text/javascript" }).end(bundle);
+      const url = (req.url ?? "/").split("?")[0];
+      if (sessionDir && url.startsWith("/session/")) {
+        const file = path.join(sessionDir, path.normalize(url.slice("/session/".length) || "session.html"));
+        if (file.startsWith(sessionDir) && existsSync(file)) res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
+        else res.writeHead(404).end();
+      } else if (url === "/harness.js") res.writeHead(200, { "content-type": "text/javascript" }).end(bundle);
       else res.writeHead(200, { "content-type": "text/html" }).end('<!doctype html><title>collab harness</title><script src="/harness.js"></script>');
     });
     const pagePort = await freeTcpPort();
@@ -174,7 +228,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         }),
     );
 
-    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, turnPort, stop };
+    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, turnPort, relay, stop };
   } catch (e) {
     await stop();
     throw e;
