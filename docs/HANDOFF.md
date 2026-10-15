@@ -104,8 +104,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     interaction change's captures).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
     session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
-    session checks them and green CI, then merges (through the merge queue once #377's ruleset exists; directly on green until then,
-    with a full CI run by hand first for core and Rust changes). The planning session's own PRs are merged by this session
+    session checks them and the PR's quick checks (typecheck, quick suite, build), then merges; the browser specs and the
+    suites run on dev after the merge (Kyler, 2026-10-15). The planning session's own PRs are merged by this session
     after a fresh sub-agent's review.
   - *Design questions* go to the planning session first, on #236: it answers those Kyler's recorded decisions settle,
     citing them, and sends only the rest to him as `needs-kyler` issues.
@@ -189,8 +189,11 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
-- **Merging** (D341): nothing merges into `dev` red, ever; a feature branch merges green too, except by Kyler's explicit
-  word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
+- **Merging** (D341, amended by Kyler 2026-10-15): a change merges into `dev` once it is reviewed and its quick checks
+  (typecheck, the quick suite, the build) are green. The browser specs and the suites the change needs run on dev's tip
+  after the merge (one run at a time; only the newest merge waits), and the nightly checks dev's tip; a failure there is
+  fixed forward at once by whoever's merge broke it, or that merge is reverted. No full run by hand except for a
+  release. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
   go into their topic file in `docs/decisions/`, with a line in its index (the next is **D489**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
