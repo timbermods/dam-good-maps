@@ -88,7 +88,12 @@ refusals).
   tile is its first free layer, so the top of a level-8 tile is layer 7.
 - **Add** puts a block in the cell beyond each swept face (`at + normal`), **remove** takes the swept blocks themselves; each
   across the footprint in the plane: a square of `size` blocks, or the disc of that diameter (`shape: "round"`); offsets
-  run from −⌊(size−1)/2⌋ for `size` blocks. A cell that already holds a block (add) or none (remove) is skipped.
+  run from −⌊(size−1)/2⌋ for `size` blocks. A cell that already holds a block (add) or none (remove) is skipped, and so is
+  an add's cell with no block to put it against (each swept position and footprint cell checks its own face; a drag over a
+  gap never leaves a floating block). Only an operation that would change nothing at all is refused.
+- The session fills in `params.cells` (the blocks changed, pairs [tile, layers]) when it takes the operation; the build and
+  every replay apply those literally. A caller never sends it. An operation moves no tile but its own: the integrity pass
+  never tidies the tiles beside a dug one.
 - **Refusals**, never clamped, one line, nothing logged: `(x, y) is outside the map`; `layer 22 is above the highest layer
   (21)` (layer 22 stays empty) or `below the lowest layer (0)`; `(x, y) has no block in layer z to point at` (`at[0]` must be
   solid); `an object stands at (x, y) in layer z` (an add into an object's cell, or a remove of one); `an object stands on
@@ -102,7 +107,9 @@ refusals).
 `added` and `removed` are exactly the blocks the click changes (the ghost), `falls` the blocks of ground that would drop
 (red), `reason` the one line `apply` would refuse with (the same string), `null` when it would be taken. `errors` is the
 refusal when the operation cannot be taken at all (then the three lists are empty). `apply` runs the same check before it
-logs anything, so the count in the refusal is the length of `falls`.
+logs anything, so the count in the refusal is the length of `falls`. The slope, like any object, holds its block: removing
+the block it stands on is refused with the object line. **The page should call `blockFalls` when the pointer's block
+changes, not on every move**: it costs 13–28 ms at 256² on a loaded machine.
 
 **What the session gives the page after a block edit.** `session.terrain`, `columns` (every tile that is not one plain run,
 for the mesher), `plainAt`, `roofedTiles`, `terrainState()` (`columns`, `floor`, `masks` for `StrokePreview.falls()`) and

@@ -384,7 +384,11 @@ export function isBlocks(p: SculptEdit["params"]): p is BlocksParams {
 
 /** A sculpt's tiles' bounds; a force's need the map's width (its tiles are indices). */
 export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
-  if (isBlocks(s.params)) return blockBounds(s.params, W || Infinity, Infinity);
+  if (isBlocks(s.params)) {
+    // (one tile more: the integrity pass may tidy the tiles beside the ones it digs; the build keeps them as they were)
+    const b = blockBounds(s.params, W || Infinity, Infinity);
+    return b && { x0: b.x0 - 1, y0: b.y0 - 1, x1: b.x1 + 1, y1: b.y1 + 1 };
+  }
   if (isBrush(s.params)) return brushBounds(s.params, Infinity, Infinity);
   if (isForce(s.params)) return forceBounds(s.params, W);
   let x0 = Infinity;
@@ -513,14 +517,17 @@ export interface BlockLayer {
   masks: Map<number, number>;
   floors: Uint8Array;
   base: ColumnTerrain | null;
+  /** The surface the integrity pass (step 7) gives a tile from the heights as they stand now: what the
+   *  map would show there if the step were the last. */
+  level: (i: number) => number;
 }
 
 /** A tile's mask now: the one a block operation left, or the ground's own, its top run following
- *  `heights` (a brush after a block shapes the top and nothing under it, D280 (3)). */
-function maskNow(layer: BlockLayer, heights: Uint8Array, i: number): number {
+ *  the surface `h` (a brush after a block shapes the top and nothing under it, D280 (3)). */
+function maskNow(layer: BlockLayer, h: number, i: number): number {
   const m = layer.masks.get(i);
-  if (m !== undefined) return surfaceOfMask(m) === heights[i] ? m : reshapeTop(m, heights[i]);
-  return layer.base ? reshapeTop(layer.base.mask[i], heights[i]) : plainMask(heights[i]);
+  if (m !== undefined) return surfaceOfMask(m) === h ? m : reshapeTop(m, h);
+  return layer.base ? reshapeTop(layer.base.mask[i], h) : plainMask(h);
 }
 
 /** Whether a tile is a cave, an overhang or floating ground now (what the forces and the features
@@ -530,19 +537,46 @@ export function layerCave(layer: BlockLayer, i: number): boolean {
   return m !== undefined ? !isPlainMask(m) : !!layer.base && !layer.base.isPlain(i);
 }
 
-/** Apply one block operation (step 6) to the region's tiles: each tile takes the cells added or removed
- *  in it, its surface follows its mask, the brushes' floor follows its top run, and the integrity pass
- *  leaves it as it is (like an exact stroke). */
+/** Apply one block operation (step 6) to the region's tiles. The ground it works on is the map as the
+ *  integrity pass would show it now (`layer.level`), so what a player sees and what a query says is
+ *  what the operation changes; a tile where no block changes is left alone. A changed tile takes its new
+ *  mask, its surface follows it, the brushes' floor follows its top run, and the integrity pass leaves it
+ *  as it is (like an exact stroke). The four tiles beside one keep the surface they had, even where the
+ *  pass would now tidy them (a pit or a spike its change made): an operation moves no tile but its own. */
 export function applyBlocks(p: BlocksParams, t: BuildTarget, layer: BlockLayer): void {
-  const { heights } = t;
-  for (const [i, bits] of blockTileBits(p, t.W, t.H)) {
+  const { heights, W, H } = t;
+  const changing = new Map<number, number>();
+  for (const [i, bits] of blockTileBits(p, W, H)) {
     if (!t.inRegion(i)) continue;
-    const m = blockTileMask(maskNow(layer, heights, i), bits, p.mode);
+    const m0 = maskNow(layer, layer.level(i), i);
+    const m1 = blockTileMask(m0, bits, p.mode);
+    if (m1 !== m0) changing.set(i, m1);
+  }
+  if (!changing.size) return;
+  // (what the beside tiles show now)
+  const beside = new Map<number, number>();
+  for (const i of changing.keys()) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const j = ny * W + nx;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || changing.has(j) || beside.has(j) || !t.inRegion(j)) continue;
+      beside.set(j, layer.level(j));
+    }
+  }
+  for (const [i, m] of changing) {
     layer.masks.set(i, m);
     heights[i] = surfaceOfMask(m);
     layer.floors[i] = isPlainMask(m) ? 0 : topRunFloor(m) + 1;
     t.protectedMask[i] = 1;
   }
+  for (const [j, was] of beside)
+    if (layer.level(j) !== was) {
+      heights[j] = was;
+      t.protectedMask[j] = 1;
+    }
 }
 
 /** The tiles' masks a build leaves: each as the operations left it, its top run on the final surface. */

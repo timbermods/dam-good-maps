@@ -42,6 +42,11 @@ export interface BlocksParams {
   size: number;
   /** "square" when absent. */
   shape?: "square" | "round";
+  /** The blocks the operation changed, as the session found them when it took it (an add's new
+   *  blocks, a remove's old ones): pairs [tile, layers] by ascending tile, `layers` the bits (layer z =
+   *  1 << z) changed in that tile. The build applies these literally, so a replay never looks at the
+   *  ground again. Absent on the operation a caller gives; the session fills it in. */
+  cells?: number[];
 }
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -58,6 +63,7 @@ export function blockProblems(p: BlocksParams, W: number, H: number): string[] {
   if (!p.at.every((c) => Array.isArray(c) && c.length === 3 && c.every(isInt))) return ["a block is named by three whole numbers: x, y, layer"];
   if (!isInt(p.size) || p.size < BLOCK_SIZE_MIN || p.size > BLOCK_SIZE_MAX) return [`a block's size is ${BLOCK_SIZE_MIN} to ${BLOCK_SIZE_MAX} blocks across`];
   if (p.shape !== undefined && p.shape !== "square" && p.shape !== "round") return ["a block's footprint is square or round"];
+  if (p.cells !== undefined && !(Array.isArray(p.cells) && p.cells.length % 2 === 0 && p.cells.every((c, k) => isInt(c) && (k % 2 ? c > 0 && c < 1 << (BLOCK_TOP_LAYER + 1) : c >= 0 && c < W * H)))) return ["a block operation's cells are pairs [tile, layers] on the map"];
   const axis = axisOf(p.side);
   for (const c of p.at) {
     if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return [`(${c[0]}, ${c[1]}) is outside the map`];
@@ -88,13 +94,14 @@ function footprint(size: number, shape: "square" | "round"): [number, number][] 
 
 /** The cells an operation acts on, as voxel coordinates, ascending by layer, then y, then x, each
  *  once: an add's are the cells beyond the swept faces, a remove's the swept blocks, each across the
- *  footprint. Cells off the map or the layers are returned as they are (`blockCells` refuses them). */
-export function blockTargets(p: BlocksParams): [number, number, number][] {
+ *  footprint. Cells off the map or the layers are returned as they are (`blockEffect` refuses them).
+ *  `face` is the block each one is against (an add) or is (a remove). */
+export function blockTargets(p: BlocksParams): { cell: [number, number, number]; face: [number, number, number] }[] {
   const axis = axisOf(p.side);
   const n = NORMAL[p.side];
   const off = footprint(p.size, p.shape ?? "square");
   const seen = new Set<string>();
-  const out: [number, number, number][] = [];
+  const out: { cell: [number, number, number]; face: [number, number, number] }[] = [];
   // (the plane's two axes, in order)
   const u = axis === 0 ? 1 : 0;
   const v = axis === 2 ? 1 : 2;
@@ -103,6 +110,7 @@ export function blockTargets(p: BlocksParams): [number, number, number][] {
       const cell: [number, number, number] = [c[0], c[1], c[2]];
       cell[u] += a;
       cell[v] += b;
+      const face: [number, number, number] = [cell[0], cell[1], cell[2]];
       if (p.mode === "add") {
         cell[0] += n[0];
         cell[1] += n[1];
@@ -111,10 +119,10 @@ export function blockTargets(p: BlocksParams): [number, number, number][] {
       const key = `${cell[0]},${cell[1]},${cell[2]}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push(cell);
+      out.push({ cell, face });
     }
   }
-  return out.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+  return out.sort((a, b) => a.cell[2] - b.cell[2] || a.cell[1] - b.cell[1] || a.cell[0] - b.cell[0]);
 }
 
 /** The tiles an operation can change (its cells' columns), clipped to the map; null when none. */
@@ -123,7 +131,10 @@ export function blockBounds(p: BlocksParams, W: number, H: number): Rect | null 
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
-  for (const [x, y] of blockTargets(p)) {
+  const tiles: [number, number][] = [];
+  if (p.cells) for (let k = 0; k < p.cells.length; k += 2) tiles.push([p.cells[k] % W, Math.floor(p.cells[k] / W)]);
+  else for (const t of blockTargets(p)) tiles.push([t.cell[0], t.cell[1]]);
+  for (const [x, y] of tiles) {
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     if (x < x0) x0 = x;
     if (x > x1) x1 = x;
@@ -142,7 +153,10 @@ export function objectCells(entities: readonly { template: string; x: number; y:
     if (!fp) continue;
     const comps = e.raw ? (e.raw.Components as { BlockObject?: unknown } | undefined) : undefined;
     if (e.raw && !(comps && typeof comps === "object" && comps.BlockObject)) continue;
-    for (const b of worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })) {
+    const blocks = worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped });
+    // (an object always holds the cell it stands in, whatever its footprint says: a slope's)
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z >= 0) out.add(e.z * W * H + e.y * W + e.x);
+    for (const b of blocks) {
       if (b.x >= 0 && b.y >= 0 && b.x < W && b.y < H && b.z >= 0) out.add(b.z * W * H + b.y * W + b.x);
     }
   }
@@ -171,14 +185,16 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, objects: Readonly
   if (!t.solid(fy * W + fx, fz)) return refuse(`(${fx}, ${fy}) has no block in layer ${fz} to point at`);
   const added: number[] = [];
   const removed: number[] = [];
-  for (const [x, y, z] of blockTargets(p)) {
+  for (const { cell: [x, y, z], face } of blockTargets(p)) {
     if (x < 0 || y < 0 || x >= W || y >= H) return refuse(`(${x}, ${y}) is outside the map`);
     if (z < 0 || z > BLOCK_TOP_LAYER) return refuse(layerProblem(z));
     const i = y * W + x;
     const cell = z * N + i;
     if (objects?.has(cell)) return refuse(`an object stands at (${x}, ${y}) in layer ${z}`);
     if (p.mode === "add") {
-      if (!t.solid(i, z)) added.push(cell);
+      // (a block goes only against a block: a cell with no face to put it against is skipped)
+      const inMap = face[0] >= 0 && face[1] >= 0 && face[0] < W && face[1] < H && face[2] >= 0 && face[2] <= BLOCK_TOP_LAYER;
+      if (!t.solid(i, z) && inMap && t.solid(face[1] * W + face[0], face[2])) added.push(cell);
     } else if (t.solid(i, z)) {
       // (the block an object stands on stays)
       if (objects?.has(cell + N)) return refuse(`an object stands on the block at (${x}, ${y}) in layer ${z}`);
@@ -187,6 +203,13 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, objects: Readonly
   }
   if (!added.length && !removed.length) return refuse(p.mode === "add" ? "there is no room for a block there" : "there is no block there to remove");
   return { errors: [], added, removed };
+}
+
+/** An effect's cells as an operation stores them (`BlocksParams.cells`): pairs [tile, layers] by ascending tile. */
+export function cellPairs(cells: readonly number[], N: number): number[] {
+  const byTile = new Map<number, number>();
+  for (const c of cells) byTile.set(c % N, (byTile.get(c % N) ?? 0) | (1 << Math.floor(c / N)));
+  return [...byTile].sort((a, b) => a[0] - b[0]).flat();
 }
 
 /** The terrain after an effect: a copy of `t` with the cells added and removed. */
@@ -198,12 +221,16 @@ export function withBlocks(t: ColumnTerrain, added: readonly number[], removed: 
   return new ColumnTerrain(t.W, t.H, mask);
 }
 
-/** The tiles an operation changes in the build's step 6, with each one's cells to set (`add`) or
- *  clear: tile → layer bits. Cells off the map or the layers are left out (an operation the session
- *  took has none). */
+/** The tiles an operation changes in the build's step 6, with each one's layer bits to set (an add) or
+ *  clear (a remove): tile → bits. The operation's own `cells` when the session filled them in; else
+ *  every cell it names (cells off the map or the layers are left out). */
 export function blockTileBits(p: BlocksParams, W: number, H: number): Map<number, number> {
   const out = new Map<number, number>();
-  for (const [x, y, z] of blockTargets(p)) {
+  if (p.cells) {
+    for (let k = 0; k + 1 < p.cells.length; k += 2) out.set(p.cells[k], p.cells[k + 1]);
+    return out;
+  }
+  for (const { cell: [x, y, z] } of blockTargets(p)) {
     if (x < 0 || y < 0 || x >= W || y >= H || z < 0 || z > BLOCK_TOP_LAYER) continue;
     const i = y * W + x;
     out.set(i, (out.get(i) ?? 0) | (1 << z));

@@ -11,6 +11,7 @@
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { BlocksParams } from "../core/doc/blockTool";
+import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
@@ -104,7 +105,9 @@ export interface ViewUpdate {
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
   /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
-   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+   *  (D280 (3)) or the Block tool dug or built ground (D335; then with `heights` and a `terrainRect`
+   *  even where the surface did not move): the voxel mesher draws those tiles from them, not from
+   *  `heights`. */
   columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
@@ -161,7 +164,7 @@ export interface ExportCheck extends CheckGroups {
 let session: MapSession | null = null;
 let version = 0;
 /** What the page last received, to send only what changed. */
-let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown; columns?: ReadonlyMap<number, Uint8Array> } | null = null;
+let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
 let originalFull: Validation | null = null;
 let lastCheck: ExportCheck | null = null;
@@ -328,19 +331,6 @@ function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
   return false;
 }
 
-/** Whether two sets of the map's columns that are not one plain run are the same (an absent set is an empty one). */
-function sameColumns(a: ReadonlyMap<number, Uint8Array> | undefined, b: ReadonlyMap<number, Uint8Array>): boolean {
-  if (a === b) return true;
-  if ((a?.size ?? 0) !== b.size) return false;
-  if (!a) return true;
-  for (const [i, c] of b) {
-    const was = a.get(i);
-    if (!was) return false;
-    for (let z = 0; z < LAYERS; z++) if (was[z] !== c[z]) return false;
-  }
-  return true;
-}
-
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
@@ -377,7 +367,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
 
 function markSent(s: MapSession): void {
   const b = s.built;
-  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain, columns: s.columns };
+  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
 }
 
 /** The map's heights and the terrain the page paints on, as they stand (the page takes them
@@ -405,6 +395,20 @@ export function sessionView(): SessionOpen {
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
 }
 
+/** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
+ *  they do not. */
+function diffMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (a === b) return null;
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  for (const i of new Set([...a.keys(), ...b.keys()])) {
+    if (a.get(i) === b.get(i)) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  }
+  return r;
+}
+
 function viewUpdate(s: MapSession): ViewUpdate {
   const b = s.built;
   const out: ViewUpdate = {};
@@ -427,11 +431,17 @@ function viewUpdate(s: MapSession): ViewUpdate {
       if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
-  // (ground the Block tool dug or built under the surface changes no height but it changes the columns: they go
-  // with the land so the page takes them in at once, an undo of it too)
-  if (!out.columns && !sameColumns(prev.columns, s.columns)) {
-    out.columns = columnsOf(s);
-    out.heights ??= b.heights.slice();
+  // (ground the Block tool dug or built under a surface that did not move: its columns go with the
+  // land as they do for a roof's top, and the page takes them with the heights, which are the same)
+  if (prev.terrain !== b.cache.terrain && !out.columns) {
+    const dug = diffMasks(masksOf(prev.terrain as typeof b.cache.terrain), masksOf(b.cache.terrain), b.W);
+    if (dug) {
+      out.columns = columnsOf(s);
+      if (!out.heights) {
+        out.heights = b.heights.slice();
+        out.terrainRect = dug;
+      }
+    }
   }
   if (water !== prev.water) out.water = waterOf(s);
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);
@@ -1183,9 +1193,10 @@ export function refine(): SessionOpen {
   return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
-/** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
-export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
-  return opened(MapSession.importMap(bytes, fileName));
+/** Open any .timber (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Saves are refused
+ *  with a message (ImportError). */
+export function openTimber(bytes: Uint8Array, fileName: string, place?: string): SessionOpen {
+  return opened(MapSession.importMap(bytes, fileName, place));
 }
 
 /** Open a project file (.damgoodmaps.json). */
@@ -1473,7 +1484,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
+  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
+  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
 }
 

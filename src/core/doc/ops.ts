@@ -568,9 +568,14 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
 }
 
 /** Why an operation cannot be applied now (empty when it can). */
+/** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
+export function schemaProblems(op: EditOp): string[] {
+  return checkSchema(OPS_SCHEMA, op).map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+}
+
 export function validateOp(op: EditOp, ctx: OpContext): string[] {
-  const schemaErrors = checkSchema(OPS_SCHEMA, op);
-  if (schemaErrors.length) return schemaErrors.map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+  const schemaErrors = schemaProblems(op);
+  if (schemaErrors.length) return schemaErrors;
   const { state, W, H } = ctx;
   const inMap = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H;
   const featureById = (id: string) => state.features.find((f) => f.id === id);

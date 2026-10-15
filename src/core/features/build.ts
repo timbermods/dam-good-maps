@@ -39,6 +39,7 @@ import {
   isBlocks,
   layerCave,
   integrityAt,
+  integrityLevel,
   lakeSpringTile,
   mouthTiles,
   rasterizeBench,
@@ -655,7 +656,13 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   // (the Block tool: the tiles its operations touched carry their own masks and floors, and are caves or
   // not by them, so the forces leave the ones it dug as they are)
   const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params));
-  const layer: BlockLayer | null = blocksIn ? { masks: new Map(), floors: layered ? topFloorsOf(layered)!.slice() : new Uint8Array(N), base: layered } : null;
+  // (what step 7 would show a tile from the heights as they stand: a block operation works on that)
+  const outside = prev ? prev.terrain.pre7 : null;
+  const got = (j: number) => (outside && !t.inRegion(j) ? outside[j] : heights[j]);
+  const lockedMask = locked?.mask;
+  const candidateNow = base ? (i: number) => got(i) !== base.heights[i] : field ? (i: number) => got(i) !== field.heights[i] && !lockedMask?.[i] : lockedMask ? (i: number) => !lockedMask[i] : () => true;
+  const ceiling = Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN);
+  const layer: BlockLayer | null = blocksIn ? { masks: new Map(), floors: layered ? topFloorsOf(layered)!.slice() : new Uint8Array(N), base: layered, level: (i: number) => integrityLevel(got, W, H, protect, channel, candidateNow, i, ceiling) } : null;
   if (layer && prev) for (const [i, m] of masksOf(prev.terrain)) if (!t.inRegion(i)) layer.masks.set(i, m);
   const caves = layer ? (i: number) => layerCave(layer, i) : layered ? (i: number) => !layered.isPlain(i) : undefined;
   const floors = layer ? layer.floors : layered ? topFloorsOf(layered) : null;

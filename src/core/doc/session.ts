@@ -29,7 +29,7 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
-import { blockEffect, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
+import { blockEffect, cellPairs, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
 import { fallsReason, newFalls, stackableTops } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
@@ -64,6 +64,7 @@ import {
   invertOp,
   replay,
   validateOp,
+  schemaProblems,
   type AppliedOp,
   type DocState,
   type EditOp,
@@ -508,9 +509,10 @@ export class MapSession {
     return new MapSession(doc, r.built);
   }
 
-  /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
-  static importMap(bytes: Uint8Array, fileName: string): MapSession {
-    return new MapSession(importDocument(bytes, fileName));
+  /** Import any .timber map (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Throws
+   *  ImportError for saves. */
+  static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
+    return new MapSession(importDocument(bytes, fileName, place));
   }
 
   // --------------------------------------------------------------------------------- reading
@@ -637,6 +639,8 @@ export class MapSession {
    *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
   blockFalls(params: OpParams["blocks"]): BlockFalls {
     const { x: W, y: H } = this.size;
+    const bad = schemaProblems({ op: "blocks", params });
+    if (bad.length) return { reason: bad[0], errors: bad, added: [], removed: [], falls: [] };
     const t = this.terrainOf(this.cur);
     const effect = blockEffect(params, t, objectCells(this.cur.entities, W, H));
     if (effect.errors.length) return { reason: effect.errors[0], errors: effect.errors, added: [], removed: [], falls: [] };
@@ -972,12 +976,10 @@ export class MapSession {
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
-      done.push(this.applyChecked(op, origin, label));
+      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
-    // (a step of several is marked in the log, so it stays one step when the project is reopened)
-    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
@@ -1012,16 +1014,27 @@ export class MapSession {
         taken.add(i);
       }
     }
-    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    // (a batch of several is one step in the log too, so it stays one step when the project is reopened: D456)
+    const first = this.seqNext;
+    const done = ops.map((op) => this.applyChecked(op, origin, label, ops.length > 1 ? first : undefined));
     this.cur = this.rebuilt();
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
-  private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
+  /** `step`: the `seq` of the first operation of the step, when the step holds several (D456). It is
+   *  set here, before `applyOp` adds the undo data, so a log entry's keys come in one order live and
+   *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
+  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
-    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
+    // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
+    if (applied.op === "blocks") {
+      const { x: W, y: H } = this.size;
+      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), objectCells(this.cur.entities, W, H));
+      applied.params = { ...applied.params, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H) };
+    }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
