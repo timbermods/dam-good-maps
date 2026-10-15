@@ -169,7 +169,7 @@ test("the checks' list closes the Legend while it is open, never lying over it, 
   }
 });
 
-test("the generator's Name field stops at the same two lines as Rename, and deleting in it is never limited", async ({ page }) => {
+test("the generator's Name field stops at the same two lines as Rename, deleting in it is never limited, and Enter leaves the open map's title alone", async ({ page }) => {
   test.setTimeout(240_000);
   await open(page);
   await openDrawer(page);
@@ -182,11 +182,11 @@ test("the generator's Name field stops at the same two lines as Rename, and dele
   await page.keyboard.press("Home");
   await page.keyboard.press("Delete");
   await expect(field).toHaveValue(kept.slice(1));
-  // what it keeps is what the header shows in two lines
+  // Enter keeps the typed name for the next map: the open map's title is not renamed
+  const was = await page.locator(".editor-title .title-button").innerText();
   await page.keyboard.press("Enter");
-  const title = page.locator(".editor-title .title-button");
-  await expect(title).toHaveText(kept.slice(1).trim());
-  expect((await shownLines(title)).lines).toBeLessThanOrEqual(2);
+  await expect(field).toHaveValue(kept.slice(1));
+  await expect(page.locator(".editor-title .title-button")).toHaveText(was);
 });
 
 test("a name the room cannot hold in two lines is shown clamped to two with an ellipsis, whole in its tooltip, and the name keeps at least 30 characters", async ({ page }) => {

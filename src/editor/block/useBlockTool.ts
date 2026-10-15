@@ -60,7 +60,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   /** The drag in progress, and where the pointer last was (the face under it, Shift): what a settings change or a key
    *  asks the preview about again. */
   const drag = useRef<{ sweep: PlaneSweep; mode: "add" | "remove" } | null>(null);
-  const last = useRef<{ hit: TileHit | null; shift: boolean; x: number; y: number }>({ hit: null, shift: false, x: 0, y: 0 });
+  const last = useRef<{ hit: TileHit | null; shift: boolean; x: number; y: number; seen: number }>({ hit: null, shift: false, x: 0, y: 0, seen: -1 });
   /** The layer cut now (null: none). */
   const cutNow = () => renderer.current?.slice ?? null;
   /** The face the pointer is on, for what a click would do with Shift as it is: under a layer cut, the cut's cap is the
@@ -71,8 +71,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
   const paramsFor = (mode: "add" | "remove", side: BlocksParams["side"], at: readonly [number, number, number][]) => blockParams(settingsRef.current, mode, side, at, cutNow(), ed.workingArea());
   /** The question's identity: the operation. */
   const keyOf = paramsKey;
-  /** The preview: the operation asked about last, the question on its way, the next to ask, the answer. */
-  const pv = useRef<{ key: string; inFlight: boolean; queued: BlocksParams | null; result: { key: string; f: BlockFalls } | null; note: string | null }>({ key: "", inFlight: false, queued: null, result: null, note: null });
+  /** The preview: the operation asked about last, the question on its way (its operation, and the map's version its face
+   *  was picked on), the next to ask (and that version), the answer (and that version). */
+  const pv = useRef<{ key: string; inFlight: boolean; flight: string; at: number; queued: BlocksParams | null; queuedSeen: number; result: { key: string; f: BlockFalls; version: number } | null; note: string | null }>({ key: "", inFlight: false, flight: "", at: -1, queued: null, queuedSeen: -1, result: null, note: null });
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
 
   function clearShown() {
@@ -135,6 +136,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.key = key;
     s.result = null;
     s.queued = p;
+    s.queuedSeen = last.current.seen;
     void pump();
   }
   async function pump() {
@@ -145,11 +147,15 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.inFlight = true;
     const key = keyOf(p);
     const version = infoRef.current.version;
+    // (the version the face was picked on: a pick from before an edit is about the land as it was)
+    const seen = s.queuedSeen;
+    s.at = seen;
+    s.flight = key;
     try {
       const f = await api.blockFalls(p);
       // (an answer for a question since changed, or a map since edited, is dropped)
       if (key === s.key && version === infoRef.current.version && blockRef.current) {
-        s.result = { key, f };
+        s.result = { key, f, version: seen };
         present(f);
       }
     } catch {
@@ -212,7 +218,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         if (!aim) return false;
         const s = settingsRef.current;
         notePointer(ev);
-        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
+        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY, seen: infoRef.current.version };
         drag.current = { sweep: new PlaneSweep(aim, infoRef.current.W, infoRef.current.H), mode: modeFor(s, ev.shiftKey) };
         refresh();
         return true;
@@ -236,7 +242,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         // (F sizing holds the face it began on)
         if (drag.current || sizing.current) return;
         notePointer(ev);
-        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
+        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY, seen: infoRef.current.version };
         setFlip(ev.shiftKey);
         // (the preview is the cursor: the tile's own light, which the view just lit for the face seen, goes)
         r.setHoverTile(null);
@@ -289,13 +295,18 @@ export function useBlockTool(ed: Ed): BlockSlice {
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again
   useEffect(() => {
     if (!block) return;
-    pv.current.key = "";
-    pv.current.result = null;
+    const s = pv.current;
+    // (the page draws the new version a moment after it has it: a question about a face picked on it, answered or on its
+    // way and still wanted, is about the map as it is, and stays; a tool put away and picked up again asks afresh)
+    if ((s.result && s.result.version === info.version) || (s.inFlight && s.at === info.version && s.flight === s.key)) return;
+    s.key = "";
+    s.result = null;
     const id = window.setTimeout(() => {
       const r = renderer.current;
       const l = last.current;
       if (!r || !blockRef.current || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
       l.hit = r.pickSeen(l.x, l.y);
+      l.seen = infoRef.current.version;
       refresh();
     }, 90);
     return () => window.clearTimeout(id);
@@ -317,6 +328,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
       if (!was || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
       const l = last.current;
       l.hit = r.pickSeen(l.x, l.y);
+      l.seen = infoRef.current.version;
       refresh();
     };
     watch();

@@ -17,7 +17,7 @@ import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
 import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { hazardRefusal } from "../../src/core/sim/weather";
+import { HazardRun } from "../../src/core/sim/weather";
 import { blocks, failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
@@ -103,7 +103,10 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
     expect(s.plainAt(y * s.built.W + x)).toBe(false);
     savesAndExports(s, "dig.timber");
     // Drought and Badtide behave as on a cave import
-    expect(hazardRefusal(s.built.waterModel)).toBe(hazardRefusal(caveSession().built.waterModel));
+    const hazard = (m: MapSession) => { m.settleCanonical(); const w = m.waterShown(); return new HazardRun(m.built.waterModel, { depth: Float64Array.from(w.depth), contamination: Float64Array.from(w.contamination), stack: w.stack }, "drought", 1); };
+    const dug = hazard(s), cave = hazard(caveSession());
+    expect([dug.stack !== null, dug.sim === null]).toEqual([cave.stack !== null, cave.sim === null]);
+    expect(dug.stack).not.toBeNull();
     // undone, a heightfield again: the same model, water and file as before the hollow
     expect(s.undo()).toBe(true);
     s.settleCanonical();
