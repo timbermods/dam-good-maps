@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Timberborn.ApplicationLifetime;
+using Timberborn.MapRepositorySystem;
 using Timberborn.SingletonSystem;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,10 +12,15 @@ using UnityEngine.UIElements;
 
 namespace DGMCompanion
 {
-    // The automatic in-game check (mods/companion/scripts/ingame-test.ts launches the game with
-    // -dgmcompanionTest <scratch folder>; nothing here runs in a normal launch). It uses the menu entry the
-    // way a player does (a click on the real button), then the reload key (a real key press queued into the
-    // Input System), and writes what happened to <scratch>/result.json before it quits the game.
+    // The automatic in-game check. The DGM Probe runner (investigation/probe/runner/companion.ts, "--companion")
+    // launches the game with -dgmcompanionTest <scratch folder> and drives it; nothing here runs in a normal
+    // launch. The test uses the menu entry the way a player does (a click on the real button), then the reload
+    // key (a real key press queued into the Input System), and writes what happened to <scratch>/result.json
+    // before it quits the game.
+    //
+    // The runner and the test talk through files in the scratch folder: when the test needs the runner to do
+    // something (put the maps in the Maps folder, save the map again), it writes ask-N.json and waits for the
+    // runner to write answer-N.json, whose fields tell it what to expect.
     public static class TestLog
     {
         private static readonly object Gate = new object();
@@ -81,40 +87,173 @@ namespace DGMCompanion
         }
     }
 
-    // In the main menu: look at the entry, then click it.
+    // A request to the runner and its answer (files in the scratch folder, written whole and renamed so a
+    // half-written file is never read).
+    public static class Handshake
+    {
+        public const float WaitSeconds = 180f;
+
+        private static int _seq;
+        private static float _askedAt;
+        private static Dictionary<string, object> _answer;
+
+        // The newest request still waiting for its answer (0: none).
+        public static int Waiting { get; private set; }
+
+        public static void Ask(string what)
+        {
+            _seq++;
+            Waiting = _seq;
+            _answer = null;
+            _askedAt = Time.realtimeSinceStartup;
+            string path = Path.Combine(CompanionEnv.TestDir, "ask-" + _seq + ".json");
+            File.WriteAllText(path + ".tmp", "{\"seq\": " + _seq + ", \"what\": " + MiniJson.Quote(what) + ", \"phase\": " + MiniJson.Quote(TestLog.Phase) + "}\n", new UTF8Encoding(false));
+            File.Move(path + ".tmp", path);
+            TestLog.Line("asked the runner: " + what);
+        }
+
+        // True when nothing is awaited or the runner has answered (the fields are then in Answer); after a
+        // long wait the test fails and quits.
+        public static bool Ready()
+        {
+            if (Waiting == 0)
+            {
+                return true;
+            }
+            string path = Path.Combine(CompanionEnv.TestDir, "answer-" + Waiting + ".json");
+            if (File.Exists(path))
+            {
+                MiniJson.TryParseObject(File.ReadAllText(path), out _answer);
+                _answer = _answer ?? new Dictionary<string, object>();
+                TestLog.Line("the runner answered " + Waiting);
+                Waiting = 0;
+                return true;
+            }
+            if (Time.realtimeSinceStartup - _askedAt > WaitSeconds)
+            {
+                TestLog.Failures.Add("the runner did not answer request " + Waiting + " in " + WaitSeconds + " s");
+                Waiting = 0;
+                TestLog.Finish();
+            }
+            return false;
+        }
+
+        public static string Answer(string key) => _answer == null ? null : MiniJson.GetString(_answer, key);
+    }
+
+    // Looking at the game's own interface (every UIDocument's elements), not at the companion's references.
+    public static class UiProbe
+    {
+        public static List<VisualElement> Roots()
+        {
+            List<VisualElement> roots = new List<VisualElement>();
+            foreach (UIDocument document in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+            {
+                if (document != null && document.rootVisualElement != null)
+                {
+                    roots.Add(document.rootVisualElement);
+                }
+            }
+            return roots;
+        }
+
+        public static Button FindButton(string name)
+        {
+            foreach (VisualElement root in Roots())
+            {
+                Button button = root.Q<Button>(name);
+                if (button != null)
+                {
+                    return button;
+                }
+            }
+            return null;
+        }
+
+        // The game's settlement-name prompt (Game/SettlementNameBox: a text field "Input" beside "ConfirmButton"
+        // and "RelocateButton"), when it is on screen; null when it is not. `seen` says what was looked at.
+        public static TextField SettlementPrompt(out string seen)
+        {
+            int inputs = 0;
+            List<VisualElement> roots = Roots();
+            foreach (VisualElement root in roots)
+            {
+                foreach (TextField input in root.Query<TextField>("Input").ToList())
+                {
+                    inputs++;
+                    VisualElement box = input;
+                    for (int i = 0; i < 8 && box != null; i++, box = box.parent)
+                    {
+                        if (box.Q<Button>("ConfirmButton") != null && box.Q<Button>("RelocateButton") != null)
+                        {
+                            bool shown = input.resolvedStyle.display != DisplayStyle.None && input.resolvedStyle.visibility == Visibility.Visible && input.worldBound.width > 0f;
+                            seen = $"{roots.Count} documents, {inputs} inputs, prompt {(shown ? "shown" : "hidden")}";
+                            return shown ? input : null;
+                        }
+                    }
+                }
+            }
+            seen = $"{roots.Count} documents, {inputs} inputs, no prompt";
+            return null;
+        }
+    }
+
+    // In the main menu: with no Dam Good Maps map the entry is absent; once the runner has put the maps in,
+    // it appears, and a click on it starts a game.
     public class MenuTest : IPostLoadableSingleton, IUpdatableSingleton
     {
         private float _startedAt = -1f;
+        private float _nextAt;
         private int _step;
 
         public void PostLoad()
         {
             Application.runInBackground = true;
             _startedAt = Time.realtimeSinceStartup;
+            _nextAt = _startedAt + 4f;
             TestLog.Line("main menu loaded, phase " + TestLog.Phase);
         }
 
         public void UpdateSingleton()
         {
-            if (_startedAt < 0 || TestLog.Phase != "menu" || Time.realtimeSinceStartup < _startedAt + 4f + _step * 1.5f)
+            if (_startedAt < 0 || TestLog.Phase != "menu" || Time.realtimeSinceStartup < _nextAt || !Handshake.Ready())
             {
                 return;
             }
-            TestLog.Guard(() =>
+            TestLog.Guard(Step);
+        }
+
+        private void Step()
+        {
+            _nextAt = Time.realtimeSinceStartup + 1.5f;
+            switch (_step)
             {
-                if (_step == 0)
-                {
-                    DumpMenu();
-                    string caption = MainMenuEntry.ShownCaption;
-                    TestLog.Fact("menuCaption", caption);
-                    TestLog.Fact("options", MainMenuEntry.Options);
-                    TestLog.Check(MainMenuEntry.ShownButton != null, "the menu has the entry");
-                    TestLog.Check(MainMenuEntry.ShownButton?.text == MainMenuEntry.Title, "the entry says " + MainMenuEntry.Title);
-                    ScreenCapture.CaptureScreenshot(Path.Combine(CompanionEnv.TestDir, "menu.png"));
+                case 0:
+                    // Nothing in the Maps folder is a Dam Good Maps map (a look-alike and an unreadable dgm- file only).
+                    TestLog.Fact("userMapsDirectory", MapRepository.UserMapsDirectory);
+                    TestLog.Fact("mapsFolder", CompanionEnv.MapsFolder(CompanionEnv.LoadSettings()));
+                    TestLog.Check(MainMenuEntry.ShownButton == null && UiProbe.FindButton(MainMenuEntry.ButtonName) == null, "with no Dam Good Maps map in the Maps folder the menu has no entry");
+                    Handshake.Ask("maps");
                     _step = 1;
-                }
-                else
-                {
+                    break;
+                case 1:
+                    // The runner has put the maps in; the entry looks again, as it does when the menu opens.
+                    TestLog.Fact("expectedMap", Handshake.Answer("newest"));
+                    MainMenuEntry.Current?.Rebuild();
+                    _step = 2;
+                    break;
+                case 2:
+                    DumpMenu();
+                    TestLog.Fact("menuCaption", MainMenuEntry.ShownCaption);
+                    TestLog.Fact("options", MainMenuEntry.Options);
+                    Button shown = MainMenuEntry.ShownButton;
+                    TestLog.Check(shown != null && shown.panel != null && UiProbe.FindButton(MainMenuEntry.ButtonName) == shown, "with Dam Good Maps maps present the menu has the entry");
+                    TestLog.Check(shown?.text == MainMenuEntry.Title, "the entry says " + MainMenuEntry.Title);
+                    TestLog.Check(MainMenuEntry.ShownCaption != null && MainMenuEntry.ShownCaption.StartsWith(Handshake.Answer("newest") ?? "?"), "the entry names the newest Dam Good Maps map: " + MainMenuEntry.ShownCaption);
+                    ScreenCapture.CaptureScreenshot(Path.Combine(CompanionEnv.TestDir, "menu.png"));
+                    _step = 3;
+                    break;
+                default:
                     Button button = MainMenuEntry.ShownButton;
                     if (button == null)
                     {
@@ -131,14 +270,13 @@ namespace DGMCompanion
                     TestLog.Fact("startedFaction", MainMenuEntry.StartedFaction);
                     TestLog.Fact("startedMode", MainMenuEntry.StartedMode);
                     TestLog.Check(MainMenuEntry.StartedMap != null, "the click started a game");
-                    _step = 2;
-                }
-            });
+                    break;
+            }
         }
 
         private static void DumpMenu()
         {
-            if (MainMenuEntry.ShownButton == null)
+            if (MainMenuEntry.ShownButton == null || MainMenuEntry.ShownButton.parent == null)
             {
                 return;
             }
@@ -186,7 +324,7 @@ namespace DGMCompanion
                 InputSystem.QueueStateEvent(Keyboard.current, new KeyboardState());
                 _keysDown = false;
             }
-            if (Time.realtimeSinceStartup < _nextAt)
+            if (Time.realtimeSinceStartup < _nextAt || !Handshake.Ready())
             {
                 return;
             }
@@ -208,12 +346,18 @@ namespace DGMCompanion
             _nextAt = Time.realtimeSinceStartup + 1f;
         }
 
-        private static string MapFile() => GameCompanion.MapPath;
+        // The settlement-name prompt the game shows for a new game started with no name.
+        private static void CheckPrompt(string which)
+        {
+            TextField prompt = UiProbe.SettlementPrompt(out string seen);
+            TestLog.Fact(which + ".promptSeen", seen);
+            TestLog.Check(prompt != null, "the game asks for the settlement name (" + which + ")");
+        }
 
         private void Step()
         {
             string notSaved = "has not been saved again";
-            string saved = "was saved again";
+            string resaved = Handshake.Answer("resaved") ?? "?";
             if (_phase == "game1")
             {
                 switch (_step)
@@ -224,26 +368,31 @@ namespace DGMCompanion
                         TestLog.Fact("game1.mode", GameCompanion.Mode);
                         TestLog.Fact("game1.settings", File.Exists(CompanionEnv.SettingsFile) ? File.ReadAllText(CompanionEnv.SettingsFile).Replace("\n", " ") : "(none)");
                         TestLog.Check(GameCompanion.MapPath == MainMenuEntry.StartedMap, "the game runs the map the menu entry started");
+                        CheckPrompt("game1");
                         Press();
                         break;
                     case 1:
                         TestLog.Check(GameCompanion.KeyPresses == 1, "the reload key was seen once");
                         TestLog.Check(GameCompanion.LastMessage != null && GameCompanion.LastMessage.Contains(notSaved), "an untouched file says it has not been saved again: " + GameCompanion.LastMessage);
                         GameCompanion.LastDialog?.OnUIConfirmed();
-                        // Saved again: a newer time on the file, as the app's save leaves it.
-                        File.SetLastWriteTimeUtc(MapFile(), DateTime.UtcNow.AddMinutes(3));
-                        Press();
+                        // The app saves the map again as a new file (-2): the runner writes it now.
+                        Handshake.Ask("resave");
                         break;
                     case 2:
-                        TestLog.Check(GameCompanion.LastMessage != null && GameCompanion.LastMessage.Contains(saved), "a re-saved file asks to reload: " + GameCompanion.LastMessage);
+                        TestLog.Fact("resaved", resaved);
+                        Press();
+                        break;
+                    case 3:
+                        TestLog.Check(GameCompanion.KeyPresses == 2, "the reload key was seen again");
+                        TestLog.Check(GameCompanion.LastMessage != null && GameCompanion.LastMessage.Contains(resaved), "a re-saved map (-2) is offered on the key: " + GameCompanion.LastMessage);
                         TestLog.Check(GameCompanion.LastConfirm != null, "the dialog has a Reload button");
                         // "Keep playing": the game carries on, and the key still works afterwards.
                         GameCompanion.LastDialog?.OnUICancelled();
                         Press();
                         break;
-                    case 3:
+                    case 4:
                         TestLog.Check(GameCompanion.KeyPresses == 3, "the key works again after Keep playing");
-                        TestLog.Check(GameCompanion.LastMessage != null && GameCompanion.LastMessage.Contains(saved), "it asks again");
+                        TestLog.Check(GameCompanion.LastMessage != null && GameCompanion.LastMessage.Contains(resaved), "it asks again: " + GameCompanion.LastMessage);
                         TestLog.Phase = "game2";
                         GameCompanion.LastDialog?.OnUIConfirmed();
                         break;
@@ -262,7 +411,9 @@ namespace DGMCompanion
                         TestLog.Fact("game2.map", GameCompanion.MapPath);
                         TestLog.Fact("game2.faction", GameCompanion.Faction);
                         TestLog.Fact("game2.mode", GameCompanion.Mode);
-                        TestLog.Check(GameCompanion.MapPath == MapFile() && GameCompanion.Faction != null, "the reloaded game runs the same map");
+                        TestLog.Check(GameCompanion.MapPath != null && Path.GetFileNameWithoutExtension(GameCompanion.MapPath) == resaved, "the reloaded game runs the re-saved file");
+                        TestLog.Check(GameCompanion.Faction != null && GameCompanion.Faction == TestLog.Facts["game1.faction"] && GameCompanion.Mode == TestLog.Facts["game1.mode"], "the reload keeps the faction and difficulty");
+                        CheckPrompt("game2");
                         Press();
                         break;
                     case 1:

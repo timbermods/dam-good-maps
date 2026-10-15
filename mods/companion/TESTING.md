@@ -10,31 +10,36 @@ reading the metadata, the settings file, the reload key and the changed-file che
 `node mods/companion/scripts/build.mjs` builds the mod against the local game install and assembles
 `mods/companion/dist/DGMCompanion`. It installs nothing.
 
-## The in-game check (not yet run)
+## The in-game check (the DGM Probe runner's companion mode)
 
-`scripts/ingame-test.ts` does what the DGM Probe runner does (investigation/probe/README.md, "Safety"), on the dedicated
-machine only (D218), and only while no game is running:
+`node investigation/probe/run.cjs runner/batch.ts --companion` (from the repository root, `npm --prefix investigation/probe ci`
+first) is the in-game check; see investigation/probe/README.md, "Companion mode". It is the runner's, on its safety (settings,
+logs and saves recorded and put back, leftovers check, DGM Probe and the companion installed for the run only, results in
+`C:\dgm-probe\results\<run>\`), on the dedicated machine only (D218) and while no game is running. The game side is
+`src/Game/InGameTest.cs`, switched on by `-dgmcompanionTest <folder>` (without it the test code does nothing).
 
-1. Builds the mod and makes four maps in a scratch folder under `C:\dgm-companion-test`: two from the generator, one newer
-   look-alike that is not from Dam Good Maps, one newest unreadable `dgm-` file. Kyler's Maps folder is never read.
-2. Records the game's settings, logs, player data, saves and every file under `Documents\Timberborn`, installs the mod there
-   for the run, and switches every other mod off for the run.
-3. Launches the game through Steam with `-skipModManager -dgmcompanionTest <scratch folder>`. Without that argument the test
-   code does nothing.
-4. The mod, in the game, clicks its own menu entry and expects the second generated map, plays it, presses the reload key
-   (a real key press queued into the Input System) with the file untouched, with it saved again (answers Keep playing, then
-   Reload), and checks the reloaded game, then quits and writes `result.json`.
-5. Removes the mod, puts everything back and checks that nothing is left under `Documents\Timberborn`.
+Per launch (one per remembered-settings variant: `named`, `custom`, `fresh`), the runner makes a scratch folder standing in
+for the Maps folder (the player's own is never read) holding a newer look-alike (not from Dam Good Maps) and a newest
+unreadable `dgm-` file, and the game's test checks:
 
-Run it from the repository root, after `npm --prefix investigation/probe ci`:
+1. With no Dam Good Maps map in the folder the main menu has no entry; the `userMapsDirectory` the mod would read in a
+   normal launch is `Documents\Timberborn\Maps`.
+2. The runner then writes two maps the current generator makes (`dgm-river-valley-1`, newest, and an older
+   `dgm-lake-basin-3`); the entry appears with the newest map's name and size.
+3. A click starts the newest Dam Good Maps map (not the look-alike or the broken file) with the remembered faction and
+   difficulty (a named one, a customised one, or the first unlocked faction and the default); the game asks for the
+   settlement name.
+4. The reload key with the file untouched says it has not been saved again.
+5. The runner writes `dgm-river-valley-1-2.timber` (the app's re-save); the reload key offers it, Keep playing keeps the
+   game and the key works again, Reload starts a new game on the `-2` file with the same faction and difficulty, the name
+   is asked again, and the key then says it has not been saved again.
+6. After the game quits the runner checks nothing outside `DGMCompanion` changed (`leftovers()` empty, the settings
+   restored exactly) and that the companion remembered the faction.
 
-```
-node investigation/probe/run.cjs ../../mods/companion/scripts/ingame-test.ts --variant named
-```
-
-`--variant` is `named` (the remembered difficulty is one of the game's own), `custom` (a customised one) or `fresh` (nothing
-remembered). `--no-launch` only builds and makes the maps. Results are in `C:\dgm-companion-test\last`: `result.json`,
-`events.log`, `menu-tree.txt` (the menu's elements) and `menu.png` (judge the entry's look from it).
+Results are in `results\<run>\companion.json` and `summary.md`; each variant's folder has `events.log`, `result.json`,
+`menu-tree.txt`, `menu.png` (judge the entry's look from it) and the game's log lines. `npm --prefix investigation/probe run
+test:companion` checks the runner's side against a stand-in game, without Timberborn.
 
 Still open until it has run: where the entry sits and how it looks in the menu, whether a key press queued while the window is
-in the background reaches the game, and whether the game accepts a new game started from inside a game.
+in the background reaches the game, whether the game accepts a new game started from inside a game, and whether the
+settlement-name prompt is found the way `UiProbe.SettlementPrompt` looks for it.
