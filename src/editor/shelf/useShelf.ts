@@ -10,7 +10,9 @@ import { startProblemAt, newId, startStatus } from "../features";
 import { modalLevel } from "../../core/features/footprintLevel";
 import { tilesToRuns } from "../../core/math/grid";
 import type { PaintParams } from "../../core/doc/paintParams";
-import { paintDisc, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
+import { hasOptions, placeComponents } from "../../core/doc/objectOps";
+import { FLUIDS } from "../../core/data/parity";
+import { hasAge, objectOptionsOf, paintDisc, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
 import { shelfTool } from "../placeTools";
 import { PointerWords } from "../pointerWords";
 import { GHOST_OK, coordinatesAt } from "../tools";
@@ -154,7 +156,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!item.source) {
       const under: number[] = [];
       for (const [tx, ty] of footprintTiles(template, { template, x: cx, y: cy, z: 0, orientation: o, flipped: false })) if (tx >= 0 && ty >= 0 && tx < W && ty < info.H) under.push(h[ty * W + tx]);
-      if (under.length) z = modalLevel(under);
+      // (a water object is cut-only, D290: it stands at its lowest tile)
+      if (under.length) z = FLUIDS[template]?.tiles ? Math.min(...under) : modalLevel(under);
     }
     const g = { template, x: cx, y: cy, z, orientation: turnRef.current };
     const same = ghostAt.current && ghostAt.current.template === template && ghostAt.current.x === cx && ghostAt.current.y === cy && ghostAt.current.orientation === g.orientation;
@@ -212,11 +215,15 @@ export function useShelf(ed: Ed): ShelfSlice {
       return;
     }
     if (item.source) return placeSource(item.source === "bad", x, y);
+    // (Mixed woods has no object of its own: a click plants one of its mix there)
+    if (item.paint === "woods") return plantShelf([y * info.W + x], 1);
     const template = templateOf(item, shelfOptionsRef.current);
     const o = ORIENTATION_NAMES[turnRef.current] as Orientation;
     const [cx, cy] = coordinatesAt(template, x, y, o);
+    // (a water object, an unstable core or a reserve carries the options set in its window: the core writes them as the game does)
+    const components = hasOptions(template) ? placeComponents(template, objectOptionsOf(shelfOptionsRef.current, template)) : undefined;
     void run(
-      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o }, newId()),
+      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o, ...(components ? { components } : {}) }, newId()),
       (u) => {
         if (!u.ok) return;
         feel("place", cx, cy, 1, false, template);
@@ -243,7 +250,7 @@ export function useShelf(ed: Ed): ShelfSlice {
   }
   /** Trees, bushes and thorns painted by a drag (D235): the core's stroke over the tiles the brush covered, at the
    *  object window's density (and a tree's age), planted where they can grow, one step, each with its pop. */
-  function plantShelf(tiles: number[]) {
+  function plantShelf(tiles: number[], density?: number) {
     const item = shelfRef.current;
     if (!item?.paint || !tiles.length) return;
     const o = shelfOptionsRef.current;
@@ -251,10 +258,10 @@ export function useShelf(ed: Ed): ShelfSlice {
     const template = templateOf(item, o);
     const params: PaintParams = {
       kind,
-      ...(kind === "thorns" ? {} : { template }),
+      ...(kind === "thorns" || kind === "woods" ? {} : { template }),
       area: tilesToRuns(tiles, infoRef.current.W),
-      density: o.paint[kind].density,
-      ...(kind === "trees" ? { age: o.treeAge } : {}),
+      density: density ?? o.paint[kind].density,
+      ...(hasAge(kind) ? { age: o.treeAge } : {}),
       seed: paintSeed.current,
     };
     void run(
@@ -358,6 +365,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       if (!live || k >= templates.length) return;
       const url = r.thumbnail(templates[k]);
       if (url) setIcons((m) => ({ ...m, [templates[k]]: url }));
+      if (k + 1 === templates.length) void composePictures(r);
       const idle = typeof window.requestIdleCallback === "function" ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 500 }) : (fn: () => void) => window.setTimeout(fn, 30);
       idle(() => draw(k + 1));
     };
@@ -367,5 +375,30 @@ export function useShelf(ed: Ed): ShelfSlice {
     };
   }, [ready]);
 
+  /** The pictures made of other pictures (Mixed woods: a pine, a birch and an oak side by side), once theirs are drawn. */
+  async function composePictures(r: NonNullable<typeof renderer.current>) {
+    for (const it of SHELF) {
+      if (!it.picture) continue;
+      const urls = it.picture.map((t) => r.thumbnail(t));
+      if (urls.some((u) => !u)) continue;
+      const imgs = await Promise.all(urls.map((u) => new Promise<HTMLImageElement>((ok, no) => {
+        const im = new Image();
+        im.onload = () => ok(im);
+        im.onerror = no;
+        im.src = u!;
+      })));
+      const c = document.createElement("canvas");
+      c.width = 56;
+      c.height = 56;
+      const g = c.getContext("2d");
+      if (!g) continue;
+      // (each at 0.62 of its size, the middle one in front, so they read as one grove)
+      const w = 56 * 0.62;
+      const at = [0, (56 - w) / 2, 56 - w];
+      const top = [56 - w - 2, 56 - w - 8, 56 - w - 2];
+      [0, 2, 1].forEach((k) => g.drawImage(imgs[k], at[k], top[k], w, w));
+      setIcons((m) => ({ ...m, [it.id]: c.toDataURL("image/png") }));
+    }
+  }
   return { pointerWords, flashNote, fitWant, ghostAt, shelfTile, shelfHover, dropShelf };
 }

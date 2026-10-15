@@ -317,6 +317,7 @@ export function footprintCheck(s: MapSession, req: EntityRequest): { tiles: numb
   const own = [...new Set(tiles)];
   const problem = entityProblem(s, req, null, { level: true });
   // the level the object will stand at (the ghost shows it there)
-  const level = !problem && own.length && req.template !== "BadwaterSource" && req.template !== "WaterSource" ? platformLevel(s.built.heights, waterDepth(s), W, H, own) : null;
+  // (a water object is cut-only: it stands at its lowest tile, which the page reads itself)
+  const level = !problem && own.length && !FLUIDS[req.template]?.tiles ? platformLevel(s.built.heights, waterDepth(s), W, H, own) : null;
   return { tiles: own, problem, ...(level !== null ? { level } : {}) };
 }

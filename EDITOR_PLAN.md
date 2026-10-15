@@ -123,7 +123,11 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it.
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
+    ends with **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
+    hovering says "9 tiles, lasts about 12 days" and marks the hollow, D394) and **Remove unfed water** (the pools no
+    source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
+    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
@@ -190,6 +194,16 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     `planPaintObjects` and the `paintObjects` operation scatter a stroke as literal placed objects in one undo
     step (Size, Density 0.05–1, Age); `markerNotes` labels them; `blastInfo` and `explosionAfter` answer what a
     core clears and draw the map after it goes off, the water re-settled, without changing the session;
+    **on the shelf now** (`shelfItems.ts`, `objectOptions.tsx`): every one of these is a row, with an object window of its
+    own from the core's options (`objectGroups`): a water object's Strength (below 0 it drains) and Starts (At once, or Later
+    and its Cycle), a core's Radius and the cycle it goes off in, a reserve's Holds and Amount, the drill's note (Stand it
+    on an aquifer); Succulent and Mixed woods are plants painted like the trees (Size, Density, Age; a click on Mixed woods
+    plants one of its mix; its picture is a pine, a birch and an oak drawn side by side). The settings go into the placement
+    as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
+    place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
+    is the underground ruins. Still to come: the core's **Show after it goes off** view, and **Crop map to selection**,
+    which the core does not have yet (D340). The list scrolls inside itself when the window is short, keeping the
+    picked row in view;
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in

@@ -6,10 +6,11 @@
 // Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
 import { hash32 } from "../core/math/hash";
+import { defaultOptions, type ObjectOptions } from "../core/doc/objectOps";
 import { tip } from "../ui/Tooltip";
 
 /** What a drag from the shelf paints (core/doc/paintParams.ts): its size and density are the object window's. */
-export type PaintedKind = "trees" | "bushes" | "thorns";
+export type PaintedKind = "trees" | "bushes" | "succulents" | "woods" | "thorns";
 
 export interface ShelfItem {
   id: string;
@@ -24,6 +25,8 @@ export interface ShelfItem {
   hint: string;
   /** A water source: clean or bad (its strength in the options). */
   source?: "clean" | "bad";
+  /** Its picture is these objects side by side (Mixed woods), drawn from their own pictures. */
+  picture?: readonly string[];
 }
 
 /** The objects menu's order (Layout 2, Kyler, 2026-10-03). */
@@ -31,10 +34,17 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "start", name: "Start", template: "StartingLocation", turns: true, hint: "where the colony starts" },
   { id: "water-source", name: "Water source", template: "WaterSource", source: "clean", turns: false, hint: "where water starts" },
   { id: "badwater-source", name: "Badwater source", template: "BadwaterSource", source: "bad", turns: false, hint: "where badwater starts" },
+  { id: "WaterSeep", name: "Water seep", template: "WaterSeep", turns: false, hint: "water that seeps up until it is deep" },
+  { id: "BadwaterSeep", name: "Badwater seep", template: "BadwaterSeep", turns: false, hint: "badwater that seeps up until it is deep" },
+  { id: "Aquifer", name: "Aquifer", template: "Aquifer", turns: false, hint: "water that waits for a drill" },
+  { id: "AncientAquiferDrill", name: "Aquifer drill", template: "AncientAquiferDrill", turns: false, hint: "an ancient drill that taps the aquifer under it" },
+  { id: "BadtideDrain", name: "Badtide drain", template: "BadtideDrain", turns: true, hint: "badwater that flows in a badtide" },
   { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
   { id: "Pine", name: "Pine", template: "Pine", paint: "trees", turns: false, hint: "plant pines" },
   { id: "Birch", name: "Birch", template: "Birch", paint: "trees", turns: false, hint: "plant birches" },
   { id: "Oak", name: "Oak", template: "Oak", paint: "trees", turns: false, hint: "plant oaks" },
+  { id: "Succulent", name: "Succulent", template: "Succulent", paint: "succulents", turns: false, hint: "plant succulents" },
+  { id: "Woods", name: "Mixed woods", template: "Pine", picture: ["Pine", "Birch", "Oak"], paint: "woods", turns: false, hint: "plant pines, birches and oaks together" },
   { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", paint: "bushes", turns: false, hint: "plant berry bushes" },
   { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower" },
   { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "where a scrap mine goes" },
@@ -43,6 +53,10 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "Thorns", name: "Thorns", template: "Thorns", paint: "thorns", turns: false, hint: "blocks the way until cleared" },
   { id: "Blockage", name: "Blockage", template: "Blockage", turns: true, hint: "closes a channel" },
   { id: "GeothermalField", name: "Geothermal field", template: "GeothermalField", turns: true, hint: "a spot for free power" },
+  { id: "UnstableCore", name: "Unstable core", template: "UnstableCore", turns: false, hint: "blasts the land when it goes off" },
+  { id: "ReservePile", name: "Reserve pile", template: "ReservePile", turns: false, hint: "a pile of goods the map starts with" },
+  { id: "ReserveWarehouse", name: "Reserve warehouse", template: "ReserveWarehouse", turns: false, hint: "boxed goods the map starts with" },
+  { id: "ReserveTank", name: "Reserve tank", template: "ReserveTank", turns: false, hint: "a liquid the map starts with" },
 ];
 
 /** The legend's object lines and the objects menu's picture each shows (Kyler, 2026-10-03): the same pictures as
@@ -83,9 +97,19 @@ export interface ShelfOptions {
   relicSize: "small" | "medium" | "large";
   /** Each kind's brush: its size and density, starting at the core's defaults (core/gen/paint.ts DEFAULT_DENSITY); a thorn patch is about seven tiles, so its brush starts wider. */
   paint: Record<PaintedKind, PaintSettings>;
-  /** Trees: all grown, or mixed with saplings (the core's `age`). */
+  /** Trees, succulents and mixed woods: all grown, or mixed with saplings (the core's `age`). */
   treeAge: "grown" | "mixed";
+  /** The water objects', the unstable core's and the reserves' options for the next one placed (core/doc/objectOps.ts), by template; what is not here is the game's default. */
+  objects: Record<string, ObjectOptions>;
 }
+
+/** The options of the next `template` placed: what the player set, else the game's defaults. */
+export function objectOptionsOf(o: ShelfOptions, template: string): ObjectOptions {
+  return { ...defaultOptions(template), ...(o.objects[template] ?? {}) };
+}
+
+/** Whether a drag paints this item with a tree's age. */
+export const hasAge = (kind: PaintedKind): boolean => kind === "trees" || kind === "succulents" || kind === "woods";
 
 export const DEFAULT_SHELF_OPTIONS: ShelfOptions = {
   ruinHeight: 3,
@@ -93,9 +117,12 @@ export const DEFAULT_SHELF_OPTIONS: ShelfOptions = {
   paint: {
     trees: { size: 4, density: 0.8 },
     bushes: { size: 4, density: 0.55 },
+    succulents: { size: 4, density: 0.5 },
+    woods: { size: 4, density: 0.8 },
     thorns: { size: 8, density: 0.6 },
   },
   treeAge: "grown",
+  objects: {},
 };
 
 /** The object an item places with its options. */

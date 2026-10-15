@@ -9,6 +9,7 @@ import type { PointerTool, TileHit } from "../../render3d";
 import type { EntityInfo } from "../../worker/session";
 import { newId, sourceStrengths, sourceStrengthWords, strengthKey, strengthReader } from "../features";
 import { isPickable, pickWinner } from "../../core/features/objects";
+import { hasOptions } from "../../core/doc/objectOps";
 import { OFFICIAL_FLOW } from "../../core/gen/calibrated";
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import type { EntityRequest } from "../../core/doc/placing";
@@ -199,7 +200,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     if (!pick && !(held && held.template === template && held.x === at[0] && held.y === at[1])) return null;
     const orientation = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
     const flipped = (e.flags[k] & FLIPPED) !== 0;
-    const record = entitiesOn(hit.x, hit.y).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
+    const record = (hasOptions(template) ? enqueue(() => api.entitiesAt(hit.x, hit.y)) : entitiesOn(hit.x, hit.y)).then((list) => list.find((x) => x.template === template && x.x === at[0] && x.y === at[1]) ?? null);
     const tilesAt = (dx: number, dy: number) =>
       footprintTiles(template, { template, x: at[0] + dx, y: at[1] + dy, z: 0, orientation, flipped })
         .filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H)

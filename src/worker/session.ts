@@ -29,6 +29,7 @@ import type { Orientation } from "../core/format/footprints";
 import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription } from "../core/doc/describeTile";
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
+import { planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1524,6 +1525,40 @@ export function describeTileAt(x: number, y: number): TileDescription | null {
 /** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
 export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
   return objectsIn(need(), tiles);
+}
+
+/** What Remove unfed water would take within `tiles` (or on the whole map with none): its pools, tiles of water and the
+ *  tiles each pool covers, for the row's words and the map's mark (core/doc/waterEdits.ts `unfedWater`, D387 (2)). */
+export function unfedWaterIn(tiles: number[] | null): { pools: number; tiles: number; volume: number; bodies: number[][] } {
+  const u = unfedWater(need(), tiles && tiles.length ? tiles : null);
+  return { pools: u.pools, tiles: u.tiles, volume: u.volume, bodies: u.bodies };
+}
+
+/** Remove unfed water within `tiles` (the whole map with none), as one undo step; fed water is untouched. */
+export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const u = unfedWater(s, tiles && tiles.length ? tiles : null);
+  if (!u.op) return changed(s, false, ["no unfed water stands there"], t0);
+  const r = s.apply(u.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the
+ *  plain reason it holds no water at that level (core/doc/waterEdits.ts `planFill`, D387 (3), D394). */
+export function fillPlanAt(x: number, y: number, level: number): { reason: string | null; tiles: number[]; volume: number; days: number } {
+  const p = planFill(need(), x, y, level);
+  return { reason: p.reason, tiles: p.op ? [...p.op.params.lake.tiles] : [], volume: p.volume, days: p.days };
+}
+
+/** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */
+export function fillAt(x: number, y: number, level: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const p = planFill(s, x, y, level);
+  if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
+  const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
 }
 
 /** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope

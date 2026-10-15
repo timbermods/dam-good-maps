@@ -7,7 +7,7 @@
 // there. The drag is the page's own pointer drag, never the browser's (which carries a file with an
 // image and offered to open it).
 
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
 
@@ -36,6 +36,13 @@ export function Shelf(p: ShelfProps) {
   const swallow = useRef(false);
   const latest = useRef(p);
   latest.current = p;
+  const grid = useRef<HTMLDivElement>(null);
+  // the picked object's window opens above the list and shortens it: the picked row is kept in view
+  useEffect(() => {
+    if (!p.picked) return;
+    const id = requestAnimationFrame(() => grid.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: "nearest" }));
+    return () => cancelAnimationFrame(id);
+  }, [p.picked]);
 
   function down(e: PointerEvent, it: ShelfItem) {
     swallow.current = false;
@@ -73,9 +80,9 @@ export function Shelf(p: ShelfProps) {
     <nav class="shelf objects-menu" aria-label="Place">
       {/* its title (Kyler, 2026-10-06): one row of the items' height, the names' inset */}
       <h2 class="shelf-title">Items</h2>
-      <div class="shelf-grid" role="toolbar" aria-label="Objects">
+      <div class="shelf-grid" role="toolbar" aria-label="Objects" ref={grid}>
         {SHELF.map((it) => {
-          const src = p.icon(it.template);
+          const src = p.icon(it.picture ? it.id : it.template);
           return (
             <button
               type="button"

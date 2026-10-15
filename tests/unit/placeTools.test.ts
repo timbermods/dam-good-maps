@@ -4,7 +4,10 @@
 
 import { describe, expect, it } from "vitest";
 import { shelfTool } from "../../src/editor/placeTools";
-import { quietWord, SHELF } from "../../src/editor/shelfItems";
+import { DEFAULT_SHELF_OPTIONS, objectOptionsOf, quietWord, SHELF, templateOf } from "../../src/editor/shelfItems";
+import { hasOptions, optionProblems, placeComponents } from "../../src/core/doc/objectOps";
+import { FOOTPRINTS } from "../../src/core/format/footprints";
+import { PAINT_KINDS } from "../../src/core/doc/paintParams";
 import { BADWATER_STRENGTHS, DEFAULT_OPTIONS, SOURCE_STRENGTHS, sourceRequest } from "../../src/editor/tools";
 import type { TileHit } from "../../src/render3d";
 
@@ -48,8 +51,8 @@ describe("the shelf's pointer tool", () => {
 });
 
 describe("the shelf's objects (D212, D226)", () => {
-  it("read Start, Water source, Badwater source, Natural dam, Pine, Birch, Oak, Berry bush and so on (Layout 2's objects menu); the sources place clean and bad", () => {
-    expect(SHELF.slice(0, 8).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
+  it("read Start, the water objects, Natural dam, the trees, Succulent, Mixed woods, Berry bush and so on (Layout 2's objects menu, with every 1.x object); the sources place clean and bad", () => {
+    expect(SHELF.slice(0, 8).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Aquifer drill", "Badtide drain"]);
     const [clean, bad] = [SHELF[1], SHELF[2]];
     // (no keys on the shelf: Kyler, 2026-10-06)
     expect([clean.source, clean.template, bad.source, bad.template]).toEqual(["clean", "WaterSource", "bad", "BadwaterSource"]);
@@ -79,5 +82,18 @@ describe("the shelf's quiet words (D184)", () => {
     expect(quietWord("a mine site stands there")).toBe("a mine site is there");
     expect(quietWord("too close to the map edge")).toBe("too near the edge");
     expect(quietWord("under water")).toBe("under water");
+  });
+});
+
+describe("every shelf object is one the core can place, with options the core accepts (D337, D338)", () => {
+  it("each has a footprint; each object with settings places with its defaults and passes the core's checks, a plant is painted by a kind the core knows", () => {
+    for (const it of SHELF) {
+      const template = templateOf(it, DEFAULT_SHELF_OPTIONS);
+      expect(FOOTPRINTS[template], it.name).toBeDefined();
+      if (it.paint) expect(PAINT_KINDS, it.name).toContain(it.paint);
+      if (!hasOptions(template)) continue;
+      const c = placeComponents(template, objectOptionsOf(DEFAULT_SHELF_OPTIONS, template))!;
+      expect(optionProblems(template, c), it.name).toEqual([]);
+    }
   });
 });

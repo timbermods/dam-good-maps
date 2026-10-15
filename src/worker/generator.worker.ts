@@ -198,6 +198,11 @@ const api = {
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
+  /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
+  unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
+  removeUnfedWater: (tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)),
+  fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */

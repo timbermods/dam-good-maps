@@ -126,8 +126,12 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
 - **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
-  in five groups divided by hairlines. The view draws each picture to fill its tile. Fifteen objects fit at 1366×768
-  above the water bar; when more arrive it scrolls inside itself, names kept.
+  in five groups divided by hairlines. The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+  whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
+  inside itself, names kept, and the picked row is scrolled into view
+  ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
+  Select's first row ends with Fill water and Remove unfed water, whose hover words take the size's place
+  ([capture](docs/design/showcase-shelf-select-1920-dark.jpg)).
 - **Bottom left:** the hover readout. **Bottom right:** the water bar (its status, Pause, Speed, Skip, Replay,
   Drought, Badtide), and above it the look's menu as a small plate.
 - **The default view fits the whole map in the free space:** right of the panel, left of the shelf, under the rows
