@@ -47,6 +47,13 @@ export interface ForceRunSlice {
   gestureTiles: (path: readonly PathPoint[], radius: number) => number[];
   bandRadius: () => number;
   forceAgain: () => void;
+  /** A force's rolls (D488) on offer now (two or more, right after a run, before anything else): which is shown
+   *  and how many; null when they aren't. */
+  rollsOffered: () => { shown: number; count: number } | null;
+  /** Show another roll: the next (1), the one before (−1). */
+  showRoll: (dir: 1 | -1) => void;
+  /** The player moved on (Esc, a save): the roll shown is the one that stays. */
+  endRolls: () => void;
   cursorFrame: { current: number };
   showForceCursor: (at: [number, number] | null, dot?: boolean) => void;
   forceSizing: { current: { verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null };
@@ -140,6 +147,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
           else if (u.ok) {
             setMessage(null);
+            // (its rolls are on offer: Tab shows another, D488)
+            offerRolls(u.info.version);
             // (the first-run hint points at Carve: a force kept is shaping the land too, D352)
             firstDoneRef.current("paint");
           }
@@ -451,6 +460,69 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     void forcer.current.start(true);
   }
 
+  // ------------------------------------------------------------------------ a force's rolls (D488)
+
+  /** The rolls are on offer from a run's keep (or a roll shown) until the player does anything else: the map's
+   *  version and the force in hand then. An edit (the version moves on), another tool, Esc or a save ends it. */
+  const rollsOffer = useRef<{ version: number; tool: string | null } | null>(null);
+
+  function offerRolls(version: number) {
+    rollsOffer.current = { version, tool: ed.toolRef.current };
+    setForceTick((n) => n + 1);
+  }
+
+  function rollsOffered(): { shown: number; count: number } | null {
+    const o = rollsOffer.current;
+    const r = infoRef.current.forceRolls;
+    if (!o || !r || r.count < 2 || forcer.current?.running) return null;
+    return infoRef.current.version === o.version && ed.toolRef.current === o.tool && !brushToolRef.current && !ed.shelfRef.current ? r : null;
+  }
+
+  function endRolls() {
+    if (!rollsOffer.current) return;
+    rollsOffer.current = null;
+    setForceTick((n) => n + 1);
+    // (the other rolls' maps are let go in the worker; the roll shown stays as it is)
+    void enqueue(() => api.forceSettle()).then((i) => {
+      if (!mounted.current || i.version !== infoRef.current.version) return;
+      infoRef.current = i;
+      ed.setInfo(i);
+    });
+  }
+  // (another tool picked, or an edit: the rolls are over)
+  useEffect(() => {
+    const o = rollsOffer.current;
+    if (o && !forcer.current?.running && (ed.info.version !== o.version || tool !== o.tool)) endRolls();
+  }, [tool, ed.info.version]);
+
+  /** Show the next roll (or the one before): its real result, at once (no force runs again). */
+  function showRoll(dir: 1 | -1) {
+    if (!rollsOffered()) return;
+    void enqueue(async () => {
+      setBusy((b) => b + 1);
+      try {
+        const u = await api.forceRoll({ step: dir });
+        if (!mounted.current) return;
+        localUndo.current = [];
+        localRedo.current = [];
+        applyUpdate(u);
+        renderer.current?.refreshShadows();
+        const r = u.info.forceRolls;
+        if (!u.ok || !r) {
+          rollsOffer.current = null;
+          if (u.errors[0]) setMessage({ kind: "info", text: plain(u.errors[0]) });
+          return;
+        }
+        // (its Auto details show what this roll took, D309)
+        const verb = u.info.forceAgain;
+        if (verb && u.settings && forcer.current) forcer.current.lastSettings[verb] = u.settings;
+        offerRolls(u.info.version);
+      } finally {
+        setBusy((b) => b - 1);
+      }
+    });
+  }
+
   /** The radius of the picked force's size at its Power and Size (D312), or null: Quake has none to
    *  show (its reach is its own decision, never drawn in advance, D368 (2)). */
   function reachNow(): number | null {
@@ -720,6 +792,6 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   return {
     deferred, forceCalls, forcer, lastUnleash, unleashPower, setUnleashPower, unleash, unleashAgain, unleashDown,
     unleashRow, startForce, steerTiles, pathFrame, showPath, strokeRadius, gestureTiles, bandRadius, forceAgain,
-    cursorFrame, showForceCursor, forceSizing, paintSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
+    rollsOffered, showRoll, endRolls, cursorFrame, showForceCursor, forceSizing, paintSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
   };
 }
