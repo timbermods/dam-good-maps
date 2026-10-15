@@ -420,10 +420,10 @@ function beam(m: Model, a: readonly number[], b: readonly number[], r: number, c
 /** A pad: a lens of 12 triangles, a round rim of six vertices in the xz plane (radius 1) with an apex over and
  *  under its middle (y = ±1); scale it to about 0.15 × 0.04 × 0.15. */
 function lens(): BufferGeometry {
-  // (an edge, not a point, across each end: stretched, it reads as a rounded oval)
-  const rim = (k: number): number[] => [Math.cos(((2 * k + 1) * Math.PI) / 6), 0, Math.sin(((2 * k + 1) * Math.PI) / 6)];
+  // (eight rim points, an edge across each end and each side: stretched, it reads as a rounded oval)
+  const rim = (k: number): number[] => [Math.cos(((2 * k + 1) * Math.PI) / 8), 0, Math.sin(((2 * k + 1) * Math.PI) / 8)];
   const out: number[] = [];
-  for (let k = 0; k < 6; k++) {
+  for (let k = 0; k < 8; k++) {
     out.push(0, 1, 0, ...rim(k + 1), ...rim(k));
     out.push(0, -1, 0, ...rim(k), ...rim(k + 1));
   }
@@ -433,12 +433,13 @@ function lens(): BufferGeometry {
 }
 
 const SAGE: Rgb = [0.37, 0.53, 0.29];
-const BLUSH: Rgb = [0.86, 0.42, 0.38];
+/** A pad's outer tip: the sage blushed about halfway to pink-red, so the pad stays green with a warm edge. */
+const PAD_TIP: Rgb = [0.64, 0.47, 0.34];
 
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
  *  the crown, in four rings of two close browns like scales; seven big round sage paddles on its upper half,
  *  near level, reaching past the tile like a tree's crown, each blushing pink-red at its outer tip; and a young
- *  plant beside it, a rosette of five pads. Dead: a grey-tan trunk and three limp tan pads. At most 200 triangles. */
+ *  plant beside it, a rosette of five pads. Dead: a grey-tan trunk and three limp tan pads. At most 240 triangles. */
 function succulent(dead: boolean): Model {
   const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
   const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
@@ -452,7 +453,7 @@ function succulent(dead: boolean): Model {
   const pad = (x: number, y: number, z: number, turn: number, tilt: number, len: number, wid: number) => {
     const t = dead ? -tilt : tilt;
     const r = len * Math.cos(t);
-    m.add(lens(), (px, py, pz) => (!dead && px > 0.8 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
+    m.add(lens(), (px, py, pz) => (!dead && px > 0.8 ? PAD_TIP : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
       sx: len,
       sy: 0.075,
       sz: wid,
