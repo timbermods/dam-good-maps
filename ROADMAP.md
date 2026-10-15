@@ -26,6 +26,8 @@ Neither the page nor the milestone session touches the other's files: the page s
 interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
 (#236, D470); what waits for Kyler carries the `needs-kyler` label.
 
+For the next three weeks (D488): 3D creation first (#370, the Foundations release, the Block tool, Erode, 3D in generation), then generation with intent (Showcase mode, landmarks, ruins with meaning, custom sizes up to 256², the opening shot), with the renderer and the page working alongside; collaborative editing, sizes above 256, the tour, M13's accessibility and Lighthouse passes, Pick a place and Real places 2 are paused.
+
 **0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
 
 - **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
@@ -635,7 +637,9 @@ After the view (D280 (3)).
    other forces' investigations, until Kyler has tried it.
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
-   brushes; shows at once any block the game's support rule would drop.
+   brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
+   operation, the support check and the `blockFalls` query, in
+   [docs/progress/3d-creating.md](docs/progress/3d-creating.md); the interface is the page's.)
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
    (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
    that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
@@ -960,6 +964,20 @@ reported. PLAN §20 D357 has the whole decision.
   cleared sources and the flood selection are bounded by the area too. Anything past this map's own edge is still refused
   with its one-line reason (`tests/contract/editLimits.test.ts`). The Rust forces check no coordinates, so none changed.
   The brush radius ladder stays at 128.
+- **The renderer at every size (done, `feature/renderer-custom-sizes`):** checked in real Chrome on the RTX 2070 SUPER at 512x512,
+  512x96, 96x512, 7x300, 4x4 and 256x256 (`tools/size-fixtures.ts` makes the maps, `tools/capture-sizes.ts` captures,
+  measures and profiles them; sheet `docs/sheets/renderer-custom-sizes.jpg`). Chunks, the tile, light, overlay and
+  contamination-edge textures (any size, none a power of two), the sun's shadows (2048 depth map framed to the map), the High
+  passes, water workers, the drought line and picking at the edges all draw correctly at every size. Fixed: the badwater
+  blend was made for the whole map each time a stroke's water was meshed, and is now made for the chunk's window only
+  (`blendInto`, byte-identical), which took painting at 512x512 from frames of 17.6 ms (p95) to 11.8 ms; a map at least 3 times
+  longer than wide opens turned along the view (`openingYaw`, `src/render3d/framing.ts`); the zoom's farthest distance
+  never falls under what holds a 4x4 map; a map under 64 a side is framed with its objects (a start is a building seven levels
+  high); the minimap's short side is at least 14 pixels (`src/editor/minimapSize.ts`). 512x512 builds in about 0.8 s and orbits
+  at the display's 165 Hz (GPU 3.0 ms Standard, 4.1 ms High; about 80 MB of textures). What falls short: every water update still
+  walks the whole map on the page's thread (`surfaceWater`, `waterMovedChunks`, and the arrays copied to the water workers),
+  about 6 ms at 512x512 while painting; making it proportional to the change needs the worker's water updates to name the
+  tiles that changed. There is no cave light volume (`caveLight.ts`) in the tree yet; it needs its own check at 512x512 when it lands.
 - **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
   and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
   side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs
@@ -1050,10 +1068,10 @@ it as a WebM video to share. The history is already a list of operations that re
 (D158), so this reads it; it adds nothing to the editor's screen until used. Blocking, when built:
 the replay matches the map exactly at its end; the page never freezes while recording.
 
-**Later, proposed: a companion mod for one-click play** (Kyler, 2026-09-25; D163). A small mod
-that lists newly saved Dam Good Maps maps in the game's main menu and starts one in one click,
-building on what the DGM Probe mod already does to open a map. For Kyler's approval before it's
-built.
+**A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
+player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,
+with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
+saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
 
 **After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
 with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude

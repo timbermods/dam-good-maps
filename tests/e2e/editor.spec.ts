@@ -61,7 +61,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
       const e = m.entities;
       const extras: [number, number][] = [];
       for (let k = 0; k < e.count; k++) if (/Relic|Geothermal|Mine|Underground/i.test(e.templates[e.template[k]])) extras.push([e.x[k], e.y[k]]);
-      for (let y = 4; y < m.H - 4; y++)
+      // (from row 15: a spring on row 14 leaves the water still changing at the check, which the dot rightly counts)
+      for (let y = 15; y < m.H - 4; y++)
         for (let x2 = 4; x2 < m.W - 4; x2++) {
           const i = y * m.W + x2;
           if (m.surface.depth[i] > 0 || Math.hypot(x2 - s0, y - s1) < 20 || extras.some(([ex, ey]) => Math.hypot(ex - x2, ey - y) < 16)) continue;

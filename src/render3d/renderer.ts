@@ -55,7 +55,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
-import { BlockGhost, type GhostTile } from "./blockGhost";
+import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
@@ -64,6 +64,7 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
+import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
@@ -231,7 +232,7 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 }
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
-export const DEFAULT_YAW = -Math.PI / 6;
+export { DEFAULT_YAW };
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -527,6 +528,7 @@ export class MapRenderer {
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
+    this.blockCells?.setCut(level === null ? null : v);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
   }
@@ -2268,6 +2270,7 @@ export class MapRenderer {
   private cursorStale = false;
 
   private blockGhost: BlockGhost | null = null;
+  private blockCells: BlockCells | null = null;
   private droughtLayer: DroughtLineLayer | null = null;
 
   /** The drought line (the Weather view, D133): the faint waterline of the drought's last day and the dry tint over beds
@@ -2301,6 +2304,20 @@ export class MapRenderer {
     if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
     else this.blockGhost?.clear();
     this.requestRender();
+  }
+
+  /** The Block tool's preview (D488): the blocks a click would add (translucent), take away (red) and let fall
+   *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
+  showBlocks(preview: BlockPreview | null): void {
+    const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    if (!any && !this.blockCells) return;
+    this.blockCells ??= new BlockCells(this.scene);
+    if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
+  }
+
+  /** The blocks of the Block tool's preview drawn now, by kind (tests). */
+  get blocksDrawn(): { added: number; removed: number; falls: number } {
+    return this.blockCells?.drawn ?? { added: 0, removed: 0, falls: 0 };
   }
 
   /** Show the brush under the cursor (null hides it). */
@@ -2502,7 +2519,7 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2547,7 +2564,7 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const outline = drawnOutline(m.W, m.H, m.heights);
+    const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
     const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
@@ -3019,8 +3036,8 @@ export class MapRenderer {
 
   zoom(factor: number): void {
     const m = this.map;
-    const span = m ? Math.max(m.W, m.H) : 256;
-    this.setView({ distance: Math.min(span * 3, Math.max(6, this.view.distance * factor)) });
+    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
+    this.setView({ distance: Math.min(max, Math.max(min, this.view.distance * factor)) });
   }
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */
@@ -3159,6 +3176,7 @@ export class MapRenderer {
     this.ring?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
+    this.blockCells?.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
