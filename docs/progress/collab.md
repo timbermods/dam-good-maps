@@ -156,5 +156,4 @@ Falls short, for 6b and after: the claims tools and outlines; a stroke before re
 jump (refused); slider steps are separate actions (they cannot join into one undo step); a guest who reloads the page cannot
 rejoin as the same player yet (a new code and the host's map, as a new guest); the force's preview basis (`previewForce`) is not
 used, so a force is refused by the conservative rule if the map changed under it; an edit of over 256 operations (a huge
-planting) is refused by the message schema. `ClientEvents` types `update` and `open` as the bare payload, but the worker's events
-arrive whole (`{ type, update }`, `{ type, open }`); `Together` unwraps either.
+planting) is refused by the message schema.

@@ -224,9 +224,8 @@ export class Together {
     on("resumed", (e) => this.joined(e.name, true));
     on("paused", (e) => this.set({ phase: "paused", paused: e.message, code: null, working: null, hasView: false }));
     on("state", (e) => this.peerState(e.state));
-    // (the worker's events reach the page whole, `{ type, update }` and `{ type, open }`; `ClientEvents` types the payload alone)
     on("update", (e) => {
-      const u = (e as unknown as { update?: SessionUpdate }).update ?? e;
+      const u = e.update;
       if (this.binding) this.binding.update(u);
       else this.waiting.push(u);
       this.history();
@@ -235,7 +234,7 @@ export class Together {
       // (a whole other map: updates after it are differences from it, so none that came before may reach the editor that replaces this one)
       this.waiting = [];
       this.binding = null;
-      this.deps.open((e as unknown as { open?: SessionOpen }).open ?? e);
+      this.deps.open(e.open);
     });
     on("keep", (k) => {
       // (a session nobody joined is not kept)

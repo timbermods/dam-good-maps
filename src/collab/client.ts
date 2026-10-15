@@ -27,9 +27,9 @@ export interface ClientEvents extends PeerEventMap {
   /** The host's Invite: a short single-use code, good for `expiresInMs` (counted here). */
   code: { code: string; expiresInMs: number };
   /** The map changed (an entry applied, the water settled): take it as an edit's answer. */
-  update: SessionUpdate;
+  update: { type: "update"; update: SessionUpdate };
   /** A whole other map is open: a guest's copy of the host's map, or after a rejoin. Take it as an opened map. */
-  open: SessionOpen;
+  open: { type: "open"; open: SessionOpen };
   /** The relay or the room-code function is down, or this site has no function address yet: collaboration is unavailable;
    *  editing alone is unaffected. `message` is a sentence for the player. */
   unavailable: { message: string };
