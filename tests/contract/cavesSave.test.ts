@@ -18,10 +18,12 @@ import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import type { BlocksParams } from "../../src/core/doc/blockTool";
+import { hazardRefusal } from "../../src/core/sim/weather";
 import { blocks, failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { caveSession } from "./caveMap";
 
 /** Python with numpy for prototype/validate.py (CI installs it; a machine without it skips that half). */
 const PY = (() => {
@@ -121,6 +123,8 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
     expect(s.apply(dig(x, y, z, "-x")).errors).toEqual([]);
     expect(s.plainAt(y * s.built.W + x)).toBe(false);
     savesAndExports(s, "dig.timber");
+    // Drought and Badtide behave as on a cave import
+    expect(hazardRefusal(s.built.waterModel)).toBe(hazardRefusal(caveSession().built.waterModel));
     // undone, a heightfield again: the same model, water and file as before the hollow
     expect(s.undo()).toBe(true);
     s.settleCanonical();
