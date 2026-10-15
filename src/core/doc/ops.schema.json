@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "blocks"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -30,6 +30,7 @@
     { "if": { "properties": { "op": { "const": "removeUnfedWater" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/removeUnfedWater" } } } },
     { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } },
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
+    { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } }
   ],
   "$defs": {
@@ -288,6 +289,18 @@
       "additionalProperties": false,
       "required": ["x", "y", "orientation"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "orientation": { "$ref": "#/$defs/orientation" } }
+    },
+    "crop": {
+      "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, and a crop that would cut the start; objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
     },
     "removeUnfedWater": {
       "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",

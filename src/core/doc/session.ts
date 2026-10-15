@@ -54,6 +54,7 @@ import { clone } from "../spec/mergepatch";
 import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
+import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -62,7 +63,9 @@ import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
+  emptyState,
   invertOp,
+  isCrop,
   replay,
   validateOp,
   schemaProblems,
@@ -101,10 +104,18 @@ interface Generation {
   baseFeatures: Feature[];
   kept: KeptContent | null;
   meta: DocMeta;
+  /** The generation a crop made (D340): its base is the cropped map, and its water settles again. */
+  cropped?: boolean;
 }
 
-/** One undo step: one operation, or a group applied together (a fix, a proposal). */
-type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string };
+/** One undo step: one operation, or a group applied together (a fix, a proposal). `cropped`: the generation a
+ *  crop step made, kept while the step is undone so redo is that very map again. */
+type HistoryEntry = { kind: "ops"; ops: AppliedOp[]; label?: string; cropped?: Generation };
+
+/** The generation a document holds (not its earlier generations, `MapDocument.prior`). */
+function generationOf(doc: MapDocument): Generation {
+  return { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta, ...(doc.prior ? { cropped: true } : {}) };
+}
 
 /** A log as its history: the operations of a step of several (`step`, D456) one entry, every other
  *  operation one of its own (a project saved before D456 undoes operation by operation). */
@@ -146,6 +157,8 @@ export interface ApplyResult {
   errors: string[];
   applied: AppliedOp[];
   dirty: DirtyInfo | null;
+  /** A crop (D340): how many objects the new edge cut and removed. */
+  removedObjects?: number;
 }
 
 /** An operation with no effect, and why (PLAN §19.4): shown to the player, never dropped. */
@@ -168,6 +181,12 @@ const MIN_NEAR = 2;
 
 export class MapSession {
   private gen: Generation;
+  /** The generations before the current one, oldest first, each with its state and where its operations start
+   *  in the log: a crop (D340) makes the map's next generation, and undo of the crop is the one before. */
+  private past: { gen: Generation; st: DocState; start: number }[] = [];
+  /** Where the current generation's operations start in `log` (its first is the crop that made it). */
+  private segStart = 0;
+  /** The log of every generation, oldest first (the document splits it at each crop). */
   private log: AppliedOp[];
   private st: DocState;
   private seqNext: number;
@@ -204,9 +223,21 @@ export class MapSession {
   private waterMode: WaterMode = "canonical";
 
   private constructor(doc: MapDocument, built?: BuildResult, opts: { rebuild?: boolean; deferWater?: boolean } = {}) {
-    this.gen = { spec: doc.spec, generatorVersion: doc.generatorVersion, base: doc.base, field: doc.field ?? null, baseFeatures: clone(baseFeaturesOf(doc)), kept: doc.kept, meta: doc.meta };
+    this.gen = generationOf(doc);
+    // a cropped map's earlier generations (D340), each with its own operations: a cheap replay of their state,
+    // never a build; the map is built from the current generation's base
+    const earlier: AppliedOp[] = [];
+    const chain: MapDocument[] = [];
+    for (let d = doc.prior; d; d = d.prior) chain.unshift(d);
+    for (const d of chain) {
+      const g = generationOf(d);
+      const rp = replay(g.baseFeatures, d.edits);
+      this.past.push({ gen: g, st: rp.state, start: earlier.length });
+      earlier.push(...rp.log);
+    }
+    this.segStart = earlier.length;
     const r = replay(this.gen.baseFeatures, doc.edits);
-    this.log = r.log;
+    this.log = [...earlier, ...r.log];
     this.st = r.state;
     this.seqNext = doc.nextSeq;
     for (const n of (doc as MapDocument & RetiredNotes).__retiredNotes ?? []) this.notices.push(n);
@@ -253,7 +284,7 @@ export class MapSession {
    *  generation's layers bound to this session's (the incremental build compares them by identity);
    *  null when the project opens by rebuilding. Only for a document with a stored base. */
   private restored(doc: MapDocument): BuildResult | null {
-    if (!storedFits(doc.stored, this.log.length, this.seqNext) || this.gen.base.world === null) return null;
+    if (!storedFits(doc.stored, doc.edits.length, this.seqNext) || this.gen.base.world === null) return null;
     const b = restoreBuilt(doc.stored, this.gen.base.sizeX, this.gen.base.sizeY, this.gen.spec?.seed ?? 0);
     if (!b) return null;
     const input = this.input();
@@ -433,12 +464,20 @@ export class MapSession {
     const before = this.undoStack;
     let keep = 0;
     while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
-    for (let k = this.log.length - 1; k >= keep; k--) invertOp(this.st, this.log[k]);
+    for (let k = this.log.length - 1; k >= keep; k--) {
+      invertOp(this.st, this.log[k]);
+      if (isCrop(this.log[k])) this.leaveCrop();
+    }
     this.log.length = keep;
     for (let k = keep; k < log.length; k++) {
       const copy = clone(log[k]) as AppliedOp;
       applyOp(this.st, copy);
       this.log.push(copy);
+      // (the map as it stands before the crop, then the crop)
+      if (isCrop(copy)) {
+        this.cur = this.rebuilt();
+        this.enterCrop(this.cropGeneration(copy.params).gen);
+      }
     }
     this.seqNext = nextSeq;
     const bySeq = new Map(this.log.map((o) => [o.seq, o]));
@@ -525,6 +564,12 @@ export class MapSession {
   get mode(): SessionMode {
     if (!this.gen.spec) return "import";
     return this.gen.generatorVersion !== GENERATOR_VERSION && this.gen.base.world !== null ? "frozen" : "live";
+  }
+
+  /** Whether the map was cropped (D340): it is built from the cropped file, and has no "as opened" map to compare
+   *  its problems with, so every problem it has is the player's own. */
+  get cropped(): boolean {
+    return !!this.gen.cropped;
   }
 
   get spec(): MapSpec | null {
@@ -806,20 +851,29 @@ export class MapSession {
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {
-    return {
-      formatVersion: 3,
-      app: "dam-good-maps",
-      generatorVersion: this.gen.generatorVersion,
-      spec: this.gen.spec,
-      base: this.gen.base,
-      ...(this.gen.field ? { field: this.gen.field } : {}),
-      baseFeatures: this.gen.baseFeatures,
-      kept: this.gen.kept,
-      features: clone(this.st.features),
-      edits: clone(this.log),
-      nextSeq: this.seqNext,
-      meta: this.gen.meta,
-    };
+    // one document per generation, each holding the one before it (a crop starts the next, D340)
+    const gens = [...this.past, { gen: this.gen, st: this.st, start: this.segStart }];
+    let prior: MapDocument | undefined;
+    gens.forEach(({ gen, st, start }, k) => {
+      const next = gens[k + 1];
+      const doc: MapDocument = {
+        formatVersion: 3,
+        app: "dam-good-maps",
+        generatorVersion: gen.generatorVersion,
+        spec: gen.spec,
+        base: gen.base,
+        ...(gen.field ? { field: gen.field } : {}),
+        baseFeatures: gen.baseFeatures,
+        kept: gen.kept,
+        features: clone(st.features),
+        edits: clone(this.log.slice(start, next ? next.start : this.log.length)),
+        nextSeq: next ? this.log[next.start].seq : this.seqNext,
+        meta: gen.meta,
+        ...(prior ? { prior } : {}),
+      };
+      prior = doc;
+    });
+    return prior!;
   }
 
   /** The project file. `level` is the gzip level (autosave uses a faster one; any level opens).
@@ -832,7 +886,8 @@ export class MapSession {
     let stored: StoredState | null = null;
     try {
       // (unchanged since it opened from its stored map: that map again, as decoded)
-      stored = p && p.built === this.cur && p.state.edits === this.log.length && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, this.log.length, this.seqNext);
+      const local = this.log.length - this.segStart;
+      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, local, this.seqNext);
     } catch {
       // a map the stored format cannot carry: saved without it, and reopened by rebuilding
     }
@@ -845,7 +900,7 @@ export class MapSession {
   usedEntityIds(): ReadonlySet<string> {
     const ids = new Set<string>();
     for (const e of this.cur.entities) ids.add(e.id);
-    for (const e of this.st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
+    for (const st of [...this.past.map((p) => p.st), this.st]) for (const e of st.entityEdits) if (e.op === "placeEntity") ids.add(e.params.id);
     return ids;
   }
 
@@ -923,6 +978,7 @@ export class MapSession {
       water: this.waterNow(),
       heights: this.cur.heights,
       startObjects,
+      cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
@@ -943,6 +999,7 @@ export class MapSession {
       const f = this.blockFalls(op.params);
       if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
     }
+    if (op.op === "crop") return this.applyCrop(op, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
@@ -1007,7 +1064,7 @@ export class MapSession {
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
     for (const op of ops) {
-      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : this.check(op);
+      const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
           invertOp(this.st, a);
@@ -1031,6 +1088,64 @@ export class MapSession {
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
+  }
+
+  /** Crop map to selection (D340): the map becomes the rectangle, as the next generation (the cropped map as an
+   *  imported one, its water settling again) and one undo step; undo is the map as it was. */
+  private applyCrop(op: EditOp & { op: "crop" }, origin: OpOrigin, label?: string): ApplyResult {
+    const { gen, objects } = this.cropGeneration(op.params);
+    const applied = this.applyChecked(op, origin, label);
+    this.enterCrop(gen);
+    this.pushHistory({ kind: "ops", ops: [applied], cropped: gen });
+    this.cur = this.freshBuild();
+    this.snapshot();
+    return { ok: true, errors: [], applied: [applied], dirty: null, removedObjects: objects.crossing.length };
+  }
+
+  /** The generation a crop makes of the map as it stands: its settled water (a file always gets the canonical
+   *  settle, so every replay of the log makes the same bytes), cropped as a file, as an imported map. */
+  private cropGeneration(r: CropParams): { gen: Generation; objects: ReturnType<typeof cropFile>["objects"] } {
+    this.settleCanonical();
+    const { file, objects } = cropFile(this.exportFile(this.cur, { thumbnail: false }), r);
+    const meta = { ...this.gen.meta };
+    // (camera bookmarks name places on the map as it was)
+    delete meta.views;
+    return { gen: { spec: null, generatorVersion: GENERATOR_VERSION, base: baseFromFile(file, "import"), field: null, baseFeatures: [], kept: null, meta, cropped: true }, objects };
+  }
+
+  /** The map goes on as `gen`: the crop is already the last operation of the log. The map's name goes with it
+   *  (D443: a rename is never undone, so no crop or undo of one brings an older name back). */
+  private enterCrop(gen: Generation): void {
+    this.past.push({ gen: this.gen, st: this.st, start: this.segStart });
+    this.gen = this.named(gen);
+    this.st = emptyState(gen.baseFeatures);
+    this.segStart = this.log.length - 1;
+  }
+
+  /** `gen` with the name the map has now. */
+  private named(gen: Generation): Generation {
+    return gen.meta.name === this.gen.meta.name ? gen : { ...gen, meta: { ...gen.meta, name: this.gen.meta.name } };
+  }
+
+  /** The map goes back to the generation before its crop; returns the one it leaves. */
+  private leaveCrop(): Generation {
+    const before = this.past.pop();
+    if (!before) throw new Error("there is no map before this crop");
+    const left = this.gen;
+    this.gen = this.named(before.gen);
+    this.st = before.st;
+    this.segStart = before.start;
+    return left;
+  }
+
+  /** A full build of the current generation (the map changed size), its water carried over to be settled in the
+   *  background when edits do not wait on the water. */
+  private freshBuild(): BuildResult {
+    const input = this.input();
+    if (this.waterMode !== "defer") return buildMap(input, { water: this.waterMode });
+    const { layer } = this.baseStuff();
+    const W = this.gen.base.sizeX, H = this.gen.base.sizeY;
+    return buildMap(input, { water: "defer", initialWater: { model: modelOf({ W, H, heights: layer.heights, entities: layer.entities }), water: layer.water! } });
   }
 
   /** A player's scatter placement: validate all literal placements, then one rebuild and one undo step. */
@@ -1124,6 +1239,8 @@ export class MapSession {
       const last = this.log.pop();
       if (last?.seq !== e.ops[k].seq) throw new Error("the log and the history disagree");
       invertOp(this.st, last);
+      // (the map is the generation before the crop again)
+      if (isCrop(last)) e.cropped = this.leaveCrop();
     }
     this.redoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
@@ -1137,6 +1254,7 @@ export class MapSession {
     for (const op of e.ops) {
       applyOp(this.st, op);
       this.log.push(op);
+      if (isCrop(op)) this.enterCrop(e.cropped ?? this.cropGeneration(op.params).gen);
     }
     this.undoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
@@ -1210,6 +1328,7 @@ export class MapSession {
       heights: terrain.heights,
       entities: file.world.entities.map((e, k) => rawEntity(e, owners?.[k] ?? "import")),
       water: topWater(file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, terrain.heights),
+      ...(this.gen.cropped ? { resettle: true } : {}),
     };
     this.baseCache = { key: this.gen.base, layer, terrain, file };
     return this.baseCache;
@@ -1707,6 +1826,8 @@ export function labelOf(op: AppliedOp): string {
       return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
+    case "crop":
+      return `Crop to ${op.params.w}×${op.params.h}`;
     case "blocks":
       return op.params.mode === "add" ? "Add blocks" : "Remove blocks";
     default:
