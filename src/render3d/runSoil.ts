@@ -35,6 +35,8 @@ export class RunSoil {
   readonly data: Uint8Array;
   /** The cells written now (level·N + tile). */
   private cells = new Set<number>();
+  /** Scratch: 1 on the tiles with run tops, while a refresh reads the water. */
+  private tiles: Uint8Array | null = null;
 
   private constructor(W: number, H: number) {
     this.W = W;
@@ -73,13 +75,15 @@ export class RunSoil {
       // the water standing on a run top: a column of the view whose floor is that level
       const wet = new Set<number>();
       if (water?.count) {
-        const tiles = new Set<number>(runs.tile);
+        const tiles = (this.tiles ??= new Uint8Array(N));
+        for (let r = 0; r < runs.tile.length; r++) tiles[runs.tile[r]] = 1;
         for (let k = 0; k < water.count; k++) {
           const i = water.tile[k];
-          if (!tiles.has(i) || !(water.depth[k] > WET)) continue;
+          if (!tiles[i] || !(water.depth[k] > WET)) continue;
           const z = Math.round(water.floor[k]);
           if (Math.abs(water.floor[k] - z) < 0.01 && z >= 0 && z < RUN_LEVELS) wet.add(z * N + i);
         }
+        for (let r = 0; r < runs.tile.length; r++) tiles[runs.tile[r]] = 0;
       }
       for (let r = 0; r < runs.tile.length; r++) {
         const z = runs.level[r];
