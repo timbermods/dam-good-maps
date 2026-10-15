@@ -128,10 +128,11 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useForcePointer(ed));
   Object.assign(ed, useRows(ed));
   Object.assign(ed, useReady(ed));
+  // (the Block tool before Select: Select's effect reads ed.block as it runs, and a hook not yet run leaves it undefined)
+  Object.assign(ed, useBlockTool(ed));
   Object.assign(ed, useSelect(ed));
   Object.assign(ed, useViewSync(ed));
   Object.assign(ed, useStart(ed));
-  Object.assign(ed, useBlockTool(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));

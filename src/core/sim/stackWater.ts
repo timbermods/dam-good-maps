@@ -182,12 +182,18 @@ export function stackObjectRows(objects: readonly MapObject[]): Float64Array {
 }
 
 /** What a map with caves or overhangs refuses for now, one plain line each (D280, Kyler 2026-10-07):
- *  each waits for its rule for water in caves. */
+ *  each waits for its rule for water in caves. Whether a map is one is `cavesOf`. Drought, Badtide and
+ *  the drought line have theirs (`StackRun`, #391). */
 export const CAVE_REFUSALS = {
-  weather: "Drought and Badtide aren't worked out for maps with caves yet",
   fill: "Fill isn't worked out for maps with caves yet",
   removeUnfed: "Removing unfed water isn't worked out for maps with caves yet",
 } as const;
+
+/** Whether a map's water is that of a map with caves or overhangs (some tile not one plain run from the
+ *  bottom, `stackedModel`): the one predicate for what such a map still refuses (`CAVE_REFUSALS`). */
+export function cavesOf(model: Pick<WaterModel, "stacked">): boolean {
+  return !!model.stacked;
+}
 
 /** A settle on stacked columns: geometry and water per column id (slot·N + tile). */
 export interface StackSettle {
@@ -347,6 +353,141 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   return run;
 }
 
+/** The water of terrain above terrain run on from a given state by the game's rules, with the sources
+ *  scaled and the clean ones' contamination set at each step: the weather's simulation on such a map
+ *  (sim/weather.ts `HazardRun`). The sources stop or turn bad exactly as on a heightfield (the game's
+ *  `DroughtWaterStrengthModifier` and `BadtideWaterSourceContaminationController` act on each source,
+ *  whatever the ground around it), and every column evaporates by its own cluster saturation
+ *  (`WaterParametersUpdateTask`, `WaterEvaporationCalculationTask`): rules the engine already runs,
+ *  verified against the game on the fixtures. A map whose every tile is one open column runs today's
+ *  heightfield simulation inside the engine, so its weather is the heightfield's, bit for bit. `close`
+ *  it when done. */
+export class StackRun {
+  readonly W: number;
+  readonly H: number;
+  readonly N: number;
+  /** False on an open field: today's heightfield simulation runs, unchanged. */
+  readonly stacked: boolean;
+  readonly L: number;
+  readonly count: Uint8Array;
+  readonly floor: Int16Array;
+  readonly ceil: Int16Array;
+  /** Ticks run since the given state. */
+  ticks = 0;
+  private readonly m: StackWater;
+  /** The emitters that give clean water (a badtide turns them bad), by the engine's order. */
+  private readonly clean: number[] = [];
+
+  /** The run from `from` (a settle, a file's stored water or water carried over, on the same columns). */
+  constructor(W: number, H: number, t: StackedTerrain, from: StackSettle) {
+    this.W = W;
+    this.H = H;
+    const N = (this.N = W * H);
+    const m = (this.m = new StackWater(W, H, t.objects.length / 8, 0));
+    try {
+      (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
+      (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
+      m.op(STACK_OP.build, 0);
+      this.stacked = m.info(STACK_INFO.stacked) === 1;
+      this.count = m.copy(STACK_FIELD.count) as Uint8Array;
+      this.floor = m.copy(STACK_FIELD.floor) as Int16Array;
+      this.ceil = m.copy(STACK_FIELD.ceil) as Int16Array;
+      let L = 1;
+      for (let i = 0; i < N; i++) if (this.count[i] > L) L = this.count[i];
+      this.L = L;
+      if (from.count.length !== N) throw new Error("The water to start from is for another map.");
+      for (let i = 0; i < N; i++) if (from.count[i] !== this.count[i]) throw new Error("The water to start from is for another map.");
+      // the state as the engine takes it: each column's water within its room, a full cave's pressure only
+      // when it is full, none on an open field
+      const depth = m.view(STACK_FIELD.depth) as Float64Array;
+      const contamination = m.view(STACK_FIELD.contamination) as Float64Array;
+      const overflow = this.stacked ? (m.view(STACK_FIELD.overflow) as Float64Array) : null;
+      for (let i = 0; i < N; i++)
+        for (let q = 0; q < this.count[i]; q++) {
+          const c = q * N + i;
+          const cap = this.ceil[c] - this.floor[c];
+          const d0 = from.depth[c];
+          const d = d0 > 0 ? (d0 < cap ? d0 : cap) : 0;
+          const c0 = from.contamination[c];
+          depth[c] = d;
+          contamination[c] = c0 > 0 ? (c0 < 1 ? c0 : 1) : 0;
+          if (overflow && d === cap) {
+            const o = from.overflow[c];
+            const most = (OPEN_CEILING - this.ceil[c]) / 8;
+            overflow[c] = o > 0 ? (o < most ? o : most) : 0;
+          }
+        }
+      m.op(STACK_OP.accept);
+      const params = m.view(STACK_FIELD.emitters) as Float64Array;
+      for (let k = 0; 4 * k < params.length; k++) if (params[4 * k + 1] === 0) this.clean.push(k);
+    } catch (e) {
+      m.close();
+      throw e;
+    }
+  }
+
+  /** `ticks` more, every source's strength times `scale` (0: a drought), the clean sources giving water
+   *  of contamination `cleanContamination` (a badtide), or their own (null). */
+  run(ticks: number, scale: number, cleanContamination: number | null = null): this {
+    if (cleanContamination !== null) {
+      const params = this.m.view(STACK_FIELD.emitters) as Float64Array;
+      for (const k of this.clean) params[4 * k + 1] = cleanContamination;
+    }
+    const n = ticks > 0 ? Math.ceil(ticks) : 0;
+    for (let left = n; left > 0; left -= MAX_ADVANCE) this.m.op(STACK_OP.run, Math.min(left, MAX_ADVANCE), scale);
+    this.ticks += n;
+    return this;
+  }
+
+  /** The water as it stands, every column (copies, with its cluster saturation): a `StackSettle` that is
+   *  not a settle (`settled` false), never written to a file. */
+  state(): StackSettle {
+    this.m.op(STACK_OP.saturation);
+    const overflow = this.stacked ? (this.m.copy(STACK_FIELD.overflow) as Float64Array) : new Float64Array(this.L * this.N);
+    return {
+      W: this.W,
+      H: this.H,
+      L: this.L,
+      stacked: this.stacked,
+      count: this.count,
+      floor: this.floor,
+      ceil: this.ceil,
+      depth: this.m.copy(STACK_FIELD.depth) as Float64Array,
+      overflow,
+      contamination: this.m.copy(STACK_FIELD.contamination) as Float64Array,
+      sat: this.m.copy(STACK_FIELD.saturation) as Uint8Array,
+      settled: false,
+      ticks: this.ticks,
+    };
+  }
+
+  /** The water from above, each tile's top column (as the build's per-tile water reads a stacked settle). */
+  top(): { depth: Float64Array; contamination: Float64Array } {
+    const N = this.N;
+    const d = this.m.view(STACK_FIELD.depth) as Float64Array;
+    const c = this.m.view(STACK_FIELD.contamination) as Float64Array;
+    const depth = new Float64Array(N);
+    const contamination = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!this.count[i]) continue;
+      const k = (this.count[i] - 1) * N + i;
+      depth[i] = d[k];
+      contamination[i] = c[k];
+    }
+    return { depth, contamination };
+  }
+
+  /** The water's stored outflows on an open field (4 per tile, as `WaterSim.out`), else null: the
+   *  stacked engine's momentum is per column pair, which the view's moving water does not read. */
+  outflows(): Float64Array | null {
+    return this.stacked ? null : (this.m.copy(STACK_FIELD.momentum) as Float64Array);
+  }
+
+  close(): void {
+    this.m.close();
+  }
+}
+
 /** The canonical settle of a map by the game's rules, whole (`canonicalStackRun` to its end). */
 export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[]): StackSettle {
   const run = canonicalStackRun(t.W, t.H, { mask: t.mask, objects: stackObjectRows(objects) });
@@ -358,7 +499,7 @@ export function canonicalStackSettle(t: VoxelMasks, objects: readonly MapObject[
 /** Water on stacked columns that is not a settle of them, on the columns `cols`: a file's own stored
  *  water (`stored`, world.ts `storedWater`: each entry on the column whose floor it names, or the one
  *  it stands in), or water carried over from other columns (`staleStack`). Never written to a file. */
-export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number>; floor: ArrayLike<number>; depth: ArrayLike<number>; contamination: ArrayLike<number> }): StackSettle {
+export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number>; floor: ArrayLike<number>; depth: ArrayLike<number>; contamination: ArrayLike<number>; overflow?: ArrayLike<number> }): StackSettle {
   const { W, H, N, L } = cols;
   const out = emptyStack(cols);
   for (let k = 0; k < stored.tile.length; k++) {
@@ -372,6 +513,14 @@ export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number
     if (slot < 0) continue;
     out.depth[slot * N + i] = stored.depth[k];
     out.contamination[slot * N + i] = stored.contamination[k];
+    // (a full cave's pressure, on a column its water fills, as the engine holds it: a column under pressure is full,
+    // whatever its rounded token says)
+    const o = stored.overflow?.[k] ?? 0;
+    const cap = cols.ceil[slot * N + i] - cols.floor[slot * N + i];
+    if (o > 0 && stored.depth[k] >= cap - 1e-3) {
+      out.depth[slot * N + i] = cap;
+      out.overflow[slot * N + i] = o;
+    }
   }
   return { ...out, W, H, L };
 }
@@ -382,6 +531,24 @@ export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number
 export function seenWater(b: { water: Float64Array; contamination: Float64Array; settle?: { stack?: StackSettle } }): { depth: Float64Array; contamination: Float64Array } {
   const s = b.settle?.stack;
   return s?.stacked ? seenThroughRoofs(s) : { depth: b.water, contamination: b.contamination };
+}
+
+/** The water standing on the map's ground, per tile: a tile's one column, or the column whose floor is the tile's
+ *  height (`heights`, the terrain's surface), else none. What a reading on the ground compares day by day (the drought line): the same
+ *  column on both sides, never the water under a NaturalOverhang on one and the water on its top on the other. */
+export function surfaceWater(s: StackSettle, heights: ArrayLike<number>): { depth: Float64Array; contamination: Float64Array } {
+  const N = s.W * s.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let i = 0; i < N; i++)
+    for (let q = s.count[i] - 1; q >= 0; q--) {
+      const c = q * N + i;
+      if (s.count[i] > 1 && s.floor[c] !== heights[i]) continue;
+      depth[i] = s.depth[c];
+      contamination[i] = s.contamination[c];
+      break;
+    }
+  return { depth, contamination };
 }
 
 /** The water of stacked columns seen through the roofs: per tile, its highest wet column's depth and

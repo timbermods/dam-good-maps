@@ -218,6 +218,11 @@ export function App() {
   const [panel, setPanel] = useState<"generator" | "places" | "maps" | null>(null);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
+  /** The name typed in the generator's Name box for the next map (null: none); the map Generate makes next takes it, and the
+   *  open map keeps its own name. */
+  const [nextName, setNextName] = useState<string | null>(null);
+  const nextNameRef = useRef<string | null>(null);
+  nextNameRef.current = nextName;
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
@@ -384,6 +389,8 @@ export function App() {
     keeping.current = true;
     setSaveState("");
     nameRef.current = e.name;
+    // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
+    if (!keepView) setNextName(null);
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
@@ -782,7 +789,23 @@ export function App() {
       made++;
       performance.mark("dgm:generated");
       // the map is the editor's from the start: there is no step between making it and shaping it
-      enterEditor(await replacing(() => generator.refine()), { kind: "generated" });
+      let fresh = await replacing(() => generator.refine());
+      // (the name typed in the generator's panel names this map, not the one it replaces)
+      const typed = nextNameRef.current?.trim();
+      let named = false;
+      if (typed) {
+        const { result, info } = await generator.setName(typed);
+        if (result.ok) {
+          fresh = { ...fresh, info };
+          named = true;
+        }
+      }
+      enterEditor(fresh, { kind: "generated" });
+      // (a name given keeps the map in Your maps, as a rename does)
+      if (named) {
+        kept.current = true;
+        saver.changed(entry.current!.id, snapshot);
+      }
       performance.mark("dgm:opened");
       searchVersion(r);
       setMaking(null);
@@ -1034,7 +1057,8 @@ export function App() {
     onCompareMap: (id) => void compareWith(id),
     openSize: session ? { w: session.W, h: session.H } : undefined,
     name,
-    onRename: rename,
+    nextName,
+    onNextName: setNextName,
   };
 
   // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project

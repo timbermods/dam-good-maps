@@ -27,11 +27,11 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   own corbelled shape, sometimes a layer thicker): the remnant of a roof the river wore through. Its deck joins the two
   rims at their level. The surface rises on the deck's tiles only.
 
-**How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no
-Drought, Badtide, Fill or Remove unfed water in the editor yet (they are refused with one line, as on an imported cave
-map), so the ordinary map stays exactly as it was until those have their rules for caves; above it, `formsWanted` draws
-from the map's own stream (`stream(seed, "forms3d")`, the same on every attempt, nothing else drawn differently):
-Verticality 0 none; a spring cave on 25% + Verticality% of maps (up to 90%), two
+**How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no Fill
+or Remove unfed water in the editor yet (they are refused with one line, as on an imported cave map; Drought and Badtide
+run on caves since #404), so the ordinary map stays exactly as it was until those have their rules for caves; above it,
+`formsWanted` draws from the map's own stream (`stream(seed, "forms3d")`, the same on every attempt, nothing else drawn
+differently): Verticality 0 none; a spring cave on 25% + Verticality% of maps (up to 90%), two
 from 50, three from 75; an overhang on 20% + Verticality% (up to 85%); an arch from 35, more in Canyon and Highlands, fewer
 in Lake Basin and Delta, two at 70+ on most maps. A drawn form that finds no place, or that the map cannot keep, is
 recorded as dropped with why (`GenerateResult.intentions`, outcome "dropped"); one that emerged carries where it is and
@@ -96,7 +96,8 @@ machine shared with other sessions' runs, so times are high; the batches ran wit
   land, water, objects and checks (no forms at the default); generator 0.10.0 changes every .timber and project by its
   version string only. With forms at the default (built first, then gated): 31 changed, every one where a form was
   placed (22 with a spring cave, 11 an overhang, 8 an arch, on Canyon and Highlands, whose defaults are 40 and 45), and
-  their caves turned off Drought, Fill and Remove unfed water in the editor, which is why the gate is there.
+  their caves turned off Fill and Remove unfed water in the editor (and Drought, before #404), which is why the gate is
+  there.
 - Time: at Verticality 80, 12 maps (Canyon, Highlands, River Valley, Any, seeds 1–3) took a median of 14.7 s against
   dev's 7.9 s on the same loaded machine: a map with forms is built and checked once or twice more, each time with the
   stacked engine's settle. Under 3 s at 128² is not met, by dev either on this machine.
@@ -106,9 +107,9 @@ themselves, in the editor's 3D view from where each is best seen, are `docs/shee
 at Verticality 50, Highlands 2 and Canyon 1 at 80; `tools/capture-forms3d.ts --maps theme:seed:vt,…`).
 
 **Falls short, for the next parts:**
-- No forms at the default Verticality: on a map with a form, Drought, Badtide, the drought line, Fill and Remove unfed
-  water are refused as on an imported cave map. Once the stacked engine has their rules, the gate can go (the forms at
-  the default were built and measured: on the 84 maps they changed 31, every one where a form was placed).
+- No forms at the default Verticality: on a map with a form, Fill and Remove unfed water are refused as on an imported
+  cave map. Once the stacked engine has their rules, the gate can go (the forms at the default were built and measured:
+  on the 84 maps they changed 31, every one where a form was placed).
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.

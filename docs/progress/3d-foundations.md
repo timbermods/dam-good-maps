@@ -483,7 +483,8 @@ the soil rules per run on the map's own water against its stored moisture slots:
   before; nothing was changed or found wrong from above. How caves look from inside is step 2's.
 - **The engine's sink rule under a roof** was read from Timberborn 1.1.2.4's code; the game here is now 1.1.2.7 and
   the rule has not been played.
-- **Remove unfed water on such a map** still waits for its rule; **Drought and Badtide** and **Fill** for theirs.
+- **Remove unfed water on such a map** still waits for its rule, and **Fill** for its. **Drought, Badtide and the
+  drought line** have theirs since #391 (below).
 - **Live water on such a map** would need the engine to warm-start and hand frames over; not built.
 - **Tower of Beaverlon** (a workshop map from a taller, modded game, cut to 23 layers on import) loses most of its
   water once edited (2,414 wet open tiles to 354; 3,332 wet cave columns to 554): its sources stand above the
@@ -496,6 +497,59 @@ the soil rules per run on the map's own water against its stored moisture slots:
   `tests/e2e/brushSources.spec.ts` fails now and then as a run's first test (1 of 2 on dev's build).
 - **The Python validator** still gives caves as a cause of approximate water, so it and the Rust checks now
   disagree on Hollows, Pressure and Nomads: stage 7's note.
+
+## Drought, Badtide and the drought line on the stacked engine (#391, built 2026-10-14)
+
+On `feature/stacked-weather`. The engine already had every rule the weather needs (its `run` scales every
+source, 0 in a drought, and takes each emitter's contamination between runs; every column evaporates by its own
+cluster saturation). The game's code (1.1.2.7: `DroughtWaterStrengthModifier`,
+`BadtideWaterSourceContaminationController`, `WaterParametersUpdateTask`) acts per source and per column, with
+nothing about roofs, so the heightfield's rules are the stacked ones. One Rust change: a seep in the stacked
+engine starts off, as the heightfield's and the game's do (`WaterDepthStrengthModifier._isEnabled` starts false,
+unsaved); no golden fixture has a seep. The 19 official maps' canonical settle against their own water is unchanged
+by it (every overlap and soil match as in the table above; Oasis settles at 2,944 ticks instead of 1,152, still
+matching its file exactly), and the game starts a seep off both at load and so at a hazard's day 0. That table is
+`npx tsx tools/official-water-match.ts [dir]` (local only): rerun it after any water change. An unedited import's stored water now carries its full caves' pressure
+(`storedWater`'s `overflow`, into `storedStack`): without it Pressure's start lost 2,005 blocks over 4,610 columns.
+The drought line reads both days on the column standing on the map's ground (`surfaceWater`), so water under a
+NaturalOverhang is never a false bed.
+- **The core:** `sim/stackWater.ts` `StackRun` (the engine built on the model's terrain and objects, its state
+  set from a `StackSettle`, run with a scale and the clean sources' contamination); `sim/weather.ts` `HazardRun`
+  takes `water.stack` on a stacked model and runs it there, `water()` giving the day's water from above and on
+  every column, `hazardSoil` the day's soil (per run top with caves). `MapSession.waterShown()` is the water a
+  hazard starts from: an unedited import's own (its build holds none: before this, a drought on an unedited
+  import, heightfield or not, started from dry water, and its days showed the file's water), else the build's.
+- **The worker:** no refusal; a run restarts when the water it started from is replaced (a settle coming in), and a
+  drought line read from replaced water goes; a map with caves steps one tick at a time (a tick of a big one takes
+  a whole slice), so an edit never waits;
+  the background prep waits while a cave map's water settles.
+- **Checked:** on a map with no caves (a clean source, a badwater source, a sink and a seep) the stacked weather is
+  the heightfield's day by day, bit for bit, both on an
+  open field and with one overhang far from the water putting the whole map on the stacked rules
+  (`tests/contract/stackedWeather.test.ts`); T3 unedited and edited (`caveImport.test.ts`); the page
+  (`caveWater.spec.ts`). On the official cave maps, a 9-day drought from each map's own water, water from above
+  (blocks) against the analytic drought (`sim/drought.ts`, the map from above), and Node's time on the busy
+  machine:
+
+| Map | Day 0 | Day 9 | Analytic | Seconds |
+|---|---|---|---|---|
+| Canyon | 549 | 129 | 126 | 1.6 |
+| Waterfalls | 516 | 16 | 16 | 0.6 |
+| Oasis | 284 | 105 | 105 | 3.6 |
+| Hollows | 2,738 | 1,906 | 1,913 | 4.6 |
+| Terraces | 5,345 | 1,582 | 1,916 | 12.7 |
+| MountainRange | 1,240 | 255 | 248 | 2.8 |
+| Craters | 4,571 | 1,862 | 2,013 | 16.2 |
+| Lakes | 5,632 | 702 | 604 | 21.5 |
+| Pressure | 3,347 | 1,001 | 1,904 | 54.3 |
+| Beaverome | 80,662 | 68,253 | 68,462 | 136.6 |
+
+  Below the analytic drought where water drains into caves the heightfield cannot see (Pressure, Terraces); a
+  little above where water still drains on day 9 (Lakes). The slowest maps take minutes in the background on a
+  loaded machine (the engine's speed per tick, #380's).
+- **For a probe batch when one is worth asking for (D483):** an edited cave import as the app exports it
+  (Hollows with one small edit), played in the game through a normal drought; check the water on its last day
+  against the Drought view's last day (wet columns from above and under the roofs, D120's acceptance line).
 
 ## The probe batch: the Terrain 3D group on the Rust engine (ready to ask for, 2026-10-07)
 
@@ -523,3 +577,31 @@ On `feature/3d-foundations-probe`. Nothing in the app changes.
 - **Not covered by this group now:** the support rule's own check ran on T1 (`t3d-support` still runs on every
   map, but no map here has voxels that fall), and walking and pumps stay not measurable, as in September.
 
+
+## RESULTS: the `3d-foundations-done` gate batch (2026-10-15)
+
+Run `20261015-1011-batch` on Timberborn 1.1.2.7, with the installed mods (`--keep-mods`), after the smoke run
+`20261015-0947-smoke` (passed) that the runner asks for on a game version it has not stamped. Dev at a1dd3592 (#370 and
+Erode in). D483: only the cave edits players get, written by the Terrain 3D group's writer through the app's core and
+exported as the app exports them; T1–T7 not replayed (`--only`).
+
+| Map | What it is | Verdict |
+|---|---|---|
+| `hollows-edited` | Hollows, three plain tiles raised (4117 wet columns, 988 roofed, 23 under pressure) | passed |
+| `canyon-edited` | Canyon, the same edit (1831 wet, 185 roofed) | passed |
+| `pillars-roof-stroke` | Pillars, a Lower stroke (Area, 3 × 3) cutting a roof over cave water to its lowest layer; the settle stopped unsettled at 3072 ticks | passed |
+| `hollows-block-dig` | Hollows, a 3 × 3 Block tool Remove into a cave wall beside the cave's water | passed |
+| `erode-cave` | Highlands seed 21 at 128², an Erode cave (Power 60) at a cliff's foot by water; written as a generated map (heightfield water, voxels with the cave) | passed |
+| `hollows-unedited` | the control: Hollows imported and exported unedited, its world the file's byte for byte | passed |
+
+- **Every check passed on every map:** loads with no issue or error, 0 voxels dropped (the support rule predicts 0),
+  every object at its tile and level, plants as predicted.
+- **Water (`t3d-water`, now judged at the load too):** at the load and after 1 and 1.18 days, 100.0% of wet columns
+  within 0.1 deep on all six maps, roofed ones included, wet IoU 1.000, every column under pressure in the engine under
+  pressure in the game. The largest difference 0.033 (Pillars, an open column the unsettled settle was still moving;
+  volume 1840 against the game's 1844); 0.013 on the control; 0.005 or less on the other four.
+- **Soil per run:** moist and dry agree on 100.0% of runs on every map (99.9–100% within 0.05).
+- Screenshots (`C:\dgm-probe\shots\20261015-1011-batch\`, contact sheet `C:\dgm-probe\sheet\20261015-1011-batch.html`):
+  nothing broken; the cut roof, the dig and the Erode cave show as built.
+- **The gate is green** for `3d-foundations-done`. Regenerate the maps with `npx tsx tools/probe-3d.ts` (the official
+  maps from `.scratch/official`).

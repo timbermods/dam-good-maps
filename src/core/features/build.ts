@@ -747,7 +747,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const frozen = base?.frozen;
   // the base's terrain when it has caves or overhangs, or a generated field's when it grew 3D forms
   // (null: a heightfield)
-  const caves = base ? cavesOf(base) : (input.field?.caves ?? null);
+  const caves = base ? caveTerrainOf(base) : (input.field?.caves ?? null);
   const live = (f: Feature) => !frozen?.has(f.id);
   const features = input.features;
   const fields: FieldCache = prev ? prev.fields : opts.fieldCache ? sharedFields(opts.fieldCache) : new Map();
@@ -1128,7 +1128,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   // an imported map's caves and overhangs (D120): its water is the stacked-column engine's, on the
   // terrain as it stands (the surface the edits made, the ground the Block tool dug or built, the
   // other tiles kept: doc/session.ts `terrainOf`, which the export writes), and so is a generated
-  // map's with 3D forms or the Block tool's caves (#435); a heightfield's model is the one it always was
+  // map's with 3D forms and any map's the Block tool or Erode hollowed (#435); a heightfield's model is
+  // the one it always was (a map whose last hollow is undone is a heightfield again, its water and file
+  // as before)
   const stackTerrain = runsGround;
   const model = stackTerrain ? stackedModel(waterModel(W, H, heights, objects), stackTerrain, objects) : waterModel(W, H, heights, objects);
   const cols = model.stacked ? waterColumns(stackTerrain!, objects) : null;
@@ -1382,8 +1384,8 @@ export function groundDropped(caves: ColumnTerrain | null | undefined, heights: 
 }
 
 /** The terrain a build stands on when it is not a heightfield: its caves (an imported map's, a
- *  generated field's 3D forms) under its surface, with the Block tool's ground; null on a heightfield
- *  (#435: ground the Block tool dug on a heightfield map is terrain above terrain too). */
+ *  generated field's 3D forms) under its surface, with the ground the Block tool and Erode left; null
+ *  on a heightfield (#435: a hollow dug on a heightfield map is terrain above terrain too). */
 export function caveTerrain(caves: ColumnTerrain | null, heights: ArrayLike<number>, masks: ReadonlyMap<number, number>, W: number, H: number): ColumnTerrain | null {
   return caves || layeredMasks(masks) ? terrainUnder(caves, heights, masks, W, H) : null;
 }
@@ -1526,7 +1528,7 @@ const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string 
 const baseCaves = new WeakMap<BaseLayer, ColumnTerrain | null>();
 /** A base's terrain when some tile of it is not one plain run from the bottom (a cave, an overhang),
  *  else null. */
-function cavesOf(base: BaseLayer): ColumnTerrain | null {
+function caveTerrainOf(base: BaseLayer): ColumnTerrain | null {
   let c = baseCaves.get(base);
   if (c === undefined) {
     c = base.terrain && !base.terrain.allPlain() ? base.terrain : null;
@@ -1540,7 +1542,7 @@ function baseModelOf(base: BaseLayer, W: number, H: number): { model: WaterModel
   if (!bm) {
     const flat = modelOf({ W, H, heights: base.heights, entities: base.entities });
     // (with its caves and overhangs, as every build of the map has them)
-    const m = cavesOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
+    const m = caveTerrainOf(base) ? stackedModel(flat, base.terrain!, base.entities.map(toMapObject)) : flat;
     bm = { model: m, emitters: JSON.stringify(m.emitters) };
     baseModels.set(base, bm);
   }

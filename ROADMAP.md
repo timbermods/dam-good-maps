@@ -679,8 +679,8 @@ Once M9b has settled (D280 (4)).
 **Part 1 built** (D488, `feature/3d-generation`; [docs/progress/3d-generation.md](docs/progress/3d-generation.md)): a
 spring cave feeding the river, an overhang sheltering the start, an arch over a gorge, as intentions grown on the finished
 map (`src/core/land/forms3d.ts`, `src/core/gen/forms3d.ts`), each kept only where every check, intention and outcome still
-holds and its own check confirms it, above the theme's default Verticality only until Drought, Badtide, Fill and Remove
-unfed water have their rules for caves; generated caves' water is the stacked engine's. Next: those rules (then forms
+holds and its own check confirms it, above the theme's default Verticality only until Fill and Remove unfed water have
+their rules for caves; generated caves' water is the stacked engine's. Next: those rules (then forms
 at the default too), the remaining processes below, and the probe batch.
 
 **Delivers**
@@ -756,15 +756,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    left with their dry sides and the level it stands at, the beds it uncovers (and whether each whole body dries out),
    and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
    `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
-   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
-   instead ("The drought line isn't worked out for maps with caves yet").
+   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves or overhangs has
+   its line too, both days read on each tile's column standing on its ground (item 3).
    **Built (the drawing):** `render3d/droughtLine.ts` (geometry in `droughtLineGeometry.ts`, set by the page through
    `renderer.setDroughtLine`): a faint amber line along each shore side at the last day's water level (a thin strip flat
    at that height and one upright on the bank, so it reads from above and from the side, through today's water where
    that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
    water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
-   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing. **Next:** the
-   refusal's words on the page, and the line on maps with caves.
+   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
@@ -779,7 +778,7 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
-   (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
+   (each day's soil is worked out on demand, once, from the last one cached; none yet on a map with caves, whose day soil, per run top, is worked out on the session worker, #404); the renderer moves those plants to the dead batches in place
    (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
    effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
    where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
@@ -793,6 +792,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    "2 to 7 days before cycle 5's drought or badtide" on Normal), lit while the day shown is one it may go off on. `core/sim/coreMoment.ts`
    (pure; `tests/unit/coreMoment.test.ts`). **Open:** the held day is drawn as the map is now, never after the explosion;
    a core placed by hand with other days is read at the game's default days until the page's core options exist.
+3. **On every import** (#391): Drought, Badtide and the drought line run on a map with caves or overhangs too, on the
+   stacked-column engine (`sim/stackWater.ts` `StackRun`, the same sources-stop, badwater and evaporation rules on every
+   water column), from the water the map shows (an unedited import's own); each day's soil per run top. On a map with no caves the stacked weather is
+   the heightfield's, bit for bit. Only Fill and Remove unfed water are still refused on such maps (`cavesOf`).
+   Probe, when one is next worth asking for (D483): an edited cave import as the app exports it, played through a drought
+   (the PR, #391's, says what it plays and checks).
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).

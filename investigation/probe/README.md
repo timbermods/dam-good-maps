@@ -45,8 +45,11 @@ once, and only for the plan it was printed for.
     `npx tsx tools/probe-3d.ts`). What the game should show is worked out from each file by the app's own stacked
     engine (`src/core/sim/stackWater.ts`, rust/water). Needs DGM Probe 0.3.0 or later (water columns' pressure, soil
     on every run). `C:\dgm-probe\terrain3d\` keeps the files runs `terrain3d-20260927` and `-20260929` played (T1
-    and T2 there are still what dev writes). The edited Hollows and Canyon join the group once Foundations' stage 6
-    can export them. Play with `--keep-mods`.
+    and T2 there are still what dev writes). With them, the cave edits players get, each made through the app's core
+    and exported: Hollows and Canyon edited, a roof stroke on Pillars, a Block tool dig in Hollows, an Erode cave on a
+    generated map, and unedited Hollows as the control (the official maps from `DGM_OFFICIAL_MAPS`, `.scratch/official`
+    or `investigation/raw/builtin`; left out where missing). Play with `--keep-mods`; play only the maps that changed
+    with `--only` (D483).
 - The ceiling maps (land raised up to 22 in the editor, PLAN §20 D244): make them with
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
   worker with its limit raised to 22, each checked by both validators' export profile), then play them as the

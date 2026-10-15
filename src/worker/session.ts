@@ -37,8 +37,8 @@ import { planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
-import { HazardRun, hazardDays, hazardRefusal, type Hazard } from "../core/sim/weather";
-import { droughtLineRefusal, mapDroughtLine } from "../core/doc/droughtLine";
+import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
+import { mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { witheredByDay, WITHERING_SPECIES, type Plant } from "../core/sim/withering";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
@@ -49,7 +49,7 @@ import { StrokePreview, type TerrainState } from "../core/features/raster/stroke
 import type { BrushParams, Rect } from "../core/features/raster/brush";
 import type { WeatheredLand } from "../core/features/raster/remoteStroke";
 import { EMITTERS, objectTile } from "../core/sim/model";
-import { worldWaterModel, type StackSettle } from "../core/sim/stackWater";
+import { cavesOf, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
@@ -265,7 +265,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
  *  water's own, else the settle's, else the stored file's. */
-function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
   const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
@@ -275,25 +275,26 @@ function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> }, g
   return view;
 }
 
-/** Water in flight to show. `weather`: a hazard's day, which an unedited heightfield import shows as the day's water
- *  (the file's own is day 0 only); any other live water of an unedited import shows the file's. */
+/** Water in flight to show: per tile from above, and, for a weather day, the whole water it is (`stack`: every
+ *  column on a map with caves or overhangs, null on a heightfield). `weather`: a hazard's day, which an unedited
+ *  import shows as the day's water (the file's own is day 0 only); any other live water of an unedited import shows
+ *  the file's. */
 interface LiveWater {
   depth: ArrayLike<number>;
   contamination: ArrayLike<number>;
+  stack?: StackSettle | null;
   weather?: boolean;
 }
 
 function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
-  // (a hazard's day on an unedited heightfield import is the day's water, not the file's: maps with caves have no
-  // Drought or Badtide yet, sim/weather.ts `hazardRefusal`)
   if (s.showsStoredWater && !live?.weather) {
     const w = s.storedWater();
     const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
     return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
   }
   // an edited map with caves or overhangs: its water on every column, simulated like the rest (D120)
-  const stack = s.built.settle.stack;
+  const stack = live?.stack !== undefined ? live.stack : s.built.settle.stack;
   return stack ? waterFromStack(stack, b.heights, b.water, b.contamination) : waterFromDepth(b.heights, b.water, b.contamination);
 }
 
@@ -905,8 +906,12 @@ function finishWater(j: WaterJob, water: CanonicalWater): void {
  *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
  *  background check that stopped it, D345 B14). */
 function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
-  // (a map with caves has no drought line: the page is told so once its water settles)
-  if (droughtLineRefusal(s)) droughtWatch?.(currentDroughtLine()!);
+  // (a drought line read from the water the settle replaced goes: an empty line until the new water's comes)
+  const old = droughtLineNow;
+  if (old && old.session === s && old.from !== s.waterShown()) {
+    droughtLineNow = null;
+    droughtWatch?.({ version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought")) });
+  }
   if (!listener) return view;
   // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
   const copy = structuredClone(view);
@@ -932,15 +937,15 @@ interface WeatherRun {
   hazard: Hazard;
   /** The hazard's default length (its last day by default). */
   days: number;
-  /** The water the run started from (the map's water as shown then, `MapSession.waterShown`: the drought line's
-   *  day 0): a run whose map shows other water now (its settle came in) starts again. */
+  /** The water the run started from (the map's water as shown then, `MapSession.waterShown`): a run whose map
+   *  shows other water now (its settle came in) starts again. */
   from: CanonicalWater;
-  /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
+  /** The hazard's own simulation (its sources' own copies), stepped a day at a time: the heightfield's, or the
+   *  stacked engine's on a map with caves or overhangs (core/sim/weather.ts). */
   run: HazardRun;
-  sim: WaterSim;
   /** Each day's water as the simulation leaves it, from day 1 on (day 0 is the map's own): only the water is kept;
    *  the ground's moisture and contamination are worked out for the day shown (Kyler, 2026-10-04). */
-  kept: (WaterDay | null)[];
+  kept: (HazardWater | null)[];
   /** Each day's soil as the view holds it, worked out when first needed (the day shown, and the days before it that
    *  decide which plants have died, a day at a time; day 0 is the map's own), and the plants that can wither (the
    *  visible seasons). A 256² day is 128 KB. */
@@ -962,12 +967,6 @@ interface WeatherRun {
   prep: number | null;
   running: boolean;
 }
-/** A day's water, exactly as the simulation left it. */
-interface WaterDay {
-  depth: Float64Array;
-  contamination: Float64Array;
-  out: Float64Array;
-}
 /** Each hazard's run, kept until the map changes (Kyler, 2026-10-04: switching back is instant). */
 const weatherRuns: Partial<Record<Hazard, WeatherRun>> = {};
 /** The background work's token: a new one starts it, and an edit, a stroke or a force stops it (the page says so the
@@ -987,13 +986,13 @@ function runFor(hazard: Hazard): WeatherRun {
   const s = need();
   const old = weatherRuns[hazard];
   if (old && currentRun(old)) return old;
-  old?.sim.dispose();
+  old?.run.dispose();
   const base = s.built.waterModel;
-  // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
-  // from the water the map shows (an unedited import's own, not the build's empty one)
+  // from the water the map shows (an unedited import's own, every column of it on a map with caves or overhangs)
   const from = s.waterShown();
-  const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination) }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
+  // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
+  const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination), stack: from.stack }, hazard, Infinity);
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, kept: [null], soils: [], plants: null, shown: 0, witherDue: null, soilJobs: new Map(), want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -1002,12 +1001,6 @@ function runFor(hazard: Hazard): WeatherRun {
  *  simulating the days up to it, the page told each day as it is reached ("computing") and the day itself at the end
  *  ("day"). Each hazard's days are kept until the map changes, so switching back is instant. */
 export function showWeatherDay(hazard: Hazard, day: number | null): void {
-  // refused with its one line on a map with caves or overhangs: the page keeps the map's own water (day 0)
-  const refusal = hazardRefusal(need().built.waterModel);
-  if (refusal) {
-    listener?.({ kind: "weather", version, phase: "day", hazard, day: 0, days: 0, water: waterOf(need()), soil: soilOf(need()) });
-    throw new Error(refusal);
-  }
   const run = runFor(hazard);
   const target = Math.max(0, day ?? run.days);
   weatherShown = run.session;
@@ -1025,7 +1018,8 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
  *  first click is instant too). The page asks only while Kyler is idle and the water has settled, and stops it the
  *  moment he edits, paints or uses a force; it runs a few milliseconds at a time between his messages. */
 export async function prepareWeather(): Promise<void> {
-  if (!session || (waterJob && waterJob.session === session) || hazardRefusal(session.built.waterModel)) return;
+  // (not while the water settles: a map with caves or overhangs settles in the background check, with no job here)
+  if (!session || (waterJob && waterJob.session === session) || (session.waterStale && session.built.waterModel.stacked)) return;
   const token = ++prepToken;
   pressed = false;
   resumeWithering();
@@ -1080,20 +1074,32 @@ async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   // (another day asked for, or the map changed, while the soil was being worked out)
   if (!currentRun(run) || run.shown !== day) return;
   // the soil worker failed: the day as it is held, its water with the map's own soil and nothing withered or changed
-  if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice(), weather: true }), soil: soilOf(s) });
-  // a map with caves has none until the stacked engine's Drought and Badtide give it day soil (#404): the page keeps its plants
+  if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil: soilOf(s) });
+  // (a map with caves or overhangs: its day soil, but no withering yet, `stackedMap`)
   run.soils[0] ??= soilOf(s);
   const caves = stackedMap(s);
   const ready = !caves && cachedUpTo(run, day);
   const withered = caves ? new Int32Array(0) : ready ? witheredTiles(run, day) : undefined;
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice(), weather: true }), soil, ...(withered ? { withered } : {}) });
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil, ...(withered ? { withered } : {}) });
   if (!caves && !ready) void witherLater(run, day);
 }
 
-/** A map with caves or overhangs (a stacked water model): no day soil of its own yet, so no withering until the stacked
- *  engine's Drought and Badtide give it (#404, `hazardSoil`). */
+/** A map with caves or overhangs: its day soil is worked out on this worker, on every column's water (`caveDaySoil`),
+ *  so the plants' withering, which reads every day before the one shown, isn't run there yet. */
 function stackedMap(s: MapSession): boolean {
-  return !!droughtLineRefusal(s);
+  return cavesOf(s.built.waterModel) || s.columns.size > 0;
+}
+
+/** A hazard day's soil on a map with caves or overhangs (core/sim/weather.ts `hazardSoil` on every column's water), with
+ *  every run top's, as `withRuns` gives the map's own. */
+function caveDaySoil(s: MapSession, k: HazardWater): SoilView {
+  const g = hazardSoil(s.built.waterModel, s.built.heights, k, s.built.entities.map(toMapObject));
+  const soil = soilView(g.moisture, g.contamination);
+  if (g.runs && s.columns.size) {
+    const T = g.runs.runs.T;
+    soil.runs = runSoilView(s.columns, s.size.x * s.size.y, { slots: T, values: g.runs.moisture }, { slots: T, values: g.runs.contamination });
+  }
+  return soil;
 }
 
 function cachedUpTo(run: WeatherRun, day: number): boolean {
@@ -1125,6 +1131,8 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView | null> {
   const s = run.session;
   const k = run.kept[day];
   if (!k || day === 0) return Promise.resolve((run.soils[day] = soilOf(s)));
+  // (every column's water: the soil worker reads a heightfield's)
+  if (k.stack) return Promise.resolve((run.soils[day] = caveDaySoil(s, k)));
   const going = run.soilJobs.get(day);
   if (going) return going;
   const { x: W, y: H } = s.size;
@@ -1175,12 +1183,16 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   try {
     while (run.kept.length - 1 < run.want) {
       const day = run.kept.length;
+      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, where a tick of a big map
+      // takes as long as a whole slice, so an edit never waits behind more than one; fixed, so the days are the same
+      // on any machine)
+      const stepTicks = run.run.stack ? 1 : 24;
       let t = 0;
       while (t < TICKS_PER_DAY) {
         if (!wanted()) return;
         const t0 = performance.now();
         while (t < TICKS_PER_DAY && performance.now() - t0 < WATER_SLICE_MS) {
-          const gap = Math.min(24, TICKS_PER_DAY - t);
+          const gap = Math.min(stepTicks, TICKS_PER_DAY - t);
           run.run.step(gap);
           t += gap;
         }
@@ -1192,8 +1204,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
         await breathe();
       }
       if (!currentRun(run)) return;
-      const { D, C, out } = run.sim;
-      run.kept.push({ depth: D.slice(), contamination: C.slice(), out: out.slice() });
+      run.kept.push(run.run.water());
       if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
@@ -1221,6 +1232,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
  *  Drought view's last day agree tile for tile. It comes in the background after each edit with the drought's days
  *  (`prepareWeather`, which the page asks for once the water has settled and Kyler is idle, and stops the moment he
  *  acts), never blocking: an edit makes a new version, and the old run, its line with it, is dropped. */
+/** (with the water it was read from: a settle coming in replaces it, and the line with it) */
 let droughtLineNow: { session: MapSession; version: number; from: CanonicalWater; line: DroughtLine } | null = null;
 /** The drought line of a version of the map, as the page is told it. */
 export interface DroughtLineNews {
@@ -1238,7 +1250,7 @@ function droughtLineFrom(run: WeatherRun): void {
   if (!k) return;
   let line: DroughtLine;
   try {
-    line = mapDroughtLine(run.session, k.depth, run.days, run.from);
+    line = mapDroughtLine(run.session, k, run.days, run.from);
   } catch (e) {
     if (!droughtLineFailed) console.warn("the drought line failed", e);
     droughtLineFailed = true;
@@ -1248,26 +1260,24 @@ function droughtLineFrom(run: WeatherRun): void {
   droughtWatch?.({ version: run.version, line });
 }
 
-/** A newly opened map's line as the page should show it now: its refusal (caves), else none yet. */
+/** A newly opened map's line as the page should show it now: none yet. */
 function droughtLineOpened(): void {
   const s = session;
   if (!droughtWatch || !s) return;
   droughtWatch(currentDroughtLine() ?? { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought")) });
 }
 
-/** The drought line of the map as it is (its refusal on a map with caves), or null while it is still to come. */
+/** The drought line of the map as it is, or null while it is still to come. */
 function currentDroughtLine(): DroughtLineNews | null {
   const s = session;
   if (!s) return null;
-  const refused = droughtLineRefusal(s);
-  if (refused) return { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought"), refused) };
   const now = droughtLineNow;
   return now && now.session === s && now.version === version && now.from === s.waterShown() ? { version, line: now.line } : null;
 }
 
-/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, an empty line (or a map with
- *  caves' refusal) when a map opens, and that refusal again when its water settles. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now,
- *  when there is one already. */
+/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, and an empty line when a map
+ *  opens. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now, when there is one
+ *  already. */
 export function watchDroughtLine(fn: ((n: DroughtLineNews) => void) | null): DroughtLineNews | null {
   droughtWatch = fn;
   return fn ? currentDroughtLine() : null;
@@ -1338,7 +1348,7 @@ function discardSessionWork(): void {
   // (each hazard's held days go with the map, their simulations freed)
   prepToken++;
   for (const h of ["drought", "badtide"] as const) {
-    weatherRuns[h]?.sim.dispose();
+    weatherRuns[h]?.run.dispose();
     delete weatherRuns[h];
   }
   droughtLineNow = null;

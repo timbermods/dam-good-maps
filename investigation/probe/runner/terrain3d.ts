@@ -72,7 +72,7 @@ export const T3D: Record<string, CheckDef> = {
   't3d-load': { id: 't3d-load', title: 'Loads: no error or exception in the log, the start placed; loading issues exactly when our rules predict the game deletes terrain or plants', how: 'measure' },
   't3d-support': { id: 't3d-support', title: "The game keeps exactly the terrain our support rule keeps: every tile's terrain columns (each one on layered tiles) at every record after the load; at the load each tile is the file's (the probe's view refreshes on the first tick) or ours", how: 'measure' },
   't3d-objects': { id: 't3d-objects', title: 'Every object in the file is in the game at its tile and level', how: 'measure' },
-  't3d-water': { id: 't3d-water', title: "Water columns at each record against the stacked engine run from the file's water: 95% of wet columns within 0.1 deep, wet columns IoU ≥ 0.95, volume within 10%, and 90% of the columns the engine pressurises under pressure", how: 'measure' },
+  't3d-water': { id: 't3d-water', title: "Water columns at the load and at each record after it against the stacked engine run from the file's water: 95% of wet columns within 0.1 deep, wet columns IoU ≥ 0.95, volume within 10%, and 90% of the columns the engine pressurises under pressure", how: 'measure' },
   't3d-soil': { id: 't3d-soil', title: "Soil moisture and contamination on every terrain run against our soil rules on the game's own water: moist and dry agree on 99.5% of runs, 99% within 0.05", how: 'measure' },
   't3d-plants': { id: 't3d-plants', title: 'The plants that fit under their roof load and those that do not are removed (pines and oaks need 3 air cells, birches 2, bushes 1)', how: 'measure' },
   't3d-start': { id: 't3d-start', title: 'The start under its roof: the district center on the StartingLocation, 9 adults and 4 children', how: 'measure' },
@@ -360,13 +360,16 @@ function objectsCheck(c: Ctx): Result {
 function waterCheck(c: Ctx): Result {
   const info = c.L.info;
   const m = modelOf(info);
-  const snaps = laterSnapshots(c);
-  if (!snaps.length) return { verdict: 'not measurable', detail: 'no record after the start' };
+  const later = laterSnapshots(c);
+  if (!later.length) return { verdict: 'not measurable', detail: 'no record after the start' };
+  // (the load's record too: the game's water as it loaded the file, against the file's own)
+  const start = c.L.snapshot('start');
+  const snaps = start ? [start, ...later] : later;
   const { N, L } = m.cols;
   let ok = true;
   const parts: string[] = [];
   for (const s of snaps) {
-    const e = engineAt(info, s.day - D0);
+    const e = engineAt(info, Math.max(0, s.day - D0));
     const g = recordedWater(info, s);
     let wetEither = 0, wetBoth = 0, within = 0, max = 0, worst = -1, volE = 0, volG = 0, pressE = 0, pressBoth = 0, maxO = 0;
     let roofedEither = 0, roofedWithin = 0;

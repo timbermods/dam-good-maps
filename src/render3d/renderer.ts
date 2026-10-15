@@ -2078,7 +2078,7 @@ export class MapRenderer {
     ctx.putImageData(img, 0, 0);
     const url = canvas.toDataURL();
     this.thumbs.set(template, url);
-    this.requestRender();
+    // (drawn off screen: the map on the canvas is as it was, and needs no frame of its own)
     return url;
   }
 
@@ -3087,14 +3087,19 @@ export class MapRenderer {
     );
     // the camera keys work anywhere on the page but in a text field, a slider or a list (a toggle
     // just clicked keeps them), and never with Ctrl, Alt or Cmd (those are the editor's shortcuts)
-    const typing = (t: EventTarget | null) => {
+    const typing = (t: EventTarget | null, key = "") => {
       const el = t as HTMLElement | null;
-      if (el?.tagName === "INPUT") return !["checkbox", "radio", "button"].includes((el as HTMLInputElement).type);
+      if (el?.tagName === "INPUT") {
+        const kind = (el as HTMLInputElement).type;
+        // (a slider keeps only the keys that move it: the other camera keys still turn the view)
+        if (kind === "range") return ["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key);
+        return !["checkbox", "radio", "button"].includes(kind);
+      }
       return !!el && (el.tagName === "SELECT" || el.tagName === "TEXTAREA" || el.isContentEditable);
     };
     this.on(window, "keydown", (e) => {
       const ev = e as KeyboardEvent;
-      if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.defaultPrevented || typing(ev.target) || !this.map || !this.canvas.isConnected) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.defaultPrevented || typing(ev.target, ev.key.toLowerCase()) || !this.map || !this.canvas.isConnected) return;
       // a key the page has claimed for itself (Select's Up and Down, D323 item 6) is not the camera's
       if (this.claimKey?.(ev)) return;
       const k = ev.key.toLowerCase();
