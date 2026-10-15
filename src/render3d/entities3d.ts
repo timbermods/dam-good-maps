@@ -420,7 +420,8 @@ function beam(m: Model, a: readonly number[], b: readonly number[], r: number, c
 /** A pad: a lens of 12 triangles, a round rim of six vertices in the xz plane (radius 1) with an apex over and
  *  under its middle (y = ±1); scale it to about 0.15 × 0.04 × 0.15. */
 function lens(): BufferGeometry {
-  const rim = (k: number): number[] => [Math.cos((k * Math.PI) / 3), 0, Math.sin((k * Math.PI) / 3)];
+  // (an edge, not a point, across each end: stretched, it reads as a rounded oval)
+  const rim = (k: number): number[] => [Math.cos(((2 * k + 1) * Math.PI) / 6), 0, Math.sin(((2 * k + 1) * Math.PI) / 6)];
   const out: number[] = [];
   for (let k = 0; k < 6; k++) {
     out.push(0, 1, 0, ...rim(k + 1), ...rim(k));
@@ -431,17 +432,17 @@ function lens(): BufferGeometry {
   return g;
 }
 
-const SAGE: Rgb = [0.5, 0.67, 0.4];
+const SAGE: Rgb = [0.37, 0.53, 0.29];
 const BLUSH: Rgb = [0.86, 0.42, 0.38];
 
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
- *  the crown, in four rings of two close browns like scales; seven round sage paddles on its upper half, near
- *  level and reaching about twice its radius, each blushing pink-red at its outer tip; and a young plant
- *  beside it, a small rosette of four pads. Dead: a grey-tan trunk and three limp tan pads. At most 180 triangles. */
+ *  the crown, in four rings of two close browns like scales; seven big round sage paddles on its upper half,
+ *  near level, reaching past the tile like a tree's crown, each blushing pink-red at its outer tip; and a young
+ *  plant beside it, a rosette of five pads. Dead: a grey-tan trunk and three limp tan pads. At most 200 triangles. */
 function succulent(dead: boolean): Model {
   const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
   const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
-  const cx = dead ? 0 : 0.03;
+  const cx = 0;
   const m = new Model();
   const rings: [number, number][] = [[0.1, 0.17], [0.17, 0.19], [0.19, 0.15], [0.15, 0.08]];
   rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.17, 6), k % 2 ? dark : mid, { x: cx, y: 0.085 + 0.17 * k, ry: 0.3 * k }));
@@ -451,7 +452,7 @@ function succulent(dead: boolean): Model {
   const pad = (x: number, y: number, z: number, turn: number, tilt: number, len: number, wid: number) => {
     const t = dead ? -tilt : tilt;
     const r = len * Math.cos(t);
-    m.add(lens(), (px, py, pz) => (!dead && px > 0.9 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
+    m.add(lens(), (px, py, pz) => (!dead && px > 0.8 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
       sx: len,
       sy: 0.075,
       sz: wid,
@@ -466,20 +467,21 @@ function succulent(dead: boolean): Model {
     for (const [a, t] of [[0.4, 0.9], [2.6, 0.8], [4.6, 1.0]]) pad(cx + Math.cos(a) * 0.1, 0.74, -Math.sin(a) * 0.1, a, t, 0.15, 0.1);
     return m;
   }
-  // round paddles on the upper half of the trunk, near level, reaching about twice its radius: four round its
-  // middle, three higher up and steeper, so its outline is a pinecone ringed by green paddles
+  // big round paddles on the upper half of the trunk, each about as long as the trunk is wide: four round its middle
+  // near level, three higher up and steeper, so from the side a pinecone ringed by paddles and from above a green
+  // rosette; like a tree's crown they reach past the tile
   for (let k = 0; k < 4; k++) {
     const a = k * (Math.PI / 2) + 0.4;
-    pad(cx + Math.cos(a) * 0.17, 0.42, -Math.sin(a) * 0.17, a, 0.25, 0.145, 0.13);
+    pad(Math.cos(a) * 0.16, 0.42, -Math.sin(a) * 0.16, a, 0.35, 0.21, 0.15);
   }
   for (let k = 0; k < 3; k++) {
     const a = k * ((2 * Math.PI) / 3) + 1.2;
-    pad(cx + Math.cos(a) * 0.07, 0.66, -Math.sin(a) * 0.07, a, 0.65, 0.14, 0.125);
+    pad(Math.cos(a) * 0.07, 0.66, -Math.sin(a) * 0.07, a, 0.75, 0.19, 0.14);
   }
-  // the young plant beside it: a small rosette of four pads from the ground
-  for (let k = 0; k < 4; k++) {
-    const a = k * (Math.PI / 2) + 0.8;
-    pad(-0.3 + Math.cos(a) * 0.02, 0.02, 0.28 - Math.sin(a) * 0.02, a, 0.7, 0.07, 0.065);
+  // the young plant beside it: a rosette of five pads from the ground
+  for (let k = 0; k < 5; k++) {
+    const a = k * ((2 * Math.PI) / 5) + 0.3;
+    pad(-0.36 + Math.cos(a) * 0.02, 0.02, 0.34 - Math.sin(a) * 0.02, a, 0.75, 0.1, 0.085);
   }
   return m;
 }
