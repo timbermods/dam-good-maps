@@ -595,10 +595,12 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Part 5, 3D picking (`render3d/pick.ts`): a ray through the column masks
-lands on the first face along it, and equals the heightfield picker on maps without caves (`pickTerrain.test.ts`); Select
-reads the run hit. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, the level-slice cutaway.
+runs with undersides every exposed face once. Part 2, light in 3D in both looks (`render3d/caveLight.ts`): a face
+whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
+else the baked light stands, so maps without caves draw exactly as before. Part 5, 3D picking (`render3d/pick.ts`): a
+ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
+(`pickTerrain.test.ts`); Select reads the run hit. Next: the masks from the worker, soil per run top, water per column,
+the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -631,7 +633,10 @@ After the view (D280 (3)).
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop.
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
-   (1)): on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
+   (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
+   that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
+   what the page and renderer still take are in [docs/progress/3d-creating.md](docs/progress/3d-creating.md)):
+   on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
    plan for cave carving to extend the top bar's Carve force (D182, D184; that plan is dropped —
    Erode is the magic tool and the block tool is the precision one, D279).
 4. Undo and generate-keeping-edits. Imported caves become editable (D40 retires).
