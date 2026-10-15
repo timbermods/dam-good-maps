@@ -77,9 +77,19 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
-  within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
-  included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
-  its tooltip); the code is `src/editor/generator/`. Every map is made for Normal until the core drops difficulty
+  within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
+  objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
+  dead trees and bushes aren't). The numbers carry their units ("200 logs", "30 bushes", "20 tiles", "100%"). Each
+  setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in its tooltip); the code is
+  `src/editor/generator/`. **An opened file has no generator settings** (a .timber, a project without a spec, a real
+  place): while one is open the panel reads "–" for the seed, the theme and every setting (the controls quiet, the Name
+  and the Size its own), `Generate` makes a map of the Any theme's defaults at that size, and the first setting touched
+  brings every setting back as the next map's (`App.tsx`'s `blank`). **The editor's frame before any map** (a share
+  link, a reload, a place opened first): the real header, bar and shelf held still with the land's first look in the
+  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`);
+  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
 - **Your maps** (D234, D330): a map is kept in this browser from its first edit (an operation applied) or rename,
@@ -573,6 +583,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Shift+scroll, F held with the wheel, or [ and ] set their strength (Raise, Lower and Flatten take nothing from
   those: their target level is theirs). Tooltips name the game editor's terms. Under a layer cut (D207) Raise stops
   at the cut. An exact stroke's tiles stay as it leaves them (the integrity pass leaves them out).
+- **On caves and overhangs** (D487, D280 (3), terrain above terrain's step 3): the brushes shape each tile's top run, on
+  every tile. Raise grows a roof's top; Lower, Flatten, Smooth and Naturalize bring it down at most to one layer
+  above the roof's underside (`terrain/runs.ts` `topFloor`), so every run below the top, the cave's air and floor,
+  stays exactly as it is and no tile gains or loses a run. The build's pit-and-spike pass leaves a roof's top as the
+  stroke leaves it. A stroke that would leave ground nothing holds up (the game's support rule) is refused with one
+  line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
+  while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
+  removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
+  tiles as they are, as before. On a map without caves nothing changes, byte for byte.
 - **Ground, Water and Both** (D322, item 2): every brush's mode. **Ground** changes only dry tiles and never lowers
   a tile beside water below that water's surface; **Water** changes only the wet tiles (those drawn as water); **Both**
   (default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never a
@@ -723,7 +742,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
-  hazard's days are kept until the map changes and worked out in the background once the water has settled. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. **An Unstable Core's
@@ -754,8 +773,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). #67's visible seasons wait for the Drought and Badtide day-by-day
-  view (D286 (4)).
+  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
+  plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
+  (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
+  dead (`core/sim/withering.ts`, given to the page with the held day). Day 0 and Standard show the map as it is.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
@@ -897,10 +918,10 @@ flags them if they reappear anywhere else (D188).
 ## Non-goals
 
 - Voxel-level cave and overhang editing, until terrain above terrain's step 3, "Creating them" (`ROADMAP.md`,
-  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281). Until then imported caves and overhangs must be
-  preserved and exported unchanged, together with the water the file stores under them, and the tools edit
-  surface height only. The data model stores terrain as runs per tile from project format 3 (D119), so voxel
-  editing needs no format change.
+  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281), whose Erode and Block tool bring it. Until then
+  what lies under a roof is preserved and exported unchanged, together with the water the file stores under it; the
+  brushes shape each tile's top run only (§4, "On caves and overhangs"). The data model stores terrain as runs per
+  tile from project format 3 (D119), so voxel editing needs no format change.
 - Terrain above the map's own limit: 16, or 22 on tall maps (`PLAN.md` §20, D172; §5.9). The tools keep to the
   map's limit (D123), and imported maps with terrain up to 22 are preserved.
 - Multiplayer starts, for now. Timberborn 1.1 keeps exactly one StartingLocation per map. Fair multi-colony maps for
@@ -993,10 +1014,11 @@ referencing them survive other edits wherever the referenced object still exists
 flagged as orphaned and shown, never silently dropped. When terrain changes under an entity, the entity snaps to
 the new ground if placement stays valid; otherwise it is flagged with a fix option.
 
-**Working representation.** Surface heights and entities are kept in typed arrays. A voxel override layer preserves
-imported caves and overhangs: columns with more than one solid run are locked to the brushes and exported
-unchanged, until terrain above terrain's step 3. After every terrain edit the instant checks re-test terrain
-support (the game deletes voxels more than 3 tiles sideways from support, and the objects standing on them).
+**Working representation.** Surface heights and entities are kept in typed arrays; the terrain is runs per tile
+(`ColumnTerrain`, D119): the build's surface with each tile's top run reshaped to it over the base's runs
+(`withSurface`), so on a cave the brushes move only the roof's top and everything under it exports unchanged
+(D280 (3)). An edit that would leave ground the game's support rule deletes (more than 3 tiles sideways from
+support) is refused with its reason before it lands (`MapSession.apply`, `terrain/support.ts` `newFalls`).
 Dirty-region tracking lets rendering, validation and the water preview update only what changed.
 
 **Persistence.** The project file (`PLAN.md` §19.6) download and upload; Your maps in the browser (D234;
@@ -1089,7 +1111,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     roofs** (imported caves, tunnels, overhang bridges, badtide drains): there the editor keeps the water the file
     stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
     tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
-    **Under roofs** view button marks them (D100); the roofed columns are never edited (D40).
+    **Under roofs** view button marks them (D100); what lies under a roof is never edited, the brushes shaping only
+    its top (D280 (3)).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.

@@ -64,7 +64,7 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
-import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -72,6 +72,7 @@ import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { BoxUploads, RowUploads } from "./rowUploads";
@@ -392,6 +393,12 @@ export class MapRenderer {
   /** The shadow tops of the whole map (redone round each change), and the objects' casters. */
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
+  /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
+   *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
+  private withered: Int32Array | null = null;
+  private drawnObjects: EntityView | null = null;
+  private witheredCount = 0;
+  private casterTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -791,6 +798,7 @@ export class MapRenderer {
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.applyWithered();
         }
       }
     }
@@ -805,6 +813,7 @@ export class MapRenderer {
       this.ghost = null;
     }
     this.governor?.hold(performance.now());
+    this.applyWithered();
     this.requestRender();
     if (was !== tier) this.tellLook();
   }
@@ -1101,7 +1110,12 @@ export class MapRenderer {
   }
 
   private clearMap(): void {
+    // (a held day belonged to the map that goes: the new one withers nothing until it is shown a day of its own)
+    this.withered = null;
+    this.drawnObjects = null;
+    this.witheredCount = 0;
     this.droughtLayer?.clear();
+    clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
@@ -1274,7 +1288,7 @@ export class MapRenderer {
   private bakeShadows(onlyCasters = false): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
-    const casters = objectCasters(m.W, m.H, m.entities);
+    const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
     const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
     this.casters = casters;
     if (rect === null) return;
@@ -1331,6 +1345,7 @@ export class MapRenderer {
     const m = this.map!;
     m.entities = e;
     this.high?.objectsBuilt(group, e);
+    this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
     const old = m.source.cutout ?? new Map<number, number>();
@@ -1350,12 +1365,16 @@ export class MapRenderer {
     return instances;
   }
 
-  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed. */
-  updateTerrain(heights: Uint8Array): number {
+  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
+   *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
+   *  roof's top (D280 (3)); those tiles are drawn from them. */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const rect = changedRect(m.W, m.H, m.heights, heights);
+    let rect = changedRect(m.W, m.H, m.heights, heights);
+    // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
+    if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1365,6 +1384,7 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
+    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1592,6 +1612,48 @@ export class MapRenderer {
     this.bakeTiles();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
+   *  null to put them back: drawn withered in the High look (D250, D286 (4)); Standard and the map's own plants stay as
+   *  they are. Plants change state in place, so stepping from day to day costs a layout, not a rebuild. */
+  setWithered(tiles: Int32Array | null): void {
+    this.withered = tiles;
+    this.applyWithered();
+  }
+
+  /** How many plants are drawn withered by the held day now (the tests read it). */
+  get witheredPlants(): number {
+    return this.witheredCount;
+  }
+
+  private applyWithered(): void {
+    const m = this.map;
+    if (!m) return;
+    let flags = m.entities.flags;
+    let count = 0;
+    const tiles = this.withered;
+    if (tiles?.length && this.high && this.lookNow !== "standard" && this.lookNow !== "light") {
+      const dead = new Uint8Array(m.W * m.H);
+      for (const t of tiles) dead[t] = 1;
+      const e = m.entities;
+      flags = e.flags.slice();
+      for (let k = 0; k < e.count; k++) {
+        if (flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
+        if (!isPlant(e.templates[e.template[k]])) continue;
+        flags[k] |= DEAD;
+        count++;
+      }
+    }
+    this.witheredCount = count;
+    const was = this.drawnObjects;
+    this.drawnObjects = count ? { ...m.entities, flags } : null;
+    const changed = this.high?.setPlantsDead(flags) ?? 0;
+    if (!changed && !was === !this.drawnObjects) return;
+    this.requestRender();
+    // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => this.bakeShadows(true), 300);
   }
 
   updateEntities(e: EntityView): void {
@@ -3088,4 +3150,26 @@ function oneObject(template: string, orientation: number): EntityView {
     strength: Float32Array.of(0),
     ids: [""],
   };
+}
+
+/** The rectangle of tiles whose column differs between two column maps (null: none). */
+function columnsChanged(a: ReadonlyMap<number, Uint8Array>, b: ReadonlyMap<number, Uint8Array>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  const add = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  };
+  for (const [i, c] of b) {
+    const was = a.get(i);
+    if (!was || was.some((v, z) => v !== c[z])) add(i);
+  }
+  for (const i of a.keys()) if (!b.has(i)) add(i);
+  return r;
+}
+
+/** Two rectangles' bounds (either may be null). */
+function grownRect(a: { x0: number; y0: number; x1: number; y1: number } | null, b: { x0: number; y0: number; x1: number; y1: number } | null): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (!a || !b) return a ?? b;
+  return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
 }

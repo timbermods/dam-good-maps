@@ -189,7 +189,8 @@ export interface SessionSlice {
   draftWater: { current: WaterView | null };
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
-  showSoil: (soil: SoilView) => void;
+  showSoil: (soil: SoilView, withered?: Int32Array) => void;
+  showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
   /** The worker's latest land, put in place once the page has no stroke of its own in flight. */
@@ -509,6 +510,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
   const soilTimer = useRef(0);
+  // (a map opened while the soil still grows: this map's colours never land on the next one)
+  useEffect(() => () => clearTimeout(soilTimer.current), []);
   function growSoil(r: MapRenderer, from: SoilView, to: SoilView) {
     clearTimeout(soilTimer.current);
     const t0 = performance.now();
@@ -546,6 +549,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       journey.current?.flush();
       player.current?.skip();
       setWeather(hazard);
+      // (the other hazard's withered plants are not this one's)
+      renderer.current?.setWithered(null);
       heldDay.current = null;
       setWeatherDay(null);
       // (working from the click until the day shows: the box's fill starts empty)
@@ -560,6 +565,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(null);
       setWeatherTarget(null);
       mirror.current.daySoil = null;
+      renderer.current?.setWithered(null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
@@ -591,8 +597,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (h) void api.showWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
-  function showSoil(soil: SoilView) {
+  function showWithered(tiles: Int32Array) {
+    renderer.current?.setWithered(tiles);
+  }
+  function showSoil(soil: SoilView, withered?: Int32Array) {
     renderer.current?.updateSoil(soil);
+    // (the plants the days up to this one have surely killed, drawn withered in High, D250: a day that comes without its list
+    // keeps the last one until the new one arrives, so after an edit the dead plants never flash alive; cleared only when the
+    // hazard changes or ends, or the map does)
+    if (withered) renderer.current?.setWithered(withered);
   }
 
   function applyUpdate(u: SessionUpdate): void {
@@ -628,7 +641,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   /** The worker's latest land and terrain, held while the page's own is ahead of it (`takeLand`). */
-  const heldLand = useRef<{ heights?: Uint8Array; terrain?: TerrainState }>({});
+  const heldLand = useRef<{ heights?: Uint8Array; columns?: ViewUpdate["columns"]; terrain?: TerrainState }>({});
   /** Put the worker's latest land in place once nothing the page painted is its own alone: no stroke being painted
    *  and none on its way to the worker. Until then the page's land is ahead of the worker's, and the worker's would
    *  take away what the page shows (#410). When it goes in, the page's strokes are checked against it: the same,
@@ -648,7 +661,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         }
       }
       m.heights = held.heights;
-      renderer.current?.updateTerrain(held.heights);
+      renderer.current?.updateTerrain(held.heights, held.columns);
     }
     if (held.terrain) ed.terrain.current = held.terrain;
   }
@@ -662,6 +675,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
     if (v.heights) heldLand.current.heights = v.heights;
+    // (a roof's top an edit reshaped: its columns go in with the land, D487)
+    if (v.columns) heldLand.current.columns = v.columns;
     if (v.terrain) heldLand.current.terrain = v.terrain;
     takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
@@ -709,6 +724,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
-    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, applyUpdate, applyView, takeLand
+    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, takeLand
   };
 }

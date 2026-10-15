@@ -434,7 +434,8 @@ export interface OpContext {
   entityIds: ReadonlySet<string>;
   /** Tiles with a slope in the current build. */
   slopeTiles: ReadonlySet<number>;
-  /** Columns the sculpt tools leave alone: imported caves and overhangs (EDITOR_PLAN §3). */
+  /** Imported caves and overhangs: an old sculpt edit, a force's result and a fill leave them alone (the
+   *  brushes shape their top runs, D487). */
   lockedColumns: ReadonlySet<number> | null;
   /** Feature kinds this version builds when a player adds them. */
   buildableKinds?: readonly FeatureKind[];
@@ -621,7 +622,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (p.mode === "terrace" && p.step === undefined) return ["terrace needs a step"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
-          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
+          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang: shape its top with a brush`];
         }
       }
       // (raised past the ceiling, a tile would stop short of what the step says)

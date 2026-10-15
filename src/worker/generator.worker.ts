@@ -11,9 +11,11 @@ import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers, type WaterView } from "../render3d/model";
+import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
+import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { collabApi } from "./collab";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -44,13 +46,51 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 }
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
-  if (e.kind === "instant") return [];
+  if (e.kind === "instant" || e.kind === "withered") return [];
   if (e.kind === "weather") return e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : [];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
 // the page's worker settles the water by itself after each edit, and tells the page as it flows
 ed.setAutoWater(true);
+
+// A hazard day's soil (the Weather view's soil and withered plants, D250) is one whole-map pass of the game's soil, 150 to 350 ms
+// on a 256² map: it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
+// never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker is made again and the job tried once more;
+// failing twice, the session sends the day without its soil, never working it out itself.
+if (typeof Worker !== "undefined") {
+  let soilWorker: Worker | null = null;
+  let jobs = 0;
+  let sent: { id: number; base: SoilBase } | null = null;
+  const waiting = new Map<number, { resolve: (s: SoilView) => void; reject: (e: unknown) => void }>();
+  const failed = (e: unknown) => {
+    for (const w of waiting.values()) w.reject(e);
+    waiting.clear();
+    soilWorker?.terminate();
+    soilWorker = null;
+    sent = null;
+  };
+  const attempt = (job: SoilJob) =>
+    new Promise<SoilView>((resolve, reject) => {
+        if (!soilWorker) {
+          soilWorker = new Worker(new URL("./daySoil.worker.ts", import.meta.url), { type: "module" });
+          soilWorker.onmessage = (m: MessageEvent<{ id: number; soil?: SoilView; error?: string }>) => {
+            const w = waiting.get(m.data.id);
+            waiting.delete(m.data.id);
+            if (m.data.soil) w?.resolve(m.data.soil);
+            else w?.reject(new Error(m.data.error ?? "soil failed"));
+          };
+          soilWorker.onerror = failed;
+        }
+        const id = ++jobs;
+        waiting.set(id, { resolve, reject });
+        const first = sent?.base !== job.base;
+        if (first) sent = { id: (sent?.id ?? 0) + 1, base: job.base };
+        soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination });
+      });
+  // (a failed worker is made again and the job tried once more; failing twice, the session sends the day without soil)
+  ed.setSoilRunner((job) => attempt(job).catch(() => attempt(job)));
+}
 
 // The checks worker joins once the map is editable (D367): a page that calls `deferChecks` before opening a map
 // keeps its replica (and the checks code it loads) out of the way until `editorReady`; a page that never calls it
@@ -165,6 +205,8 @@ const api = {
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
     });
   },
+  /** Collaborative editing's side in the worker (worker/collab.ts). */
+  collab: proxy(collabApi),
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),

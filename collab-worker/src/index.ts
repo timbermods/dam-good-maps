@@ -41,7 +41,8 @@ const PER_MINUTE: Record<LimitKind, number> = {
 
 async function allowed(env: Env, kind: LimitKind, ip: string): Promise<boolean> {
   const stub = env.LIMITERS.get(env.LIMITERS.idFromName(`${kind}:${ipKey(ip)}`));
-  return stub.hit(PER_MINUTE[kind], 60_000);
+  const limit = kind === "rooms" ? Number(env.ROOMS_PER_MINUTE) || PER_MINUTE.rooms : PER_MINUTE[kind];
+  return stub.hit(limit, 60_000);
 }
 
 function roomStub(env: Env, code: string) {
