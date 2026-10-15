@@ -195,6 +195,8 @@ export function useBlockTool(ed: Ed): BlockSlice {
         notePointer(ev);
         last.current = { aim: blockAim(hit), shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
         setFlip(ev.shiftKey);
+        // (the preview is the cursor: the tile's own light, which the view just lit for the face seen, goes)
+        r.setHoverTile(null);
         refresh();
       },
       cancel: () => {

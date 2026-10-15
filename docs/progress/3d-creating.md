@@ -133,3 +133,15 @@ footprint, every refusal, a ledge cut from its cliff refused with the count `blo
 step changes, random blocks and strokes (nothing falls, an incremental build equals a full one, undo and redo give each state's
 exact runs, the project replays onto the same runs and saves byte for byte), and the same on a generated map (build up, hollow,
 export). The 84 generated maps' hashes (`tools/map-hashes.ts`) are unchanged.
+
+## Delivers 3 (the Block tool's page): built 2026-10-15
+
+On `feature/block-tool-page` (stacked on `feature/block-tool-core`, with `render3d`'s `blockAim` and `showBlocks` from
+`feature/block-tool-render` taken in): the tool the player uses. **Block**, key 7, on the tools row (the bar is 14 cells now,
+`settings.tsx` `fromThirteen`); hover a face and see what a click would add, take or drop (`blockFalls` through the worker,
+no build); click adds, Shift carves, a drag paints the plane of its first face (bridges over air included), one `blocks`
+operation and one undo step on release; Size 1–8 (F, { }), Shape, Action. EDITOR_PLAN "The block tool" says how it behaves;
+`tests/e2e/blockTool.spec.ts` (add, carve, drag, undo, Esc, the fall preview and its note, a cave map) and
+`tests/unit/blockTool.test.ts` check it; captures `docs/design/block-tool-*.jpg`. The worker sends `ViewUpdate.columns` whenever
+the session's columns changed (a hollow under the surface included), not only when a roof's top moved. Not done: the blocks'
+own pop-in and crumble (renderer), the Block sounds of D335 (the brushes' thud and dust stand in), Shift-hold digging.
