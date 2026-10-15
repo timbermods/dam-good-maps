@@ -283,9 +283,36 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(blockFalls(s, remove("+z", top)).removed.length).toBe(2);
     // under a cut at 7 the layer 7 is cut away, so layer 6 is the seen surface
     expect(blockFalls(s, { ...remove("+z", sweep), cut: 7 }).removed.length).toBe(3);
+    // a real step: the ground at x = 10 and 11 is one layer lower, so a sweep along layer 6 takes the two beside
+    // the open air and leaves the one under the higher ground
+    expect(s.apply(op(remove("+z", [[10, 10, 7]], 2))).errors).toEqual([]);
+    expect(s.built.heights[at(10, 10)]).toBe(7);
+    expect(s.built.heights[at(9, 10)]).toBe(8);
+    expect(blockFalls(s, remove("+z", sweep)).removed).toEqual([[10, 10, 6], [11, 10, 6]]);
     // a cut below everything it could touch, and a bad cut, are refused with a line
     expect(blockFalls(s, { ...hollow(), cut: 3 }).reason).toBe("nothing below layer 3 would change");
-    expect(blockFalls(s, { ...hollow(), cut: 99 }).reason).toMatch(/cut/);
+    expect(blockFalls(s, { ...hollow(), cut: 23 }).reason).toBe("blocks/params/cut: must be <= 22");
+    expect(blockFalls(s, { ...hollow(), cut: 22 }).removed.length).toBe(9);
+  });
+
+  it("a roof spans six and holds, and eight falls: the cave widened from inside, the wall's open faces taken", () => {
+    const s = caveSession();
+    // the cave is 6 × 6 under a roof two layers thick; its walls' faces look into its air
+    expect(s.apply(op(remove("+x", [[14, 17, 4]], 6))).errors).toEqual([]);
+    expect(s.apply(op(remove("-x", [[21, 17, 4]], 6))).errors).toEqual([]);
+    // (8 wide one way, 6 the other: the roof is held from the sides it is 6 across)
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 6, 8]);
+    expect(s.terrain.runs(at(21, 17))).toEqual([0, 3, 6, 8]);
+    const held = s.terrain.mask.slice();
+    // one wall more: 8 across both ways, and the roof's middle is four tiles from any wall
+    const north = remove("+y", [[17, 14, 4]], 6);
+    const q = blockFalls(s, north);
+    expect(q.errors).toEqual([]);
+    expect(q.falls.length).toBeGreaterThan(0);
+    const u = s.apply(op(north));
+    expect(u.ok).toBe(false);
+    expect(u.errors).toEqual([`${q.falls.length} blocks of ground would fall: nothing would hold them up`]);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(held));
   });
 
   it("what the query names is what the step changes", () => {
