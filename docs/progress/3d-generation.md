@@ -96,6 +96,12 @@ and its 2–3 wide deck, with up to three builds, now two):
 | 50 | 70 of 70 | 56 | 12 | 16 | 0–2 (max 4) | 70 of 70 |
 | 80 | 70 of 70 | 74 | 22 | 44 | Canyon 5, Highlands 4, Any 3, Delta 2, River Valley 1, Lake Basin 1, Islands 0 (max 6) | 70 of 70 |
 
+- **Rerun after the shape changes (worn mouths, the arch's curve, 2–3 wide decks), PARTIAL** (stopped when usage ran
+  out; 10 of 21 batches, seeds 1–10 each): every batch 10/10 final, 0 blocks dropped, 10/10 projects reopen equal.
+  Kept (caves / overhangs / arches): Vt 20: Canyon, Highlands, River Valley 0 / 0 / 0 (at or below their default),
+  Lake Basin 1 / 0 / 0; Vt 50: Canyon 13 / 2 / 4, Highlands 13 / 2 / 5, River Valley 7 / 3 / 2; Vt 80: Canyon 24 / 3 / 9,
+  Highlands 18 / 4 / 8, River Valley 2 / 5 / 4. Median time at Vt 80: Canyon 14.3 s, Highlands 15.7 s, River Valley
+  18.3 s (loaded machine). Not rerun yet: Delta, Islands and Any at all three, Lake Basin at 50 and 80.
 - The rule pass dropped 0 blocks on every map; relief stayed within 16 below 70 (up to 19 at 80, tall maps).
 - Where they grow: spring caves wherever a river runs by a cliff (Canyon and Highlands most, Islands none: its rivers
   run on low land); overhangs only where the start stands by a cliff; arches in gorges (Canyon, Highlands, Delta's
