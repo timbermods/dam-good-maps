@@ -9,7 +9,8 @@ import { meshWaterChunk, type WaterMeshData } from "./waterMesh";
 import { plainLayers, waterLayers } from "./waterLayers";
 import type { MesherReply, MesherRequest } from "./waterMesher";
 
-/** The map's columns as last sent, kept while their version holds (their gaps are kept with them). */
+/** The map's columns as last sent, kept while their version holds (their gaps are kept with them; a batch on the
+ *  same version comes without them). */
 let columns: { key: number; map: Map<number, Uint8Array> } | null = null;
 
 self.onmessage = (e: MessageEvent<MesherRequest>) => {

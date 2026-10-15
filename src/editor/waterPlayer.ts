@@ -79,10 +79,13 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   const depth = new Float32Array(most2);
   const contamination = new Float32Array(most2);
   const outflow = cb ? new Float32Array(most2 * 4) : null;
+  // (the earlier frame's columns a later one blends from: the others fade out, a tile still wet or not)
+  const used = new Uint8Array(a.count);
   let n = 0;
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
     const j = pairOf(a, b, k, i, next, inLater[i] === 1);
+    if (j >= 0) used[j] = 1;
     tile[n] = i;
     floor[n] = b.floor[k];
     depth[n] = (j < 0 ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
@@ -91,11 +94,10 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     n++;
   }
   for (let k = 0; k < a.count; k++) {
-    const i = a.tile[k];
-    if (inLater[i]) continue;
+    if (used[k]) continue;
     const d = a.depth[k] * (1 - t);
     if (d <= 0.001) continue;
-    tile[n] = i;
+    tile[n] = a.tile[k];
     floor[n] = a.floor[k];
     depth[n] = d;
     contamination[n] = a.contamination[k];

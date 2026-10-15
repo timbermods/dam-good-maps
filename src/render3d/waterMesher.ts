@@ -36,6 +36,8 @@ function poolSize(): number {
 
 export class WaterMesher {
   private workers: Worker[] = [];
+  /** The version of the columns each worker was last sent (water per column, `MesherLayered`). */
+  private readonly columnsKey: number[] = [];
   private nextId = 1;
   /** The batch out: its water's version, its chunks, the parts still to come back, what came back. */
   private batch: { id: number; version: number; keys: string[]; parts: number; chunks: Map<string, WaterMeshData>; failed: string[] } | null = null;
@@ -86,10 +88,17 @@ export class WaterMesher {
     const parts = this.workers.map(() => [] as string[]);
     keys.forEach((k, j) => parts[j % parts.length].push(k));
     this.batch = { id, version, keys, parts: parts.filter((p) => p.length).length, chunks: new Map(), failed: [] };
+    // (a worker keeps the columns it was last sent, by their version: they go again only when that changed)
+    const known = layered && { ...layered, columns: { key: layered.columns.key, tiles: new Int32Array(0), voxels: new Uint8Array(0) } };
     const water: MesherWater = { surface: sw.surface, floor: sw.floor, depth: sw.depth, contamination: sw.contamination, top: sw.top, outflow: sw.outflow };
     try {
       // (copies: the page keeps changing its heights in place)
-      parts.forEach((p, j) => p.length && this.workers[j].postMessage({ kind: "batch", id, version, W, H, heights, sw: water, keys: p, layered } satisfies MesherRequest));
+      parts.forEach((p, j) => {
+        if (!p.length) return;
+        const fresh = layered && this.columnsKey[j] !== layered.columns.key;
+        this.workers[j].postMessage({ kind: "batch", id, version, W, H, heights, sw: water, keys: p, layered: fresh ? layered : known || undefined } satisfies MesherRequest);
+        if (layered) this.columnsKey[j] = layered.columns.key;
+      });
     } catch (e) {
       this.fail(e instanceof Error ? e.message : "the water couldn't be sent");
     }

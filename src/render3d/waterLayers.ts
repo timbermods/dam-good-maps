@@ -415,6 +415,17 @@ export function rideLayers(W: number, layers: readonly WaterLayer[], sw: Surface
   }
 }
 
+/** The land changed over `rect` (a stroke): the other layers' view of its plain tiles follows their new tops, as a
+ *  column there sees the top (a tile it saw as rock stays so until the water worked out on the new land comes). */
+export function followLand(W: number, layers: readonly WaterLayer[], heights: Uint8Array, columns: ReadonlyMap<number, unknown>, rect: { x0: number; y0: number; x1: number; y1: number }): void {
+  const H = heights.length / W;
+  for (let L = 1; L < layers.length; L++) {
+    const ground = layers[L].ground;
+    for (let y = Math.max(0, rect.y0); y <= Math.min(H - 1, rect.y1); y++)
+      for (let j = y * W + Math.max(0, rect.x0), end = y * W + Math.min(W - 1, rect.x1); j <= end; j++) if (ground[j] !== WALL && !columns.has(j)) ground[j] = heights[j];
+  }
+}
+
 /** Chunks whose water a change from view `a` to view `b` reaches (a map with water in layers): every tile whose
  *  columns differ (their count, floor, depth, badwater share or outflows), and the chunks within `LAYER_REACH` of it,
  *  since a column's mesh reads only what is within that reach. */

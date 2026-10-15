@@ -29,11 +29,11 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
   const outflow: number[] = [];
   const ca = a.outflow;
   const cb = b.outflow;
-  const seen = new Set<number>();
+  const paired = new Set<number>();
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
-    seen.add(i);
     const j = at.get(i, k);
+    if (j !== undefined) paired.add(j);
     tiles.push(i);
     floor.push(b.floor[k]);
     depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
@@ -42,7 +42,7 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
   }
   for (let k = 0; k < a.count; k++) {
     const i = a.tile[k];
-    if (seen.has(i)) continue;
+    if (paired.has(k)) continue;
     const d = a.depth[k] * (1 - t);
     if (d <= 0.001) continue;
     tiles.push(i);
@@ -112,9 +112,10 @@ describe("the journey's easing frames (R1)", () => {
     const w = blendWater(a, b, 0.5);
     expect([...w.depth]).toEqual([1.75, 1.5]);
     expect(w.contamination[0]).toBeCloseTo(0.1);
-    // the lake gone: the pool still eases from itself
+    // the lake gone: the pool still eases from itself, and the lake fades out
     const c = blendWater(a, col([2], [2], [0]), 0.5);
-    expect([...c.depth]).toEqual([1.75]);
+    expect([...c.depth]).toEqual([1.75, 1]);
+    expect([...c.floor]).toEqual([2, 8]);
     // a heightfield tile whose land moved: its one column eases from its one column, as ever
     const d = blendWater(col([3], [1], [0]), col([4], [2], [0]), 0.5);
     expect([...d.depth]).toEqual([1.5]);

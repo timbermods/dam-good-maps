@@ -72,7 +72,7 @@ import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterF
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
-import { changedColumnChunks, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
+import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
@@ -1357,8 +1357,13 @@ export class MapRenderer {
     const m = this.map!;
     const r = LAYER_REACH;
     const keys = dirtyChunks(m.W, m.H, { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r });
-    if (this.layers?.of === m.surface && this.layers.columns === m.source.columns) for (const [cx, cy] of keys) this.meshWater(cx, cy);
+    const l = this.layers;
+    if (l && l.columns === m.source.columns) followLand(m.W, l.layers, m.heights, m.source.columns, rect);
+    if (l?.of === m.surface && l.columns === m.source.columns) for (const [cx, cy] of keys) this.meshWater(cx, cy);
     else {
+      // (a new version: the workers' last batch may have drawn these chunks on the same water and the old land, and
+      // a batch's chunks are drawn only over older ones)
+      this.waterVersion++;
       for (const [cx, cy] of keys) this.waterQueue.add(`${cx},${cy}`);
       this.requestRender();
     }
