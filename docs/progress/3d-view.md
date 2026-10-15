@@ -127,8 +127,46 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   a cursor on a cave floor whose stroke would raise the roof breaks what you see is what you get. Everywhere else, as before.
 - **Under a layer cut:** the pick treats voxels at or above the cut as air and the cut as a top, and the Wand's
   `hasTop` applies the same cut (`hasTopAt`: a plain tile counts as min(height, cut)), so a click on the cut plateau
-  takes the whole flat the cut shows. With caves the shader still flattens a roof run into a lid at the cut, while the
-  pick lands on the floor under the drawn lid; part 6 (the cutaway) resolves it.
+  takes the whole flat the cut shows. With caves the drawing now agrees (part 6).
+
+## Part 6: the level-slice cutaway (built, `feature/3d-view-cutaway`)
+
+- **What:** under a layer cut every voxel at or above the cut is gone (D207): through the cut the player sees down
+  into caves and under overhangs (the cave's floor, its walls up to the cut, the undersides still below it), and a
+  cap is drawn at the cut only where solid rock crosses it, in the lid's hatched look. `src/render3d/cutaway.ts`.
+  The terrain's vertex shader already folds everything above the cut down onto it, which is exactly the clipped
+  column for a plain column (its walls stop at the cut, its top lies on it); a column with terrain above terrain
+  got a lid over its cave (the roof run's top and underside folded down). The fragment shader now drops a
+  horizontal face at the cut wherever the voxel just below the cut is air under a roof (read from the light
+  volume, which is not sliced), and hatches only a face at the cut whose voxel at the cut is rock (`cutFace`:
+  "gone", "cap" or "top"), so a cave's floor under the cut is ground, not a lid. Nothing is remeshed when the
+  level changes: the level control stays one uniform. The light is the unsliced terrain's (the volume and the High
+  look's shadow map are never sliced): a cave sliced open keeps its own dim light, a cap the baked light the lid
+  had. Picking, the hover, the Wand's `hasTopAt` and Select's ring already used the clipped masks (part 5) and now
+  match what is drawn. The branch is compiled only on a map with terrain above terrain (`CUTAWAY`, set by the
+  renderer's `setCutaway` from `cutawayOn`); every other map draws with the same program as before.
+- **Equivalence** (`tests/unit/cutaway.test.ts`): what is drawn is worked out as the GPU does it (the mesher's quads
+  folded onto the cut, less the faces `cutFace` drops) and compared unit face by unit face with the exposed faces
+  of the clipped columns. On seven generated maps (all six themes and Any, 96² and 128²) at four cuts each: the
+  same surface, the cutaway's branch off, and the hatch the same tiles as before. On hand-made terrains (an
+  overhang, a cave, a bridge, a floating run, random caves across chunk edges) at every cut 0–14: the same surface;
+  1,500 rays at each of six cuts land on the first drawn face (the same face and `t` as `pickTerrain`), a top hit lies at
+  its level (the hover), and `hasTopAt` and `groundNear` name only drawn tops. Frames before (dev) and after, real
+  Chrome on the RTX 2070 SUPER, Canyon 128 seed 7 at cuts 15, 8 and 3, Standard and High, 1920×1080, the water held
+  at one moment: 0–32 pixels differ by at most 2 levels, all on the water's surface; the terrain is pixel-identical.
+- **Official maps** (the 20 with columns that are not plain, checked once by hand, not committed): at every cut
+  from 0 to the map's top, the drawn surface is the clipped columns' exactly. The lids opened, summed over the
+  cuts: Hollows 25,443 tiles, Pressure 16,891, Pillars 13,452, Nomads 5,075, the rest 36–2,177.
+- **A level step (measured once, real Chrome, the step and one frame drawn to the GPU's end; information):**
+  generated 256² Delta 4.7 ms median Standard, 4.0 ms High; Hollows (192²) 5.9 and 6.4 ms; Pressure (256²) 4.1
+  and 5.8 ms. No remesh at any cut.
+- **Captures:** `docs/sheets/3d-view-cutaway.jpg` (Hollows at cuts 8 and 5, Pressure at 6 and 3, dev against this
+  branch, Standard and High, 1920×1080 dark, and Hollows at 8 at 1280×800 light): dev's hatched lid over the
+  river's cave and over Pressure's tunnels, here the caves open with their water, walls and floors in their own
+  light.
+- **Falls short:** water, objects, falls and the drought line are cut as before (water per column is item 4); a
+  cave floor's colour is still its tile's (item 3). CI's browser tests open no map with caves, so the branch's
+  compile is checked by hand in real Chrome.
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 
@@ -169,8 +207,8 @@ Each reads the same column masks the mesher reads. The seams:
    `caveTex` as the terrain's does; today water under a roof keeps the open sky's light).
 5. **3D picking and selections (built, part 5 above):** `pick.ts` picks against the masks (a ray through the
    voxels, the face hit and its run) and the Select tool reads the run hit.
-6. **The level-slice cutaway:** today a uniform cuts the world above a level in the shader. 3d-view's rule (D207):
-   mesh the clipped mask with caps only where solid rock crosses the cut, lighting from the unsliced terrain.
+6. **The level-slice cutaway (built, part 6 above):** the clipped columns drawn, caps only where solid rock crosses
+   the cut, lit from the unsliced terrain (D207).
 7. **Kyler's notes at approval:** the stone pattern stretching on ceilings and at corners; cave interiors and deep
    water under roofs tuned on real maps; objects, slopes, falls and moving water inside caves.
 8. **Standard's open ground before a cave:** its baked shadow (`light.ts`) treats every column as solid to its top,

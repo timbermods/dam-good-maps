@@ -318,6 +318,11 @@
   box-shadow: none;
 }
 
+/* a segmented choice inside a menu (Look) keeps its words centred in their cells */
+.menu .set-seg button {
+  text-align: center;
+}
+
 .select-menu {
   left: 0;
   right: auto;
@@ -648,6 +653,11 @@ button.pick-line[aria-pressed="true"] {
 
 .tip.above {
   transform: translateY(-100%);
+}
+
+/* to the left of its control, level with its middle (the speaker's, so the volume under it stays in view) */
+.tip.beside {
+  transform: translateY(-50%);
 }
 
 .tip-key {

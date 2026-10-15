@@ -592,7 +592,7 @@ describe("a stroke replays exactly onto its own land (D158, D336)", () => {
     const dabs: number[] = [];
     for (let k = 0; k < 30; k++) dabs.push(4 * 70 + 2, 4 * 20 + 2 + Math.round((4 * k) / 3));
     const stroke: BrushParams = { tool: "raise", size: 4, strength: 6, dabs };
-    expect(s.apply({ op: "brush", params: stroke }, "user", "Raise, 40 tiles").ok).toBe(true);
+    expect(s.apply({ op: "brush", params: stroke }, "user", "Raise 40 tiles").ok).toBe(true);
     // the map with the stroke is a full build of its generation and the stroke
     expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
     // and the project file keeps it

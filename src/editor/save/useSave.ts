@@ -62,7 +62,7 @@ export function useSave(ed: Ed): SaveSlice {
       const r = await enqueue(() => api.exportTimber(true, onProgress));
       if (!r.ok) {
         setDotOpen(true);
-        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
+        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}`, keep: true });
         return;
       }
       // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
@@ -77,7 +77,7 @@ export function useSave(ed: Ed): SaveSlice {
       else if (v.via === "download" && v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.${v.forgotten ? " Save asks for the folder again next time." : ""}` });
       else setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     } catch (e) {
-      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e), keep: true });
     } finally {
       setSaving(null);
     }

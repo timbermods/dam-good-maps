@@ -31,7 +31,8 @@ export function generatedFrom(fragment: string): Uint8Array {
 }
 
 /** The first seed from 1 to 40 whose generated map has what `has` looks for (a weir, ruins on a
- *  rise), as the page makes it. */
+ *  rise), as the page makes it. Pick a theme where the trait is common in the current generator (the nightly
+ *  batch reports each set piece's rate per theme): Highlands' ruins on a rise fell to 1 in 100 and broke the catalog (#440). */
 export function firstGenerated(fragment: (seed: number) => string, has: (r: GenerateResult) => boolean): Uint8Array {
   for (let seed = 1; seed <= 40; seed++) {
     const d = decodeSpecFragment(fragment(seed));

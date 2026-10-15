@@ -181,24 +181,34 @@ function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; o
 
 /** A custom size's width and height, typed, in the Custom option's place (the line keeps its shape). */
 function SizeNumbers(p: { W: number; H: number; onSize(size: { x: number; y: number }): void }) {
-  const box = (v: number, label: string, id: string, onSet: (n: number) => void) => (
-    <input
-      id={id}
-      class={`set-text set-num${v > 256 ? " over" : ""}`}
-      aria-label={label}
-      title={v > 256 ? BIG_SIDE_TIP : HINT[id]}
-      value={v}
-      inputMode="numeric"
-      onChange={(e) => {
-        const n = Math.round(Number((e.target as HTMLInputElement).value));
-        if (Number.isFinite(n)) onSet(Math.max(MIN_SIDE, Math.min(MAX_SIDE, n)));
-      }}
-    />
-  );
   return (
     <span class="set-size">
-      {box(p.W, "Width", "size-x", (x) => p.onSize({ x, y: p.H }))}×{box(p.H, "Height", "size-y", (y) => p.onSize({ x: p.W, y }))}
+      <SizeBox v={p.W} label="Width" id="size-x" onSet={(x) => p.onSize({ x, y: p.H })} />×<SizeBox v={p.H} label="Height" id="size-y" onSet={(y) => p.onSize({ x: p.W, y })} />
     </span>
+  );
+}
+
+/** One side of a custom size. The number commits when the box is left (or Enter), so what the player has typed is kept
+ *  here until then: the page re-drawing meanwhile (the opened map settling, a setting changed elsewhere) must not put the
+ *  old number back over it. */
+function SizeBox(p: { v: number; label: string; id: string; onSet(n: number): void }) {
+  const [typed, setTyped] = useState<string | null>(null);
+  return (
+    <input
+      id={p.id}
+      class={`set-text set-num${p.v > 256 ? " over" : ""}`}
+      aria-label={p.label}
+      title={p.v > 256 ? BIG_SIDE_TIP : HINT[p.id]}
+      value={typed ?? p.v}
+      inputMode="numeric"
+      onInput={(e) => setTyped((e.target as HTMLInputElement).value)}
+      onBlur={() => setTyped(null)}
+      onChange={(e) => {
+        const n = Math.round(Number((e.target as HTMLInputElement).value));
+        setTyped(null);
+        if (Number.isFinite(n)) p.onSet(Math.max(MIN_SIDE, Math.min(MAX_SIDE, n)));
+      }}
+    />
   );
 }
 

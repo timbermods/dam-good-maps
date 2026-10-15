@@ -15,6 +15,7 @@ import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
 import { cornerFor, startClears, startMiddle } from "./start";
 import { startEntranceTile, type Orientation } from "../format/footprints";
+import { withArticle } from "./labels";
 
 // (the editor imports the start's corner from here)
 export { cornerFor } from "./start";
@@ -206,7 +207,8 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
   const f = s.features.find((g) => g.id === id);
   if (!f) return fail("that feature is gone");
   const { x: W, y: H } = s.size;
-  const label = `Move ${kindName(f)}`;
+  const name = kindName(f);
+  const label = `Move ${name === "start" ? "the start" : name === "terraces" ? name : withArticle(name)}`;
   const patch = movePatch(f, dx, dy, W, H, s.built.heights);
   const moved = { ...f, params: { ...f.params, ...(patch.params as object) } } as Feature;
   // (the start takes its clear ground: the generation's trees and bushes there go, D368 (10))
@@ -245,7 +247,7 @@ export function planStart(s: MapSession, x: number, y: number, orientation: Orie
   if (wet) return fail(wet);
   const level = levelFootprint(s, { template: "StartingLocation", x: cx, y: cy, orientation: o }, new Set([e.id]), [door[1] * s.size.x + door[0]]);
   const move: EditOp = { op: "moveEntity", params: { id: e.id, x: cx, y: cy, ...(o !== e.orientation ? { orientation: o } : {}) } };
-  return { ok: true, ops: [...level, move], label: o !== e.orientation ? "Move and turn the start" : "Move start" };
+  return { ok: true, ops: [...level, move], label: o !== e.orientation ? "Move and turn the start" : "Move the start" };
 }
 
 /** The Start from the shelf on a map that has none (D323 item 44): a generated map gets a start
