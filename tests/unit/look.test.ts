@@ -13,7 +13,8 @@ import { contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, grou
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { FALL_STRIDE } from "../../src/render3d/falls";
-import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { dropFlags, EDGE_CURTAIN, FALL_IN_BITS, LIP_BITS, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 import { DataTexture, ShaderMaterial } from "three";
 import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 
@@ -233,7 +234,7 @@ describe("water foam", () => {
     const heights = new Uint8Array([6, 6, 3, 3, 7, 7, 7, 7]);
     const view = waterFromDepth(heights, [0.5, 0.5, 0.5, 0.5, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]);
     const sw = surfaceWater(W, H, view);
-    const m = meshWaterChunk(W, H, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(W, H, plainLayers(heights, sw), 0, 0);
     const tops = new Map<number, number>();
     const curtains: number[] = [];
     for (let q = 0; q < m.quads; q++) {
