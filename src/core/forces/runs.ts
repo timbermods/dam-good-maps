@@ -33,8 +33,8 @@ export interface ForceCue {
   verb: Verb;
   /** incoming (an impactor falling), impact, rumble (the ground stirring), rise (a volcano
    *  swelling), crack (a fault breaking), slide (a block moving), carve (a river cutting), gather (ice
-   *  gathering), advance and retreat (a glacier's two acts), done. */
-  phase: "incoming" | "impact" | "rumble" | "rise" | "crack" | "slide" | "carve" | "gather" | "advance" | "retreat" | "done";
+   *  gathering), advance and retreat (a glacier's two acts), wear (rock wearing away), done. */
+  phase: "incoming" | "impact" | "rumble" | "rise" | "crack" | "slide" | "carve" | "gather" | "advance" | "retreat" | "wear" | "done";
   /** 0–1 through the event's stages. */
   progress: number;
   /** Its focus: a tile and the level there. */
@@ -53,6 +53,10 @@ export interface ForceCue {
   quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
   rift?: { path: Point[]; width: number };
   deposit?: { mouth: Point; direction: Point; reach: number; branches: Point[][] };
+  /** An erosion (D281): the voxels that went in the stage just shown (z·N + tile: where its dust and
+   *  falling stones start), how many it takes in all, and whether it scoured open ground rather than
+   *  hollowing rock. */
+  erode?: { went: Uint32Array; worn: number; scoured: boolean };
   /** A glacier: its seconds into the two acts, and its stations once planned (the ice's shape). */
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
   /** How many of the force's own seconds each second of its showing is (the page's, from its pace:
@@ -63,7 +67,7 @@ export interface ForceCue {
 
 /** A staged force as the worker drives it. */
 export interface StagedRun {
-  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
+  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;

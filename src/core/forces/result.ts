@@ -10,8 +10,13 @@ import type { EntitySpec } from "../format/entities";
 import type { ForceMap, FullForceMap } from "./force";
 import type { ForceResultParams, ForceSettingsRecord, ForceWhere, Verb } from "./op";
 import type { StagedRun } from "./runs";
+import { isPlainMask } from "../terrain/runs";
 
-type Literal = Pick<ForceResultParams, "tiles" | "heights" | "rock" | "removed" | "moved" | "felled">;
+/** The voxels of a plain tile of height `h`. */
+const maskOfHeight = (h: number): number => (h >= 32 ? 0xffffffff : h > 0 ? (((1 << h) >>> 0) - 1) >>> 0 : 0);
+
+
+type Literal = Pick<ForceResultParams, "tiles" | "heights" | "rock" | "runs" | "removed" | "moved" | "felled">;
 
 const round4 = (v: number) => Math.round(v * 1e4) / 1e4;
 
@@ -40,6 +45,20 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
         bits.push(a);
       }
     }
+  // Erode's hollows (D281): the tiles whose voxels under the surface changed, each one's voxels now
+  const runTiles: number[] = [];
+  const masks: number[] = [];
+  if (after.masks) {
+    const was = before.masks;
+    for (let i = 0; i < after.heights.length; i++) {
+      const m = after.masks[i];
+      const b = was ? was[i] : maskOfHeight(before.heights[i]);
+      if (m !== b && !isPlainMask(m)) {
+        runTiles.push(i);
+        masks.push(m);
+      }
+    }
+  }
   const now = new Map(after.entities.map((e) => [e.id, e]));
   const removed = before.entities.filter((e) => !now.has(e.id) && !kept(e)).map((e) => e.id);
   // a carried object put down where the start or a slope the build keeps still stands is lost there:
@@ -74,6 +93,7 @@ export function literalOf(before: ForceMap, after: ForceMap, kept: (e: EntitySpe
     tiles,
     heights,
     ...(rockTiles.length ? { rock: { tiles: rockTiles, bits } } : {}),
+    ...(runTiles.length ? { runs: { tiles: runTiles, masks } } : {}),
     removed,
     ...(moved.length ? { moved } : {}),
     ...(felled.length ? { felled } : {}),
@@ -96,7 +116,7 @@ export interface ForceRecord {
 /** The operation a force becomes, against the map it started from (null: it changed nothing). */
 export function forceParamsOf(before: ForceMap, after: FullForceMap | ForceMap, rec: ForceRecord): ForceResultParams | null {
   const lit = literalOf(before, after);
-  if (!lit.tiles.length && !lit.removed.length && !lit.moved?.length && !lit.felled?.length && !lit.rock) return null;
+  if (!lit.tiles.length && !lit.removed.length && !lit.moved?.length && !lit.felled?.length && !lit.rock && !lit.runs) return null;
   return {
     version: 1,
     verb: rec.verb,

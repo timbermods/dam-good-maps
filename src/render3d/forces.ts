@@ -37,7 +37,7 @@ import { JUICE } from "./palette";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
 export interface ForceMoment {
-  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit";
+  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
   phase: string;
   progress: number;
   x: number;

@@ -260,6 +260,27 @@
   text-overflow: ellipsis;
 }
 
+/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+.ym-from {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.your-maps li {
+  display: flex;
+}
+
+.your-maps li > .ym-tile {
+  flex: 1;
+  width: auto;
+}
+
 .ym-size {
   flex: none;
   color: var(--muted);
@@ -374,6 +395,43 @@
   margin: 12px 0 6px;
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+/* a step's row, and beside it Keep this version and Branch from here: shown on the row pointed at, focused, or the map is
+   at, so the list stays quiet; the row gives them room, never moving */
+.history-panel .hist-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-panel .hist-item > .hist-row {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.history-panel .hist-acts {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.history-panel .hist-item:hover .hist-acts,
+.history-panel .hist-item:focus-within .hist-acts,
+.history-panel .hist-item:has(> .hist-row[aria-current="true"]) .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-panel .hist-act {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .history-panel .hist-row {
@@ -779,7 +837,7 @@
   right: 10px;
   bottom: 10px;
   z-index: 2;
-  width: 166px;
+  width: 180px;
   max-height: var(--dock-max, none);
   display: flex;
   flex-direction: column;
@@ -793,7 +851,11 @@
 
 .objects-dock > .objects-menu {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  /* a thin scrollbar, its room kept whether or not the list scrolls, so no name runs under it */
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 .object-window,
@@ -817,9 +879,10 @@
   flex-direction: row;
   justify-content: flex-start;
   gap: 8px;
+  position: relative;
   width: 100%;
   height: 30px;
-  padding: 1px 12px 1px 4px;
+  padding: 1px 4px 1px 4px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -847,12 +910,30 @@
 /* the list's title (Kyler, 2026-10-06): "Items", bold, in the items' own type, one row of their height and one gap above
    them, its words at the names' inset (the row's 4px, the picture's 28px and the 8px gap) */
 .objects-menu .shelf-title {
-  height: 30px;
-  margin: 0 0 2px;
-  padding-left: 40px;
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  background: var(--panel);
+  box-sizing: border-box;
+  /* (up into the list's own padding, so rows scrolling under it never show above it) */
+  height: 36px;
+  margin: -6px 0 2px;
+  padding: 6px 0 0 40px;
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 30px;
+}
+
+/* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the gap above
+   each one's first row: no extra height */
+.objects-menu .shelf-item.shelf-first::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--rule);
 }
 
 /* picked: its row lit in the mint, as the bar lights a tool */
@@ -977,7 +1058,7 @@
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
    on a grid whose columns are the bar's cells (seven tools, the hairline, seven forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
-   the left and the objects menu at the right (each 190px with its gap); the dock on whole pixels. */
+   the left and the objects menu at the right (each 196px with its gap); the dock on whole pixels. */
 /* (on the view: the readout keeps left of the dock with them) */
 .editor-view {
   --cell: 76px;
@@ -1002,7 +1083,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(56px, round(down, calc((100vw - 430px) / 14), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 440px) / 14), 1px), 76px);
   }
 
   .tool-dock {
@@ -1297,6 +1378,10 @@
 }
 
 .set-words {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 14px;
   color: var(--ink);
   white-space: nowrap;
@@ -2558,6 +2643,46 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* a reserve's good: a button that opens a menu in the page's own look, under it over the list, its height kept to the window */
+.good-picker {
+  display: flex;
+  width: 100%;
+}
+
+.good-picker .good-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+}
+
+.good-picker .good-button::after {
+  content: "\25BE";
+  font-size: 0.8em;
+}
+
+.good-menu {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  right: 0;
+  left: auto;
+  width: 220px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.good-menu li.menu-note {
+  padding: 6px 10px 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.good-menu button[aria-checked="true"] {
+  font-weight: 700;
 }
 
 /* the Look menu, in the page's own controls: the three looks a segmented choice, the chosen cell filled as the settings'

@@ -640,8 +640,8 @@ After the view (D280 (3)).
    or outline). Wind and water wear rock: a cave or alcove at a cliff's foot, an overhang where hard
    rock caps softer rock, an arch through a thin ridge; the land decides which; every shape obeys
    the support rule; a click or a drawn sweep; Power, Size, Try another; two to four seconds of
-   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281); held, like the
-   other forces' investigations, until Kyler has tried it.
+   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281). Its core and
+   Rust are built (the rules and what the page and renderer take: docs/progress/3d-creating.md).
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`

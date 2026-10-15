@@ -33,6 +33,13 @@ export interface ForceMap {
   rockLayers?: number[];
   /** Fresh volcanic rock, a bit per level of each tile (rock.ts); absent: none. */
   lava?: Uint32Array;
+  /** The terrain as voxels, a mask per tile (terrain/runs.ts: bit z set where voxel z is solid), on a
+   *  map with caves or overhangs and while Erode shows (D281); absent: every tile one plain run from
+   *  z = 0, its height. The other forces shape heights only and leave those tiles alone. */
+  masks?: Uint32Array;
+  /** The water in its caves, a bit per level of each tile (an imported map's own under its roofs):
+   *  Erode never wears rock that holds it back. Absent: none. */
+  wet?: Uint32Array;
   /** Trees knocked down by earlier forces, as they lie (objects.ts). */
   fallen?: Fallen[];
   /** Ids the document has used besides the objects standing (an object placed and since removed,
@@ -66,6 +73,8 @@ export function snapshotMap<T extends ForceMap>(m: T): T {
     ...(m.rockLayers ? { rockLayers: m.rockLayers.slice() } : {}),
     ...(m.fallen ? { fallen: structuredClone(m.fallen) } : {}),
     ...(m.lava ? { lava: m.lava.slice() } : {}),
+    ...(m.masks ? { masks: m.masks.slice() } : {}),
+    ...(m.wet ? { wet: m.wet.slice() } : {}),
     water: { depth: m.water.depth.slice(), contamination: m.water.contamination.slice() },
   };
 }
