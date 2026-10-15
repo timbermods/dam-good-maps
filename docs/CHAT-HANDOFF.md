@@ -14,7 +14,7 @@ first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, `CLAUDE.
   `C:\Users\krams\code\DamGoodMaps-planning`, detached at `origin/dev`) coordinates. It never edits the main clone or
   another session's worktree; merges go through `gh`. Its job:
   1. **Keep dev healthy.** Each session merges its own PRs once a fresh reviewer agent has approved them and their quick
-     checks are green (D489; Kyler, 2026-10-15). The planning session watches dev's post-merge runs (the browser specs
+     checks are green (D489, D490). The planning session watches dev's post-merge runs (the browser specs
      and the suites) and the nightly, and sends each failure to whoever's merge broke it, at once, or reverts that merge
      if it can't be fixed quickly. It merges a "ready to merge" a session can't merge itself (forces play's permission
      check). No full run by hand except for a release.
@@ -55,7 +55,7 @@ type.
   before judging them.
 - **No excess checks (D454),** above every other rule on checks. **Compute is a resource (D316–D318):** effort matches the
   stakes; quality is never compromised. Haiku for mechanical work, Sonnet for specified building, Opus for judgment (D484).
-- **Quick checks before merge, the rest after (D341, amended by D489).** Nothing merges into `dev` with its quick
+- **Quick checks before merge, the rest after (D341, amended by D489 and D490).** Nothing merges into `dev` with its quick
   checks red or without a fresh reviewer's approval; the browser specs and suites run on dev's tip after the merge and are
   fixed forward at once. No test stays known-flaky: the cause is found.
 - **Propose better rules.** The rules evolve (Kyler, 2026-10-15): when one slows good work, propose the change to Kyler

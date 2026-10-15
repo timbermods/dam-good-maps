@@ -38,7 +38,7 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
     the change before reporting it done. If none can run, say which and why.
   - Downscale screenshots and captures before a model reads them, unless the detail is what's being judged.
 
-## Coordination (D470, D484, D489)
+## Coordination (D470, D484, D489, D490)
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14).** Claude completes the whole order without him (D349 as
   amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
@@ -57,10 +57,11 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   performance, order inside a step and "is this good enough" are ours. One issue per question, labelled `needs-kyler`:
   the question in plain words, 2–4 options (a capture or mockup where it helps) and the recommended default. Never block:
   build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
-- **Merging (D484, D489; Kyler, 2026-10-15):** a PR merges once a fresh reviewer agent that didn't write it has approved
+- **Merging (D484, D489, D490):** a PR merges once a fresh reviewer agent that didn't write it has approved
   it, its owner's verdict and captures are on the PR, and its quick checks (typecheck, quick suite, build) are green. Code
   gets a fresh sub-agent's review; a look or interaction change gets a fresh Opus reviewer in a real browser, judging its
-  captures against the page rules. The owning session may then merge it itself, and posts on #236 what merged. A review
+  captures against the page rules. The owning session may then merge it itself, never one labelled `hold`, and posts
+  on #236 what merged. A review
   blocks only for real bugs and anything that breaks what players get; polish goes in a follow-up. The browser specs and
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
@@ -149,6 +150,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   ([#57](https://github.com/timbermods/dam-good-maps/issues/57)) each time a step finishes, something is released, a probe
   batch runs or something is parked for Kyler: what happened, links, what's next.
 - **Never touch installed mods or saves otherwise.** Kyler tests in game himself.
+- **Never route around a refusal.** A permission check that says no is surfaced to Kyler, never worked around by another
+  tool, another session or a sub-agent; he decides whether to allow it.
 - **Contact sheets (D144):** at every milestone or step that changes generated maps, commit one small image to
   `docs/sheets/<step>.png`: seeds 1–30 of every built theme at 128², top-down, each labelled with its seed and theme; our
   own generated maps only; under 1 MB.

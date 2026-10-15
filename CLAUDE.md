@@ -27,22 +27,24 @@ task touches. [docs/README.md](docs/README.md) maps the documents.
   no second sentence. Whoever changes a control's behaviour updates its tooltip in the same commit.
 - **Docs are part of done (D188):** a change that alters how something works updates its living document in the same PR.
 - **Never weaken a test to make it pass.** A test a decision made stale is updated to the decision (D148). No test stays
-  known-flaky: find the cause.
-- **Timberborn and Kyler's things:** Claude launches the game only through the DGM Probe runner, by the rules in
-  docs/RULES.md (D117, D218, D483). Never touch Kyler's installed mods, saves or settings. Secrets are his, set with
+  known-flaky: find the cause (D341).
+- **Timberborn and Kyler's things:** Claude launches the game only through the DGM Probe runner (D117): on the dedicated
+  machine a batch runs whenever the plan calls for one, without asking (D218), playing only what players get (D483); the
+  full rules are in docs/RULES.md. Never touch Kyler's installed mods, saves or settings. Secrets are his, set with
   `gh secret set`; never ask for one in chat.
 - **Never route around a refusal.** A permission check that says no is surfaced to Kyler, never worked around by another
   tool, another session or a sub-agent.
 
-## How we work (D316, D454, D484, D489)
+## How we work (D316, D454, D484, D489, D490)
 
 - **Effort matches the stakes; quality is never compromised.** Invest in what compounds (shared modules, findings worth
   keeping); spend little on ceremony (one-off reports, re-verifying what's verified, measures no decision uses). No
   check, timing or validation unless something is likely to break and Kyler wouldn't see it anyway. Before reporting
   done, run a real check that exercises the change, or say why none can run.
 - **Speed is a feature (D453):** anything that feels slow is a bug.
-- **Merge fast, test after (D489):** a PR merges once a fresh reviewer agent that didn't write it has approved it and its
-  quick checks (typecheck, quick suite, build) are green; the owning session may merge it itself. A review blocks only
+- **Merge fast, test after (D489, D490):** a PR merges once a fresh reviewer agent that didn't write it has approved it
+  and its quick checks (typecheck, quick suite, build) are green; the owning session may merge it itself, never one
+  labelled `hold`. A review blocks only
   for real bugs. The browser specs and the heavy suites run on dev after the merge, and whoever's merge breaks dev fixes it
   forward at once. Releases to main keep the full gate. Detail: docs/RULES.md, "Merging".
 - **Work in parallel:** sub-agents in their own worktrees and branches. Haiku for mechanical work (never wording or
