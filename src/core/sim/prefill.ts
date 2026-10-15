@@ -33,7 +33,7 @@
 import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
-import { canonicalStackRun, type StackSettle } from "./stackWater";
+import { CAVE_REFUSALS, canonicalStackRun, type StackSettle } from "./stackWater";
 import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
@@ -203,7 +203,7 @@ export interface CanonicalWater extends SettleResult {
  *  so whoever shows progress shows it the same way. The water a removal drained has no stacked rule
  *  yet and is refused. */
 function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  if (m.drained?.length) throw new Error("Removing unfed water is not worked out for a map with caves or overhangs yet");
+  if (m.drained?.length) throw new Error(CAVE_REFUSALS.removeUnfed);
   const run = canonicalStackRun(m.W, m.H, m.stacked!, m.retained);
   let done: CanonicalWater | null = null;
   return {

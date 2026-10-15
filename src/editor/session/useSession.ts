@@ -45,6 +45,9 @@ export interface SessionSlice {
   info: SessionInfo;
   setInfo: Dispatch<StateUpdater<SessionInfo>>;
   view: MapView;
+  /** The map's voxel columns as the renderer holds them (a map with caves, Erode's hollows): a force's frames add the
+   *  tiles they changed to these (D281). */
+  columnsRef: { current: MapView["columns"] };
   mirror: { current: Mirror };
   renderer: { current: MapRenderer | null };
   ready: MapRenderer | null;
@@ -174,6 +177,8 @@ export interface SessionSlice {
   minimap: boolean;
   setMinimap: Dispatch<StateUpdater<boolean>>;
   minimapRef: { current: boolean };
+  /** A change of the map's size is being opened again: this editor sends the worker nothing more (D340). */
+  resizing: { current: boolean };
   setDotOpen: Dispatch<StateUpdater<boolean>>;
   dotOpen: boolean;
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
@@ -218,6 +223,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // editor for another map)
   const view = props.opened.view;
   const mirror = useRef<Mirror>(mirrorOf(view));
+  const columnsRef = useRef<MapView["columns"]>(view.columns);
   const renderer = useRef<MapRenderer | null>(null);
   const [ready, setReady] = useState<MapRenderer | null>(null);
   /** The force picked in the top bar (the brushes have their own state; the sources are on the
@@ -280,11 +286,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       window.removeEventListener("keydown", key, true);
     };
   }, []);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(props.carry?.history ?? false);
+  const resizing = useRef(false);
   const [check, setCheck] = useState<ExportCheck | null>(null);
   // the background check's progress (the canonical settle, then the checks), and the water layer
   const [progress, setProgress] = useState<CheckProgress | null>(null);
-  const [layer, setLayer] = useState<LayerKind>("none");
+  const [layer, setLayer] = useState<LayerKind>(props.carry?.layer ?? "none");
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
   const [waterTick, setWaterTick] = useState(0);
   const [heldTick, setHeldTick] = useState(0);
@@ -297,7 +304,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [nearSources, setNearSources] = useState<number[]>([]);
   const [feeding, setFeeding] = useState<number[]>([]);
   /** Clear water (D196): T or the view button; any tool picked clears the water too. */
-  const [clearWater, setClearWater] = useState(false);
+  const [clearWater, setClearWater] = useState(props.carry?.clearWater ?? false);
   /** The layer the world is cut at (Alt+scroll, Alt+click), or null. */
   const [sliceLevel, setSliceLevel] = useState<number | null>(null);
   useEffect(dropRefusal, [tool, shelf?.id, layer, sliceLevel]);
@@ -448,7 +455,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const firstDoneRef = useRef(firstDone);
   firstDoneRef.current = firstDone;
   /** The minimap (D205): on by default on 256² maps. */
-  const [minimap, setMinimap] = useState(() => info.W >= 256 && info.H >= 256);
+  const [minimap, setMinimap] = useState(() => props.carry?.minimap ?? (info.W >= 256 && info.H >= 256));
   const minimapRef = useRef(minimap);
   minimapRef.current = minimap;
   /** The quiet dot's list is open; a save in progress (D184). */
@@ -501,6 +508,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** Run worker calls one after another; apply what changed to the view. (While a force is at work
    *  the other edits wait: it is kept when it ends, Esc skips it to its end, Ctrl+Z takes it back.) */
   function run(fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void): Promise<void> {
+    // (the map is being opened again after a crop: what the player does meanwhile waits for the new editor)
+    if (resizing.current) return Promise.resolve();
     if (ed.forcer.current?.running) {
       setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
@@ -607,23 +616,33 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(0);
       // (the day box reads the day at once, the hazard's length for the map's difficulty, Kyler, 2026-10-04)
       setWeatherTarget(hazardDays(infoRef.current.spec?.designedFor ?? "normal", hazard));
-      void api.showWeatherDay(hazard, null);
-    } else {
-      setWeather(null);
-      heldDay.current = null;
-      setWeatherDay(null);
-      setWeatherCounting(null);
-      setWeatherTarget(null);
-      mirror.current.daySoil = null;
-      renderer.current?.setWithered(null);
-      renderer.current?.setSeason(null, null);
-      void api.stopWeather().then((v) => {
-        player.current?.clear();
-        applyView(v);
-        if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
-        ed.rehover();
-      });
-    }
+      askWeatherDay(hazard, null);
+    } else weatherOff();
+  }
+  /** The map's own water back: no hazard shown, the button unpressed, the day box gone. */
+  function weatherOff() {
+    setWeather(null);
+    heldDay.current = null;
+    setWeatherDay(null);
+    setWeatherCounting(null);
+    setWeatherTarget(null);
+    mirror.current.daySoil = null;
+    renderer.current?.setWithered(null);
+    renderer.current?.setSeason(null, null);
+    void api.stopWeather().then((v) => {
+      player.current?.clear();
+      applyView(v);
+      if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
+      ed.rehover();
+    });
+  }
+  /** Ask the worker for a day of `hazard`; a refusal (a map with caves or overhangs) shows its one line, as an
+   *  edit's refusal does, and the map's own water comes back. */
+  function askWeatherDay(hazard: Hazard, day: number | null) {
+    api.showWeatherDay(hazard, day).catch((e: unknown) => {
+      if (weatherRef.current === hazard) weatherOff();
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+    });
   }
   /** Step the held day back (to Day 0, the map's own water) or on (past the default length, simulated as asked). */
   function stepWeather(delta: -1 | 1) {
@@ -641,11 +660,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     heldDay.current = day;
     setWeatherTarget(day);
     setWeatherCounting(0);
-    void api.showWeatherDay(h, day);
+    askWeatherDay(h, day);
   }
   function requestHeldDay() {
     const h = weatherRef.current;
-    if (h) void api.showWeatherDay(h, heldDay.current);
+    if (h) askWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showWithered(tiles: Int32Array) {
@@ -664,6 +683,22 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
+    // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
+    if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {
+      infoRef.current = u.info;
+      props.onChange(u.info);
+      if (resizing.current) return;
+      // from here this editor sends nothing more; what it had queued still reaches the worker first, and the new editor
+      // opens from the worker's map after it (App.tsx `resized`). A held drought or badtide is stopped cleanly: its days were
+      // the old map's.
+      resizing.current = true;
+      // (a compare's flip ends first: the other version's map is not this one's size)
+      endFlip();
+      if (weatherRef.current) void enqueue(() => api.stopWeather());
+      props.onResized({ history: showHistory, mode: renderer.current?.getView().mode ?? "orbit", layer, clearWater, minimap });
+      return;
+    }
     // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
 
@@ -695,7 +730,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  byte for byte. */
   function takeLand(): void {
     const held = heldLand.current;
-    if (!held.heights && !held.terrain) return;
+    if (!held.heights && !held.terrain && !held.columns) return;
     if (held.heights) endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
@@ -710,7 +745,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       }
       m.heights = held.heights;
       renderer.current?.updateTerrain(held.heights, held.columns);
-    }
+    } else if (held.columns) renderer.current?.updateTerrain(m.heights, held.columns);
     if (held.terrain) ed.terrain.current = held.terrain;
   }
 
@@ -728,7 +763,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
     if (v.heights) heldLand.current.heights = v.heights;
     // (a roof's top an edit reshaped: its columns go in with the land, D487)
-    if (v.columns) heldLand.current.columns = v.columns;
+    if (v.columns) {
+      heldLand.current.columns = v.columns;
+      columnsRef.current = v.columns;
+    }
     if (v.terrain) heldLand.current.terrain = v.terrain;
     takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
@@ -764,7 +802,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   return {
-    api, info, setInfo, view, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
+    api, info, setInfo, view, columnsRef, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
@@ -775,7 +813,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
-    firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
+    firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
     optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, takeLand

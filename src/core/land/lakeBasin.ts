@@ -4,6 +4,8 @@ import { THEME_PRESETS, type Settings, type Difficulty } from '../spec/mapspec';
 import { stream } from '../math/rng';
 import { DIRS8, unit } from './num';
 import { clamp } from '../math/clamp';
+import * as portable from '../math/portable';
+import { mapShape } from './shape';
 
 /** Every Lake Basin map, whatever its settings, intentions or siblings (Kyler, 2026-10-03; the
  *  release-gate generator hunt's finding 1: adoption was confined to the default Normal square-map
@@ -19,15 +21,20 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   // collapse the seed back to a central lake. Position, aspect, neighbours and relief combine
   // continuously instead of choosing a small catalogue of lake pictures.
   const composition = stream(seed, 'lake-basin-composition', g.variation);
-  const turn = composition.float();
+  // (D357: on a long map the lake runs down its length, longer as the map is, up to four times as
+  // long as a square map's)
+  const form = mapShape(W, H);
+  const drawnTurn = composition.float();
+  const turn = form.long ? (form.alongX ? 0 : 0.25) + 0.06 * (drawnTurn - 0.5) : drawnTurn;
   const [ux, uy] = unit(turn);
   const [ox, oy] = unit(composition.float());
   const displacement = composition.range(0.12, 0.21);
   const focus: [number, number] = [0.5 + ox * displacement, 0.5 + oy * displacement];
   const paired = composition.float() < 0.32;
-  const aspect = composition.range(1.2, 2.7);
+  const stretch = form.long ? Math.min(form.ratio, 4) : 1;
+  const aspect = composition.range(1.2, 2.7) * stretch;
   const size = side * composition.range(paired ? 0.22 : 0.23, paired ? 0.27 : 0.29)
-    * (side >= 192 ? 0.85 : 1);
+    * (side >= 192 ? 0.85 : 1) * (form.long ? portable.sqrt(portable.sqrt(stretch)) : 1);
 
   g.parts = g.parts.filter(p => p.kind !== 'basin' && p.kind !== 'caldera');
   // Use the existing warped-footprint uplift with negative height: a broad hollow whose

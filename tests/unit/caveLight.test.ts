@@ -7,8 +7,10 @@
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
-import { CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
-import { skyVisibility } from "../../src/render3d/light";
+import { CAVE_FLOOR_BYTE, CAVE_SKY_FLOOR, CaveLight, caveSample, LIGHT_LEVELS, openSky } from "../../src/render3d/caveLight";
+import { decodeTop, objectCasters, SHADOW_RES, shadowMap, shadowPairRect, shadowRock, skyVisibility } from "../../src/render3d/light";
+import { DEAD, type EntityView } from "../../src/render3d/model";
+import { LIGHT } from "../../src/render3d/palette";
 import { chunkCount, meshChunk, type MeshData, type TerrainSource } from "../../src/render3d/mesh";
 import { LAYERS } from "../../src/render3d/model";
 
@@ -99,8 +101,8 @@ describe("light under roofs on terrains with roofs", () => {
       expect(deep).not.toBeNull();
       expect(deep[0]).toBeLessThan(mouth[0]);
     }
-    // the deepest floor dims to the volume's least (the shader holds it at 0.30)
-    expect(floor(10)![0]).toBeLessThanOrEqual(0.3);
+    // the deepest floor dims to the volume's least, which the shader holds too
+    expect(floor(10)![0]).toBeLessThanOrEqual(CAVE_SKY_FLOOR + 1e-9);
   });
 
   it("a cave's mouth is never brighter than the open ground before it", () => {
@@ -112,7 +114,7 @@ describe("light under roofs on terrains with roofs", () => {
 
   it("a sealed chamber takes the least sky and no sun", () => {
     const s = caveSample(v, [8.5, 6, -6.5], [0, 1, 0])!;
-    expect(s[0]).toBeLessThanOrEqual(64 / 255 + 1e-9);
+    expect(s[0]).toBeLessThanOrEqual(CAVE_FLOOR_BYTE / 255 + 1e-9);
     expect(s[1]).toBe(0);
   });
 
@@ -179,5 +181,120 @@ describe("relighting after an edit", () => {
       const full = CaveLight.build(src, sky)!;
       expect(Buffer.from(v.data).equals(Buffer.from(full.data)), `edit ${k}`).toBe(true);
     }
+  });
+});
+
+describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", () => {
+  /** Whether the sweep's ray from sample (sx, sy) at height z, for the sun at `elevation`, meets rock: the samples it
+   *  crosses toward the sun (one west and one north a step), each a step's drop higher, as the sweep carries the shadow;
+   *  null where it grazes a level's boundary (the bytes' rounding decides there). */
+  function rayShaded(src: TerrainSource, casters: Float32Array | null, levels: Map<number, number>, sx: number, sy: number, z: number, elevation: number): boolean | null {
+    const R = SHADOW_RES;
+    const drop = (Math.SQRT2 / R) * Math.tan(elevation);
+    let near = false;
+    for (let j = 1; sx - j >= 0 && sy + j <= src.H * R - 1; j++) {
+      const h = z + j * drop;
+      if (h > LAYERS + 8) break;
+      const i = Math.floor((sy + j) / R) * src.W + Math.floor((sx - j) / R);
+      const c = src.columns.get(i);
+      // the column's rock: its runs, with the objects on its top
+      const runs: [number, number][] = [];
+      if (!c) runs.push([-99, src.heights[i] + (casters ? casters[i] : 0)]);
+      else {
+        let k = 0;
+        while (k < LAYERS) {
+          while (k < LAYERS && !c[k]) k++;
+          if (k >= LAYERS) break;
+          const lo = k;
+          while (k < LAYERS && c[k]) k++;
+          runs.push([lo === 0 ? -99 : lo, k]);
+        }
+        // (an object casts from the run it stands on)
+        const on = runs.find(([, hi]) => hi === levels.get(i));
+        if (casters && on) on[1] += casters[i];
+      }
+      for (const [lo, hi] of runs) {
+        if (Math.min(Math.abs(h - lo), Math.abs(h - hi)) < 0.15) near = true;
+        if (h >= lo && h < hi) return true;
+      }
+    }
+    return near ? null : false;
+  }
+
+  // ground 3 high, rolling; overhangs, arches and a floating run over it, each open underneath
+  const W = 40;
+  const H = 36;
+  const ground = (x: number, y: number) => 3 + ((x * 7 + y * 3) % 5 === 0 ? 1 : 0);
+  const src = terrain(W, H, (x, y, z) => {
+    if (z < ground(x, y)) return true;
+    // a long overhang: rock from 8 to 11 over x 8…20, y 20…23 (its base, a wall at x 8…9, on the ground)
+    if (x >= 8 && x <= 20 && y >= 20 && y <= 23) return z >= 8 && z < 11 ? true : x <= 9 && z < 11;
+    // an arch: a slab 6–8 over x 24…30, y 12…14, on two legs
+    if (x >= 24 && x <= 30 && y >= 12 && y <= 14) return (z >= 6 && z < 8) || ((x === 24 || x === 30) && z < 8);
+    // a floating run 12–13 over x 12…16, y 8…10
+    if (x >= 12 && x <= 16 && y >= 8 && y <= 10) return z >= 12 && z < 14;
+    return false;
+  });
+  // pines on the overhang's roof and on the arch, and one on the ground under the overhang (the floor's run)
+  const trees: [number, number, number, number][] = [[14, 21, 11, 0], [26, 13, 8, DEAD], [16, 22, ground(16, 22), 0]];
+  const entities = { count: trees.length, templates: ["Pine"], owners: [], template: new Uint16Array(trees.length), x: Int16Array.from(trees, (t) => t[0]), y: Int16Array.from(trees, (t) => t[1]), z: Int16Array.from(trees, (t) => t[2]), orientation: new Uint8Array(trees.length), flags: Uint8Array.from(trees, (t) => t[3]), owner: new Uint16Array(trees.length), variant: new Uint8Array(trees.length), strength: new Float32Array(trees.length), ids: [] } as unknown as EntityView;
+  const casters = objectCasters(W, H, entities);
+  const levels = new Map(trees.map(([x, y, z]) => [y * W + x, z]));
+  const rock = shadowRock(W, H, src.columns)!;
+
+  it("open ground lies in shadow exactly where the sweep's ray through the voxels meets rock", () => {
+    const bytes = shadowMap(W, H, src.heights, casters, undefined, rock);
+    const plain = shadowMap(W, H, src.heights, casters);
+    let checked = 0;
+    let underRoof = 0;
+    let differ = 0;
+    for (let sy = 0; sy < H * SHADOW_RES - 1; sy++)
+      for (let sx = 1; sx < W * SHADOW_RES; sx++) {
+        const i = Math.floor(sy / SHADOW_RES) * W + Math.floor(sx / SHADOW_RES);
+        if (src.columns.has(i)) continue;
+        const z = src.heights[i];
+        const k = sy * W * SHADOW_RES + sx;
+        if (bytes[k * 4] !== plain[k * 4]) differ++;
+        for (const [ch, elevation] of [[0, LIGHT.sunElevation + LIGHT.penumbra], [1, LIGHT.sunElevation - LIGHT.penumbra]] as const) {
+          const shaded = rayShaded(src, casters, levels, sx, sy, z, elevation);
+          if (shaded === null) continue;
+          checked++;
+          expect(z < decodeTop(bytes[k * 4 + ch]), `sample ${sx},${sy} (${ch ? "low" : "high"} sun)`).toBe(shaded);
+          // (ground the heightfield's shadow would cover, lit under the rock above it)
+          if (!shaded && z < decodeTop(plain[k * 4 + ch])) underRoof++;
+        }
+      }
+    expect(checked).toBeGreaterThan(4000);
+    expect(underRoof, "ground lit under an overhang, an arch or a floating run").toBeGreaterThan(40);
+    expect(differ).toBeGreaterThan(0);
+  });
+
+  it("a tree on a cave's floor casts from the floor, not from the roof over it", () => {
+    const floorTree = shadowMap(W, H, src.heights, casters, undefined, rock);
+    const roofed = trees.map((t, k): [number, number, number, number] => (k === 2 ? [t[0], t[1], 11, t[3]] : t));
+    const onRoof = objectCasters(W, H, { ...entities, z: Int16Array.from(roofed, (t) => t[2]) } as unknown as EntityView);
+    const roofTree = shadowMap(W, H, src.heights, onRoof, undefined, rock);
+    expect(Buffer.from(floorTree).equals(Buffer.from(roofTree))).toBe(false);
+  });
+
+  it("redoing the samples round an edit gives the bytes of baking the whole map again", () => {
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    const tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
+    let heights = src.heights.slice();
+    const bytes = shadowMap(W, H, heights, casters, tops, rock);
+    for (let k = 0; k < 30; k++) {
+      const x0 = Math.floor(rnd() * (W - 3));
+      const y0 = Math.floor(rnd() * (H - 3));
+      heights = heights.slice();
+      for (let y = y0; y <= y0 + 2; y++)
+        for (let x = x0; x <= x0 + 2; x++) if (!src.columns.has(y * W + x)) heights[y * W + x] = Math.max(1, Math.min(18, heights[y * W + x] + (rnd() < 0.5 ? -2 : 3)));
+      shadowPairRect(tops, bytes, W, H, heights, casters, x0, y0, x0 + 2, y0 + 2, rock, k % 2 === 0);
+      expect(Buffer.from(bytes).equals(Buffer.from(shadowMap(W, H, heights, casters, undefined, rock))), `edit ${k}`).toBe(true);
+    }
+  });
+
+  it("a terrain without terrain above terrain has no rock to add: its shadows are the heightfield's", () => {
+    expect(shadowRock(W, H, new Map())).toBeNull();
   });
 });

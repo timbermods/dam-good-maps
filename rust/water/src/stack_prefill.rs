@@ -60,9 +60,22 @@ pub fn spill_levels(s: &Stack) -> Vec<f64> {
     }
     filled
 }
+/// A seep stops while more than its limit stands over it, so its water never stands higher than its anchor
+/// column's floor plus that limit: out of a pit that spills lower it runs on like a source's, but a pit that
+/// holds it starts filled only to that level, and its water reaches only the ground lower than that
+/// (src/core/sim/prefill.ts `flowThrough`, the heightfield's rule; the probe's parity-20260930).
 pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
     let size = s.d.len();
+    let n = s.cols.n;
     let spill = spill_levels(s);
+    // (the ground a column's water stands on: its floor, raised by a partial obstacle there)
+    let ground = |c: usize| -> f64 {
+        let f = s.cols.floor[c];
+        f as f64 + *s.cols.height_limit.get(&(f as usize * n + c % n)).unwrap_or(&0.0)
+    };
+    // (with no running seep, every column's water stands at its spill level)
+    let seeps = s.emitters.iter().any(|e| e.limit.is_some() && e.strength > 0.0);
+    let mut level = if seeps { vec![f64::NEG_INFINITY; size] } else { spill.clone() };
     let mut q = vec![0.0; size];
     let mut bad = vec![0.0; size];
     let mut path = vec![false; size];
@@ -73,6 +86,11 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
             continue;
         }
         let stamp = idx + 1;
+        // the highest a seep's water stands: its anchor's floor plus its limit
+        let cap = match em.limit {
+            Some((a, off, _)) => s.cols.floor[a as usize] as f64 + off,
+            None => f64::INFINITY,
+        };
         queue.clear();
         for &c in &em.cols {
             let c = c as usize;
@@ -90,6 +108,12 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
                 bad[c] += em.strength * em.contamination;
             }
             path[c] = true;
+            if seeps {
+                let lv = if spill[c] < cap { spill[c] } else { cap };
+                if lv > level[c] {
+                    level[c] = lv;
+                }
+            }
             for e in s.start[c] as usize..s.start[c + 1] as usize {
                 let t = s.target[e];
                 if t < 0 {
@@ -99,12 +123,16 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
                 if mark[t] == stamp || spill[t] > spill[c] {
                     continue;
                 }
+                // (a seep's water stands no higher than its cap: ground at or above it stays dry)
+                if cap != f64::INFINITY && ground(t) >= cap {
+                    continue;
+                }
                 mark[t] = stamp;
                 queue.push(t);
             }
         }
     }
-    let open: Vec<bool> = (0..size).map(|c| path[c] && !(spill[c] > s.cols.floor[c] as f64)).collect();
+    let open: Vec<bool> = (0..size).map(|c| path[c] && !(level[c] > s.cols.floor[c] as f64)).collect();
     let next = |c: usize, k: u8| -> Option<usize> {
         (s.start[c] as usize..s.start[c + 1] as usize).find_map(|e| {
             let t = s.target[e];
@@ -145,11 +173,11 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
         let ce = s.cols.ceil[c] as f64;
         let cap = ce - fl;
         let mut d;
-        if spill[c] > fl {
-            d = spill[c] - fl;
+        if level[c] > fl {
+            d = level[c] - fl;
             if d > cap {
                 if ce < (OPEN as f64) {
-                    let o = (spill[c] - ce) / PRESSURE;
+                    let o = (level[c] - ce) / PRESSURE;
                     let max_o = (OPEN as f64 - ce) / PRESSURE;
                     state.overflow[c] = if o > max_o { max_o } else { o };
                 }

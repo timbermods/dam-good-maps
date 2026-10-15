@@ -2,8 +2,8 @@
 // two designed). The water row sits centred on the window when it fits between the Show row and Legend (each one
 // clear gap away), else as close to the centre as it can; when it can't fit at all it moves to a second line under
 // the band, and Legend's open legend and the panels start under it. Legend centres in the gap between the water row
-// and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after Badwater
-// (Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
+// and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after its last (Badwater, or Caves and overhangs on a map
+// that has them; Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
 // 2560×1440); the objects' dock likewise, its list scrolling so the picked object's window is never cut off. Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 

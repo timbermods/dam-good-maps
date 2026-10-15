@@ -32,6 +32,7 @@ const FORCE_WHAT: Record<string, string> = {
   Quake: "a fault that lifts or slides the land",
   Deposit: "a fan of sediment",
   Glaciate: "a glacier's valley",
+  Erode: "caves and arches",
 };
 
 /** A force's line: its name as the bar shows it, then what it does ("Carve: a river"). */

@@ -312,6 +312,10 @@ export function sameMap(a: BuildResult, b: BuildResult): boolean {
     [a.settle.contamination, b.settle.contamination],
     [a.settle.sat, b.settle.sat],
     [a.settle.out, b.settle.out],
+    // (terrain above terrain: the settle on every water column)
+    [a.settle.stack?.depth, b.settle.stack?.depth],
+    [a.settle.stack?.overflow, b.settle.stack?.overflow],
+    [a.settle.stack?.contamination, b.settle.stack?.contamination],
   ];
   for (const [x, y] of arrays) if (!sameBytes(x, y)) return false;
   // (the ground the Block tool dug under its surface is the map's too)

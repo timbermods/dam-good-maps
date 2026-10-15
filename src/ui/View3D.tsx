@@ -45,7 +45,7 @@ export interface View3DProps {
   viewButtons?: ComponentChildren;
   /** A water overlay's caption while it is on (the key under Legend). */
   caption?: ComponentChildren;
-  /** A toggle beside Legend, at its left (Under roofs, on a map with roofs). */
+  /** A toggle beside Legend, at its left (Caves and overhangs, on a map that has them). */
   besideLegend?: ComponentChildren;
   /** The top-right corner beside the compass (D345, B3): the level control, and under it a row of
    *  switches (Slow forces, Sound). */
@@ -72,6 +72,8 @@ export interface View3DProps {
   frameInsets?(view: HTMLElement): Partial<FrameInsets>;
   /** The first map keeps the view the kept renderer had (the same map back). */
   keepView?: boolean;
+  /** The view mode the first map starts in (the editor after a crop keeps top-down, framed to the new map). */
+  startMode?: ViewMode;
 }
 
 /** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
@@ -286,9 +288,10 @@ export function View3D(props: View3DProps) {
     // the legend reads the new map now
     setMapTick((n) => n + 1);
     // (the same map back keeps its view, top-down or not)
-    const m: ViewMode = keep ? r.getView().mode : "orbit";
+    const first = mapsShown.current === 1;
+    const m: ViewMode = keep ? r.getView().mode : first && props.startMode ? props.startMode : "orbit";
     setMode(m);
-    if (!keep) r.setMode("orbit");
+    if (!keep) r.setMode(m);
     window.dgm3d = { renderer: r, build: stats };
     props.onReady?.(r, stats);
   }, [props.view]);

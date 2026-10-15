@@ -11,6 +11,7 @@
 
 import { unfedBodies, WATER } from "../sim/fed";
 import { fillDays, fillLake } from "../sim/fill";
+import { CAVE_REFUSALS } from "../sim/stackWater";
 import { tilesToRuns } from "../math/grid";
 import type { OpOf } from "./ops";
 import type { MapSession } from "./session";
@@ -37,6 +38,8 @@ export interface UnfedWater {
   /** The operation that takes it (every unfed body counted or not, the thinnest films too), or
    *  null when there is no pool to take. */
   op: OpOf<"removeUnfedWater"> | null;
+  /** Why nothing can be taken on this map, in one plain line (a map with caves or overhangs, for now). */
+  reason?: string;
 }
 
 /** The unfed water on the map, or within `area` (a selection's tiles, or a rectangle): the water no
@@ -44,6 +47,7 @@ export interface UnfedWater {
  *  included (sim/fed.ts). Measured on the settled water: water still settling (the editor's preview)
  *  is settled canonically first. */
 export function unfedWater(s: MapSession, area?: Iterable<number> | TileRect | null): UnfedWater {
+  if (s.built.waterModel.stacked) return { pools: 0, tiles: 0, volume: 0, bodies: [], op: null, reason: CAVE_REFUSALS.removeUnfed };
   if (s.waterPending) s.settleCanonical();
   const { model, depth } = s.waterNow();
   const { W, H } = model;
@@ -109,6 +113,7 @@ export interface FillPlan {
  *  operation's check fails (a cave or overhang in it). */
 export function planFill(s: MapSession, x: number, y: number, level: number): FillPlan {
   const { model, depth } = s.waterNow();
+  if (model.stacked) return { reason: CAVE_REFUSALS.fill, op: null, tiles: 0, volume: 0, days: 0 };
   const r = fillLake(model, x, y, level, depth);
   if ("reason" in r) return { reason: r.reason, op: null, tiles: 0, volume: 0, days: 0 };
   const op: OpOf<"fillHollow"> = { op: "fillHollow", params: { at: [x, y], level, lake: r.lake } };
