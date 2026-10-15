@@ -135,7 +135,7 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
   await page.mouse.click(p.x + 4, p.y + 5);
   await idle(page);
   expect(await sourcesOn(page)).toEqual(before);
-  expect((await labels(page)).filter((l) => l === "Place water source")).toHaveLength(1);
+  expect((await labels(page)).filter((l) => l === "Place a water source")).toHaveLength(1);
 });
 
 /** A map with flat, dry, empty ground for B7's and B11's objects (seed 8 for #265's maps, D148: seed 9's
@@ -200,7 +200,7 @@ test("B7: X puts down what is held and Select stays in hand; a press picks an ob
   await page.mouse.up();
   await idle(page);
   await expect.poll(() => site([mx + 3, my])).toEqual([from[0] + 3, from[1]]);
-  expect((await labels(page)).at(-1)).toBe("Move mine site");
+  expect((await labels(page)).at(-1)).toBe("Move a mine site");
   // one undo puts it back
   await page.keyboard.press("z");
   await idle(page);

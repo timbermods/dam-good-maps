@@ -307,6 +307,8 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
     case "fillHollow":
       for (const i of op.params.lake.tiles) t.add(i);
       break;
+    // a crop changes the whole map (D340); collaborative editing leaves it to the host
+    case "crop": everywhere(acc); break;
     case "paintObjects": {
       const s = m as MapSession;
       const plan = typeof s.check === "function" ? planPaintObjects(s, op.params) : null;

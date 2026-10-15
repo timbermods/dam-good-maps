@@ -83,7 +83,7 @@ export function mapsWithResults(job: Job): Set<string> {
   return done;
 }
 
-function killGame(log: (s: string) => void): void {
+export function killGame(log: (s: string) => void): void {
   for (const pid of gameProcessIds()) {
     try {
       execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });

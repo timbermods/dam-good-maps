@@ -401,6 +401,10 @@ guesses, with an original model in both looks, a label in Markers, exact save an
   rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects
   cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are
   re-read. D340 has the rule and its tests.
+  - **The core operation is built** (`crop`, `src/core/doc/crop.ts`; `tests/contract/crop.test.ts`): the rectangle's
+    contents exactly (runs, water, soil, objects, sources), objects cut by the edge removed and counted, one-line
+    refusals, one undo step, recorded, byte-exact on reopen, the edge lip at the new edges. Left for the page and the
+    next pass: the checks dot's edge walls and the re-read name and "how it plays" line (EDITOR_PLAN.md, Select).
 
 ---
 

@@ -59,7 +59,7 @@ describe("Sources: None (D330)", () => {
     let at = -1;
     for (let i = 0; i < b.W * b.H && at < 0; i++) if (b.channel[i]) at = i;
     expect(at).toBeGreaterThanOrEqual(0);
-    const u = s.apply({ op: "placeEntity", params: { id: "5a0e1d2c-3b4f-4a6e-8c7d-9e0f1a2b3c4d", template: "WaterSource", x: at % b.W, y: Math.floor(at / b.W), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place water source");
+    const u = s.apply({ op: "placeEntity", params: { id: "5a0e1d2c-3b4f-4a6e-8c7d-9e0f1a2b3c4d", template: "WaterSource", x: at % b.W, y: Math.floor(at / b.W), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place a water source");
     expect(u.errors).toEqual([]);
     s.settleCanonical();
     expect(s.built.water.some((d) => d > 0.05)).toBe(true);
