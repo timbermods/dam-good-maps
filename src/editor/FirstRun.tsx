@@ -6,7 +6,7 @@ const KEY = "dgm.firstRun";
 export type FirstStep = "paint" | "place" | "water";
 
 const LINES: [FirstStep, string][] = [
-  ["paint", "Shape the land: pick Carve below and click the map, or pick a brush and drag."],
+  ["paint", "Shape the land: click the map with Carve below, or drag a brush."],
   ["place", "Place things: pick one on the right, then click the map, or drag it there."],
   ["water", "Add water: pick Water source on the right, then click where the water starts."],
 ];
@@ -40,7 +40,7 @@ export function FirstRunSizer() {
           <li key={k}>{words}</li>
         ))}
       </ul>
-      <span class="linkish">×</span>
+      <span class="icon-close">×</span>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function FirstRun(p: { done: Set<FirstStep>; onClose(): void }) {
           <li key={k}>{words}</li>
         ))}
       </ul>
-      <button type="button" class="linkish" aria-label="No more hints" title="No more hints" onClick={p.onClose}>
+      <button type="button" class="icon-close" aria-label="No more hints" title="No more hints" onClick={p.onClose}>
         ×
       </button>
     </div>

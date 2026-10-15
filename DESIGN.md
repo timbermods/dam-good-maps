@@ -517,12 +517,16 @@ refinements and what the mockups left open:
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks, Help and Keyboard shortcuts stay left-aligned, read as lists.
-- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right"; each line is one line at
+  every size ("Shape the land: click the map with Carve below, or drag a brush.").
 - **Messages sit above the bar** (Kyler, 2026-10-05): the editor's (a file saved, a save that failed) and the page's
   (Your maps couldn't keep the map, a version found) sit above the first steps' hints and the bar's settings, one gap
-  apart, never over the bar or another control. A message is exactly as wide as the hints box, 522px, sharing its left
+  apart, never over the bar or another control. A message is exactly as wide as the hints box (the width of its longest line, about 520px), sharing its left
   and right edges to the pixel at every size, and keeps that width with no hints showing, so nothing changes shape
-  when they close; its words are centred and wrap, its × 10px in from the right edge as the hints' is. A save that
+  when they close; its words are centred and wrap, its × 6px in from the right edge as the hints' is. **Every ×** that closes a hint, a note, History or an object's window is
+  one 24px icon button (6px radius, quiet at rest, lit on hover and focus; tooltip "Close", or its own words where recorded),
+  never an underlined link (`docs/design/polish-notes-*`). A refusal's note goes with the next press, key, tool pick or
+  view change; there is no "Working…" note (the checks pill says it). A save that
   another tab overtook says the store's words, text only: "Changed in another tab. Download the project to keep your
   edits." Captures: `docs/design/conflict-*` (1920×1080, 2560×1440, 1300×900), `message-alone-1920x1080`,
   `confirm-1920x1080`.
