@@ -45,6 +45,9 @@ export interface SessionSlice {
   info: SessionInfo;
   setInfo: Dispatch<StateUpdater<SessionInfo>>;
   view: MapView;
+  /** The map's voxel columns as the renderer holds them (a map with caves, Erode's hollows): a force's frames add the
+   *  tiles they changed to these (D281). */
+  columnsRef: { current: MapView["columns"] };
   mirror: { current: Mirror };
   renderer: { current: MapRenderer | null };
   ready: MapRenderer | null;
@@ -220,6 +223,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // editor for another map)
   const view = props.opened.view;
   const mirror = useRef<Mirror>(mirrorOf(view));
+  const columnsRef = useRef<MapView["columns"]>(view.columns);
   const renderer = useRef<MapRenderer | null>(null);
   const [ready, setReady] = useState<MapRenderer | null>(null);
   /** The force picked in the top bar (the brushes have their own state; the sources are on the
@@ -716,7 +720,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  byte for byte. */
   function takeLand(): void {
     const held = heldLand.current;
-    if (!held.heights && !held.terrain) return;
+    if (!held.heights && !held.terrain && !held.columns) return;
     if (held.heights) endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
@@ -731,7 +735,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       }
       m.heights = held.heights;
       renderer.current?.updateTerrain(held.heights, held.columns);
-    }
+    } else if (held.columns) renderer.current?.updateTerrain(m.heights, held.columns);
     if (held.terrain) ed.terrain.current = held.terrain;
   }
 
@@ -749,7 +753,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
     if (v.heights) heldLand.current.heights = v.heights;
     // (a roof's top an edit reshaped: its columns go in with the land, D487)
-    if (v.columns) heldLand.current.columns = v.columns;
+    if (v.columns) {
+      heldLand.current.columns = v.columns;
+      columnsRef.current = v.columns;
+    }
     if (v.terrain) heldLand.current.terrain = v.terrain;
     takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
@@ -785,7 +792,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   return {
-    api, info, setInfo, view, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
+    api, info, setInfo, view, columnsRef, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,

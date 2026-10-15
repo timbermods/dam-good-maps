@@ -1056,18 +1056,18 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (seven tools, the hairline, seven forces). Every cell one width, 76px
+   on a grid whose columns are the bar's cells (seven tools, the hairline, eight forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
    the left and the objects menu at the right (each 196px with its gap); the dock on whole pixels. */
 /* (on the view: the readout keeps left of the dock with them) */
 .editor-view {
   --cell: 76px;
-  /* the hairline, the 14 gaps between the 15 columns and the bar's padding */
-  --dock-w: calc(14 * var(--cell) + 50px);
+  /* the hairline, the 15 gaps between the 16 columns and the bar's padding */
+  --dock-w: calc(15 * var(--cell) + 52px);
 }
 
 .tool-dock {
-  --cells: repeat(7, var(--cell)) 14px repeat(7, var(--cell));
+  --cells: repeat(7, var(--cell)) 14px repeat(8, var(--cell));
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -1083,7 +1083,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(56px, round(down, calc((100vw - 440px) / 14), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 442px) / 15), 1px), 76px);
   }
 
   .tool-dock {
@@ -1338,7 +1338,7 @@
   flex: 1 1 0;
   min-width: 0;
   margin: 0;
-  padding: 0 4px;
+  padding: 0 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1368,9 +1368,23 @@
 .set-button {
   width: 100%;
   height: 100%;
-  padding: 0 4px;
+  padding: 0 2px;
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* where the bar's cells are narrow (under about 62px, windows up to about 1380px wide), the settings' words are a point
+   smaller, so the longest (Wander, Benches' options, Cut down, Remove unfed water) stay whole */
+@media (max-width: 1380px) {
+  .tool-settings .set-seg button,
+  .tool-settings .set-button {
+    font-size: 12px;
+    padding: 0 1px;
+  }
+
+  .tool-settings .set-label {
+    font-size: 12px;
+  }
 }
 
 /* a long label in two cells (Remove unfed water at 1280, the narrowest cells), as Naturalize's word on the bar */

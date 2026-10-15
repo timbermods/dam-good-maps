@@ -2471,7 +2471,7 @@ function landFinal(f: NonNullable<typeof force>): boolean {
   const a = shown.heights;
   const b = final.heights;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  // (a force that writes voxels, Erode: its hollows open under a surface that never moves)
+  // (Erode wears under the surface: the land is final only once its voxels are too, D281)
   const ma = shown.masks;
   const mb = final.masks;
   if (ma && mb) for (let i = 0; i < ma.length; i++) if (ma[i] !== mb[i]) return false;
