@@ -65,13 +65,13 @@ where the job is written down, scripts where it's only waiting.
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
-| The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
+| The planning session: coordination, dev's health after merges, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
-| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines, small well-specified fixes and test updates, simple reviews | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
+| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status lines, small well-specified fixes and test updates that change nothing a player reads or where things sit | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
 | The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
-Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15).
+Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15). Haiku never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet, since a Haiku fix once renamed a History step and undid a layout a review had settled.
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
 and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
@@ -92,7 +92,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (CLAUDE.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
+  only design-direction questions and account-only items reach him (docs/RULES.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
   a fresh Opus agent reviews looks); merges come first; about three heavy local runs at once across both sessions. This
   session never ends its turn while work is left (D484, "Never idle"): it keeps
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
@@ -103,10 +103,10 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
     or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
     interaction change's captures).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
-    session never merges its own PR: it posts "ready to merge" on #236 with its verdict and captures on the PR; the planning
-    session checks them and the PR's quick checks (typecheck, quick suite, build), then merges; the browser specs and the
-    suites run on dev after the merge (Kyler, 2026-10-15). The planning session's own PRs are merged by this session
-    after a fresh sub-agent's review.
+    PR merges once a fresh reviewer agent that didn't write it has approved it and its quick checks (typecheck, quick
+    suite, build) are green; the owning session may merge it itself and posts on #236 what merged (D489; Kyler,
+    2026-10-15). The browser specs and the suites run on dev after the merge; the planning session watches those runs
+    and sends each failure to its owner.
   - *Design questions* go to the planning session first, on #236: it answers those Kyler's recorded decisions settle,
     citing them, and sends only the rest to him as `needs-kyler` issues.
   - *At every merge pass:* a PR this session adopts or supersedes is closed with a line saying why; an answered
@@ -161,7 +161,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   page's preview after every release.
 - **The roadmap canvas** is at <https://timbermods.github.io/dam-good-maps/roadmap/> (noindex), taken from dev by every deploy;
   `roadmap-sync.yml` runs a deploy when dev's copy changes and republishes the live preview commit (`/preview/ref.txt`).
-- **Releases** (CLAUDE.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
+- **Releases** (docs/RULES.md, "Deploying"): `tools/release.sh <tag> <commit> <PR body file> [<preview branch>] [--go]` releases a
   `dev` commit that the queue's run passed (a commit with no run is refused): pushes a `release/<name>` branch, opens the PR into `main` (its run is the full CI; a
   cancelled run on the commit counts as no result), then tags the commit (annotated) and merges the PR **as a merge commit**
   once its checks pass, and watches the deploy and `live-check / live` (without `--go` it only checks and
@@ -189,8 +189,9 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
-- **Merging** (D341, amended by Kyler 2026-10-15): a change merges into `dev` once it is reviewed and its quick checks
-  (typecheck, the quick suite, the build) are green. The browser specs and the suites the change needs run on dev's tip
+- **Merging** (D341, amended by D489 and Kyler 2026-10-15): a change merges into `dev` once a fresh reviewer agent that
+  didn't write it has approved it and its quick checks (typecheck, the quick suite, the build) are green; the owning
+  session may merge it itself. The browser specs and the suites the change needs run on dev's tip
   after the merge (one run at a time; only the newest merge waits), and the nightly checks dev's tip; a failure there is
   fixed forward at once by whoever's merge broke it, or that merge is reverted. No full run by hand except for a
   release. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.

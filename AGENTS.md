@@ -10,8 +10,9 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
   generator, the Rust ports, adopting Codex's investigations, the documents. It owns the decision numbers,
   `docs/STATUS.md` and `docs/HANDOFF.md`.
 - **The planning session** (Claude Code, the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14): the
-  coordination. It merges every "ready to merge" into `dev`, releases to `main`, settles cross-session questions on
-  #236, and answers design questions that Kyler's recorded decisions settle, sending only the rest to him.
+  coordination. It releases to `main`, watches dev's runs after merges and sends each failure to its owner, settles
+  cross-session questions on #236, and answers design questions that Kyler's recorded decisions settle, sending only
+  the rest to him.
 - **The page session** (Claude Code, branch `feature/page`): the page and its design — the editor's interface,
   `Editor.tsx` and its split. Nobody else edits those files.
 - **The renderer session** (Claude Code, Kyler's PC): `src/render3d/`, the look and moving water.
@@ -31,10 +32,10 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
   looks, and probe batches for the game).
 - `hold`: never merge. `needs-kyler` holds only design-direction questions (one issue each: the question, 2–4 options, a
   recommended default that work proceeds on) and the things only Kyler's account can do. Each session labels its own PRs.
-- An owning session judges its PR; a different session merges it (D484): post "ready to merge" on #236 with your verdict
-  and captures on the PR; the planning session checks them and the PR's quick checks (typecheck, quick suite, build),
-  then merges. The browser specs and the suites run on dev after the merge; whoever's merge broke them fixes it at once. The planning session's own PRs
-  are merged by the milestone session after a fresh sub-agent's review.
+- A PR merges once a fresh reviewer agent that didn't write it has approved it and its quick checks (typecheck, quick
+  suite, build) are green; the owning session may merge it itself and posts on #236 what merged (D489). The browser specs
+  and the suites run on dev after the merge; whoever's merge broke them fixes it at once. Detail: docs/RULES.md,
+  "Merging".
 - Sessions talk on the pinned Coordination issue (#236), not through Kyler. Design questions go there to the planning
   session first.
 

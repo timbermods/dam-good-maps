@@ -120,7 +120,7 @@
     { "pattern": "\\blooking for a better one\\b", "retired": "D329", "instead": "the first map that passes is shown at once and stays; a version that meets every outcome is looked for in the background", "example": "Found a map. Looking for a better one (2 of 4): checking the map…" },
     { "pattern": "\\byoung,? (?:or |and )?mature\\b", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends", "example": "Young, Mature or Auto" }
   ],
-  "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],
+  "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/RULES.md", "docs/STATUS.md", "docs/README.md", "README.md"],
   "code": { "dirs": ["src"], "files": ["index.html"], "extensions": [".ts", ".tsx", ".css"] },
   "decisionLog": { "dir": "docs/decisions", "index": "README.md", "why": "the decision log is history: its topic files may name retired features; the index is checked" },
   "allowedSections": [
