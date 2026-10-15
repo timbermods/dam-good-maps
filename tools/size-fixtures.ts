@@ -7,6 +7,7 @@
 // The hand-made maps are rolling ground with a river bed and a lake, a start and a source: enough for the terrain,
 // the water, the objects and the light to draw. Not a quality measure; the generated maps are the real test.
 
+import { cosDet, sinDet } from "../src/core/math/detmath";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { generate } from "../src/core/gen/generate";
 import { fileName } from "../src/core/gen/pack";
@@ -38,8 +39,8 @@ function handMade(W: number, H: number): Uint8Array {
       const u = W >= H ? x : y; // along the long side
       const v = W >= H ? y : x; // across
       const across = W >= H ? H : W;
-      const bed = Math.round(across / 2 + Math.sin(u / 9) * Math.min(3, across / 6));
-      const rolling = 5 + Math.round(1.6 * Math.sin(u / 13) + 1.4 * Math.cos(v / 5 + u / 31));
+      const bed = Math.round(across / 2 + sinDet(u / 9) * Math.min(3, across / 6));
+      const rolling = 5 + Math.round(1.6 * sinDet(u / 13) + 1.4 * cosDet(v / 5 + u / 31));
       const d = Math.abs(v - bed);
       heights[y * W + x] = Math.max(1, Math.min(8, d <= (across > 8 ? 1 : 0) ? 2 : rolling));
     }
@@ -54,7 +55,7 @@ function writeHandMade(W: number, H: number): void {
   let n = 0;
   const base = (x: number, y: number) => ({ id: `00000000-0000-4000-8000-${String(n++).padStart(12, "0")}`, owner: "", x, y, z: heights[y * W + x] });
   const across = W >= H ? H : W;
-  const bed = (u: number) => Math.round(across / 2 + Math.sin(u / 9) * Math.min(3, across / 6));
+  const bed = (u: number) => Math.round(across / 2 + sinDet(u / 9) * Math.min(3, across / 6));
   const at = (u: number): [number, number] => (W >= H ? [u, bed(u)] : [bed(u), u]);
   const long = Math.max(W, H);
   const [sx, sy] = at(Math.min(long - 1, 1));
