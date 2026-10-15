@@ -76,8 +76,8 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   await page.keyboard.up("q");
   await rests(page);
 
-  // typing in a field or choosing from a list moves nothing (a toggle just clicked does not hold the
-  // keys: the camera moves on)
+  // a focused toggle or slider keeps only its own keys (the arrows, Home, End, Page): the camera's letters
+  // reach the page and the camera moves on; typing in a text field moves nothing
   await page.keyboard.press("4");
   const toggle = page.getByRole("group", { name: "Flatten options" }).getByRole("group", { name: "Brush" }).getByRole("button", { name: "Square" });
   await toggle.focus();
@@ -86,8 +86,18 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t1);
   await page.keyboard.up("d");
   await rests(page);
-  const field = page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Level", exact: true });
-  await field.focus();
+  const slider = page.getByRole("group", { name: "Flatten options" }).getByRole("slider", { name: "Level", exact: true });
+  await slider.focus();
+  const t2 = (await view(page)).target;
+  await page.keyboard.down("d");
+  await expect.poll(async () => (await view(page)).target, { timeout: 30_000 }).not.toEqual(t2);
+  await page.keyboard.up("d");
+  await rests(page);
+  // (the title is a button until clicked, then the map's name field, focused)
+  await page.locator(".editor-title h1 button.title-button").click();
+  const field = page.getByLabel("Map name");
+  await expect(field).toBeFocused();
+  const before = await field.inputValue();
   const t0 = (await view(page)).target;
   await page.keyboard.down("d");
   // (a key the camera would take moves it within a few frames: none here, and no glide begins)
@@ -95,5 +105,7 @@ test("held camera keys move the view every frame and glide to a stop; typing mov
   expect((await glide(page)).gliding).toBe(false);
   await page.keyboard.up("d");
   expect((await view(page)).target).toEqual(t0);
+  expect(await field.inputValue()).toContain("d");
+  expect(await field.inputValue()).not.toBe(before);
   expect(errors).toEqual([]);
 });
