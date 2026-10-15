@@ -57,7 +57,7 @@ async function highGround(page: Page): Promise<[number, number]> {
   );
 }
 
-test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path replaces it", async ({ page }) => {
+test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path makes another roll, Shift+Tab shows the first again", async ({ page }) => {
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   // its settings, every one always shown (Kyler's option B: no More): Power, Size, What it leaves (River or Canyon,
   // D289), Wander, Walls, Canyon depth, River depth, Banks, the Floor and Try another; a mode is the gesture
@@ -141,7 +141,7 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   const worker = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights));
   expect(worker).toEqual(kept);
 
-  // Try another path: the same carve, another way, replacing the first
+  // Try another path: the same carve, another way: another roll of its one step (D488)
   const again = page.getByRole("button", { name: "Try another", exact: true });
   await expect(again).toBeVisible();
   await again.click();
@@ -149,12 +149,14 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
   await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
   const labelsNow = await labels(page);
-  expect(labelsNow.at(-1)).toBe("Try another path");
+  expect(labelsNow.at(-1)).toBe("Carve a river, roll 2");
   expect(await heights(page)).not.toEqual(kept);
-  // undo: the first carve back, exactly; again: the land before it
-  await page.keyboard.press("Control+z");
+  // "2 of 2" beside Try another; Shift+Tab: the first carve back, exactly, at once; undo: the land before it
+  await expect(page.getByRole("button", { name: "Roll 2 of 2" })).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(kept);
+  expect((await labels(page)).at(-1)).toBe("Carve a river, roll 1");
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
@@ -184,11 +186,11 @@ test("Carve's details (D309): always shown, each on Auto; pinning one keeps it t
   await expect(details.getByRole("button", { name: "Wander follows the land" })).toHaveAttribute("aria-pressed", "false");
   await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
 
-  // Try another: the pinned Wander never moves, even though it replaces the carve with another one
+  // Try another: the pinned Wander never moves, even though another carve is made in its place
   await row.getByRole("button", { name: "Try another", exact: true }).click();
   await expect.poll(() => status(page), { timeout: 90_000 }).toBeNull();
   await idle(page);
-  expect((await labels(page)).at(-1)).toBe("Try another path");
+  expect((await labels(page)).at(-1)).toBe("Carve a river, roll 2");
   await expect(details.getByRole("slider", { name: "Wander" })).toHaveValue(wander);
 });
 

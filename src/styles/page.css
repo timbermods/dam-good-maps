@@ -1384,6 +1384,31 @@
   white-space: nowrap;
 }
 
+/* Try another keeps its cells whole; with a force's rolls on offer (D488) "2 of 4" sits in its own space just above
+   the panel: the group's top is the panel's padding, a row and the gap below the
+   panel's top (4px + 54px + 4px), and the counter stands 4px clear of it, its right edge on Try another's */
+.set.again {
+  position: relative;
+}
+
+.set.again > .rolls-tab {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 66px);
+  display: flex;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.set.again > .rolls-tab > .set-button.rolls {
+  width: auto;
+  height: 26px;
+  padding: 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .set-group.centre .set-button {
   width: calc(100% - 8px);
 }

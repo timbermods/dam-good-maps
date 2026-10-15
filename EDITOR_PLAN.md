@@ -161,7 +161,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
-    Try another, always in its place, ready once a run is kept. A force at work: its status, Pause (Carve) and Revert.
+    Try another, always in its place, ready once a run is kept; while its rolls are on offer "2 of 4" stands in its
+    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
@@ -408,8 +409,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
   where it stands well, in the same undo step: its bench's ground level already, inside the working area and at or
-  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Try
-  another replaces that carry with the force. The quiet dot then says what the force left short at the start
+  below the layer's cut, and the land the force left stays exactly as it was (the old bench's ground with it). Each
+  roll of Try another starts from the land before the force, the start where it stood, and carries it only if it
+  breaks that ground itself. The quiet dot then says what the force left short at the start
   (water, wood and berries, the starting-logs floor), each with its one-click fix (move the start, plant berry
   bushes, plant oaks).
 - **Clean, magic gestures** (D258): no force draws a predicted route, footprint, outline or fit on the land. A click
@@ -436,8 +438,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
   holds each force to at least 9 tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4
   levels deep, and a change growing across Power 0, 50 and 100.
-- **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step; Try another
-  replaces it (§ The map document).
+- **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step (§ The map
+  document).
+- **Try another keeps every roll** (force variants, D488): each Try another is a new roll of the same force from the
+  same land, with the next seed, and every roll made on the force's step is kept (up to 8; a ninth drops the oldest).
+  Right after a run, before anything else, **Tab** shows the next roll and **Shift+Tab** the one before, at once:
+  each is its real result, kept as it was made, never worked out again; "2 of 4" just above Try another (and beside it
+  on an unleashed source's panel) says which is shown (a click shows the next; its tooltip carries the keys); Try
+  another itself never moves or shrinks, so clicking it again always makes a new roll. The history holds one step for the force, labelled
+  with the roll shown ("Rift, roll 2"); whatever roll shows when the player does anything else (an edit, another
+  tool, Esc, a save) is the one that stays. Undo takes the step back whole; redo brings back the roll that was
+  shown; a saved project holds only that roll and reopens byte for byte (D455). Tab keys the rolls only with the
+  focus on the map or the bar; anywhere else (a field, a menu, a dialog) it keeps its own role. The core keeps the
+  rolls (`core/forces/rolls.ts` on `MapSession.keptStep` and `putStep`); the worker's `forceRoll` shows one.
 - A forces release goes to the preview first and reaches the public site only once Kyler has tried each force
   (D219).
 
@@ -887,7 +900,8 @@ Craterize, Erupt, Rift, Quake, Deposit and Glaciate. M turns Markers on or off. 
   the land only takes its level (D361) and **Shift+scroll** dials the Level number (D345, B8), whether or not a
   selection is open.
 - While a force runs, Space pauses it, Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
-  still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. A river's or a fault's line is drawn
+  still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
+  **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
@@ -1055,8 +1069,9 @@ stroke records the options it used:
   force again: `forceResult`, shared by the forces (D220): the force, its settings and where it acted (a record),
   then the changed tiles and their levels, the fresh volcanic rock (a bit per level), the objects that lost their
   ground, the ones it carried (a Slide), the trees it knocked down (a record only: every tree is drawn upright, D321
-  item 7), a carve's source and a sealed oxbow lake's water. Try another replaces the force before it, and undoing
-  it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
+  item 7), a carve's source and a sealed oxbow lake's water. Try another's rolls are one step, the roll shown in the
+  log (§4, D488); an operation with `replaces` (made before the rolls) still replaces the force before it, and
+  undoing it brings that one back. A project saved with the `carve` operation of before D220 opens with each one as a
   `forceResult` (the same land, objects and water).
 
 The document keeps the applied operations as its log, on top of its generation (the spec, the planned features and
