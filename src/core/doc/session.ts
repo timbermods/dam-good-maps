@@ -29,8 +29,8 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
-import { blockEffect, cellPairs, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
-import { fallsReason, newFalls, stackableTops } from "../terrain/support";
+import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
+import { fallsReason, newFalls, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
 import { clusterSaturation } from "../sim/moisture";
@@ -85,6 +85,10 @@ export interface BlockFalls {
   added: [number, number, number][];
   removed: [number, number, number][];
   falls: [number, number, number][];
+  /** The plants its blocks fill in or take the ground from, which the build removes, and the plants on a
+   *  tile's top that rise or sink with it. */
+  plantsRemoved: number;
+  plantsRiding: number;
 }
 export type WaterMode = "canonical" | "preview" | "defer";
 
@@ -608,8 +612,8 @@ export class MapSession {
     const now = this.cur;
     if (!this.layered(before) && !this.layered(now)) return [];
     const { x: W, y: H } = this.size;
-    const tops0 = stackableTops(W, H, before.entities);
-    const tops1 = stackableTops(W, H, now.entities);
+    const tops0 = this.topsOf(before.entities);
+    const tops1 = this.topsOf(now.entities);
     if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k]) && sameMasks(masksOf(before.cache.terrain), masksOf(now.cache.terrain))) return [];
     return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
   }
@@ -626,7 +630,7 @@ export class MapSession {
     if (sameBytes(heights, this.cur.heights)) return 0;
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
     if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
-    const tops = stackableTops(W, H, this.cur.entities);
+    const tops = this.topsOf(this.cur.entities);
     const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
     const masks = masksOf(this.cur.cache.terrain);
     return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
@@ -640,16 +644,52 @@ export class MapSession {
    *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
   blockFalls(params: OpParams["blocks"]): BlockFalls {
     const { x: W, y: H } = this.size;
+    const none = (errors: string[]): BlockFalls => ({ reason: errors[0], errors, added: [], removed: [], falls: [], plantsRemoved: 0, plantsRiding: 0 });
     const bad = schemaProblems({ op: "blocks", params });
-    if (bad.length) return { reason: bad[0], errors: bad, added: [], removed: [], falls: [] };
+    if (bad.length) return none(bad);
     const t = this.terrainOf(this.cur);
-    const effect = blockEffect(params, t, objectCells(this.cur.entities, W, H));
-    if (effect.errors.length) return { reason: effect.errors[0], errors: effect.errors, added: [], removed: [], falls: [] };
+    const effect = blockEffect(params, t, this.groundOf(this.cur.entities));
+    if (effect.errors.length) return none(effect.errors);
     const after = withBlocks(t, effect.added, effect.removed);
-    const tops = stackableTops(W, H, this.cur.entities);
     const cells = (list: readonly number[]) => list.map((c): [number, number, number] => [c % W, Math.floor((c % (W * H)) / W), Math.floor(c / (W * H))]);
-    const falls = cells(newFalls(t, after, tops, tops));
-    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls };
+    // (what falls now was falling before, or it is not this step's)
+    const now = unsupportedVoxels(after, this.topsOf(this.cur.entities));
+    const was = this.unsupportedOf(this.cur);
+    const fell: number[] = [];
+    for (let c = 0; c < now.length; c++) if (now[c] && !was[c]) fell.push(c);
+    const falls = cells(fell);
+    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+  }
+
+  // What a build's objects mean to the Block tool and the support rule, worked out once per build (the
+  // page asks on every pointer tile).
+  private readonly grounds = new WeakMap<object, BlockGround>();
+  private readonly tops = new WeakMap<object, number[]>();
+  private readonly unsupported = new WeakMap<BuildResult, Uint8Array>();
+
+  private groundOf(entities: BuildResult["entities"]): BlockGround {
+    let g = this.grounds.get(entities);
+    if (!g) {
+      const { x: W, y: H } = this.size;
+      this.grounds.set(entities, (g = blockGround(entities, W, H)));
+    }
+    return g;
+  }
+
+  private topsOf(entities: BuildResult["entities"]): number[] {
+    let t = this.tops.get(entities);
+    if (!t) {
+      const { x: W, y: H } = this.size;
+      this.tops.set(entities, (t = stackableTops(W, H, entities)));
+    }
+    return t;
+  }
+
+  /** The blocks of a build's ground the game deletes (support.ts `unsupportedVoxels`), once per build. */
+  private unsupportedOf(b: BuildResult): Uint8Array {
+    let u = this.unsupported.get(b);
+    if (!u) this.unsupported.set(b, (u = unsupportedVoxels(this.terrainOf(b), this.topsOf(b.entities))));
+    return u;
   }
 
   /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
@@ -736,7 +776,7 @@ export class MapSession {
     return {
       floor: t.topFloors(),
       masks: Uint32Array.from(tiles, (i) => t.mask[i]),
-      stackTops: Int32Array.from(stackableTops(W, H, this.cur.entities)),
+      stackTops: Int32Array.from(this.topsOf(this.cur.entities)),
     };
   }
 
@@ -878,7 +918,7 @@ export class MapSession {
       entityIds,
       slopeTiles,
       lockedColumns: this.layered(this.cur) ? new Set(this.columns.keys()) : null,
-      ...(op.op === "blocks" ? { blocks: { terrain: this.terrainOf(this.cur), objects: objectCells(this.cur.entities, W, H) } } : {}),
+      ...(op.op === "blocks" ? { blocks: { terrain: this.terrainOf(this.cur), ground: this.groundOf(this.cur.entities) } } : {}),
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
@@ -1033,8 +1073,9 @@ export class MapSession {
     // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
     if (applied.op === "blocks") {
       const { x: W, y: H } = this.size;
-      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), objectCells(this.cur.entities, W, H));
-      applied.params = { ...applied.params, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H) };
+      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), this.groundOf(this.cur.entities));
+      const { plants: _asked, stands: _stands, ...rest } = applied.params;
+      applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
     }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
