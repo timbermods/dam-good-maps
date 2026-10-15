@@ -7,6 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import { CORE, FLUIDS, goodName, goodsFor, isReserve, MAX_STRENGTH_PER_TILE, maxStrength, NO_DELAY, RESERVES, TIMED } from "../core/data/parity";
 import type { ObjectOptions } from "../core/doc/objectOps";
 import { tip } from "../ui/Tooltip";
+import { useMenuPresence } from "../ui/menuPresence";
 import { ObjectChoice, ObjectSlider, type ObjectGroup } from "./ObjectWindow";
 
 /** The cycles a start delay or a countdown can be set to (the game takes 1 and up; the slider reaches a long game). */
@@ -22,6 +23,7 @@ export function strengthWords(template: string, v: number): string {
  *  first; the rest belong to one faction each, and a good from another faction deletes the reserve when the game starts. */
 function GoodPicker(p: { template: string; good: string; onPick(id: string): void }) {
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const goods = goodsFor(p.template);
   useEffect(() => {
     if (!open) return;
@@ -52,8 +54,8 @@ function GoodPicker(p: { template: string; good: string; onPick(id: string): voi
       <button type="button" class="good-button" aria-label="Holds" aria-haspopup="menu" aria-expanded={open} {...tip("What it holds")} onClick={() => setOpen(!open)}>
         {goodName(p.good)}
       </button>
-      {open ? (
-        <ul class="menu good-menu" role="menu" aria-label="Holds">
+      {menu.mounted ? (
+        <ul class="menu good-menu" role="menu" aria-label="Holds" data-closing={menu.closing ? "" : undefined}>
           {goods.filter((g) => g.common).map(item)}
           <li role="none" class="menu-note">
             One faction only: another faction's good deletes the reserve
