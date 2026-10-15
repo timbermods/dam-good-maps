@@ -395,7 +395,8 @@
 
 /* (the close × is a square the height of the heading row) */
 .history-panel .hist-close {
-  width: 26px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   font-size: 16px;
   line-height: 1;

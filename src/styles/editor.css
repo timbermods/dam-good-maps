@@ -782,6 +782,7 @@ button[aria-pressed="true"] {
    hover and focus. (The page's and the object window's own × use the same look through their selectors.) */
 .icon-close,
 button.linkish.ow-close,
+.history-panel .ym-act.hist-close,
 .dock-notes > * > button[aria-label="Dismiss"] {
   flex: none;
   display: inline-flex;
@@ -804,7 +805,9 @@ button.linkish.ow-close,
 .icon-close:hover,
 .icon-close:focus-visible,
 button.linkish.ow-close:hover,
+.history-panel .ym-act.hist-close:hover,
 button.linkish.ow-close:focus-visible,
+.history-panel .ym-act.hist-close:focus-visible,
 .dock-notes > * > button[aria-label="Dismiss"]:hover,
 .dock-notes > * > button[aria-label="Dismiss"]:focus-visible {
   background: color-mix(in srgb, var(--ink) 14%, transparent);
