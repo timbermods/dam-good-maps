@@ -17,13 +17,12 @@ import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
 import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import type { BlocksParams } from "../../src/core/doc/blockTool";
 import { HazardRun } from "../../src/core/sim/weather";
 import { blocks, failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
-import { caveSession } from "./caveMap";
+import { caveSession, dig, hillside } from "./caveMap";
 
 /** Python with numpy for prototype/validate.py (CI installs it; a machine without it skips that half). */
 const PY = (() => {
@@ -33,26 +32,6 @@ const PY = (() => {
   }
   return null;
 })();
-
-const dig = (x: number, y: number, z: number, side: BlocksParams["side"]) => ({ op: "blocks" as const, params: { mode: "remove", side, at: [[x, y, z]], size: 1 } as BlocksParams });
-
-/** A dry foot of a hillside, nothing near, its face `rise`+ higher to the east: the block at the foot's
- *  level in the face is dug from the side, a roof over the hollow. */
-function hillside(s: MapSession, rise = 3): { x: number; y: number; z: number } {
-  const b = s.built;
-  const W = b.W;
-  const near = new Set<number>();
-  for (const e of b.entities) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) near.add((e.y + dy) * W + e.x + dx);
-  for (let y = 6; y < b.H - 6; y++)
-    for (let x = 6; x < W - 6; x++) {
-      const i = y * W + x;
-      const f = i + 1;
-      if (b.heights[f] - b.heights[i] < rise || b.heights[f + 1] < b.heights[f] || b.water[i] > 0 || b.water[f] > 0 || b.channel[i] || near.has(i) || near.has(f)) continue;
-      if (b.heights[f - W] !== b.heights[f] || b.heights[f + W] !== b.heights[f]) continue;
-      return { x: x + 1, y, z: b.heights[i] };
-    }
-  throw new Error("no hillside");
-}
 
 /** The first dry tile at the foot of a cliff `drop`+ high (Erode wears a cave into its face). */
 function cliffFoot(s: MapSession, drop: number): number {
