@@ -1373,6 +1373,12 @@
   white-space: nowrap;
 }
 
+/* a long label in two cells (Remove unfed water at 1280, the narrowest cells), as Naturalize's word on the bar */
+.set-button.tight {
+  padding: 0 1px;
+  letter-spacing: -0.015em;
+}
+
 .set-group.centre .set-button {
   width: calc(100% - 8px);
 }

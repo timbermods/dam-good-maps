@@ -522,7 +522,7 @@ export function useSelect(ed: Ed): SelectSlice {
       span: 1,
       node: (
         <div class="set">
-          <button type="button" class="set-button" disabled={!z} {...title} {...way(what)} onClick={run}>
+          <button type="button" class="set-button tight" disabled={!z} {...title} {...way(what)} onClick={run}>
             {label}
           </button>
         </div>
@@ -577,7 +577,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
+            <button type="button" class="set-button tight" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
               Remove unfed water
             </button>
           </div>
