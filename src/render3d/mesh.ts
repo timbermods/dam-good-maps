@@ -129,7 +129,7 @@ const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
 /** The column at tile `i` as a mask: bit z set when voxel z is solid. */
-function columnMask(src: TerrainSource, i: number): number {
+export function columnMask(src: TerrainSource, i: number): number {
   const c = src.columns.size > 0 ? src.columns.get(i) : undefined;
   if (!c) {
     const h = src.heights[i];
