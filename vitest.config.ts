@@ -20,6 +20,7 @@ const HEAVY = [
   "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
   "tests/contract/collabClaims.heavy.test.ts", // every force's plan and gesture band against the claims' writes (D362)
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
+  "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
 ];
 
 export default defineConfig({
