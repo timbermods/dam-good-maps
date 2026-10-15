@@ -20,7 +20,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { join, resolve } from 'node:path';
 import { buildMod } from './build-mod';
 import { type CompanionLaunch, companionInstalled, companionSummary, installCompanion, removeCompanion, runCompanion, variantsFrom, writeCompanionReport } from './companion';
-import { catalog, type GameDef, gameIdsFor } from './catalog';
+import { catalog, type GameDef, gameIdsFor, type GivenOptions } from './catalog';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
 import type { MapResult } from './job';
@@ -47,6 +47,8 @@ interface Plan {
   runId: string;
   kind: 'smoke' | 'batch';
   extraMaps: string[];
+  /** How the command-line maps are played (`--factions`, `--badtide`). */
+  given?: GivenOptions;
   gameIds: string[];
   speed: number;
   smokeDays?: number;
@@ -60,7 +62,7 @@ interface Plan {
 
 function selectGames(plan: Plan): GameDef[] {
   if (plan.companion) return [];
-  const all = catalog(plan.extraMaps);
+  const all = catalog(plan.extraMaps, plan.given);
   let games = plan.gameIds.length ? all.filter((g) => plan.gameIds.includes(g.id)) : all;
   if (plan.smokeDays) games = games.map((g) => ({ ...g, days: Math.min(g.days, plan.smokeDays!) }));
   return games;
@@ -70,10 +72,24 @@ function newRunId(kind: string): string {
   return `${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})/, '$1-$2')}-${kind}`;
 }
 
+/** `--factions folktails,ironteeth` and `--badtide` for the maps given on the command line; none given, none changed. */
+function givenFromArgs(): GivenOptions | undefined {
+  const names = opt('factions');
+  const factions = names === undefined ? undefined : names.split(',').map((f) => {
+    const id = f.trim().toLowerCase().replace(/[^a-z]/g, '');
+    if (id === 'folktails') return 'Folktails' as const;
+    if (id === 'ironteeth') return 'IronTeeth' as const;
+    throw new Error(`Unknown faction "${f}": use folktails, ironteeth or both, comma-separated.`);
+  });
+  if (!factions?.length && !flag('badtide')) return undefined;
+  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}) };
+}
+
 function planFromArgs(): Plan {
-  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants']);
+  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions']);
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
+  const given = givenFromArgs();
   if (flag('companion')) {
     const variants = variantsFrom(opt('companion-variants')).map((v) => v.id);
     return { runId: opt('run-id') ?? newRunId('companion'), kind: 'batch', extraMaps: [], gameIds: [], speed: 99, keepMods: flag('keep-mods'), companion: { variants } };
@@ -83,11 +99,11 @@ function planFromArgs(): Plan {
   const valueOf = (n: string) => (argv.includes(`--${n}`) ? ((v) => (v === undefined || v.startsWith('--') ? '' : v))(opt(n)) : undefined);
   // a group made outside the repository gets its maps written first, by its own writer: never a stale map planned
   const written = writeGroups(groupsToWrite(valueOf('only'), valueOf('group')), log);
-  const all = catalog(extraMaps);
+  const all = catalog(extraMaps, given);
   let ids = gameIdsFor(all, valueOf('only'), valueOf('group'));
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
-  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
+  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, ...(given ? { given } : {}), speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
 }
 
 /**
