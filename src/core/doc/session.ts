@@ -40,7 +40,7 @@ import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { storedOutflows, storedSoil, storedWater } from "../format/world";
+import { storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
@@ -214,6 +214,7 @@ export class MapSession {
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
@@ -911,12 +912,20 @@ export class MapSession {
 
   /** The soil the base file stores on each tile's top (moisture and contamination), for the 3D
    *  view's ground colours (Map look, D86). */
-  storedSoil(): ReturnType<typeof storedSoil> {
+  storedSoil(): ReturnType<typeof storedSoilTops> {
+    const t = this.baseStuff().terrain.terrain;
+    // a tile's top column is its last run of solid voxels; the game's runs start with an empty one under a
+    // column whose bottom voxel is air (sim/columns.ts `terrainColumns`), so its top is one slot further
+    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - (t.mask[i] & 1 ? 1 : 0));
+    return storedSoilTops(this.storedSoilRuns(), this.gen.base.sizeX * this.gen.base.sizeY, topSlot);
+  }
+
+  /** The soil the base file stores on every run top (slot j of tile i at j·N + i), read once a base: the 3D
+   *  view's ground colours on caves' floors too (3D view, part 3). */
+  storedSoilRuns(): ReturnType<typeof storedSoilRuns> {
     const b = this.baseStuff();
-    const t = b.terrain.terrain;
-    // a tile's top column is its last run of solid voxels
-    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - 1);
-    return storedSoil(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, topSlot);
+    if (this.storedSoilCache?.key !== this.gen.base) this.storedSoilCache = { key: this.gen.base, soil: storedSoilRuns(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    return this.storedSoilCache.soil;
   }
 
   /** The document as it stands, for the project file and autosave. */

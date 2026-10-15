@@ -68,6 +68,45 @@ export interface WaterView {
 export interface SoilView {
   moisture: Uint8Array;
   contamination: Uint8Array;
+  /** On a map with terrain above terrain, the soil of every run top below its tile's top (a cave's floor,
+   *  a ledge under an overhang, the map's floor under air), as the same bytes: `runSoilView`. The per-tile
+   *  arrays above are each tile's top. Absent on every other map. */
+  runs?: RunSoilView;
+}
+
+/** The soil of the run tops below each tile's top (3D view, part 3): run k of `tile` has its top at `level`
+ *  (the first air over the run; 0 for the map's floor under a column with air at its bottom). */
+export interface RunSoilView {
+  tile: Int32Array;
+  level: Uint8Array;
+  moisture: Uint8Array;
+  contamination: Uint8Array;
+}
+
+/** The soil of the run tops below each tile's top in `columns` (tile → its voxels, 1 solid), from a soil
+ *  stored per run (slot j of tile i at j·N + i, the runs laid out as the game's `ColumnTerrainMap`:
+ *  sim/columns.ts `terrainColumns`, run 0 empty when the bottom voxel is air). Tiles in ascending order,
+ *  each tile's runs from the bottom. */
+export function runSoilView(columns: ReadonlyMap<number, ArrayLike<number>>, N: number, moisture: { slots: number; values: ArrayLike<number> }, contamination: { slots: number; values: ArrayLike<number> }): RunSoilView {
+  const tile: number[] = [];
+  const level: number[] = [];
+  const m: number[] = [];
+  const c: number[] = [];
+  const at = (a: { slots: number; values: ArrayLike<number> }, k: number, i: number) => (k < a.slots ? a.values[k * N + i] : 0);
+  for (const i of [...columns.keys()].sort((a, b) => a - b)) {
+    const v = columns.get(i)!;
+    // the tops of the runs, bottom to top: run 0 starts at z = 0 (empty, its top 0, under air at the bottom)
+    const tops: number[] = [];
+    if (!v[0]) tops.push(0);
+    for (let z = 0; z < LAYERS; z++) if (v[z] && (z + 1 >= LAYERS || !v[z + 1])) tops.push(z + 1);
+    for (let k = 0; k < tops.length - 1; k++) {
+      tile.push(i);
+      level.push(tops[k]);
+      m.push(moistureByte(at(moisture, k, i)));
+      c.push(contaminationByte(at(contamination, k, i)));
+    }
+  }
+  return { tile: Int32Array.from(tile), level: Uint8Array.from(level), moisture: Uint8Array.from(m), contamination: Uint8Array.from(c) };
 }
 
 export interface MapView {
@@ -264,7 +303,7 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
     add(v.columns.voxels);
   }
   if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
-  if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination]) add(a);
+  if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination, v.soil.runs?.tile, v.soil.runs?.level, v.soil.runs?.moisture, v.soil.runs?.contamination]) add(a);
   if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
   return out;
 }
