@@ -125,9 +125,13 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
 - **Top right:** Undo, Redo and ⋯, the checks dot with its words, Save to Timberborn. Beneath, the cluster as a grid
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
-- **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
-  in five groups divided by hairlines. The view draws each picture to fill its tile. Fifteen objects fit at 1366×768
-  above the water bar; when more arrive it scrolls inside itself, names kept.
+- **The shelf** hangs under the cluster, 180px wide (so the longest name clears the scrollbar's room): one object per line, a 28px picture then its name,
+  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+  whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
+  inside itself, names kept, and the picked row is scrolled into view
+  ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
+  Select's first row ends with Fill water and Remove unfed water, whose hover words take the size's place
+  ([capture](docs/design/showcase-shelf-select-1920-dark.jpg)).
 - **Bottom left:** the hover readout. **Bottom right:** the water bar (its status, Pause, Speed, Skip, Replay,
   Drought, Badtide), and above it the look's menu as a small plate.
 - **The default view fits the whole map in the free space:** right of the panel, left of the shelf, under the rows
@@ -868,6 +872,12 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+- **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
+  look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
+  here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
+  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
+  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
 
 ## The header and top-right controls (polish audit, 2026-10-14)
 

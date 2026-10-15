@@ -5,6 +5,7 @@
 // shows them: no key's behaviour is read from this list.
 
 import { BRUSHES } from "../brushes";
+import { COMPARE_KEY } from "../compare/useCompare";
 import { SHOWN_FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
 
 /** One line of the panel: what the key does, and the keys that do it (any one of them; each shows as a key cap). */
@@ -58,6 +59,8 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Flip the fault's side (Quake)", keys: ["V"] },
         { what: "Pause or resume a force at work", keys: ["Space"] },
         { what: "Skip a force to its end", keys: ["Esc"] },
+        { what: "The next roll after Try another", keys: ["Tab"] },
+        { what: "The roll before", keys: ["Shift+Tab"] },
       ],
     },
     {
@@ -82,6 +85,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Zoom", keys: ["+", "-"] },
         { what: "Show markers", keys: ["M"] },
         { what: "See through the water", keys: ["T"] },
+        { what: "Hold to see the version you compare with", keys: [COMPARE_KEY] },
         { what: "Keep this view in a slot", keys: ["Ctrl+Shift+1–9"] },
         { what: "Go back to a kept view", keys: ["Alt+1–9"] },
         { what: "Step a weather day back or on", keys: ["←", "→"] },

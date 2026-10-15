@@ -23,7 +23,7 @@ import { fixture } from "../../tests/contract/forceFixtures";
 import { fluidObject, waterSource } from "../../src/core/format/entities";
 import { plainEntities } from "../../src/core/forces/force";
 
-const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit"];
+const VERBS: RustVerb[] = ["craterize", "erupt", "quake", "carve", "glaciate", "rift", "deposit", "erode"];
 
 /** A plain job: verb, a W × W study, variant k. */
 function job(verb: RustVerb, n: number, k: number): RustJob {
@@ -34,6 +34,8 @@ function job(verb: RustVerb, n: number, k: number): RustJob {
   const keep = new Uint8Array(n * n);
   const power = k % 3 === 0 ? 100 : k % 3 === 1 ? 0 : 55;
   switch (verb) {
+    case "erode":
+      return { verb, map, keep, settings: { mode: "wear", power, size: k === 2 ? 4 : k % 2 ? 40 : null, floor: k === 3 ? 4 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
     case "deposit":
       return { verb, map, keep, settings: { mode: "fan", power, size: k === 2 ? 8 : k % 2 ? 64 : null, channels: ["auto", "few", "many"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
     case "rift":
@@ -119,6 +121,10 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
     j.settings = { mode: "fan", power, seed, size: pick([null, 8, 64]), channels: pick(["auto", "few", "many"]), floor: 1 };
     j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
   }
+  if (verb === "erode") {
+    j.settings = { mode: "wear", power, seed, size: pick([null, 4, 40]), floor: pick([1, 1, 1 + Math.floor(u() * 12)]) };
+    j.intent = { path: Array.from({ length: 1 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
+  }
   if (verb === "rift") {
     j.settings = { mode: "drop", power, seed, size: pick([null, 4, 64]), walls: pick(["auto", "sheer", "stepped"]), floor: 1 };
     j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
@@ -170,9 +176,39 @@ function sprinkled(j: RustJob): RustJob {
   return { ...j, map: { ...m, entities: [...m.entities, ...plainEntities(add)] } };
 }
 
+/** Erode's own ground (D281): a cliff with a hard bed under its top, a thin ridge, and the same cliff
+ *  already hollowed (its voxels given, as a map with caves sends them), each worn at three Powers. */
+function erodeJobs(): { name: string; job: RustJob }[] {
+  const n = 48;
+  const ground = (h: (x: number, y: number) => number) => {
+    const map = fixture("plain", n);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) map.heights[y * n + x] = h(x, y);
+    map.lava = new Uint32Array(n * n);
+    map.water = { depth: new Float64Array(n * n), contamination: new Float64Array(n * n) };
+    map.entities = [];
+    map.fallen = [];
+    map.rockLayers = Array.from({ length: 23 }, (_, z) => (z === 9 ? 1 : 0));
+    return map;
+  };
+  const cliff = ground((x) => (x < 24 ? 3 : 12));
+  const ridge = ground((x) => (x === 24 || x === 25 ? 14 : 2));
+  const caved = ground((x) => (x < 24 ? 3 : 12));
+  caved.masks = Uint32Array.from(caved.heights, (h, i) => ((((1 << h) >>> 0) - 1) >>> 0) & (i % n >= 24 && i % n < 27 && Math.floor(i / n) > 20 && Math.floor(i / n) < 26 ? ~0b11000 : ~0));
+  const out: { name: string; job: RustJob }[] = [];
+  for (const [name, map, path] of [
+    ["cliff", cliff, [{ x: 23.5, y: 24 }]],
+    ["sweep", cliff, [{ x: 22.5, y: 14 }, { x: 22.5, y: 34 }]],
+    ["ridge", ridge, [{ x: 20, y: 24 }, { x: 29, y: 24 }]],
+    ["caved", caved, [{ x: 23.5, y: 23 }]],
+    ["flat", ground(() => 6), [{ x: 24, y: 24 }]],
+  ] as const)
+    for (const power of [0, 55, 100]) out.push({ name: `erode ${name} ${power}`, job: { verb: "erode", map: structuredClone(map), keep: new Uint8Array(n * n), settings: { mode: "wear", power, size: null, floor: 1, seed: 7 }, intent: { path } } });
+  return out;
+}
+
 /** Every fixture's job, by name. */
 export function forceJobs(): { name: string; job: RustJob }[] {
-  const out: { name: string; job: RustJob }[] = [];
+  const out: { name: string; job: RustJob }[] = [...erodeJobs()];
   for (const verb of VERBS) {
     for (let k = 0; k < 4; k++) out.push({ name: `${verb} 64 ${k}`, job: job(verb, 64, k) });
     for (let k = 0; k < 2; k++) out.push({ name: `${verb} 64 odd ${k}`, job: oddJob(verb, 64, k) });
@@ -197,6 +233,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   for (const f of forceFixtures()) {
     const output = executeInRust(f.job);
     if (/^(rift|deposit) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
+    if (/^erode (cliff|sweep|ridge|caved|flat) /.test(f.name) && (decode(output) as { error?: string }).error) throw Error(`Unexpected refusal: ${f.name}`);
     pins[f.name] = sha256(output);
   }
   console.log(JSON.stringify(pins, null, 2));

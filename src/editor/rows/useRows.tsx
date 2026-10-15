@@ -5,11 +5,13 @@ import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
 import { newId, shortStrengthWords, sourceStrengths, sourceStrengthWords } from "../features";
 import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial, waterWords } from "../panels";
-import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems";
+import { hasAge, objectOptionsOf, PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems";
+import { describeChange, hasOptions, optionsOf, optionsPatch, setOptionsOp, type ObjectOptions } from "../../core/doc/objectOps";
+import { objectGroups } from "../objectOptions";
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
 import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
-import { DepositRow, GlaciateRow, RiftRow } from "../ForceRows";
+import { DepositRow, GlaciateRow, RiftRow, RollsButton } from "../ForceRows";
 import type { RiftSettings } from "../../core/forces/rift";
 import type { DepositSettings } from "../../core/forces/deposit";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
@@ -42,7 +44,7 @@ export function useRows(ed: Ed): RowsSlice {
     pickedObject, setPickedObject, optionsRef, enqueue, run, strengthOfEntity, liveStrength, entityIndexOf,
     groupsRef, pointedWords, removeSources, carveUi, setCarveUi, craterUi, setCraterUi, eruptUi, setEruptUi, quakeUi,
     setQuakeUi, glaciateUi, setGlaciateUi, riftUi, setRiftUi, depositUi, setDepositUi, forcer, lastUnleash, unleashPower, setUnleashPower,
-    unleash, unleashAgain, unleashDown, forceAgain
+    unleash, unleashAgain, unleashDown, forceAgain, rollsOffered, showRoll
   } = ed;
 
   /** A source clicked (D196): it is picked, with its strength and its water in the row beneath the
@@ -52,6 +54,17 @@ export function useRows(ed: Ed): RowsSlice {
       const sources = list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
       setPicked(sources.length ? { x, y, list: sources } : null);
     });
+  }
+  /** A setting of the object picked on the map changed: its window shows it at once, the core's operation follows (one
+   *  undo step for a slider's run of steps). */
+  function changePlaced(o: EntityInfo, c: Partial<ObjectOptions>) {
+    const before = optionsOf(o.template, o.components);
+    const patch = optionsPatch(o.template, o.components, c);
+    const components: Record<string, unknown> = { ...o.components };
+    for (const [k, v] of Object.entries(patch)) components[k] = { ...((o.components[k] as object | undefined) ?? {}), ...(v as object) };
+    setPickedObject({ ...o, components });
+    const op = setOptionsOp(o.id, o.template, o.components, c);
+    void run(() => api.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
   }
   /** A picked source's water (clean or bad) or strength changed. */
   function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
@@ -105,10 +118,13 @@ export function useRows(ed: Ed): RowsSlice {
     if (pickedObject && !picked) {
       const o = pickedObject;
       const name = o.template === "UndergroundRuins" ? "Mine site" : o.template.replace(/([a-z])([A-Z])/g, "$1 $2");
+      // a water object, an unstable core or a reserve: its own settings, changed in place (D337, D338)
+      const own = hasOptions(o.template) ? objectGroups(o.template, optionsOf(o.template, o.components), (c) => changePlaced(o, c)) : [];
       return {
         label: `${name}, selected`,
         onClose: () => setPickedObject(null),
         groups: [
+          ...own,
           {
             key: "delete",
             node: (
@@ -190,6 +206,8 @@ export function useRows(ed: Ed): RowsSlice {
               },
             ]
           : []),
+        // (its rolls on offer, D488: "2 of 4" in a group of its own beside Try another, a click showing the next)
+        ...(again && rollsOffered() ? [{ key: "rolls", node: <RollsButton rolls={rollsOffered()!} onRoll={() => showRoll(1)} /> }] : []),
       ],
     };
   }
@@ -238,6 +256,12 @@ export function useRows(ed: Ed): RowsSlice {
           ...(strongerThanOfficial(value) ? [{ key: "note", node: <span class="bar-status note">{STRONGER_WORDS}</span> }] : []),
         ],
       };
+    }
+    // a water object, an unstable core or a reserve: the settings of the next one placed (D337, D338)
+    if (hasOptions(shelf.template) || shelf.template === "AncientAquiferDrill") {
+      const o = objectOptionsOf(shelfOptions, shelf.template);
+      const groups = objectGroups(shelf.template, o, (c) => setShelfOptions({ ...shelfOptions, objects: { ...shelfOptions.objects, [shelf.template]: { ...o, ...c } } }));
+      return groups.length ? { label: `${shelf.name} options`, groups } : null;
     }
     if (shelf.id === "ruin")
       return {
@@ -316,7 +340,7 @@ export function useRows(ed: Ed): RowsSlice {
               />
             ),
           },
-          ...(kind === "trees"
+          ...(hasAge(kind)
             ? [
                 {
                   key: "age",
@@ -348,6 +372,8 @@ export function useRows(ed: Ed): RowsSlice {
     const force = FORCES.find((f) => f.id === tool)!;
     const st = forcer.current?.status ?? null;
     const canAgain = info.forceAgain === tool;
+    // (its rolls on offer, D488: "2 of 4" beside Try another, a click showing the next)
+    const roll = { rolls: canAgain ? rollsOffered() : null, onRoll: () => showRoll(1) };
     if (tool === "carve")
       return (
         <CarveRow
@@ -359,6 +385,7 @@ export function useRows(ed: Ed): RowsSlice {
           status={st}
           canAgain={canAgain}
           onAgain={() => void forceAgain()}
+          {...roll}
           onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
           onRevert={() => forcer.current?.cancel()}
           drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
@@ -366,12 +393,12 @@ export function useRows(ed: Ed): RowsSlice {
       );
     if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
     const again = () => void forceAgain();
-    if (tool === "craterize") return <CraterizeRow force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
-    if (tool === "erupt") return <EruptRow force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
-    if (tool === "glaciate") return <GlaciateRow force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
-    if (tool === "rift") return <RiftRow force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
-    if (tool === "deposit") return <DepositRow force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
-    return <QuakeRow force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
+    if (tool === "craterize") return <CraterizeRow {...roll} force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
+    if (tool === "erupt") return <EruptRow {...roll} force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow {...roll} force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
+    if (tool === "rift") return <RiftRow {...roll} force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
+    if (tool === "deposit") return <DepositRow {...roll} force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
+    return <QuakeRow {...roll} force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 
   return { pickTile, pickedRow, shelfRow, forceRow };

@@ -17,7 +17,10 @@ import type { Remote } from "comlink";
 import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
+import type { MapView } from "../render3d/model";
 import type { Ed } from "./ed";
+import type { ViewMode } from "../render3d";
+import type { LayerKind } from "./panels";
 import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
@@ -42,6 +45,7 @@ import { useBlockTool } from "./block/useBlockTool";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
+import { useCompare } from "./compare/useCompare";
 import { editorView } from "./render/editorView";
 
 /** The map's land and water as the editor shows them, for Your maps' picture. */
@@ -52,11 +56,26 @@ export interface MapPicture {
   water: ArrayLike<number> | null;
 }
 
+/** What the player has set on the view, carried to the editor that opens after a crop (or its undo): History open, top-down or
+ *  3D, the water overlay, See-through and the minimap; the camera is framed to the new size. */
+export interface ResizeCarry {
+  history: boolean;
+  mode: ViewMode;
+  layer: LayerKind;
+  clearWater: boolean;
+  minimap: boolean;
+}
+
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
+  /** The map changed size (a crop, or its undo or redo, D340): the page opens the session's map again, once the edits queued
+   *  before it have reached the worker, and gives the new editor `carry`: the view as the player had it. */
+  onResized(carry: ResizeCarry): void;
+  /** The view of the editor this one replaces after a change of the map's size. */
+  carry?: ResizeCarry;
   /** Finish queued edits before the page snapshots the outgoing worker session. */
   onPendingEdits?(wait: () => Promise<void>): void;
   /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */
@@ -82,6 +101,13 @@ export interface EditorProps {
   onMaps(open: boolean): void;
   placesOpen: boolean;
   onPlaces(open: boolean): void;
+  /** Another version of this map to flip to (Your maps' Compare): its settled land, objects and water, the same size. */
+  compare?: { name: string; view: MapView } | null;
+  /** Stop comparing. */
+  onStopCompare?(): void;
+  /** History's Keep this version and Branch from here: the step (the index History lists, −1 before the first) kept as a
+   *  map of Your maps, and opened too when it is a branch. */
+  onKeepStep?(step: number, branch: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
 }
@@ -109,6 +135,7 @@ export default function Editor(props: EditorProps) {
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  Object.assign(ed, useCompare(ed, props));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);

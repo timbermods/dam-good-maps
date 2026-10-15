@@ -70,7 +70,8 @@ calls; Vitest and Playwright, with the Python prototype as an oracle in CI (§15
 DOM access, so it runs identically in the Web Worker, in Node (tests, batch runs) and in Vitest. The 2D preview is
 Canvas 2D (an `ImageData` buffer); the 3D preview is three.js in a lazy-loaded chunk. The zip is fflate `zipSync` with a
 fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker (0.4.4, vendored, D20), because canvas
-`toBlob` encoders differ between browsers; both keep files byte-reproducible. Hosting is GitHub Pages from GitHub
+`toBlob` encoders differ between browsers; both keep files byte-reproducible. The editor's saves then swap in the map's
+3D picture as the thumbnail (D488), the one entry that depends on the GPU. Hosting is GitHub Pages from GitHub
 Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
 cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
@@ -1038,7 +1039,8 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 ### 14.4 Download
 
 - **The file:** `dgm-<theme>-<seed>.timber` (§13): a zip built in the worker, with the 960×540 thumbnail rendered from
-  the preview palette; water, moisture and contamination pre-filled; byte-identical per seed and settings. **Install
+  the preview palette; water, moisture and contamination pre-filled; byte-identical per seed and settings, except the
+  editor's saves' thumbnail: the map's 3D picture (D488), drawn on the player's GPU, is the one entry that is not. **Install
   help** (after download): move the file to `Documents\Timberborn\Maps` (macOS `~/Documents/Timberborn/Maps`), then
   Timberborn → New game → the map is listed under your maps; the map editor can open it too. **Internal only:** a file
   without pre-filled water, for the in-game A/B check (§18), the probe and the tests (D237).

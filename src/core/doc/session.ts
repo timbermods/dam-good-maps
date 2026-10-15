@@ -40,7 +40,7 @@ import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { storedOutflows, storedSoil, storedWater } from "../format/world";
+import { storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation } from "../format/footprints";
@@ -58,7 +58,8 @@ import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { versionName } from "../library/keptVersions";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
@@ -140,6 +141,17 @@ export interface HistoryMark {
   readonly seq: number;
 }
 
+/** A step of the history kept to be put back exactly (`MapSession.keptStep`, `putStep`): a force's
+ *  roll (core/forces/rolls.ts). */
+export interface KeptStep {
+  readonly ops: readonly AppliedOp[];
+  readonly label?: string;
+  /** The next operation number after the step. */
+  readonly nextSeq: number;
+  /** The map the step built, as it stood. */
+  readonly built: BuildResult;
+}
+
 export interface HistoryItem {
   label: string;
   /** The (first) operation of the step. */
@@ -213,6 +225,7 @@ export class MapSession {
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
   private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
   /** "preview": edits re-settle the water from its previous state (the editor's preview); the
@@ -313,6 +326,12 @@ export class MapSession {
   /** Why undo cannot go below the save point now, or null (the replay differed, D455). */
   get undoStopped(): string | null {
     return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
+  }
+
+  /** Whether only the step the history stands at can be kept as a version: the replay differed, so the map as saved is the
+   *  earliest state and no other step can be built (D455). */
+  get keepOnlyHere(): boolean {
+    return !this.pending && this.floor > 0;
   }
 
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
@@ -534,6 +553,49 @@ export class MapSession {
   /** The label of the history's step whose first operation is `seq` (for `spliceStep`'s `insert`). */
   stepLabel(seq: number): string | undefined {
     return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
+  }
+
+  /** The map as it stood after History step `k` (the index `history()` lists; −1: before the first step, or at the save
+   *  point of a map whose earlier steps cannot be undone), steps undone since included, as a project file of its own:
+   *  the same land, the History's first steps replayed on it (the operations with their step grouping, so the copy opens
+   *  with its History up to that step, D456), named "<map name> — <step label>", with where it came from in its meta.
+   *  The project carries the stored map, so it reopens byte for byte (D455), when the session has that step's settled
+   *  build (the one it stands at, or a kept one near it: no rebuild). Otherwise it is rebuilt here (`rebuild`, the default,
+   *  a full build: seconds at 256²), or, with `rebuild: false`, the project comes without the stored map and `built` is null
+   *  (the caller builds it elsewhere: it opens by replaying, as a project with no stored map does). A step other than where
+   *  the history stands waits on the replay comparison of a map opened from its stored map, and once that replay differed
+   *  there is none to give (D455). Null when there is no such step. */
+  versionProject(k: number, from: { id?: string } = {}, level = 6, opts: { rebuild?: boolean } = {}): { bytes: Uint8Array; name: string; parent: VersionParent; built: BuildResult | null; stored: boolean } | null {
+    const steps = [...this.undoStack, ...this.redoStack.slice().reverse()];
+    const upto = this.reach + k + 1;
+    if (k < -1 || upto > steps.length) return null;
+    const here = upto === this.undoStack.length;
+    if (!here) {
+      if (this.pending && !this.checkReplay()) return null;
+      if (!this.pending && this.floor > 0) return null;
+    }
+    const label = upto === 0 ? (this.gen.spec ? "The generated map" : "Opened the map") : upto === this.reach ? "The map as saved" : (steps[upto - 1].label ?? labelOf(steps[upto - 1].ops[0]));
+    const parent: VersionParent = { ...(from.id ? { id: from.id } : {}), name: this.gen.meta.name, label, steps: upto };
+    const name = versionName(this.gen.meta.name, label);
+    const doc = this.document;
+    const cut = clone(steps.slice(0, upto).flatMap((e) => e.ops)) as AppliedOp[];
+    const { state } = replay(baseFeaturesOf(doc), cut);
+    const meta = { ...doc.meta, name, parent };
+    delete meta.views;
+    const version: MapDocument = { ...doc, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut, meta };
+    const kept = here ? this.cur : this.snaps.get(upto);
+    if (kept && kept.settle.preview !== true && kept.settle.stale !== true) {
+      let stored: StoredState | null = null;
+      try {
+        stored = storeBuilt(kept, cut.length, this.seqNext);
+      } catch {
+        // a map the stored format cannot carry: kept without it, and reopened by rebuilding
+      }
+      return { bytes: encodeProject(stored ? { ...version, stored } : version, level), name, parent, built: kept, stored: !!stored };
+    }
+    if (opts.rebuild === false) return { bytes: encodeProject(version, level), name, parent, built: null, stored: false };
+    const s = new MapSession(version, undefined, { rebuild: true });
+    return { bytes: s.project(level), name, parent, built: s.built, stored: true };
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
@@ -786,6 +848,26 @@ export class MapSession {
     return new Set(this.columns.keys());
   }
 
+  /** The water an imported map holds under its roofs (the file's own, which the editor shows and the
+   *  export keeps), a bit per level of each tile; null when it has none. Erode never wears rock that
+   *  holds it back (D281). */
+  caveWater(): Uint32Array | null {
+    if (this.mode === "live") return null;
+    const roofed = this.roofedTiles;
+    if (!roofed.size) return null;
+    const w = this.storedWater();
+    const { x: W, y: H } = this.size;
+    let out: Uint32Array | null = null;
+    for (let k = 0; k < w.tile.length; k++) {
+      const i = w.tile[k];
+      if (!roofed.has(i) || !(w.depth[k] > 0.02) || w.floor[k] < 0) continue;
+      out ??= new Uint32Array(W * H);
+      const top = Math.min(LAYERS, Math.ceil(w.floor[k] + w.depth[k] - 0.02));
+      for (let z = Math.floor(w.floor[k]); z < top; z++) out[i] |= 1 << z;
+    }
+    return out;
+  }
+
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
    *  to match the build exactly): copies, safe to hand on. */
   terrainState(): TerrainState {
@@ -841,12 +923,20 @@ export class MapSession {
 
   /** The soil the base file stores on each tile's top (moisture and contamination), for the 3D
    *  view's ground colours (Map look, D86). */
-  storedSoil(): ReturnType<typeof storedSoil> {
+  storedSoil(): ReturnType<typeof storedSoilTops> {
+    const t = this.baseStuff().terrain.terrain;
+    // a tile's top column is its last run of solid voxels; the game's runs start with an empty one under a
+    // column whose bottom voxel is air (sim/columns.ts `terrainColumns`), so its top is one slot further
+    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - (t.mask[i] & 1 ? 1 : 0));
+    return storedSoilTops(this.storedSoilRuns(), this.gen.base.sizeX * this.gen.base.sizeY, topSlot);
+  }
+
+  /** The soil the base file stores on every run top (slot j of tile i at j·N + i), read once a base: the 3D
+   *  view's ground colours on caves' floors too (3D view, part 3). */
+  storedSoilRuns(): ReturnType<typeof storedSoilRuns> {
     const b = this.baseStuff();
-    const t = b.terrain.terrain;
-    // a tile's top column is its last run of solid voxels
-    const topSlot = (i: number): number => Math.max(0, t.runCount(i) - 1);
-    return storedSoil(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY, topSlot);
+    if (this.storedSoilCache?.key !== this.gen.base) this.storedSoilCache = { key: this.gen.base, soil: storedSoilRuns(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    return this.storedSoilCache.soil;
   }
 
   /** The document as it stands, for the project file and autosave. */
@@ -1298,6 +1388,47 @@ export class MapSession {
     return true;
   }
 
+  /** The latest step of the history, named for `takeBack` (as `stepSince` names one), with what
+   *  Redo holds now; null when undo cannot reach a step. */
+  latestStep(): HistoryMark | null {
+    const depth = this.undoStack.length - 1;
+    if (depth < this.reach) return null;
+    const e = this.undoStack[depth];
+    return { depth, below: this.undoStack[depth - 1] ?? null, redo: this.redoStack.slice(), step: e, seq: e.ops[0].seq };
+  }
+
+  /** The latest step kept as it stands, to put back later exactly (`putStep`): its operations as the
+   *  log keeps them, its label, the next operation number after it, and the map it built (never
+   *  rebuilt when put back). Null when undo cannot reach a step. */
+  keptStep(): KeptStep | null {
+    const top = this.latestStep();
+    if (!top) return null;
+    const e = top.step as HistoryEntry;
+    return { ops: clone(e.ops) as AppliedOp[], ...(e.label ? { label: e.label } : {}), nextSeq: this.seqNext, built: this.cur };
+  }
+
+  /** Put a step kept with `keptStep` back as the latest step, exactly as it was: its operations (their
+   *  numbers too), the map it built as it was (no rebuild: D453), the next operation number after it;
+   *  `label` names it in the history (else its own). Only where it was made (a force's rolls,
+   *  core/forces/rolls.ts): false, and nothing changes, when the log holds an operation numbered at or
+   *  after its first. Nothing is left to redo. */
+  putStep(step: KeptStep, label?: string): boolean {
+    const first = step.ops[0]?.seq;
+    if (first === undefined || (this.log.at(-1)?.seq ?? -Infinity) >= first) return false;
+    const ops = clone(step.ops) as AppliedOp[];
+    for (const op of ops) {
+      delete op.undo;
+      applyOp(this.st, op);
+      this.log.push(op);
+    }
+    const text = label ?? step.label;
+    this.pushHistory({ kind: "ops", ops, ...(text ? { label: text } : {}) });
+    this.seqNext = step.nextSeq;
+    this.cur = step.built;
+    this.snapshot();
+    return true;
+  }
+
   private pushHistory(e: HistoryEntry): void {
     this.undoStack.push(e);
     this.redoStack = [];
@@ -1559,14 +1690,12 @@ export class MapSession {
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
-    const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
     // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
     // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
     const ground = this.terrainOf(built);
     const roofed = this.layered(built) ? new Set(ground.notPlain()) : null;
     const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: ground.voxels(), roofed });
-    // the thumbnail shows terrain and water: a new one when either changed
-    const redraw = terrainChanged || !built.waterFromFile;
+    const redraw = this.drawsThumbnail(built);
     let metadata = parse(this.gen.base.metadata) as JsonObject;
     // its player removed its last badwater spring: it says it is a No badwater map (D213)
     if (this.badwaterRemoved(built)) {
@@ -1582,15 +1711,24 @@ export class MapSession {
     }, built.heights);
   }
 
-  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
-   *  profile, PLAN §19.5): they are noted at the end of the map's description. */
+  /** Whether the file's thumbnail is drawn (the core's top-down one): always for a generated map; for an
+   *  imported one when its terrain or water changed, else the file keeps its own picture (PLAN §19.6). */
+  drawsThumbnail(built: BuildResult = this.cur): boolean {
+    if (this.mode === "live") return true;
+    // the thumbnail shows terrain and water: a new one when either changed
+    return !built.waterFromFile || !sameBytes(built.heights, this.baseStuff().terrain.heights);
+  }
+
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
     return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
-  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
+  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
+   *  profile, PLAN §19.5): they are noted at the end of the map's description. `thumbnailDrawn`: the
+   *  file carries the core's top-down thumbnail, which the page may replace with its 3D picture (D488). */
+  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string; thumbnailDrawn: boolean } {
     // a file always gets the canonical settle, never the preview's water (PLAN §19.7)
     this.settleCanonical();
     const name = this.exportTimberName();
@@ -1601,7 +1739,7 @@ export class MapSession {
       const note = `Exported with ${opts.warnings.length === 1 ? "a warning" : `${opts.warnings.length} warnings`}: ${opts.warnings.join("; ")}.`;
       file.metadata = { ...md, MapDescription: text ? `${text}\n\n${note}` : note };
     }
-    return { bytes: writeTimber(file), fileName: name };
+    return { bytes: writeTimber(file), fileName: name, thumbnailDrawn: this.drawsThumbnail() };
   }
 
   /** The map as it was opened, before any edit: the load and design checks of an imported
