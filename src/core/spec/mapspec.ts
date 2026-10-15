@@ -26,8 +26,20 @@ export const THEME_NAMES: Record<ThemeId, string> = {
 };
 
 export const SIZE_PRESETS: Record<SizePreset, number> = { small: 96, medium: 128, large: 192, max: 256 };
-export const MIN_SIDE = 48;
-export const MAX_SIDE = 256;
+export const MIN_SIDE = 4;
+export const MAX_SIDE = 512;
+
+/** The least a side the generator builds on (D357): under it there is no room for a start and a river. Maps of 4 to 47
+ *  a side are valid (the file, the link and the validator take them); the generator refuses them until it shapes for
+ *  them (part 2 of D357). */
+export const GENERATOR_MIN_SIDE = 48;
+
+/** Why the generator will not build a map of this size, in one line, or null when it will (D342: refused, never
+ *  clamped, never a crash). */
+export function generatorSizeRefusal(x: number, y: number): string | null {
+  if (x >= GENERATOR_MIN_SIDE && y >= GENERATOR_MIN_SIDE) return null;
+  return `${x}×${y} is too small to generate: the generator needs ${GENERATOR_MIN_SIDE} tiles on each side for a start and a river`;
+}
 
 export interface Settings {
   terrain: {

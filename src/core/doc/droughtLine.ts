@@ -1,5 +1,5 @@
-// The drought line of the map as it stands (D133, D269): `sim/droughtLine.ts` read from the session's
-// settled water, its start and its start's water rule, and the Drought view's last day. The worker asks
+// The drought line of the map as it stands (D133, D269): `sim/droughtLine.ts` read from the water the map
+// shows, its start and its start's water rule, and the Drought view's last day. The worker asks
 // it once the drought's last day is kept; contract tests ask it directly (D342).
 
 import { DIFFICULTY_RULES } from "../spec/mapspec";
@@ -13,17 +13,18 @@ export function droughtLineRefusal(s: MapSession): string | null {
 }
 
 /** The drought line of `s` from `last`, the depth per tile on the drought's last day (`days`) as the
- *  Drought view's run left it, from `settled`: the water the run started from (default the session's
- *  settled water, `built.water`). */
+ *  Drought view's run left it, from `from`: the water the run started from (default the water the map
+ *  shows, `MapSession.waterShown`). */
 export function mapDroughtLine(
   s: MapSession,
   last: ArrayLike<number>,
   days: number,
-  settled: { depth: ArrayLike<number>; contamination: ArrayLike<number> } = { depth: s.built.water, contamination: s.built.contamination },
+  from?: { depth: ArrayLike<number>; contamination: ArrayLike<number> },
 ): DroughtLine {
   const b = s.built;
   const refused = droughtLineRefusal(s);
   if (refused) return emptyDroughtLine(b.W, b.H, days, refused);
+  const settled = from ?? s.waterShown();
   const within = s.effectiveSpec()?.settings.start.rules.waterWithin ?? DIFFICULTY_RULES[s.meta.designedFor ?? "normal"].waterWithin;
   const startWater = startWaterMask({
     W: b.W,

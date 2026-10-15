@@ -47,7 +47,7 @@ from analysis import (N4, by_template, distance_from, is_dead, placement,  # noq
 from tbmap import GAME_VERSION, TimberMap  # noqa: E402
 
 FOOTPRINTS = os.path.join(os.path.dirname(HERE), "investigation", "notes", "footprints.json")
-LIMITS = {"min_size": 4, "max_size": 256, "layers": 23, "editor_max_height": 16,
+LIMITS = {"min_size": 4, "max_size": 512, "layers": 23, "editor_max_height": 16,
           "game_max_height": 22, "max_object_z": 33, "support_distance": 3}
 COMMON_NATURAL = {"Pine", "Birch", "Oak", "Succulent", "BlueberryBush"}
 ORIENTATIONS = {"Cw0", "Cw90", "Cw180", "Cw270"}
@@ -137,7 +137,7 @@ def world_blocks(fp, p):
 def check_file(m: TimberMap, rep: Report, raw_zip: dict):
     X, Y = m.size_x, m.size_y
     rep.add("file.size", LIMITS["min_size"] <= X <= LIMITS["max_size"] and LIMITS["min_size"] <= Y <= LIMITS["max_size"],
-            f"{X}x{Y}", (X, Y), "4..256")
+            f"{X}x{Y}", (X, Y), "4..512")
     rep.add("file.layers", m.layers == LIMITS["layers"], f"{m.layers} voxel layers", m.layers, 23)
     ver_ok = m.game_version.startswith("1.1.") and raw_zip.get("version.txt", "").strip() == m.game_version
     rep.add("file.version", ver_ok, f"{m.game_version} (generator writes {GAME_VERSION})", m.game_version, "1.1.x")
