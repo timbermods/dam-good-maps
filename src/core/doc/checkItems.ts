@@ -19,6 +19,9 @@ export interface CheckItem {
   fix?: FixOp[];
   /** The problem lies in the region the last edit changed. */
   here?: boolean;
+  /** A real place's own problem, there when it was opened: listed, never noted in the exported map's
+   *  description, so an unedited place exports as the same file (D3). */
+  own?: boolean;
 }
 
 /** A rectangle of tiles, inclusive. */
@@ -200,7 +203,7 @@ export function groupChecks(s: MapSession, v: Validation, before: Validation | n
     if (c.ok) continue;
     if (place) {
       if (c.class === "load") out.blocking.push(checkItem(s, c));
-      else if (!c.advisory && PLACE_WARNING_CHECKS.has(c.id)) out.warnings.push(checkItem(s, c));
+      else if (!c.advisory && PLACE_WARNING_CHECKS.has(c.id)) out.warnings.push(before && existedBefore(c, before) ? { ...checkItem(s, c), own: true } : checkItem(s, c));
       else out.advisory.push(informationItem(checkItem(s, c)));
     } else if (before && existedBefore(c, before)) out.existing.push(checkItem(s, c));
     else if (c.advisory) out.advisory.push(checkItem(s, c));

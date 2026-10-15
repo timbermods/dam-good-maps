@@ -1394,7 +1394,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
+  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
+  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
 }
 
