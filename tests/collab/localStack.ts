@@ -69,6 +69,8 @@ export interface Stack {
   relay: { stop(): void; start(): void };
   /** The session page (the real worker, the real client; tests/collab/sessionPage.ts), when asked for with `sessionPage`. */
   sessionUrl: string;
+  /** The app itself, built the way the site is (the editor with its Together panel), when asked for with `app`. */
+  appUrl: string;
   stop(): Promise<void>;
 }
 
@@ -82,6 +84,11 @@ export async function buildSessionPage(outDir: string): Promise<void> {
     worker: { format: "es" },
     build: { outDir, emptyOutDir: true, target: "es2022", minify: false, rollupOptions: { input: path.join(here, "session.html") } },
   });
+}
+
+/** The app built the way the site is (the e2e build, which shows the forces), into a folder, to be served from any path. */
+export async function buildApp(outDir: string): Promise<void> {
+  await build({ root, mode: "e2e", logLevel: "silent", base: "./", build: { outDir, emptyOutDir: true, sourcemap: false } });
 }
 
 /** The harness page's script, bundled from tests/collab/harness.ts (and src/collab). */
@@ -105,6 +112,8 @@ export interface StackOptions {
   vars?: Record<string, string>;
   /** Build and serve the session page (the real worker); takes a little longer to start. */
   sessionPage?: boolean;
+  /** Build and serve the app (the page's own Together panel on the real function and relay); takes a minute to build. */
+  app?: boolean;
 }
 
 export async function startStack(options: StackOptions = {}): Promise<Stack> {
@@ -116,7 +125,30 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     // the relay
     const turnPort = await freeUdpPort();
     const require = createRequire(import.meta.url);
-    const Turn = require("node-turn") as new (o: object) => { start(): void; stop(): void };
+    type Addr = { address: string; port: number };
+    type Allocation = { mappedAddress: Addr; channelBindings: Record<number, Addr>; sockets: { send(data: Buffer, port: number, address: string): void }[] };
+    const Turn = require("node-turn") as new (o: object) => {
+      start(): void;
+      stop(): void;
+      allocations: Record<string, Allocation>;
+      network: { sockets: { on(e: "message", fn: (data: Buffer, from: Addr) => void): void }[] };
+    };
+    // node-turn answers a ChannelBind without MESSAGE-INTEGRITY, which the browsers do not accept: they retransmit it for about 40 s
+    // and then fail the whole connection (every session dropped about a minute in). It also ignores the ChannelData a browser sends
+    // once the bind is accepted. The real relay does both properly; here the bind is answered with its integrity and the
+    // client's ChannelData is relayed to the bound peer (the other direction, relay to client, node-turn already does).
+    const bind = require("node-turn/lib/methods/channelBind") as { prototype: { channelBind(msg: unknown, reply: { addAttribute(n: string): void; resolve(): void }): void } };
+    const answered = bind.prototype.channelBind;
+    if (!(bind.prototype as { patched?: boolean }).patched)
+      bind.prototype.channelBind = function (msg, reply) {
+        const resolve = reply.resolve.bind(reply);
+        reply.resolve = () => {
+          reply.addAttribute("message-integrity");
+          resolve();
+        };
+        return answered.call(this, msg, reply);
+      };
+    (bind.prototype as { patched?: boolean }).patched = true;
     const turn = new Turn({
       listeningPort: turnPort,
       listeningIps: ["127.0.0.1"],
@@ -130,6 +162,22 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       debugLevel: "OFF",
     });
     turn.start();
+    // (a relay that is stopped and started again has new sockets)
+    const seen = new WeakSet<object>();
+    const relayChannelData = () => {
+      for (const socket of turn.network.sockets) {
+        if (seen.has(socket)) continue;
+        seen.add(socket);
+        socket.on("message", (data, from) => {
+          // ChannelData (RFC 8656 section 12): its first two bits are 01
+          if (data.length < 4 || (data[0] & 0xc0) !== 0x40) return;
+          const allocation = Object.values(turn.allocations).find((a) => a.mappedAddress.address === from.address && a.mappedAddress.port === from.port);
+          const peer = allocation?.channelBindings[data.readUInt16BE(0)];
+          if (allocation && peer) allocation.sockets[0].send(data.subarray(4, 4 + data.readUInt16BE(2)), peer.port, peer.address);
+        });
+      }
+    };
+    relayChannelData();
     let relayUp = true;
     const relay = {
       stop: () => {
@@ -143,7 +191,10 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         relayUp = false;
       },
       start: () => {
-        if (!relayUp) turn.start();
+        if (!relayUp) {
+          turn.start();
+          relayChannelData();
+        }
         relayUp = true;
       },
     };
@@ -189,7 +240,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       wrangler.stdout!.on("data", onData);
       wrangler.stderr!.on("data", onData);
       wrangler.on("exit", (code) => reject(new Error(`wrangler dev exited (${code}):\n${log}`)));
-      setTimeout(() => reject(new Error(`wrangler dev did not start in 90 s:\n${log}`)), 90_000);
+      setTimeout(() => reject(new Error(`wrangler dev did not start in 180 s:\n${log}`)), 180_000);
     });
     await ready;
 
@@ -208,10 +259,30 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       });
       await buildSessionPage(sessionDir);
     }
-    const TYPES: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json" };
+    let appDir: string | null = null;
+    if (options.app) {
+      appDir = mkdtempSync(path.join(tmpdir(), "dgm-collab-app-"));
+      const dir = appDir;
+      cleanups.push(() => {
+        try {
+          rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        } catch {
+          /* left to the system's temp cleanup */
+        }
+      });
+      await buildApp(appDir);
+    }
+    const TYPES: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav" };
     const page = createServer((req, res) => {
-      const url = (req.url ?? "/").split("?")[0];
-      if (sessionDir && url.startsWith("/session/")) {
+      const url = decodeURIComponent((req.url ?? "/").split("?")[0]);
+      if (appDir && url.startsWith("/app/")) {
+        // (the site's own headers: the water's threads need the page cross-origin isolated)
+        const rel = path.normalize(url.slice("/app/".length) || "index.html");
+        let file = path.join(appDir, rel.endsWith(path.sep) || rel === "." ? path.join(rel, "index.html") : rel);
+        if (!file.startsWith(appDir)) return void res.writeHead(403).end();
+        if (!existsSync(file)) return void res.writeHead(404).end();
+        res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream", "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" }).end(readFileSync(file));
+      } else if (sessionDir && url.startsWith("/session/")) {
         const file = path.join(sessionDir, path.normalize(url.slice("/session/".length) || "session.html"));
         if (file.startsWith(sessionDir) && existsSync(file)) res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
         else res.writeHead(404).end();
@@ -228,7 +299,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         }),
     );
 
-    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, turnPort, relay, stop };
+    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, appUrl: `http://127.0.0.1:${pagePort}/app/`, turnPort, relay, stop };
   } catch (e) {
     await stop();
     throw e;

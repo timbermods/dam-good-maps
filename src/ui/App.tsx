@@ -41,6 +41,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { Together, type Keep } from "../collab/together";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
@@ -228,6 +229,21 @@ export function App() {
   const [FrameMod, setFrameMod] = useState<ComponentType<LoadingFrameProps> | null>(null);
 
   const entry = useRef<YourMapEntry | null>(null);
+  /** Edit the map with someone else (Together): the page's one session object, kept as the editor remounts for each map. */
+  const sharedHooks = useRef<{ open(data: SessionOpen): void; keep(k: Keep): void; prepare(): Promise<void> }>();
+  const together = useMemo(
+    () =>
+      new Together({
+        worker: () => generator.collab,
+        hasMap: () => !!entry.current,
+        open: (data) => sharedHooks.current!.open(data),
+        keep: (k) => sharedHooks.current!.keep(k),
+        prepare: () => sharedHooks.current!.prepare(),
+      }),
+    [],
+  );
+  /** The worker that makes a map for the host while a session is on (the session lives in the open map's worker, which must stay). */
+  const sharedGen = useRef<ReturnType<typeof createBackground> | null>(null);
   /** The open map's land and water as the editor shows it, for Your maps' picture. */
   const picture = useRef<(() => MapPicture | null) | null>(null);
   const nameRef = useRef("");
@@ -353,16 +369,24 @@ export function App() {
     return { entry: e, project: p.bytes };
   }
 
-  /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
-  async function replacing<T>(load: () => Promise<T>): Promise<T> {
+  /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. In a shared session this is the
+   *  host's alone (§9): the guest is told first, and sent the new map once it is open (`announced`: it was told already). */
+  async function replacing<T extends { info: { name: string } }>(load: () => Promise<T>, announced = false): Promise<T> {
     setReplacingMap(true);
+    const hosting = together.isHost;
     try {
+      if (hosting && !announced) together.announce("a new map");
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
       switching.current = true;
-      return await load();
+      const data = await load();
+      if (hosting) await together.newMap(data.info.name);
+      return data;
+    } catch (e) {
+      if (hosting) together.cancelAnnounce();
+      throw e;
     } finally {
       switching.current = false;
       discardAllowed.current = false;
@@ -396,6 +420,29 @@ export function App() {
     openedVersion.current = data.info.version;
     if (!isNew) refresh();
   }
+
+  // what the session asks of the page: a guest's copy of the host's map, and the session kept in Your maps (§8)
+  sharedHooks.current = {
+    open: (data) => enterEditor(data, { kind: data.info.kind === "generated" ? "generated" : "import" }),
+    // (the map in the worker is the session's, and the entry open is its row: it is saved now, as the session stands. When the
+    // host opens another map, the old one is saved under its row from the project the session kept, so a guest's old map is kept
+    // too, edited or not)
+    keep: (k) => {
+      const e = entry.current;
+      if (!e) return;
+      kept.current = true;
+      if (k.reason === "new-map") {
+        const old: YourMapEntry = { ...e, name: k.name || e.name, editedAt: new Date().toISOString(), bytes: k.project.length };
+        saver.changed(e.id, () => ({ entry: old, project: k.project }));
+      } else saver.changed(e.id, snapshot);
+      void saver.flush(e.id);
+    },
+    // (a guest's own map is saved first: the host's map takes its place in the worker)
+    prepare: async () => {
+      await pendingEdits.current?.();
+      await saver.flush();
+    },
+  };
 
   /** The open map changed size (a crop, or its undo or redo, D340): the editor opens the session's map again, the camera and
    *  the minimap fitted to it; the map stays the same row of Your maps, with its new size. */
@@ -450,7 +497,15 @@ export function App() {
   }
 
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
+  /** A guest's map is the host's: changing the whole map is the host's alone (§9). True, with the one-line reason said, for a guest. */
+  function refuseGuest(): boolean {
+    if (!together.isGuest) return false;
+    setNote(`Only ${together.state.other?.name ?? "the host"} can open another map while you are together. Leave first to open one yourself.`);
+    return true;
+  }
+
   function guard(action: () => void, what: string) {
+    if (refuseGuest()) return;
     if (!keeping.current && session && session.edits > 0) {
       setConfirm({ text: `${what} closes ${nameRef.current}, which this browser isn't keeping. Download the project first to keep its edits.`, yes: "Close it", onYes: () => {
           discardAllowed.current = true;
@@ -734,13 +789,18 @@ export function App() {
       setMaking("making");
     }
     performance.mark("dgm:generate");
+    // in a shared session the host makes the map in a worker of its own, so Cancel never ends the session's; the guest is told first (§9)
+    const shared = over && together.isHost;
+    const maker = shared ? createBackground() : null;
+    sharedGen.current = maker;
+    if (shared) together.announce("a new map");
     try {
       if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
-      const r = await generator.generate(
+      const r = await (maker?.api ?? generator).generate(
         s,
         proxy((p: GenProgress) =>
           setProgress((q) =>
@@ -754,8 +814,10 @@ export function App() {
         seedWord,
       );
       if (id !== runId.current) return null;
+      maker?.stop();
       // (the end-to-end build lets a test make the first maps fail: dgm.forceFail)
       if (!r.passed || (globalThis as unknown as Window).dgm?.forceFail?.()) {
+        if (shared) together.cancelAnnounce();
         const failed = `No valid map after ${r.attempts} attempts.${session ? " Try another seed." : ""}`;
         // the open map stays, and the seed box says its seed again, not the one that failed
         if (session?.kind === "generated" && session.spec) setSeedText(String(session.spec.seed));
@@ -780,17 +842,20 @@ export function App() {
       made++;
       performance.mark("dgm:generated");
       // the map is the editor's from the start: there is no step between making it and shaping it
-      enterEditor(await replacing(() => generator.refine()), { kind: "generated" });
+      enterEditor(await replacing(() => (shared ? generator.openProject(r.project) : generator.refine()), shared), { kind: "generated" });
       performance.mark("dgm:opened");
       searchVersion(r);
       setMaking(null);
       return r;
     } catch (e) {
       if (id !== runId.current) return null;
+      if (shared) together.cancelAnnounce();
       if (over) setMaking({ failed: words(e) });
       else setError(words(e));
       return null;
     } finally {
+      maker?.stop();
+      if (sharedGen.current === maker) sharedGen.current = null;
       if (id === runId.current) {
         discardAllowed.current = false;
         setBusy(false);
@@ -806,6 +871,17 @@ export function App() {
     cancelling.current = true;
     runId.current++;
     stopBackground();
+    // (a map made for a shared session is made in a worker of its own: stopping it leaves the session and its map as they are)
+    if (sharedGen.current) {
+      sharedGen.current.stop();
+      sharedGen.current = null;
+      together.cancelAnnounce();
+      setMaking(null);
+      setProgress(null);
+      setBusy(false);
+      cancelling.current = false;
+      return;
+    }
     setMaking("back");
     setProgress(null);
     try {
@@ -1129,7 +1205,7 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
-      <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
+      <button type="button" class="linkish" title="Open the version that was found" onClick={() => (refuseGuest() ? setVersion(null) : void openVersion(version.response))}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>
@@ -1219,6 +1295,7 @@ export function App() {
         onStopCompare={() => setCompare(null)}
         onKeepStep={(k, branch) => void keepStep(k, branch)}
         notice={message}
+        together={together}
       />
       {confirmDialog}
       {makingDialog}

@@ -35,6 +35,8 @@ function failingPage(extra: Record<string, unknown> = {}) {
     pendingEdits: { current: null },
     saver: { flush: async () => void (env.keeping.current = false), changed() {} },
     setReplacingMap() {},
+    // (no shared session: the page is alone)
+    together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null },
     ...extra,
   });
   return env as Record<string, any>;

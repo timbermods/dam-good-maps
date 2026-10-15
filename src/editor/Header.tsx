@@ -144,7 +144,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void; locked?: string }) {
   const [text, setText] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
@@ -193,7 +193,7 @@ function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRenam
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
+        <button type="button" class={`title-button${p.locked ? " locked" : ""}`} title={p.locked ?? (p.clipped ? p.name : "Rename")} aria-disabled={p.locked ? true : undefined} onClick={() => (p.locked ? undefined : setText(p.name))}>
           {p.name}
         </button>
       </h1>
@@ -240,6 +240,8 @@ export interface HeaderProps {
   name: string;
   /** Rename through the core (D443): null when stored, else the core's reason. */
   onRename(name: string): Promise<string | null>;
+  /** Why the name can't be changed here (a guest's: the host names the shared map), when it can't. */
+  renameLocked?: string;
   /** Why this browser isn't keeping the map, when it isn't; else empty. */
   saveState: string;
   canUndo: boolean;
@@ -270,6 +272,8 @@ export interface HeaderProps {
   onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
+  together?: ComponentChildren;
 }
 
 export function Header(p: HeaderProps) {
@@ -383,7 +387,7 @@ export function Header(p: HeaderProps) {
         Your maps
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
@@ -408,6 +412,7 @@ export function Header(p: HeaderProps) {
           {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
         </button>
         {p.look}
+        {p.together}
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             File

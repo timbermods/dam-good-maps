@@ -33,11 +33,13 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). `action` is a
+ *  quiet button beside it ("See it" on a shared session's water note). */
 export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
+  action?: { label: string; title: string; run(): void };
 }
 
 export interface SessionSlice {
@@ -669,6 +671,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
+    if (u.routed && !Object.keys(u.view).length) return;
     // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
     // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
     if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {

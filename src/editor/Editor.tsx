@@ -45,6 +45,8 @@ import { useBlockTool } from "./block/useBlockTool";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
+import { useCollab } from "./collab/useCollab";
+import type { Together } from "../collab/together";
 import { useCompare } from "./compare/useCompare";
 import { editorView } from "./render/editorView";
 
@@ -110,6 +112,8 @@ export interface EditorProps {
   onKeepStep?(step: number, branch: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
+  /** The page's shared session (Together): the editor shows it and the other player's cursor. */
+  together?: Together;
 }
 
 export default function Editor(props: EditorProps) {
@@ -135,6 +139,7 @@ export default function Editor(props: EditorProps) {
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  Object.assign(ed, useCollab(ed, props));
   Object.assign(ed, useCompare(ed, props));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);

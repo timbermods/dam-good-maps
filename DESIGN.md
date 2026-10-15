@@ -879,6 +879,34 @@ API, every pinned hash, and every role and accessible name the tests use.
   their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
   <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
 
+## Together (collaborative editing, part 6a; D486, `docs/COLLAB-BRIEF.md`)
+
+Defaults the page session built; each is one place in the code, so any is easy to change (the product questions behind them
+go to Kyler as design direction).
+
+- **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
+  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,400px it is the icon alone, 40px square like Undo and Redo, and below about
+  1,340px the Look button reads just **Look** (its menu shows the current look) so the longest name still fits two lines at
+  1280. While a session is live the button wears the other
+  player's colour as a 10px dot (hollow while they are away; a badge on the icon's corner when it is icon-only), and its accessible name says who ("Together with Bo").
+  Tooltip: "Edit this map with someone else".
+- **The panel** opens under the button, right-aligned, in the checks list's and the menus' panel style (the panel colour, the
+  rule border, the page's radius and shadow), 300px wide, one column, 12px inside, an 8px gap. Alone: the name field, **Invite**
+  across the panel's width, a quiet "or", the code field with **Join**. After Invite: the room code in a large monospace
+  (1.9rem, tracked out), **Copy** beside it, "Waiting for them to join…", **Cancel**. Live: the two players, each a swatch and a
+  name ("you" quiet beside the player's own), then **Go to <name>** (tooltip "Move the camera to where they are looking") and **Leave** ("Leave and keep the map") as two plain buttons. A guest's map title is not clickable while together (its tooltip: "The host names the shared map"). Paused: "<name> has left.
+  Waiting to reconnect." with **Invite again** (the host) or the code field and **Join again** (the guest). A failure is one
+  line in the page's bad colour at the foot. Nothing is lit, no chosen option is a cell in a well (there is no choice to make).
+- **The two colours** are the session's (`PLAYER_COLOURS`, `src/core/collab/wire.ts`; tokens `--collab-host` and
+  `--collab-guest` in `page.css`): the host **#d6338f** (a magenta pink), the guest **#7458ee** (a violet). They were chosen
+  against the map and the page: not the land's greens and browns, not the water's blue, not the contamination's orange-red and not
+  the checks' green and amber, and a swatch, a dot or a marker in either reads on the light page and the dark one (white words on
+  either colour keep 4.4:1 or more). One pair serves both themes.
+- **The other's cursor** is a small arrow in their colour (a white outline and a soft shadow, so it reads over any land), with a
+  pill beside it in the same colour: their name and, after a hairline, the tool they hold. It is drawn over the map by the 3D
+  view's projection like the sources' markers, never in the scene, and goes a second and a half after their last packet.
+- **Captures:** `docs/design/collab-page-*.jpg`, light and dark at 1920×1080, 2560×1440 and 1280×800.
+
 ## The header and top-right controls (polish audit, 2026-10-14)
 
 - **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the

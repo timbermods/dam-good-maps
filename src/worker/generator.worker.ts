@@ -17,7 +17,8 @@ import { viewBuffers, type MapView, type SoilView, type WaterView } from "../ren
 import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
-import { collabApi } from "./collab";
+import { collabActive, collabApi } from "./collab";
+import { collabEditApi } from "./collabEdit";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -115,6 +116,12 @@ function connectChecksWhenEditable() {
   ed.useChecksWorker(client);
 }
 let droughtFn: ((n: ed.DroughtLineNews) => void) | null = null;
+
+/** While a shared session is on (collabActive), an edit is ordered through it instead of applied here (worker/collabEdit.ts);
+ *  its answer carries no news of the map, which comes as the session's own update. */
+function routed<A extends unknown[], D, S>(direct: (...a: A) => D, shared: (...a: A) => S): (...a: A) => D | S {
+  return (...a) => (collabActive() ? shared(...a) : direct(...a));
+}
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -213,13 +220,13 @@ const api = {
   collab: proxy(collabApi),
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
-  apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
+  apply: routed((op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)), (...a) => collabEditApi.apply(...a).then(sendUpdate)),
   /** A slider's step: steps a moment apart with the same key are one undo step. */
-  applyStep: (op: EditOp, label: string, key: string) => sendUpdate(ed.applyStep(op, label, key)),
-  applyAll: (ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyAll(ops, label, origin)),
-  undo: () => sendUpdate(ed.undo()),
-  redo: () => sendUpdate(ed.redo()),
-  jump: (index: number) => sendUpdate(ed.jump(index)),
+  applyStep: routed((op: EditOp, label: string, key: string) => sendUpdate(ed.applyStep(op, label, key)), (...a) => collabEditApi.applyStep(...a).then(sendUpdate)),
+  applyAll: routed((ops: EditOp[], label: string, origin?: OpOrigin) => sendUpdate(ed.applyAll(ops, label, origin)), (...a) => collabEditApi.applyAll(...a).then(sendUpdate)),
+  undo: routed(() => sendUpdate(ed.undo()), () => collabEditApi.undo().then(sendUpdate)),
+  redo: routed(() => sendUpdate(ed.redo()), () => collabEditApi.redo().then(sendUpdate)),
+  jump: routed((index: number) => sendUpdate(ed.jump(index)), (...a) => sendUpdate(collabEditApi.jump(...a))),
   /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
   keepVersion(k: number, parentId?: string) {
     const v = ed.keepVersion(k, parentId);
@@ -228,7 +235,7 @@ const api = {
   /** A version's project opened by replaying it (a worker of the page's own), settled: `project` then has its stored map. */
   openVersion: (bytes: Uint8Array) => ed.openVersion(bytes),
   // the shelf: an object or a source placed, as one step
-  applyTool: (req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)),
+  applyTool: routed((req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)), (...a) => collabEditApi.applyTool(...a).then(sendUpdate)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
   prepareWeather: () => ed.prepareWeather(),
@@ -243,50 +250,51 @@ const api = {
   },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
-  moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
+  moveStartTo: routed((x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)), (...a) => collabEditApi.moveStartTo(...a).then(sendUpdate)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
-  plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
-  paintAt: (params: PaintParams) => sendUpdate(ed.paintAt(params)),
+  plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
+  paintAt: routed((params: PaintParams) => sendUpdate(ed.paintAt(params)), (...a) => collabEditApi.paintAt(...a).then(sendUpdate)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
-  removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
+  removeAt: routed((tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)), (...a) => collabEditApi.removeAt(...a).then(sendUpdate)),
   objectsInArea: (tiles: number[]) => ed.objectsInArea(tiles),
   /** Remove unfed water and Fill (D387, D394): what they would do, then doing it, one undo step. */
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
-  removeUnfedWater: (tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)),
+  removeUnfedWater: routed((tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)), (...a) => collabEditApi.removeUnfedWater(...a).then(sendUpdate)),
   fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
-  /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. */
+  /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. A crop changes the map's size, which
+   *  a shared session cannot carry: refused with a plain line while one is on. */
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
-  cropTo: (r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)),
-  fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
-  moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
-  clearEverything: () => sendUpdate(ed.clearEverything()),
+  cropTo: routed((r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)), () => sendUpdate(collabEditApi.cropTo())),
+  fillAt: routed((x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)), (...a) => collabEditApi.fillAt(...a).then(sendUpdate)),
+  moveObjectBy: routed((id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
+  clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
-  applySelection: (ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)),
+  applySelection: routed((ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)), (...a) => collabEditApi.applySelection(...a).then(sendUpdate)),
   /** A brush stroke that clears the sources it passed over (D249): one undo step. */
-  strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
+  strokeClearing: routed((op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)), (...a) => collabEditApi.strokeClearing(...a).then(sendUpdate)),
   // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
   // Esc drops it
   /** The water the page shows as it starts a force: the force's water starts from it. */
-  forceShows: (water: WaterView | null) => ed.forceShows(water),
-  forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
+  forceShows: routed((water: WaterView | null) => ed.forceShows(water), (...a) => collabEditApi.forceShows(...a)),
+  forceStart: routed((req: ed.ForceRequest) => sendStarted(ed.forceStart(req)), (...a) => collabEditApi.forceStart(...a)),
   /** Try another: the last kept force again, with the next seed. `pins`: the row's current
    *  per-detail state (D309); left out, every detail re-rolls. */
-  forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
+  forceAgain: routed((pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)), (...a) => collabEditApi.forceAgain(...a)),
   // (the browser takes the changed rows only, written into its own copy, #312)
-  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps, true)),
+  forceAdvance: routed((steps: number) => sendFrame(ed.forceAdvance(steps, true)), (...a) => collabEditApi.forceAdvance(...a)),
   /** A painted Lift's fault as it is painted now. */
-  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
+  forcePaint: routed((path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)), (...a) => collabEditApi.forcePaint(...a)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
-  forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+  forceStop: routed((gesture?: number) => sendUpdate(ed.forceStop(gesture)), (...a) => collabEditApi.forceStop(...a).then(sendUpdate)),
   /** Another of the force's rolls (D488): the next or the one before (`step`), or roll `index`. */
-  forceRoll: (to: { step: 1 | -1 } | { index: number }) => sendUpdate(ed.forceRoll(to)),
+  forceRoll: routed((to: { step: 1 | -1 } | { index: number }) => sendUpdate(ed.forceRoll(to)), (...a) => collabEditApi.forceRoll(...a).then(sendUpdate)),
   /** The player moved on from the rolls (another tool, Esc, a save): only the roll shown stays. */
-  forceSettle: () => ed.forceSettle(),
+  forceSettle: routed(() => ed.forceSettle(), () => collabEditApi.forceSettle()),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
   forceCancel(gesture?: number) {
-    const v = ed.forceCancel(gesture);
+    const v = collabActive() ? collabEditApi.forceCancel(gesture) : ed.forceCancel(gesture);
     return transfer(v, viewBuffers(v) as Transferable[]);
   },
   async settingsResponse(): Promise<GenerateResponse> {

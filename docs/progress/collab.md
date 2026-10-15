@@ -12,12 +12,12 @@ changed. One small change in `src/core/doc/session.ts`: `takeBack` now also rest
 comment says it leaves everything "exactly as it was" (the claims seam takes a refused step back and the peers must keep
 the same numbers), and `applyAll`'s refusal path resets it (a group whose later operation fails burned numbers no replica sees).
 
-**Built: undo with two players** (piece 3; brief �5): `undo` and `redo` entries naming the author's own action, the host's and
+**Built: undo with two players** (piece 3; brief �5): `undo` and `redo` entries naming the author's own action, the host's and
 every peer's identical decision from the records, blocked and named where an active later action is built on the same ground,
 freed when it is undone, stored values restored (never a replay onto changed land), the water re-settling in the background with
 a seam for the water notes. `tests/contract/collabUndo.test.ts` and the nightly `collabUndoSoak.heavy.test.ts`. Left: the claims
 check on an undo's footprint (the seam is there), the water note (#406), the page's Undo and Redo keys on `undoPlan` and
-`redoPlan`, display names and feature places in the lines, a measure at 256� with the busy windows.
+`redoPlan`, display names and feature places in the lines, a measure at 256� with the busy windows.
 
 **Built: the session layer** (piece 5; brief §2–§9): `core/collab/peer.ts` `CollabPeer` (the host or the guest beside the map; claims ordered through the host with the log;
 undo and redo; the water notes worked out on each peer for its own area; presence; the pause, rejoin with a new code and the whole-map change), `wire.ts` with
@@ -46,7 +46,7 @@ Firefox as the second peer runs only in CI here (Playwright’s Firefox does not
 4. **Presence. Built** in the session layer (cursor, tool, stroke, camera as events; the page draws them and "Go to").
 5. **The transport and the room-code function. Built** (#392): the managed TURN relay and the Worker (D431). **The session layer. Built**
    (this PR): joining, rejoin, a dropped peer (the session pauses read-only, brief §7), claims, undo and presence over it.
-6. **The page**: Invite, join, claims, outlines, notes, presence, Your maps, the force preview on `previewForce`'s basis. **Its first task: busy windows at 256².** Forces, Select, placement strokes, Fill, Remove unfed water and weathering strokes (and any edit naming a generated tree or bush) wait for the settled water, a from-scratch settle (about 9 s) after any water-changing entry, so they stay busy while the other player paints. Measure it with two painters. If they starve, the author's page records the water and trees it showed (as single-player does for shore, pools and moist, with `weatherKeep` skipping when `keep` is given), so only forces wait.
+6. **The page** (6a built, see below): Invite, join, claims, outlines, notes, presence, Your maps, the force preview on `previewForce`'s basis. **Its first task: busy windows at 256².** Forces, Select, placement strokes, Fill, Remove unfed water and weathering strokes (and any edit naming a generated tree or bush) wait for the settled water, a from-scratch settle (about 9 s) after any water-changing entry, so they stay busy while the other player paints. Measure it with two painters. If they starve, the author's page records the water and trees it showed (as single-player does for shore, pools and moist, with `weatherKeep` skipping when `keep` is given), so only forces wait.
 7. **Two-browser tests over the real relay** (D486): the connection’s (#392) and the session layer’s (`tests/collab/session.spec.ts`: reconnects, a conflict, a dropped peer) are built; the page’s own UI test comes with the page.
 
 ## What part 1 settled
@@ -131,9 +131,35 @@ Firefox as the second peer runs only in CI here (Playwright’s Firefox does not
   that holds most of the writes ("at the north lake", "by the start"), else a compass word. Only a feature's own ground counts
   (a lake inside its outline, a river near its path), so a far-off edit is never "at the river"; landforms are not named.
 - **Speed depends on the milestone's step-splice.** An undo rebuilds from the whole log (`MapSession.followLog`: the log is
-  copied and the build is incremental from the previous map). Fast at 48�; at 256� with a long log it needs the core step-splice
+  copied and the build is incremental from the previous map). Fast at 48�; at 256� with a long log it needs the core step-splice
   the milestone is building for single-player and collab undo alike, and a measure with the busy windows (piece 6).
 - **Try another** (a force that replaces another) is not an entry kind, so undoing one that restored the replaced force is not
   covered.
 - **Claims** are not built: the undo's effect passes through the seam like any entry (its writes are the action's), so a claim
   check can refuse an undo that reaches into the other player's area.
+
+## Part 6a: the Together panel (the page)
+
+Built: the header's **Together** button and its panel (alone: name, Invite with the code and Copy, Join; live: both players,
+Go to, Leave; paused: "<name> has left. Waiting to reconnect.", Invite again or Join again); the page's `Together` controller
+(`src/collab/together.ts`: one object for the page's life, the client's events as one plain state); every edit routed through
+`submit` from the moment Invite is pressed (`src/worker/collabEdit.ts`, chosen in `generator.worker.ts` by `collabActive()`;
+undo and redo are the session's own; a force is ordered as a gesture when kept); the map's updates the session orders taken as an
+edit's answer (`src/editor/collab/useCollab.tsx`, after the edits already on their way, held until the 3D view is ready);
+refusals, water notes with **See it**, "<name> is opening a new map", desync and "unavailable" in the page's note line; the other
+player's cursor with name and tool; the host's whole-map changes (the guest told first, the new map made in a worker of its own
+so Cancel never ends the session); a guest's attempt to change the map refused quietly; the `keep` events saved to Your maps
+on both sides. `tests/collab/page.spec.ts` drives the real page in two browser processes (Chrome and Edge or Firefox).
+
+Falls short, for 6b and after: the claims tools and outlines; a stroke before release and a force playing out on the other side
+(a force has no play-out on the author's side either in a session, it lands when ordered); Try another in a session; History's
+jump (refused); slider steps are separate actions (they cannot join into one undo step); a guest who reloads the page cannot
+rejoin as the same player yet (a new code and the host's map, as a new guest); the force's preview basis (`previewForce`) is not
+used, so a force is refused by the conservative rule if the map changed under it; an edit of over 256 operations (a huge
+planting) is refused by the message schema.
+
+**The local relay (found while chasing a flaky page test).** `node-turn`, the relay in `tests/collab/localStack.ts`, answered a ChannelBind
+without MESSAGE-INTEGRITY, so every browser retransmitted it for about 40 s and then failed the whole connection: any session
+on the local stack dropped about a minute in (the page spec's "refusal" test sometimes landed in that window). It also ignores a
+client's ChannelData once a bind works. The stack now answers the bind properly and relays the client's ChannelData; a session
+now lasts (3 minutes idle without a drop). The real relay is not affected.
