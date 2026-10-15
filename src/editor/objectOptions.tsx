@@ -84,7 +84,7 @@ export function objectGroups(template: string, o: ObjectOptions, set: (c: Partia
           step={0.5}
           value={strength}
           words={strengthWords(template, strength)}
-          tipText="Water given each second; negative drains"
+          tipText="Water given or drained each second"
           onInput={(v) => set({ strength: v })}
         />
       ),
