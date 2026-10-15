@@ -22,8 +22,8 @@ const FILL = 1.15;
 const SKY = 0.08;
 /** The moment the water and the wind are held at. */
 const CLOCK = 6;
-/** The longest wait for the look's fields (the occlusion and the moving water's, from the page's bake worker)
- *  before the frame is drawn anyway: a save never waits long on its picture. */
+/** The longest wait for the High look's occlusion (from the page's bake worker) before the frame is drawn anyway:
+ *  a save never waits long on its picture. (The water is drawn still: nothing waits on the moving water.) */
 const SETTLE_MS = 3000;
 
 /** The picture's turn (the renderer's yaw): the game's new-game camera, the start's orientation
