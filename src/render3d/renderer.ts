@@ -65,7 +65,7 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
-import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
+import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
@@ -3081,7 +3081,8 @@ export class MapRenderer {
           this.stepSlice(wheelDelta(ev) < 0 ? 1 : -1);
           return;
         }
-        this.zoom(Math.exp(wheelDelta(ev) * 0.0012));
+        // (toward the point under the pointer, which stays under it)
+        this.zoom(Math.exp(wheelDelta(ev) * 0.0012), ev.clientX, ev.clientY);
       },
       { passive: false },
     );
@@ -3161,10 +3162,42 @@ export class MapRenderer {
     this.glideFrame = requestAnimationFrame(step);
   }
 
-  zoom(factor: number): void {
+  /** Zoom by `factor` (below 1 in). Given a point on the screen (CSS client coordinates: the wheel's pointer), about the
+   *  ground under it, which stays under it: the target moves toward that point by the distance's ratio. Over the sky or
+   *  off the map, about the ground at the map's mean height, else about the screen's centre. At the zoom's limit nothing moves. */
+  zoom(factor: number, clientX?: number, clientY?: number): void {
     const m = this.map;
     const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
-    this.setView({ distance: Math.min(max, Math.max(min, this.view.distance * factor)) });
+    const from = this.view.distance;
+    const distance = Math.min(max, Math.max(min, from * factor));
+    if (distance === from) return;
+    const hit = m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null;
+    if (!m || !hit) {
+      this.setView({ distance });
+      return;
+    }
+    // (the top-down view looks straight down: its height is not part of what the pointer sees)
+    const target = zoomTargetToward(this.view.target, hit.point, from, distance, { W: m.W, H: m.H, maxY: hit.maxY });
+    if (this.view.mode === "top") target[1] = this.view.target[1];
+    this.setView({ distance, target });
+  }
+
+  /** The ground point to zoom about under a point on the screen: what the pointer sees (the terrain or the cut, the
+   *  water's surface over water), else the plane at the map's mean height (null: the ray never meets it). */
+  private zoomPoint(clientX: number, clientY: number): { point: [number, number, number]; maxY: number } | null {
+    const m = this.map;
+    if (!m) return null;
+    let sum = 0;
+    let maxY = 0;
+    for (let i = 0; i < m.heights.length; i++) {
+      sum += m.heights[i];
+      if (m.heights[i] > maxY) maxY = m.heights[i];
+    }
+    const seen = this.pickSeen(clientX, clientY);
+    const hit = seen ? this.pickSurface(clientX, clientY, seen) : null;
+    if (hit) return { point: hit.point, maxY };
+    const p = pickPlane(this.rayAt(clientX, clientY), sum / m.heights.length);
+    return p ? { point: p.point, maxY } : null;
   }
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */
