@@ -55,6 +55,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
@@ -2086,7 +2087,7 @@ export class MapRenderer {
   private surge: Surge | null = null;
   private forceFx: ForceEffects | null = null;
 
-  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+  /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
@@ -2125,8 +2126,22 @@ export class MapRenderer {
       if (!m) return 0;
       const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
       return m.heights[i];
-    }));
+    }, () => this.voxelsShown));
   }
+
+  /** The map's voxels as shown, for Erode's stones (one object, read as the map changes). */
+  private voxelsShown: Voxels = ((r: () => MapState | null) => ({
+    get W() {
+      return r()?.W ?? 0;
+    },
+    get H() {
+      return r()?.H ?? 0;
+    },
+    mask: (i: number) => {
+      const m = r();
+      return m ? columnMask(m.source, i) : 0;
+    },
+  }))(() => this.map);
 
   /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null.
    *  The ground as the heat comes, before the eruption raises it (it comes with the force's first

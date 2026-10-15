@@ -562,8 +562,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   surface and its objects stay; no rock that holds back water wears, nor an object's ground or a source's tile; the
   rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
   at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its result writes runs (the operation's `runs`), so
-  any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key), effects and sounds are still
-  to come.
+  any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key) and sounds are still
+  to come. **Its moment** (D240; `render3d/forces.ts` `Wear`, where it starts `render3d/wear.ts`): fine rock dust, the
+  walls' stone ground pale, drifts out of the opening from the rock that went in each stage, more where more went,
+  settling and fading; a few small stones a stage drop from where the rock went, bounce once on the ground below the
+  opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone within two
+  seconds of its land being final, the same in Standard and High, off with reduced motion and in software.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
