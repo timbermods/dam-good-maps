@@ -284,6 +284,10 @@ const api = {
   forcePaint: routed((path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)), (...a) => collabEditApi.forcePaint(...a)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: routed((gesture?: number) => sendUpdate(ed.forceStop(gesture)), (...a) => collabEditApi.forceStop(...a).then(sendUpdate)),
+  /** Another of the force's rolls (D488): the next or the one before (`step`), or roll `index`. */
+  forceRoll: routed((to: { step: 1 | -1 } | { index: number }) => sendUpdate(ed.forceRoll(to)), (...a) => collabEditApi.forceRoll(...a).then(sendUpdate)),
+  /** The player moved on from the rolls (another tool, Esc, a save): only the roll shown stays. */
+  forceSettle: routed(() => ed.forceSettle(), () => collabEditApi.forceSettle()),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
   forceCancel(gesture?: number) {
     const v = collabActive() ? collabEditApi.forceCancel(gesture) : ed.forceCancel(gesture);
