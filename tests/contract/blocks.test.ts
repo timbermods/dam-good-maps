@@ -199,6 +199,40 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.logOps.at(-1)!.op === "blocks" && (s.logOps.at(-1)!.params as BlocksParams).cells).toEqual([at(29, 20), 1 << 8, at(30, 20), 1 << 8, at(31, 20), 1 << 8, at(32, 20), 1 << 8]);
   });
 
+  it("a footprint chains on its own: the whole footprint goes in wherever it is held, whatever the order of its cells", () => {
+    const s = caveSession();
+    // a lone pillar one block high, and a size 3 click on its top: the 3 × 3 above it, symmetric
+    expect(s.apply(op(add("+z", [[10, 10, 7]]))).errors).toEqual([]);
+    const q = blockFalls(s, add("+z", [[10, 10, 8]], 3));
+    expect(q.errors).toEqual([]);
+    const cells = q.added.map(([x, y, z]) => `${x},${y},${z}`).sort();
+    expect(cells).toEqual([9, 10, 11].flatMap((y) => [9, 10, 11].map((x) => `${x},${y},9`)).sort());
+    expect(q.falls).toEqual([]);
+    // a round one is as symmetric: the plus at size 3 is not (the disc of diameter 3 holds the corners), size 4 loses them
+    const round = blockFalls(s, add("+z", [[10, 10, 8]], 4, "round"));
+    const mirror = (c: [number, number, number]) => `${21 - c[0]},${21 - c[1]}`;
+    const xy = new Set(round.added.map(([x, y]) => `${x},${y}`));
+    // (the footprint of an even size is centred between four tiles: its disc maps onto itself through that centre)
+    for (const c of round.added) expect(xy.has(mirror(c)), `${c}`).toBe(true);
+  });
+
+  it("the same click over the edge of a cliff overhangs the same way on a west- and an east-facing one", () => {
+    const s = caveSession();
+    // a pit 8 wide (x 7 to 14): the ground at x = 6 faces east into it, the ground at x = 15 faces west
+    expect(s.apply(op(remove("+z", [[10, 10, 7]], 8))).errors).toEqual([]);
+    expect(s.built.heights[at(10, 10)]).toBe(7);
+    const east = blockFalls(s, add("+z", [[6, 10, 7]], 3));
+    const west = blockFalls(s, add("+z", [[15, 10, 7]], 3));
+    expect(east.errors).toEqual([]);
+    expect(west.errors).toEqual([]);
+    // 3 × 3 on layer 8, each over a pit tile or the rim: all nine
+    expect(east.added.length).toBe(9);
+    expect(west.added.length).toBe(9);
+    const mirrored = east.added.map(([x, y, z]) => `${21 - x},${y},${z}`).sort();
+    expect(west.added.map(([x, y, z]) => `${x},${y},${z}`).sort()).toEqual(mirrored);
+    expect(east.falls.length).toBe(west.falls.length);
+  });
+
   it("a footprint over the edge of the map is clipped, not refused", () => {
     const s = caveSession();
     const q = blockFalls(s, add("+z", [[0, 0, 7]], 3));

@@ -112,31 +112,30 @@ function footprint(size: number, shape: "square" | "round"): [number, number][] 
 export interface BlockTarget {
   cell: [number, number, number];
   plane: [number, number, number];
+  /** Which swept position (an index into `at`) it belongs to. */
+  pos: number;
 }
 
-/** The cells an operation acts on, in sweep order (each swept position's footprint in turn), each
- *  once: an add's are the cells beyond the swept faces, a remove's the swept blocks, each across the
- *  footprint. Cells off the map or the layers are returned as they are (`blockEffect` clips or refuses
- *  them). */
+/** The cells an operation acts on, in sweep order (each swept position's footprint in turn): an add's are
+ *  the cells beyond the swept faces, a remove's the swept blocks, each across the footprint. A cell two
+ *  positions both reach is returned for both. Cells off the map or the layers are returned as they are
+ *  (`blockEffect` clips or refuses them). */
 export function blockTargets(p: BlocksParams): BlockTarget[] {
   const axis = axisOf(p.side);
   const n = NORMAL[p.side];
   const off = footprint(p.size, p.shape ?? "square");
-  const seen = new Set<string>();
   const out: BlockTarget[] = [];
   // (the plane's two axes, in order)
   const u = axis === 0 ? 1 : 0;
   const v = axis === 2 ? 1 : 2;
-  for (const c of p.at) {
+  for (let pos = 0; pos < p.at.length; pos++) {
+    const c = p.at[pos];
     for (const [a, b] of off) {
       const plane: [number, number, number] = [c[0], c[1], c[2]];
       plane[u] += a;
       plane[v] += b;
       const cell: [number, number, number] = p.mode === "add" ? [plane[0] + n[0], plane[1] + n[1], plane[2] + n[2]] : [plane[0], plane[1], plane[2]];
-      const key = `${cell[0]},${cell[1]},${cell[2]}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ cell, plane });
+      out.push({ cell, plane, pos });
     }
   }
   return out;
@@ -243,7 +242,38 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
   const placed = new Set<number>();
   let hidden = 0;
   const solidNow = (x: number, y: number, z: number) => x >= 0 && y >= 0 && x < W && y < H && z >= 0 && z <= BLOCK_TOP_LAYER && (t.solid(y * W + x, z) || placed.has(z * N + y * W + x));
-  for (const { cell: [x, y, z], plane } of blockTargets(p)) {
+  // an add chains: a swept position's cells go in wherever they touch a block, one already there or one added
+  // before, and again and again until none more does, so the order of the cells in a footprint decides
+  // nothing; the next position goes after, in sweep order
+  let pending: number[] = [];
+  const flush = () => {
+    for (let more = pending.length > 0; more; ) {
+      more = false;
+      const rest: number[] = [];
+      for (const cell of pending) {
+        const z = Math.floor(cell / N);
+        const i = cell % N;
+        const x = i % W;
+        const y = (i - x) / W;
+        if (placed.has(cell)) continue;
+        if (NEIGHBOURS.some(([dx, dy, dz]) => solidNow(x + dx, y + dy, z + dz))) {
+          added.push(cell);
+          placed.add(cell);
+          more = true;
+        } else rest.push(cell);
+      }
+      pending = rest;
+    }
+    pending = [];
+  };
+  const taken = new Set<number>();
+  let pos = 0;
+  for (const target of blockTargets(p)) {
+    const { cell: [x, y, z], plane } = target;
+    if (target.pos !== pos) {
+      flush();
+      pos = target.pos;
+    }
     // (a footprint over the map's edge or the layers' is clipped)
     if (plane[0] < 0 || plane[1] < 0 || plane[0] >= W || plane[1] >= H || plane[2] < 0 || plane[2] > BLOCK_TOP_LAYER) continue;
     if (x < 0 || y < 0 || x >= W || y >= H) return refuse(`(${x}, ${y}) is outside the map`);
@@ -257,21 +287,20 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
     const cell = z * N + i;
     if (ground?.objects.has(cell)) return refuse(`an object stands at (${x}, ${y}) in layer ${z}`);
     if (p.mode === "add") {
-      if (t.solid(i, z)) continue;
-      if (NEIGHBOURS.some(([dx, dy, dz]) => solidNow(x + dx, y + dy, z + dz))) {
-        added.push(cell);
-        placed.add(cell);
-      }
-    } else if (t.solid(i, z)) {
+      if (!t.solid(i, z) && !placed.has(cell)) pending.push(cell);
+    } else if (t.solid(i, z) && !taken.has(cell)) {
       // (a remove takes what a viewer sees: a block whose aimed face is buried in the ground stays)
       if (!openBeyond(t, x, y, z, p.side, cut)) continue;
       // (the block an object stands on stays)
       if (ground?.objects.has(cell + N)) return refuse(`an object stands on the block at (${x}, ${y}) in layer ${z}`);
+      taken.add(cell);
       removed.push(cell);
     }
   }
+  flush();
   if (!added.length && !removed.length) return refuse(hidden && p.cut !== undefined ? `nothing below layer ${cut} would change` : p.mode === "add" ? "there is no room for a block there" : "there is no block there to remove");
   added.sort((a, b) => a - b);
+  removed.sort((a, b) => a - b);
   // the plants: one on a tile's top rises or sinks with it; one a block fills in elsewhere, or takes the
   // ground from, goes
   const gone = new Set<string>();

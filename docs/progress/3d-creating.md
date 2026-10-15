@@ -97,9 +97,11 @@ refusals).
   block taken earlier in the sweep opens nothing for the next. To dig into a wall, aim at its open face; to go deeper,
   click again (or hold Shift on the page). If every swept block is buried the operation is refused,
   `there is no block there to remove`.
-- **Chaining (an add):** in sweep order (each swept position's footprint in turn) a block goes into a cell only where it
-  touches a block, one of the terrain or one this operation added earlier, so a drag over air grows a span from the
-  ground across it. A position reached before the span gets to it adds nothing; the support rule still limits the span
+- **Chaining (an add):** a block goes into a cell only where it touches a block, one of the terrain or one this operation
+  added earlier, so a drag over air grows a span from the ground across it. Within one swept position the footprint
+  fills until no more cells touch (the order of its cells decides nothing: a size 3 click gives the same 3 × 3 at an
+  east- or a west-facing edge); across positions it is sweep order, so a position reached before the span gets to it
+  adds nothing; the support rule still limits the span
   (a block more than 3 sideways from support falls and the operation is refused with its line).
 - **`area`** is Select's working area as runs, taken as the brushes take it: a cell (the one beyond the face for an add)
   outside it refuses the operation, `(x, y) is outside the selection`. **`cut`** is the view's cut level (the level
