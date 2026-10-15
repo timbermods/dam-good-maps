@@ -221,7 +221,13 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       const t: [number, number] = [Math.round(p0.x), Math.round(p0.y)];
       return cut !== null && inMap(t) && inside[at(t)] && base.heights[at(t)] > cut ? hidden : why;
     }
-    if (req.verb === "erode" && why.startsWith("There is no rock here")) return cut !== null ? hidden : inside ? "Outside the working area: Esc clears it" : why;
+    if (req.verb === "erode" && why.startsWith("There is no rock here")) {
+      // (the gesture's tiles: all outside the working area, or all above the layer showing, is why)
+      const tiles = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter(inMap);
+      if (inside && tiles.length && tiles.every((p) => !inside[at(p)])) return "Outside the working area: clear it to work there";
+      if (cut !== null && tiles.length && tiles.every((p) => base.heights[at(p)] > cut)) return hidden;
+      return why;
+    }
     if ((req.verb !== "rift" && req.verb !== "erode") || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;

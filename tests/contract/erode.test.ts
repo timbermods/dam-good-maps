@@ -137,16 +137,49 @@ describe("nothing falls, and a click anywhere wears something (D121, D356)", () 
       }
   });
 
-  it("at Power 0, a click anywhere changes the land, its edges and corners too, and adds no object", () => {
+  it("at Power 0, a click anywhere on dry ground changes the land, its edges and corners too, and adds no object", () => {
     for (const [name, m0] of maps()) {
+      if (name === "lake") continue;
       const m = { ...m0, entities: [{ id: "tree-1", owner: "test", template: "Pine", x: 10, y: 10, z: m0.heights[10 * m0.W + 10], orientation: "Cw0" as const, flipped: false, components: {} }] };
-      for (const p of [{ x: 0, y: 0 }, { x: 47, y: 47 }, { x: 24, y: 24 }, { x: 10, y: 10 }, { x: Math.floor(next() * 48), y: Math.floor(next() * 48) }])
+      // (dry: no water within three tiles, so nothing it could breach)
+      const dry = (p: P) => {
+        for (let y = Math.max(0, p.y - 3); y <= Math.min(47, p.y + 3); y++) for (let x = Math.max(0, p.x - 3); x <= Math.min(47, p.x + 3); x++) if (m.water.depth[y * 48 + x] > 0) return false;
+        return true;
+      };
+      let random = { x: 0, y: 0 };
+      do random = { x: Math.floor(next() * 48), y: Math.floor(next() * 48) };
+      while (!dry(random));
+      for (const p of [{ x: 0, y: 0 }, { x: 47, y: 47 }, { x: 10, y: 10 }, { x: 40, y: 8 }, random].filter(dry))
         for (const size of [4, 40]) {
           const { after, run } = erode(m, { power: 0, size }, [p]);
           const changed = changedTiles(after.masks!, run.before.masks!);
           expect(changed, `${name} at ${p.x},${p.y}, size ${size}`).toBeGreaterThan(0);
           expect(after.entities.map((e) => e.id)).toEqual(["tree-1"]);
         }
+    }
+  });
+
+  it("leaves water and the ground that holds it alone: a lake's rim and its bed", () => {
+    const m = fixture("lake", 48);
+    const W = 48;
+    for (const [p, power] of [[{ x: 26, y: 41 }, 0], [{ x: 26, y: 41 }, 50], [{ x: 24, y: 24 }, 0], [{ x: 26, y: 33 }, 100]] as [P, number][]) {
+      let after: FullForceMap;
+      try {
+        after = erode(m, { power }, [p]).after;
+      } catch (e) {
+        // (nothing it may wear there: it says why)
+        expect((e as Error).message, `${p.x},${p.y} at ${power}`).toBe("Erode leaves water and the ground that holds it as they are");
+        continue;
+      }
+      for (let i = 0; i < W * W; i++) {
+        if (m.water.depth[i] > 0.01) {
+          expect(after.heights[i], `wet tile ${i % W},${Math.floor(i / W)}`).toBe(m.heights[i]);
+          continue;
+        }
+        // beside water, no ground goes below the water line
+        const level = Math.max(...[i - 1, i + 1, i - W, i + W].filter((j) => j >= 0 && j < W * W).map((j) => (m.water.depth[j] > 0.01 ? Math.ceil(m.heights[j] + m.water.depth[j] - 0.02) : 0)));
+        if (after.heights[i] !== m.heights[i]) expect(after.heights[i], `${i % W},${Math.floor(i / W)} beside water`).toBeGreaterThanOrEqual(level);
+      }
     }
   });
 

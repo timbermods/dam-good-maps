@@ -37,10 +37,12 @@ the end of a bucket goes in that bucket, so no frame shows ground the game would
 as every edit (`newFalls`) and would refuse it with D487's words; Erode never gives it cause.
 
 **A visible effect everywhere (D356).** Where no face can wear (flat ground, steps under three levels), water and wind
-scour the ground into a shallow hollow round the gesture, 1 to 3 levels deep with Power, the tile under the pointer
-always among it; what stands there rides it down. It refuses only with the true reason: "the Floor leaves no rock to
-wear here", "Nothing here can wear away without leaving ground to fall", or "There is no rock here that Erode may
-wear" (the layer showing or the working area named instead when they are why).
+scour the dry ground into a shallow hollow round the gesture, 1 to 3 levels deep with Power, the tile under the pointer
+always among it unless it is wet; no tile with water is scoured and none goes below the water beside it, so a lake and
+its rim stay as they are; what stands there rides it down. It refuses only with the true reason: "the Floor leaves no rock to
+wear here", "Nothing here can wear away without leaving ground to fall", "Erode leaves water and the ground that
+holds it as they are", or "There is no rock here that Erode may wear" (the layer showing or the working area named
+instead when the whole gesture is above it or outside it).
 
 **It writes runs.** Its operation (`forceResult`, verb `erode`, mode `wear`) keeps the tiles it hollowed and each one's
 whole mask (`runs`); `tiles`/`heights` hold only scoured ground. The build gives those tiles their masks in the log's

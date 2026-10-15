@@ -92,6 +92,7 @@ const FORCE_ERRORS = [
   "the Floor leaves no rock to wear here",
   "Nothing here can wear away without leaving ground to fall",
   "There is no rock here that Erode may wear",
+  "Erode leaves water and the ground that holds it as they are",
 ];
 
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";

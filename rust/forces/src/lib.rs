@@ -1084,7 +1084,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 40] = [
+const FORCE_ERRORS: [&str; 41] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1125,6 +1125,7 @@ const FORCE_ERRORS: [&str; 40] = [
     "the Floor leaves no rock to wear here",
     "Nothing here can wear away without leaving ground to fall",
     "There is no rock here that Erode may wear",
+    "Erode leaves water and the ground that holds it as they are",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;

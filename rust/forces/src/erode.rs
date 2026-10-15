@@ -618,11 +618,29 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     // the gesture, the tile under it always among it
     let mut scoured = 0usize;
     let mut floor_held = false;
-    if !tiles.iter().any(|&i| t[i] != orig[i]) {
+    let mut water_held = false;
+    // (whether any hollow is left: the shaping passes below are for hollows, never for scoured ground)
+    let hollowed = tiles.iter().any(|&i| t[i] != orig[i]);
+    // the water level beside a tile: the scoured ground stays at or above it, so no water spills in
+    let water_beside = |i: usize| -> usize {
+        let mut top = 0usize;
+        for (ok, j) in nbrs(i) {
+            if ok && wet[j] != 0 {
+                top = top.max(32 - wet[j].leading_zeros() as usize);
+            }
+        }
+        top
+    };
+    if !hollowed {
         for &i in &tiles {
             let d = dist[i];
             let ragged = r * (0.7 + 0.45 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 2.7, 0x7a));
             if fixed[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
+                continue;
+            }
+            // (water and the ground that holds it stay: no wet tile scoured, none below the water beside)
+            if wet[i] != 0 {
+                water_held = true;
                 continue;
             }
             let top = surface(orig[i]);
@@ -632,8 +650,12 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             }
             let k = 1.0 + (power * 2.0 * portable_math::sqrt(max(0.0, 1.0 - d / max(0.5, ragged))) + 0.5 * lattice(seed, (i % w) as i64, (i / w) as i64, 0, 0x5c)).floor();
             let k = (clamp(k, 1.0, 3.0) as usize).min(area_depth.get(i).copied().unwrap_or(255) as usize);
-            let low = top.saturating_sub(k).max(floor_cut);
+            let shore = water_beside(i);
+            let low = top.saturating_sub(k).max(floor_cut).max(shore);
             if low >= top {
+                if shore >= top {
+                    water_held = true;
+                }
                 continue;
             }
             t[i] = mask(low as u8);
@@ -753,7 +775,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             break;
         }
     }
-    if given_up || worn == 0 || pass == 1 {
+    if given_up || !hollowed || pass == 1 {
         break;
     }
     let more = thin(&mut t);
@@ -765,7 +787,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     }
     tidy(&mut t);
     }
-    if !given_up && worn > 0 {
+    if !given_up && hollowed {
         // filling back never takes support away
         tidy(&mut t);
     }
@@ -783,7 +805,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     }
     if cells.is_empty() {
         // why: the Floor; every voxel taken back to hold the ground; or no rock it may touch
-        map.error = if given_up || worn > 0 { 38 } else if floor_held { 37 } else { 39 };
+        map.error = if given_up || hollowed { 38 } else if water_held { 40 } else if floor_held { 37 } else { 39 };
         return rift::result(map, Records::Erode(Box::new(ErodeRecords { tiles: vec![], masks: vec![], cells: vec![], buckets: vec![], stats: [0.0; 8] })));
     }
     cells.sort_by(|&a, &b| {
