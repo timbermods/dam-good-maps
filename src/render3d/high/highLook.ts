@@ -433,6 +433,12 @@ export class HighLook {
     }
   }
 
+  /** The materials of what can stand under a roof (objects of every kind and falls): the ones that read the light
+   *  volume on a map with terrain above terrain (the renderer's `CAVES`). */
+  roofedMaterials(): ShaderMaterial[] {
+    return [this.materials.object, this.materials.fall, this.vegetation, this.landmark, this.slope];
+  }
+
   private allMaterials(): ShaderMaterial[] {
     return [...Object.values(this.materials), this.vegetation, this.landmark, this.slope];
   }

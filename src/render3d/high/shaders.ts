@@ -183,6 +183,10 @@ function lit(names: readonly Switch[], more = ""): ShaderHooks {
   };
 }
 
+/** Objects and falls under a roof: the soft shadow of the real meshes, the roof included (off: the light volume's
+ *  sun). */
+const ROOFED_SUN = "(hlShadows > 0.5 ? lit : cave.y)";
+
 // ------------------------------------------------------------------------------------ the terrain
 
 export function terrainHooks(): ShaderHooks {
@@ -528,6 +532,7 @@ const BUBBLES_GLSL = /* glsl */ `
 export function fallHooks(): ShaderHooks {
   return {
     ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
+    roofedSun: ROOFED_SUN,
     // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
     // gives the sheet its own water teal
     fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, FALL_BAD, cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
@@ -572,7 +577,7 @@ export function fallHooks(): ShaderHooks {
 // ---------------------------------------------------------------------------------------- objects
 
 export function objectHooks(): ShaderHooks {
-  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * " };
+  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };
 }
 
 /** The landmarks (#67 stage 3): the High object material with a fine grain and patina close up. */
@@ -580,6 +585,7 @@ export function landmarkHooks(): ShaderHooks {
   return {
     ...lit(["hlAO", "hlObjectDetail"], AMBIENT_GLSL + "\n  varying vec3 hlLocal;"),
     skyLight: "ambientVisibility(vWorld, n) * ",
+    roofedSun: ROOFED_SUN,
     objectVertexDecl: "\n      varying vec3 hlLocal;",
     objectVertex: "        hlLocal = position;\n",
     objectFinal: /* glsl */ `(hlObjectDetail > 0.5 ? vColor * (1.0 + (vnoise(hlLocal.xz * 31.7 + hlLocal.y * vec2(1.3, 19.1)) - 0.5) * 0.12 * (1.0 - smoothstep(0.025, 0.11, max(fwidth(vWorld.x), fwidth(vWorld.y)))) + (vnoise(hlLocal.xz * 5.7 + hlLocal.y * vec2(7.3, 3.1)) - 0.5) * 0.07) : vColor) * light`,
