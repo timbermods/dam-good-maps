@@ -309,7 +309,7 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
-    const dropped = groundDropped(input.base, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
+    const dropped = groundDropped(input.base?.terrain ?? null, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
     if (dropped) b.dropped = dropped;
     return b;
   }
@@ -1720,9 +1720,9 @@ export class MapSession {
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
     if (this.mode === "live") {
-      const file = toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
-      // (ground the Block tool dug or built is written as it stands: the heightfield file has none)
-      return layeredMasks(masksOf(built.cache.terrain)) ? { ...file, world: { ...file.world, voxels: this.terrainOf(built).voxels(LAYERS) } } : file;
+      // (ground the Block tool or Erode hollowed is written as it stands, with its water on every column
+      // and its soil on every run: gen/pack.ts `stackedWorld`, #435)
+      return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
     }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;

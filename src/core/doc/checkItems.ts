@@ -94,6 +94,9 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
  *  measure (20 tiles' walk) and say which bushes each counts (those that thrive; every living one), and
  *  the edge wall names its edges once. */
 export function rowWords(id: string, message: string): string {
+  // (a file whose own water has fewer levels than its caves need, from another tool: no tile to show, and
+  // the editor writes its water on every column once an edit moves the water, #435)
+  if (id === "file.arrays") return message.replace(/^(Water saved with \d+ levels?), the terrain needs (\d+)$/, "$1, the caves need $2: an edit to the ground saves it again");
   if (id === "start.food") return message.replace(/^(\d+) living blueberry bush(es)? /, (_, n: string, es?: string) => `${n} blueberry bush${es ?? ""} ${es ? "thrive" : "thrives"} `);
   if (id === "plants.drought")
     return message
