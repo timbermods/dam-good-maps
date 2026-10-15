@@ -333,8 +333,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   right edge is on the page's 10px margin (the top-right controls' too) and its bottom level with the bar's bottom.
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
-- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); thirteen cells of one width (76px where there is room,
+- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block (the Block tool,
+  D335, key 7), a hairline,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); fourteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -343,6 +344,8 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
+  - **Block** (the Block tool): Size 7 (a slider, 1 to 8, from the first cell, where the brushes' Size starts) and Shape 7
+    (Square, Round) on row 1; Action 14 (Add, Remove; the other lit while Shift is held) across row 2.
   - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
@@ -377,7 +380,7 @@ refinements and what the mockups left open:
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
-  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 13 cells, every setting a plate on whole cells (its edges on
+  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 14 cells, every setting a plate on whole cells (its edges on
   the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
   of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
   (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;

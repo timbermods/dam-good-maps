@@ -82,6 +82,32 @@ npm --prefix C:/Users/Kyler/code/DamGoodMaps-probe/investigation/probe run batch
 The runner writes the maps itself, so these are the only commands: all four are in Kyler's allow rules, and none is
 refused. No `npx tsx` step comes first.
 
+## Companion mode
+
+`--companion` checks the companion mod (`mods/companion`, in the game) on the runner's own safety: the settings, logs and
+saves recorded and put back, the leftovers check (exit code 6), the settings compared with `--reference`, results in
+`C:\dgm-probe\results\<run>\`.
+
+```sh
+npm --prefix investigation/probe run batch -- --companion --dry-run
+npm --prefix investigation/probe run batch -- --companion --companion-variants all --reference <settings backup .reg>
+```
+
+- It builds the companion (`mods/companion/scripts/build.mjs`) and DGM Probe, installs both for the run only, switches every
+  other mod off and these two on (`--keep-mods`: no setting is changed, your mods stay as they are), launches the game with
+  `-skipModManager -dgmcompanionTest <folder>` once per variant of what the companion remembered (`named`, `custom`, `fresh`;
+  `--companion-variants named,custom` or `all`, `named` by default; about 6 minutes each), and removes both afterwards. A
+  companion folder in `Mods` that the runner did not put there stops the run.
+- The folder is `results\<run>\companion\<variant>\`, outside Documents, and stands in for the Maps folder (the player's maps
+  are never read, and "no map" can be checked). It first holds a newer look-alike and an unreadable `dgm-` file. The game's
+  test (`mods/companion/src/Game/InGameTest.cs`) asks the runner, through `ask-N.json` / `answer-N.json` files, to put in two
+  maps the current generator makes (`dgm-river-valley-1`, `dgm-lake-basin-3`) and, later, the `-2` re-save of the first.
+- The checks are listed in `mods/companion/TESTING.md`. The runner judges `result.json` and what only it knows (the map and
+  difficulty the click started, the file the reload used, the settings the companion wrote) into `companion.json` and
+  `summary.md`; `--compare-only <run>` judges again. The plan and its launch code cover the maps' sha256.
+- `--dry-run` (any plan) prints the plan and stops: no code written, nothing built, written or launched.
+- `npm --prefix investigation/probe run test:companion` checks the runner's side against a stand-in game.
+
 ## Frame times (DGM Probe 0.2.1)
 
 A map whose game has `perf` (the Sizes group) runs its frame-time phases after its first day's record: each phase holds
@@ -144,5 +170,5 @@ The runner removes it after every run. If a run was cut short:
 - `tools/probe-maps/`: the writers of the groups made outside the repository (`group.ts`, `assemble.ts`, `tall.ts`,
   `sizes.ts`).
 - `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks), `writers.ts`,
-  `jobs.ts`, `launch.ts` (Steam launch and watchdog), `compare.ts` (the verdicts), `model.ts` (the cycle
+  `jobs.ts`, `companion.ts` (the companion mode), `launch.ts` (Steam launch and watchdog), `compare.ts` (the verdicts), `model.ts` (the cycle
   model), `safety.ts` (snapshot and restore), `mods.ts`, `consent.ts`, `sheet.ts`, `summary.ts`, `test.ts`.
