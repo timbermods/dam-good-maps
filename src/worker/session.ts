@@ -15,6 +15,8 @@ import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
+import { planPaintObjects } from "../core/doc/paint";
+import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -242,7 +244,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
  *  water's own, else the settle's, else the stored file's. */
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
@@ -252,10 +254,18 @@ function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination
   return view;
 }
 
-function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** Water in flight to show. `weather`: a hazard's day, which an unedited heightfield import shows as the day's water
+ *  (the file's own is day 0 only); any other live water of an unedited import shows the file's. */
+interface LiveWater {
+  depth: ArrayLike<number>;
+  contamination: ArrayLike<number>;
+  weather?: boolean;
+}
+
+function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
   const roofed = s.roofedTiles;
-  if (!s.showsStoredWater && !roofed.size) return waterFromDepth(b.heights, b.water, b.contamination);
+  if (!roofed.size && (!s.showsStoredWater || live?.weather)) return waterFromDepth(b.heights, b.water, b.contamination);
   const w = s.storedWater();
   const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
   if (s.showsStoredWater) return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
@@ -556,9 +566,24 @@ export function setAutoWater(on: boolean): void {
   autoWater = on;
 }
 
-/** The water settling in the background, and a token that a newer edit changes. */
-let waterJob: { token: number; job: PreviewJob; version: number; session: MapSession } | null = null;
+/** The water settling in the background, and a token that a newer edit changes. Its job (`jobOf`) is made
+ *  after the edit's answer has gone to the page: the land answers at once, its water follows (D453; the warm
+ *  start alone is a fifth of a second at 256²). */
+interface WaterJob {
+  token: number;
+  job: PreviewJob | null;
+  from: WarmState;
+  model: WaterModel;
+  version: number;
+  session: MapSession;
+}
+let waterJob: WaterJob | null = null;
 let waterToken = 0;
+/** The job of the water settling, made now if it has not been yet (the same job, and so the same water, whenever
+ *  it is made). */
+function jobOf(j: WaterJob): PreviewJob {
+  return (j.job ??= new PreviewJob(j.from, j.model));
+}
 /** Ticks per slice, and how often the page gets the water as it flows. */
 const WATER_SLICE_MS = 10;
 const WATER_FRAME_MS = 150;
@@ -583,7 +608,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
   if (!s) return;
   const W = s.size.x;
   if (!draft || draft.session !== s) {
-    const from = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+    const from = (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
@@ -661,7 +686,7 @@ async function runDraft(token: number): Promise<void> {
 
 function stopWater(): void {
   waterToken++;
-  waterJob?.job.dispose();
+  waterJob?.job?.dispose();
   waterJob = null;
 }
 
@@ -680,12 +705,12 @@ function kickWater(): void {
   draft?.job.dispose();
   draft = null;
   draftToken++;
-  const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
+  const inflight = painted ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
-  waterJob?.job.dispose();
-  waterJob = { token, job: new PreviewJob(from, s.built.waterModel), version, session: s };
+  waterJob?.job?.dispose();
+  waterJob = { token, job: null, from, model: s.built.waterModel, version, session: s };
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
 
@@ -742,17 +767,25 @@ async function runWater(token: number): Promise<void> {
   for (;;) {
     const j = waterJob;
     if (!j || j.token !== token || session !== j.session) return;
+    // (the edit's answer has gone: its water's job is made now, and the page's next message comes before its
+    // first slice)
+    if (!j.job) {
+      jobOf(j);
+      await breathe();
+      continue;
+    }
+    const job = j.job;
     const t0 = performance.now();
     let r: CanonicalWater | null = null;
     while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-      const before = j.job.ticks;
-      r = j.job.advance(4);
+      const before = job.ticks;
+      r = job.advance(4);
       if (r || !listener) continue;
-      const sim = j.job.sim;
-      if (seen) seen.see(sim.D, sim.C, j.job.ticks - before);
+      const sim = job.sim;
+      if (seen) seen.see(sim.D, sim.C, job.ticks - before);
       else seen = new SeenWater(sim.D, sim.C);
       // a frame every few ticks: the page plays them at a pace the eye can follow
-      const ticks = j.job.ticks;
+      const ticks = job.ticks;
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
@@ -766,11 +799,11 @@ async function runWater(token: number): Promise<void> {
   }
 }
 
-function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): void {
+function finishWater(j: WaterJob, water: CanonicalWater): void {
   waterJob = null;
-  j.job.dispose();
+  j.job?.dispose();
   const s = j.session;
-  if (session !== s || !s.adoptWater(j.job.model, water)) return;
+  if (session !== s || !s.adoptWater(j.model, water)) return;
   settledNews(s, viewUpdate(s));
 }
 
@@ -790,14 +823,14 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
 // ------------------------------------------------------------------------------------ weather
 
 /** A held weather view (D180 (8), D181 (3); Kyler, 2026-10-04): a drought or a badtide simulated day by day from the
- *  map's settled water, every day's water and soil kept as it is computed, so any day shows at once once reached
+ *  water the map shows (`MapSession.waterShown`), every day's water and soil kept as it is computed, so any day shows at once once reached
  *  and the player can hold it, inspect it and plan against it. Day 0 is the map's own water; the last day by
  *  default is the hazard's length for the map's difficulty (core/sim/weather.ts), and further days are simulated on
  *  request, without a cap (the game's lengths depend on its difficulty). A drought: every source stops, the rivers
  *  drain, the pools evaporate. A badtide: the clean sources give badwater along the game's opening curve, then at
  *  full strength (a held badtide never ends, so its sources never ease back), and it spreads through the water and
  *  poisons the ground. Nothing plays and nothing comes back: the page shows the day it asks for. After an edit the
- *  page asks again; the map's version has changed, so the run starts again from the edited map's settled water.
+ *  page asks again; the map's version has changed, so the run starts again from the water the edited map shows.
  *  The map never changes. */
 interface WeatherRun {
   session: MapSession;
@@ -805,8 +838,9 @@ interface WeatherRun {
   hazard: Hazard;
   /** The hazard's default length (its last day by default). */
   days: number;
-  /** The water the run started from (the map's settled water then: the drought line's day 0). */
-  from: { depth: Float64Array; contamination: Float64Array };
+  /** The water the run started from (the map's water as shown then, `MapSession.waterShown`: the drought line's
+   *  day 0): a run whose map shows other water now (its settle came in) starts again. */
+  from: CanonicalWater;
   /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
   run: HazardRun;
   sim: WaterSim;
@@ -838,10 +872,10 @@ let weatherShown: MapSession | null = null;
 
 /** A run still good for the map as it is. */
 function currentRun(run: WeatherRun): boolean {
-  return weatherRuns[run.hazard] === run && run.session === session && run.version === version;
+  return weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from === run.session.waterShown();
 }
 
-/** The hazard's run for the map as it is: the kept one, or a new one from the map's settled water. */
+/** The hazard's run for the map as it is: the kept one, or a new one from the water the map shows (`waterShown`). */
 function runFor(hazard: Hazard): WeatherRun {
   const s = need();
   const old = weatherRuns[hazard];
@@ -849,8 +883,9 @@ function runFor(hazard: Hazard): WeatherRun {
   old?.sim.dispose();
   const base = s.built.waterModel;
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
-  const from = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
-  const hazardRun = new HazardRun(base, { depth: from.depth.slice(), contamination: from.contamination.slice() }, hazard, Infinity);
+  // from the water the map shows (an unedited import's own, not the build's empty one)
+  const from = s.waterShown();
+  const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination) }, hazard, Infinity);
   const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
@@ -873,7 +908,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   void driveWeather(run);
 }
 
-/** Work out both hazards' default days in the background, from the map's settled water (Kyler, 2026-10-04: then the
+/** Work out both hazards' default days in the background, from the water the map shows (Kyler, 2026-10-04: then the
  *  first click is instant too). The page asks only while Kyler is idle and the water has settled, and stops it the
  *  moment he edits, paints or uses a force; it runs a few milliseconds at a time between his messages. */
 export async function prepareWeather(): Promise<void> {
@@ -902,7 +937,7 @@ function sendWeatherDay(run: WeatherRun, day: number): void {
   if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
   const { x: W, y: H } = s.size;
   const soil = soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil });
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice(), weather: true }), soil });
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -947,6 +982,12 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   } finally {
     run.running = false;
     if (run.prep !== null && run.kept.length > run.days) run.prep = null;
+    // the map's water was replaced while the page waited for a day (its settle came in): the day from the new water
+    if (run.show !== null && weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from !== run.session.waterShown()) {
+      const day = run.show;
+      run.show = null;
+      showWeatherDay(run.hazard, day);
+    }
   }
 }
 
@@ -1021,11 +1062,12 @@ export function stopWeather(): ViewUpdate {
 export function settleWater(): ViewUpdate {
   const j = waterJob;
   if (!j || session !== j.session) return {};
-  let r = j.job.advance(Infinity);
-  while (!r) r = j.job.advance(Infinity);
+  const job = jobOf(j);
+  let r = job.advance(Infinity);
+  while (!r) r = job.advance(Infinity);
   waterJob = null;
-  j.job.dispose();
-  if (!j.session.adoptWater(j.job.model, r)) return {};
+  job.dispose();
+  if (!j.session.adoptWater(j.model, r)) return {};
   return viewUpdate(j.session);
 }
 
@@ -1452,6 +1494,17 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? p.planted : [] };
 }
 
+/** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
+ *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const plan = planPaintObjects(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
+}
+
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
  *  the ground (core/doc/remove.ts `planRemove`). The tiles the removed objects stood on. */
 export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
@@ -1764,7 +1817,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
-  const sim = waterJob && waterJob.session === s ? waterJob.job.sim : null;
+  const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
@@ -1794,7 +1847,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
+  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -2067,7 +2120,7 @@ function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Arr
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
 function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
-  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const now = flowing ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;

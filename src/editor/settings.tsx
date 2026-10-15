@@ -180,14 +180,14 @@ export function Words(p: { children: ComponentChildren; status?: boolean }) {
   );
 }
 
-/** A toggle: Off and On, the one choice look. */
-export function OnOffSetting(p: { label: string; title: string; on: boolean; onChange(on: boolean): void; auto?: Auto }) {
+/** A toggle: Off and On, the one choice look. `off` is what Off's tooltip says ("No lake at its head"). */
+export function OnOffSetting(p: { label: string; title: string; off: string; on: boolean; onChange(on: boolean): void; auto?: Auto }) {
   return (
     <ChoiceSetting<"off" | "on">
       label={p.label}
       value={p.on ? "on" : "off"}
       options={[
-        ["off", "Off", `${p.title}: off`],
+        ["off", "Off", p.off],
         ["on", "On", p.title],
       ]}
       onChange={(v) => p.onChange(v === "on")}

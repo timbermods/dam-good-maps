@@ -5,8 +5,10 @@
 export { CollabHost, CHECKPOINT_EVERY, type EntryCheck, type HostOptions, type HostView } from "./host";
 export { CollabReplica, snapshotProblem, type Received, type ReplicaEvents, type ReplicaStatus } from "./replica";
 export { BUSY, hostNeedsWater, MapApplier, recordFromJson, recordToJson, type Applied, type RecordJson, type TransactionRecord } from "./transaction";
-export { RecordLog, RECORD_LIMIT } from "./records";
-export { applyPatch, captureState, cloneState, difference, patchIsEmpty, stable, stateHash, type MapState, type Patch } from "./mapState";
+export { builtOn, nameOf, RecordLog, RECORD_LIMIT, type Block, type FencesJson, type Who } from "./records";
+export { blockLine, historyProblem, redoPlan, undoPlan, type HistoryPlan, type Names, type Skipped, type Veto } from "./undo";
+export { boxOf, placeOf, placeWords, type Box } from "./place";
+export { applyPatch, captureState, cloneState, difference, invertPatch, patchIsEmpty, stable, stateHash, type MapState, type Patch } from "./mapState";
 export { Mask } from "./mask";
 export { touchesOf, type Touches } from "./touches";
 export { applyForce, forceBasis, forceHash, forceMapOfSession, keepForce, planKeptForce, STALE, type PlannedForce } from "./forceStep";

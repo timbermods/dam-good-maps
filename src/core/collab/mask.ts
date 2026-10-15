@@ -18,6 +18,10 @@ export class Mask {
     return i >= 0 && i < this.N && (this.words[i >>> 5] & (1 << (i & 31))) !== 0;
   }
 
+  clone(): Mask {
+    return new Mask(this.N).union(this);
+  }
+
   union(m: Mask): this {
     for (let k = 0; k < this.words.length; k++) this.words[k] |= m.words[k];
     return this;
