@@ -447,26 +447,40 @@ function succulent(dead: boolean): Model {
   const rings: [number, number][] = [[0.13, 0.22], [0.22, 0.25], [0.25, 0.2], [0.2, 0.1]];
   rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.19, 6), k % 2 ? dark : mid, { x: cx, y: 0.095 + 0.19 * k, ry: 0.3 * k }));
   const green: Rgb = dead ? [0.62, 0.54, 0.4] : SAGE;
-  // (a pad standing at (x, y, z) with its face tilted `tilt` from upright, outward along `turn`; its top rim vertex blushes)
-  const pad = (x: number, y: number, z: number, turn: number, tilt: number, size: number) =>
-    m.add(lens(), (px, py, pz) => (!dead && px < -0.9 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), { sx: 0.15 * size, sy: 0.04 * size, sz: 0.15 * size, rz: -tilt, ry: turn, x, y, z });
+  // (a pad as an oval lens, `len` long and `wid` wide: its inner end at (x, y, z), leaning out along `turn` at `tilt` above
+  // the horizontal, so the crown's pads fan up and out past the trunk; its outer tip blushes. A dead plant's droop.)
+  const pad = (x: number, y: number, z: number, turn: number, tilt: number, len: number, wid: number) => {
+    const t = dead ? -tilt : tilt;
+    const r = len * Math.cos(t);
+    m.add(lens(), (px, py, pz) => (!dead && px > 0.9 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
+      sx: len,
+      sy: 0.05,
+      sz: wid,
+      rz: t,
+      ry: turn,
+      x: x + Math.cos(turn) * r,
+      y: y + len * Math.sin(t),
+      z: z - Math.sin(turn) * r,
+    });
+  };
   if (dead) {
-    for (const [a, t] of [[0.4, 1.45], [2.6, 1.4], [4.6, 1.5]]) pad(cx + Math.cos(a) * 0.2, 0.72, -Math.sin(a) * 0.2, a, t, 0.9);
+    for (const [a, t] of [[0.4, 0.9], [2.6, 0.8], [4.6, 1.0]]) pad(cx + Math.cos(a) * 0.1, 0.74, -Math.sin(a) * 0.1, a, t, 0.15, 0.1);
     return m;
   }
+  // the crown: six pads round the trunk's top, alternately steeper and longer, reaching well past the trunk
   for (let k = 0; k < 6; k++) {
     const a = k * 1.05 + 0.2;
-    pad(cx + Math.cos(a) * 0.2, 0.8, -Math.sin(a) * 0.2, a, 0.9 + 0.1 * (k % 4), 1);
+    pad(cx + Math.cos(a) * 0.1, 0.76, -Math.sin(a) * 0.1, a, k % 2 ? 1.05 : 0.75, k % 2 ? 0.17 : 0.2, 0.12);
   }
-  // the young plant: two pads straight from the ground
-  for (const [a, t] of [[0.5, 0.9], [3.1, 1.0]]) pad(-0.33 + Math.cos(a) * 0.08, 0.14, 0.1 - Math.sin(a) * 0.08, a, t, 0.8);
+  // the young plant: two pads straight from the ground, leaning apart
+  for (const [a, t] of [[0.5, 1.0], [3.4, 0.9]]) pad(-0.33 + Math.cos(a) * 0.03, 0.02, 0.1 - Math.sin(a) * 0.03, a, t, 0.14, 0.09);
   return m;
 }
 
 /** The light look's succulent: a trunk and two pads. */
 function liteSucculent(): Model {
   const m = new Model().add(cone(0.22, 0.7, 4), [0.5, 0.36, 0.22], { y: 0.35 });
-  for (const a of [0.5, 3.6]) m.add(lens(), SAGE, { sx: 0.15, sy: 0.04, sz: 0.15, rz: -1, ry: a, x: Math.cos(a) * 0.2, y: 0.62, z: -Math.sin(a) * 0.2 });
+  for (const a of [0.5, 3.6]) m.add(lens(), SAGE, { sx: 0.2, sy: 0.05, sz: 0.12, rz: 0.85, ry: a, x: Math.cos(a) * 0.23, y: 0.86, z: -Math.sin(a) * 0.23 });
   return m;
 }
 
