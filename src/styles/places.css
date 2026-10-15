@@ -95,7 +95,7 @@
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .place img {

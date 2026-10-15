@@ -1,42 +1,62 @@
 /* M1 styling: clear and functional. The full design pass with the timbermods design system comes in
    roadmap M13 (PLAN §14, Impeccable site flow). Colours borrow the org palette's pine and walnut. */
 
+/* One set of colour tokens (good-css.com): each is light-dark(light, dark), and the page follows the system's scheme
+   through color-scheme. A page that offers its own switch sets color-scheme: light or dark on the root. */
 :root {
-  --bg: #f5ecd9;
-  --panel: #fffaf0;
-  --ink: #2a2118;
-  --muted: #6b5a45;
-  --rule: #dccdab;
-  --accent: #2f5d3a;
-  --accent-ink: #ffffff;
-  --bad: #9a2b1b;
-  --ok: #2c6536;
-  --warn: #9a6a10;
-  --code: rgba(42, 33, 24, 0.08);
-  --map-bg: #e9dfc8;
-  --overlay: rgba(255, 250, 240, 0.94);
-  --shadow: 0 2px 10px rgba(42, 33, 24, 0.18);
-  color-scheme: light;
+  color-scheme: light dark;
+  --bg: light-dark(#f5ecd9, #1a211a);
+  --panel: light-dark(#fffaf0, #243126);
+  --ink: light-dark(#2a2118, #ece3cf);
+  --muted: light-dark(#6b5a45, #b8b19b);
+  --rule: light-dark(#dccdab, #38493b);
+  --accent: light-dark(#2f5d3a, #9fd49a);
+  --accent-ink: light-dark(#ffffff, #13200f);
+  --bad: light-dark(#9a2b1b, #f0a08a);
+  --ok: light-dark(#2c6536, #9fd49a);
+  --warn: light-dark(#9a6a10, #f0c86a);
+  --code: light-dark(rgba(42, 33, 24, 0.08), rgba(236, 227, 207, 0.09));
+  --map-bg: light-dark(#e9dfc8, #1d261e);
+  --overlay: light-dark(rgba(255, 250, 240, 0.94), rgba(36, 49, 38, 0.95));
+  --shadow-color: light-dark(rgba(42, 33, 24, 0.18), rgba(0, 0, 0, 0.45));
+  --shadow-blur: 10px;
+  --shadow: 0 2px var(--shadow-blur) var(--shadow-color);
+
+  /* Motion: the curves and durations every transition takes (movement inside prefers-reduced-motion: no-preference,
+     fades of opacity and colour outside it; never ease-in on the interface, never transition: all) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 120ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-fade: 600ms;
 }
 
+/* (a shadow's blur is a length, not a colour, so light-dark() can't hold it: the dark scheme's is 2px wider) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a211a;
-    --panel: #243126;
-    --ink: #ece3cf;
-    --muted: #b8b19b;
-    --rule: #38493b;
-    --accent: #9fd49a;
-    --accent-ink: #13200f;
-    --bad: #f0a08a;
-    --ok: #9fd49a;
-    --warn: #f0c86a;
-    --code: rgba(236, 227, 207, 0.09);
-    --map-bg: #1d261e;
-    --overlay: rgba(36, 49, 38, 0.95);
-    --shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-    color-scheme: dark;
+    --shadow-blur: 12px;
   }
+}
+
+html {
+  /* a scroll never chains to the page behind the editor; touch devices keep their pull to refresh */
+  overscroll-behavior-y: none;
+  /* only faces that are loaded: no fake bold or italic */
+  font-synthesis: none;
+}
+
+@media (any-pointer: coarse) {
+  html {
+    overscroll-behavior-y: auto;
+  }
+}
+
+/* interactive elements: no grey flash on a tap, no double-tap zoom delay (a control that takes the gesture itself,
+   such as the shelf's items, sets touch-action: none, and its class wins over this low-specificity rule) */
+:where(button, a, summary, select, input, label, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 * {
@@ -223,7 +243,7 @@ summary:focus-visible {
   display: inline-block;
   line-height: 0;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid var(--rule);
 }
 

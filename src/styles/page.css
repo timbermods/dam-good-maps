@@ -94,7 +94,7 @@
 /* the Look button one width, its widest state's ("Look: Standard"), whatever it says */
 .look-words {
   display: inline-grid;
-  justify-items: center;
+  justify-items: safe center;
 }
 
 .look-words > * {
@@ -108,7 +108,7 @@
 .editor-title .muted {
   display: block;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .editor-actions > .icon-button {
-  justify-content: center;
+  justify-content: safe center;
   width: 40px;
   padding: 0;
 }
@@ -218,8 +218,10 @@
   font-size: 0.85rem;
 }
 
-.your-maps button.ym-tile:hover {
-  background: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  .your-maps button.ym-tile:hover {
+    background: var(--bg);
+  }
 }
 
 .ym-pic {
@@ -264,7 +266,7 @@
 .ym-from {
   display: block;
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 16px;
@@ -317,7 +319,7 @@
   color: inherit;
   font: inherit;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
   cursor: text;
 }
@@ -420,11 +422,17 @@
   pointer-events: none;
 }
 
-.history-panel .hist-item:hover .hist-acts,
 .history-panel .hist-item:focus-within .hist-acts,
 .history-panel .hist-item:has(> .hist-row[aria-current="true"]) .hist-acts {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .history-panel .hist-item:hover .hist-acts {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .history-panel .hist-act {
@@ -440,7 +448,7 @@
   box-sizing: border-box;
   height: 28px;
   padding: 0 10px;
-  overflow: hidden;
+  overflow: clip;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -635,7 +643,7 @@
   --legend-row: 17px;
   flex: none;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
   box-sizing: border-box;
   width: 190px;
   padding: 6px 8px;
@@ -805,7 +813,7 @@
   height: var(--corner-h);
   padding: 0;
   display: inline-grid;
-  place-items: center;
+  place-items: safe center;
   border-radius: 8px;
   background: var(--overlay);
   box-shadow: var(--shadow);
@@ -856,6 +864,7 @@
   /* a thin scrollbar, its room kept whether or not the list scrolls, so no name runs under it */
   scrollbar-width: thin;
   scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .object-window,
@@ -903,8 +912,10 @@
   white-space: nowrap;
 }
 
-.objects-menu .shelf-item:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .objects-menu .shelf-item:hover {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
 }
 
 /* the list's title (Kyler, 2026-10-06): "Items", bold, in the items' own type, one row of their height and one gap above
@@ -969,7 +980,7 @@
 
 .ow-name {
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -1105,8 +1116,8 @@
 .tool-bar button.icon-button {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   gap: 4px;
   height: 54px;
   padding: 4px 1px;
@@ -1165,8 +1176,8 @@
 }
 
 .set-group.centre {
-  justify-content: center;
-  align-items: center;
+  justify-content: safe center;
+  align-items: safe center;
 }
 
 .set {
@@ -1200,7 +1211,7 @@
 
 .set-label {
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
 }
@@ -1331,7 +1342,7 @@
   height: 26px;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .set-seg button {
@@ -1380,7 +1391,7 @@
 .set-words {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
   font-size: 14px;
   color: var(--ink);
@@ -1399,8 +1410,9 @@
 .set-group > .segmented.shapes > button {
   display: flex;
   flex-direction: column;
+  /* (centred, not safe: at 1280 "Rectangle" is 4px wider than its cell, and safe would pin it to the cell's left edge) */
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   gap: 4px;
   height: 100%;
   margin: 0;
@@ -1535,7 +1547,7 @@
   background: none;
   line-height: 30px;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -1566,7 +1578,7 @@
   min-height: 1.45em;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -1615,7 +1627,7 @@
 /* the object window's settings: each name above its control, the panel's name size and colour */
 .object-window .cell-head {
   height: 16px;
-  overflow: hidden;
+  overflow: clip;
   font-size: 13px;
   line-height: 16px;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
@@ -1719,7 +1731,7 @@
    being made, a question such as "Delete <name>?", About) has its words centred too (Kyler, 2026-10-04). The export
    dialog's lists of checks, Help and the shortcuts stay left-aligned, read as lists. */
 .dialog footer {
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .making-dialog,
@@ -1808,8 +1820,8 @@
 
 .size-line .seg-custom {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   border-left: 1px solid var(--rule);
   background: var(--accent);
   color: var(--accent-ink);
@@ -1978,8 +1990,8 @@
 /* a toggle beside a field: its word centred in it */
 .set-toggle {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   height: 22px;
   padding: 0 12px;
   font-size: 13px;
@@ -2179,6 +2191,7 @@
   height: 692px;
   box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
 }
 
@@ -2225,6 +2238,7 @@
   box-sizing: border-box;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
   padding: 7px;
 }
 
@@ -2253,8 +2267,10 @@
   font-size: 0.85rem;
 }
 
-.real-places button.ym-tile:hover {
-  background: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  .real-places button.ym-tile:hover {
+    background: var(--bg);
+  }
 }
 
 /* (the picture fills what the line leaves, whole, never cropped) */
@@ -2269,7 +2285,7 @@
 .real-places .rp-name {
   flex: none;
   height: 32px;
-  overflow: hidden;
+  overflow: clip;
   line-height: 16px;
 }
 
@@ -2384,6 +2400,7 @@
   margin-top: var(--legend-drop, 0px);
   max-height: var(--legend-max, none);
   overflow-y: auto;
+  overscroll-behavior: contain;
   /* (where the room is short the legend scrolls inside itself, its scrollbar thin, so the lines below
      the edge are known to be there) */
   scrollbar-width: thin;
@@ -2401,6 +2418,7 @@
   top: var(--panel-top, 56px);
   max-height: var(--panel-max, none);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .maps-panel,
@@ -2414,11 +2432,12 @@
   position: relative;
   align-self: stretch;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   margin: 4px 0;
   border-radius: 4px;
-  overflow: hidden;
+  min-width: 0;
+  overflow: clip;
 }
 
 .day-stepper .day-fill {
@@ -2427,7 +2446,13 @@
   top: 0;
   bottom: 0;
   background: color-mix(in srgb, var(--accent) 22%, transparent);
-  transition: width 120ms linear;
+}
+
+/* (the fill grows with the work: a size, so only where motion is welcome) */
+@media (prefers-reduced-motion: no-preference) {
+  .day-stepper .day-fill {
+    transition: width var(--dur-press) linear;
+  }
 }
 
 .day-stepper .day-words {
@@ -2672,6 +2697,7 @@
   width: 220px;
   max-height: 46vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .good-menu li.menu-note {
@@ -2727,7 +2753,7 @@ body:has(.checks-list) .show-key {
    first look in the map's place, the progress dialog over it */
 .loading-frame .loading-view {
   display: grid;
-  place-items: center;
+  place-items: safe center;
   background: var(--map-bg);
 }
 
@@ -2749,6 +2775,6 @@ body:has(.checks-list) .show-key {
 
 /* a failed first map has no land above it: its dialog stays in the middle */
 .loading-frame + .making-backdrop.stuck {
-  place-items: center;
+  place-items: safe center;
   padding-top: 16px;
 }
