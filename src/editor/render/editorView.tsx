@@ -15,6 +15,7 @@ import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
 import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
+import { surfaceWater } from "../../render3d/model";
 import { coreNotes } from "../../core/sim/coreMoment";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
@@ -67,9 +68,9 @@ export function editorView(ed: Ed, props: EditorProps) {
               onHover={hoverHandler(ed)}
               hoverText={hover}
             >
-              {sourceMarkers()}
+              {ed.compareFlipped ? null : sourceMarkers()}
               {ed.compareVeil()}
-              {startHintTag()}
+              {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}
               {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
@@ -81,9 +82,9 @@ export function editorView(ed: Ed, props: EditorProps) {
                 W={info.W}
                 H={info.H}
                 renderer={renderer.current}
-                heights={() => mirror.current.heights}
-                depth={() => mirror.current.water?.depth ?? null}
-                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}`}
+                heights={() => (ed.compareFlipped && props.compare ? props.compare.view.heights : mirror.current.heights)}
+                depth={() => (ed.compareFlipped && props.compare ? surfaceWater(info.W, info.H, props.compare.view.water).depth : (mirror.current.water?.depth ?? null))}
+                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
               />
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>

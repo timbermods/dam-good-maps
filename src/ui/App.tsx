@@ -16,7 +16,7 @@ import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
-import type { MapView } from "../render3d/model";
+import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
@@ -440,9 +440,25 @@ export function App() {
       await pendingEdits.current?.();
       const v = await generator.keepVersion(k, kept.current ? open.id : undefined);
       if (!v) throw new Error("that step is no longer in the history");
+      let bytes = v.bytes;
+      let picture = v.picture;
+      if (!v.stored || !picture) {
+        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits)
+        setNote(`Keeping ${v.name}…`);
+        const bg = createBackground();
+        try {
+          await bg.api.openVersion(bytes);
+          const [p, o] = await Promise.all([bg.api.project(6), bg.api.sessionView()]);
+          bytes = p.bytes;
+          picture = { heights: o.view.heights, W: o.view.W, H: o.view.H, water: surfaceWater(o.view.W, o.view.H, o.view.water).depth };
+        } finally {
+          bg.stop();
+        }
+        setNote(null);
+      }
       const now = new Date().toISOString();
-      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: thumbnailUrl(v.picture), revision: 1, savedToTimberborn: null, bytes: v.bytes.length, size: v.size, parent: v.parent };
-      const r = await yourMaps.put(e, v.bytes, null);
+      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+      const r = await yourMaps.put(e, bytes, null);
       const problem = storeProblem(r);
       if (problem) return setError(problem);
       const list = await yourMaps.list().catch(() => [e, ...maps]);
@@ -464,6 +480,7 @@ export function App() {
     if (why) return setError(why);
     setError(null);
     setNote(`Getting ${e.name} ready to compare…`);
+    const openId = entry.current?.id;
     const bg = createBackground();
     try {
       const bytes = await yourMaps.project(id);
@@ -472,6 +489,8 @@ export function App() {
       await bg.api.whenWaterSettles();
       const o = await bg.api.sessionView();
       if (o.view.W !== info.W || o.view.H !== info.H) throw new Error("it is not the size of the open map");
+      // (another map opened while this one was read: it is no longer the one being compared with)
+      if (entry.current?.id !== openId) return setNote(null);
       setCompare({ id, name: e.name, view: o.view });
       setNote(null);
       setPanel(null);

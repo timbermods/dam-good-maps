@@ -5,8 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { compareProblem, parentFull, parentLine, projectParent, versionName, withParent } from "../../src/core/library/keptVersions";
-import type { YourMapEntry } from "../../src/core/library/yourMaps";
+import { compareProblem, parentFull, parentLine, versionName } from "../../src/core/library/keptVersions";
 import { guid, reopen, session, timber } from "./gateHelpers";
 
 /** Three steps: a raise stroke, a source made stronger (two operations, one step), a lower stroke. */
@@ -75,7 +74,7 @@ describe("a version of a map at a step of its History", () => {
     expect(v.name).toBe(`${s.meta.name} — Make a source stronger`);
     expect(v.parent).toEqual({ id: "parent-id", name: s.meta.name, label: "Make a source stronger", steps: 2 });
     expect(decodeProject(v.bytes).meta.name).toBe(v.name);
-    expect(projectParent(v.bytes)).toEqual(v.parent);
+    expect(decodeProject(v.bytes).meta.parent).toEqual(v.parent);
     expect(parentLine(v.parent)).toBe(`${s.meta.name} · step 2`);
     expect(parentFull(v.parent)).toBe(`From ${s.meta.name}, step 2`);
     expect(parentFull({ ...v.parent, name: "A".repeat(90) }).length).toBeLessThanOrEqual(60);
@@ -122,20 +121,36 @@ describe("a version of a map at a step of its History", () => {
   });
 });
 
-describe("a version in Your maps", () => {
-  const entry: YourMapEntry = { id: "x", name: "x", kind: "generated", createdAt: "", editedAt: "", thumbnail: null, revision: 1, savedToTimberborn: null, bytes: 0 };
-
-  it("shows its parent, and a map with none shows nothing", () => {
+describe("a version of a map the editor is working on", () => {
+  it("uses a build the session kept, with no rebuild; a step with none comes without its stored map for the page to build elsewhere", () => {
     const s = edited();
-    const v = s.versionProject(0, { id: "p" })!;
-    expect(withParent(entry, v.bytes).parent).toEqual(v.parent);
-    expect(withParent(entry, s.project()).parent).toBeUndefined();
-    // (a map that stops being a version loses the line)
-    expect(withParent({ ...entry, parent: v.parent }, s.project()).parent).toBeUndefined();
-    const same = withParent(entry, v.bytes);
-    expect(withParent(same, v.bytes)).toBe(same);
+    const near = s.versionProject(0, {}, 6, { rebuild: false })!;
+    expect(near.stored).toBe(true);
+    expect(near.built).not.toBeNull();
+    expect(timber(MapSession.open(decodeProject(near.bytes)))).toBe(standingAt(s, 0));
+    // (a session that has only just opened has the build of where it stands, none of the steps before it)
+    const t = MapSession.open(decodeProject(s.project()));
+    expect(t.checkReplay()).toBe(true);
+    const far = t.versionProject(0, {}, 6, { rebuild: false })!;
+    expect(far.stored).toBe(false);
+    expect(far.built).toBeNull();
+    // (built elsewhere, as the page does: a full build of that project is the map as it stood)
+    expect(timber(MapSession.open(decodeProject(far.bytes), { rebuild: true }))).toBe(standingAt(s, 0));
+    expect(decodeProject(far.bytes).meta.parent?.steps).toBe(1);
   });
 
+  it("a map opened from its stored map gives an earlier step once its replay is compared, as the save point of none", () => {
+    const s = edited();
+    const t = MapSession.open(decodeProject(s.project()));
+    expect(t.replayPending).toBe(true);
+    const v = t.versionProject(0)!;
+    expect(t.replayPending).toBe(false);
+    expect(timber(MapSession.open(decodeProject(v.bytes)))).toBe(standingAt(s, 0));
+    expect(v.parent.steps).toBe(1);
+  });
+});
+
+describe("a version in Your maps", () => {
   it("names keep to what a name holds, and two maps compare only at the same size", () => {
     const long = versionName("A".repeat(90), "Raise, 12 tiles");
     expect(long.length).toBeLessThanOrEqual(80);

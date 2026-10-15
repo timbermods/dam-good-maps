@@ -127,8 +127,13 @@ export interface SessionSlice {
   feel: (kind: Parameters<Juice["play"]>[0], x: number, y: number, size?: number, soft?: boolean, what?: string) => void | undefined;
   weather: Hazard | null;
   weatherRef: { current: Hazard | null };
-  /** The other version is on show (the compare key is held, useCompare): water arriving waits for the key to let go. */
+  /** The other version is on show (the compare key is held, useCompare). */
   comparing: { current: boolean };
+  /** Whatever draws the open map on the renderer (an edit coming in, an undo, a water frame, a force's frame) first puts the
+   *  open map back, ending the flip: the two maps are never on screen at once. */
+  endFlip: () => void;
+  /** Set by useCompare: how the flip ends. */
+  flipEnd: { current: (() => void) | null };
   setWeather: (on: Hazard | null) => void;
   /** The weather day shown (0 the map's own water), its hazard's default length, how far the day asked for is worked
    *  out (0 to 1, the day box's fill), or null once it shows, and the day asked for (the day box reads it at once). */
@@ -311,6 +316,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
   const comparing = useRef(false);
+  const flipEnd = useRef<(() => void) | null>(null);
+  const endFlip = () => {
+    if (comparing.current) flipEnd.current?.();
+  };
   // the drought line (D133): the worker's channel, drawn in the normal view only (never while a day is held) and only
   // for the map's own version, so an edit puts it away until the new map's comes
   const droughtNews = useRef<DroughtLineNews | null>(null);
@@ -498,12 +507,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function showWater(w: WaterView, soon = false, held = false) {
     // (a held weather day stays on screen: only the day itself replaces it, Kyler, 2026-10-04)
     if (weatherRef.current && !held) return;
-    // (the other version on show: the water that arrives is kept, and shown when the key lets go)
-    if (comparing.current) {
-      mirror.current.waterView = w;
-      mirror.current.water = surfaceWater(infoRef.current.W, infoRef.current.H, w);
-      return;
-    }
+    endFlip();
     const r = renderer.current;
     // (water on its way, a stroke's or the journey's: its chunks meshed a few a frame, so painting
     // and turning the view keep the display's rate)
@@ -524,6 +528,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const n = to.moisture.length;
     const moisture = new Uint8Array(n);
     const step = () => {
+      // (the other version on show: the soil stops here, and the open map's own comes back with it when the key lets go)
+      if (comparing.current) return;
       const t = Math.min(1, (performance.now() - t0) / 2000);
       if (t >= 1) {
         r.updateSoil(to);
@@ -601,6 +607,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showSoil(soil: SoilView) {
+    endFlip();
     renderer.current?.updateSoil(soil);
   }
 
@@ -637,6 +644,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function takeLand(): void {
     const held = heldLand.current;
     if (!held.heights && !held.terrain) return;
+    endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
     const m = mirror.current;
@@ -658,6 +666,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  are on their way to the worker, or one is being painted, the page's own terrain is ahead of the
    *  worker's: the worker's waits for them (it is the same, byte for byte). */
   function applyView(v: ViewUpdate): void {
+    endFlip();
     const r = renderer.current;
     const m = mirror.current;
     // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
@@ -705,7 +714,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, comparing, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
+    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,

@@ -87,3 +87,51 @@ test("Keep this version and Branch from here, the parent in Your maps, and Compa
   await expect(maps.locator("li")).toHaveCount(3);
   expect(errors).toEqual([]);
 });
+
+test("an undo while the other version is held ends the flip: the open map comes back as the undo left it, nothing mixed", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const name = (await info(page)).name;
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await edit(page, [[60, 60, 70]], "Raise a wall");
+  await edit(page, [[20, 20, 36]], "Raise a ridge");
+  await idle(page);
+  const landThree = await drawn(page);
+  // the land the map has after one undo, as the undo gives it
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).length).toBe(2);
+  await idle(page);
+  const landTwo = await drawn(page);
+  await page.keyboard.press("Control+y");
+  await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).length).toBe(3);
+  await idle(page);
+  expect(await drawn(page)).toBe(landThree);
+
+  // keep the first step and compare with it
+  await history(page).click();
+  const panel = page.getByRole("complementary", { name: "History" });
+  const first = panel.locator(".hist-item").nth(1);
+  await first.hover();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await history(page).click();
+  const yours = await openYourMaps(page);
+  await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Compare with the open map" }).click();
+  await expect(page.locator(".compare-note")).toBeVisible();
+
+  // B held, the other version on show; an undo arrives: the flip ends and the open map is the undo's, not the other's
+  await page.keyboard.down("b");
+  await expect(page.locator(".compare-veil")).toHaveCount(1);
+  const landOne = await drawn(page);
+  expect(landOne).not.toBe(landThree);
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).length).toBe(2);
+  await expect(page.locator(".compare-veil")).toHaveCount(0);
+  await idle(page);
+  await page.keyboard.up("b");
+  await page.waitForTimeout(300);
+  expect(await drawn(page)).toBe(landTwo);
+  expect(await drawn(page)).not.toBe(landOne);
+});

@@ -90,6 +90,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const e = v.entities;
     v.entities = null;
     if (drop || !e) return;
+    ed.endFlip();
     const m = mirror.current;
     m.entities = e;
     m.entitiesAt = null;
@@ -101,6 +102,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** A frame of a force at work: the ground it changed, its objects. */
   function showForceFrame(f: ForceFrame) {
+    ed.endFlip();
     const r = renderer.current;
     const m = mirror.current;
     if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);

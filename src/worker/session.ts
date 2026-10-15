@@ -60,7 +60,7 @@ import { keptForceParams } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
-import { emptyColumns, entityView, LAYERS, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
@@ -1446,14 +1446,23 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
 }
 
 /** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
- *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Null when
- *  there is no such step. The open map itself is untouched. */
-export function keepVersion(k: number, parentId?: string): { bytes: Uint8Array; name: string; parent: VersionParent; size: { w: number; h: number }; picture: { heights: Uint8Array; W: number; H: number; water: Float32Array } } | null {
-  const v = need().versionProject(k, parentId ? { id: parentId } : {});
+ *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
+ *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
+ *  the page builds it in a worker of its own (`openVersion`). Null when there is no such step. The open map is untouched. */
+export function keepVersion(k: number, parentId?: string): { bytes: Uint8Array; name: string; parent: VersionParent; stored: boolean; size: { w: number; h: number }; picture: { heights: Uint8Array; W: number; H: number; water: Float32Array } | null } | null {
+  const s = need();
+  const v = s.versionProject(k, parentId ? { id: parentId } : {}, 6, { rebuild: false });
   if (!v) return null;
-  const b = v.session.built;
-  const water = surfaceWater(b.W, b.H, waterOf(v.session)).depth;
-  return { bytes: v.bytes, name: v.name, parent: v.parent, size: { w: b.W, h: b.H }, picture: { heights: b.heights.slice(), W: b.W, H: b.H, water: water.slice() } };
+  const size = { w: s.size.x, h: s.size.y };
+  const b = v.built;
+  return { bytes: v.bytes, name: v.name, parent: v.parent, stored: v.stored, size, picture: b ? { heights: b.heights.slice(), W: b.W, H: b.H, water: Float32Array.from(b.water) } : null };
+}
+
+/** Open a version's project by replaying it, a full build (the page does it in a worker of its own, for a step the open
+ *  map had no settled build of): its stored map and picture follow from `project` and `sessionView`. */
+export function openVersion(bytes: Uint8Array): void {
+  opened(MapSession.open(decodeProject(bytes), { rebuild: true }));
+  session!.settleCanonical();
 }
 
 // ------------------------------------------------------------------------------------ the tools

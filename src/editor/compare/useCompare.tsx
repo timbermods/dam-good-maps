@@ -22,7 +22,7 @@ export interface CompareSlice {
 }
 
 export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
-  const { renderer, mirror, comparing, infoRef } = ed;
+  const { renderer, mirror, comparing, infoRef, flipEnd } = ed;
   const compare = props.compare ?? null;
   const [flipped, setFlipped] = useState(false);
   const show = useRef<(on: boolean) => void>(() => undefined);
@@ -30,8 +30,10 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
   useEffect(() => {
     if (!compare) {
       show.current = () => undefined;
+      flipEnd.current = null;
       return;
     }
+    flipEnd.current = () => show.current(false);
     show.current = (on) => {
       if (comparing.current === on) return;
       const r = renderer.current;
@@ -41,7 +43,8 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
       setFlipped(on);
       // (the open map is put back from the page's copy of it, which kept every change that came while it was away)
       const m = mirror.current;
-      const v = on ? { heights: compare.view.heights, water: compare.view.water, entities: compare.view.entities, soil: compare.view.soil } : { heights: m.heights, water: m.waterView, entities: m.entities, soil: m.soil };
+      // (a held weather day's soil is what the open map shows then)
+      const v = on ? { heights: compare.view.heights, water: compare.view.water, entities: compare.view.entities, soil: compare.view.soil } : { heights: m.heights, water: m.waterView, entities: m.entities, soil: m.daySoil ?? m.soil };
       r.updateTerrain(v.heights);
       r.updateWater(v.water);
       r.updateEntities(v.entities);
@@ -69,6 +72,7 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
       window.removeEventListener("blur", off);
       document.removeEventListener("visibilitychange", off);
       show.current(false);
+      flipEnd.current = null;
     };
   }, [compare]);
 

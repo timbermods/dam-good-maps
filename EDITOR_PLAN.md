@@ -103,9 +103,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
   size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' right-click
-  **Compare with the open map** (the same size only) reads the other map once, settled, in a worker of its own; a note
+  **Compare with the open map** (the same size only; greyed with the reason for another size) reads the other map once, settled, in a worker of its own; a note
   "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips the land, objects and
-  water to the other map at the same camera, a name chip over the map while it is on show; letting go puts the open map back
+  water to the other map at the same camera, a name chip over the map while it is on show; anything that redraws the open map (an edit, an undo, a force, a peer) puts it back and ends the flip, the minimap follows the flip, and letting go puts the open map back; Compare shows the surface only on an import with caves or overhangs
   (`editor/compare/useCompare.tsx`). Captures `docs/design/showcase-versions-*`.
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
   map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
