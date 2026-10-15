@@ -45,6 +45,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         canFolder={canSaveToTimberborn()}
         saving={null}
         onSave={nothing}
+        onChooseFolder={nothing}
         onOpenFile={nothing}
         onSaveProject={nothing}
         onClearEverything={nothing}
