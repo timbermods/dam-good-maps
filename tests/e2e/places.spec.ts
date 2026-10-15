@@ -45,6 +45,16 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   await expect(cards).toHaveCount(INDEX.count);
   await expect(page.getByRole("status").filter({ hasText: /maps$/ })).toHaveText(`${INDEX.count} maps`);
 
+  // every card's three buttons lie inside it: a card clips what passes its edge, so on a font wider than the author's
+  // (CI's Linux) Refine was cut off and could not be clicked
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll(".gallery .place")].filter((card) => {
+      const box = card.getBoundingClientRect();
+      return [...card.querySelectorAll(".place-actions > *")].some((b) => b.getBoundingClientRect().right > box.right - 1);
+    }).length,
+  );
+  expect(clipped).toBe(0);
+
   // the credits ATTRIBUTION.md asks for
   const credits = page.locator("#credits");
   await expect(credits.getByRole("heading", { name: "Elevation data" })).toBeVisible();
@@ -112,7 +122,7 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("./real-places/");
-  await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click({ timeout: 30_000 });
+  await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
   await waitForEditor(page);
   const info = await page.evaluate(() => window.dgmEditor!.info());
   expect(info.kind).toBe("import");
@@ -156,7 +166,7 @@ test("a real place replaces the open map without asking, and the replaced map st
   await expect(page.getByRole("heading", { level: 1, name: "Real places" })).toBeVisible();
 
   // Refine opens the place at once: nothing is asked, however the open map stands
-  await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click({ timeout: 30_000 });
+  await page.getByRole("link", { name: `Refine ${SMALL.name} in the editor` }).click();
   await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
   expect(await page.evaluate(() => window.dgmEditor!.info().name)).toBe(SMALL.name);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
