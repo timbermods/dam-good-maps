@@ -85,7 +85,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   await expect(bar.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
   await expect(bar.getByRole("button", { name: /Source/ })).toHaveCount(0);
   const shelfWords = await page.getByRole("navigation", { name: "Place" }).getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source", "Badwater source", "Natural dam", "Pine", "Birch", "Oak", "Berry bush"]);
+  expect(shelfWords.slice(0, 8)).toEqual(["Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Ancient drill", "Badtide drain"]);
   await expect(page.getByRole("group", { name: /options/ })).toHaveCount(0);
   // the forces, all five ready (D216, D219, D291), in the bar after the tools
   const forces = page.getByRole("group", { name: "Forces" });
