@@ -45,6 +45,9 @@ import {
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { writeTimber } from "../src/core/format/timber";
 import { namedFile } from "../src/core/gen/pack";
+import { EDGE_BAND, EDGE_INSIDE, EDGE_RISE } from "../src/core/analysis/edges";
+import { relaxEdges } from "../src/core/land/levels";
+import { edgeLip } from "../src/core/water/edgeLip";
 import { thumbnailRgba } from "../src/core/render/shade";
 import { validateMap } from "../src/core/validate/checks";
 import type { CheckResult } from "../src/core/validate/report";
@@ -54,6 +57,9 @@ const OUT = "public/real-places";
 /** The card picture's side in pixels. */
 const CARD = 240;
 const CARD_QUALITY = 60;
+/** A source this close to the map's edge (tiles from the border) gets the edge lip: the survey moved its
+ *  inflows at most three steps in from the edge. */
+const EDGE_SOURCE_REACH = 3;
 
 /** Each family's name on the page and how it plays: the survey's "play value" for the family
  *  (investigation/landscapes/FAMILIES.md), in plain words. A family label names the region the
@@ -96,6 +102,18 @@ interface LibraryItem {
   fixture: string;
 }
 
+/** Real land can still step up two levels or more at the border (a cliff running to the edge): the two
+ *  outer rows then stand at most one level over the land just inside them, the edge-wall rule's margin. */
+function capEdgeBand(h: Uint8Array, W: number, H: number): void {
+  const at: ((k: number, t: number) => number)[] = [(k, t) => t * W + k, (k, t) => (H - 1 - t) * W + k, (k, t) => k * W + t, (k, t) => k * W + (W - 1 - t)];
+  for (let e = 0; e < 4; e++)
+    for (let k = 0; k < (e < 2 ? W : H); k++) {
+      let inside = 0;
+      for (let t = EDGE_BAND; t < EDGE_BAND + EDGE_INSIDE; t++) inside = Math.max(inside, h[at[e](k, t)]);
+      for (let t = 0; t < EDGE_BAND; t++) if (h[at[e](k, t)] > inside + EDGE_RISE - 1) h[at[e](k, t)] = inside + EDGE_RISE - 1;
+    }
+}
+
 function arg(name: string): string | null {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : null;
@@ -116,6 +134,7 @@ type Fixture = {
   W: number;
   H: number;
   heights: number[];
+  referenceHeights: number[];
   waterSources: { x: number; y: number; strength: number }[];
   start: { x: number; y: number; z: number; orientation: string } | null;
   entities: Record<string, unknown>[];
@@ -129,7 +148,27 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
   const H = fx.H;
   if (W !== H || W !== item.size) throw new Error(`${item.id}: size ${W}×${H}, index says ${item.size}`);
   if (!fx.start) throw new Error(`${item.id}: no start`);
-  const heights = Uint8Array.from(fx.heights);
+  const sealed = Uint8Array.from(fx.heights);
+  // No edge walls (D151): the survey raised a ring round the map to seal it (its `modifications`
+  // count the cells), which the game's edge turns into a wall holding water back. The land is the
+  // survey's own unsealed crop (`referenceHeights`, the same 16 levels), and the edge then runs on
+  // past the border as the generator's does (`relaxEdges`, land/levels.ts); the interior is untouched.
+  const heights = Uint8Array.from(fx.referenceHeights);
+  for (let i = 0; i < heights.length; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (heights[i] !== sealed[i] && x > 0 && y > 0 && x < W - 1 && y < H - 1) throw new Error(`${item.id}: the survey changed the interior at ${x},${y}`);
+  }
+  relaxEdges(heights, W, H);
+  capEdgeBand(heights, W, H);
+  // a source the survey put just inside the edge (its inflows) would pour straight off the map: the
+  // edge beside it gets the generator's lip (item 27, water/edgeLip.ts), never a wall along the edge
+  const heads = new Uint8Array(W * H);
+  for (const s of fx.waterSources) heads[s.y * W + s.x] = 1;
+  for (const s of fx.waterSources) {
+    if (Math.min(s.x, s.y, W - 1 - s.x, H - 1 - s.y) > EDGE_SOURCE_REACH) continue;
+    edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads });
+  }
   const name = (RENAME[item.id] ?? item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "")).trim();
   if (!/^Near /.test(name)) throw new Error(`${item.id}: unexpected name ${name}`);
   const fam = FAMILIES[item.family];
@@ -141,7 +180,7 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     const comps = e.Components as Record<string, Record<string, unknown>>;
     const c = comps.BlockObject.Coordinates as { X: number; Y: number; Z: number };
     const i = c.Y * W + c.X;
-    if (c.Z !== heights[i]) throw new Error(`${item.id}: ${String(e.Template)} at ${c.X},${c.Y} stands at ${c.Z}, ground ${heights[i]}`);
+    if (c.Z !== sealed[i]) throw new Error(`${item.id}: ${String(e.Template)} at ${c.X},${c.Y} stands at ${c.Z}, ground ${sealed[i]}`);
     switch (e.Template) {
       case "WaterSource":
         sources++;
@@ -193,14 +232,21 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     ruins: encodeTiles(kinds.ruins),
   };
   // the builders write exactly the survey's objects (ids aside)
+  // (an object on a tile the edge has run on past stands on the new ground)
   const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
+  const onNewGround = (o: Record<string, unknown>) => {
+    const e = plain(o) as { Components: { BlockObject: { Coordinates: { X: number; Y: number; Z: number } } } };
+    const c = e.Components.BlockObject.Coordinates;
+    c.Z = heights[c.Y * W + c.X];
+    return e as Record<string, unknown>;
+  };
   const key = (e: Record<string, unknown>) => {
     const { Id: _id, ...rest } = e;
     return JSON.stringify(rest);
   };
   const ours = new Set(placeEntities(place, decodeHeights(place.heights)).map((s) => key(JSON.parse(stringify(entityJson(s))))));
   for (const e of fx.entities) {
-    if (!ours.has(key(plain(e)))) throw new Error(`${item.id}: ${String(e.Template)} ${JSON.stringify(e.Components)} is not what the place writes`);
+    if (!ours.has(key(onNewGround(e)))) throw new Error(`${item.id}: ${String(e.Template)} ${JSON.stringify(e.Components)} is not what the place writes`);
   }
   if (ours.size !== fx.entities.length) throw new Error(`${item.id}: ${ours.size} objects written, ${fx.entities.length} in the survey`);
   return place;
@@ -240,9 +286,11 @@ for (const item of items) {
   const strictFails = strict.report.checks.filter(counts).map((c) => c.id);
   // the conversion's known faults (every place has them, D151, D200) and the places' own recorded
   // ones are not failures of the tool; anything else is, and so is a map the game would not load
-  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS]);
+  // (and the start-land preferences, information for a real place, D331)
+  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, "start.farmland", "start.level_land"]);
   const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
   const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
+  if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) console.log(`   ${place.name}: ${c.id}: ${c.message}`);
   if (unknown.length || !loads) failures++;
   const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
   console.log(
