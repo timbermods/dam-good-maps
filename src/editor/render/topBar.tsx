@@ -24,7 +24,7 @@ export function topBar(ed: Ed, props: EditorProps) {
                 {message.action.label}
               </button>
             ) : null}
-            <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
+            <button type="button" class="icon-close" onClick={() => setMessage(null)} aria-label="Dismiss" title="Close">
               ×
             </button>
           </div>

@@ -112,7 +112,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   const turned = await fitAt(page, x, y, W);
   expect(turned.problem).toBeNull();
   await clickTile(page, x, y);
-  expect(await labels(page)).toEqual(["Place medium relic"]);
+  expect(await labels(page)).toEqual(["Place a relic"]);
   const placed = await page.evaluate(async ([a, b]) => (await window.dgmEditor!.worker.entitiesAt(a, b)).find((e) => e.template === "MediumRelic") ?? null, [x, y] as [number, number]);
   expect(placed).not.toBeNull();
   expect(placed!.orientation).toBe("Cw90");
@@ -137,7 +137,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   // a click plants one
   const [ox, oy] = spots.find(([p, q]) => Math.hypot(p - x, q - y) > 12 && Math.hypot(p - gx, q - gy) > 12)!;
   await clickTile(page, ox, oy);
-  expect((await labels(page)).at(-1)).toBe("Place pine");
+  expect((await labels(page)).at(-1)).toBe("Place a pine");
   await page.keyboard.press("Escape");
 
   // the start: picked on the shelf, it moves where it is clicked, and goes back on the shelf
@@ -424,7 +424,7 @@ test("drag from the shelf: the ghost follows the pointer, the drop places it, a 
   expect((await page.evaluate(() => window.dgmEditor!.fit()))!.problem).toBeNull();
   await page.mouse.up();
   await idle(page);
-  expect(await labels(page)).toEqual(["Place small relic"]);
+  expect(await labels(page)).toEqual(["Place a relic"]);
   // the object goes back on the shelf
   await expect(pressed("Relic")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator(".shape-note")).toHaveCount(0);
@@ -435,7 +435,7 @@ test("drag from the shelf: the ghost follows the pointer, the drop places it, a 
   await page.mouse.move(400, 12, { steps: 6 });
   await page.mouse.up();
   await idle(page);
-  expect(await labels(page)).toEqual(["Place small relic"]);
+  expect(await labels(page)).toEqual(["Place a relic"]);
   await expect(pressed("Relic")).toHaveAttribute("aria-pressed", "false");
   await page.mouse.move(to.x + 8, to.y + 8);
   await page.mouse.move(to.x, to.y);
@@ -450,7 +450,7 @@ test("drag from the shelf: the ghost follows the pointer, the drop places it, a 
   await page.waitForFunction((k) => !!window.dgmEditor!.fit()?.tiles.includes(k), start[1] * W + start[0], { timeout: 10_000 });
   await page.mouse.up();
   await idle(page);
-  expect(await labels(page)).toEqual(["Place small relic"]);
+  expect(await labels(page)).toEqual(["Place a relic"]);
   await expect(pressed("Relic")).toHaveAttribute("aria-pressed", "false");
 
   // the start dragged out moves the map's one start, one step

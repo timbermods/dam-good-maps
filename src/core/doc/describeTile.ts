@@ -73,7 +73,7 @@ export const NAMES: Record<string, string> = {
   ChestnutTree: "Chestnut tree",
   Mangrove: "Mangrove",
   Succulent: "Succulent",
-  BlueberryBush: "Blueberry bush",
+  BlueberryBush: "Berry bush",
   Slope: "Slope",
   WaterSource: "Water source",
   BadwaterSource: "Badwater source",

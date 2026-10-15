@@ -174,7 +174,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   expect(st.shape).toBe("square");
   // (held still, no dab more than the press)
   expect(st.dabs.length).toBe(2);
-  expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower, \d+ tiles$/);
+  expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower \d+ tiles$/);
   // vertical walls: the pit's edge at the target, the ground right beside it untouched
   expect(await heightAt(page, pit[0] + 1, pit[1] + 1)).toBe(h0 - 2);
   expect(await heightAt(page, pit[0] + 2, pit[1])).toBe(h0);
@@ -358,7 +358,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   const before = await heightAt(page, ...c0);
   await sel.getByRole("button", { name: "Up 1", exact: true }).click();
   await idle(page);
-  expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles by 1");
+  expect((await info(page)).history.at(-1)!.label).toBe("Raise 30 tiles");
   await expect.poll(() => heightAt(page, ...c0)).toBe(before + 1);
   // Shift adds, and Esc clears it (Select stays in hand)
   await page.keyboard.down("Shift");
