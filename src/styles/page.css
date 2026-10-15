@@ -404,7 +404,7 @@
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
    Legend is ticked, its left edge on the column's, down to 8px above the minimap at most */
 /* the Show toggles in one row at the top left, below the header (Kyler, 2026-10-04): the toggle look, narrower, the
-   names in full; at 1920×1080 the row ends well short of the water row (a map with roofs adds Under roofs) */
+   names in full; at 1920×1080 the row ends well short of the water row (a map with caves adds Caves and overhangs after Badwater, and the water row may take a second line) */
 .editor-view .view3d-controls.show-bar {
   position: absolute;
   z-index: 2;

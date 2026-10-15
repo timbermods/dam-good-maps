@@ -196,7 +196,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
   and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Caves and overhangs** (where the map has them, beside Legend; each with its caption under Legend while on);
+  and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.

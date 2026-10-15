@@ -425,7 +425,8 @@ refinements and what the mockups left open:
 - **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
-  that has them) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
+  that has them) follows Badwater in the row at every width; where the row then leaves the water row no room, the
+  water row takes the second line, as in a narrow window.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of

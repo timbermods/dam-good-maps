@@ -32,7 +32,8 @@ function overlayRow(ed: Ed, k: LayerKind) {
   );
 }
 
-/** The Show row's toggles after Flow: See-through and Badwater. */
+/** The Show row's toggles after Flow: See-through, Badwater and, on a map that has them, Caves and overhangs, right
+ *  after Badwater at every width (the band's layout moves the water row to a second line when the row needs the room). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater } = ed;
   return (
@@ -41,14 +42,9 @@ export function viewButtons(ed: Ed) {
         See-through
       </ShowRow>
       {overlayRow(ed, "badwater")}
+      {ed.info.caves ? overlayRow(ed, "roofed") : null}
     </>
   );
-}
-
-/** Caves and overhangs, on a map that has them: beside Legend at the top right (at 1920×1080 the Show row has no room for
- *  it before the water row). */
-export function roofsButton(ed: Ed) {
-  return ed.info.caves ? overlayRow(ed, "roofed") : null;
 }
 
 /** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */
