@@ -9,7 +9,7 @@ import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
 import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
-import { DepositRow, GlaciateRow, RiftRow } from "../ForceRows";
+import { DepositRow, GlaciateRow, RiftRow, RollsButton } from "../ForceRows";
 import type { RiftSettings } from "../../core/forces/rift";
 import type { DepositSettings } from "../../core/forces/deposit";
 import type { GlaciateSettings } from "../../core/forces/glaciate/model";
@@ -189,6 +189,8 @@ export function useRows(ed: Ed): RowsSlice {
               },
             ]
           : []),
+        // (its rolls on offer, D488: "2 of 4" in a group of its own beside Try another, a click showing the next)
+        ...(again && rollsOffered() ? [{ key: "rolls", node: <RollsButton rolls={rollsOffered()!} onRoll={() => showRoll(1)} /> }] : []),
       ],
     };
   }

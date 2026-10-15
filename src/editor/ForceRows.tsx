@@ -17,7 +17,7 @@ import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettin
 import { DEPOSIT_DEFAULTS, DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN, depositWidth, type DepositSettings } from "../core/forces/deposit";
 import { type ForceStatus } from "./forceDriver";
 import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
-import { ButtonSetting, ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
+import { ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
 import { tip } from "../ui/Tooltip";
 
 /** A force's Sources (Kyler, 2026-10-05): the sources it reaches ride with the ground, or it removes them (the
@@ -173,20 +173,30 @@ function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "de
   return <NumberSetting label="Power" title={title} keys={STRENGTH_KEYS} value={value} words={String(value)} min={0} max={100} step={5} onChange={onChange} />;
 }
 
-/** Try another: always in its place, ready once a run is kept; with its rolls on offer (D488), "2 of 4" beside
- *  it, a click showing the next. */
+/** Try another: always in its place, ready once a run is kept, its size and place never changing; with its rolls
+ *  on offer (D488), "2 of 4" in its own space just above the panel over it, a click showing the next. */
 export function again(p: { canAgain: boolean; onAgain(): void; rolls?: { shown: number; count: number } | null; onRoll?(): void }, title: string) {
   const r = p.rolls;
-  if (!r || !p.onRoll) return <ButtonSetting label="Try another" title={title} disabled={!p.canAgain} onClick={p.onAgain} />;
   return (
-    <div class="set again-rolls">
+    <div class="set again">
       <button type="button" class="set-button" disabled={!p.canAgain} {...tip(title)} onClick={p.onAgain}>
         Try another
       </button>
-      <button type="button" class="set-button rolls" aria-label={`Roll ${r.shown} of ${r.count}`} {...tip("Show the next roll", "Tab", "Shift+Tab back")} onClick={p.onRoll}>
-        {r.shown} of {r.count}
-      </button>
+      {r && p.onRoll ? (
+        <span class="rolls-tab">
+          <RollsButton rolls={r} onRoll={p.onRoll} />
+        </span>
+      ) : null}
     </div>
+  );
+}
+
+/** "2 of 4": which of a force's rolls is shown (D488); a click shows the next. */
+export function RollsButton(p: { rolls: { shown: number; count: number }; onRoll(): void; class?: string }) {
+  return (
+    <button type="button" class={`set-button rolls${p.class ? ` ${p.class}` : ""}`} aria-label={`Roll ${p.rolls.shown} of ${p.rolls.count}`} {...tip("Show the next roll", "Tab", "Shift+Tab back")} onClick={p.onRoll}>
+      {p.rolls.shown} of {p.rolls.count}
+    </button>
   );
 }
 

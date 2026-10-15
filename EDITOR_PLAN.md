@@ -140,8 +140,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
-    Try another, always in its place, ready once a run is kept, with "2 of 4" beside it while its rolls are on offer
-    (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
+    Try another, always in its place, ready once a run is kept; while its rolls are on offer "2 of 4" stands in its
+    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
@@ -406,8 +406,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Try another keeps every roll** (force variants, D488): each Try another is a new roll of the same force from the
   same land, with the next seed, and every roll made on the force's step is kept (up to 8; a ninth drops the oldest).
   Right after a run, before anything else, **Tab** shows the next roll and **Shift+Tab** the one before, at once:
-  each is its real result, kept as it was made, never worked out again; "2 of 4" beside Try another says which is
-  shown (a click shows the next; its tooltip carries the keys). The history holds one step for the force, labelled
+  each is its real result, kept as it was made, never worked out again; "2 of 4" just above Try another (and beside it
+  on an unleashed source's panel) says which is shown (a click shows the next; its tooltip carries the keys); Try
+  another itself never moves or shrinks, so clicking it again always makes a new roll. The history holds one step for the force, labelled
   with the roll shown ("Rift, roll 2"); whatever roll shows when the player does anything else (an edit, another
   tool, Esc, a save) is the one that stays. Undo takes the step back whole; redo brings back the roll that was
   shown; a saved project holds only that roll and reopens byte for byte (D455). Tab keys the rolls only with the

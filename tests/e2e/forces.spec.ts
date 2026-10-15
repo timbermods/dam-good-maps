@@ -250,6 +250,36 @@ test("clicked quickly (D378): the next force plays in full from its first moment
   }
 });
 
+test("Try another stays where it was (D488): four clicks at the same point make four more rolls, its place and size never changing; the counter has its own space", async ({ page }) => {
+  await openTopDown(page);
+  await page.keyboard.press("Shift+Digit2");
+  const row = page.getByRole("group", { name: "Craterize options" });
+  await row.getByRole("slider", { name: "Power" }).fill("30");
+  const { far } = await places(page);
+  const h = await client(page, far[0], far[1]);
+  await page.mouse.move(h.x + 3, h.y);
+  await page.mouse.move(h.x, h.y);
+  await page.mouse.click(h.x, h.y);
+  await settled(page);
+  const again = row.getByRole("button", { name: "Try another" });
+  const box = (await again.boundingBox())!;
+  // (its right half, where a second click would land)
+  const at = { x: box.x + box.width * 0.8, y: box.y + box.height / 2 };
+  const seen = new Set([(await heights(page)).join()]);
+  for (let k = 2; k <= 5; k++) {
+    await page.mouse.click(at.x, at.y);
+    await settled(page);
+    await expect(page.getByRole("button", { name: `Roll ${k} of ${k}` })).toBeVisible();
+    seen.add((await heights(page)).join());
+    expect(await again.boundingBox()).toEqual(box);
+    // (the counter is clear of Try another)
+    const c = (await page.getByRole("button", { name: `Roll ${k} of ${k}` }).boundingBox())!;
+    expect(c.y + c.height <= box.y || c.x >= box.x + box.width || c.x + c.width <= box.x).toBe(true);
+  }
+  expect(seen.size).toBe(5);
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 5");
+});
+
 test("Craterize's details (D309): always shown, each on Auto (choices and an Off and On); a pin survives Try another", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("Shift+Digit2");
