@@ -1,5 +1,5 @@
-// Water that moves (a stroke's, a force's, the water's journey after an edit) meshed in workers
-// (waterMesh.worker.ts), so the view keeps the display's rate while it flows: meshing a chunk costs a
+// Water that moves (a stroke's, a force's, the water's journey after an edit), and water put in place, meshed in
+// workers (waterMesh.worker.ts), so the view keeps the display's rate while it flows: meshing a chunk costs a
 // couple of milliseconds, and moving water changes a dozen or more chunks many times a second. A batch
 // is one moment of the water: all the chunks it changed, meshed on that one water (split over a few
 // workers) and handed back whole, so the renderer draws them together, never a mix of moments

@@ -1777,7 +1777,7 @@ export class MapRenderer {
    *  a frame, nearest the view's middle first, with the ground's tile data under them, in the water mesh workers
    *  where they run. While a stroke is painted the water can move all over the map (a lake still filling after a
    *  force): meshing every changed chunk in the frame it came cost the page a frame each time (D244's
-   *  measurements). An `updateWater` meshes whatever still waits. With water per column, the chunks within reach of
+   *  measurements). An `updateWater` has whatever still waits drawn exactly on its water. With water per column, the chunks within reach of
    *  the columns that changed, dealt and meshed in the workers on the view itself. */
   updateWaterSoon(water: WaterView): number {
     const m = this.map;
