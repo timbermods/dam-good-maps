@@ -432,7 +432,7 @@ function lens(): BufferGeometry {
   return g;
 }
 
-const SAGE: Rgb = [0.55, 0.7, 0.45];
+const SAGE: Rgb = [0.45, 0.63, 0.36];
 const BLUSH: Rgb = [0.86, 0.42, 0.38];
 
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
@@ -467,10 +467,10 @@ function succulent(dead: boolean): Model {
     for (const [a, t] of [[0.4, 0.9], [2.6, 0.8], [4.6, 1.0]]) pad(cx + Math.cos(a) * 0.1, 0.74, -Math.sin(a) * 0.1, a, t, 0.15, 0.1);
     return m;
   }
-  // the crown: six pads round the trunk's top, alternately steeper and longer, reaching well past the trunk
+  // the crown: six round pads splayed wide and low round the trunk's top, about twice its width across
   for (let k = 0; k < 6; k++) {
     const a = k * 1.05 + 0.2;
-    pad(cx + Math.cos(a) * 0.1, 0.76, -Math.sin(a) * 0.1, a, k % 2 ? 1.05 : 0.75, k % 2 ? 0.17 : 0.2, 0.12);
+    pad(cx + Math.cos(a) * 0.08, 0.76, -Math.sin(a) * 0.08, a, k % 2 ? 0.6 : 0.42, k % 2 ? 0.15 : 0.165, k % 2 ? 0.11 : 0.12);
   }
   // the young plant: two pads straight from the ground, leaning apart
   for (const [a, t] of [[0.5, 1.0], [3.4, 0.9]]) pad(-0.33 + Math.cos(a) * 0.03, 0.02, 0.1 - Math.sin(a) * 0.03, a, t, 0.14, 0.09);
