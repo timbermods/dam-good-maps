@@ -126,3 +126,25 @@ export function supportPass(t: ColumnTerrain, objects: Iterable<Placement> = [])
     }
   return { terrain: mask ? new ColumnTerrain(t.W, t.H, mask) : t, dropped };
 }
+
+/** The blocks of ground `after` holds that the game would delete and `before` did not (D121, D280
+ *  (3)): what an edit would make fall, by cell (z·N + tile), ascending. Ground the game already
+ *  deletes from `before` (an imported map's own) is not the edit's. Each terrain comes with the cells
+ *  of its objects' stackable tops, which hold ground (`stackableTops`). Empty on a heightfield,
+ *  nothing worked out. */
+export function newFalls(before: SupportTerrain, after: SupportTerrain, topsBefore: Iterable<number> | null = null, topsAfter: Iterable<number> | null = null): number[] {
+  const now = unsupportedVoxels(after, topsAfter);
+  const out: number[] = [];
+  let was: Uint8Array | null = null;
+  for (let c = 0; c < now.length; c++) {
+    if (!now[c]) continue;
+    was ??= unsupportedVoxels(before, topsBefore);
+    if (!was[c]) out.push(c);
+  }
+  return out;
+}
+
+/** An edit's refusal when it would make ground fall (D280 (3)), in one plain line. */
+export function fallsReason(n: number): string {
+  return n === 1 ? "1 block of ground would fall: nothing would hold it up" : `${n} blocks of ground would fall: nothing would hold them up`;
+}

@@ -400,8 +400,11 @@ export function sculptReadsNeighbours(s: SculptEdit): boolean {
 
 /** Apply one sculpt edit or brush stroke (step 6) to the region's cells. Heights stay within
  *  0–16, the in-game editor's range (the brushes are defined that way, like the game's own).
- *  `keep(i)` names tiles every tool leaves alone (an imported map's caves). */
-export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }): void {
+ *  `keep(i)` names the tiles that are not plain (an imported map's caves and overhangs): a force's
+ *  result and an old sculpt edit leave them as they are; a brush shapes their top run like any other
+ *  ground, never below `floor` (one above the roof's underside, D280 (3); terrain/runs.ts
+ *  `topFloors`), so what is under a roof stays as it is. */
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }, floor: Uint8Array | null = null): void {
   const { W, heights } = t;
   if (isForce(s.params)) {
     // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
@@ -429,7 +432,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     // bench, an exact stroke's, a force's, D253)
     const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
     const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
-    applyBrush(s.params, heights, W, t.H, keep ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i));
+    applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
     // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
     // one-tile pit stays a pit, D193, D322)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
@@ -455,7 +458,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
             if (v !== undefined && x + dx >= 0 && x + dx < W) vals.push(v);
           }
         vals.sort((m, n) => m - n);
-        out.push([i, vals[vals.length >> 1]]);
+        if (!keep?.(i)) out.push([i, vals[vals.length >> 1]]);
       }
     }
     for (const [i, v] of out) heights[i] = v;
@@ -464,7 +467,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   for (const [y, a, b] of p.cells) {
     for (let x = a; x <= b; x++) {
       const i = y * W + x;
-      if (!t.inRegion(i)) continue;
+      if (!t.inRegion(i) || keep?.(i)) continue;
       const h = heights[i];
       // (exact: what it changes stays as it left it, a one-tile pit included)
       if (p.exact) t.protectedMask[i] = 1;
