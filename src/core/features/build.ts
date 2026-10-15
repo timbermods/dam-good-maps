@@ -1166,7 +1166,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           settle = staleWater({ model: settleEntry!.model, water: settleEntry!.water }, model);
           const st = (settle.stack = staleStack(settleEntry!.water.stack, cols, settle.depth, settle.contamination));
           // the lakes an edit stored show at once, and the unfed water a removal drained goes, on every column
-          if (keptOnStack(stackGraph(model), st, model.retained, model.drained))
+          if ((model.retained?.length || model.drained?.length) && keptOnStack(stackGraph(model), st, model.retained, model.drained))
             for (let i = 0; i < N; i++) {
               const c = (st.count[i] - 1) * N + i;
               settle.depth[i] = st.count[i] ? st.depth[c] : 0;

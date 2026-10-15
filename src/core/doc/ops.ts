@@ -809,7 +809,9 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];
       const l = p.lake;
       if (l.floor.length !== l.tiles.length || l.depth.length !== l.tiles.length || l.contamination.length !== l.tiles.length) return ["the fill's tiles, floors, depths and contamination must match one for one"];
-      const errors = ascendingColumns(l.tiles, l.floor, W, H, "the fill's tiles");
+      // (on a map with caves a tile has an entry for each of its water columns the hollow fills)
+      const caves = !!(ctx.water ? cavesOf(ctx.water.model) : ctx.lockedColumns?.size);
+      const errors = caves ? ascendingColumns(l.tiles, l.floor, W, H, "the fill's tiles") : ascendingTiles(l.tiles, W, H, "the fill's tiles");
       if (errors.length) return errors;
       if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold (${x}, ${y}), where it was asked`];
       for (let k = 0; k < l.tiles.length; k++) {

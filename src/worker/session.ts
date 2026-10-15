@@ -1588,7 +1588,7 @@ function importModel(s: MapSession, opened = false): WaterModel {
   if (kept?.length) m.retained = kept;
   // and the unfed water Remove unfed water took stays gone (D387 (2))
   const drained = opened ? undefined : s.built.waterModel.drained;
-  if (drained?.length && !m.stacked) m.drained = drained;
+  if (drained?.length) m.drained = drained;
   return m;
 }
 
