@@ -71,8 +71,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
   const paramsFor = (mode: "add" | "remove", side: BlocksParams["side"], at: readonly [number, number, number][]) => blockParams(settingsRef.current, mode, side, at, cutNow(), ed.workingArea());
   /** The question's identity: the operation. */
   const keyOf = paramsKey;
-  /** The preview: the operation asked about last, the question on its way, the next to ask, the answer. */
-  const pv = useRef<{ key: string; inFlight: boolean; queued: BlocksParams | null; result: { key: string; f: BlockFalls } | null; note: string | null }>({ key: "", inFlight: false, queued: null, result: null, note: null });
+  /** The preview: the operation asked about last, the question on its way (and the map's version it was asked of), the
+   *  next to ask, the answer (and its version). */
+  const pv = useRef<{ key: string; inFlight: boolean; at: number; queued: BlocksParams | null; result: { key: string; f: BlockFalls; version: number } | null; note: string | null }>({ key: "", inFlight: false, at: -1, queued: null, result: null, note: null });
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
 
   function clearShown() {
@@ -145,11 +146,12 @@ export function useBlockTool(ed: Ed): BlockSlice {
     s.inFlight = true;
     const key = keyOf(p);
     const version = infoRef.current.version;
+    s.at = version;
     try {
       const f = await api.blockFalls(p);
       // (an answer for a question since changed, or a map since edited, is dropped)
       if (key === s.key && version === infoRef.current.version && blockRef.current) {
-        s.result = { key, f };
+        s.result = { key, f, version };
         present(f);
       }
     } catch {
@@ -289,8 +291,12 @@ export function useBlockTool(ed: Ed): BlockSlice {
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again
   useEffect(() => {
     if (!block) return;
-    pv.current.key = "";
-    pv.current.result = null;
+    const s = pv.current;
+    // (the page draws the new version a moment after it has it: a question already asked of it, answered or on its way,
+    // is about the map as it is, and stays)
+    if ((s.result && s.result.version === info.version) || (s.inFlight && s.at === info.version)) return;
+    s.key = "";
+    s.result = null;
     const id = window.setTimeout(() => {
       const r = renderer.current;
       const l = last.current;
