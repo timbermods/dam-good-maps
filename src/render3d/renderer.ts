@@ -2713,6 +2713,8 @@ export class MapRenderer {
       this.ortho.up.set(0, 0, -1);
       this.ortho.lookAt(tx, 0, tz);
       this.ortho.updateProjectionMatrix();
+      // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
+      this.ortho.updateMatrixWorld();
     } else {
       const cp = Math.cos(v.pitch);
       this.persp.aspect = aspect;
@@ -2721,6 +2723,7 @@ export class MapRenderer {
       this.persp.lookAt(tx, ty, tz);
       this.persp.far = v.distance * 4 + 1000;
       this.persp.updateProjectionMatrix();
+      this.persp.updateMatrixWorld();
     }
     // a light haze beyond the point looked at, none from straight above
     const u = this.uniforms;
