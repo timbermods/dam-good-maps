@@ -12,7 +12,6 @@ import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
 import { BAD, LOWERS, MOVING, RAISES } from "../tools";
 import { tip } from "../../ui/Tooltip";
-import { plain } from "../words";
 import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
@@ -311,13 +310,22 @@ export function useSelect(ed: Ed): SelectSlice {
     return at < 0 ? null : [at % W, Math.floor(at / W)];
   }
   const daysWords = (d: number) => (d < 1 ? "less than a day" : `about ${Math.round(d).toLocaleString("en-GB")} ${Math.round(d) === 1 ? "day" : "days"}`);
+  /** Why a Fill can't be made, in a few words (the core's reason names a tile and a level). */
+  function fillWhy(reason: string): string {
+    if (/at or below the ground/.test(reason)) return "Raise the Level to fill";
+    if (/spill off the map/.test(reason)) return "It would spill off the map";
+    if (/already stands/.test(reason)) return "Water already stands there";
+    if (/natural dam/.test(reason)) return "A natural dam is in the way";
+    if (/cave|overhang/.test(reason)) return "A cave is in the way";
+    return "It would not hold water";
+  }
   function previewFill(level: number) {
     const spot = fillSpot();
     if (!spot) return;
     const job = ++hintJob.current;
     void api.fillPlanAt(spot[0], spot[1], level).then((r) => {
       if (job !== hintJob.current) return;
-      setWaterHint(r.reason ? plain(r.reason) : `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}`);
+      setWaterHint(r.reason ? fillWhy(r.reason) : `${r.tiles.length.toLocaleString("en-GB")} tiles, lasts ${daysWords(r.days)}`);
       setSelectPreview(r.tiles.length ? { tiles: r.tiles, color: MOVING } : null);
     });
   }
@@ -483,7 +491,7 @@ export function useSelect(ed: Ed): SelectSlice {
               type="button"
               class="set-button"
               disabled={!z}
-              {...tip("Fill the hollow with water up to this level")}
+              {...tip("Fill the hollow with water up to the Level")}
               onMouseEnter={() => previewFill(level)}
               onFocus={() => previewFill(level)}
               onMouseLeave={endWaterHint}

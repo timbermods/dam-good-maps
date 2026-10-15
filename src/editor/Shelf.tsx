@@ -11,6 +11,9 @@ import { useEffect, useRef } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
 
+/** The first row of each group after the first: the water objects, the plants, the landmarks, the core and the reserves. */
+const GROUP_FIRST = new Set(["WaterSeep", "Pine", "Ruin", "UnstableCore"]);
+
 /** How far a press must move before it is a drag and not a click, in pixels. */
 const DRAG_PX = 6;
 
@@ -87,7 +90,7 @@ export function Shelf(p: ShelfProps) {
             <button
               type="button"
               key={it.id}
-              class="shelf-item"
+              class={`shelf-item${GROUP_FIRST.has(it.id) ? " shelf-first" : ""}`}
               aria-pressed={p.picked === it.id}
               aria-label={it.name}
               {...(p.loading ? tip("The map is still loading") : shelfTip(it))}

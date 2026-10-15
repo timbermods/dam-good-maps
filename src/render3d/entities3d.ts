@@ -986,7 +986,7 @@ const GENERIC_COLORS: [RegExp, Rgb][] = [
   [/Thorns/, [0.48, 0.18, 0.18]],
   [/Geothermal/, [...GEOTHERMAL]],
   [/Overhang/, [0.62, 0.53, 0.42]],
-  [/UnstableCore/, [0.69, 0.29, 0.75]],
+  [/UnstableCore/, [0.58, 0.44, 0.4]],
   [/Badtide|Badwater/, [0.42, 0.29, 0.16]],
   [/Aquifer|Seep/, [0.23, 0.42, 0.69]],
   [/Reserve/, [0.63, 0.48, 0.29]],

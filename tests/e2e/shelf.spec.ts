@@ -496,7 +496,7 @@ test("an edge wall on an edited map warns in the checks dot, never blocks Save, 
 // ------------------------------------------------------------------------------ every 1.x object (D337, D338, D340)
 
 const ALL_NAMES = [
-  "Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Aquifer drill", "Badtide drain", "Natural dam", "Pine", "Birch", "Oak",
+  "Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Ancient drill", "Badtide drain", "Natural dam", "Pine", "Birch", "Oak",
   "Succulent", "Mixed woods", "Berry bush", "Ruin", "Mine site", "Relic", "Slope", "Thorns", "Blockage", "Geothermal field", "Unstable core", "Reserve pile",
   "Reserve warehouse", "Reserve tank",
 ];
@@ -547,8 +547,8 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await pick("Aquifer");
   await clickTile(page, at[2][0], at[2][1]);
   expect((await labels(page)).at(-1)).toBe("Place aquifer");
-  await pick("Aquifer drill");
-  await expect(options("Aquifer drill")).toContainText("Stand it on an aquifer");
+  await pick("Ancient drill");
+  await expect(options("Ancient drill")).toContainText("Stand it on an aquifer");
   expect((await fitAt(page, at[3][0], at[3][1], W)).problem).toMatch(/needs an aquifer/);
   await fitAt(page, at[2][0], at[2][1], W);
   await clickTile(page, at[2][0], at[2][1]);
@@ -567,7 +567,10 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await clickTile(page, at[4][0], at[4][1]);
   expect((await standing(page, at[4][0], at[4][1], "UnstableCore"))!.components.UnstableCore).toMatchObject({ ExplosionRadius: 3 });
   await pick("Reserve pile");
-  await options("Reserve pile").getByRole("combobox", { name: "Holds" }).selectOption("Log");
+  await options("Reserve pile").getByRole("button", { name: "Holds" }).click();
+  await expect(page.getByRole("menu", { name: "Holds" })).toContainText("another faction's good deletes the reserve");
+  await page.getByRole("menu", { name: "Holds" }).getByRole("menuitemradio", { name: "Log", exact: true }).click();
+  await expect(page.getByRole("menu", { name: "Holds" })).toHaveCount(0);
   await options("Reserve pile").getByRole("slider", { name: "Amount" }).fill("50");
   await clickTile(page, at[5][0], at[5][1]);
   const pile = await standing(page, at[5][0], at[5][1], "ReservePile");
@@ -640,6 +643,23 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await expect(row.getByRole("button", { name: "Remove unfed water" })).toBeDisabled();
   // a hollow: a 3 × 3 pit dug one level into flat, dry ground with Down 1, the selection kept; Fill pours into it up to the ground's level
   const [x, y] = (await openGround(page, 2))[0];
+  // (hovering Fill water before the Level is set: a few words, no coordinates, and nothing spilling over the cells beside it)
+  {
+    const p0 = await client(page, x - 1, y - 1);
+    const p1 = await client(page, x + 1, y + 1);
+    await page.mouse.move(p0.x, p0.y);
+    await page.mouse.down();
+    await page.mouse.move(p1.x, p1.y, { steps: 4 });
+    await page.mouse.up();
+    await row.getByRole("button", { name: "Fill water" }).hover();
+    await expect(row.getByRole("status")).toHaveText("Raise the Level to fill");
+    const words = (await row.getByRole("status").boundingBox())!;
+    const whole = (await row.getByRole("button", { name: "Whole map" }).boundingBox())!;
+    const fill = (await row.getByRole("button", { name: "Fill water" }).boundingBox())!;
+    expect(words.x).toBeGreaterThanOrEqual(whole.x + whole.width - 1);
+    expect(words.x + words.width).toBeLessThanOrEqual(fill.x + 1);
+    await page.keyboard.press("Escape");
+  }
   const level = await page.evaluate(([a, b]) => window.dgm3d!.renderer.mapState()!.heights[b * window.dgm3d!.renderer.mapState()!.W + a], [x, y] as const);
   const a = await client(page, x - 1, y - 1);
   const b = await client(page, x + 1, y + 1);

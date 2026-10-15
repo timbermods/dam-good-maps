@@ -37,7 +37,7 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "WaterSeep", name: "Water seep", template: "WaterSeep", turns: false, hint: "water that seeps up until it is deep" },
   { id: "BadwaterSeep", name: "Badwater seep", template: "BadwaterSeep", turns: false, hint: "badwater that seeps up until it is deep" },
   { id: "Aquifer", name: "Aquifer", template: "Aquifer", turns: false, hint: "water that waits for a drill" },
-  { id: "AncientAquiferDrill", name: "Aquifer drill", template: "AncientAquiferDrill", turns: false, hint: "an ancient drill that taps the aquifer under it" },
+  { id: "AncientAquiferDrill", name: "Ancient drill", template: "AncientAquiferDrill", turns: false, hint: "the Ancient Aquifer Drill, which taps the aquifer under it" },
   { id: "BadtideDrain", name: "Badtide drain", template: "BadtideDrain", turns: true, hint: "badwater that flows in a badtide" },
   { id: "NaturalDam", name: "Natural dam", template: "NaturalDam", turns: true, hint: "holds water back" },
   { id: "Pine", name: "Pine", template: "Pine", paint: "trees", turns: false, hint: "plant pines" },

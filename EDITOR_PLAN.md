@@ -125,7 +125,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
     row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
     ends with **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
-    hovering says "9 tiles, lasts about 12 days" and marks the hollow, D394) and **Remove unfed water** (the pools no
+    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
+    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
     step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
@@ -139,13 +140,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
   margin, the foot level with the bar's): one object per row, its picture then its name, in this order: **Start**,
-  **Water source**, **Badwater source** (two items, D212), Natural dam, **Pine**, **Birch**, **Oak**, **Berry
-  bush**, Ruin, Mine site, Relic, Slope, Thorns, Blockage, Geothermal field, each picture a small render in the
-  map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
+  **Water source**, **Badwater source** (two items, D212); then, behind a hairline, Water seep, Badwater seep, Aquifer,
+  Ancient drill, Badtide drain and Natural dam; **Pine**, **Birch**, **Oak**, Succulent, Mixed woods and **Berry
+  bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
+  warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size, a tree's, bush's or thorn patch's Size and Density (a tree's also Age),
-  and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
+  Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
+  also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
+  core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
+  then those of one faction each, with the warning that another faction's good deletes the reserve) and Amount, the
+  Ancient drill's note, and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
   it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
   its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:

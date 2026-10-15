@@ -3,6 +3,7 @@
 // controls serves the object held from the shelf (what the next one gets) and an object picked on the map (what it has
 // now); what each means, and what the game allows, is the core's (core/doc/objectOps.ts, core/data/parity.ts).
 
+import { useEffect, useState } from "preact/hooks";
 import { CORE, FLUIDS, goodName, goodsFor, isReserve, MAX_STRENGTH_PER_TILE, maxStrength, NO_DELAY, RESERVES, TIMED } from "../core/data/parity";
 import type { ObjectOptions } from "../core/doc/objectOps";
 import { tip } from "../ui/Tooltip";
@@ -11,10 +12,57 @@ import { ObjectChoice, ObjectSlider, type ObjectGroup } from "./ObjectWindow";
 /** The cycles a start delay or a countdown can be set to (the game takes 1 and up; the slider reaches a long game). */
 const CYCLES_MAX = 15;
 
-/** A water object's strength in words: "1 water/s", "3 badwater/s", or "sink 2" for a negative one. */
+/** A water object's strength in words: "1 water/s", "3 badwater/s", or "drains 2 water/s" for a negative one. */
 export function strengthWords(template: string, v: number): string {
-  if (v < 0) return `sink ${-v}`;
-  return `${v} ${FLUIDS[template]?.contamination ? "badwater" : "water"}/s`;
+  const water = FLUIDS[template]?.contamination ? "badwater" : "water";
+  return v < 0 ? `drains ${-v} ${water}/s` : `${v} ${water}/s`;
+}
+
+/** The good a reserve holds, picked from a menu in the page's own look (the File menu's): the goods every faction has
+ *  first; the rest belong to one faction each, and a good from another faction deletes the reserve when the game starts. */
+function GoodPicker(p: { template: string; good: string; onPick(id: string): void }) {
+  const [open, setOpen] = useState(false);
+  const goods = goodsFor(p.template);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest?.(".good-picker")) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", off);
+    window.addEventListener("keydown", esc, true);
+    return () => {
+      window.removeEventListener("pointerdown", off);
+      window.removeEventListener("keydown", esc, true);
+    };
+  }, [open]);
+  const item = (g: { id: string }) => (
+    <li role="none" key={g.id}>
+      <button type="button" role="menuitemradio" aria-checked={g.id === p.good} {...tip(`Hold ${goodName(g.id).toLowerCase()}`)} onClick={() => (setOpen(false), p.onPick(g.id))}>
+        {goodName(g.id)}
+      </button>
+    </li>
+  );
+  return (
+    <span class="menu-wrap good-picker">
+      <button type="button" class="good-button" aria-label="Holds" aria-haspopup="menu" aria-expanded={open} {...tip("What it holds")} onClick={() => setOpen(!open)}>
+        {goodName(p.good)}
+      </button>
+      {open ? (
+        <ul class="menu good-menu" role="menu" aria-label="Holds">
+          {goods.filter((g) => g.common).map(item)}
+          <li role="none" class="menu-note">
+            One faction only: another faction's good deletes the reserve
+          </li>
+          {goods.filter((g) => !g.common).map(item)}
+        </ul>
+      ) : null}
+    </span>
+  );
 }
 
 /** The groups of the object window for an object of `template` with options `o`; `set` changes some of them. Nothing for a
@@ -106,22 +154,7 @@ export function objectGroups(template: string, o: ObjectOptions, set: (c: Partia
         key: "good",
         label: "Holds",
         node: (
-          <select aria-label="Holds" value={good} {...tip("What it holds")} onChange={(e) => set({ good: (e.target as HTMLSelectElement).value })}>
-            <optgroup label="Every faction">
-              {goods.filter((g) => g.common).map((g) => (
-                <option key={g.id} value={g.id}>
-                  {goodName(g.id)}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Other goods">
-              {goods.filter((g) => !g.common).map((g) => (
-                <option key={g.id} value={g.id}>
-                  {goodName(g.id)}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+          <GoodPicker template={template} good={good} onPick={(id) => set({ good: id })} />
         ),
       },
       {

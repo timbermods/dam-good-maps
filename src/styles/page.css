@@ -764,7 +764,7 @@
   right: 10px;
   bottom: 10px;
   z-index: 2;
-  width: 166px;
+  width: 180px;
   max-height: var(--dock-max, none);
   display: flex;
   flex-direction: column;
@@ -778,7 +778,11 @@
 
 .objects-dock > .objects-menu {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  /* a thin scrollbar, its room kept whether or not the list scrolls, so no name runs under it */
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 .object-window,
@@ -802,9 +806,10 @@
   flex-direction: row;
   justify-content: flex-start;
   gap: 8px;
+  position: relative;
   width: 100%;
   height: 30px;
-  padding: 1px 12px 1px 4px;
+  padding: 1px 4px 1px 4px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -832,12 +837,30 @@
 /* the list's title (Kyler, 2026-10-06): "Items", bold, in the items' own type, one row of their height and one gap above
    them, its words at the names' inset (the row's 4px, the picture's 28px and the 8px gap) */
 .objects-menu .shelf-title {
-  height: 30px;
-  margin: 0 0 2px;
-  padding-left: 40px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  box-sizing: border-box;
+  /* (up into the list's own padding, so rows scrolling under it never show above it) */
+  height: 36px;
+  margin: -6px 0 2px;
+  padding: 6px 0 0 40px;
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 30px;
+}
+
+/* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the gap above
+   each one's first row: no extra height */
+.objects-menu .shelf-item.shelf-first::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--rule);
 }
 
 /* picked: its row lit in the mint, as the bar lights a tool */
@@ -1280,6 +1303,10 @@
 }
 
 .set-words {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 14px;
   color: var(--ink);
   white-space: nowrap;
@@ -2484,4 +2511,42 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* a reserve's good: a button that opens a menu in the page's own look, under it over the list, its height kept to the window */
+.good-picker {
+  display: flex;
+  width: 100%;
+}
+
+.good-picker .good-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+}
+
+.good-picker .good-button::after {
+  content: "\25BE";
+  font-size: 0.8em;
+}
+
+.good-menu {
+  right: 0;
+  left: auto;
+  width: 220px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.good-menu li.menu-note {
+  padding: 6px 10px 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.good-menu button[aria-checked="true"] {
+  font-weight: 700;
 }

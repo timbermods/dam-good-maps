@@ -52,7 +52,7 @@ describe("the shelf's pointer tool", () => {
 
 describe("the shelf's objects (D212, D226)", () => {
   it("read Start, the water objects, Natural dam, the trees, Succulent, Mixed woods, Berry bush and so on (Layout 2's objects menu, with every 1.x object); the sources place clean and bad", () => {
-    expect(SHELF.slice(0, 8).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Aquifer drill", "Badtide drain"]);
+    expect(SHELF.slice(0, 8).map((it) => it.name)).toEqual(["Start", "Water source", "Badwater source", "Water seep", "Badwater seep", "Aquifer", "Ancient drill", "Badtide drain"]);
     const [clean, bad] = [SHELF[1], SHELF[2]];
     // (no keys on the shelf: Kyler, 2026-10-06)
     expect([clean.source, clean.template, bad.source, bad.template]).toEqual(["clean", "WaterSource", "bad", "BadwaterSource"]);

@@ -125,8 +125,8 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
 - **Top right:** Undo, Redo and ⋯, the checks dot with its words, Save to Timberborn. Beneath, the cluster as a grid
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
-- **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
-  in five groups divided by hairlines. The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+- **The shelf** hangs under the cluster, 180px wide (so the longest name clears the scrollbar's room): one object per line, a 28px picture then its name,
+  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile. With every 1.x object (26 rows) the
   whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
   inside itself, names kept, and the picked row is scrolled into view
   ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
