@@ -10,6 +10,7 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../work
 import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
+import { useMenuPresence } from "../ui/menuPresence";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
@@ -274,6 +275,7 @@ export interface HeaderProps {
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
+  const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
   /** The core's refusal of a name, said in the title's second line. */
   const [problem, setProblem] = useState<string | null>(null);
@@ -364,14 +366,14 @@ export function Header(p: HeaderProps) {
           <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
           <path d="M9 3v15M15 6v15" />
         </svg>
-        Map Generator
+        <span class="label">Map Generator</span>
       </button>
       <button type="button" class="ghost new-map" aria-pressed={p.placesOpen} title={p.placesOpen ? "Close Real places" : "Open a map made from real land"} onClick={p.onPlaces}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="9" />
           <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
         </svg>
-        Real places
+        <span class="label">Real places</span>
       </button>
       <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -380,7 +382,7 @@ export function Header(p: HeaderProps) {
           <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
           <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
         </svg>
-        Your maps
+        <span class="label">Your maps</span>
       </button>
       <div class="editor-title">
         <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
@@ -391,7 +393,7 @@ export function Header(p: HeaderProps) {
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         {/* History, a button of its own left of Undo (Kyler, 2026-10-06): pressed while its panel is open */}
         <button type="button" class="ghost history-button" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={p.onHistory}>
-          History
+          <span class="label">History</span>
         </button>
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
@@ -405,15 +407,15 @@ export function Header(p: HeaderProps) {
         </button>
         {p.dot}
         <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
-          {saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}
+          <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
         {p.look}
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
-            File
+            <span class="label">File</span>
           </button>
-          {menu ? (
-            <ul class="menu" role="menu" aria-label="File">
+          {fileMenu.mounted ? (
+            <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
               <li role="none">
                 <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
                   Open…
