@@ -231,6 +231,7 @@ export class HighLook {
     }
     this.objects = group;
     const forest = this.forest!;
+    forest.parent = group;
     for (const m of forest.meshes) {
       m.renderOrder = 1;
       group.add(m);
@@ -241,6 +242,17 @@ export class HighLook {
     if (this.map) this.ambient?.objects(this.map.heights, entities);
     this.stats.landmarks = this.landmarks.length;
     this.shadows.dirty = true;
+  }
+
+  /** Plants change state in place (the Weather view's withering): the plants whose DEAD flag differs move to the other
+   *  state's batches. Returns how many changed. */
+  setPlantsDead(flags: ArrayLike<number>): number {
+    const forest = this.forest;
+    if (!forest) return 0;
+    const changed = forest.setDead(flags);
+    // (a layout shows every batch that has plants: the effect's switch still hides them)
+    if (changed && !this.effects.vegetation) for (const m of forest.meshes) m.visible = false;
+    return changed;
   }
 
   /** The replacements drawn for a group of its own (the shelf's ghost and icons): the originals

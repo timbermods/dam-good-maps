@@ -106,15 +106,51 @@ export function blendedBadwater(W: number, H: number, sw: SurfaceWater): Float32
 }
 
 function blend(W: number, H: number, sw: SurfaceWater): Float32Array {
+  const out = new Float32Array(W * H);
+  blendInto(out, W, H, sw, 0, 0, W - 1, H - 1);
+  return out;
+}
+
+/** Tiles round a chunk whose blend its mesh reads: a top's corner reads one past the chunk, a fall's lips and their
+ *  ends two; two more for safety. */
+const BLEND_WINDOW = 4;
+
+/** A map-sized array the row pass of `blendInto` works in (kept: a chunk's mesh asks for a window of the blend
+ *  many times a second, and the page's thread must not allocate or walk a whole 512x512 map for each). */
+let rowsScratch = new Float32Array(0);
+
+/** What `blendInto` leaves for a chunk's mesh: kept between chunks (only the window of the chunk being meshed is read). */
+let badScratch = new Float32Array(0);
+
+/** The blend (`blendedBadwater`) of the tiles x0..x1 by y0..y1 (clipped to the map) into `out`, a map-sized array whose
+ *  other tiles are left as they were: the same arithmetic tile by tile as the whole map's, so any window holds the
+ *  whole map's numbers (tests/unit/waterBlendWindow.test.ts). A tile's blend reads only the tiles within `BLEND_KERNEL`'s
+ *  reach of it, so the work is the window's, never the map's (D357: a 512x512 map's moving water). */
+export function blendInto(out: Float32Array, W: number, H: number, sw: SurfaceWater, x0: number, y0: number, x1: number, y1: number): void {
   const { surface, contamination } = sw;
-  const N = W * H;
-  const out = new Float32Array(N);
-  let any = false;
-  for (let i = 0; i < N && !any; i++) any = contamination[i] > 0 && surface[i] === surface[i];
-  if (!any) return out;
   const K = BLEND_KERNEL;
   const R = K.length - 1;
-  const rows = new Float32Array(N);
+  const xa = Math.max(0, x0);
+  const xb = Math.min(W - 1, x1);
+  const ya = Math.max(0, y0);
+  const yb = Math.min(H - 1, y1);
+  if (xa > xb || ya > yb) return;
+  // (no badwater within reach of the window: exactly 0 everywhere in it)
+  let any = false;
+  for (let y = Math.max(0, ya - R); y <= Math.min(H - 1, yb + R) && !any; y++)
+    for (let x = Math.max(0, xa - R); x <= Math.min(W - 1, xb + R); x++) {
+      const i = y * W + x;
+      if (contamination[i] > 0 && surface[i] === surface[i]) {
+        any = true;
+        break;
+      }
+    }
+  if (!any) {
+    for (let y = ya; y <= yb; y++) out.fill(0, y * W + xa, y * W + xb + 1);
+    return;
+  }
+  if (rowsScratch.length < W * H) rowsScratch = new Float32Array(W * H);
+  const rows = rowsScratch;
   /** One pass along a line of tiles (step 1: a row; step W: a column), from `src` into `dst`. */
   const pass = (src: Float32Array, dst: Float32Array, i: number, pos: number, len: number, step: number) => {
     const s = surface[i];
@@ -131,17 +167,18 @@ function blend(W: number, H: number, sw: SurfaceWater): Float32Array {
       }
     dst[i] = sum / weight;
   };
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  // the rows the column pass reads: the window's, and R above and below it
+  for (let y = Math.max(0, ya - R); y <= Math.min(H - 1, yb + R); y++)
+    for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
       if (surface[i] === surface[i]) pass(contamination, rows, i, x, W, 1);
     }
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  for (let y = ya; y <= yb; y++)
+    for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
       if (surface[i] === surface[i]) pass(rows, out, i, y, H, W);
+      else out[i] = 0;
     }
-  return out;
 }
 
 /** A curtain's flags: its drop in thirtieths of a level, to 254; 255 at the map's edge (the side
@@ -157,7 +194,11 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
   const y1 = Math.min(H, y0 + CHUNK);
-  const bad = blendedBadwater(W, H, sw);
+  // the blend of the chunk's window only (a corner reads a tile past the chunk, a fall's lips two): the page's thread
+  // blends no more of a 512x512 map than the chunk it meshes
+  if (badScratch.length < W * H) badScratch = new Float32Array(W * H);
+  const bad = badScratch;
+  blendInto(bad, W, H, sw, x0 - BLEND_WINDOW, y0 - BLEND_WINDOW, x1 + BLEND_WINDOW - 1, y1 + BLEND_WINDOW - 1);
   /** A top's corner (tile-corner coordinates) shares the water of the tiles round it at its own
    *  level: their mean depth, dry ground counting as none (so the water thins toward the shore),
    *  and their mean blended badwater share (so the colour runs on smoothly across the tile). */

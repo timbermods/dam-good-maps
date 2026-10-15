@@ -2,7 +2,8 @@ name: Collaboration connection
 
 # The connection test for collaborative editing (D486): the room-code function under `wrangler dev`, a local TURN
 # relay and two separate browser processes (Chromium and Firefox), relay-only, with messages, a killed peer, a
-# reconnect and a renewed relay login (tests/collab, playwright.collab.config.ts). Runs on pull requests that touch the
+# reconnect and a renewed relay login, and the session layer on top of it: the app's own worker with a generated map in
+# each browser, edits, claims, a drop and a rejoin (tests/collab, playwright.collab.config.ts). Runs on pull requests that touch the
 # connection, nightly and by hand. Does not deploy anything and has no secrets. The test against the deployed function
 # is collab-live.yml.
 
@@ -12,6 +13,10 @@ on:
     paths:
       - "collab-worker/**"
       - "src/collab/**"
+      - "src/core/collab/**"
+      - "src/worker/collab.ts"
+      - "src/worker/session.ts"
+      - "src/worker/generator.worker.ts"
       - "tests/collab/**"
       - "tests/unit/collab*.test.ts"
       - "playwright.collab.config.ts"
@@ -30,7 +35,7 @@ concurrency:
 jobs:
   connection:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:

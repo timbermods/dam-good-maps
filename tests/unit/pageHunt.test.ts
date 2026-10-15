@@ -50,8 +50,10 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
     keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
+    switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
   });
-  runInContext(compile(functions("src/ui/App.tsx", ["run", "cancelMaking"])), env);
+  // (run holds the open map back through holdBack: the project Cancel opens again)
+  runInContext(compile(functions("src/ui/App.tsx", ["run", "holdBack", "cancelMaking"])), env);
   const run = env.run({ seed: 4242 });
   const cancelled = env.cancelMaking();
   // The old worker is still serving the only recovery project. It must survive until that reply.
