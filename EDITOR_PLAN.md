@@ -77,9 +77,19 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
-  within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
-  included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
-  its tooltip); the code is `src/editor/generator/`. Every map is made for Normal until the core drops difficulty
+  within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
+  objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
+  dead trees and bushes aren't). The numbers carry their units ("200 logs", "30 bushes", "20 tiles", "100%"). Each
+  setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in its tooltip); the code is
+  `src/editor/generator/`. **An opened file has no generator settings** (a .timber, a project without a spec, a real
+  place): while one is open the panel reads "–" for the seed, the theme and every setting (the controls quiet, the Name
+  and the Size its own), `Generate` makes a map of the Any theme's defaults at that size, and the first setting touched
+  brings every setting back as the next map's (`App.tsx`'s `blank`). **The editor's frame before any map** (a share
+  link, a reload, a place opened first): the real header, bar and shelf held still with the land's first look in the
+  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`);
+  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
 - **Your maps** (D234, D330): a map is kept in this browser from its first edit (an operation applied) or rename,
