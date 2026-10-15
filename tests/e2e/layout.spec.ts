@@ -175,7 +175,8 @@ async function onTheCells(page: Page, state: string) {
     }
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
-  same(r.settings[2], 120, `the settings' one height (${state})`);
+  // (120px, two rows of 54px; from 2200px wide the bar's cells are 60px tall and the panel 132px, Kyler, 2026-10-15)
+  same(r.settings[2], (page.viewportSize()?.width ?? 0) >= 2200 ? 132 : 120, `the settings' one height (${state})`);
   for (const g of r.groups) {
     expect(Math.min(...r.lefts.map((x) => Math.abs(x - g.l))), `${g.name} starts on a cell (${state})`).toBeLessThanOrEqual(0.6);
     expect(Math.min(...r.rights.map((x) => Math.abs(x - g.r))), `${g.name} ends on a cell (${state})`).toBeLessThanOrEqual(0.6);
@@ -450,6 +451,193 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) expect(overlaps(bs[i], bs[j]), `${name}: ${bs[i].name} overlaps ${bs[j].name}`).toBe(false);
       expect(await header.locator(".editor-actions").boundingBox(), `${name}: the right group stays put`).toEqual(actions);
     }
+  });
+}
+
+// The clipping net (Kyler, 2026-10-15): at each supported width, in light and dark, across the main states, no visible
+// text spills out of the box that holds it (a label, a cell, a plate, a menu item, a shelf row, a panel's words): the
+// words never reach more than a pixel past the box's padding edges, which is what scrollWidth over clientWidth would say,
+// measured on the words alone so an invisible hit area or a turning dial doesn't count. A word that spills out, or is cut
+// short, fails here, with its state and where it stands.
+const NET_SIZES: [number, number][] = [[1280, 800], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440]];
+
+/** The visible text in the page that is wider than its own box, each as "state: where "its words" scrollWidth > clientWidth". */
+async function clippedText(page: Page, state: string): Promise<string[]> {
+  return page.evaluate((state) => {
+    const TEXTY = "button, [role=button], [role=menuitem], [role=checkbox], label, a, summary, output, li, h1, h2, h3, h4, p, legend, dt, dd, th, td, option";
+    const found: { el: Element; line: string }[] = [];
+    const where = (e: Element) => {
+      const name = (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28);
+      const cls = [...e.classList].slice(0, 2).join(".");
+      return `${e.tagName.toLowerCase()}${cls ? `.${cls}` : ""} "${name}"`;
+    };
+    for (const e of document.body.querySelectorAll("*")) {
+      const el = e as HTMLElement;
+      if (el.closest("[aria-hidden=true], .visually-hidden, script, style, svg, canvas")) continue;
+      const own = [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
+      if (!own && !el.matches(TEXTY)) continue;
+      if (!el.textContent?.trim()) continue;
+      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
+      if (el.clientWidth === 0) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right < 0 || r.bottom < 0 || r.left > innerWidth || r.top > innerHeight) continue;
+      // (what the words themselves cover, against the box's padding edges: not an invisible hit area, nor a dial that turns)
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const w = range.getBoundingClientRect();
+      if (w.width === 0) continue;
+      const left = r.left + el.clientLeft;
+      const right = left + el.clientWidth;
+      const spill = Math.max(w.right - right, left - w.left);
+      if (spill > 1 && !el.querySelector("[style*=rotate]")) found.push({ el, line: `${state}: ${where(el)} spills ${Math.round(spill * 10) / 10}px past its box (words ${Math.round(w.width)}px, box ${el.clientWidth}px)` });
+    }
+    // (a button and the span inside it spill together: report the innermost)
+    return found.filter((f) => !found.some((g) => g !== f && f.el.contains(g.el))).map((f) => f.line);
+  }, state);
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const [w, h] of NET_SIZES) {
+    test(`no visible text is clipped at ${w}×${h}, ${scheme}: at rest, a tool, a force, Select's rows, the menus, the shelf and the panels`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.setViewportSize({ width: w, height: h });
+      await openEditor(page);
+      const bad: string[] = [];
+      const look = async (state: string) => {
+        await settle(page, w, h);
+        bad.push(...(await clippedText(page, state)));
+      };
+      const bar = page.locator(".tool-bar");
+      const header = page.locator("header.editor-bar");
+      await look("at rest");
+      for (const tool of ["Raise", "Carve", "Rift", "Quake", "Deposit"]) {
+        await bar.getByRole("button", { name: new RegExp(`^${tool}`) }).click();
+        await look(`${tool} picked`);
+        await page.keyboard.press("Escape");
+      }
+      // Select's rows, with a box marked
+      await bar.getByRole("button", { name: /^Select/ }).click();
+      const a = await page.evaluate(() => window.dgmEditor!.tileToClient(30, 30));
+      const b = await page.evaluate(() => window.dgmEditor!.tileToClient(52, 48));
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 5 });
+      await page.mouse.up();
+      await page.evaluate(() => window.dgmEditor!.idle());
+      await look("Select with a box");
+      await page.keyboard.press("Escape");
+      // the menus
+      await header.getByRole("button", { name: "File", exact: true }).click();
+      await look("the File menu");
+      await page.keyboard.press("Escape");
+      await header.getByRole("button", { name: /^Look/ }).click();
+      await look("the Look menu");
+      await page.keyboard.press("Escape");
+      // the shelf, scrolled to its foot, and an object picked with its window
+      await page.locator(".objects-menu").evaluate((e) => (e.scrollTop = e.scrollHeight));
+      await look("the shelf's foot");
+      await page.locator(".objects-menu").evaluate((e) => (e.scrollTop = 0));
+      await page.locator(".objects-menu .shelf-item", { hasText: "Water source" }).first().click();
+      await look("an object picked");
+      await page.keyboard.press("Escape");
+      // the panels
+      for (const panel of ["Map Generator", "Your maps", "History"]) {
+        await header.getByRole("button", { name: panel, exact: true }).click();
+        await look(panel);
+        await header.getByRole("button", { name: panel, exact: true }).click();
+      }
+      expect(bad, "text wider than its box").toEqual([]);
+    });
+  }
+}
+
+// Invisible hit areas (Kyler, 2026-10-15): a control smaller than 32px has an ::after that reaches 32px each way where there is
+// room, with no visual change. No hit area may reach another control or another hit area, and none may be cut by a parent
+// that clips.
+async function hitAreaProblems(page: Page, state: string): Promise<string[]> {
+  return page.evaluate((state) => {
+    const INTERACTIVE = "button, a[href], input, select, textarea, summary, [role=button], [role=menuitem], [role=checkbox], [role=slider]";
+    const label = (e: Element) => `${e.tagName.toLowerCase()}.${[...e.classList].slice(0, 2).join(".")} "${(e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 20)}"`;
+    type R = { l: number; t: number; r: number; b: number };
+    const hits: { el: Element; h: R }[] = [];
+    const all = [...document.body.querySelectorAll(INTERACTIVE)].filter((e) => (e as HTMLElement).checkVisibility?.({ checkOpacity: true, checkVisibilityCSS: true } as never) && e.getBoundingClientRect().width > 0);
+    for (const el of all) {
+      const cs = getComputedStyle(el, "::after");
+      if (cs.content === "none" || cs.content === "normal" || cs.position !== "absolute") continue;
+      const b = el.getBoundingClientRect();
+      const pl = b.left + (el as HTMLElement).clientLeft, pt = b.top + (el as HTMLElement).clientTop;
+      const l = pl + parseFloat(cs.left), t = pt + parseFloat(cs.top);
+      hits.push({ el, h: { l, t, r: l + parseFloat(cs.width), b: t + parseFloat(cs.height) } });
+    }
+    // (the area that counts is what the clipping parents leave of it)
+    const effective = (el: Element, h: R): R => {
+      let e = { ...h };
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+        const pr = p.getBoundingClientRect();
+        e = { l: Math.max(e.l, pr.left + p.clientLeft), t: Math.max(e.t, pr.top + p.clientTop), r: Math.min(e.r, pr.left + p.clientLeft + p.clientWidth), b: Math.min(e.b, pr.top + p.clientTop + p.clientHeight) };
+      }
+      return e;
+    };
+    const out: string[] = [];
+    const cut = (a: R, b: R) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > 0.6 && Math.min(a.b, b.b) - Math.max(a.t, b.t) > 0.6;
+    for (const { el, h } of hits) {
+      if (h.r - h.l < 31.5 && h.b - h.t < 31.5) out.push(`${state}: ${label(el)} has a hit area of only ${Math.round(h.r - h.l)}×${Math.round(h.b - h.t)}`);
+      const mineH = effective(el, h);
+      for (const o of all) {
+        if (o === el || o.contains(el) || el.contains(o)) continue;
+        const theirs = hits.find((x) => x.el === o);
+        const r = o.getBoundingClientRect();
+        const against: R = theirs ? effective(o, theirs.h) : { l: r.left, t: r.top, r: r.right, b: r.bottom };
+        if (cut(mineH, against)) out.push(`${state}: the hit area of ${label(el)} reaches ${label(o)}`);
+      }
+      const box = el.getBoundingClientRect();
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+        const pr = p.getBoundingClientRect();
+        const inner: R = { l: pr.left + p.clientLeft, t: pr.top + p.clientTop, r: pr.left + p.clientLeft + p.clientWidth, b: pr.top + p.clientTop + p.clientHeight };
+        const whole = box.left >= inner.l - 0.6 && box.right <= inner.r + 0.6 && box.top >= inner.t - 0.6 && box.bottom <= inner.b + 0.6;
+        // (a control scrolled half out of its list is cut by the list whatever its area)
+        if (whole && box.width && (h.l < inner.l - 0.6 || h.r > inner.r + 0.6 || h.t < inner.t - 0.6 || h.b > inner.b + 0.6)) out.push(`${state}: the hit area of ${label(el)} is cut by ${label(p)}`);
+      }
+    }
+    return out;
+  }, state);
+}
+
+for (const [w, h] of [[1280, 800], [1920, 1080]] as [number, number][]) {
+  test(`hit areas at ${w}×${h}: each small control reaches 32px, none touches a neighbour's or is cut by a clip`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+    await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+    await expect(page.locator(".checks-dot .dot-words > :first-child")).toHaveText("Ready to play", { timeout: 120_000 });
+    const bad: string[] = [];
+    const look = async (state: string) => {
+      await settle(page, w, h);
+      bad.push(...(await hitAreaProblems(page, state)));
+    };
+    const header = page.locator("header.editor-bar");
+    const bar = page.locator(".tool-bar");
+    await look("the first hints");
+    await page.locator(".map-note button").first().click().catch(() => undefined);
+    for (const tool of ["Rift", "Carve"]) {
+      await bar.getByRole("button", { name: new RegExp(`^${tool}`) }).click();
+      await look(`${tool} picked`);
+      await page.keyboard.press("Escape");
+    }
+    await page.locator(".objects-menu .shelf-item", { hasText: "Water source" }).first().click();
+    await look("an object picked");
+    await page.keyboard.press("Escape");
+    await header.getByRole("button", { name: "History", exact: true }).click();
+    await look("History");
+    await header.getByRole("button", { name: "History", exact: true }).click();
+    await page.getByRole("button", { name: "Drought", exact: true }).click();
+    await look("the weather day stepper");
+    expect(bad).toEqual([]);
   });
 }
 

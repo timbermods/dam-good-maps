@@ -1067,18 +1067,27 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (seven tools, the hairline, eight forces). Every cell one width, 76px
-   where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
-   the left and the objects menu at the right (each 196px with its gap); the dock on whole pixels. */
-/* (on the view: the readout keeps left of the dock with them) */
+   on a grid whose columns are the bar's cells (seven tools, the hairline, eight forces). The bar is a container: its
+   width is the room the minimap at the left and the objects menu at the right leave (each 196px with its gap), in whole
+   cells of at most --cell-max, and every cell is its own width's share (cqi, whole pixels). A tool added to the bar
+   changes --tools or --forces and the cells follow; no label has to be re-fitted by hand. (on the view: the readout keeps
+   left of the dock with them) */
 .editor-view {
-  --cell: 76px;
-  /* the hairline, the 15 gaps between the 16 columns and the bar's padding */
-  --dock-w: calc(15 * var(--cell) + 52px);
+  --tools: 7;
+  --forces: 8;
+  --cell-count: calc(var(--tools) + var(--forces));
+  --cell-min: 56px;
+  --cell-max: 76px;
+  /* the hairline (14px), a 2px gap between every pair of columns and the bar's 4px padding on each side */
+  --bar-chrome: calc(22px + 2px * var(--cell-count));
+  --dock-w: calc(var(--cell-count) * var(--cell-max) + var(--bar-chrome));
 }
 
 .tool-dock {
-  --cells: repeat(7, var(--cell)) 14px repeat(8, var(--cell));
+  /* (where container units aren't known, the widest cell) */
+  --cell: var(--cell-max);
+  --cells: repeat(var(--tools), var(--cell)) 14px repeat(var(--forces), var(--cell));
+  container-type: inline-size;
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -1094,11 +1103,18 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(56px, round(down, calc((100vw - 442px) / 15), 1px), 76px);
+    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100vw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
   }
 
   .tool-dock {
     left: round(down, calc(50% - var(--dock-w) / 2), 1px);
+  }
+}
+
+/* (read where it is used, inside the bar: 100cqi is the bar's own width; no @property, so it stays a live expression) */
+@supports (width: 1cqi) {
+  .tool-dock {
+    --cell: calc((100cqi - var(--bar-chrome)) / var(--cell-count));
   }
 }
 
@@ -1131,9 +1147,10 @@
 .tool-bar button.icon-button .icon-word {
   display: block;
   padding: 0;
-  font-size: 0.8rem;
+  /* (a word is never wider than its cell: 0.8rem in a cell of 76px, and a cell's own share below that, so a tool added
+     to the bar, which narrows every cell, shrinks the words with it instead of spilling them) */
+  font-size: min(0.8rem, calc(var(--cell) * 0.209));
   line-height: 1.1;
-  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
   letter-spacing: -0.015em;
   white-space: nowrap;
 }
@@ -1472,7 +1489,7 @@
 .set-group > .segmented.shapes > button .icon-word {
   display: block;
   padding: 0;
-  font-size: 13px;
+  font-size: min(13px, calc(var(--cell) * 0.2));
   white-space: nowrap;
 }
 
@@ -2349,6 +2366,7 @@
   border-radius: 50%;
 }
 
+
 /* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
    row never changes shape; greyed, "Day –", with neither Drought nor Badtide on */
 .editor-view .water-bar > .day-stepper {
@@ -2840,4 +2858,256 @@ body:has(.checks-list) .show-key {
 .core-moment > span,
 .shape-note {
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- optical centring (Kyler, 2026-10-15): a button's words are a span trimmed to its capitals, so centring it centres the
+   letters, not the line with its empty descender room. Single-line words only; every control keeps its height to the pixel
+   (the fixed-height ones are centred by flex; the header's left buttons hold theirs with min-height). Where text-box isn't
+   known the words sit as they did, since the heights are held either way. */
+.label,
+.icon-word,
+.cb-word,
+.shelf-word,
+.dot-words,
+.look-words {
+  text-box: trim-both cap alphabetic;
+}
+
+/* the header's right group is 40px, its buttons centred by flex rather than by their line */
+.editor-actions > button:not(.icon-button):not(.checks-dot),
+.editor-actions > .menu-wrap > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* (Look's two stacked words keep their one cell) */
+.look-words {
+  display: inline-grid;
+}
+
+/* the left group (Map Generator, Real places, Your maps): the height was their line's and the padding */
+.editor-bar .new-map {
+  min-height: 38.5px;
+}
+
+/* the bar's cells and the settings' cells (icon above word) are left as they are: the pair is already centred on its ink to
+   within 1px, and trimming the word only moves the pair down or tightens it */
+.tool-bar button.icon-button .icon-word,
+.tool-settings button.icon-button .icon-word {
+  text-box: normal;
+}
+
+/* the top band (36px): the camera group and Slow forces */
+.camera-group > button,
+.view3d-corner > .slow-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* the shelf (30px rows): the name beside its picture, centred on its capitals */
+.objects-menu .shelf-item .shelf-word {
+  line-height: 1;
+}
+
+/* ---- a touch more scale on big screens (Kyler, 2026-10-15): from 2200px wide up, and only the chrome named: the bar's
+   cells grow from 76px to at most 88px with their settings panel, the header's controls from 40px to 44px, the shelf's rows
+   from 30px to 34px, and their words by 1px. The map's room shrinks by about 5px of header and 12px of bar; the panels, the
+   top band and the tooltips are unchanged. The panels' and the shelf's heights are measured by the page (useBandLayout:
+   --panel-max, --dock-max), so they follow the taller bar by themselves. */
+@media (min-width: 2200px) and (min-height: 1200px) {
+  /* the bar and its settings: cells up to 88px (the bar's width and cells follow from it) */
+  .editor-view {
+    --cell-max: 88px;
+  }
+
+  .tool-bar button.icon-button {
+    height: 60px;
+    gap: 5px;
+  }
+
+  .tool-bar button.icon-button svg,
+  .tool-settings button.icon-button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tool-bar button.icon-button .icon-word,
+  .tool-settings button.icon-button .icon-word {
+    font-size: calc(0.8rem + 1px);
+  }
+
+  /* (two rows of 60px, 4px apart, and the plate's padding: still never a third) */
+  .tool-dock > .tool-settings {
+    height: 132px;
+  }
+
+  .set-head {
+    height: 17px;
+    font-size: 14px;
+    line-height: 17px;
+  }
+
+  .set-value {
+    font-size: 14px;
+  }
+
+  .set-auto {
+    height: 17px;
+    font-size: 12px;
+    line-height: 15px;
+  }
+
+  .tool-settings button {
+    font-size: 14px;
+  }
+
+  /* the header: every control 44px (Undo and Redo 44px squares), the words 1px larger */
+  .editor-bar {
+    min-height: 72px;
+    font-size: 16px;
+  }
+
+  .editor-actions > button,
+  .editor-actions .checks-dot,
+  .editor-actions > .menu-wrap > button {
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .editor-actions > .icon-button {
+    width: 44px;
+  }
+
+  .editor-actions > .icon-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .checks-dot .dot-words {
+    font-size: calc(0.85rem + 1px);
+  }
+
+  .editor-bar .new-map {
+    min-height: 44px;
+    padding: 8px 14px 8px 12px;
+    font-size: 16px;
+  }
+
+  .editor-bar .new-map svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .editor-title h1 {
+    font-size: calc(1.15rem + 1px);
+  }
+
+  .editor-title .muted {
+    font-size: calc(0.85rem + 1px);
+  }
+
+  /* the shelf: 200px wide, 34px rows, 32px pictures (drawn at 56px, so still never enlarged) */
+  .objects-dock {
+    width: 200px;
+  }
+
+  .objects-menu .shelf-item {
+    height: 34px;
+    font-size: calc(0.85rem + 1px);
+  }
+
+  .objects-menu .shelf-item img,
+  .objects-menu .shelf-blank {
+    width: 32px;
+    height: 32px;
+  }
+
+  .objects-menu .shelf-title {
+    height: 40px;
+    padding-left: 44px;
+    font-size: calc(0.85rem + 1px);
+    line-height: 34px;
+  }
+}
+
+/* ---- menus (Kyler, 2026-10-15): a menu grows from its button and shrinks back into it. In: @starting-style, from 0.95 and
+   transparent, from the corner at its button. Out: the menu (data-closing, set by useMenuPresence while it stays for the
+   exit) fades and shrinks, and `display` follows when the transition ends (allow-discrete). The scaling is movement, so it
+   sits inside the reduced-motion guard; the fade does not. Menus that sit still while hidden (a tool's) are not here. */
+.menu {
+  transform-origin: top right;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    display var(--dur-fast) allow-discrete;
+}
+
+@starting-style {
+  .menu {
+    opacity: 0;
+  }
+}
+
+.menu.select-menu {
+  transform-origin: bottom left;
+}
+
+.menu.ym-menu {
+  transform-origin: top left;
+}
+
+:is(ul, div).menu[data-closing] {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .menu {
+    transition:
+      opacity var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out),
+      display var(--dur-fast) allow-discrete;
+  }
+
+  @starting-style {
+    .menu {
+      transform: scale(0.95);
+    }
+  }
+
+  :is(ul, div).menu[data-closing] {
+    transform: scale(0.95);
+  }
+}
+
+/* ---- invisible hit areas (Kyler, 2026-10-15): a small control reaches 32px each way with an ::after that draws nothing
+   (inset: min(0px, (100% - 32px) / 2) is nothing on a control 32px or more, and half the shortfall outward on a smaller
+   one). On a desktop pointer only. Controls that touch their neighbours reach only up and down, where the gaps are; the
+   dense places (the sheet's lines, the legend's lines, the settings' Auto pills, which sit between a name and a slider) are left as they are. tests/e2e/layout.spec.ts checks no area reaches
+   a neighbour or is cut by a clip. */
+@media (pointer: fine) {
+  :where(.icon-close, button.linkish.ow-close, .history-panel .ym-act.hist-close, .dock-notes > * > button[aria-label="Dismiss"], .day-stepper .day-step, .history-panel .hist-act, .maps-panel .ym-act, .history-panel .ym-act, .objects-menu .shelf-item) {
+    position: relative;
+  }
+
+  .icon-close::after,
+  button.linkish.ow-close::after,
+  .history-panel .ym-act.hist-close::after,
+  .dock-notes > * > button[aria-label="Dismiss"]::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 32px) / 2));
+  }
+
+  .day-stepper .day-step::after,
+  .history-panel .hist-act::after,
+  .maps-panel .ym-act::after,
+  .history-panel .ym-act:not(.hist-close)::after,
+  .objects-menu .shelf-item::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 32px) / 2)) 0;
+  }
 }

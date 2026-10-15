@@ -157,12 +157,6 @@ a.button {
   text-decoration: none;
 }
 
-a.button:focus-visible,
-a:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .place progress {
   width: 100%;
   height: 6px;
