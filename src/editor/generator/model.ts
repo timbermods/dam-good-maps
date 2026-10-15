@@ -41,7 +41,9 @@ export interface GeneratorModel extends SettingsProps {
   onCompareMap(id: string): void;
   /** The open map's size (an unedited map is not in the list), for what compares with it. */
   openSize?: { w: number; h: number };
-  /** The map's name (the title's), and renaming it through the core: null, or why not. */
+  /** The open map's name (the title's) and the name typed in the panel for the next map: null until one is typed. The
+   *  typed name goes to the map the next Generate makes; the open map keeps its own (it is renamed from the title). */
   name: string;
-  onRename(name: string): Promise<string | null>;
+  nextName: string | null;
+  onNextName(name: string | null): void;
 }

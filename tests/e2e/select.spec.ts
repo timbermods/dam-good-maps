@@ -9,6 +9,7 @@
 // water.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { toolPutAway } from "./helpers";
 import { centreOn, openEditor, setWaterSpeed } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -359,4 +360,27 @@ test("Delete sources (D315, folded into the Delete menu by D323), the whole map 
   await page.keyboard.press("Control+z");
   await idle(page);
   expect(await sourceCount()).toBe(n0);
+});
+
+test("Select still selects after the Block tool is put away (Esc, or a click on Select): the drag marks tiles and the camera stays", async ({ page }) => {
+  await openEditor(page, "s=4244&z=96&d=n&t=highlands");
+  await setWaterSpeed(page, "instant");
+  const view = () => page.evaluate(() => JSON.stringify(window.dgm3d!.renderer.getView()));
+  const c = await dryAt(page, 6);
+  const selected = async () => (await selection(page)).length;
+  for (const away of ["Esc", "the Select button"] as const) {
+    await page.keyboard.press("7");
+    await expect(page.getByRole("group", { name: "Block options" })).toBeVisible();
+    if (away === "Esc") await page.keyboard.press("Escape");
+    else await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Select (1)" }).click();
+    await expect(page.getByRole("group", { name: "Block options" })).toHaveCount(0);
+    await toolPutAway(page);
+    const before = await view();
+    await drag(page, c, [c[0] + 3, c[1] + 3]);
+    expect(await selected(), `a selection after Block and ${away}`).toBeGreaterThan(0);
+    expect(await view(), `the camera did not move after Block and ${away}`).toBe(before);
+    // (Esc clears the selection for the next round)
+    await page.keyboard.press("Escape");
+    await expect.poll(selected).toBe(0);
+  }
 });

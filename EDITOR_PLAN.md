@@ -75,8 +75,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
-  language (a slider with its value, or a segmented choice; no dropdowns). A title block: the map's **Name** (the
-  title's; renaming it here is the title's rename), **Generate** and **Surprise me**; **Theme** (with **Reset
+  language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
+  map (the field shows the open map's name; what is typed in it names the map **Generate** makes next, and the open
+  map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
@@ -593,7 +594,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
   Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
   **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
-  "Add or remove blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
+  "Add or remove blocks on any face"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
   (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
   brush's blocks (`showBlocks`, forces play's final contract, D335): the blocks to add translucent, the blocks to take
   red, ground that would fall solid red, and while any would fall the added and removed blocks muted grey (they will
