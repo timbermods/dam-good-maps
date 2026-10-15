@@ -256,7 +256,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
   and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Under roofs** (where the map has roofed water, beside Legend; each with its caption under Legend while on);
+  and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
@@ -1017,11 +1017,10 @@ flags them if they reappear anywhere else (D188).
 
 ## Non-goals
 
-- Voxel-level cave and overhang editing, until terrain above terrain's step 3, "Creating them" (`ROADMAP.md`,
-  "Terrain above terrain"; `PLAN.md` §20, D118, D125, D279–D281), whose Erode and Block tool bring it. Until then
-  what lies under a roof is preserved and exported unchanged, together with the water the file stores under it; the
-  brushes shape each tile's top run only (§4, "On caves and overhangs"). The data model stores terrain as runs per
-  tile from project format 3 (D119), so voxel editing needs no format change.
+- Reshaping under a roof with the brushes or the forces (`PLAN.md` §20, D118, D125, D279–D281): the ground under a
+  roof is exported unchanged, the brushes shaping each tile's top run only (§4, "On caves and overhangs"), and only
+  the Block tool adds or removes blocks there (D335). The data model stores terrain as runs per tile from project
+  format 3 (D119).
 - Terrain above the map's own limit: 16, or 22 on tall maps (`PLAN.md` §20, D172; §5.9). The tools keep to the
   map's limit (D123), and imported maps with terrain up to 22 are preserved.
 - Multiplayer starts, for now. Timberborn 1.1 keeps exactly one StartingLocation per map. Fair multi-colony maps for
@@ -1213,12 +1212,18 @@ checks dot counts; every other row is information under Good to know, worded as 
   lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal
   edit operation, applied live and undoable.
 - **Water preview:** the settled water of the port of the game's rules (`PLAN.md` §10).
-  - **Exact on heightfield terrain**, which covers every generated map and most edited ones; **approximate under
-    roofs** (imported caves, tunnels, overhang bridges, badtide drains): there the editor keeps the water the file
-    stores, shows a "preview approximate" overlay, and does not re-simulate unless the user edits nearby. The
-    tiles under roofs keep the file's water in the view and the export, every other tile is simulated, and the
-    **Under roofs** view button marks them (D100); what lies under a roof is never edited, the brushes shaping only
-    its top (D280 (3)).
+  - **Exact on heightfield terrain**, which covers every generated map. **An imported map with caves or
+    overhangs** (tunnels, overhang bridges; D120, D280) is simulated too, on every water column, by the
+    stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
+    last water stays on show while the canonical settle runs in the background, in slices, the dot saying
+    "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
+    on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
+    refused there with one plain line each until each has its rule for water in caves (a refused Drought or
+    Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).
+    The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
+    leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
+    run (D280 (3), D487). Ground the Block tool digs counts with them; on an import with caves its water is
+    simulated the same way, on a map without, not yet (#435).
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
@@ -1248,7 +1253,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
     two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
-    settle's, except under roofs.
+    settle's (a map with caves or overhangs has no preview: the canonical settle itself, in the background).
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches
     stays dry on every path (the instant answer, the stroke's live water, the background settle, the canonical
     settle and the file); one dug beside a river, or with a source in it, fills. The warm start keeps the

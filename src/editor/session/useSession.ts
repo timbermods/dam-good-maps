@@ -616,23 +616,33 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(0);
       // (the day box reads the day at once, the hazard's length for the map's difficulty, Kyler, 2026-10-04)
       setWeatherTarget(hazardDays(infoRef.current.spec?.designedFor ?? "normal", hazard));
-      void api.showWeatherDay(hazard, null);
-    } else {
-      setWeather(null);
-      heldDay.current = null;
-      setWeatherDay(null);
-      setWeatherCounting(null);
-      setWeatherTarget(null);
-      mirror.current.daySoil = null;
-      renderer.current?.setWithered(null);
-      renderer.current?.setSeason(null, null);
-      void api.stopWeather().then((v) => {
-        player.current?.clear();
-        applyView(v);
-        if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
-        ed.rehover();
-      });
-    }
+      askWeatherDay(hazard, null);
+    } else weatherOff();
+  }
+  /** The map's own water back: no hazard shown, the button unpressed, the day box gone. */
+  function weatherOff() {
+    setWeather(null);
+    heldDay.current = null;
+    setWeatherDay(null);
+    setWeatherCounting(null);
+    setWeatherTarget(null);
+    mirror.current.daySoil = null;
+    renderer.current?.setWithered(null);
+    renderer.current?.setSeason(null, null);
+    void api.stopWeather().then((v) => {
+      player.current?.clear();
+      applyView(v);
+      if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
+      ed.rehover();
+    });
+  }
+  /** Ask the worker for a day of `hazard`; a refusal (a map with caves or overhangs) shows its one line, as an
+   *  edit's refusal does, and the map's own water comes back. */
+  function askWeatherDay(hazard: Hazard, day: number | null) {
+    api.showWeatherDay(hazard, day).catch((e: unknown) => {
+      if (weatherRef.current === hazard) weatherOff();
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+    });
   }
   /** Step the held day back (to Day 0, the map's own water) or on (past the default length, simulated as asked). */
   function stepWeather(delta: -1 | 1) {
@@ -650,11 +660,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     heldDay.current = day;
     setWeatherTarget(day);
     setWeatherCounting(0);
-    void api.showWeatherDay(h, day);
+    askWeatherDay(h, day);
   }
   function requestHeldDay() {
     const h = weatherRef.current;
-    if (h) void api.showWeatherDay(h, heldDay.current);
+    if (h) askWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showWithered(tiles: Int32Array) {

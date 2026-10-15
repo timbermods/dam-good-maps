@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { emptySimulationSingletons, settledSimulationSingletons, stackedSimulationSingletons, storedSoil, storedWater } from "../../src/core/format/world";
 import { stringify } from "../../src/core/format/json";
 import { toMapObject } from "../../src/core/features/build";
-import { waterSource } from "../../src/core/format/entities";
+import { fluidObject, waterSource } from "../../src/core/format/entities";
 import { heightMasks, terrainColumns, waterColumns } from "../../src/core/sim/columns";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
 import { waterModel } from "../../src/core/sim/model";
@@ -168,7 +168,32 @@ describe("the canonical settle's two paths (3D Foundations, stage 5)", () => {
     const objects = m.scene.entities.map(toMapObject);
     const terrain = new ColumnTerrain(W, H, m.scene.mask);
     const model = stackedModel(waterModel(W, H, terrain.heights(), objects), terrain, objects);
-    expect(() => canonicalSettle({ ...model, drained: [5] })).toThrow(/not worked out for a map with caves/);
+    expect(() => canonicalSettle({ ...model, drained: [5] })).toThrow(/isn't worked out for maps with caves yet/);
+  });
+});
+
+describe("a seep in a pit, on terrain above terrain", () => {
+  it("starts filled only to its limit, as on a heightfield, never to the pit's rim", () => {
+    // ground at 6 with a pit 4 × 4 at level 2 and a seep in it; one cave tile elsewhere makes the map stacked
+    const W = 16, H = 12, N = W * H;
+    const heights = new Uint8Array(N).fill(6);
+    for (let y = 4; y < 8; y++) for (let x = 4; x < 8; x++) heights[y * W + x] = 2;
+    const objects = [toMapObject(fluidObject({ id: "00000000-0000-4000-8000-000000000009", owner: "test", template: "WaterSeep", x: 5, y: 5, z: 2, strength: 1 }))];
+    const flat = canonicalSettle(waterModel(W, H, heights, objects));
+    const terrain = ColumnTerrain.fromHeights(heights, W, H);
+    terrain.mask[1 * W + 13] &= ~(1 << 3); // a hole in the rock at level 3
+    const model = stackedModel(waterModel(W, H, heights, objects), terrain, objects);
+    expect(model.stacked).toBeTruthy();
+    const w = canonicalSettle(model);
+    let deepest = 0;
+    for (let i = 0; i < N; i++) {
+      deepest = Math.max(deepest, w.depth[i]);
+      // the same wet tiles as the heightfield's settle of the same pit
+      expect(w.depth[i] > 0.05, `tile ${i}`).toBe(flat.depth[i] > 0.05);
+    }
+    // (the seep stops at 0.8 over its anchor: the pit, 4 deep, is nowhere near full)
+    expect(deepest).toBeGreaterThan(0.5);
+    expect(deepest).toBeLessThan(1);
   });
 });
 

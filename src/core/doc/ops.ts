@@ -34,6 +34,7 @@ import { blockEffect, blockProblems, type BlockGround, type BlocksParams } from 
 import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
+import { CAVE_REFUSALS } from "../sim/stackWater";
 import { cropRectProblem, type CropParams } from "./crop";
 import type { RetainedWater, WaterModel } from "../sim/water";
 import opsSchema from "./ops.schema.json" with { type: "json" };
@@ -752,6 +753,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return objects ? [objects] : [];
     }
     case "removeUnfedWater": {
+      // (which water a removal takes on a tile with water at several levels is not decided, D280)
+      if (ctx.water?.model.stacked) return [CAVE_REFUSALS.removeUnfed];
       const p = op.params;
       const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");
       if (errors.length) return errors;
@@ -775,6 +778,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return [];
     }
     case "fillHollow": {
+      if (ctx.water?.model.stacked) return [CAVE_REFUSALS.fill];
       const p = op.params;
       const [x, y] = p.at;
       if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];

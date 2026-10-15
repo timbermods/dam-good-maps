@@ -1,7 +1,7 @@
 // Soil per run top (3D view, part 3): every run top below its tile's top (a cave's floor, a ledge under an
 // overhang) shows its own run's moisture and contamination, and the water standing on it, not its roof's. The
-// worker sends the soil per run top with the view's soil (`SoilView.runs`, the file's own per run, as the export
-// keeps it), the renderer writes it into its run texture (`RunSoil`), and what the terrain shader reads for a
+// worker sends the soil per run top with the view's soil (`SoilView.runs`: the file's own per run while its water
+// shows, the stacked settle's after an edit, as the export writes them), the renderer writes it into its run texture (`RunSoil`), and what the terrain shader reads for a
 // floor (`runSoilAt`, its rule in TypeScript) is soil3d's value for that run. Maps without terrain above
 // terrain get no per-run soil, so the renderer builds no texture and its shader's branch is not compiled.
 // The official cave maps (Hollows, Pressure) run only where they were copied locally, like
@@ -18,12 +18,13 @@ import { normalizeImport } from "../../src/core/format/normalize";
 import { stackedSimulationSingletons, storedWater } from "../../src/core/format/world";
 import { waterColumns, type VoxelMasks } from "../../src/core/sim/columns";
 import { columnSaturation, soil3d, type Soil3d } from "../../src/core/sim/soil3d";
+import { stackedSoil } from "../../src/core/sim/soil";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { soilNibbles } from "../../src/render3d/light";
 import { WET, type MapView } from "../../src/render3d/model";
 import { contaminationByte, moistureByte } from "../../src/render3d/palette";
 import { RunSoil, runSoilAt, runSoilOn } from "../../src/render3d/runSoil";
-import { apply, collabOpen, openTimber, settleWater } from "../../src/worker/session";
+import { apply, collabOpen, collabSession, openTimber, settleWater } from "../../src/worker/session";
 import { CAVE, CAVE_H as H, CAVE_W as W, caveFile, caveVoxels } from "./caveMap";
 
 const byte = (m: number, c: number) => soilNibbles(moistureByte(m), contaminationByte(c));
@@ -124,7 +125,8 @@ describe("soil per run top (3D view, part 3)", () => {
     expect(soilNibbles(view.soil!.moisture[mid], view.soil!.contamination[mid])).not.toBe(byte(soil.moisture[mid], soil.contamination[mid]));
     expect(byte(soil.moisture[mid], 0) >> 4, "the tunnel's floor is moist").toBeGreaterThan(0);
     expect(byte(soil.moisture[N + mid], 0), "its top is dry").toBe(0);
-    // an edit off the cave, then one on its roof: the roofs keep the file's soil, and the view's runs with them
+    // an edit off the cave, then one on its roof: the water is the stacked settle's on every column (D120), and so
+    // is the soil on every run top, the soil the export writes (sim/soil.ts `stackedSoil`), the view's runs with it
     const edits = [
       { tool: "raise", size: 2, strength: 5, shape: "area", target: 10, dabs: [6, 6, 10, 10] },
       { tool: "raise", size: 1, strength: 5, shape: "area", target: 10, dabs: [...tile(16, 16), ...tile(19, 19)] },
@@ -136,7 +138,10 @@ describe("soil per run top (3D view, part 3)", () => {
       const after = { ...view, ...u, ...settleWater() } as unknown as MapView;
       water = after.water ?? water;
       expect(after.soil?.runs, "the soil sent after the edit carries the run tops").toBeDefined();
-      checkRunTops({ ...view, soil: after.soil, water }, soil, wetIn({ ...view, water }));
+      const s = collabSession()!;
+      const objects = s.built.entities.map(toMapObject);
+      const settled = stackedSoil(s.terrain, waterColumns(s.terrain, objects), s.built.settle.stack!, objects);
+      checkRunTops({ ...view, soil: after.soil, water }, settled, wetIn({ ...view, water }));
     }
   });
 
