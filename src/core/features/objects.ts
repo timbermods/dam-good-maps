@@ -8,14 +8,17 @@
 // `fitProblems` is the one placement rule the generator, the editor's tools and the editor's
 // footprint preview use: on the map, on level ground, dry, off rivers, free of other objects and
 // clear of the start; the load checks (validate/checks.ts `entities.placement`) then prove the game
-// keeps every object.
+// keeps every object. Under a roof (a cave's floor, the ground under a ledge, a roof's top) an object
+// stands where Timberborn 1.1.2.7 keeps it (D491): `standProblem` is the game's own rule there, block
+// by block, the very rule rust/checks applies to every object of a map file.
 
-import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, worldBlocks, type Orientation } from "../format/footprints";
 import { blockObject, unstableCore, type EntitySpec } from "../format/entities";
 import { EMITTING, FLUIDS } from "../data/parity";
 import { hash32, tileHash01 } from "../math/hash";
 import { runsToTiles } from "../math/grid";
 import { entityId } from "./ids";
+import { itemName, withArticle } from "../doc/labels";
 import type { MapObjectFeature, MapObjectKind } from "./schema";
 
 /** The template each kind places. */
@@ -116,7 +119,8 @@ export function footprintAt(kind: MapObjectKind, x: number, y: number, o: Orient
 }
 
 /** The entities a map-object feature places (build step 9), each standing on the ground under it:
- *  a single object at the highest level under its footprint, a line's objects each on its tile. */
+ *  a single object at the highest level under its footprint, a line's objects each on its tile; under
+ *  a roof, at the level its placement names (`z`: a cave's floor, the ground under a ledge). */
 export function rasterizeObjects(f: MapObjectFeature, W: number, H: number, heights: Uint8Array, locked: Uint8Array | null = null): EntitySpec[] {
   const out: EntitySpec[] = [];
   if (!BUILT_OBJECTS.includes(f.params.kind)) return out;
@@ -128,6 +132,7 @@ export function rasterizeObjects(f: MapObjectFeature, W: number, H: number, heig
     if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H || keptOff(p.x, p.y)) continue;
     let z = heights[p.tile];
     if (!("area" in f.params.placement)) for (const [tx, ty] of tiles) if (tx >= 0 && ty >= 0 && tx < W && ty < H) z = Math.max(z, heights[ty * W + tx]);
+    if (f.params.placement.z !== undefined) z = f.params.placement.z;
     const b = { id: entityId(f.id, p.template, p.tile), owner: f.id, x: p.x, y: p.y, z };
     if (f.params.kind === "unstableCore") {
       const c = f.params.core ?? { radius: 2, cycles: 5 };
@@ -152,9 +157,14 @@ export interface FitGround {
   occupied?: Uint8Array | null;
   /** The start's zone: nothing stands on it. */
   start?: { x: number; y: number; radius: number } | null;
-  /** Columns with caves or overhangs (an imported map's): objects that claim the whole column may
-   *  not stand there. */
-  columns?: { has(i: number): boolean } | null;
+  /** The ground voxel by voxel, on a map with caves or overhangs (bit z of `masks[i]` set: voxel z of
+   *  tile i is solid; terrain/runs.ts `ColumnTerrain`). A placement on a tile that is not one plain
+   *  run, or at a given `z`, is held to the game's own rule (`standProblem`) instead of the level
+   *  ground a heightfield needs. */
+  masks?: ArrayLike<number> | null;
+  /** The level it stands on under a roof (a cave's floor, the ground under a ledge): a run's top
+   *  below the tile's surface. Omitted, it stands on the top. Needs `masks`. */
+  z?: number;
   /** Tiles no object may take (locked regions). */
   locked?: Uint8Array | null;
 }
@@ -163,36 +173,132 @@ export interface FitGround {
 const WET = 0.05;
 
 /** Why a placement does not fit, in plain words (empty when it fits). `tiles` are the tiles it
- *  covers: a single object's footprint, or a line's tiles. */
-export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [number, number])[], g: FitGround): string[] {
+ *  covers: a single object's footprint, or a line's tiles. `at`: a single object's south-west corner
+ *  and facing (its feature's placement), which the game's rule needs under a roof. */
+export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [number, number])[], g: FitGround, at?: { x: number; y: number; orientation: Orientation }): string[] {
   const { W, H, heights } = g;
   const out: string[] = [];
   if (!BUILT_OBJECTS.includes(kind)) return [`${OBJECT_NAMES[kind].toLowerCase()}s come in a later version`];
   if (!tiles.length) return ["it covers no tiles"];
   const single = !isLine(kind);
+  const masks = g.masks ?? null;
+  if (g.z !== undefined && !masks) throw new Error("fitProblems: a placement at a given z needs the ground's masks");
+  const inMap = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  // under a roof: the game's rule, block by block, at the level it stands on (D491)
+  const roofed = !!masks && (g.z !== undefined || tiles.some(([x, y]) => inMap(x, y) && !isPlainColumn(masks[y * W + x])));
+  const stand: StandGround | null = roofed ? { W, H, mask: masks! } : null;
+  const template = OBJECT_TEMPLATE[kind];
   let level = -1;
   const add = (why: string) => {
     if (!out.includes(why)) out.push(why);
   };
+  if (stand && single) {
+    if (!at) throw new Error("fitProblems: a single object under a roof needs its placement");
+    const s = FOOTPRINTS[template].size;
+    const [cx, cy] = coordinatesForMinCorner(s[0], s[1], at.x, at.y, at.orientation);
+    let z = g.z ?? -1;
+    if (z < 0) for (const [x, y] of tiles) if (inMap(x, y)) z = Math.max(z, heights[y * W + x]);
+    const why = standProblem(template, { x: cx, y: cy, z, orientation: at.orientation }, stand);
+    if (why) add(why);
+  }
   for (const [x, y] of tiles) {
-    if (x < 0 || y < 0 || x >= W || y >= H) {
+    if (!inMap(x, y)) {
       add("it does not fit on the map");
       continue;
     }
     const i = y * W + x;
-    if (single) {
+    if (stand && !single) {
+      // (a line's objects are one block each, each on its own tile's ground)
+      const why = standProblem(template, { x, y, z: g.z ?? heights[i], orientation: "Cw0" }, stand);
+      if (why) add(why);
+    } else if (single && !stand) {
       if (level < 0) level = heights[i];
       else if (heights[i] !== level) add("the ground under it is not level");
     }
-    if (DRY_OBJECTS.includes(kind) && g.water && g.water[i] > WET) add("it would stand in water");
-    if (g.channel?.[i] && kind !== "weir" && kind !== "plug") add("it would stand in a river");
+    // (the settled water and the rivers are the top's: under a roof the game's rule alone decides)
+    const top = g.z === undefined || g.z >= heights[i];
+    if (top && DRY_OBJECTS.includes(kind) && g.water && g.water[i] > WET) add("it would stand in water");
+    if (top && g.channel?.[i] && kind !== "weir" && kind !== "plug") add("it would stand in a river");
     if (g.occupied?.[i]) add("another object stands there");
     if (g.locked?.[i]) add("that area is locked");
-    if (g.columns?.has(i)) add("there is a cave or overhang under it");
-    const s = g.start;
-    if (s && Math.abs(x - s.x) <= s.radius && Math.abs(y - s.y) <= s.radius) add("it is too close to the start");
+    const st = g.start;
+    if (st && Math.abs(x - st.x) <= st.radius && Math.abs(y - st.y) <= st.radius) add("it is too close to the start");
   }
   return out;
+}
+
+// --------------------------------------------------------------------------- under a roof (D491)
+
+/** The ground an object stands on, voxel by voxel: bit z of `mask[i]` set when voxel z of tile i is
+ *  solid (terrain/runs.ts `ColumnTerrain`). */
+export interface StandGround {
+  W: number;
+  H: number;
+  mask: ArrayLike<number>;
+}
+
+/** Objects whose ground blocks must stand on the top of run 0, the run that reaches down to z = 0
+ *  (the game's `ContinuousTerrainConstraint`, investigation/terrain3d/GAME_RULES.md §3.4): a cave's
+ *  floor with rock under it, never a roof's top, a ledge or the floor of a cave over another cave.
+ *  rust/checks `continuous` is the same list. */
+export const ON_BOTTOM_RUN: ReadonlySet<string> = new Set(["WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "Aquifer", "BadtideDrain", "GeothermalField", "UndergroundRuins"]);
+
+/** No block of an object may reach this level (rust/checks `MAX_OBJECT_Z`: the map's total height). */
+const MAX_OBJECT_Z = 33;
+/** The terrain's layers (format/world.ts LAYERS): nothing is solid from here up. */
+const TERRAIN_LAYERS = 23;
+
+/** Whether a column's mask is one plain run from z = 0 (or empty): terrain/runs.ts `isPlainMask`. */
+function isPlainColumn(m: number): boolean {
+  return (m & (m + 1)) === 0;
+}
+
+/** The top of a column's run 0: the first air above the solid voxels that reach up from z = 0. */
+export function bottomRunTop(m: number): number {
+  let z = 0;
+  while (z < TERRAIN_LAYERS && (m >>> z) & 1) z++;
+  return z;
+}
+
+/** An object's height in levels: the air it needs from its floor up (a pine 3, a birch 2, a ruin its
+ *  own height; GAME_RULES §5). */
+export function objectHeight(template: string): number {
+  let h = 0;
+  for (const b of FOOTPRINTS[template]?.blocks ?? []) if (b[4] !== 0) h = Math.max(h, b[2] + 1);
+  return h;
+}
+
+/** Why Timberborn would not keep `template` standing at (x, y, z) (its Coordinates) on this ground,
+ *  in one plain line, or null when it would (D491). The game tests only the cells an object occupies
+ *  (`BlockValidator`): each must be air and inside the map, every block that needs ground has solid
+ *  ground under it (`MatterBelow.Ground`), and the water objects, geothermal fields and mine sites
+ *  stand on the top of run 0 (`ON_BOTTOM_RUN`). Nothing looks for a roof, so an object fits under one
+ *  when its height in air is free. `taken(x, y, z)` names the template of another object holding a
+ *  cell, if any. It is rust/checks' `entities.placement` and `plants.clearance` for one object (a
+ *  contract test holds them together on a cave map), except that ground made of objects (a stackable
+ *  under a ruin) is not counted: it refuses there rather than ever keep what the game drops. */
+export function standProblem(
+  template: string,
+  p: { x: number; y: number; z: number; orientation: Orientation; flipped?: boolean },
+  g: StandGround,
+  taken?: (x: number, y: number, z: number) => string | null,
+): string | null {
+  const fp = FOOTPRINTS[template];
+  if (!fp) return `${template} can't be placed`;
+  const { W, H, mask } = g;
+  const solid = (x: number, y: number, z: number) => z < 0 || (z < TERRAIN_LAYERS && ((mask[y * W + x] >>> z) & 1) === 1);
+  const name = itemName(template);
+  for (const b of worldBlocks(fp, { template, x: p.x, y: p.y, z: p.z, orientation: p.orientation, flipped: !!p.flipped })) {
+    if (b.x < 0 || b.y < 0 || b.x >= W || b.y >= H || b.z >= MAX_OBJECT_Z) return "it does not fit on the map";
+    if (solid(b.x, b.y, b.z)) return b.localZ > 0 ? `not enough room under the roof here: the ${name} needs ${objectHeight(template)}` : "the ground under it is not level";
+    const other = taken?.(b.x, b.y, b.z);
+    if (other) return other === "StartingLocation" ? "the district center stands there" : `${withArticle(itemName(other))} stands there`;
+    if ((b.below === "ground" || b.below === "groundOrStackable") && !solid(b.x, b.y, b.z - 1)) return "the ground under it is not level";
+    if (ON_BOTTOM_RUN.has(template) && b.below === "ground" && b.z !== bottomRunTop(mask[b.y * W + b.x])) {
+      return `the game keeps ${withArticle(name)} only on ground that goes down to the bottom of the map, not on a roof or a ledge`;
+    }
+  }
+  return null;
 }
 
 // --------------------------------------------------------------------------------- Remove

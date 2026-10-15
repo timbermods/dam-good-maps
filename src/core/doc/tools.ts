@@ -132,6 +132,8 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
   const gone: string[] = [];
   for (const e of after.entities) {
     if (!GROUND_OBJECTS.has(e.template) || objectIds.has(e.owner)) continue;
+    // (an object under a roof stands on ground no feature reshapes, D487, D491)
+    if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z < after.heights[e.y * W + e.x]) continue;
     const tiles = entityTiles(e);
     if (!hit(tiles)) continue;
     if (tiles.some(([x, y]) => x < 0 || y < 0 || x >= W || y >= H || after.heights[y * W + x] !== e.z || body[y * W + x])) gone.push(e.id);

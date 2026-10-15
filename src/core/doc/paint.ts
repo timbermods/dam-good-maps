@@ -15,14 +15,14 @@ import { waterDepth } from "./placing";
 /** The templates a plant kind counts as already there: painting over them fills the gaps up to the density. */
 const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["BlueberryBush"], succulents: ["Succulent"], woods: ["Pine", "Birch", "Oak"] };
 
-/** Where an object may stand on the map as it is: on the map, dry, no cave, nothing there. */
+/** Where an object may stand on the map as it is: on the map, dry, nothing there. A stroke paints the ground's top,
+ *  a roof's top too, where the game keeps what stands on it (D491). */
 export function paintGround(s: MapSession): PaintGround {
   const { x: W, y: H } = s.size;
   const b = s.built;
   const free = new Uint8Array(W * H).fill(1);
   const depth = waterDepth(s);
   for (let i = 0; i < W * H; i++) if (depth[i] > 0.05) free[i] = 0;
-  for (let i = 0; i < W * H; i++) if (!s.plainAt(i)) free[i] = 0;
   for (const e of b.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) free[y * W + x] = 0;
   return { W, H, heights: b.heights, free };
 }
@@ -54,7 +54,7 @@ export function planPaintObjects(s: MapSession, p: PaintParams, nextSeq: number 
 function nothingReason(p: PaintParams, region: number[], g: PaintGround, existing: number): string {
   let free = 0;
   for (const i of region) if (g.free[i]) free++;
-  if (!free) return "there is no free ground under the stroke: it is water, a cave or other objects";
+  if (!free) return "there is no free ground under the stroke: it is water or other objects";
   if (p.kind === "ruins") return "the ground under the stroke is too small or broken for a ruin field: a field stands on one level";
   if (p.kind === "thorns") return "the stroke is too small for a thorn patch";
   if (existing) return "the stroke already holds as many as its density asks for";

@@ -4,7 +4,7 @@
 // it on load).
 
 import { entityTiles } from "../features/edits";
-import { isPickable } from "../features/objects";
+import { isPickable, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
@@ -38,15 +38,17 @@ export function waterDepth(s: MapSession): ArrayLike<number> {
  *  validate/checks.ts `entities.placement`), or null when it would; one plain reason (D290).
  *  `ignore` is the entity being moved. Resources make room (they are placed after it). `level`:
  *  a placement by the shelf, which levels its own footprint (D290 for the badwater source, D328 for
- *  every object): uneven ground doesn't stop it, so only the map's edge, a cave, another object's
- *  tiles and the start do (a badwater source also takes the hand-placed objects on its nine tiles,
- *  `levelFootprint`). */
-export function entityProblem(s: MapSession, p: { template: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: string | null = null, opts: { level?: boolean } = {}): string | null {
+ *  every object): uneven ground doesn't stop it, so only the map's edge, another object's tiles and
+ *  the start do (a badwater source also takes the hand-placed objects on its nine tiles,
+ *  `levelFootprint`). Under a roof (`underRoof`: at a given `z`, or on a tile with a cave or an
+ *  overhang) nothing is levelled and the game's own rule decides (D491, `roofProblem`). */
+export function entityProblem(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }, ignore: string | null = null, opts: { level?: boolean } = {}): string | null {
   const fp = FOOTPRINTS[p.template];
   if (!fp) return `${p.template} can't be placed`;
   const { x: W, y: H } = s.size;
   const b = s.built;
   if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return "it is off the map";
+  if (underRoof(s, p)) return roofProblem(s, p, ignore);
   const z = b.heights[p.y * W + p.x];
   const skip = resourceOwners(s);
   // a resource's own entity moves after the resources are placed: they do not make room for it
@@ -65,7 +67,6 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
   for (const blk of worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z, orientation: p.orientation, flipped: !!p.flipped })) {
     if (blk.x < 0 || blk.y < 0 || blk.x >= W || blk.y >= H || blk.z >= 33) return "it does not fit on the map";
     const i = blk.y * W + blk.x;
-    if (!s.plainAt(i)) return "there is a cave or overhang there";
     const top = b.heights[i];
     const other = taken.get(i);
     if (pool) {
@@ -84,6 +85,56 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     }
   }
   return level ? levelProblem(s, p) : null;
+}
+
+/** Whether a placement stands under a roof (D491): at a given level (`z`: a cave's floor, the ground
+ *  under a ledge), or with any of its tiles not one plain run from the bottom (a roof's top, the edge of
+ *  an overhang). Such a placement levels nothing: the brushes alone shape a roof's top (D487). */
+export function underRoof(s: MapSession, p: { template?: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }): boolean {
+  if (p.z !== undefined) return true;
+  const template = p.template ?? "BadwaterSource";
+  const fp = FOOTPRINTS[template];
+  if (!fp) return false;
+  const { x: W, y: H } = s.size;
+  for (const blk of worldBlocks(fp, { template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped })) {
+    if (blk.x >= 0 && blk.y >= 0 && blk.x < W && blk.y < H && !s.plainAt(blk.y * W + blk.x)) return true;
+  }
+  return false;
+}
+
+/** Why the game would not keep an object under a roof (D491): `standProblem`, the game's rule block by
+ *  block on the ground as it stands, at its level (`z`, or the ground's top at its Coordinates), with
+ *  the cells other objects hold (resources make room, as on open ground; the start's tiles are its own). */
+function roofProblem(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }, ignore: string | null): string | null {
+  const { x: W, y: H } = s.size;
+  const b = s.built;
+  const top = b.heights[p.y * W + p.x];
+  if (p.z !== undefined && p.z >= top) return `level ${p.z} is not under a roof here: the ground's top is ${top}, where it stands without a level`;
+  const z = p.z ?? top;
+  const understructure = FLUIDS[p.template]?.on;
+  if (understructure && !b.entities.some((e) => e.id !== ignore && understructure.includes(e.template) && e.x === p.x && e.y === p.y && e.z === z)) return "a drill needs an aquifer under it";
+  const skip = resourceOwners(s);
+  const moved = ignore ? b.entities.find((e) => e.id === ignore) : undefined;
+  if (moved && skip.has(moved.owner)) skip.clear();
+  const N = W * H;
+  const cells = new Map<number, string>();
+  const starts = new Set<number>();
+  for (const e of b.entities) {
+    if (e.id === ignore || skip.has(e.owner)) continue;
+    const efp = FOOTPRINTS[e.template];
+    if (!efp) continue;
+    if (e.template === "StartingLocation") {
+      for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) starts.add(ty * W + tx);
+      continue;
+    }
+    // (an aquifer under a drill is what the drill needs, not what is in its way)
+    if (understructure?.includes(e.template)) continue;
+    for (const c of worldBlocks(efp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })) {
+      if (c.x >= 0 && c.y >= 0 && c.x < W && c.y < H && c.z >= 0) cells.set(c.z * N + c.y * W + c.x, e.template);
+    }
+  }
+  const taken = (x: number, y: number, zz: number) => (starts.has(y * W + x) ? "StartingLocation" : (cells.get(zz * N + y * W + x) ?? null));
+  return standProblem(p.template, { x: p.x, y: p.y, z, orientation: p.orientation, flipped: p.flipped }, s.standGround(), taken);
 }
 
 /** Why a shelf object can't be levelled where it is: its ground isn't level and part of it stands
@@ -111,6 +162,9 @@ export interface EntityRequest {
   y: number;
   orientation: Orientation;
   flipped?: boolean;
+  /** The level it stands on under a roof (D491): a cave's floor or the ground under a ledge, as the
+   *  page's pick found it. Omitted, or the ground's top at (x, y), it stands on the top. */
+  z?: number;
   /** Components that differ from the template's defaults (an unstable core's radius). */
   components?: Record<string, unknown>;
 }
@@ -118,32 +172,38 @@ export interface EntityRequest {
 /** Plan an entity placed from the shelf: the loader's rules first; where its ground isn't level it
  *  levels its own footprint (D290 cuts, D328 fills where dry), in the same step. */
 export function planEntity(s: MapSession, req: EntityRequest, id: string): PlannedOps {
+  req = onTop(s, req);
   if (!req.components) req = { ...req, components: placeComponents(req.template) };
   if (!FOOTPRINTS[req.template]) return fail(`${req.template} can't be placed`);
   const why = entityProblem(s, req, null, { level: true });
   if (why) return fail(why);
   const { x: W } = s.size;
   const tiles = worldBlocks(FOOTPRINTS[req.template], { ...req, z: 0, flipped: !!req.flipped }).map((b) => b.y * W + b.x);
-  const op: EditOp = { op: "placeEntity", params: { id, template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.flipped ? { flipped: true } : {}), ...(req.components ? { components: req.components } : {}) } };
+  const op: EditOp = { op: "placeEntity", params: { id, template: req.template, x: req.x, y: req.y, ...(req.z !== undefined ? { z: req.z } : {}), orientation: req.orientation, ...(req.flipped ? { flipped: true } : {}), ...(req.components ? { components: req.components } : {}) } };
   const pool = levelFootprint(s, req);
   const name = req.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
   return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: placeLabel("Place", req.template), tiles: [...new Set(tiles)] };
 }
 
 /** Plan an object moved by (dx, dy) tiles (D345, B7): the same rules as placing it there, its ground
- *  levelled as a placement's is (D328), in one step. `id` is the object's entity id. */
-export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number): PlannedOps {
+ *  levelled as a placement's is (D328), in one step. `id` is the object's entity id. `z`: the level it
+ *  lands on under a roof (D491), as the page's pick found it; omitted, an object under a roof keeps its
+ *  level and any other lands on the ground's top. */
+export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number, z?: number): PlannedOps {
   const e = s.built.entities.find((g) => g.id === id);
   if (!e) return fail("that object is gone");
   if (!isPickable(e.template)) return fail(`a ${e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()} can't be moved`);
-  const req = { template: e.template, x: e.x + dx, y: e.y + dy, orientation: e.orientation, flipped: e.flipped };
+  const { x: W0, y: H0 } = s.size;
+  const pinned = e.x >= 0 && e.y >= 0 && e.x < W0 && e.y < H0 && e.z < s.built.heights[e.y * W0 + e.x];
+  const lands = z ?? (pinned ? e.z : undefined);
+  const req = onTop(s, { template: e.template, x: e.x + dx, y: e.y + dy, ...(lands !== undefined ? { z: lands } : {}), orientation: e.orientation, flipped: e.flipped });
   const why = entityProblem(s, req, id, { level: true });
   if (why) return fail(why);
   const { x: W } = s.size;
   const tiles = worldBlocks(FOOTPRINTS[e.template], { ...req, z: 0, flipped: !!req.flipped }).map((b) => b.y * W + b.x);
   const level = levelFootprint(s, req, new Set([id]));
   const name = e.template === "UndergroundRuins" ? "mine site" : e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
-  const op: EditOp = { op: "moveEntity", params: { id, x: req.x, y: req.y } };
+  const op: EditOp = { op: "moveEntity", params: { id, x: req.x, y: req.y, ...(req.z !== undefined ? { z: req.z } : {}) } };
   return { ok: true, ops: [...level, op], report: [`a ${name} moved to (${req.x}, ${req.y})`], label: placeLabel("Move", e.template), tiles: [...new Set(tiles)] };
 }
 
@@ -166,10 +226,12 @@ const EDGE_REACH = 6;
  *  refuses those. `extra`: further tiles to level with it (the start's door). The operations that
  *  make it, none on level ground. `ignore`: entities the same step removes already (a clean source
  *  switched to bad). */
-export function levelFootprint(s: MapSession, p: { template?: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, ignore: ReadonlySet<string> = new Set(), extra: readonly number[] = []): EditOp[] {
+export function levelFootprint(s: MapSession, p: { template?: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }, ignore: ReadonlySet<string> = new Set(), extra: readonly number[] = []): EditOp[] {
   const template = p.template ?? "BadwaterSource";
   const fp = FOOTPRINTS[template];
   if (!fp) return [];
+  // (under a roof nothing is levelled: the game's rule takes the ground as it is, D491)
+  if (underRoof(s, { ...p, template })) return [];
   const { x: W, y: H } = s.size;
   const b = s.built;
   const tiles = new Set<number>();
@@ -270,7 +332,7 @@ export function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
     if (op.op === "placeEntity" && bad(op)) out.push(...levelFootprint(s, { ...op.params, template: "BadwaterSource" }, removed));
     if (op.op === "moveEntity" && bad(op)) {
       const e = s.built.entities.find((g) => g.id === op.params.id)!;
-      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
+      out.push(...levelFootprint(s, { template: "BadwaterSource", x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation ?? e.orientation }, new Set([...removed, e.id])));
     }
     out.push(op);
   }
@@ -281,8 +343,10 @@ export function withSpringPools(s: MapSession, ops: EditOp[]): EditOp[] {
 
 /** Trees or bushes painted by a drag from the shelf (D184): one `template` on each of `tiles` where
  *  it can stand (on the map's ground, dry, no object there), as one step; `newId` names each. The
- *  operations, their label and the tiles planted, or why nothing can grow there. */
-export function planPlant(s: MapSession, template: string, tiles: readonly number[], newId: () => string): { ok: true; ops: EditOp[]; label: string; planted: number[] } | { ok: false; errors: string[] } {
+ *  operations, their label and the tiles planted, or why nothing can grow there. `z`: the level they
+ *  grow on under a roof (a cave's floor, D491), where the game's rule decides each tile (a pine needs 3
+ *  levels of air); omitted, the ground's top. */
+export function planPlant(s: MapSession, template: string, tiles: readonly number[], newId: () => string, z?: number): { ok: true; ops: EditOp[]; label: string; planted: number[] } | { ok: false; errors: string[] } {
   const { x: W } = s.size;
   const b = s.built;
   const taken = new Uint8Array(W * s.size.y);
@@ -290,10 +354,12 @@ export function planPlant(s: MapSession, template: string, tiles: readonly numbe
   const ops: EditOp[] = [];
   const planted: number[] = [];
   for (const i of new Set(tiles)) {
-    if (i < 0 || i >= taken.length || taken[i] || b.water[i] > 0.05) continue;
+    if (i < 0 || i >= taken.length || taken[i]) continue;
     const x = i % W;
     const y = (i - x) / W;
-    const p = { template, x, y, orientation: "Cw0" as Orientation };
+    const p = onTop(s, { template, x, y, ...(z !== undefined ? { z } : {}), orientation: "Cw0" as Orientation });
+    // (the settled water per tile is the top's)
+    if (p.z === undefined && b.water[i] > 0.05) continue;
     if (entityProblem(s, p)) continue;
     taken[i] = 1;
     planted.push(i);
@@ -312,11 +378,28 @@ export function footprintCheck(s: MapSession, req: EntityRequest): { tiles: numb
   const { x: W, y: H } = s.size;
   const fp = FOOTPRINTS[req.template];
   if (!fp) return { tiles: [], problem: `${req.template} can't be placed` };
+  req = onTop(s, req);
   const tiles = worldBlocks(fp, { ...req, z: 0, flipped: !!req.flipped }).filter((b) => b.x >= 0 && b.y >= 0 && b.x < W && b.y < H).map((b) => b.y * W + b.x);
   const own = [...new Set(tiles)];
   const problem = entityProblem(s, req, null, { level: true });
+  // under a roof it stands at its own level, levelling nothing (D491)
+  if (underRoof(s, req)) {
+    const inMap = req.x >= 0 && req.y >= 0 && req.x < W && req.y < H;
+    return { tiles: own, problem, ...(!problem && inMap ? { level: req.z ?? s.built.heights[req.y * W + req.x] } : {}) };
+  }
   // the level the object will stand at (the ghost shows it there)
   // (a water object is cut-only: it stands at its lowest tile, which the page reads itself)
   const level = !problem && own.length && !FLUIDS[req.template]?.tiles ? platformLevel(s.built.heights, waterDepth(s), W, H, own) : null;
   return { tiles: own, problem, ...(level !== null ? { level } : {}) };
+}
+
+/** A request whose level is the ground's top at its Coordinates stands on the top, without a level: it
+ *  then rides the ground as the land is shaped, as every object on open ground does (D491). */
+function onTop<T extends { x: number; y: number; z?: number }>(s: MapSession, req: T): T {
+  if (req.z === undefined) return req;
+  const { x: W, y: H } = s.size;
+  if (req.x < 0 || req.y < 0 || req.x >= W || req.y >= H || req.z !== s.built.heights[req.y * W + req.x]) return req;
+  const rest = { ...req };
+  delete rest.z;
+  return rest;
 }

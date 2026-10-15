@@ -60,7 +60,8 @@ export interface OpParams {
   placeEntity: PlaceEntityParams;
   /** `quiet`: only a force's own edit sets it (an object it carried that is gone, or whose new ground
    *  is taken, is left out); an operation in the log never does. */
-  moveEntity: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean };
+  /** `z`: the level it lands on under a roof (D491), as `placeEntity`'s; omitted, the ground's top. */
+  moveEntity: { id: string; x: number; y: number; z?: number; orientation?: Orientation; quiet?: boolean };
   /** `quiet`: ids already gone are fine. Only a force's own edit sets it (its ground places the
    *  resources again); an operation in the log never does. */
   deleteEntities: { entities: string[]; quiet?: boolean };
@@ -459,7 +460,7 @@ export interface OpContext {
   otherStarts?: number;
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
-  placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  placement?: (p: { template?: string; id?: string; x: number; y: number; z?: number; orientation?: Orientation; flipped?: boolean }) => string | null;
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
   water?: { model: WaterModel; depth: ArrayLike<number> };
@@ -706,13 +707,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if (options.length) return options;
       }
       // an object the game would delete on load is refused
-      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
+      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation, flipped: p.flipped });
       return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
-      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
+      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation });
       return why ? [why] : [];
     }
     case "deleteEntities": {

@@ -25,6 +25,7 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
+import type { StandGround } from "../features/objects";
 import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -696,6 +697,13 @@ export class MapSession {
     return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
   }
 
+  /** The ground as it stands, voxel by voxel, for the placement rule under a roof (D491, features/objects.ts
+   *  `standProblem`): shared, never to be changed. */
+  standGround(): StandGround {
+    const t = this.terrainOf(this.cur);
+    return { W: t.W, H: t.H, mask: t.mask };
+  }
+
   /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
    *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map until the Block tool digs one. */
@@ -1112,7 +1120,7 @@ export class MapSession {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
         if (!template) return null;
-        return entityProblem(this, { template, x: p.x, y: p.y, orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
+        return entityProblem(this, { template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
       },
     });
     return errors;
@@ -1292,7 +1300,7 @@ export class MapSession {
       if (ids.has(op.params.id)) return fail("two objects in the placement have the same id");
       ids.add(op.params.id);
       const p = op.params;
-      const e = placedEntity(p, this.cur.heights[p.y * W + p.x]);
+      const e = placedEntity(p, p.z ?? this.cur.heights[p.y * W + p.x]);
       for (const [x, y] of entityTiles(e)) {
         const i = y * W + x;
         if (taken.has(i)) return fail("another object stands in the placement's footprint");
