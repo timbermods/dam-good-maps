@@ -400,6 +400,27 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
     }
   });
 
+  it("a step taken out of the log and put back (collaboration's undo) gives the land of the same log built afresh", () => {
+    const s = caveSession();
+    s.setWaterMode("defer");
+    for (const p of [remove("+z", [[24, 24, 4]], 3), add("+z", [[10, 10, 7]], 2), remove("+z", [[8, 20, 7]], 2)]) expect(s.apply(op(p)).errors).toEqual([]);
+    const all = s.terrain.mask.slice();
+    const second = s.logOps[1];
+    const kept = s.stepOps(second.seq);
+    expect(s.spliceStep({ remove: second.seq })).toBe(true);
+    const without = MapSession.open({ ...s.document, edits: s.document.edits }, { rebuild: true });
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(without.terrain.mask));
+    expect(s.built.heights[at(10, 10)]).toBe(8);
+    expect(s.spliceStep({ insert: kept })).toBe(true);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(all));
+    expect(maskList(s)).toEqual(maskList(MapSession.open({ ...s.document, edits: s.document.edits }, { rebuild: true })));
+    // undo and redo put the kept maps back
+    expect(s.undo()).toBe(true);
+    expect(s.built.heights[at(8, 20)]).toBe(8);
+    expect(s.redo()).toBe(true);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(all));
+  });
+
   it("a stroke after a block shapes the top and nothing under it, and a block after a stroke builds on it", () => {
     const s = caveSession();
     expect(s.apply(op(remove("+z", [[24, 24, 4]], 3))).errors).toEqual([]);

@@ -124,8 +124,13 @@ test("the Standard look is the same after High as before it", async ({ page }) =
     await page.waitForTimeout(500);
     return a === (await size());
   }).toBe(true);
-  // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it)
+  // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it, then
+  // put it away. It is the same in both looks, and where its flat and upright strips overlap over the water, the GPU
+  // (software GL and the RTX 2070 SUPER alike) blends it there once or twice between two redraws of one still frame,
+  // with the draw order, the scene, the clock and the camera held: a few pixels up to 21 apart, back and forth. Its
+  // own drawing is checked in droughtLine.spec.ts; the line has no tint on this map)
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
   await still("before");
   const again = await still("again");
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high"));

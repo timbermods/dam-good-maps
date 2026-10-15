@@ -52,6 +52,9 @@ export interface DocMeta {
   generatedName?: string;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
+  /** A real place (its id, "near-colca-canyon"), opened from Real places: its checks follow the place's
+   *  rules (D245, D331; core/doc/checkItems.ts `groupChecks`), not an imported map's. */
+  place?: string;
   /** Set by the app when it saves (ISO 8601); never part of a build. */
   created?: string;
   modified?: string;
@@ -157,9 +160,9 @@ export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built
   return doc;
 }
 
-/** The document of an imported map: normalized once, with the changes listed (PLAN §19.6).
- *  Throws ImportError for saves. */
-export function importDocument(bytes: Uint8Array, fileName: string): MapDocument {
+/** The document of an imported map: normalized once, with the changes listed (PLAN §19.6);
+ *  `place` marks a real place's map (`DocMeta.place`). Throws ImportError for saves. */
+export function importDocument(bytes: Uint8Array, fileName: string, place?: string): MapDocument {
   const file = readTimber(bytes);
   const report = normalizeImport(file);
   const name = fileName.replace(/^.*[\\/]/, "").replace(/\.timber$/i, "") || "Imported map";
@@ -180,6 +183,7 @@ export function importDocument(bytes: Uint8Array, fileName: string): MapDocument
       designedFor: "normal",
       appVersion: GENERATOR_VERSION,
       source: { fileName: fileName.replace(/^.*[\\/]/, ""), report },
+      ...(place ? { place } : {}),
     },
   };
 }
