@@ -1334,7 +1334,7 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying vec3 vNormal;
       varying vec3 vWorld;
       ${common(h)}
-      ${WATER_GLSL}${hook(h, "waterDecl")}
+      ${WATER_GLSL}${hook(h, "waterDecl")}${CAVE_POINT}
       /** The slope of the ripples (gentle, moving) at q. */
       vec2 ripple(vec2 q, float t) {
         float a1 = q.x * 1.3 + q.y * 0.35 + t * 1.1;
@@ -1358,6 +1358,13 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float cont = clamp(vData.y, 0.0, 1.0);
         vec2 g = vec2(vWorld.x, -vWorld.z);
         vec3 V = normalize(cameraPosition - vWorld);
+        // water under a roof (3D view, part 4; only on a map with terrain above terrain, CAVES): the air it stands in
+        // (just inside it), from the light volume: x the sky, y the sun, z 1 under a roof
+        float waterRoofed = 0.0;
+        #ifdef CAVES
+          vec3 cave = caveAirAt(vWorld - n * (n.y > 0.5 ? min(0.01, max(depth, 0.0) * 0.5) : 0.005));
+          waterRoofed = cave.z;
+        #endif
         float t = time;
         // the badwater share, blended between tiles by the mesh: the water turns from clean water to
         // badwater with it, smoothly, never in streaks or patches (waterPalette.ts WATER_BLEND):
@@ -1481,7 +1488,17 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         c += BADWATER_VEIN * bubbles * bad * BADWATER_BUBBLES;
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         if (n.y > 0.5) alpha = mix(alpha, 0.95, max(foam, glints * 0.6));
-${hook(h, "water")}        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
+${hook(h, "water")}        #ifdef CAVES
+          // under a roof, the light of the air it stands in, as objects and falls there take it: all the sky at a
+          // mouth, a cave's least deep in, and the sun the open air's at a mouth, fading to the cave's own going in
+          if (cave.z > 0.5) {
+            float ndlRoofed = max(dot(N, sunDir), 0.0);
+            vec3 open = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * lit;
+            vec3 under = skyColor * 1.2 * roofedSky(cave.x) + sunColor * 0.3 * ndlRoofed * mix(lit, cave.y, roofedDeep(cave.x));
+            c *= under / max(open, 0.001);
+          }
+        #endif
+        // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
         // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
         // its shore; badwater keeps its colour, murky and half see-through, with its dull troughs

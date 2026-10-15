@@ -54,7 +54,15 @@ once, and only for the plan it was printed for.
   `npx tsx tools/probe-ceiling.ts` (it writes `C:\dgm-probe\ceiling\`: tall maps edited in the editor's own
   worker with its limit raised to 22, each checked by both validators' export profile), then play them as the
   group `Ceiling`, with `--keep-mods`.
-- Any `.timber` paths on the command line are added as games of their own, with a Normal drought.
+- Any `.timber` paths on the command line are added as games of their own, with a Normal drought (3 temperate days,
+  a 3-day drought, 6.5 days in all), played on Folktails. Two options change that, for these maps only, and are kept in
+  the plan so `--compare-only` judges the same games:
+  - `--factions folktails,ironteeth` (either or both): one game per faction, the second with the id suffix `-it`.
+  - `--badtide`: 3 more temperate days and a 3-day badtide after the drought, then calm (12.5 days), judged day by day
+    against the cycle model (`cal-timeline`; "not measurable" on maps the model cannot run, such as roofed water).
+
+  Pick the games with `--only` (their ids are `map-<file name>`), or the whole catalog is planned too:
+  `batch -- a.timber --only map-a,map-a-it --factions folktails,ironteeth --badtide --keep-mods`.
 - `--compare-only <run id>`: redo the verdicts and the contact sheet of a finished run. Add
   `--compare-to <name>` to write them to `results\<name>\` and `sheet\<name>.html` instead, leaving the run's
   own verdicts, summary and sheet as they were; it refuses when this checkout builds other maps than the run

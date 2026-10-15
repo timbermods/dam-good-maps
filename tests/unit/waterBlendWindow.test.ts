@@ -56,17 +56,18 @@ describe("the blend of a window", () => {
       vi.resetModules();
       const wm = await import("../../src/render3d/waterMesh");
       const md = await import("../../src/render3d/model");
+      const wl = await import("../../src/render3d/waterLayers");
       if (poison) {
         // a different map, contaminated everywhere, meshed first: its blend is what the scratch holds
         const other = map(70, 45, 11);
         const sw2 = md.surfaceWater(other.W, other.H, other.view);
         sw2.contamination.fill(0.9);
-        for (let cy = 0; cy * CHUNK < other.H; cy++) for (let cx = 0; cx * CHUNK < other.W; cx++) wm.meshWaterChunk(other.W, other.H, other.heights, sw2, other.view, null, cx, cy);
+        for (let cy = 0; cy * CHUNK < other.H; cy++) for (let cx = 0; cx * CHUNK < other.W; cx++) wm.meshWaterChunk(other.W, other.H, wl.plainLayers(other.heights, sw2), cx, cy);
       }
       const m = map(70, 45, 3);
       const sw3 = md.surfaceWater(m.W, m.H, m.view);
       const out: WaterMeshData[] = [];
-      for (let cy = 0; cy * CHUNK < m.H; cy++) for (let cx = 0; cx * CHUNK < m.W; cx++) out.push(wm.meshWaterChunk(m.W, m.H, m.heights, sw3, m.view, wm.lowerByTile(sw3, m.view), cx, cy));
+      for (let cy = 0; cy * CHUNK < m.H; cy++) for (let cx = 0; cx * CHUNK < m.W; cx++) out.push(wm.meshWaterChunk(m.W, m.H, wl.plainLayers(m.heights, sw3), cx, cy));
       return out;
     };
     const clean = await meshes(false);

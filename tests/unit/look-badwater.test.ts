@@ -12,7 +12,8 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { CHUNK } from "../../src/render3d/mesh";
 import { surfaceWater, waterFromDepth, type SurfaceWater } from "../../src/render3d/model";
 import { BADWATER, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_GLSL, waterBlend, waterBody } from "../../src/render3d/waterPalette";
-import { blendedBadwater, changedWaterChunks, lowerByTile, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { blendedBadwater, changedWaterChunks, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 
 /** CIE L* of a display colour (sRGB). */
 const lightness = (c: readonly number[]) => {
@@ -61,7 +62,7 @@ function cornerShares(meshes: WaterMeshData[]): Map<string, number> {
 /** Every chunk's water mesh. */
 function meshAll(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, view: ReturnType<typeof waterFromDepth>): WaterMeshData[] {
   const out: WaterMeshData[] = [];
-  for (let cy = 0; cy * CHUNK < H; cy++) for (let cx = 0; cx * CHUNK < W; cx++) out.push(meshWaterChunk(W, H, heights, sw, view, lowerByTile(sw, view), cx, cy));
+  for (let cy = 0; cy * CHUNK < H; cy++) for (let cx = 0; cx * CHUNK < W; cx++) out.push(meshWaterChunk(W, H, plainLayers(heights, sw), cx, cy));
   return out;
 }
 
@@ -148,7 +149,7 @@ describe("badwater meeting clean water", () => {
     const view = waterFromDepth(heights, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5], [1, 1, 1, 0, 0, 0]);
     const sw = surfaceWater(6, 1, view);
     expect([...blendedBadwater(6, 1, sw)]).toEqual([1, 1, 1, 0, 0, 0]);
-    const m = meshWaterChunk(6, 1, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(6, 1, plainLayers(heights, sw), 0, 0);
     for (let q = 0; q < m.quads; q++) {
       const top = m.normals[q * 12 + 1] > 0;
       const x = Math.min(m.positions[q * 12], m.positions[q * 12 + 3], m.positions[q * 12 + 6]);
