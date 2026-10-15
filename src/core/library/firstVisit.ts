@@ -52,7 +52,8 @@ export function pickFirstVisit(index: FirstVisitIndex | null, generatorVersion: 
  *  - the generator's own report fails (every blocking check, the starting-logs floor among them,
  *    and item 47's must-haves where the generator has them);
  *  - the written .timber, read back, fails the validator's export profile (every check but
- *    information and the advisory ones), as tools/check-maps.ts checks a probe batch's maps;
+ *    information and the advisory ones) under the map's own spec (its theme's thresholds), as
+ *    tools/check-maps.ts checks a probe batch's maps;
  *  - the starting-logs floor fails on the file;
  *  - it misses one of the three outcomes, where the generator reports them (M9b), so a first map
  *    shows its theme. */
@@ -62,7 +63,9 @@ export function firstVisitProblems(r: GenerateResult): string[] {
     const failed = r.report.checks.filter((c) => failing(c) && c.severity === "error").map((c) => c.id);
     out.push(`its checks fail (${failed.join(", ") || "the report"})`);
   }
-  const v = validateMap(readTimber(r.bytes), { profile: "export", designedFor: r.spec.designedFor });
+  // (with the map's own spec, so its theme's thresholds apply, as in the generator's report: Islands'
+  // water cap is 0.70, D369; without it the file is judged as a 0.35 import and every Islands sea fails)
+  const v = validateMap(readTimber(r.bytes), { profile: "export", designedFor: r.spec.designedFor, spec: r.spec });
   const blocking = v.report.checks.filter((c) => failing(c) && c.severity !== "info").map((c) => c.id);
   if (blocking.length) out.push(`its file fails ${blocking.join(", ")}`);
   const floor = v.report.checks.find((c) => c.id === "start.wood_floor");

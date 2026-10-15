@@ -15,6 +15,7 @@ import { channelTiles } from "../features/route";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
 import type { MapObject } from "../sim/model";
 import { asksForBadwater } from "../resources/badwater";
+import { generatedThemeOf } from "../gen/pack";
 import { distanceFrom } from "../math/grid";
 import { DIFFICULTY_RULES, SMALL_MAP, type Difficulty, type MapSpec } from "../spec/mapspec";
 
@@ -72,6 +73,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
   const d = DIFFICULTY_RULES[difficulty];
   const s = spec?.settings;
   const r = s?.start.rules ?? d;
+  // (a map without its spec made with Dam Good Maps: its description's theme, as the checks read it)
+  const theme = spec?.theme ?? generatedThemeOf(description);
   return {
     difficulty,
     waterWithin: r.waterWithin,
@@ -88,7 +91,7 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     reservoirNeed: reservoirNeeded(difficulty) * RESERVE[s?.water.droughtReserve ?? "normal"],
     reservoirDepth: difficulty === "hard" ? 3 : 0,
     // (the total water cap per theme, D369: Islands' sea may be most of the map)
-    maxWaterShare: spec?.theme === "islands" ? 0.7 : spec && (spec.theme === "lakeBasin" || spec.theme === "any") ? 0.55 : 0.35,
+    maxWaterShare: theme === "islands" ? 0.7 : theme === "lakeBasin" || theme === "any" ? 0.55 : 0.35,
     multipliers: s
       ? { scrap: s.resources.ruins / 100, trees: s.resources.forestDensity / 100, bushes: s.resources.berryBushes / 100 }
       : { scrap: 1, trees: 1, bushes: 1 },

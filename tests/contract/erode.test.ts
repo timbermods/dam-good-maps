@@ -316,7 +316,7 @@ describe("on generated maps (D281)", () => {
 const voxelsOf = (bytes: Uint8Array) => decodeWorld(strFromU8(unzipSync(bytes)["world.json"]).replace(/^﻿/, "")).voxels;
 
 describe("Erode as an operation (D342)", () => {
-  it("keeps the frame shown, undoes and redoes exactly, reopens and exports its voxels; Try another rolls again", async () => {
+  it("keeps the frame shown, undoes and redoes exactly, reopens and exports its voxels; Try another rolls again, each roll exact", async () => {
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const before = ed.terrainNow();
@@ -354,13 +354,42 @@ describe("Erode as an operation (D342)", () => {
     expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(ColumnTerrain.fromHeights(before.heights, W, W).mask);
     ed.redo();
     expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(masks);
-    // Try another: the same gesture from the same land, another roll, one step
+    // Try another: the same gesture from the same land, another roll of the same step (D488's rolls)
     expect(ed.forceAgain().errors).toEqual([]);
     for (let k = 0; k < 200; k++) if (ed.forceAdvance(4)!.done) break;
     expect(ed.forceStop().kept).toBe(true);
     const again = MapSession.open(decodeProject(ed.project().bytes)).terrain.mask;
     expect(changedTiles(again, masks)).toBeGreaterThan(0);
-    ed.undo();
+    // the first roll shown again is exactly its land; undo takes the force's step back whole, redo
+    // brings back the roll that was shown, each exactly
+    expect(ed.forceRoll({ step: -1 }).errors).toEqual([]);
     expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(masks);
+    ed.undo();
+    expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(ColumnTerrain.fromHeights(before.heights, W, W).mask);
+    ed.redo();
+    expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(masks);
+  }, 120000);
+
+  it("stopped part way, keeps its whole result, and the log replays to it byte for byte", async () => {
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
+    ed.refine();
+    const before = ed.terrainNow();
+    const W = 96;
+    const m = { heights: before.heights, W, H: W, water: { depth: before.terrain.water } } as unknown as FullForceMap;
+    const [{ foot }] = cliffFeet(m, 7);
+    expect(ed.forceStart({ verb: "erode", settings: { ...ERODE_DEFAULTS, power: 70, seed: 3 }, path: [{ x: foot % W, y: Math.floor(foot / W) }], cut: null }).errors).toEqual([]);
+    // (planned, a few of its steps shown, then stopped)
+    for (let k = 0; k < 3; k++) expect(ed.forceAdvance(2)!.done).toBe(false);
+    expect(ed.forceStop().kept).toBe(true);
+    const doc = decodeProject(ed.project().bytes);
+    expect(MapSession.replayMatchesStored(doc)).toBe(true);
+    const kept = MapSession.open(doc).terrain.mask;
+    expect(changedTiles(kept, ColumnTerrain.fromHeights(before.heights, W, W).mask)).toBeGreaterThan(0);
+    // the same request run to its end keeps the same land
+    ed.undo();
+    expect(ed.forceStart({ verb: "erode", settings: { ...ERODE_DEFAULTS, power: 70, seed: 3 }, path: [{ x: foot % W, y: Math.floor(foot / W) }], cut: null }).errors).toEqual([]);
+    for (let k = 0; k < 200; k++) if (ed.forceAdvance(4)!.done) break;
+    expect(ed.forceStop().kept).toBe(true);
+    expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(kept);
   }, 120000);
 });

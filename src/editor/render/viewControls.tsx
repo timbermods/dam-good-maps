@@ -59,7 +59,7 @@ export function cornerButtons(ed: Ed) {
   return (
     <>
       <button type="button" class="slow-cell" aria-pressed={watch} onClick={() => setWatch(!watch)} title="Play forces out slowly">
-        Slow forces
+        <span class="label">Slow forces</span>
       </button>
       <span class="reveal-group sound-cell">
         {/* (the volume opens beneath the speaker, so the cluster stays as it is; the speaker's tooltip sits to its left,

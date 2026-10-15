@@ -429,6 +429,11 @@ Check rows whose verdict changed after that edit (`~` marks approximate):
   "Settling…", the page drawing every frame (longest gap 36 ms). The slowest official maps settle in 9 to 27 s in
   Node (ThousandIslands, Pillars, Pressure, HelixMountain, Beaverome), Beavertopia in 32 s; four official maps
   reach the four-day cap without passing the settle's test (the table below), as on a heightfield some do at six.
+  - **Faster since #380**, the same bytes: the stacked engine is 2 to 3 times faster on one thread, and where the
+    page has its water threads (Chromium and Firefox, isolated) the settle runs on several from 128² up
+    (`sim/stackParallel.ts`). In Node, interleaved on a busy machine, before → one thread → threads: Hollows 3.6 →
+    1.9 → 1.6 s (6 threads), Pillars 59 → 20 → 10 s (6), HelixMountain 48 → 21 → 7 s (8), ThousandIslands 63 →
+    19 → 11 s (8). The table's seconds below are from before.
 - Unedited maps are unchanged: their file's own water, byte for byte.
 
 ### The information measures (ROADMAP)

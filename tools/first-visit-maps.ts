@@ -10,8 +10,9 @@
 //   - the generator's own report passes (every blocking check, the starting-logs floor among them,
 //     and item 47's must-haves where the generator has them);
 //   - the written .timber, read back, passes the TypeScript validator's export profile (every check
-//     but information and the advisory ones) and the starting-logs floor, as tools/check-maps.ts
-//     checks a probe batch's maps;
+//     but information and the advisory ones) under the map's own spec (its theme's thresholds, such
+//     as Islands' water cap, D369) and the starting-logs floor, as tools/check-maps.ts checks a
+//     probe batch's maps;
 //   - all three outcomes, where the generator reports them (M9b), so a first map shows its theme;
 //   - its project file reopens as the same map (land and objects), and how long that takes;
 //   - and, unless --no-python, the Python validator's load checks (prototype/validate.py).

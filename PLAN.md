@@ -74,8 +74,9 @@ fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker 
 3D picture as the thumbnail (D488), the one entry that depends on the GPU. Hosting is GitHub Pages from GitHub
 Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
-cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
-`SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
+cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up, and the background settle of
+maps with caves or overhangs from 128² up, run on several threads over `SharedArrayBuffer` (`src/core/sim/parallel.ts`,
+`src/core/sim/stackParallel.ts`, byte-identical to one thread); other parallel work runs as independent
 workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
 scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
 anything with a query or range always come from the network. On a host that sends the headers itself the page registers
@@ -928,7 +929,7 @@ contamination under 0.05.
 | Id | Rule |
 |---|---|
 | `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222, D413): a sealed basin that is only evaporating (a carve's oxbow lake or a Fill: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, the volume change measured against the rest; the canonical settle stops there (§10). Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
-| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
+| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.source_in_flow` | Sources start rivers (D171): no WaterSource or BadwaterSource stands where water from another source comes down to it. Emitters whose tiles touch are one group (a sealed mouth, a cluster at a river's head). Water runs down the spill levels, across a flat toward its way out and never back, and all through a pool. A group is inside a flow when a running group's water reaches one of its sources and its own water does not reach that group back. Design class. |

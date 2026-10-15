@@ -56,6 +56,11 @@ pub fn open_field(m: &Model) -> Option<FlatModel> {
 }
 impl Engine {
     pub fn new(m: Model, game: bool) -> Result<Self, Refusal> {
+        Self::with_rules(m, game, false)
+    }
+    /// `stacked`: the stacked rules even on an open field (a strip of a map with caves, whose other strips
+    /// and whole map run them).
+    pub fn with_rules(m: Model, game: bool, stacked: bool) -> Result<Self, Refusal> {
         m.validate()?;
         let size = m.cols.n * m.cols.levels;
         for r in &m.retained {
@@ -71,10 +76,11 @@ impl Engine {
                 return Err("Retained water is malformed.");
             }
         }
-        if !m.drained.is_empty() && open_field(&m).is_none() {
+        if !m.drained.is_empty() && (stacked || open_field(&m).is_none()) {
             return Err("Drained tiles need the flat water rules.");
         }
-        let flow = if let Some(f) = open_field(&m) {
+        let flat = if stacked { None } else { open_field(&m) };
+        let flow = if let Some(f) = flat {
             Flow::Flat(Sim::new(f, None, None, Rules { game, edge_spill: game }))
         } else {
             Flow::Stacked(Stack::new(m.clone(), game))
@@ -184,13 +190,18 @@ impl Engine {
         }
     }
     pub fn run(&mut self, ticks: u64, scale: f64) -> Result<(), Refusal> {
+        self.validate()?;
+        self.run_valid(ticks, scale)
+    }
+    /// `run` on a state known to be well formed (one this engine wrote, or checked since it was last
+    /// handed out: stack_memory.rs `Session::trusted`).
+    pub(crate) fn run_valid(&mut self, ticks: u64, scale: f64) -> Result<(), Refusal> {
         if self.settle.is_some() {
             return Err("Use advance while water is settling.");
         }
         if !scale.is_finite() || scale < 0.0 || scale > 1_000_000.0 || ticks > 10_000_000 {
             return Err("Water run arguments are invalid.");
         }
-        self.validate()?;
         self.params()?;
         match &mut self.flow {
             Flow::Flat(s) => s.run(ticks, scale),
@@ -229,10 +240,14 @@ impl Engine {
         Ok(())
     }
     pub fn advance(&mut self, ticks: u64) -> Result<Option<SettleResult>, Refusal> {
+        self.validate()?;
+        self.advance_valid(ticks)
+    }
+    /// `advance` on a state known to be well formed (`run_valid`).
+    pub(crate) fn advance_valid(&mut self, ticks: u64) -> Result<Option<SettleResult>, Refusal> {
         if ticks > 10_000_000 {
             return Err("Water run arguments are invalid.");
         }
-        self.validate()?;
         match (&mut self.settle, &mut self.flow) {
             (Some(Settle::Flat(r)), Flow::Flat(s)) => {
                 if r.advance(ticks) {
@@ -251,6 +266,38 @@ impl Engine {
             _ => return Err("Water settle has not started."),
         }
         Ok(self.result)
+    }
+    /// Rows `lo..hi` of the water as a block for another strip of the map (`Stack::export_rows`).
+    pub fn export_rows(&self, lo: usize, hi: usize, block: &mut Vec<f64>) -> Result<(), Refusal> {
+        match &self.flow {
+            Flow::Stacked(s) => s.export_rows(lo, hi, block),
+            Flow::Flat(_) => Err("Water rows are handed over on stacked water only."),
+        }
+    }
+    /// Another strip's block of rows `lo..hi`, into this one's halo (`Stack::import_rows`).
+    pub fn import_rows(&mut self, lo: usize, hi: usize, block: &[f64]) -> Result<(), Refusal> {
+        if self.settle.is_some() {
+            return Err("Water state cannot change during a settle.");
+        }
+        match &mut self.flow {
+            Flow::Stacked(s) => s.import_rows(lo, hi, block),
+            Flow::Flat(_) => Err("Water rows are handed over on stacked water only."),
+        }
+    }
+    /// The settle's water after `ticks` more ticks run elsewhere (the multi-core settle's strips), written
+    /// whole: checked, then the settle's checks run as they would have here.
+    pub fn advanced_elsewhere(&mut self, ticks: u64) -> Result<Option<SettleResult>, Refusal> {
+        match (&mut self.settle, &mut self.flow) {
+            (Some(Settle::Stacked(r)), Flow::Stacked(s)) => {
+                if r.result.is_some() || ticks > r.every - r.since() {
+                    return Err("Water settle ticks are invalid.");
+                }
+                s.accept_elsewhere(ticks)?;
+                self.result = r.after(s, ticks);
+                Ok(self.result)
+            }
+            _ => Err("Water settle has not started."),
+        }
     }
     pub fn state(&self) -> State {
         match &self.flow {
