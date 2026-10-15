@@ -143,7 +143,8 @@ async function main() {
               await page.evaluate(
                 ([mode, x, y, d, pitch, yaw]) => {
                   const r = window.dgm3d!.renderer;
-                  const h = r.heightAt(Math.max(0, Math.min(r.map!.W - 1, Math.floor(x as number))), Math.max(0, Math.min(r.map!.H - 1, Math.floor(y as number))));
+                  const info = window.dgmEditor!.info();
+                  const h = r.heightAt(Math.max(0, Math.min(info.W - 1, Math.floor(x as number))), Math.max(0, Math.min(info.H - 1, Math.floor(y as number))));
                   r.setView({ mode: mode as "orbit" | "top", target: [x as number, h, -(y as number)], distance: d as number, pitch: (((pitch as number) || 70) * Math.PI) / 180, yaw: (((yaw as number) || 0) * Math.PI) / 180 });
                   r.renderNow();
                 },
