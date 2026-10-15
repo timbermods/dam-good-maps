@@ -46,7 +46,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
-import type { Orientation } from "../format/footprints";
+import type { Orientation, Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
@@ -750,16 +750,18 @@ export class MapSession {
   }
 
   /** The blocks of ground the map would lose with its surface at `heights` (and, for Erode's result,
-   *  its voxels `masks`), the objects as they stand, that it does not lose now: by cell (z·N + tile),
-   *  ascending. A force asks it of its planned result before it plays, so it is never shown and then
-   *  taken back (D487; forces/start.ts `fallsBeforePlay`). Empty on a heightfield. */
-  forceFalls(heights: ArrayLike<number>, masks?: Uint32Array | null): number[] {
+   *  its voxels `masks`) and its objects `entities` (left out, as they stand), that it does not lose
+   *  now: by cell (z·N + tile), ascending. A force asks it of its planned result before it plays, so
+   *  it is never shown and then taken back (D487; forces/start.ts `fallsBeforePlay`): an object it took
+   *  that held a roof holds it no more. Empty on a heightfield. */
+  forceFalls(heights: ArrayLike<number>, masks?: Uint32Array | null, entities?: readonly Placement[]): number[] {
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const tops = this.topsOf(this.cur.entities);
+    const after = entities ? stackableTops(W, H, entities) : tops;
     const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
-    const after = masks ? new ColumnTerrain(W, H, masks) : terrainUnder(base, heights, masksOf(this.cur.cache.terrain), W, H);
-    return newFalls(this.terrainOf(this.cur), after, tops, tops);
+    const ground = masks ? new ColumnTerrain(W, H, masks) : terrainUnder(base, heights, masksOf(this.cur.cache.terrain), W, H);
+    return newFalls(this.terrainOf(this.cur), ground, tops, after);
   }
 
   /** The refusal for ground that would fall: a force's names the place of the first block, as nothing

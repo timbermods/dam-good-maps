@@ -78,7 +78,7 @@ export function planKeptForce(s: MapSession, g: ForceGesture): Planned {
     } else if (!plan.staged!.done && !(plan.staged instanceof QuakeRun && plan.staged.painting)) plan.staged!.finishAll();
     // (ground it would still leave falling: refused naming the place, as the author's preview is, D487)
     if (s.columns.size) {
-      const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m) => s.forceFalls(h, m));
+      const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m, e) => s.forceFalls(h, m, e));
       if (why) return { ok: false, reason: why };
     }
   } catch (e) {

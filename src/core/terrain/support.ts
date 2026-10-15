@@ -169,6 +169,28 @@ export function roofHolders(t: SupportTerrain, columns: Iterable<number>): numbe
   return [...out].sort((a, b) => a - b);
 }
 
+/** The tiles of the objects that hold up a roof: each object with a stackable top (a NaturalOverhang,
+ *  `stackableTops`) under a voxel of ground above its tile's run from z = 0, every tile of it. A force
+ *  that took the object would drop that ground, so it leaves the object's ground as it is (D487).
+ *  Ascending; empty when none does. */
+export function objectRoofHolders(t: SupportTerrain, objects: Iterable<Placement>): number[] {
+  const { W, H, mask } = t;
+  const out = new Set<number>();
+  for (const e of objects) {
+    const fp = FOOTPRINTS[e.template];
+    if (!fp) continue;
+    const blocks = worldBlocks(fp, e).filter((b) => b.x >= 0 && b.x < W && b.y >= 0 && b.y < H);
+    const holds = blocks.some((b) => {
+      if (!b.stackable || b.z + 1 >= LAYERS) return false;
+      const m = mask[b.y * W + b.x];
+      const run = m & ~(m + 1);
+      return ((m & ~run) >> (b.z + 1)) & 1;
+    });
+    if (holds) for (const b of blocks) out.add(b.y * W + b.x);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
 /** Where a cell (z·N + tile) is, as the page names a place: "X 32 · Y 19" (the 3D view's readout). */
 export function placeOf(cell: number, W: number, H: number): string {
   const i = cell % (W * H);

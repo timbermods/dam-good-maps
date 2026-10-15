@@ -101,6 +101,42 @@ describe("a force beside a cave (D487)", () => {
   });
 });
 
+/** A flat imported map at level 4 with a NaturalOverhang2x1 at (10, 10) (its anchor's tile plain) and one
+ *  block of ground at z 5 over its other tile, held up by nothing but the overhang's top. */
+function overhangMap(): MapSession {
+  const v = voxelsFromHeights(new Uint8Array(W * H).fill(4), W, H);
+  v[5 * W * H + 11 * W + 10] = 1;
+  const file = caveFile(v);
+  file.world.entities = [{ Id: "00000000-0000-4000-8000-0000000000aa", Template: "NaturalOverhang2x1", Components: { BlockObject: { Coordinates: { X: 10, Y: 10, Z: 4 }, Orientation: "Cw0" } } }] as never;
+  return settled(MapSession.importMap(writeTimber(file), "overhang.timber"));
+}
+
+describe("an object that holds up a roof (D487)", () => {
+  it("a force beside it runs round it and its ground; without it the planned result would drop the roof, and is refused naming the place", () => {
+    const s = overhangMap();
+    const overhang = s.built.entities.find((e) => e.template === "NaturalOverhang2x1")!;
+    expect(overhang).toBeDefined();
+    expect(unsupportedVoxels(s.terrain, null).some((v) => v === 1)).toBe(true);
+    // (the planned result without the overhang: its roof would fall, and the falls name it)
+    const gone = s.built.entities.filter((e) => e.id !== overhang.id);
+    expect(s.forceFalls(s.built.heights, null, gone)).toEqual([5 * W * H + 11 * W + 10]);
+    expect(s.forceFalls(s.built.heights, null, s.built.entities)).toEqual([]);
+    const request: ForceRequest = { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 50, seed: 3 }, origin: [13, 10], ...base };
+    const plan = planForce({ base: forceMapOfSession(s), request, caves: s.columns.keys(), state: s.terrainState(), newId: () => S });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    // (the planned map leaves the overhang where it was: the force ran round it)
+    expect(fallsBeforePlay(plan, null, W, H, (h, m, e) => s.forceFalls(h, m, e))).toBeNull();
+    expect(plan.staged!.final()!.entities.some((e) => e.id === overhang.id)).toBe(true);
+    const r = applyForce(s, { id: G, sourceId: S, request });
+    expect(r.ok ? "" : r.reason).toBe("");
+    expect(s.built.entities.some((e) => e.id === overhang.id)).toBe(true);
+    expect(s.terrain.mask[11 * W + 10]).toBe(0b101111);
+    // (and with its ground not kept, the planned result is refused before it plays, naming the roof's place)
+    expect(fallsBeforePlay(plan, null, W, H, (h, m) => s.forceFalls(h, m, gone))).toBe("1 block of ground would fall at X 10 · Y 11: nothing would hold it up");
+  });
+});
+
 /** A flat imported map at level 8 with relics and natural overhangs on a grid (every fifth tile from 6). */
 function relicMap(): MapSession {
   const s = MapSession.importMap(writeTimber(caveFile(voxelsFromHeights(new Uint8Array(W * H).fill(8), W, H))), "relics.timber");

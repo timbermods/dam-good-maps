@@ -5,7 +5,7 @@
 // Plain functions on plain data: ids come from the caller (the worker names a carve's source).
 
 import type { BuildResult } from "../features/build";
-import { componentsOf } from "../format/entities";
+import { componentsOf, type EntitySpec } from "../format/entities";
 import { areaDepth } from "../features/raster/brush";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { integrityAt } from "../features/raster/terrain";
@@ -27,7 +27,7 @@ import type { Verb } from "./op";
 import { clickFault, strokeLength, TAP, type QuakeSettings } from "./quake";
 import { nextSeed } from "./random";
 import { trimRock } from "./rock";
-import { fallsReason, placeOf, roofHolders } from "../terrain/support";
+import { fallsReason, objectRoofHolders, placeOf, roofHolders } from "../terrain/support";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type StagedRun } from "./runs";
 
 /** A force to start (D194, D202, D203, D206): which, its settings (the seed is the series', Try
@@ -376,10 +376,14 @@ export function planForce(input: ForcePlanInput): ForcePlan {
 }
 
 /** The ground that holds up the roofs of `caves` (the map's tiles that are not one plain run): from
- *  the map's voxels (terrain/support.ts `roofHolders`), or, without them, every tile beside one. */
+ *  the map's voxels (terrain/support.ts `roofHolders`), with the tiles of the objects whose stackable
+ *  tops hold one (`objectRoofHolders`), or, without the voxels, every tile beside one. */
 function holdersOf(base: FullForceMap, caves: readonly number[]): number[] {
   const { W, H } = base;
-  if (base.masks) return roofHolders({ W, H, mask: base.masks }, caves);
+  if (base.masks) {
+    const t = { W, H, mask: base.masks };
+    return [...roofHolders(t, caves), ...objectRoofHolders(t, base.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })))];
+  }
   const set = new Set(caves);
   const out: number[] = [];
   for (const i of caves) {
@@ -410,9 +414,9 @@ export function fallsBeforePlay(
   play: { plan(): boolean } | null,
   W: number,
   H: number,
-  falls: (heights: Uint8Array, masks: Uint32Array | null) => number[],
+  falls: (heights: Uint8Array, masks: Uint32Array | null, entities: readonly EntitySpec[]) => number[],
 ): string | null {
-  let after: { heights: Uint8Array; masks?: Uint32Array } | null = null;
+  let after: { heights: Uint8Array; masks?: Uint32Array; entities: EntitySpec[] } | null = null;
   if (plan.carve) {
     if (!play) return null;
     play.plan();
@@ -423,7 +427,8 @@ export function fallsBeforePlay(
     after = plan.staged.final();
   }
   if (!after) return null;
-  const cells = falls(after.heights, plan.request.verb === "erode" ? (after.masks ?? null) : null);
+  // (with the objects it leaves: one it took that held a roof holds it no more)
+  const cells = falls(after.heights, plan.request.verb === "erode" ? (after.masks ?? null) : null, after.entities);
   return cells.length ? fallsReason(cells.length, placeOf(cells[0], W, H)) : null;
 }
 

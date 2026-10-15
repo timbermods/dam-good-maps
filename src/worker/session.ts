@@ -2266,7 +2266,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
   // on a map with caves or overhangs, worked out before it plays: a force that would still leave
   // ground falling is refused now, naming the place, never shown and then taken back (D487)
   if (caves.length) {
-    const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m) => s.forceFalls(h, m));
+    const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m, e) => s.forceFalls(h, m, e));
     if (why) return refuse(why);
   }
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
