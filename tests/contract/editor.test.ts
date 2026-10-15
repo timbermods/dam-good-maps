@@ -62,7 +62,7 @@ describe("the editor's document in the worker", () => {
     const again = ed.sessionView();
     expect(again.info.spec!.designedFor).toBe("normal");
     expect(again.info.edits).toBe(2);
-    expect(again.info.history.map((h) => h.label)).toEqual(["Add forest", "Add landform"]);
+    expect(again.info.history.map((h) => h.label)).toEqual(["Add a forest", "Add a landform"]);
     for (let y = 80; y <= 88; y++) for (let x = 80; x <= 88; x++) expect(again.view.heights[y * W + x]).toBe(14);
     expect(ed.undo().info.edits).toBe(1);
     expect(ed.redo().info.edits).toBe(2);

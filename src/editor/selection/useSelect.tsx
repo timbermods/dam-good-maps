@@ -15,6 +15,7 @@ import { tip } from "../../ui/Tooltip";
 import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
+import { tileCount } from "../../core/doc/labels";
 
 export interface SelectSlice {
   selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
@@ -193,7 +194,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const cut = renderer.current?.slice ?? null;
     let tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
     if (!tiles.length) return;
-    const count = (n: number) => n.toLocaleString("en-GB");
+    const count = tileCount;
     let ops: EditOp[];
     let label: string;
     if (what === "raise" || what === "lower") {
@@ -203,7 +204,7 @@ export function useSelect(ed: Ed): SelectSlice {
       const amount = what === "raise" && cut !== null ? Math.min(1, cut - top) : 1;
       if (amount <= 0) return flashNote("Nothing can rise under the cut: show a layer more");
       ops = [{ op: "sculpt", params: { mode: what, cells: tilesToRuns(tiles, W), amount } }];
-      label = `${what === "raise" ? "Raise" : "Lower"} ${count(tiles.length)} tiles by ${amount}`;
+      label = `${what === "raise" ? "Raise" : "Lower"} ${count(tiles.length)}${amount > 1 ? ` by ${amount}` : ""}`;
     } else if (what === "depth") {
       // water no deeper than `level` (D264): the ground under deeper water rises so the water sits
       // that deep; shallower water, and the land, as they are; the water settles again after
@@ -214,7 +215,7 @@ export function useSelect(ed: Ed): SelectSlice {
       const raised = [...by.values()].flat();
       if (!raised.length) return flashNote(`No water there is deeper than ${D}`);
       ops = [...by.entries()].sort((a, b) => a[0] - b[0]).map(([to, list]) => ({ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(list, W), level: to } }) as EditOp);
-      label = `Water no deeper than ${D} on ${count(raised.length)} tiles`;
+      label = `Water no deeper than ${D} on ${count(raised.length)}`;
       depthCheck.current = { tiles: raised, depth: D };
       tiles = raised;
     } else {
@@ -224,7 +225,7 @@ export function useSelect(ed: Ed): SelectSlice {
       if (what === "fill") tiles = tiles.filter((i) => h[i] < L);
       if (!tiles.length) return flashNote(what === "cut" ? `No ground there is above level ${L}` : `No ground there is below level ${L}`);
       ops = [{ op: "sculpt", params: { mode: "flatten", cells: tilesToRuns(tiles, W), level: L } }];
-      label = what === "cut" ? `Cut ${count(tiles.length)} tiles down to level ${L}` : what === "fill" ? `Fill ${count(tiles.length)} tiles up to level ${L}` : `Flatten ${count(tiles.length)} tiles to level ${L}`;
+      label = what === "cut" ? `Cut ${count(tiles.length)} down to level ${L}` : what === "fill" ? `Fill ${count(tiles.length)} up to level ${L}` : `Flatten ${count(tiles.length)} to level ${L}`;
     }
     // the land's answer, at the selection's middle
     let sx = 0;

@@ -869,3 +869,22 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+
+## The header and top-right controls (polish audit, 2026-10-14)
+
+- **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
+  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
+  with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
+- **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the
+  view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
+  mockups' "an indicator, not a control".
+- **The speaker's tooltip sits to its left,** level with its middle, so the volume that opens under it is never covered
+  (`data-tip-side="left"`, the shared tooltip layer).
+- **The Look menu uses the page's own controls:** the three looks a segmented choice (the chosen cell filled as the
+  settings' choices are), High's parts checkbox rows of the Show column's 14px box, a name that wraps hanging under its
+  first letter. No browser radios or checkboxes.
+- **Tooltips:** the layer arrows are "Show one layer less" and "Show one layer more"; the checks pill's is "What to fix before
+  playing" (its words are already on it).
+- **The checks' list and the Legend:** the list closes an open Legend while it is shown (the Legend's box keeps its tick
+  and the panel returns when the list closes); the two never overlap. Captures `docs/design/polish-header-*`.

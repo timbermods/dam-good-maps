@@ -137,7 +137,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.mouse.move(sp.x + 3, sp.y);
   await page.mouse.click(sp.x, sp.y);
   await idle(page);
-  expect((await info(page)).history.at(-1)!.label).toBe("Place water source");
+  expect((await info(page)).history.at(-1)!.label).toBe("Place a water source");
   expect(await sources(page, sx, sy)).toEqual([{ template: "WaterSource", x: sx, y: sy }]);
   await expect.poll(() => wet(page), { timeout: 30_000 }).toBeGreaterThan(wet1);
 
@@ -184,7 +184,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   await page.mouse.click(bp.x, bp.y);
   await idle(page);
   i = await info(page);
-  expect(i.history.at(-1)!.label).toBe("Place badwater source");
+  expect(i.history.at(-1)!.label).toBe("Place a badwater source");
   expect(await sources(page, bad![0] + 1, bad![1] + 1)).toEqual([{ template: "BadwaterSource", x: bad![0] - 1, y: bad![1] - 1 }]);
   await page.keyboard.press("Escape");
 

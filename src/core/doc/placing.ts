@@ -11,6 +11,7 @@ import { FLUIDS } from "../data/parity";
 import { placeComponents } from "./objectOps";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
+import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
@@ -79,8 +80,7 @@ export function entityProblem(s: MapSession, p: { template: string; x: number; y
     }
     if (other) {
       if (other === "StartingLocation") return "the district center stands there";
-      const name = other === "UndergroundRuins" ? "mine site" : other.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
-      return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name} stands there`;
+      return `${withArticle(itemName(other))} stands there`;
     }
   }
   return level ? levelProblem(s, p) : null;
@@ -127,7 +127,7 @@ export function planEntity(s: MapSession, req: EntityRequest, id: string): Plann
   const op: EditOp = { op: "placeEntity", params: { id, template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.flipped ? { flipped: true } : {}), ...(req.components ? { components: req.components } : {}) } };
   const pool = levelFootprint(s, req);
   const name = req.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
-  return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: `Place ${name}`, tiles: [...new Set(tiles)] };
+  return { ok: true, ops: [...pool, op], report: [`a ${name} at (${req.x}, ${req.y})`], label: placeLabel("Place", req.template), tiles: [...new Set(tiles)] };
 }
 
 /** Plan an object moved by (dx, dy) tiles (D345, B7): the same rules as placing it there, its ground
@@ -144,7 +144,7 @@ export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number
   const level = levelFootprint(s, req, new Set([id]));
   const name = e.template === "UndergroundRuins" ? "mine site" : e.template.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
   const op: EditOp = { op: "moveEntity", params: { id, x: req.x, y: req.y } };
-  return { ok: true, ops: [...level, op], report: [`a ${name} moved to (${req.x}, ${req.y})`], label: `Move ${name}`, tiles: [...new Set(tiles)] };
+  return { ok: true, ops: [...level, op], report: [`a ${name} moved to (${req.x}, ${req.y})`], label: placeLabel("Move", e.template), tiles: [...new Set(tiles)] };
 }
 
 /** The most distance a placement's natural edge reaches past its footprint, in tiles. */
@@ -300,8 +300,7 @@ export function planPlant(s: MapSession, template: string, tiles: readonly numbe
     ops.push({ op: "placeEntity", params: { id: newId(), ...p } });
   }
   if (!ops.length) return fail("nothing can grow there: it needs dry ground with nothing on it");
-  const name = template === "BlueberryBush" ? "blueberry bush" : template.toLowerCase();
-  const label = ops.length === 1 ? `Plant a ${name}` : `Plant ${ops.length} ${name === "blueberry bush" ? "blueberry bushes" : `${name}s`}`;
+  const label = plantLabel(template, ops.length);
   return { ok: true, ops, label, planted };
 }
 

@@ -10,6 +10,7 @@ import type { CheckItem, CheckProgress, ExportCheck, SessionInfo } from "../work
 import type { ImportFlag } from "../core/format/normalize";
 import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
+import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
 
@@ -65,7 +66,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
   const c = p.check;
   return (
     <span class="checks-dot-wrap" ref={wrap}>
-      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} title={d.words} onClick={() => p.onToggle(!p.open)}>
+      <button type="button" class={`checks-dot ${d.tone}`} aria-expanded={p.open} aria-label={`Checks: ${d.words}`} {...tip("What to fix before playing")} onClick={() => p.onToggle(!p.open)}>
         <span class="dot" aria-hidden="true" />
         {d.count ? (
           <span class="dot-count" aria-hidden="true">
@@ -143,7 +144,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
   const [text, setText] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
@@ -155,6 +156,10 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
       input.current?.select();
     }
   }, [text !== null]);
+  // (clipping is measured only while the name is shown, not while its field is open: measure again once it is back)
+  useLayoutEffect(() => {
+    if (text === null) p.onShown();
+  }, [text === null]);
   const say = (problem: string | null, forAWhile = false) => {
     clearTimeout(timer.current);
     p.onProblem(problem);
@@ -188,7 +193,7 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title="Rename" onClick={() => setText(p.name)}>
+        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
           {p.name}
         </button>
       </h1>
@@ -209,7 +214,7 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
           aria-label="Map name"
           title="Rename"
           size={1}
-          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+          onInput={(e) => setText(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -272,6 +277,8 @@ export function Header(p: HeaderProps) {
   const [about, setAbout] = useState(false);
   /** The core's refusal of a name, said in the title's second line. */
   const [problem, setProblem] = useState<string | null>(null);
+  /** The shown name is cut to its two lines (an ellipsis): its tooltip then says it whole. */
+  const [clipped, setClipped] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
@@ -315,24 +322,11 @@ export function Header(p: HeaderProps) {
         title.style.setProperty("--title-max", `${room}px`);
         const two = wide > room;
         // (how many lines its words take at full size in that room, broken where the browser breaks them)
-        const linesAt = (w: number) => {
-          if (!pen) return 3;
-          let lines = 1;
-          let line = "";
-          for (const word of text.split(/\s+/).filter(Boolean)) {
-            if (Math.ceil(pen.measureText(word).width) + 1 > w) return Infinity;
-            const next = line ? `${line} ${word}` : word;
-            if (Math.ceil(pen.measureText(next).width) + 1 <= w) line = next;
-            else {
-              lines++;
-              line = word;
-            }
-          }
-          return lines;
-        };
+        const linesAt = (w: number) => (pen ? linesIn(text, w, (t) => Math.ceil(pen.measureText(t).width) + 1) : 3);
         title.classList.toggle("two-lines", two);
         title.classList.toggle("small", two && linesAt(room) > 2);
         title.classList.toggle("no-facts", two || room < facts.scrollWidth);
+        if (!title.querySelector(".title-editing")) setClipped(name.scrollHeight > name.clientHeight + 1);
       }
     };
     fit.current = note;
@@ -389,7 +383,7 @@ export function Header(p: HeaderProps) {
         Your maps
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>
