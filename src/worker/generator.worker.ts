@@ -6,6 +6,7 @@ import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
+import type { BlocksParams } from "../core/doc/blockTool";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -103,6 +104,8 @@ const api = {
     return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
   },
   sessionView: () => sendOpen(ed.sessionView()),
+  /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
+  blockFalls: (params: BlocksParams) => ed.blockFalls(params),
   terrainNow() {
     const t = ed.terrainNow();
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);

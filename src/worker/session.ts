@@ -9,7 +9,8 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import type { BlocksParams } from "../core/doc/blockTool";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
@@ -160,7 +161,7 @@ export interface ExportCheck extends CheckGroups {
 let session: MapSession | null = null;
 let version = 0;
 /** What the page last received, to send only what changed. */
-let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
+let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown; columns?: ReadonlyMap<number, Uint8Array> } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
 let originalFull: Validation | null = null;
 let lastCheck: ExportCheck | null = null;
@@ -327,6 +328,19 @@ function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
   return false;
 }
 
+/** Whether two sets of the map's columns that are not one plain run are the same (an absent set is an empty one). */
+function sameColumns(a: ReadonlyMap<number, Uint8Array> | undefined, b: ReadonlyMap<number, Uint8Array>): boolean {
+  if (a === b) return true;
+  if ((a?.size ?? 0) !== b.size) return false;
+  if (!a) return true;
+  for (const [i, c] of b) {
+    const was = a.get(i);
+    if (!was) return false;
+    for (let z = 0; z < LAYERS; z++) if (was[z] !== c[z]) return false;
+  }
+  return true;
+}
+
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
@@ -363,7 +377,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
 
 function markSent(s: MapSession): void {
   const b = s.built;
-  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
+  sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain, columns: s.columns };
 }
 
 /** The map's heights and the terrain the page paints on, as they stand (the page takes them
@@ -371,6 +385,13 @@ function markSent(s: MapSession): void {
 export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   const s = need();
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
+}
+
+/** What a Block operation would do on the map as it stands, with no build (the page's live preview of a click or a
+ *  drag): the blocks it adds and takes, the ground the support rule would drop, and the one line it is refused with
+ *  (core/doc/blockTool.ts). */
+export function blockFalls(params: BlocksParams): BlockFalls {
+  return need().blockFalls(params);
 }
 
 /** The whole map view (opening a map, or returning to it). */
@@ -405,6 +426,12 @@ function viewUpdate(s: MapSession): ViewUpdate {
       // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
       if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
+  }
+  // (ground the Block tool dug or built under the surface changes no height but it changes the columns: they go
+  // with the land so the page takes them in at once, an undo of it too)
+  if (!out.columns && !sameColumns(prev.columns, s.columns)) {
+    out.columns = columnsOf(s);
+    out.heights ??= b.heights.slice();
   }
   if (water !== prev.water) out.water = waterOf(s);
   if (water !== prev.water || soilKey(s) !== prev.soil) out.soil = soilOf(s);

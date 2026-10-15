@@ -88,7 +88,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const r = renderer.current;
     if (!r) return;
     // (and ← → while a weather day is held: they step the day, Kyler, 2026-10-04)
-    r.claimKey = (ev) => ((ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count > 0 && !brushToolRef.current && !ed.toolRef.current) || ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && !!ed.weatherRef.current);
+    r.claimKey = (ev) => ((ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count > 0 && !brushToolRef.current && !ed.toolRef.current && !ed.blockRef.current) || ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && !!ed.weatherRef.current);
     return () => {
       if (r.claimKey) r.claimKey = null;
     };
@@ -118,7 +118,7 @@ export function useSelect(ed: Ed): SelectSlice {
   // or an object still picks it up: the view asks those first)
   useEffect(() => {
     const r = renderer.current;
-    if (!r || !selecting || brushTool || tool || shelf) return;
+    if (!r || !selecting || brushTool || tool || shelf || ed.block) return;
     const t = selectTool(selection.current, selectHost());
     // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
     Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
@@ -151,7 +151,7 @@ export function useSelect(ed: Ed): SelectSlice {
       if (r.tool === t) r.tool = null;
       if (!brushToolRef.current) r.setBrushCursor(null);
     };
-  }, [selecting, brushTool, tool, shelf, ready]);
+  }, [selecting, brushTool, tool, shelf, ed.block, ready]);
   /** Open the Select tool (its button, M): the brush or force out goes back, the selection stays. */
   function openSelect() {
     pickTop(null);
@@ -173,7 +173,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const N = infoRef.current.W * infoRef.current.H;
     selection.current.apply(Array.from({ length: N }, (_, i) => i), "set");
     setFlattenTo(null);
-    if (!brushToolRef.current && !ed.toolRef.current) setSelecting((m) => m ?? "rect");
+    if (!brushToolRef.current && !ed.toolRef.current && !ed.blockRef.current) setSelecting((m) => m ?? "rect");
     setSelectionTick((n) => n + 1);
   }
   /** The working area (D254, D259): the open selection as runs, or null. */
@@ -353,7 +353,7 @@ export function useSelect(ed: Ed): SelectSlice {
    *  on it opens the Select tool again. */
   function selectChip(): ComponentChildren {
     const z = selection.current.size();
-    if (!z || (!brushTool && !tool)) return null;
+    if (!z || (!brushTool && !tool && !ed.block)) return null;
     void selectionTick;
     return (
       <button type="button" class="select-chip" {...tip("Working inside this area: Select again", "1", "Esc clears it")} onClick={openSelect}>
@@ -365,7 +365,7 @@ export function useSelect(ed: Ed): SelectSlice {
     if (!selecting && !selection.current.count) return null;
     // (with a brush, a force or an object out, only the chip; an object picked on the map shows no row above the bar:
     // its settings are in its own window, Kyler's sitting, 2026-10-03)
-    if (brushTool || tool || shelf) return null;
+    if (brushTool || tool || shelf || ed.block) return null;
     if (!selection.current.count && (ed.picked || ed.pickedObject)) return null;
     void selectionTick;
     const z = selection.current.size();

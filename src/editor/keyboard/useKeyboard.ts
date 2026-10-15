@@ -98,8 +98,13 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       if (place && !ev.shiftKey) {
         const n = Number(place[1]);
         if (n === 1) {
-          if (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current) closeSelect();
+          if (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current && !ed.blockRef.current) closeSelect();
           else openSelect();
+          return;
+        }
+        // 7 the Block tool (again: it stays out)
+        if (n === 7) {
+          if (!ed.blockRef.current) pickTop("block");
           return;
         }
         const b = BRUSHES.find((x) => x.key === String(n))?.tool;
@@ -142,6 +147,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") {
         ev.preventDefault();
         if (!ev.repeat && brushToolRef.current) painter.current?.startResize();
+        else if (!ev.repeat && ed.blockRef.current) ed.startBlockSize();
         else if (!ev.repeat) startForceSize();
         return;
       }
@@ -149,6 +155,8 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         painter.current.endResize(false);
         return;
       }
+      if (ev.key === "Escape" && ed.endBlockSize(false)) return;
+      if (ev.key === "Escape" && ed.blockCancel()) return;
       if (ev.key === "Escape" && (forceSizing.current || ed.paintSizing.current)) {
         endForceSize(false);
         return;
@@ -199,6 +207,10 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         pickBrush(null);
         return;
       }
+      if (ev.key === "Escape" && ed.blockRef.current) {
+        ed.pickBlock(false);
+        return;
+      }
       // Z undoes and C redoes; X closes the selection as Esc does (D323 item 16); Ctrl+Z, Ctrl+Y and
       // Ctrl+Shift+Z keep working too. (Fields ignore all of them, above.)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "z") {
@@ -213,7 +225,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       }
       // X puts down whatever is held (D345, B7): a brush, a force, the shelf's object, the selection, a picked
       // source or object: Select is left in hand (Kyler's choice at the v4 verdict)
-      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && (brushToolRef.current || toolRef.current || shelfRef.current || selectingRef.current || selection.current.count || pickedRef.current || pickedObjectRef.current)) {
+      if (!mod && !ev.altKey && ev.key.toLowerCase() === "x" && (brushToolRef.current || toolRef.current || shelfRef.current || ed.blockRef.current || selectingRef.current || selection.current.count || pickedRef.current || pickedObjectRef.current)) {
         ev.preventDefault();
         putDown();
         return;
@@ -225,7 +237,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         return;
       }
       // Up and Down with a selection open: raise or lower it one level, as the buttons do (D323 item 6)
-      if (!mod && !ev.altKey && (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count && !painter.current?.painting && !brushToolRef.current && !toolRef.current) {
+      if (!mod && !ev.altKey && (ev.key === "ArrowUp" || ev.key === "ArrowDown") && selection.current.count && !painter.current?.painting && !brushToolRef.current && !toolRef.current && !ed.blockRef.current) {
         ev.preventDefault();
         selectCalls.current.action(ev.key === "ArrowUp" ? "raise" : "lower");
         return;
@@ -281,6 +293,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         fHeld.current = false;
         painter.current?.endResize(true);
         endForceSize(true);
+        ed.endBlockSize(true);
       }
     };
     // the window loses focus (a screenshot tool, Alt+Tab): the keyup never comes, so F's size is set here

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { BRUSHES } from "../../src/editor/brushes";
 import { SHELF, shelfTip } from "../../src/editor/shelfItems";
-import { brushTip, FORCES, forceTip, SELECT_TIP, SIZE_KEYS, STRENGTH_KEYS } from "../../src/editor/TopBar";
+import { BLOCK_TIP, brushTip, FORCES, forceTip, SELECT_TIP, SIZE_KEYS, STRENGTH_KEYS } from "../../src/editor/TopBar";
 import { KEY_SEP, keyParts, tip } from "../../src/ui/Tooltip";
 
 const MAX = 60;
@@ -30,6 +30,8 @@ describe("tooltips are one short phrase, the key a cap at the end (D368 (6))", (
   it("each brush and Select, with its key", () => {
     for (const b of BRUSHES) expectForm(b.name, brushTip(b), b.key);
     expectForm("Select", SELECT_TIP, "1");
+    expectForm("Block", BLOCK_TIP, "7");
+    expect(BLOCK_TIP).toEqual({ title: "Add or carve blocks", "data-keys": "7" });
     expect(brushTip(BRUSHES.find((b) => b.tool === "smooth")!)).toEqual({ title: "Smooth bumps and steps", "data-keys": "5" });
   });
   it("each force, with its key", () => {
