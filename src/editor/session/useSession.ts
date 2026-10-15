@@ -596,6 +596,14 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
+    // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
+    if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {
+      infoRef.current = u.info;
+      props.onChange(u.info);
+      props.onResized();
+      return;
+    }
     // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
 

@@ -203,6 +203,9 @@ const api = {
   unfedWaterIn: (tiles: number[] | null) => ed.unfedWaterIn(tiles),
   removeUnfedWater: (tiles: number[] | null) => sendUpdate(ed.removeUnfedWater(tiles)),
   fillPlanAt: (x: number, y: number, level: number) => ed.fillPlanAt(x, y, level),
+  /** Crop map to selection (D340): what it would do (or why not), then doing it, one undo step. */
+  cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
+  cropTo: (r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)),
   fillAt: (x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)),
   moveObjectBy: (id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)),
   clearEverything: () => sendUpdate(ed.clearEverything()),

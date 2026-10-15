@@ -12,6 +12,7 @@ import { decodeProject, documentFileName, type MapDocument, type NameResult, typ
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
+import { planCrop, type CropParams } from "../core/doc/crop";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
@@ -1544,6 +1545,23 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
   if (!u.op) return changed(s, false, ["no unfed water stands there"], t0);
   const r = s.apply(u.op, "user");
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
+ *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
+  const s = need();
+  const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
+  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+}
+
+/** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size
+ *  changed); how many objects the edge removed is counted. */
+export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number } {
+  const t0 = performance.now();
+  const s = need();
+  const res = s.apply({ op: "crop", params: r }, "user");
+  return { ...changed(s, res.ok, res.errors, t0), removedObjects: res.removedObjects ?? 0 };
 }
 
 /** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the

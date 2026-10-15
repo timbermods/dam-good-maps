@@ -342,6 +342,53 @@ export function useSelect(ed: Ed): SelectSlice {
     setWaterHint(null);
     setSelectPreview(null);
   }
+  // ------------------------------------------------------------------------------ Crop (D340)
+
+  /** What the core says about cropping the map to the selection's bounding rectangle: its one-line reason it cannot, or
+   *  how many objects the new edge would remove. Asked again whenever the selection or the map changes. */
+  const [cropPlan, setCropPlan] = useState<{ reason: string | null; removed: number } | null>(null);
+  const cropJob = useRef(0);
+  useEffect(() => {
+    const b = selection.current.bounds();
+    const job = ++cropJob.current;
+    if (!b) return setCropPlan(null);
+    void api.cropPlanAt({ x: b.x, y: b.y, w: b.w, h: b.h }).then((r) => {
+      if (job === cropJob.current) setCropPlan({ reason: r.reason, removed: r.removedObjects });
+    });
+  }, [selectionTick, info.version]);
+  /** Why Crop is greyed, in the core's words, or null when it can crop. With nothing selected it says what to do. */
+  const cropWhy = (): string | null => (!selection.current.count ? "Select an area to crop" : cropPlan ? cropPlan.reason : "Checking the selection");
+  /** The core's reason shown on the message line while Crop is hovered (the row's words are too short for it). */
+  const cropShown = useRef<string | null>(null);
+  function endCropHint() {
+    const t = cropShown.current;
+    cropShown.current = null;
+    if (t) setMessage((m) => (m && m.text === t ? null : m));
+    endWaterHint();
+  }
+  /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
+  function previewCrop() {
+    hintJob.current++;
+    const b = selection.current.bounds();
+    const why = cropWhy();
+    if (why && b && cropPlan) {
+      cropShown.current = why;
+      setMessage({ kind: "info", text: why });
+      return setWaterHint("Can't crop this");
+    }
+    if (why || !b || !cropPlan) return setWaterHint(why);
+    const n = cropPlan.removed;
+    setWaterHint(`Crop to ${b.w} × ${b.h}${n ? `, removing ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"} at the edge` : ""}`);
+  }
+  /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
+   *  that is pressed says its reason on the message line, in full. */
+  function cropMap() {
+    const b = selection.current.bounds();
+    const why = cropWhy();
+    if (why || !b) return setMessage({ kind: "error", text: why ?? "Select an area to crop" });
+    endCropHint();
+    void run(() => api.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h }));
+  }
   /** Fill: the hollow under the selection's lowest ground, filled with standing water to the Level, no source (D394). */
   function fillWater(level: number) {
     const spot = fillSpot();
@@ -477,7 +524,21 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      { key: "size", row: 1, at: 7, span: 2, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      // Crop (D340) sits with them: the map becomes the selection's rectangle; greyed with its reason when it cannot
+      {
+        key: "crop",
+        row: 1,
+        at: 9,
+        span: 1,
+        node: (
+          <div class="set">
+            <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
+              Crop
+            </button>
+          </div>
+        ),
+      },
       // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, up to the Level;
       // Remove unfed water takes the pools no source feeds, saying first how many (the words and the marked tiles)
       {

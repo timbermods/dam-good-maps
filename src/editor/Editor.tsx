@@ -56,6 +56,8 @@ export interface EditorProps {
   opened: SessionOpen;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
+  /** The map changed size (a crop, or its undo or redo, D340): open the session's map again. */
+  onResized(): void;
   /** Finish queued edits before the page snapshots the outgoing worker session. */
   onPendingEdits?(wait: () => Promise<void>): void;
   /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */

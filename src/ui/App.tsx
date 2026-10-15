@@ -348,6 +348,16 @@ export function App() {
     if (!isNew) refresh();
   }
 
+  /** The open map changed size (a crop, or its undo or redo, D340): the editor opens the session's map again, the camera and
+   *  the minimap fitted to it; the map stays the same row of Your maps, with its new size. */
+  async function resized() {
+    const data = await generator.sessionView();
+    if (entry.current) entry.current = { ...entry.current, size: { w: data.info.W, h: data.info.H } };
+    infoRef.current = data.info;
+    setSession(data.info);
+    setOpened((o) => ({ key: (o?.key ?? 0) + 1, data }));
+  }
+
   function onEditorChange(info: SessionInfo) {
     if (switching.current || !entry.current) return;
     infoRef.current = info;
@@ -969,6 +979,7 @@ export function App() {
         api={generator}
         opened={opened.data}
         onChange={onEditorChange}
+        onResized={() => void resized()}
         replacing={replacingMap}
         onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
