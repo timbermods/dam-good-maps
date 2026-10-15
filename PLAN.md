@@ -1039,7 +1039,8 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 ### 14.4 Download
 
 - **The file:** `dgm-<theme>-<seed>.timber` (§13): a zip built in the worker, with the 960×540 thumbnail rendered from
-  the preview palette (the editor's saves: the map's 3D picture, D488); water, moisture and contamination pre-filled; byte-identical per seed and settings. **Install
+  the preview palette; water, moisture and contamination pre-filled; byte-identical per seed and settings, except the
+  editor's saves' thumbnail: the map's 3D picture (D488), drawn on the player's GPU, is the one entry that is not. **Install
   help** (after download): move the file to `Documents\Timberborn\Maps` (macOS `~/Documents/Timberborn/Maps`), then
   Timberborn → New game → the map is listed under your maps; the map editor can open it too. **Internal only:** a file
   without pre-filled water, for the in-game A/B check (§18), the probe and the tests (D237).

@@ -429,12 +429,14 @@ export class MapRenderer {
     }
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reducedMotion = !!motion?.matches;
-    motion?.addEventListener?.("change", () => {
-      this.reducedMotion = motion.matches;
-      // (the High look's wind stops and starts with it)
-      this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
-      this.requestRender();
-    });
+    // (removed with the view's other listeners when it is disposed)
+    if (motion && typeof motion.addEventListener === "function")
+      this.on(motion, "change", () => {
+        this.reducedMotion = motion.matches;
+        // (the High look's wind stops and starts with it)
+        this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+        this.requestRender();
+      });
     if (typeof IntersectionObserver !== "undefined") {
       this.seen = new IntersectionObserver((entries) => {
         this.inView = entries.some((e) => e.isIntersecting);

@@ -1,6 +1,7 @@
 // The map's picture (D488): the .timber's map_thumbnail.jpg drawn in 3D, as the game's own maps show
-// in its map picker: looking down at an angle from where the new game's camera opens, the land
-// filling the frame under a band of sky. One frame, drawn by a renderer of its own, off screen, so the
+// in its map picker: turned as the new game's camera opens (the start's orientation + 35°), the land
+// filling the frame under a band of sky. It looks down at 40° and frames the whole map, as the official
+// thumbnails do, not at the game's opening camera's 60° and zoom: a deliberate departure (D488). One frame, drawn by a renderer of its own, off screen, so the
 // player's view (its camera, look and size) is never touched; in the High look with every effect
 // (Standard where High can't be drawn). Only what the game shows: the land, the water, the objects;
 // no layer, overlay, cursor, highlight or drought line. The page saves it in place of the core's
@@ -65,7 +66,13 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
   document.body.append(host);
   let r: MapRenderer | null = null;
   try {
-    r = new MapRenderer(canvas, { still: true });
+    try {
+      r = new MapRenderer(canvas, { still: true });
+    } catch (e) {
+      // (a context the renderer made before it failed is freed at once: browsers keep only a few)
+      canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+      throw e;
+    }
     r.holdShowcase();
     r.setClock(CLOCK);
     r.setMap(view, false, true);

@@ -1111,7 +1111,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look from where the new game's camera opens (the start's orientation + 35°), with the water the file
+    the High look, turned as the new game's camera opens (the start's orientation + 35°) but looking down at 40° at the
+    whole map as the official thumbnails do, not the opening camera's 60° (a deliberate departure), with the water the file
     starts with drawn still (its badwater share, no moving water's foam), then put in place of the core's top-down
     one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
     WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
