@@ -219,7 +219,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     in shallow water. The rule lives in the core (`core/features/footprintLevel.ts` `platformLevel`,
     `core/doc/placing.ts` `levelFootprint`, `levelProblem`); the ghost shows the level the worker names. Other
     objects' tiles, caves and water are left as they are; water and badwater sources stay cut-only (D290). It
-    refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A generated
+    refuses only at the map's edge and on another object's tiles, with one plain reason.
+  - **Objects stand in caves where the game allows them** (D491): a map object, a source, a seep, an aquifer, a
+    ruin, a mine site, a tree or a bush may stand on a cave's floor, on the ground under a ledge or on a roof's
+    top. Under a roof nothing is levelled: the game's own rule decides, block by block (`core/features/objects.ts`
+    `standProblem`, the checks' `entities.placement` and `plants.clearance`): the cells it occupies are air (its
+    height in room: a pine needs 3 levels), solid ground under every block that needs it, and the water objects,
+    geothermal fields and mine sites on ground that goes down to the map's bottom (a cave's floor, never a ledge or
+    a roof's top). A refusal is one plain line ("not enough room under the roof here: the ruin needs 5"). The
+    placement names its level (`placeEntity` and `moveEntity` `z`, a run's top below the tile's surface); the
+    object stands there, exports there and a source there feeds the cave's water. A move under a roof keeps its
+    level unless it names another. Strokes paint a roof's top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
