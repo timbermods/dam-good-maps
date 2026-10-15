@@ -1,7 +1,8 @@
 // The water in the background. Applying an entry needs none: a peer's session stays in the defer mode,
 // where an edit shows the last settled water carried over, and the water, the soil and which trees and
-// bushes stand and live are settled afterwards, for the latest sequence only. The canonical settle has no
-// memory (core/sim/prefill.ts `canonicalRun`: it starts from the ground, not from the water before), so a
+// bushes stand and live are settled afterwards, for the latest sequence only. The canonical settle depends
+// on the map alone (core/sim/prefill.ts `canonicalRun`: it starts from the ground, not from the water before;
+// on a map with caves the last settle stands for it only when it is provably the same), so a
 // settle that a newer entry overtakes is simply dropped and started again on the new map, as the checks
 // worker does in single-player (`adoptWater` when `sameWaterModel` holds).
 //

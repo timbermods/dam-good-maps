@@ -1225,7 +1225,10 @@ checks dot counts; every other row is information under Good to know, worded as 
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
     last water stays on show while the canonical settle runs in the background, in slices, on several threads
     where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
-    water shows when it is done (no live water on such a map). The file gets the settle
+    water shows when it is done (no live water on such a map). An edit that leaves the water provably as it
+    was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
+    ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
+    is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
     on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
