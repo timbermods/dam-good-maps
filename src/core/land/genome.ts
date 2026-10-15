@@ -24,8 +24,9 @@ import { RESERVE, reservoirNeeded } from "../gen/calibrated";
 import { EDITOR_LEVEL, TALL_TOP, THEME_PRESETS, VT_DEFAULT, VT_TALL, type Difficulty, type Settings, type ThemeId } from "../spec/mapspec";
 import { drawIntentions, nudgeFor, tooSmallFor, type IntentionId } from "./intentions";
 import { unit } from "./num";
+import { alongLongAxis, mapShape } from "./shape";
 import { clamp, smoothstep } from "../math/clamp";
-import { TWO_PI } from "../math/detmath";
+import { sinDet, TWO_PI } from "../math/detmath";
 import { fbm } from "../math/noise";
 
 export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
@@ -697,6 +698,9 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     variation,
     woods: { kind: "mixed", pine: 47, birch: 27, oak: 20, succulent: 6 },
   };
+  // (D357: on a long map the water runs its length, a long river down a long map, a canyon along it;
+  // the orientation of a map that is not square keeps its sides, so it stays along it)
+  if (mapShape(W, H).long) g.flowDir = alongLongAxis(g.flowDir, W, H);
   g.terrace.step = (() => {
     const s = stepsFor(p.terrace.step, vt);
     return s[rng.int(0, s.length)];
@@ -770,7 +774,11 @@ const lakeMost = (g: Genome) => (g.theme === "islands" && g.seaLayout ? ISLANDS_
  */
 function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, areaK: number, tallK: number): void {
   const first = g.parts.length;
-  const layout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+  // (D357: on a long map Islands' sea is a chain of islands down its length, from a mainland at one end;
+  // every sea there is drawn along the map's length)
+  const form = mapShape(W, H);
+  const drawnLayout = SEA_LAYOUTS[rng.weighted(SEA_WEIGHTS)];
+  const layout: SeaLayout = form.long && g.theme === "islands" ? "chain" : drawnLayout;
   g.seaLayout = layout;
   // (D427, D432: never one large island in a moat inside a ring of land. D423, D427: a ring of land
   // round the whole sea on at most one map in four. Round 5: only the scatter and the atolls, whose
@@ -805,8 +813,15 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // (Islands' lip a tile or two, round 6; Any's sea maps keep round 5's 6–10 tiles: on the thin one's
   // lands their starts found no place)
   const thin = g.theme === "islands";
+  // (D357: on a long map the sea's basin runs its length, as long as the map is long, as wide as it is)
+  const axisTurn = form.alongX ? 0 : 0.25;
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
     seaDepth = depth;
+    if (form.long) {
+      R *= portable.sqrt(form.ratio);
+      aspect *= form.ratio;
+      turn = axisTurn;
+    }
     g.parts.push({ kind: "basin", at, size: R * shrink * SEA_GROW, height: -depth, turn, extra: aspect, soft: 0, shape: "sea", coast, thinLip: thin });
   };
   // an island with relief of its own (D410, Kyler's review): a broad dome rising from the sea's
@@ -869,9 +884,16 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const lobes: RimLobe[] = [];
   const main: number[] = [];
   if (!g.seaRing) {
-    const s0 = layout === "edge" ? 2 : Math.floor(4 * rng.float());
+    const drawnSide = layout === "edge" ? 2 : Math.floor(4 * rng.float());
+    // (D357: Islands' mainland on a long map stands at one of its ends, its chain running away from it;
+    // the sides are 0 and 2 across a map long north to south, 1 and 3 across one long east to west)
+    // (and along one long side from that end, so the sea is no more of the map than on a square map's: the end
+    // alone left a sea over Islands' water cap, D369, and the maps that passed had drained it)
+    const endMain = form.long && g.theme === "islands";
+    const s0 = endMain ? (form.alongX ? 1 : 0) + 2 * (drawnSide & 1) : drawnSide;
     main.push(s0);
-    if (layout !== "edge" && layout !== "central" && rng.float() < 0.45) main.push((s0 + 1) % 4);
+    if (endMain) main.push((s0 + (drawnSide & 2 ? 1 : 3)) % 4);
+    else if (layout !== "edge" && layout !== "central" && rng.float() < 0.45) main.push((s0 + 1) % 4);
     // (three or four a side, of reach from a tenth of the side to a third, so the coast bends in deep
     // bays and broad points; two of like reach a side ran it straight along the edge)
     for (const s of main) {
@@ -882,7 +904,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       }
     }
     // (two sides side by side meet in their corner, broad land)
-    if (main.length === 2) lobes.push([main[1] % 4, 0.22 + 0.1 * rng.float(), 0.16 + 0.12 * rng.float()]);
+    if (main.length === 2) lobes.push([(main[1] === (main[0] + 1) % 4 ? main[1] : main[0]) % 4, 0.22 + 0.1 * rng.float(), 0.16 + 0.12 * rng.float()]);
     // (round 6: the mainland reaches in until the sea, before its islands, is under three fifths of the
     // map, read on a coarse grid by the coast the field draws (rimKeep); the islands are then placed in
     // that sea. Grown after them, held back wherever a lobe faced an island (every lobe at 256²), the
@@ -991,6 +1013,37 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       break;
     }
     case "chain": {
+      if (form.long) {
+        // (D357: a chain down a long map's length, from past the mainland at one end to near the far
+        // one, swaying side to side; more islands the longer the map, each long along the chain, none
+        // wider than about half the map is wide)
+        g.focus = [0.5, 0.5];
+        const depth = 12.5 + 2 * rng.float();
+        sea([0.5, 0.5], open(), depth, axisTurn, 1.1 + 0.3 * rng.float());
+        const L = Math.max(W, H);
+        const low = main[0] === (form.alongX ? 3 : 0);
+        const a0 = Math.min(0.74 * side + 8, 0.3 * L);
+        const length = L - 0.08 * L - 6 - a0;
+        const count = 1 + Math.round((2 + rng.float()) * portable.sqrt(form.ratio));
+        const spacing = length / (count - 1);
+        const waves = 0.6 + 0.8 * rng.float();
+        const phase = rng.float();
+        const sway = side * (0.08 + 0.08 * rng.float());
+        for (let k = 0; k < count; k++) {
+          const t = k / (count - 1);
+          const along = low ? a0 + t * length : L - 1 - (a0 + t * length);
+          // (in the sea's half, off the mainland along the long side)
+          const off = main[1] === 0 || main[1] === 3 ? 1 : -1;
+          const across = (0.5 + 0.12 * off) * (side - 1) + sway * sinDet(TWO_PI * (waves * t + phase));
+          const mid = 1 - Math.abs(t - 0.5) * 0.9;
+          const asp = 1 + 1.2 * rng.float();
+          const size = Math.min(0.26 * side * portable.sqrt(asp), ((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid) * (0.7 + 0.3 * rng.float())) / isleK;
+          const [x, y] = form.alongX ? [along, across] : [across, along];
+          put(x, y, size, 3 + 5 * mid + 2 * rng.float(), depth, asp, axisTurn + 0.12 * (rng.float() - 0.5));
+        }
+        scatter(Math.round((1 + 2 * rng.float()) * portable.sqrt(form.ratio)), 7, 7, depth);
+        break;
+      }
       // a line of islands along an arc across the map, the largest in its middle, long along the arc,
       // a strait between each and the next
       g.focus = [0.42 + 0.16 * rng.float(), 0.42 + 0.16 * rng.float()];

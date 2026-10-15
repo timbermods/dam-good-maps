@@ -42,6 +42,7 @@ import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom, MinHeap, N4 } from "../math/grid";
 import { DIRS8 } from "./num";
+import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
 import { REACH as STORY_REACH } from "../analysis/story";
 
@@ -459,7 +460,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const wander = g.wander;
   const wanderCell = g.wanderCell;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) Er[y * W + x] = E[y * W + x] + wander * fbm(rs, x, y, wanderCell, 2);
-  const dr = drainage(Er, W, H, { outlet: (i) => !onUp(i), epsilon: 1e-6 });
+  // (D357: down a long map the water's way runs its length, to the far end: its long sides don't take it,
+  // else every course left by the nearer side a few dozen tiles in and the long map had no long river)
+  const lengthwise = g.tiltKind === "linear" && mapShape(W, H).long;
+  const onSide = (i: number) => {
+    const e = edgeOf(i, W, H);
+    return !!e && !up.includes(e) && !down.includes(e);
+  };
+  const dr = drainage(Er, W, H, { outlet: lengthwise ? (i) => !onUp(i) && !onSide(i) : (i) => !onUp(i), epsilon: 1e-6 });
   // (M9b: the spill of each tile's lowest way down on the land's levels, as the game's water moves)
   const drH = natural ? drainage(h, W, H, { outlet: (i) => !onUp(i), eight: false }) : null;
   // (and the level each tile's water spills out at by any edge: a hollow on a course fills to it)
@@ -1556,7 +1564,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       main.params.bedProfile = {start:bed[0],steps};
     }
 
-    const s0 = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    const s0Drawn = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    // (D357: down a long map the fan opens in its last stretch, about as long as the map is wide, the
+    // river running the length above it; drawn from a third of the way down, its arms ran side by side
+    // for hundreds of tiles)
+    const s0 = fan && mapShape(W, H).long ? Math.max(s0Drawn, m.L - 1.2 * Math.min(W, H)) : s0Drawn;
     const { p: p0 } = pointAt(m.path, s0);
     const end = m.path[m.path.length - 2];
     // (River style Braided: one more mouth, PLAN §5.3's 2–4 channels)

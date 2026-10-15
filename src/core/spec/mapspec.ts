@@ -29,16 +29,27 @@ export const SIZE_PRESETS: Record<SizePreset, number> = { small: 96, medium: 128
 export const MIN_SIDE = 4;
 export const MAX_SIDE = 512;
 
-/** The least a side the generator builds on (D357): under it there is no room for a start and a river. Maps of 4 to 47
- *  a side are valid (the file, the link and the validator take them); the generator refuses them until it shapes for
- *  them (part 2 of D357). */
-export const GENERATOR_MIN_SIDE = 48;
+/** The least a side each theme generates on (D357, found by trying): the smallest side where its maps still keep the
+ *  absolutes (the starting-logs floor, a start with its water, item 47's must-haves) and its theme. Every side from
+ *  4 stays valid (the file, the link and the validator take it) for a map shaped by hand. Tried on seeds 1 and 2: at
+ *  40² every theme makes its map within the rescue rounds (10–42 s); at 32² six of the seven find no start, badwater
+ *  source or mine site after all 1,960 attempts (Islands made seed 1 on its 1,882nd), so the line is 40 for each. */
+export const GENERATOR_MIN_SIDE: Record<ThemeId, number> = {
+  any: 40,
+  riverValley: 40,
+  canyon: 40,
+  highlands: 40,
+  lakeBasin: 40,
+  delta: 40,
+  islands: 40,
+};
 
-/** Why the generator will not build a map of this size, in one line, or null when it will (D342: refused, never
- *  clamped, never a crash). */
-export function generatorSizeRefusal(x: number, y: number): string | null {
-  if (x >= GENERATOR_MIN_SIDE && y >= GENERATOR_MIN_SIDE) return null;
-  return `${x}×${y} is too small to generate: the generator needs ${GENERATOR_MIN_SIDE} tiles on each side for a start and a river`;
+/** Why the generator will not build a map of this size for this theme, in one line, or null when it will (D342:
+ *  refused at once, never clamped, never a crash). */
+export function generatorSizeRefusal(x: number, y: number, theme: ThemeId): string | null {
+  const least = GENERATOR_MIN_SIDE[theme];
+  if (x >= least && y >= least) return null;
+  return `${THEME_NAMES[theme]} needs at least ${least} tiles a side to generate`;
 }
 
 export interface Settings {
