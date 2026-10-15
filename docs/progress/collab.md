@@ -128,8 +128,8 @@ Firefox as the second peer runs only in CI here (Playwrightâ€™s Firefox does not
 - **The undo is conservative where the build is not yet audited:** a force, a feature operation and a water operation touch the
   whole map, so any of them blocks every earlier action of either player, and they block until they are undone themselves.
 - **Names and places.** Refusal lines use the player id (`Names` lets the page supply display names) and `placeOf`: the feature
-  that holds most of the writes ("at the north lake", "by the start"), else a compass word. A river's footprint is its bounding
-  box, so a long diagonal river can hold writes that are not near its water.
+  that holds most of the writes ("at the north lake", "by the start"), else a compass word. Only a feature's own ground counts
+  (a lake inside its outline, a river near its path), so a far-off edit is never "at the river"; landforms are not named.
 - **Speed depends on the milestone's step-splice.** An undo rebuilds from the whole log (`MapSession.followLog`: the log is
   copied and the build is incremental from the previous map). Fast at 48²; at 256² with a long log it needs the core step-splice
   the milestone is building for single-player and collab undo alike, and a measure with the busy windows (piece 6).

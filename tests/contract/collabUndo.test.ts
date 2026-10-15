@@ -362,23 +362,73 @@ describe("the records an undo leaves", () => {
 });
 
 describe("a place in words", () => {
-  test("the feature that holds most of the writes, a compass word only when there are several of its kind", () => {
-    const s = MapSession.open(decodeProject(bytes));
-    const at = (...xy: [number, number][]) => {
-      const m = new Mask(SIZE * SIZE);
-      for (const [x, y] of xy) m.add(y * SIZE + x);
-      return m;
-    };
-    const rivers = s.features.filter((f) => f.kind === "river").length;
-    expect(rivers).toBeGreaterThan(1);
-    // (the start: one only, so no compass word)
-    expect(placeOf(s, at([29, 38], [30, 38], [29, 39]))).toBe("by the start");
-    // (several rivers: the one that holds the tiles, with where it lies)
-    expect(placeOf(s, at([44, 33], [45, 33], [44, 32]))).toBe("at the north-east river");
-    // (nothing of the kind holds them: the compass word)
-    expect(placeOf(s, at([1, 1], [2, 1]))).toBe("in the south-west");
-    // (the whole map names no place; nor does no tile)
+  const tilesAt = (...xy: [number, number][]) => {
+    const m = new Mask(SIZE * SIZE);
+    for (const [x, y] of xy) m.add(y * SIZE + x);
+    return m;
+  };
+  const open = (seed: number, theme: "highlands" | "canyon") => MapSession.open(decodeProject(mapProject(seed, theme, SIZE)));
+  const centre = (outline: number[][]): [number, number] => [Math.floor(outline.reduce((a, p) => a + p[0], 0) / outline.length), Math.floor(outline.reduce((a, p) => a + p[1], 0) / outline.length)];
+  /** The distance from a tile's centre to a path. */
+  const apart = (path: number[][], x: number, y: number) =>
+    Math.min(
+      ...path.slice(1).map(([bx, by], k) => {
+        const [ax, ay] = path[k];
+        const dx = bx - ax;
+        const dy = by - ay;
+        const t = Math.max(0, Math.min(1, ((x + 0.5 - ax) * dx + (y + 0.5 - ay) * dy) / (dx * dx + dy * dy || 1)));
+        return Math.hypot(x + 0.5 - ax - t * dx, y + 0.5 - ay - t * dy);
+      }),
+    );
+
+  test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
+    const one = open(1, "highlands");
+    const lakes = one.features.filter((f) => f.kind === "lake");
+    expect(lakes.length, "the map has a single lake").toBe(1);
+    const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
+    expect(placeOf(one, tilesAt([lx, ly], [lx + 1, ly]))).toBe("at the lake");
+    const start = one.features.find((f) => f.kind === "start")!;
+    const [sx, sy] = (start.params as { position: [number, number] }).position;
+    expect(placeOf(one, tilesAt([Math.round(sx), Math.round(sy)]))).toBe("by the start");
+    expect(one.features.filter((f) => f.kind === "river").length, "a single river needs no compass word").toBe(1);
+    const [ox, oy] = (one.features.find((f) => f.kind === "river")!.params as { path: number[][] }).path[1];
+    expect(placeOf(one, tilesAt([Math.floor(ox), Math.floor(oy)]))).toBe("at the river");
+    const three = open(5, "highlands");
+    const rivers = three.features.filter((f) => f.kind === "river");
+    expect(rivers.length).toBeGreaterThan(1);
+    const path = (rivers[0].params as { path: number[][] }).path;
+    const [rx, ry] = path[Math.floor(path.length / 2)];
+    expect(placeOf(three, tilesAt([Math.floor(rx), Math.floor(ry)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) river$/);
+    // two lakes: the one that holds the tiles, with where it lies
+    const two = open(3, "canyon");
+    const both = two.features.filter((f) => f.kind === "lake");
+    expect(both.length).toBe(2);
+    for (const lake of both) {
+      const [x, y] = (lake.params as { outline: number[][] }).outline[0];
+      expect(placeOf(two, tilesAt([Math.floor(x), Math.floor(y)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) lake$/);
+    }
+  });
+
+  test("only the feature's own ground counts: far from a river's water the place is a compass word, not the river", () => {
+    for (const [seed, theme] of [[5, "highlands"], [1, "highlands"], [3, "canyon"]] as const) {
+      const s = open(seed, theme);
+      const rivers = s.features.filter((f) => f.kind === "river").map((f) => f.params as { path: number[][]; width: number; banks?: boolean });
+      for (const r of rivers) {
+        // the corners of the rectangle round the river's path: a diagonal river leaves far corners
+        const xs = r.path.map((p) => p[0]);
+        const ys = r.path.map((p) => p[1]);
+        for (const [x, y] of [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.min(...ys)], [Math.min(...xs), Math.max(...ys)], [Math.max(...xs), Math.max(...ys)]] as const) {
+          const tx = Math.max(0, Math.min(SIZE - 1, Math.floor(x)));
+          const ty = Math.max(0, Math.min(SIZE - 1, Math.floor(y)));
+          if (rivers.some((q) => apart(q.path, tx, ty) <= q.width / 2 + 4)) continue;
+          expect(placeOf(s, tilesAt([tx, ty])), `a corner of the rectangle round a river (${theme} ${seed})`).not.toMatch(/river/);
+        }
+      }
+    }
+    // (no tile, and the whole map, name no place)
+    const s = open(5, "highlands");
     expect(placeOf(s, new Mask(SIZE * SIZE, true))).toBe("");
     expect(placeOf(s, new Mask(SIZE * SIZE))).toBe("");
+    expect(placeOf(s, tilesAt([1, 1], [2, 1]))).toMatch(/^in the /);
   });
 });

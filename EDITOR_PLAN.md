@@ -34,7 +34,8 @@ workshop; players can still fine-tune in the game's editor if they want. The edi
 - **Every control says what it does** (D351, D361, D368 (6)): each tool, force, option, view toggle, shelf item and
   button has a tooltip, a short phrase (about 60 characters at most, no second sentence, no technical detail) that
   says what it is for at a glance, then its shortcut at the end as a small key cap, never in brackets ("Carve a
-  river" then a cap 7). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
+  river" then a cap 7). A force's tooltip starts with a verb ("Strike a crater", "Build a volcano"); a toggle's Off
+  says what is absent ("No lake at its head"). One shared tooltip shows them all (`src/ui/Tooltip.tsx`): a control carries its phrase as
   its `title` and its keys in `data-keys` (`tip("Carve a river", "7")`). Whoever changes a control updates its
   tooltip in the same commit; `tests/e2e/tooltips.spec.ts` fails on any interactive control without one, with a
   second sentence, past that length, with a key in brackets, or named with a key its tooltip doesn't end with
@@ -74,7 +75,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the map's **Name** (the
   title's; renaming it here is the title's rename), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
+  Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  own editor can't open the map, D357; nothing moves and it never refuses). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
   within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
   included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
@@ -164,9 +166,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
-  - The forces: Power · Size (Auto: it follows Power) · their choices (Carve's What it leaves, Wander, Walls, Canyon
+  - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
-    Flows, Ridges; Quake's Mode, Side (V) and Scarp; Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
+    Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
     Try another, always in its place, ready once a run is kept. A force at work: its status, Pause (Carve) and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
@@ -177,9 +179,12 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size, and Turn (0°–270°, R) for an object that turns; picked on the map, a source's Strength, This source ("1.45 water/s",
+  Pointing at, a ruin's Height, a relic's Size, a tree's, bush's or thorn patch's Size and Density (a tree's also Age),
+  and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
-  it down (×).
+  it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
+  its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
+  Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't (the start
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
@@ -204,9 +209,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
-  - **Scatter-type items place like a brush** (D235): trees, bushes, ruins, thorns and the like show a brush circle
-    with the terrain brushes' grammar (F or { and } to resize, [ and ] its density, the size in the options row);
-    dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
+  - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
+    ring round the pointer at the size in the object window (Size, tiles across, 2–24, and Density, 5–100%, per kind;
+    the one key habit: { and } or F and the mouse for Size, [ and ] or F+scroll for Density, the ring following); a drag is the core's `paintObjects` over the tiles the brush covered
+    (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
     (still allowed); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
@@ -233,10 +239,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
   bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
-- **The legend,** while Legend is ticked: directly under Legend, its right edge on Legend's, one width,
-  every line a name (Moist ground, Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Level lines,
+- **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
+  every line a name (Moist ground, Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Wall levels,
   Contamination edge, Mine site outline), an object's line with the objects menu's own picture, the ground, the
-  water and the markers with their swatches; a click on a line shows its things on the map. Its rows are one height
+  water and the markers with their swatches; a click on a line shows its things on the map; with Heights on, its "Ground height" line carries the map's lowest and highest level (Low and High) under it, as the folded key does. Its rows are one height
   on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
@@ -265,8 +271,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   show a change again, and the header's dot reads "Settling…" while it does: one status (Kyler, 2026-10-04). Double-clicking the day box while a hazard is shown turns it into a field
   in place, same size: a day from 0 to 99, Enter or clicking away shows it, Esc cancels.
 - **The bottom left:** **the minimap** (D205) on the page's margin at the foot, level with the bar's, always shown: a
-  small top-down view of the whole map, refreshed after edits settle (no outline of the view); click or drag on it to
-  move there. Directly above it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order)
+  small top-down view of the whole map, refreshed after edits settle (no outline of the view) and showing a held Drought
+  or Badtide day's water as the map does; click or drag on it to move there. Directly above it, the tile under the pointer's coordinates ("X 60 · Y 66 · Z 10", the game's order)
   over the readout, which always shows its whole text.
 - **Juice** (D205, D220, D226): small satisfying feedback on every action (a soft thud as land rises, a puff of dust
   when it's lowered, a pop and a wiggle when something is placed, a splash when a source starts, each force's own
@@ -1089,7 +1095,7 @@ opened, are listed but never blamed on the player's edits and do not block its e
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
     `sim/preview.ts`; water the settle itself spread past that walk, a lake filling up behind a new dam, keeps
     its water), so their water drains away as part of the edit's own journey (within about a second on 128² and
-    two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. A stored
+    two on 256²). A removed source's upwelling, marker and strength label go the moment it is removed. **The sources' labels** (Markers, a picked source, the pointer) are placed by `editor/sources/labelLayout.ts`, a plain function of where each source stands on the screen and what the page has open over the map: a label never stands on another or on a panel (it is nudged to the nearest free spot), a source behind a panel or outside the view has none, and a label with no room left merges into the nearest of its kind ("3 sources, 1.5 water/s", never badwater with clean water), the way a group of sources already does. Markers' wall ledges are **Wall levels**; **Lines** is the view switch for a line at every level. A stored
     lake keeps its water only while its hollow holds it. The preview's water once it stops matches the canonical
     settle's, except under roofs.
   - **No water from nowhere** (D385): a hollow dug where no source's water and no water already there reaches

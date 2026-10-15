@@ -5,6 +5,7 @@
 import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { PaintParams } from "../core/doc/paintParams";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -202,6 +203,7 @@ const api = {
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
+  paintAt: routed((params: PaintParams) => sendUpdate(ed.paintAt(params)), (...a) => collabEditApi.paintAt(...a).then(sendUpdate)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: routed((tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)), (...a) => collabEditApi.removeAt(...a).then(sendUpdate)),

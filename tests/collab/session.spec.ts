@@ -16,7 +16,8 @@ test.describe.configure({ mode: "serial", timeout: 600_000 });
 let stack: Stack;
 test.beforeAll(async () => {
   test.setTimeout(240_000);
-  stack = await startStack({ sessionPage: true });
+  // (every browser reaches the function from one address, and the tests together make more rooms than the default minute allows)
+  stack = await startStack({ sessionPage: true, vars: { ROOMS_PER_MINUTE: "100" } });
 });
 test.afterAll(async () => {
   await stack?.stop();

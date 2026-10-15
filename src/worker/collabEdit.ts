@@ -11,6 +11,7 @@
 
 import type { Command, ForceGesture, SubmitResult } from "../core/collab";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { PaintParams } from "../core/doc/paintParams";
 import type { ForceCue } from "../core/forces/runs";
 import type { Verb } from "../core/forces/op";
 import { EVERY_KIND } from "../core/doc/remove";
@@ -58,6 +59,13 @@ export const collabEditApi = {
     const p = ed.planned.plant(template, tiles);
     const a = await edit(p);
     return { ...a, planted: a.ok && p.ok ? p.planted : [] };
+  },
+
+  /** A stroke of trees, bushes or thorns from the shelf: the core's plan, ordered as one step. */
+  async paintAt(params: PaintParams): Promise<Answer & { planted: number[] }> {
+    const p = ed.planned.paint(params);
+    const a = await edit(p);
+    return { ...a, planted: a.ok && p.ok ? p.plan.map((o) => o.tile) : [] };
   },
 
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string): Promise<Answer & { removed: number[] }> {

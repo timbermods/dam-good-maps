@@ -1,11 +1,13 @@
 // The sources' markers: the groups near the pointer, those feeding its water, and the labels drawn
-// over them.
+// over them (drawn by `SourceLabels`: nudged apart, kept off the panels, merged when crowded).
 
 import type { JSX } from "preact";
 import { useMemo, useRef } from "preact/hooks";
 import type { TileHit } from "../../render3d";
 import { feedingGroups, sourceGroups, sourceStrengths, sourceStrengthWords, type SourceGroup } from "../features";
 import type { Ed } from "../ed";
+import { SourceLabels } from "./SourceLabels";
+import type { LabelIn } from "./labelLayout";
 
 export interface MarkersSlice {
   groupsRef: { current: SourceGroup[] };
@@ -77,23 +79,17 @@ export function useMarkers(ed: Ed): MarkersSlice {
     const r = renderer.current;
     if (!r || !shownGroups.length) return null;
     void viewTick;
-    return (
-      <div class="source-markers" aria-hidden="true">
-        {shownGroups.map((k) => {
-          const g = groups[k];
-          if (!g) return null;
-          const p = r.project(g.x + 0.5, g.z + 0.6, -(g.y + 0.5));
-          if (!p.visible) return null;
-          const n = g.members.length;
-          const words = `${n > 1 ? `${n} sources, ` : ""}${g.strength} ${g.bad ? "badwater" : "water"}/s`;
-          return (
-            <span key={k} class={`map-note source-marker${g.bad ? " bad" : ""}${feeding.includes(k) ? " feeding" : ""}${k === targetGroup ? " target" : ""}`} style={{ left: `${p.x}px`, top: `${p.y}px` }}>
-              {words}
-            </span>
-          );
-        })}
-      </div>
-    );
+    const items: LabelIn[] = [];
+    for (const k of shownGroups) {
+      const g = groups[k];
+      if (!g) continue;
+      const p = r.project(g.x + 0.5, g.z + 0.6, -(g.y + 0.5));
+      if (!p.visible) continue;
+      const feed = feeding.includes(k);
+      const target = k === targetGroup;
+      items.push({ id: k, ax: p.x, ay: p.y, count: g.members.length, strength: g.strength, bad: g.bad, feeding: feed, target });
+    }
+    return items.length ? <SourceLabels items={items} /> : null;
   }
 
   return { groupsRef, hoverSources, sourcesChanged, pointedWords, markerRef, sourceMarkers };
