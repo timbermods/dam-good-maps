@@ -6,7 +6,7 @@
 import type { JSX } from "preact";
 import { useRef, useState } from "preact/hooks";
 import { clone } from "../../core/spec/mergepatch";
-import { SIZE_PRESETS, THEME_NAMES, THEMES, type SizePreset, type Settings, type ThemeId } from "../../core/spec/mapspec";
+import { MAX_SIDE, MIN_SIDE, SIZE_PRESETS, THEME_NAMES, THEMES, type SizePreset, type Settings, type ThemeId } from "../../core/spec/mapspec";
 import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, highestMax, LAKE_CHOICES, OFF_SOME, reserveGuard, RESERVES, setVerticality, SOURCES, STYLES, type Choice } from "../../ui/settingsModel";
 import { tip } from "../../ui/Tooltip";
 import { ChoiceSetting, NumberSetting } from "../settings";
@@ -147,6 +147,10 @@ function SeedSetting(p: SettingsProps) {
   );
 }
 
+/** A size box's tooltip beyond 256 a side (D357): the box turns the warning colour and says why; a warning, never a
+ *  refusal. */
+export const BIG_SIDE_TIP = "Timberborn's own editor can't open maps over 256 a side";
+
 /** The size: 96, 128, 192, 256 (a square that side) or Custom, five equal options across the line (Kyler,
  *  2026-10-04: the Size choices end where Theme's do); Custom chosen, its option holds the width and height, typed,
  *  in its own place, so nothing moves. */
@@ -166,7 +170,7 @@ function SizeSetting(p: { W: number; H: number; preset: SizePreset | "custom"; o
             <SizeNumbers W={W} H={H} onSize={p.onSize} />
           </span>
         ) : (
-          <button type="button" aria-pressed={false} {...tip("Your own width and height")} onClick={() => p.onSize({ x: W, y: H === W ? Math.max(48, W - 16) : H })}>
+          <button type="button" aria-pressed={false} {...tip("Your own width and height")} onClick={() => p.onSize({ x: W, y: H === W ? Math.max(MIN_SIDE, W - 16) : H })}>
             Custom
           </button>
         )}
@@ -180,14 +184,14 @@ function SizeNumbers(p: { W: number; H: number; onSize(size: { x: number; y: num
   const box = (v: number, label: string, id: string, onSet: (n: number) => void) => (
     <input
       id={id}
-      class="set-text set-num"
+      class={`set-text set-num${v > 256 ? " over" : ""}`}
       aria-label={label}
-      title={HINT[id]}
+      title={v > 256 ? BIG_SIDE_TIP : HINT[id]}
       value={v}
       inputMode="numeric"
       onChange={(e) => {
         const n = Math.round(Number((e.target as HTMLInputElement).value));
-        if (Number.isFinite(n)) onSet(Math.max(48, Math.min(256, n)));
+        if (Number.isFinite(n)) onSet(Math.max(MIN_SIDE, Math.min(MAX_SIDE, n)));
       }}
     />
   );

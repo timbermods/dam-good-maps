@@ -245,7 +245,7 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 `feature/page`** (its decisions below, "The build") (the handoff in
 docs/progress/page.md lists them in full): no scale-up at any size and the `?ui` parameter removed; the right column
 13px wider so every legend line fits; the Badwater caption one line, "Badwater: dark brown · Contaminated soil:
-light brown"; the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
+light brown" (since the polish pass: two swatch rows in the overlay's own colours, never colour names); the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
 (kept in Your maps, used by Save to Timberborn and the .timber file; a new map starts with a default name); Your
 maps at the drawer's foot (name and size, newest first, the current map marked, a click opens it; no stars or
 thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
@@ -547,7 +547,10 @@ refinements and what the mockups left open:
   map when none is left). The browser's own menu doesn't open on the pictures. Your maps' two columns are now equal
   halves whatever the names (a long name widened its column, and a rename made it jump).
 - **Turn** (Kyler, 2026-10-03): an object that turns has its Turn in the object window, 0°, 90°, 180° and 270°, the
-  one R steps through.
+  one R steps through. Trees, bushes and thorns don't turn: their window holds Size and Density (and a tree's Age).
+- **The object window's controls are the bar's** (the polish pass): a number is the bar's slider (the `set-range` look)
+  with its value at the right of its name, on the name's line before the ×; a choice is segmented, the chosen side
+  selected (Water: Clean | Badwater; a relic's Size; a tree's Age); no native dropdown and no browser-blue slider.
 - **Every field shows its whole value:** Theme, Seed (with Keep) and Size each take a full row (a ten-digit seed, or a
   word up to 24 letters, fits), and the map's Name wraps onto more lines when it is long.
 - **Your maps under a solid scrollbar:** with Windows' solid scrollbar showing (15px), every picture stays clear of
@@ -629,7 +632,7 @@ D380 work.
 - **The legend's names (v8):** every line is a name on one line, nothing of what it does in the game: Moist ground ·
   Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
   bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
-  Blockage · Other objects; under "Markers on:": Slope arrows · Level lines · Contamination edge · Mine site
+  Blockage · Other objects; under "Markers on:": Slope arrows · Wall levels · Contamination edge · Mine site
   outline. Each line's tooltip is "Show on the map"; the notes about far-off drawing and clicking are gone. The same
   names serve wherever the legend appears. **Two lines are wider than the column** at the panel's present paddings
   (the column is 164px at 1×, the text has 108px): "Contaminated ground" needs 121px and "Contamination edge" 112px;
@@ -812,6 +815,9 @@ API, every pinned hash, and every role and accessible name the tests use.
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.
+- **History's panel is Your maps' panel** (the polish pass): a heading row (the title and a ghost ×, the heading row's
+  height and place), its steps as full-width rows, the step the map is at *selected* (the shelf's look, not lit), steps undone
+  dimmed and struck through, no grey explanation line. Captures `docs/design/polish-panels-*`.
 - **History is a button** in the header, directly left of Undo: "History", pressed (the mint, nothing else changing)
   while its panel is open, no count (the panel's "To review" list stays); gone from File, whose tooltip is "Open and
   download maps, and more". Every control in the header's right group is one height, Save's, 40px on whole pixels,
@@ -843,3 +849,10 @@ API, every pinned hash, and every role and accessible name the tests use.
   Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
   "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
   field is in hand.
+- **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
+  open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
+  generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when
+  there is none (`labelLayout.ts`). Markers' wall ledges are named **Wall levels** (the legend's line and Markers'
+  tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
+  toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
+  Drought or Badtide day's water.

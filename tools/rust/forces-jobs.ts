@@ -35,7 +35,7 @@ function job(verb: RustVerb, n: number, k: number): RustJob {
   const power = k % 3 === 0 ? 100 : k % 3 === 1 ? 0 : 55;
   switch (verb) {
     case "deposit":
-      return { verb, map, keep, settings: { mode: "fan", power, size: k === 2 ? 4 : k % 2 ? 64 : null, channels: ["auto", "few", "many"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
+      return { verb, map, keep, settings: { mode: "fan", power, size: k === 2 ? 8 : k % 2 ? 64 : null, channels: ["auto", "few", "many"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
     case "rift":
       return { verb, map, keep, settings: { mode: "drop", power, size: k === 2 ? 4 : k % 2 ? 64 : null, walls: ["auto", "sheer", "stepped"][k % 3], floor: k === 3 ? 8 : k === 2 ? 3 : 1, seed: k }, intent: { path: k % 2 ? path : [path[0]] } };
     case "carve":
@@ -116,7 +116,7 @@ function oddJob(verb: RustVerb, n: number, k: number): RustJob {
     j.intent = { origin, path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: 2 + u() * (n - 5), y: 2 + u() * (n - 5) })) };
   }
   if (verb === "deposit") {
-    j.settings = { mode: "fan", power, seed, size: pick([null, 4, 64]), channels: pick(["auto", "few", "many"]), floor: 1 };
+    j.settings = { mode: "fan", power, seed, size: pick([null, 8, 64]), channels: pick(["auto", "few", "many"]), floor: 1 };
     j.intent = { path: Array.from({ length: 2 + Math.floor(u() * 6) }, () => ({ x: u() * (n - 1), y: u() * (n - 1) })) };
   }
   if (verb === "rift") {

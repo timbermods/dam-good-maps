@@ -15,6 +15,7 @@ import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
 import { ForceFloor } from "../TopBar";
 import { WaterBar } from "../WaterBar";
+import { coreNotes } from "../../core/sim/coreMoment";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
@@ -25,7 +26,7 @@ import { cornerButtons, hoverHandler, layerCaption, levelLinesButton, roofsButto
 export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
-    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick,
+    renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, heldTick,
     shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
   } = ed;
   const drawerOpen = props.drawerOpen;
@@ -69,7 +70,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               {sourceMarkers()}
               {startHintTag()}
               {topBar(ed, props)}
-              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} /> : null}
+              {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />
@@ -81,7 +82,7 @@ export function editorView(ed: Ed, props: EditorProps) {
                 renderer={renderer.current}
                 heights={() => mirror.current.heights}
                 depth={() => mirror.current.water?.depth ?? null}
-                stamp={`${info.version}:${waterTick}`}
+                stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}`}
               />
               {shapeNote ? (
                 <div class={`map-note shape-note${shapeNote.ok ? (shapeNote.warn ? " warn" : "") : " error"}`} role="status" style={{ left: `${shapeNote.x + 16}px`, top: `${shapeNote.y + 16}px` }}>

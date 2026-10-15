@@ -63,7 +63,7 @@ test("a clean source on uneven ground switched to badwater cuts its own spring p
   await page.mouse.click(p.x, p.y);
   const row = page.getByRole("group", { name: /Water source, selected/ });
   await expect(row).toBeVisible();
-  await row.getByRole("combobox", { name: "Water" }).selectOption("bad");
+  await row.getByRole("group", { name: "Water" }).getByRole("button", { name: "Badwater" }).click();
   await idle(page);
   await expect.poll(async () => (await info(page)).history.filter((h) => h.applied).map((h) => h.label)).toHaveLength(n0 + 1);
   expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toBe("Make a source badwater");
