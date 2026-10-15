@@ -62,10 +62,11 @@ import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
-import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { RunSoil, runSoilOn } from "./runSoil";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
-import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -306,6 +307,11 @@ export class MapRenderer {
   private cave: CaveLight | null = null;
   private caveTex: Data3DTexture | null = null;
   private readonly noCave: Data3DTexture;
+  /** The soil of the run tops below each tile's top (null on a map without them) and its texture. */
+  private runSoil: RunSoil | null = null;
+  private runTex: Data3DTexture | null = null;
+  /** The run tops' soil drawn (the worker's last). */
+  private runsShown: RunSoilView | null = null;
   private uniforms: SceneUniforms;
   private patterns: WebGLRenderTarget;
   private terrainMat: ShaderMaterial;
@@ -418,6 +424,7 @@ export class MapRenderer {
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
+    this.runRows = new BoxUploads(this.gl, () => this.runTex);
     this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
@@ -535,6 +542,54 @@ export class MapRenderer {
       mat.defines.CUTAWAY = on ? 1 : 0;
       mat.needsUpdate = true;
     }
+  }
+
+  /** Whether the terrain's shaders read the run tops' own soil (runSoil.ts): only on a map with run tops below a
+   *  tile's top, so every other map draws with the same program as before (the define is not there at all). */
+  private setRunSoilBranch(on: boolean): void {
+    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+      if (!mat || ("RUN_SOIL" in mat.defines) === on) continue;
+      if (on) mat.defines.RUN_SOIL = 1;
+      else delete mat.defines.RUN_SOIL;
+      mat.needsUpdate = true;
+    }
+  }
+
+  /** The run tops' soil as the map's soil and water now give it: built (and the shader's branch switched on) when
+   *  a map with them gets their soil, the cells that changed rewritten and their box sent up after that, dropped
+   *  when there is none. */
+  private syncRunSoil(): void {
+    const m = this.map;
+    // (a soil without them, the page's soil growing toward the worker's, keeps the last that had them)
+    const runs = m?.soil?.runs ?? this.runsShown;
+    if (!m || !runSoilOn(m.source.columns.size, runs)) {
+      this.dropRunSoil();
+      this.setRunSoilBranch(false);
+      return;
+    }
+    this.runsShown = runs!;
+    if (this.runSoil) {
+      const box = this.runSoil.refresh(runs!, m.water);
+      if (box) this.runRows.touch(box.x0, box.y0, box.x1, box.y1);
+      return;
+    }
+    this.runSoil = RunSoil.build(m.W, m.H, runs!, m.water);
+    if (!this.runSoil) return;
+    this.runTex = runTexture(this.runSoil);
+    this.uniforms.runTex.value = this.runTex;
+    this.setRunSoilBranch(true);
+  }
+
+  /** The run tops' soil and texture gone (a new map, or none to show); the shader's branch is the caller's. */
+  private dropRunSoil(): void {
+    this.runsShown = null;
+    if (!this.runSoil) return;
+    // (the uniform keeps a texture to bind: the placeholder)
+    this.uniforms.runTex.value = this.noCave;
+    this.runTex?.dispose();
+    this.runTex = null;
+    this.runSoil = null;
+    this.runRows.clear();
   }
 
   /** One layer up (1) or down (-1), as the game steps them (D207, `LevelVisibilityService`): down
@@ -784,6 +839,7 @@ export class MapRenderer {
         });
         this.high.shareTerrainUniforms(this.std.terrain);
         this.setCutaway(this.cutaway);
+        this.setRunSoilBranch(!!this.runSoil);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -1042,6 +1098,7 @@ export class MapRenderer {
     }
     else u.caveSize.value.set(0, 0, 0);
     this.setCutaway(cutawayOn(source));
+    this.syncRunSoil();
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;
@@ -1160,6 +1217,7 @@ export class MapRenderer {
     this.caveTex = null;
     this.cave = null;
     this.caveRows.clear();
+    this.dropRunSoil();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
     this.tileRows.clear();
@@ -1478,6 +1536,8 @@ export class MapRenderer {
     // (the water round the brush may have come or gone)
     this.updateClearAround();
     this.bakeTiles();
+    // (the water standing on a cave's floor: its run top's cell)
+    if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.requestRender();
@@ -1489,6 +1549,7 @@ export class MapRenderer {
   private readonly tileRows: RowUploads;
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
+  private readonly runRows: BoxUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -1626,6 +1687,7 @@ export class MapRenderer {
     if (!m) return;
     m.soil = soil;
     this.bakeTiles();
+    this.syncRunSoil();
     this.requestRender();
     this.onMapChange?.();
   }
@@ -2607,6 +2669,7 @@ export class MapRenderer {
     this.tileRows.flush();
     this.lightRows.flush();
     this.caveRows.flush();
+    this.runRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);

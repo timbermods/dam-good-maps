@@ -62,7 +62,7 @@ import { keptForceParams } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
-import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import { emptyColumns, entityView, LAYERS, runSoilView, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
@@ -309,7 +309,7 @@ function soilOf(s: MapSession): SoilView {
   if (!s.showsStoredWater && !roofed.size) return soilView(b.moisture, b.soilContamination);
   if (s.showsStoredWater) {
     const file = s.storedSoil();
-    return soilView(file.moisture, file.contamination);
+    return withRuns(s, soilView(file.moisture, file.contamination));
   }
   return underRoofs(s, soilView(b.moisture, b.soilContamination));
 }
@@ -319,9 +319,18 @@ function soilOf(s: MapSession): SoilView {
 function underRoofs(s: MapSession, soil: SoilView, run?: WeatherRun): SoilView {
   const roofed = s.roofedTiles;
   if (!roofed.size || s.showsStoredWater) return soil;
-  // (the file's soil is two whole-map strings to read, 20 to 45 ms at 256²: a run reads it once)
   const file = run ? (run.fileSoil ??= s.storedSoil()) : s.storedSoil();
-  return soilUnderRoofs(soil, roofed, file);
+  return withRuns(s, soilUnderRoofs(soil, roofed, file));
+}
+
+/** A map with terrain above terrain: the soil of every run top below its tile's top (a cave's floor, a ledge under an
+ *  overhang), the file's own per run as the export keeps it (3D view, part 3), on the columns as they stand. */
+function withRuns(s: MapSession, soil: SoilView): SoilView {
+  const cols = s.columns;
+  if (!cols.size) return soil;
+  const file = s.storedSoilRuns();
+  soil.runs = runSoilView(cols, s.size.x * s.size.y, file.moisture, file.contamination);
+  return soil;
 }
 
 /** What the sent soil depends on: the settled soil arrays, or the file's. */
