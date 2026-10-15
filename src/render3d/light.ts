@@ -72,10 +72,22 @@ export function skyAt(W: number, H: number, heights: Uint8Array, x: number, y: n
   return Math.round(255 * Math.max(0, 1 - (occ / SKY_DIRS.length) * 0.9));
 }
 
+/** The level each tile's tallest caster stands on (`objectCasters`' arrays): on a tile with terrain above terrain, the
+ *  run whose top it stands on casts it (a tree on a cave's floor casts from the floor, not the roof). */
+const casterLevels = new WeakMap<Float32Array, Uint8Array>();
+
+/** The run top a tile's caster stands on (null: not known, the column's highest). */
+function casterLevel(casters: Float32Array, i: number): number | null {
+  const levels = casterLevels.get(casters);
+  return levels ? levels[i] : null;
+}
+
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
   const out = new Float32Array(W * H);
+  const levels = new Uint8Array(W * H);
+  casterLevels.set(out, levels);
   const tall: Record<string, number> = { Pine: 1.35, Oak: 1.2, Birch: 1.15, Succulent: 0.5, StartingLocation: 2.2 };
   for (let k = 0; k < e.count; k++) {
     const t = e.templates[e.template[k]];
@@ -90,7 +102,10 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
     if (f & DEAD) add *= t === "StartingLocation" ? 1 : 0.35;
     if (f & YOUNG) add *= 0.5;
     const i = y * W + x;
-    if (add > out[i]) out[i] = add;
+    if (add > out[i]) {
+      out[i] = add;
+      levels[i] = Math.max(0, e.z[k]);
+    }
   }
   return out;
 }
@@ -117,7 +132,9 @@ export function shadowTopsInto(out: Float32Array, W: number, H: number, heights:
   const occ = rock
     ? (sx: number, sy: number): number => {
         const i = Math.floor(sy / R) * W + Math.floor(sx / R);
-        return rock.flag[i] ? rock.bottom[i] : heights[i] + (casters ? casters[i] : 0);
+        if (!rock.flag[i]) return heights[i] + (casters ? casters[i] : 0);
+        // (an object on the run from the map's floor casts from it)
+        return rock.bottom[i] + (casters && casters[i] && casterLevel(casters, i) === rock.bottom[i] ? casters[i] : 0);
       }
     : (sx: number, sy: number): number => {
         const i = Math.floor(sy / R) * W + Math.floor(sx / R);
@@ -246,6 +263,7 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
   const ty1 = ((sy + J) >> 1) + 1;
   if (S[ty1 * W1 + tx1] - S[ty0 * W1 + tx1] - S[ty1 * W1 + tx0] + S[ty0 * W1 + tx0] === 0) return;
   const { flag, first, count, runs } = rock;
+  const levels = casters ? casterLevels.get(casters) : undefined;
   let nHi = 0;
   let nLo = 0;
   for (let j = 1; j <= J; j++) {
@@ -257,7 +275,9 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
     const r1 = r0 + 2 * count[i];
     for (let k = r0; k < r1; k += 2) {
       const lo = runs[k];
-      const hi = runs[k + 1] + (casters !== null && k === r1 - 2 ? casters[i] : 0);
+      // (an object casts from the run it stands on: the one whose top is its level, or, not known, the highest)
+      const on = levels ? runs[k + 1] === levels[i] : k === r1 - 2;
+      const hi = runs[k + 1] + (casters !== null && on ? casters[i] : 0);
       if (hi - fallHi > baseHi) {
         if (nHi + 2 > spansHi.length) spansHi = grow(spansHi);
         spansHi[nHi++] = lo - fallHi;
@@ -274,7 +294,7 @@ function voxelTops(out: Float64Array, sx: number, sy: number, baseHi: number, ba
   if (nLo) out[1] = pieceTop(spansLo, nLo, baseLo, h);
 }
 
-/** The highest any run above air reaches, with the objects standing on it: rays need not look further. */
+/** At least the highest any run above air reaches, with the objects standing on it: rays need not look further. */
 function rockBound(rock: ShadowRock, casters: Float32Array | null): number {
   let bound = -SHADOW_OFFSET;
   for (const i of rock.tiles) {

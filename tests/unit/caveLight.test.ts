@@ -188,7 +188,7 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
   /** Whether the sweep's ray from sample (sx, sy) at height z, for the sun at `elevation`, meets rock: the samples it
    *  crosses toward the sun (one west and one north a step), each a step's drop higher, as the sweep carries the shadow;
    *  null where it grazes a level's boundary (the bytes' rounding decides there). */
-  function rayShaded(src: TerrainSource, casters: Float32Array | null, sx: number, sy: number, z: number, elevation: number): boolean | null {
+  function rayShaded(src: TerrainSource, casters: Float32Array | null, levels: Map<number, number>, sx: number, sy: number, z: number, elevation: number): boolean | null {
     const R = SHADOW_RES;
     const drop = (Math.SQRT2 / R) * Math.tan(elevation);
     let near = false;
@@ -209,7 +209,9 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
           while (k < LAYERS && c[k]) k++;
           runs.push([lo === 0 ? -99 : lo, k]);
         }
-        if (casters && runs.length) runs[runs.length - 1][1] += casters[i];
+        // (an object casts from the run it stands on)
+        const on = runs.find(([, hi]) => hi === levels.get(i));
+        if (casters && on) on[1] += casters[i];
       }
       for (const [lo, hi] of runs) {
         if (Math.min(Math.abs(h - lo), Math.abs(h - hi)) < 0.15) near = true;
@@ -233,8 +235,11 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
     if (x >= 12 && x <= 16 && y >= 8 && y <= 10) return z >= 12 && z < 14;
     return false;
   });
-  const entities = { count: 2, templates: ["Pine"], owners: [], template: new Uint16Array([0, 0]), x: new Int16Array([14, 26]), y: new Int16Array([21, 13]), z: new Int16Array([11, 8]), orientation: new Uint8Array(2), flags: new Uint8Array([0, DEAD]), owner: new Uint16Array(2), variant: new Uint8Array(2), strength: new Float32Array(2), ids: [] } as unknown as EntityView;
+  // pines on the overhang's roof and on the arch, and one on the ground under the overhang (the floor's run)
+  const trees: [number, number, number, number][] = [[14, 21, 11, 0], [26, 13, 8, DEAD], [16, 22, ground(16, 22), 0]];
+  const entities = { count: trees.length, templates: ["Pine"], owners: [], template: new Uint16Array(trees.length), x: Int16Array.from(trees, (t) => t[0]), y: Int16Array.from(trees, (t) => t[1]), z: Int16Array.from(trees, (t) => t[2]), orientation: new Uint8Array(trees.length), flags: Uint8Array.from(trees, (t) => t[3]), owner: new Uint16Array(trees.length), variant: new Uint8Array(trees.length), strength: new Float32Array(trees.length), ids: [] } as unknown as EntityView;
   const casters = objectCasters(W, H, entities);
+  const levels = new Map(trees.map(([x, y, z]) => [y * W + x, z]));
   const rock = shadowRock(W, H, src.columns)!;
 
   it("open ground lies in shadow exactly where the sweep's ray through the voxels meets rock", () => {
@@ -251,7 +256,7 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
         const k = sy * W * SHADOW_RES + sx;
         if (bytes[k * 4] !== plain[k * 4]) differ++;
         for (const [ch, elevation] of [[0, LIGHT.sunElevation + LIGHT.penumbra], [1, LIGHT.sunElevation - LIGHT.penumbra]] as const) {
-          const shaded = rayShaded(src, casters, sx, sy, z, elevation);
+          const shaded = rayShaded(src, casters, levels, sx, sy, z, elevation);
           if (shaded === null) continue;
           checked++;
           expect(z < decodeTop(bytes[k * 4 + ch]), `sample ${sx},${sy} (${ch ? "low" : "high"} sun)`).toBe(shaded);
@@ -262,6 +267,14 @@ describe("Standard's baked shadow on a terrain with roofs (3D view, item 8)", ()
     expect(checked).toBeGreaterThan(4000);
     expect(underRoof, "ground lit under an overhang, an arch or a floating run").toBeGreaterThan(40);
     expect(differ).toBeGreaterThan(0);
+  });
+
+  it("a tree on a cave's floor casts from the floor, not from the roof over it", () => {
+    const floorTree = shadowMap(W, H, src.heights, casters, undefined, rock);
+    const roofed = trees.map((t, k): [number, number, number, number] => (k === 2 ? [t[0], t[1], 11, t[3]] : t));
+    const onRoof = objectCasters(W, H, { ...entities, z: Int16Array.from(roofed, (t) => t[2]) } as unknown as EntityView);
+    const roofTree = shadowMap(W, H, src.heights, onRoof, undefined, rock);
+    expect(Buffer.from(floorTree).equals(Buffer.from(roofTree))).toBe(false);
   });
 
   it("redoing the samples round an edit gives the bytes of baking the whole map again", () => {

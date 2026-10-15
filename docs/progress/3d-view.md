@@ -236,8 +236,8 @@ Standard's shadow before a cave (item 8).
   near-black: deep floors at 0.55 of the sky (0.30 before), about 0.6 of the open ground's shade.
 - **Objects and falls under a roof** (trees, bushes, ruins, sources, slopes, the ghosts; falls): the light of the air
   they stand in, from the same volume (`materials.ts` `CAVE_POINT`: `caveAirAt`, `roofedSky`): the whole sky at a
-  mouth, as in open air, the cave's least deep in; the sun the volume's (High: its soft shadow of the real meshes,
-  `ShaderHooks.roofedSun`). The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
+  mouth, as in open air, the cave's least deep in; the sun the open air's at a mouth, fading going in to the volume's
+  (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`), as the ground's does at the roof line. The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
   `setCaveBranch`, on the objects' and falls' materials of both looks); every other map draws them with the same
   program as before. Objects still take their tile's top soil (a ruin's ivy, plants' looks).
 - **Standard's baked shadow from the voxels (item 8):** on a map with terrain above terrain the sweep (`light.ts`
@@ -245,7 +245,8 @@ Standard's shadow before a cave (item 8).
   above air are added along each sample's ray, lowered as the sweep lowers a height (`shadowRock`, `voxelTops`): of
   the shadow's pieces, the one the sample's ground lies in gives its top, and ground lit through a gap takes the top
   of the highest piece below it. So the sun reaches ground under an overhang, through an arch and under a floating run
-  as in High and as a ray through the voxels finds it. A tile with terrain above terrain is judged at its lowest floor
+  as in High and as a ray through the voxels finds it. An object casts from the run it stands on (`objectCasters`
+  keeps each tile's caster level): a tree on a cave's floor casts from the floor, not the roof. A tile with terrain above terrain is judged at its lowest floor
   (the level its cave opens onto the ground beside it, where the filtered shadow map blends the two). A map without
   terrain above terrain has no rock: its shadows are the heightfield's, byte for byte (the code is not entered).
 - **Tests:** `caveLight.test.ts`: on a terrain with an overhang, an arch and a floating run (and trees on two roofs),
@@ -270,6 +271,11 @@ Standard's shadow before a cave (item 8).
 - **Falls short:** water under roofs keeps the open sky's light (item 4); deep interiors are murky by choice, and stone
   in shade is dark in both looks (an open cliff in shade is as dark); objects' looks by soil under roofs are their
   tile top's.
+- **Known limits:** the shadow map keeps one top a sample, so a cliff face inside an overhang's shadow can show lit
+  above a lit gap below it (the ground itself is right). The objects' and falls' `CAVES` branch is set when a map
+  opens (`setMap`), so a map whose first roof is made by an edit lights them as open air until it is opened again:
+  it matters once step 3 ("creating them") ships, and is set there with the light volume, which is built at the same
+  moment.
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 

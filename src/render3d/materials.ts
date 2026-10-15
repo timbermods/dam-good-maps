@@ -527,10 +527,15 @@ const CAVE_POINT = /* glsl */ `
         if (!roofedAir(floor(q))) return vec3(1.0, 1.0, 0.0);
         return vec3(textureLod(caveTex, q / caveSize, 0.0).rg, 1.0);
       }
-      /** An object's share of the sky under a roof: all of it at a mouth, where the volume holds the open ground's sky
-       *  (as in open air, where an object takes the whole sky), a cave's least deep in. */
+      /** How far into a cave a point's air is, from its sky: 0 at a mouth, where the volume holds the open ground's sky,
+       *  1 deep in. */
+      float roofedDeep(float sky) {
+        return 1.0 - smoothstep(${f(CAVE_SKY_FLOOR)}, 0.8, sky);
+      }
+      /** An object's share of the sky under a roof: all of it at a mouth (as in open air, where an object takes the
+       *  whole sky), a cave's least deep in. */
       float roofedSky(float sky) {
-        return mix(${f(CAVE_SKY_FLOOR)}, 1.0, smoothstep(${f(CAVE_SKY_FLOOR)}, 0.8, sky));
+        return mix(1.0, ${f(CAVE_SKY_FLOOR)}, roofedDeep(sky));
       }
       #endif`;
 
@@ -1718,7 +1723,8 @@ ${hook(h, "fallVertex")}        vNormal = n;
         #ifdef CAVES
           // a fall under a roof: the light of the air it pours through
           vec3 cave = caveAirAt(vWorld);
-          if (cave.z > 0.5) light = skyColor * 1.15 * roofedSky(cave.x) + sunColor * 0.4 * max(dot(N, sunDir), 0.0) * ${hook(h, "roofedSun", "cave.y")};
+          // (the sun the open air's at a mouth, fading to the cave's own going in, as the ground's does)
+          if (cave.z > 0.5) light = skyColor * 1.15 * roofedSky(cave.x) + sunColor * 0.4 * max(dot(N, sunDir), 0.0) * mix(lit, ${hook(h, "roofedSun", "cave.y")}, roofedDeep(cave.x));
         #endif
         float strength = clamp(sqrt(flow), 0.25, 1.6);
         float weak = smoothstep(0.05, 0.45, flow);
@@ -1981,7 +1987,8 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the light of the air it
           // stands in, as the ground round it takes it (roofedSky), deeper in never below a cave's least
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao * max(${f(CAVE_SKY_FLOOR)} * (1.0 - smoothstep(${f(CAVE_SKY_FLOOR)}, 0.8, cave.x)), ${hook(h, "skyLight")}roofedSky(cave.x)) + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "cave.y")};
+          // (the sun the open air's at a mouth, fading to the cave's own going in, as the ground's does)
+          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao * max(${f(CAVE_SKY_FLOOR)} * roofedDeep(cave.x), ${hook(h, "skyLight")}roofedSky(cave.x)) + sunColor * 0.5 * ndl * mix(lit, ${hook(h, "roofedSun", "cave.y")}, roofedDeep(cave.x));
         #endif
         gl_FragColor = vec4(finish(${hook(h, "objectFinal", "vColor * light")}, vWorld), 1.0);
       }
