@@ -1,7 +1,8 @@
-// The level-slice cutaway's shader branch (3D view, part 6; D207): it is compiled only on a map with terrain above
-// terrain, which no other spec opens. A 12² map with a roofed block, cut through its cave, draws in Standard and in
-// High with no shader error and with the terrain on screen. (Software drawing on CI is treated as a GPU, as
-// rendererWarmup.spec does, so the High look's program is checked there too.)
+// The terrain's branches for terrain above terrain (3D view, parts 6 and 3; D207): the level-slice cutaway and the
+// soil per run top are compiled only on a map with terrain above terrain, which no other spec opens. A 12² map with a
+// roofed block, its cave's floor with its own soil, cut through its cave, draws in Standard and in High with no shader
+// error and with the terrain on screen. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec does, so
+// the High look's program is checked there too.)
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
@@ -13,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("a map with a cave, cut through it, draws in Standard and High with the cutaway's branch compiled", async ({ page }) => {
+test("a map with a cave, cut through it, draws in Standard and High with the cutaway's and the run soil's branches compiled", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
@@ -44,12 +45,15 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
       });
       const none = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
       const entities = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
-      r.setMap({ W, H: W, heights, columns: { tiles: Int32Array.from(tiles), voxels }, water: none, entities } as unknown as Parameters<R["setMap"]>[0]);
+      // (the soil per run top: the cave's floor at level 2 moist, its west row contaminated, under a dry roof)
+      const runs = { tile: Int32Array.from(tiles), level: new Uint8Array(tiles.length).fill(2), moisture: new Uint8Array(tiles.length).fill(200), contamination: Uint8Array.from(tiles, (i) => (i % W === 4 ? 255 : 0)) };
+      const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W), runs };
+      r.setMap({ W, H: W, heights, columns: { tiles: Int32Array.from(tiles), voxels }, water: none, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
       r.setSlice(3);
       r.setClock(12.5);
       r.resetView();
       r.renderNow();
-      const internals = r as unknown as { std: { terrain: { defines: Record<string, number> } }; gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext } };
+      const internals = r as unknown as { std: { terrain: { defines: Record<string, number>; needsUpdate: boolean } }; gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext } };
       const g = internals.gl.getContext();
       const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
       g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
@@ -65,15 +69,27 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
           if (px[o] >= px[o + 2] || px[o + 1] > px[o + 2] + 10) ground++;
         }
       const broken = (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name);
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, slice: r.slice, ground: ground / seen, broken };
+      // the light look (software drawing) with both branches: its program compiled too (forced here: CI's software drawing is
+      // treated as a GPU above, and a GPU never draws it)
+      let lite: { LITE: number; broken: string[] } | null = null;
+      if (lk === "standard") {
+        const t = internals.std.terrain;
+        t.defines.LITE = 1;
+        t.needsUpdate = true;
+        r.renderNow();
+        lite = { LITE: t.defines.LITE, broken: (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name) };
+      }
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slice: r.slice, ground: ground / seen, broken, lite };
       r.dispose();
       host.remove();
       return result;
     }, look);
     expect(out.look, look).toBe(look);
     expect(out.cutaway, look).toBe(1);
+    expect(out.runSoil, `${look}: the soil per run top's branch`).toBe(1);
     expect(out.slice, look).toBe(3);
     expect(out.broken, look).toEqual([]);
+    if (look === "standard") expect(out.lite, "the light look's program with both branches").toEqual({ LITE: 1, broken: [] });
     expect(out.ground, `${look}: the terrain draws`).toBeGreaterThan(0.5);
   }
   expect(errors).toEqual([]);

@@ -19,7 +19,7 @@ import { ERODE_SIZE_MAX, ERODE_SIZE_MIN } from "../core/forces/settings";
 import { DEPOSIT_DEFAULTS, DEPOSIT_SIZE_MAX, DEPOSIT_SIZE_MIN, depositWidth, type DepositSettings } from "../core/forces/deposit";
 import { type ForceStatus } from "./forceDriver";
 import { FloorSetting, MODE_TITLES, SIZE_KEYS, STRENGTH_KEYS, type Force } from "./TopBar";
-import { ButtonSetting, ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
+import { ChoiceSetting, NumberSetting, OnOffSetting, SettingsGrid, Words } from "./settings";
 import { tip } from "../ui/Tooltip";
 
 /** A force's Sources (Kyler, 2026-10-05): the sources it reaches ride with the ground, or it removes them (the
@@ -187,9 +187,31 @@ function power(verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "de
   return <NumberSetting label="Power" title={title} keys={STRENGTH_KEYS} value={value} words={String(value)} min={0} max={100} step={5} onChange={onChange} />;
 }
 
-/** Try another: always in its place, ready once a run is kept. */
-function again(p: { canAgain: boolean; onAgain(): void }, what: string) {
-  return <ButtonSetting label="Try another" title={`Another ${what}, same land`} disabled={!p.canAgain} onClick={p.onAgain} />;
+/** Try another: always in its place, ready once a run is kept, its size and place never changing; with its rolls
+ *  on offer (D488), "2 of 4" in its own space just above the panel over it, a click showing the next. */
+export function again(p: { canAgain: boolean; onAgain(): void; rolls?: { shown: number; count: number } | null; onRoll?(): void }, title: string) {
+  const r = p.rolls;
+  return (
+    <div class="set again">
+      <button type="button" class="set-button" disabled={!p.canAgain} {...tip(title)} onClick={p.onAgain}>
+        Try another
+      </button>
+      {r && p.onRoll ? (
+        <span class="rolls-tab">
+          <RollsButton rolls={r} onRoll={p.onRoll} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** "2 of 4": which of a force's rolls is shown (D488); a click shows the next. */
+export function RollsButton(p: { rolls: { shown: number; count: number }; onRoll(): void; class?: string }) {
+  return (
+    <button type="button" class={`set-button rolls${p.class ? ` ${p.class}` : ""}`} aria-label={`Roll ${p.rolls.shown} of ${p.rolls.count}`} {...tip("Show the next roll", "Tab", "Shift+Tab back")} onClick={p.onRoll}>
+      {p.rolls.shown} of {p.rolls.count}
+    </button>
+  );
 }
 
 /** A force's Size: following Power (Auto) until the player sets it. */
@@ -204,6 +226,9 @@ export interface RowProps<U, S> {
   /** Try another is there. */
   canAgain: boolean;
   onAgain(): void;
+  /** Its rolls on offer (D488), and showing the next. */
+  rolls?: { shown: number; count: number } | null;
+  onRoll?(): void;
   /** The settings the last run actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: S | null;
 }
@@ -284,7 +309,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
         { key: "rays", row: 2, at: 4, span: 3, node: <OnOffSetting label="Rays" title="Streaks of debris" off="No streaks of debris" on={rays} onChange={(v) => set({ rays: v })} auto={{ on: u.rays === null, onAuto: (on) => set({ rays: on ? null : rays }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "impact") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another impact, same land") },
       ]}
     />
   );
@@ -366,7 +391,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
         { key: "ridges", row: 2, at: 4, span: 3, node: <OnOffSetting label="Ridges" title="Ridges down its sides" off="No ridges down its sides" on={ridges} onChange={(v) => set({ ridges: v })} auto={{ on: u.ridges === null, onAuto: (on) => set({ ridges: on ? null : ridges }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "eruption") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another eruption, same land") },
       ]}
     />
   );
@@ -436,7 +461,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
         },
         { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "quake") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another quake, same land") },
       ]}
     />
   );
@@ -502,7 +527,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
         { key: "scree", row: 2, at: 4, span: 3, node: <OnOffSetting label="Scree" title="Fallen rock at the walls' feet" off="No fallen rock at the walls' feet" on={scree} onChange={(v) => set({ scree: v })} auto={{ on: u.scree === null, onAuto: (on) => set({ scree: on ? null : scree }) }} /> },
         { key: "floor", row: 2, at: 7, span: 3, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "glacier") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another glacier, same land") },
       ]}
     />
   );
@@ -542,7 +567,7 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
         },
         { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "rift") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another rift, same land") },
       ]}
     />
   );
@@ -582,7 +607,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
         },
         { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 12, span: 2, node: again(p, "fan") },
+        { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another fan, same land") },
       ]}
     />
   );

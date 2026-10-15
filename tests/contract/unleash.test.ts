@@ -128,15 +128,14 @@ describe("Unleash, on a source (D239)", () => {
     expect(Array.from(s1.built.heights)).not.toEqual(heights0);
     // it replays the same land
     expect(Array.from(MapSession.open(decodeProject(s1.project())).built.heights)).toEqual(Array.from(s1.built.heights));
-    // Try another: another course, replacing it; undo brings the first back
+    // Try another: another course, another roll of its one step (D488); undo takes the step back whole
     const again = ed.forceAgain();
     expect(again.errors).toEqual([]);
     for (let k = 0; k < 300; k++) if (ed.forceAdvance(4)!.done) break;
     expect(ed.forceStop().kept).toBe(true);
     const s2 = open();
-    expect(s2.history().at(-1)!.label).toBe("Try another course");
-    expect(s2.history().filter((h) => h.applied).length).toBe(n0 + 2);
-    ed.undo();
+    expect(ed.sessionInfo().history.filter((h) => h.applied).at(-1)!.label).toBe("Unleash a source, roll 2");
+    expect(s2.history().filter((h) => h.applied).length).toBe(n0 + 1);
     ed.undo();
     expect(Array.from(open().built.heights)).toEqual(heights0);
 

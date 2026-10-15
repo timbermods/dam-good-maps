@@ -94,12 +94,12 @@ test("Glaciate's details (D309): its benches, steps, tarn and scree, each on Aut
   expect(await tarnOn()).toBe(!tarn);
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Glaciate, roll 2");
   expect(await tarnOn()).toBe(!tarn);
   await expect(details.getByRole("button", { name: "Tarn follows the land" })).toHaveAttribute("aria-pressed", "false");
 });
 
-test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Ctrl+Z takes it back at once; Try another varies it and undo brings the first back", async ({ page }) => {
+test("a click Flows at once, the camera still (D265); kept as one step exactly as shown; Ctrl+Z takes it back at once; Try another varies it, Shift+Tab shows the first again and undo takes the step back", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("Shift+Digit7");
   const at = await high(page);
@@ -143,14 +143,15 @@ test("a click Flows at once, the camera still (D265); kept as one step exactly a
   // Try another: the same glacier from the same land, another way
   await page.getByRole("group", { name: "Glaciate options" }).getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Glaciate, roll 2");
   const second = await heights(page);
   let differ = 0;
   for (let i = 0; i < second.length; i++) if (second[i] !== first[i]) differ++;
   expect(differ).toBeGreaterThan(30);
-  await page.keyboard.press("Control+z");
+  // Shift+Tab: the first roll, exactly (D488); undo: the land before it, the step whole
+  await page.keyboard.press("Shift+Tab");
   await idle(page);
-  expect(await heights(page)).toEqual(first);
+  await expect.poll(() => heights(page)).toEqual(first);
   await page.keyboard.press("Control+z");
   await idle(page);
   expect(await heights(page)).toEqual(before);

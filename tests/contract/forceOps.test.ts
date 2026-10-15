@@ -1,6 +1,6 @@
 // The four forces in the document and the editor's worker (PLAN §20 D202, D203, D206, D219, D220):
 // each force is one `forceResult` operation, one undo step, stored literally, so it replays to the
-// same bytes; Esc drops all of it; Try another replaces it and undo brings the earlier one back; a
+// same bytes; Esc drops all of it; Try another makes another roll of its one step (D488); a
 // force keeps what the page showed; forces, brushes and placements share one history, the project
 // file (format 3) and the .timber export. (A carve saved as the carve operation of before opens as
 // this one: carvesBeforeD220.test.ts.)
@@ -72,7 +72,7 @@ function run(req: ed.ForceRequest, shown: { h: Uint8Array }) {
 }
 
 describe("the forces at work in the editor's worker (D202, D203, D206, D219)", () => {
-  it("each force frames as it runs, Esc drops all of it, its end keeps it as one step exactly as shown, and Try another replaces it", async () => {
+  it("each force frames as it runs, Esc drops all of it, its end keeps it as one step exactly as shown, and Try another makes another roll of it", async () => {
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
@@ -108,17 +108,17 @@ describe("the forces at work in the editor's worker (D202, D203, D206, D219)", (
       expect(Array.from(first), name).toEqual(Array.from(shown.h));
       expect(Array.from(first), name).not.toEqual(Array.from(before));
       expect(kept.info.forceAgain).toBe(req.verb);
-      // Try another: the same force from the same land, the next seed; it replaces the first
+      // Try another: the same force from the same land, the next seed; another roll of its one step (D488)
       const again = ed.forceAgain();
       expect(again.errors, name).toEqual([]);
       expect(again.verb).toBe(req.verb);
       expect(again.settings!.seed).toBe((req.settings.seed ?? 0) + 1);
       for (let k = 0; k < 400 && !ed.forceAdvance(4)!.done; k++);
       expect(ed.forceStop().kept).toBe(true);
-      expect(lastOp().label, name).toMatch(/^Try another$/);
-      expect(history().length).toBe(n0 + 2);
-      // undo: the first, exactly; again: the land before it
-      ed.undo();
+      expect(lastOp().label, name).toMatch(/, roll 2$/);
+      expect(history().length).toBe(n0 + 1);
+      // the first roll again, exactly; undo: the land before it, the step whole
+      expect(ed.forceRoll({ step: -1 }).ok, name).toBe(true);
       expect(Array.from(ed.terrainNow().heights), name).toEqual(Array.from(first));
       ed.undo();
       expect(Array.from(ed.terrainNow().heights), name).toEqual(Array.from(before));
