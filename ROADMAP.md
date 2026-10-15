@@ -947,7 +947,8 @@ At the end of step 1, after the Weather view. Any width and height from the game
 side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
 boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
 down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
-with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
+with the map while the absolutes never relax. Generating beyond 256 a side waits (D488): its shapes, curves at 512²
+(rivers, coasts, Delta's arms) and its speed are later work; unusual shapes up to 256 come first. What grows with area may take longer beyond the standard sizes; what the
 player feels stays at the standard. The camera and minimap fit any shape. Beyond
 256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
 refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
@@ -986,11 +987,24 @@ reported. PLAN §20 D357 has the whole decision.
   walks the whole map on the page's thread (`surfaceWater`, `waterMovedChunks`, and the arrays copied to the water workers),
   about 6 ms at 512x512 while painting; making it proportional to the change needs the worker's water updates to name the
   tiles that changed. There is no cave light volume (`caveLight.ts`) in the tree yet; it needs its own check at 512x512 when it lands.
-- **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
-  and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
-  side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs
-  floor, a start with its water), refused below that with its one-line reason; the size stays choosable from 4 for a map
-  shaped by hand (D357). 512² may take minutes to generate (D357), but the page never freezes and shows progress (D453).
+- **Part 2 (`feature/custom-sizes-2`):** the generator uses the shape, from its floor to 256 a side (D488: sizes above 256
+  wait, since the game's editor can't open them; they open, edit and export as part 1 made them). A map 1.5 times as long
+  as wide or more is a long map (`src/core/land/shape.ts`): its land falls along its length as steeply per tile as a
+  square map's across it, and at least half as far as its broad highs and noise rise; it is worn toward its far end; its
+  river enters at its near end and its water's way keeps off the long sides to the far end; so River Valley, Canyon,
+  Highlands, Delta and Any get a river down the length (Delta's fan in its last stretch, about as long as the map is
+  wide); Lake Basin's lake runs down it; Islands is a chain of islands down it from a mainland at one end that runs on
+  as a shore half as deep along one side (a long Islands land whose sea drains is drawn again); the start leans to the middle (River Valley, Lake
+  Basin, Highlands, Any) or an end (Canyon, Delta, Islands), a lean the land's own places for a start can outweigh. Square
+  and near-square maps are drawn as before: the standard sizes are byte-identical. The floor is 48 a side for every
+  theme but Islands, 64 (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`: at 40² the default settings make maps but the
+  panel's extremes don't, D471, and at 48² the every-setting sweep passes; under 64 wide Islands' sea gets no river and
+  drains), refused below it at once with "Canyon needs at least 48 tiles a side to generate"; the size stays choosable from 4 for a map shaped by hand. A map that is not square no longer loses half its
+  land when its orientation turns it half round (`land/orient.ts`). The field's parts visit only the tiles they reach,
+  byte-identical and quicker on large maps. Smoke: `tools/size-smoke.ts --thumbs`, laid out by `tools/size-sheet.py`
+  (`docs/sheets/custom-sizes-2.png`). Out of scope: Islands' slowness on some odd sizes (its spring retries settle the
+  whole map again) and the start's lean, a preference the land can outweigh. Next: the named shapes in the size
+  setting, a layout question for the page.
 
 ## The dam sketch tool (D383)
 

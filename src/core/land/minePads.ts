@@ -111,8 +111,27 @@ function ownSquares(h: Uint8Array, W: number, H: number, opts: SiteOptions & { f
   const own = levelSquares(h, W, H, land, blocked).filter((c) => land[c] === root && far(c));
   own.sort((a, b) => (sd[a] >= opts.far ? 0 : 1) - (sd[b] >= opts.far ? 0 : 1) || a - b);
   // (a few tiles apart: every square stands within three of one of these)
+  // (each kept square in a grid of 4-tile cells, so a square is held against its neighbours' only:
+  // the same squares as against every one, without the cost growing with the area's square, D357)
   const few: number[] = [];
-  for (const c of own) if (few.every((t) => chebyshev(t, c, W) >= 4)) few.push(c);
+  const GW = Math.ceil(W / 4);
+  const grid = new Map<number, number[]>();
+  for (const c of own) {
+    const gx = Math.floor((c % W) / 4);
+    const gy = Math.floor(Math.floor(c / W) / 4);
+    let clear = true;
+    for (let dy = -1; dy <= 1 && clear; dy++)
+      for (let dx = -1; dx <= 1 && clear; dx++) {
+        const cell = grid.get((gy + dy) * GW + gx + dx);
+        if (cell && gx + dx >= 0 && gx + dx < GW && cell.some((t) => chebyshev(t, c, W) < 4)) clear = false;
+      }
+    if (!clear) continue;
+    few.push(c);
+    const k = gy * GW + gx;
+    const cell = grid.get(k);
+    if (cell) cell.push(c);
+    else grid.set(k, [c]);
+  }
   for (const c of few) if (taken.length < opts.want && taken.every((t) => chebyshev(t, c, W) >= APART)) taken.push(c);
   // (two apart where the first taken leaves none: any pair far enough apart)
   if (opts.want === 2 && taken.length < 2)
