@@ -5,9 +5,8 @@
 // so a grove is not one flat colour.
 //
 // - Trees by species: pine (tiers of dark cones), birch (a white trunk with dark marks and a light
-//   crown), oak (a thick trunk and a broad crown), succulent (a fat brown pinecone-like trunk with pale sage lens-shaped pads fanning out round its
-//   crown, and a young plant beside it). Dead
-//   trees are bare: a pale grey-brown trunk and bare branches at the tree's true size, far lighter
+//   crown), oak (a thick trunk and a broad crown), succulent (a fat brown pinecone-like trunk ringed by round sage paddles on its
+//   upper half, and a young plant beside it). Dead trees are bare: a pale grey-brown trunk and bare branches at the tree's true size, far lighter
 //   than the dark living crowns.
 // - Berry bushes: dark green, dotted with blue flowers.
 // - Ruins (Kyler's rounds, D178): ruined scaffold towers, one column per tile and one storey per
@@ -436,13 +435,13 @@ const SAGE: Rgb = [0.45, 0.63, 0.36];
 const BLUSH: Rgb = [0.86, 0.42, 0.38];
 
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
- *  the crown, in four rings of two close browns like scales; six pale sage lens-shaped pads fanning out
- *  round its crown, each blushing pink-red at its top rim vertex only; and a young plant beside it, two
- *  of the same pads. Dead: a grey-tan trunk and three limp tan pads. At most 144 triangles. */
+ *  the crown, in four rings of two close browns like scales; seven round sage paddles on its upper half, near
+ *  level and reaching about twice its radius, each blushing pink-red at its outer tip; and a young plant
+ *  beside it, a small rosette of four pads. Dead: a grey-tan trunk and three limp tan pads. At most 180 triangles. */
 function succulent(dead: boolean): Model {
   const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
   const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
-  const cx = dead ? 0 : 0.1;
+  const cx = dead ? 0 : 0.03;
   const m = new Model();
   const rings: [number, number][] = [[0.13, 0.22], [0.22, 0.25], [0.25, 0.2], [0.2, 0.1]];
   rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.19, 6), k % 2 ? dark : mid, { x: cx, y: 0.095 + 0.19 * k, ry: 0.3 * k }));
@@ -467,13 +466,21 @@ function succulent(dead: boolean): Model {
     for (const [a, t] of [[0.4, 0.9], [2.6, 0.8], [4.6, 1.0]]) pad(cx + Math.cos(a) * 0.1, 0.74, -Math.sin(a) * 0.1, a, t, 0.15, 0.1);
     return m;
   }
-  // the crown: six round pads splayed wide and low round the trunk's top, about twice its width across
-  for (let k = 0; k < 6; k++) {
-    const a = k * 1.05 + 0.2;
-    pad(cx + Math.cos(a) * 0.08, 0.76, -Math.sin(a) * 0.08, a, k % 2 ? 0.6 : 0.42, k % 2 ? 0.15 : 0.165, k % 2 ? 0.11 : 0.12);
+  // round paddles on the upper half of the trunk, near level, reaching about twice its radius: four round its
+  // middle, three higher up and steeper, so its outline is a pinecone ringed by green paddles
+  for (let k = 0; k < 4; k++) {
+    const a = k * (Math.PI / 2) + 0.4;
+    pad(cx + Math.cos(a) * 0.2, 0.5, -Math.sin(a) * 0.2, a, 0.22, 0.115, 0.105);
   }
-  // the young plant: two pads straight from the ground, leaning apart
-  for (const [a, t] of [[0.5, 1.0], [3.4, 0.9]]) pad(-0.33 + Math.cos(a) * 0.03, 0.02, 0.1 - Math.sin(a) * 0.03, a, t, 0.14, 0.09);
+  for (let k = 0; k < 3; k++) {
+    const a = k * ((2 * Math.PI) / 3) + 1.2;
+    pad(cx + Math.cos(a) * 0.09, 0.74, -Math.sin(a) * 0.09, a, 0.6, 0.12, 0.11);
+  }
+  // the young plant beside it: a small rosette of four pads from the ground
+  for (let k = 0; k < 4; k++) {
+    const a = k * (Math.PI / 2) + 0.8;
+    pad(-0.3 + Math.cos(a) * 0.02, 0.02, 0.28 - Math.sin(a) * 0.02, a, 0.7, 0.07, 0.065);
+  }
   return m;
 }
 
