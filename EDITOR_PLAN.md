@@ -1049,6 +1049,11 @@ checks dot counts; every other row is information under Good to know, worded as 
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
   export; the warning is noted in the map description.
+- **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
+  Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
+  "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
+  place stays in the row's words as "X 105 · Y 7 · Z 11" (the validate README's rule), and a berry bush is a "berry bush"
+  there too.
 - **Edge walls warn on an edited map** (D323, item 12; D151 still holds for the generator and Real places):
   `terrain.edge_wall` is a warning on the quiet dot, never a block on a save, with the one-click fix **Lower the
   wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in
