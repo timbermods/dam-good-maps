@@ -194,7 +194,7 @@ export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
 export const SELECT_TIP = tip("Mark an area to change", "1");
 /** The Block tool, on the tools row after the brushes (D335; key 7). */
-export const BLOCK_TIP = tip("Add or carve blocks", "7");
+export const BLOCK_TIP = tip("Add or remove blocks", "7");
 
 export interface TopBarProps {
   /** The brush out, or null. */
@@ -203,7 +203,7 @@ export interface TopBarProps {
   /** The Block tool is out (D335), its settings and where they change. */
   block?: boolean;
   blockSettings?: BlockSettings;
-  /** Shift is down: Add and Carve trade places for a click. */
+  /** Shift is down: Add and Remove trade places for a click. */
   blockFlip?: boolean;
   onBlockSettings?(s: BlockSettings): void;
   onPick(tool: TopTool | null): void;
@@ -418,7 +418,7 @@ function blockGroups(s: BlockSettings, set: (patch: Partial<BlockSettings>) => v
           keys={["Shift flips it"]}
           options={[
             ["add", "Add", "Add blocks onto the face"],
-            ["remove", "Carve", "Carve blocks away"],
+            ["remove", "Remove", "Remove blocks"],
           ]}
           onChange={(mode) => set({ mode })}
         />

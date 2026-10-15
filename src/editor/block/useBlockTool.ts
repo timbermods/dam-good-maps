@@ -1,4 +1,4 @@
-// The Block tool on the page (3D step 3, D335, D342): add blocks onto the face under the pointer, carve them away,
+// The Block tool on the page (3D step 3, D335, D342): add blocks onto the face under the pointer, take them away,
 // in a click or a drag in the plane of the first face. Hovering asks the core what a click would do
 // (`blockFalls`, no build) and the renderer shows it; nothing is applied until the button comes up, and then it is
 // one operation, `blocks`, one undo step. The gestures' arithmetic is in blockTool.ts; the tool's place on the bar,
@@ -11,7 +11,7 @@ import { plain } from "../words";
 import { loadBlock, saveBlock } from "../prefs/blockPrefs";
 import type { Ed } from "../ed";
 import { blockAim, type BlockAim } from "../../render3d/pick";
-import { blockLabel, blockParams, clampSize, modeFor, paramsKey, PlaneSweep, sizeFromPointer, type BlockSettings } from "./blockTool";
+import { blockLabel, blockParams, clampSize, modeFor, noteSpot, paramsKey, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
 import { showBlocks } from "./view";
 
 export interface BlockSlice {
@@ -19,7 +19,7 @@ export interface BlockSlice {
   block: boolean;
   blockRef: { current: boolean };
   blockSettings: BlockSettings;
-  /** Shift is down: a click does the other of Add and Carve (the Action shows it). */
+  /** Shift is down: a click does the other of Add and Remove (the Action shows it). */
   blockFlip: boolean;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
@@ -69,14 +69,34 @@ export function useBlockTool(ed: Ed): BlockSlice {
   /** The tiles an answer touches. */
   const tilesOf = (f: BlockFalls) => [...f.added, ...f.removed].map((c) => c[1] * infoRef.current.W + c[0]);
 
-  /** Show an answer: the blocks on the map and, when the click would be refused, why, beside the pointer. */
+  /** The screen box of the blocks an answer draws: the corners of the cuboid that holds them, projected. */
+  function boxOf(f: BlockFalls): ScreenBox | null {
+    const r = renderer.current;
+    const cells = [...f.added, ...f.removed, ...f.falls];
+    if (!r || !cells.length) return null;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (const c of cells) for (let k = 0; k < 3; k++) (lo[k] = Math.min(lo[k], c[k])), (hi[k] = Math.max(hi[k], c[k] + 1));
+    let box: ScreenBox | null = null;
+    for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) {
+      const p = r.project(x, z, -y);
+      box = box ? { x0: Math.min(box.x0, p.x), y0: Math.min(box.y0, p.y), x1: Math.max(box.x1, p.x), y1: Math.max(box.y1, p.y) } : { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+    }
+    return box;
+  }
+
+  /** Show an answer: the blocks on the map and, when the click would be refused, why, in a note clear of them. */
   function present(f: BlockFalls) {
     const tiles = tilesOf(f);
     const outside = !f.errors.length && tiles.length > 0 && !ed.inArea(tiles);
     const reason = outside ? "that is outside the selected area" : f.reason;
     showBlocks(renderer.current, f.errors.length || outside ? null : { added: f.added, removed: f.removed, falls: f.falls });
     pv.current.note = reason ? plain(reason) : null;
-    setShapeNote(reason ? { text: plain(reason), ok: false, warn: false, ...pointerAt.current } : null);
+    if (!reason) return setShapeNote(null);
+    const c = renderer.current?.canvas;
+    // (the note's own size, about: two lines at most; its left and top are what the page places it by, less 16px each)
+    const spot = c ? noteSpot(boxOf(f), pointerAt.current, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: pointerAt.current.x + 16, y: pointerAt.current.y + 16 };
+    setShapeNote({ text: plain(reason), ok: false, warn: false, x: spot.x - 16, y: spot.y - 16 });
   }
 
   /** Ask the core what these parameters would do (one question at a time, the latest wins), unless it was just asked. */

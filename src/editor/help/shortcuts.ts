@@ -44,7 +44,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Select", keys: ["1"] },
         ...BRUSHES.map((b) => ({ what: b.name, keys: [b.key] })),
-        { what: "Block: add or carve blocks", keys: ["7"] },
+        { what: "Block: add or remove blocks", keys: ["7"] },
         ...SHOWN_FORCES.map((f) => ({ what: forceWhat(f.name), keys: [f.key ?? ""] })).filter((r) => r.keys[0]),
         { what: "Put the tool down", keys: ["X", "Esc"] },
       ],
@@ -65,7 +65,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
-        { what: "Swap Raise and Lower, or add and carve blocks", keys: ["Shift"] },
+        { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },
         { what: "Add to the selection", keys: ["Shift+drag"] },
         { what: "Take from the selection", keys: ["Alt+drag"] },

@@ -341,7 +341,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
   - **Block** (the Block tool): Size 7 (a slider, 1 to 8, from the first cell, where the brushes' Size starts) and Shape 7
-    (Square, Round) on row 1; Action 14 (Add, Carve; the other lit while Shift is held) across row 2.
+    (Square, Round) on row 1; Action 14 (Add, Remove; the other lit while Shift is held) across row 2.
   - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each

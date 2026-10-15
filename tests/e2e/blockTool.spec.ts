@@ -1,8 +1,8 @@
 // The Block tool on the page (3D step 3, D335): key 7 picks it; hovering a face shows what a click would add, the preview
-// the core's `blockFalls` gives, nothing applied until the button is let go; a click adds onto the face, Shift carves,
+// the core's `blockFalls` gives, nothing applied until the button is let go; a click adds onto the face, Shift removes,
 // a drag paints in the plane of the first face and is one undo step; a drag that would leave ground the game drops
 // shows the blocks that would fall and the reason beside the pointer, and is refused on release with the page's
-// note; on an imported cave map a Shift-click carves into a cave wall.
+// note; on an imported cave map a Shift-click removes blocks from a cave wall.
 
 import { expect, test, type Page } from "@playwright/test";
 import { writeTimber } from "../../src/core/format/timber";
@@ -105,7 +105,7 @@ test("the Block tool: key 7 picks it, its settings and keys, Esc and the other t
   expect((await block(page)).settings.size).toBe(8);
   await settings.getByRole("button", { name: "Round" }).click();
   expect((await block(page)).settings.shape).toBe("round");
-  await settings.getByRole("button", { name: "Carve" }).click();
+  await settings.getByRole("button", { name: "Remove" }).click();
   expect((await block(page)).settings.mode).toBe("remove");
   await settings.getByRole("button", { name: "Add" }).click();
   await settings.getByRole("button", { name: "Square" }).click();
@@ -120,7 +120,7 @@ test("the Block tool: key 7 picks it, its settings and keys, Esc and the other t
   await expect(settings).toHaveCount(0);
 });
 
-test("a click adds a block onto the face, Shift carves it, a drag paints a plane in one step, and the preview is what is applied", async ({ page }) => {
+test("a click adds a block onto the face, Shift removes it, a drag paints a plane in one step, and the preview is what is applied", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   const { x, y, h } = await flatSpot(page);
   await page.keyboard.press("7");
@@ -144,11 +144,11 @@ test("a click adds a block onto the face, Shift carves it, a drag paints a plane
   await click(page, px, py, h - 1, "+z");
   expect(await height(page, px, py)).toBe(h + 1);
 
-  // Shift turns the same face's click into a carve: the Action shows it, the preview takes the block
+  // Shift turns the same face's click into a remove: the Action shows it, the preview takes the block
   const p = await face(page, px, py, h, "+z");
   await page.mouse.move(p.x, p.y);
   await page.keyboard.down("Shift");
-  await expect(page.getByRole("group", { name: "Block options" }).getByRole("button", { name: "Carve" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "Block options" }).getByRole("button", { name: "Remove" })).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await block(page)).preview?.removed.length ?? 0).toBe(1);
   expect((await block(page)).preview!.removed).toEqual([[px, py, h]]);
   await page.keyboard.up("Shift");
@@ -194,49 +194,60 @@ test("a click adds a block onto the face, Shift carves it, a drag paints a plane
   expect((await block(page)).held, "Esc cancelled the drag and kept the tool").toBe(true);
 });
 
-test("ground that would fall is shown before the press is let go, and the drag is refused with the page's note", async ({ page }) => {
+test("ground that would fall is shown before the press is let go, and the click is refused with the page's note", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   const { x, y, h } = await flatSpot(page);
   await page.keyboard.press("7");
   await toolInHand(page);
   for (let k = 0; k < 8; k++) await page.keyboard.press("{");
-  await page.keyboard.press("}");
   const px = x + 2;
   const py = y + 4;
-  await look(page, x + 6, py, h);
-  // a pillar of four, two blocks across
+  await look(page, x + 5, py, h);
+  // a pillar of four, then a shelf out from its top, a block at a time: each is held by the one before, three sideways
   for (let k = 0; k < 4; k++) await click(page, px, py, h - 1 + k, "+z");
   expect(await height(page, px, py)).toBe(h + 4);
-  // a drag out along its top, further than a block can reach from its support (3 sideways)
   const top = h + 3;
-  const a = await face(page, px, py, top, "+z");
-  const b = await face(page, px + 9, py, top, "+z");
+  for (let k = 0; k < 3; k++) await click(page, px + k, py, top, "+x");
+  // the fourth would hang more than 3 sideways from the pillar: the press shows what would fall and why
   const before = await edits(page);
+  const a = await face(page, px + 3, py, top, "+x");
   await page.mouse.move(a.x, a.y);
-  await expect.poll(async () => (await block(page)).preview !== null).toBe(true);
-  await page.mouse.down();
-  for (let t = 1; t <= 10; t++) {
-    await page.mouse.move(a.x + ((b.x - a.x) * t) / 10, a.y + ((b.y - a.y) * t) / 10);
-    await page.waitForTimeout(30);
-  }
   await expect.poll(async () => (await block(page)).preview?.falls.length ?? 0, { message: "the blocks that would fall" }).toBeGreaterThan(0);
   const shown = (await block(page)).preview!;
   expect(shown.reason).toMatch(/blocks? of ground would fall: nothing would hold (them|it) up/);
-  // (the reason beside the pointer, in red, while the press is held)
-  await expect(page.locator(".shape-note.error")).toContainText("would fall");
-  // (the renderer draws the three kinds of block)
+  // (the reason in red beside the blocks, never over them)
+  const note = page.locator(".shape-note.error");
+  await expect(note).toContainText("would fall");
+  // (the renderer draws the kinds of block)
   const drawn = await page.evaluate(() => window.dgm3d!.renderer.blocksDrawn);
   expect(drawn.falls, "blocks drawn as falling").toBeGreaterThan(0);
-  expect(drawn.added, "blocks drawn as added").toBeGreaterThan(0);
+  // the note clears the preview's cells on the screen
+  const covers = await page.evaluate(
+    ([cells]) => {
+      const r = window.dgm3d!.renderer;
+      const c = r.canvas.getBoundingClientRect();
+      const n = document.querySelector(".shape-note.error")!.getBoundingClientRect();
+      return (cells as [number, number, number][]).some(([x, y, z]) => {
+        const p = r.project(x + 0.5, z + 0.5, -(y + 0.5));
+        const sx = p.x + c.left;
+        const sy = p.y + c.top;
+        return sx > n.left && sx < n.right && sy > n.top && sy < n.bottom;
+      });
+    },
+    [[...shown.added, ...shown.falls]] as const,
+  );
+  expect(covers, "the note sits over a block it describes").toBe(false);
+  await page.mouse.down();
   await page.mouse.up();
-  // released: refused with the page's usual note, nothing changed, the preview gone
+  // refused with the page's usual note, nothing changed, the preview gone
   await expect(page.locator(".editor-message.error")).toContainText("would fall: nothing would hold");
   expect(await edits(page)).toBe(before);
-  expect(await height(page, px + 5, py)).toBe(h);
+  // (the pointer still on that face, the preview asks again; off the map it goes)
+  await page.mouse.move(5, 300);
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.blocksDrawn.falls)).toBe(0);
 });
 
-test("on an imported cave map a Shift-click carves into a cave wall: the blocks go, the surface stays, undo gives them back", async ({ page }) => {
+test("on an imported cave map a Shift-click removes blocks from a cave wall: the blocks go, the surface stays, undo gives them back", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "cave.timber", mimeType: "application/zip", buffer: Buffer.from(writeTimber(caveFile())) });
   await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name)).toBe("cave");

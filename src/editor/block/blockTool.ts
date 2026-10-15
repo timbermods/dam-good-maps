@@ -30,7 +30,7 @@ export function blockParams(s: BlockSettings, mode: BlockMode, side: BlockSide, 
 }
 
 /** The history label of the step. */
-export const blockLabel = (mode: BlockMode) => (mode === "add" ? "Add blocks" : "Carve blocks");
+export const blockLabel = (mode: BlockMode) => (mode === "add" ? "Add blocks" : "Remove blocks");
 
 /** The most positions a drag keeps (the core's limit). */
 const MAX_POSITIONS = 4096;
@@ -85,9 +85,8 @@ export function sizeFromPointer(aim: BlockAim, ray: Ray, shape: "square" | "roun
 }
 
 /** A drag in the plane of its first face: the positions it has swept, in order, the first the face pointed at. The cells
- *  between two moves are filled in, so a fast drag leaves no gaps. A position need not hold a block: an add there
- *  puts a block in the cell beyond it all the same, which is how a drag builds a bridge across air from the face it
- *  began on (the support rule says whether it holds). */
+ *  between two moves are filled in, so a fast drag leaves no gaps. A position need not hold a block: the core adds
+ *  only against a block, so over air a drag adds nothing (a bridge is built a block out at a time from its last face). */
 export class PlaneSweep {
   readonly at: [number, number, number][];
   private readonly seen = new Set<string>();
@@ -130,3 +129,33 @@ export class PlaneSweep {
 
 /** A stable key for a preview request: the same operation asks the worker once. */
 export const paramsKey = (p: BlocksParams) => `${p.mode}|${p.side}|${p.size}|${p.shape ?? "square"}|${p.at.map((c) => c.join()).join(";")}`;
+
+/** A rectangle on the screen, in the canvas's pixels. */
+export interface ScreenBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Where the note that says why a click is refused goes: clear of the blocks it describes (their screen box), so it never
+ *  covers them. Below the box, else to its right, its left or above, the first that fits the canvas; across, as near the
+ *  pointer as the canvas allows. Without a box (nothing to draw) it sits below and right of the pointer. Returns the
+ *  note's top left. */
+export function noteSpot(box: ScreenBox | null, pointer: { x: number; y: number }, canvas: { w: number; h: number }, note: { w: number; h: number }, gap = 10): { x: number; y: number } {
+  const clampX = (x: number) => Math.max(gap, Math.min(canvas.w - note.w - gap, x));
+  const clampY = (y: number) => Math.max(gap, Math.min(canvas.h - note.h - gap, y));
+  if (!box) return { x: clampX(pointer.x + 16), y: clampY(pointer.y + 16) };
+  const fits = (x: number, y: number) => x >= gap && y >= gap && x + note.w <= canvas.w - gap && y + note.h <= canvas.h - gap;
+  const across = clampX(pointer.x - note.w / 2);
+  const along = clampY(pointer.y - note.h / 2);
+  const options: [number, number][] = [
+    [across, box.y1 + gap],
+    [box.x1 + gap, along],
+    [box.x0 - note.w - gap, along],
+    [across, box.y0 - note.h - gap],
+  ];
+  for (const [x, y] of options) if (fits(x, y)) return { x, y };
+  // (no side has room: the corner farthest from the blocks)
+  return { x: clampX(box.x1 + gap), y: clampY(box.y1 + gap) };
+}

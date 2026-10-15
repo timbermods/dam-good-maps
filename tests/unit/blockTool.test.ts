@@ -2,7 +2,7 @@
 // and the cells a drag sweeps in the plane of its first face. The core's own checks are tests/contract/blocks.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { blockParams, clampSize, DEFAULT_BLOCK, modeFor, paramsKey, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
+import { blockParams, clampSize, DEFAULT_BLOCK, modeFor, noteSpot, paramsKey, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
 import { blockAim, pickTerrain, type Ray, type TileHit } from "../../src/render3d/pick";
 import { blockProblems } from "../../src/core/terrain/blocks";
 
@@ -92,7 +92,7 @@ describe("a drag in the plane of its first face", () => {
     for (const c of s.at) expect(c[2]).toBe(2);
   });
 
-  it("sweeps over air too: a bridge is built from the face the drag began on", () => {
+  it("sweeps the cells it crosses whether or not a block is there (the core adds only against a block)", () => {
     const s = new PlaneSweep({ at: [3, 3, 4], side: "+z" }, W, W);
     s.move(ray([5.5, 10, -3.5], [5.5, 0, -3.5]));
     expect(s.at.map((c) => c.join())).toEqual(["3,3,4", "4,3,4", "5,3,4"]);
@@ -120,5 +120,31 @@ describe("F held: the Size from how far the pointer is from the face's middle", 
     expect(sizeFromPointer(aim, at(6, 6), "square")).toBe(3);
     expect(sizeFromPointer(aim, at(6, 6), "round")).toBe(4);
     expect(sizeFromPointer(aim, at(40, 4.5), "square")).toBe(8);
+  });
+});
+
+describe("the refusal's note stays clear of the blocks it describes", () => {
+  const canvas = { w: 1920, h: 1000 };
+  const note = { w: 300, h: 52 };
+  const overlaps = (n: { x: number; y: number }, b: { x0: number; y0: number; x1: number; y1: number }) => n.x < b.x1 && n.x + note.w > b.x0 && n.y < b.y1 && n.y + note.h > b.y0;
+  it("goes below the blocks, across by the pointer, when there is room", () => {
+    const box = { x0: 800, y0: 300, x1: 1100, y1: 500 };
+    const n = noteSpot(box, { x: 950, y: 400 }, canvas, note);
+    expect(overlaps(n, box)).toBe(false);
+    expect(n.y).toBeGreaterThanOrEqual(box.y1);
+  });
+  it("goes to a side or above when the blocks reach the foot of the canvas, and never off it", () => {
+    for (const box of [{ x0: 800, y0: 600, x1: 1100, y1: 990 }, { x0: 0, y0: 100, x1: 1900, y1: 990 }, { x0: 1700, y0: 800, x1: 1900, y1: 990 }]) {
+      const n = noteSpot(box, { x: 1000, y: 900 }, canvas, note);
+      expect(n.x).toBeGreaterThanOrEqual(0);
+      expect(n.y).toBeGreaterThanOrEqual(0);
+      expect(n.x + note.w).toBeLessThanOrEqual(canvas.w);
+      expect(n.y + note.h).toBeLessThanOrEqual(canvas.h);
+    }
+    const box = { x0: 800, y0: 600, x1: 1100, y1: 990 };
+    expect(overlaps(noteSpot(box, { x: 950, y: 800 }, canvas, note), box)).toBe(false);
+  });
+  it("without a box sits below and right of the pointer", () => {
+    expect(noteSpot(null, { x: 100, y: 100 }, canvas, note)).toEqual({ x: 116, y: 116 });
   });
 });

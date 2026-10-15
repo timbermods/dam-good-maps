@@ -499,20 +499,20 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
   Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
   **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
-  "Add or carve blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
+  "Add or remove blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
   (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
   brush's blocks (`showBlocks`): the blocks to add translucent, the blocks to take red, ground that would fall amber,
   with the reason in red beside the pointer ("12 blocks of ground would fall: nothing would hold them up"); the preview
   is asked again when the map changes, when Shift goes up or down, when a setting changes and when the camera moves
   under a still pointer. *Acting:* a click adds a block onto the face (the cell beyond it, across the footprint in the
-  face's plane); **Shift** does the other of Add and Carve (the Action shows it while Shift is down); a drag paints in the
-  plane of the first face, every cell it crosses, over air too, so a drag along a pillar's top builds a bridge, the support
-  rule saying whether it holds; nothing is applied until the press is let go, then it is one `blocks` operation, one undo
-  step ("Add blocks" or "Carve blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
+  face's plane); **Shift** does the other of Add and Remove (the Action shows it while Shift is down); a drag paints in the
+  plane of the first face, every cell it crosses (a block goes only against a block, so over air a drag adds nothing: a
+  bridge is built out from the last face, a block at a time, and the support rule says how far); nothing is applied until the press is let go, then it is one `blocks` operation, one undo
+  step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
   drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. With a working
   area (Select), a gesture reaching outside it is refused, "That is outside the selected area". The level slice cuts the
   preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
-  (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Carve; remembered between visits. Its
+  (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
   land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
   renderer's, to come.
 
