@@ -30,6 +30,8 @@ import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
+import { blockEffect, blockProblems, type BlocksParams } from "../terrain/blocks";
+import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
 import type { RetainedWater, WaterModel } from "../sim/water";
@@ -73,6 +75,10 @@ export interface OpParams {
   fillHollow: FillHollowParams;
   /** Explicit player placement; the log stores literal placed objects, never replans. */
   paintObjects: PaintParams;
+  /** The Block tool (D335): blocks added against a face of the ground or removed, in a click or a
+   *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
+   *  an object, and when the result would leave ground the game drops. */
+  blocks: BlocksParams;
 }
 
 export interface RemoveUnfedWaterParams {
@@ -127,7 +133,7 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks">;
 /** A force's operation. */
 export type ForceOp = AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
@@ -276,6 +282,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "blocks":
       state.sculpts.push(op);
       return;
     case "forceResult": {
@@ -362,6 +369,7 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "blocks":
       removeFromList(state.sculpts, op.seq);
       return;
     case "forceResult": {
@@ -437,6 +445,9 @@ export interface OpContext {
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground the Block tool works on and the cells of the objects standing on it (a block
+   *  operation is checked against them; the session gives them for one). */
+  blocks?: { terrain: ColumnTerrain; objects: ReadonlySet<number> };
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
   templateOf?: (id: string) => string | undefined;
@@ -621,6 +632,11 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "brush":
       return brushProblems(op.params, W, H);
+    case "blocks": {
+      const bad = blockProblems(op.params, W, H);
+      if (bad.length || !ctx.blocks) return bad;
+      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.objects).errors;
+    }
     case "forceResult": {
       const p = op.params;
       const errors = forceProblems(p, W, H, FORCE_MAX_LEVEL);

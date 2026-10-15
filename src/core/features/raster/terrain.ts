@@ -12,6 +12,8 @@ import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFe
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
 import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
+import { blockBounds, blockTileBits, blockTileMask, type BlocksParams } from "../../terrain/blocks";
+import { isPlainMask, plainMask, reshapeTop, surfaceOfMask, topRunFloor, type ColumnTerrain } from "../../terrain/runs";
 import { wantedCount } from "../../water/sourceGroups";
 import * as portable from "../../math/portable";
 import { polyDist } from "../../math/polyline";
@@ -368,15 +370,21 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | ForceResultParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | ForceResultParams | BlocksParams;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
   return "dabs" in p;
 }
 
+/** The Block tool's operation (terrain/blocks.ts). */
+export function isBlocks(p: SculptEdit["params"]): p is BlocksParams {
+  return "side" in p && "at" in p;
+}
+
 /** A sculpt's tiles' bounds; a force's need the map's width (its tiles are indices). */
 export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
+  if (isBlocks(s.params)) return blockBounds(s.params, W || Infinity, Infinity);
   if (isBrush(s.params)) return brushBounds(s.params, Infinity, Infinity);
   if (isForce(s.params)) return forceBounds(s.params, W);
   let x0 = Infinity;
@@ -394,7 +402,7 @@ export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
 
 /** Brushes that read neighbouring cells: a rebuild that touches their cells rebuilds all of them. */
 export function sculptReadsNeighbours(s: SculptEdit): boolean {
-  if (isForce(s.params)) return false;
+  if (isForce(s.params) || isBlocks(s.params)) return false;
   return isBrush(s.params) ? brushReadsNeighbours(s.params) : s.params.mode === "smooth";
 }
 
@@ -418,6 +426,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     }
     return;
   }
+  // (the Block tool's operations are applied tile by tile with the tiles' masks: `applyBlocks`)
+  if (isBlocks(s.params)) return;
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
@@ -491,6 +501,55 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       }
     }
   }
+}
+
+// -------------------------------------------------------------------------------------- blocks
+
+/** What the Block tool's operations keep while step 6 goes through the sculpts in order (D335, D342):
+ *  the mask of every tile one of them touched, as it stands at that point; the lowest each tile's top
+ *  may go (the brushes' `floor`, which follows the masks); the stored ground the tiles start from
+ *  (null: a heightfield, every tile a plain run from the surface). */
+export interface BlockLayer {
+  masks: Map<number, number>;
+  floors: Uint8Array;
+  base: ColumnTerrain | null;
+}
+
+/** A tile's mask now: the one a block operation left, or the ground's own, its top run following
+ *  `heights` (a brush after a block shapes the top and nothing under it, D280 (3)). */
+function maskNow(layer: BlockLayer, heights: Uint8Array, i: number): number {
+  const m = layer.masks.get(i);
+  if (m !== undefined) return surfaceOfMask(m) === heights[i] ? m : reshapeTop(m, heights[i]);
+  return layer.base ? reshapeTop(layer.base.mask[i], heights[i]) : plainMask(heights[i]);
+}
+
+/** Whether a tile is a cave, an overhang or floating ground now (what the forces and the features
+ *  leave as it is). */
+export function layerCave(layer: BlockLayer, i: number): boolean {
+  const m = layer.masks.get(i);
+  return m !== undefined ? !isPlainMask(m) : !!layer.base && !layer.base.isPlain(i);
+}
+
+/** Apply one block operation (step 6) to the region's tiles: each tile takes the cells added or removed
+ *  in it, its surface follows its mask, the brushes' floor follows its top run, and the integrity pass
+ *  leaves it as it is (like an exact stroke). */
+export function applyBlocks(p: BlocksParams, t: BuildTarget, layer: BlockLayer): void {
+  const { heights } = t;
+  for (const [i, bits] of blockTileBits(p, t.W, t.H)) {
+    if (!t.inRegion(i)) continue;
+    const m = blockTileMask(maskNow(layer, heights, i), bits, p.mode);
+    layer.masks.set(i, m);
+    heights[i] = surfaceOfMask(m);
+    layer.floors[i] = isPlainMask(m) ? 0 : topRunFloor(m) + 1;
+    t.protectedMask[i] = 1;
+  }
+}
+
+/** The tiles' masks a build leaves: each as the operations left it, its top run on the final surface. */
+export function finalMasks(layer: BlockLayer, final: Uint8Array): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const [i, m] of [...layer.masks].sort((a, b) => a[0] - b[0])) out.set(i, surfaceOfMask(m) === final[i] ? m : reshapeTop(m, final[i]));
+  return out;
 }
 
 // ------------------------------------------------------------------------------------- integrity

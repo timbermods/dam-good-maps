@@ -32,8 +32,12 @@ import { keptSlopes, placeSlopes, slopeStands, slopeTiles, SLOPE_RULES, START_CL
 import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource } from "./setpieces";
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
 import {
+  applyBlocks,
   applySculpt,
   edgeStep,
+  finalMasks,
+  isBlocks,
+  layerCave,
   integrityAt,
   lakeSpringTile,
   mouthTiles,
@@ -47,6 +51,7 @@ import {
   sculptReadsNeighbours,
   springTiles,
   terrainFootprint,
+  type BlockLayer,
   type SculptEdit,
 } from "./raster/terrain";
 import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
@@ -55,6 +60,7 @@ import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
+import { layeredMasks, terrainUnder } from "../terrain/blocks";
 import type { ColumnTerrain } from "../terrain/runs";
 import { supportPass } from "../terrain/support";
 
@@ -308,7 +314,16 @@ interface TerrainCache {
    *  edit broke: gone for good, even where a later edit gives the step back (D368 (10)). */
   slopeList: BuildInput["generatedSlopes"];
   slopeGone: Uint8Array | null;
+  /** The tiles the Block tool's operations touched, each as they left it (tile → voxel mask, the
+   *  top run on this build's surface); every other tile is the stored ground under the surface, or a
+   *  plain run on a heightfield (D335; terrain/blocks.ts `terrainUnder`). Absent in a stored map made
+   *  before the tool: none. */
+  masks?: ReadonlyMap<number, number>;
 }
+
+/** The Block tool's tiles of a terrain step (none for a stored map from before the tool). */
+export const masksOf = (t: { masks?: ReadonlyMap<number, number> }): ReadonlyMap<number, number> => t.masks ?? NO_MASKS;
+const NO_MASKS: ReadonlyMap<number, number> = new Map();
 
 interface ResourceEntry {
   key: string;
@@ -637,8 +652,13 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   checkSlopes();
   if (base && !base.terrain && base.columns?.size) throw new Error("the base layer has caves or overhangs but no terrain: pass its terrain as runs");
   const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
-  const caves = layered ? (i: number) => !layered.isPlain(i) : undefined;
-  const floors = layered ? topFloorsOf(layered) : null;
+  // (the Block tool: the tiles its operations touched carry their own masks and floors, and are caves or
+  // not by them, so the forces leave the ones it dug as they are)
+  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params));
+  const layer: BlockLayer | null = blocksIn ? { masks: new Map(), floors: layered ? topFloorsOf(layered)!.slice() : new Uint8Array(N), base: layered } : null;
+  if (layer && prev) for (const [i, m] of masksOf(prev.terrain)) if (!t.inRegion(i)) layer.masks.set(i, m);
+  const caves = layer ? (i: number) => layerCave(layer, i) : layered ? (i: number) => !layered.isPlain(i) : undefined;
+  const floors = layer ? layer.floors : layered ? topFloorsOf(layered) : null;
   //    (the features never reshape a roof: before the strokes, an import's caves and overhangs stand
   //    as the file has them, and the integrity pass leaves their tops as the strokes leave them)
   if (base && caves) t.forEach((i) => {
@@ -655,7 +675,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     outside: prev ? prev.terrain.pre7 : null,
   };
   for (const s of input.sculpts ?? []) {
-    applySculpt(s, t, caves, shown, floors);
+    if (layer && isBlocks(s.params)) applyBlocks(s.params, t, layer);
+    else applySculpt(s, t, caves, shown, floors);
     if (watch.length) checkSlopes();
   }
   let pre7: Uint8Array;
@@ -678,7 +699,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
         : () => true;
   const r = { x0: Math.max(0, reg.x0 - 1), y0: Math.max(0, reg.y0 - 1), x1: Math.min(W - 1, reg.x1 + 1), y1: Math.min(H - 1, reg.y1 + 1) };
   integrityAt(pre7, final, W, H, protect, channel, candidate, r.x0, r.y0, r.x1, r.y1, Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN));
-  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone }, region: reg };
+  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone, masks: layer ? finalMasks(layer, final) : NO_MASKS }, region: reg };
 }
 
 // --------------------------------------------------------------------------------------- pipeline
@@ -1014,7 +1035,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
   //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
   //    (the resources and the start placed after this hold none)
-  const dropped = groundDropped(base, heights, entities);
+  const dropped = groundDropped(base, heights, entities, masksOf(terrain), W, H);
   const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
@@ -1272,10 +1293,13 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 
 /** The build's rule pass (D121, step 7): the blocks of ground nothing holds up on the terrain a build
  *  makes of `base` under `heights`, with `objects` (their stackable tops hold ground). A heightfield
- *  drops nothing and is not worked out; a base's caves and overhangs are its own. `BuildResult.dropped`
+ *  drops nothing and is not worked out; a base's caves and overhangs are its own, and so are the
+ *  Block tool's (`masks`, which refuses what would fall). `BuildResult.dropped`
  *  is this, derived, so a stored build leaves it out and its session works it out again. */
-export function groundDropped(base: BaseLayer | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[]): number {
-  return base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), objects).dropped : 0;
+export function groundDropped(base: BaseLayer | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[], masks: ReadonlyMap<number, number> | undefined, W: number, H: number): number {
+  const layered = !!base?.terrain && !base.terrain.allPlain();
+  if (!layered && !layeredMasks(masks)) return 0;
+  return supportPass(terrainUnder(layered ? base!.terrain! : null, heights, masks, W, H), objects).dropped;
 }
 
 /** A base terrain's `topFloors` (the lowest a brush may take each roof's top, D280 (3)), worked out
@@ -1439,6 +1463,19 @@ function dirtyInfo(prev: BuildResult, next: BuildResult, region: TileRegion | nu
         if (y < y0) y0 = y;
         if (y > y1) y1 = y;
       }
+    }
+  // (a tile the Block tool dug under its surface changed too)
+  const dugWas = masksOf(prev.cache.terrain);
+  const dugNow = masksOf(next.cache.terrain);
+  if (dugWas !== dugNow)
+    for (const i of new Set([...dugWas.keys(), ...dugNow.keys()])) {
+      if (dugWas.get(i) === dugNow.get(i)) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
     }
   let water = prev.water !== next.water;
   if (water && prev.water.length === next.water.length) {
