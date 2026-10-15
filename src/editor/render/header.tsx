@@ -45,7 +45,9 @@ export function header(ed: Ed, props: EditorProps) {
       placesOpen={props.placesOpen}
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
-      together={together && collab ? <Together controller={together} state={collab} /> : null}
+      together={together && collab ? <Together controller={together} state={collab} open={ed.togetherOpen} onOpen={ed.setTogetherOpen} /> : null}
+      onTogether={together ? () => ed.setTogetherOpen(true) : undefined}
+      togetherDot={collab && collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" ? collab.other.role : null}
     />
   );
 }

@@ -261,8 +261,11 @@ export interface HeaderProps {
   onPlaces(): void;
   /** The look's menu (High or Standard, D284), beside More. */
   look?: ComponentChildren;
-  /** Together: edit the map with someone else (a quiet button and its panel), before File. */
+  /** Together: edit this map with someone else (a quiet button and its panel), before File. */
   together?: ComponentChildren;
+  /** Where the header is too full for the button, the File menu's Together… opens the same panel; File wears the other player's dot. */
+  onTogether?(): void;
+  togetherDot?: "host" | "guest" | null;
 }
 
 export function Header(p: HeaderProps) {
@@ -416,9 +419,17 @@ export function Header(p: HeaderProps) {
         <div class="menu-wrap" ref={wrap}>
           <button type="button" class="ghost" aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and more" onClick={() => setMenu(!menu)}>
             File
+            {p.togetherDot ? <span class={`file-dot together-dot who-${p.togetherDot}`} aria-hidden="true" /> : null}
           </button>
           {menu ? (
             <ul class="menu" role="menu" aria-label="File">
+              {p.onTogether ? (
+                <li role="none" class="menu-together">
+                  <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(p.onTogether)}>
+                    Together…
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
                   Open…

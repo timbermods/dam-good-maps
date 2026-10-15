@@ -70,7 +70,9 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 /** A fingerprint of the land the view draws. */
 const land = (page: Page) =>
   page.evaluate(async () => {
-    const h = window.dgm3d!.renderer.mapState()!.heights;
+    // (a map being opened has no view for a moment)
+    const h = window.dgm3d?.renderer.mapState()?.heights;
+    if (!h) return "none";
     const d = await crypto.subtle.digest("SHA-256", h.slice().buffer);
     return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
   });

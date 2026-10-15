@@ -2540,10 +2540,37 @@
   box-shadow: inset 0 0 0 2px var(--who);
 }
 
-/* below about 1,000px wide the word gives way to the icon and the dot, as the checks' words do */
-@media (max-width: 999px) {
-  .together-label {
+/* The header is full below about 1,340px (the longest name must fit two lines beside History at 1280): there the button
+   gives way to a Together… entry in the File menu, and File wears the other player's dot while a session is live. The panel
+   opens in the button's place either way. */
+.menu .menu-together {
+  display: none;
+}
+
+.file-dot {
+  display: none;
+}
+
+@media (max-width: 1339px) {
+  /* (after File, at the bar's right edge, so the panel hangs from File as the menus do) */
+  .editor-actions > .together-wrap {
+    order: 2;
+    width: 0;
+    margin-left: -6px;
+  }
+
+  .together-wrap > .together-button {
     display: none;
+  }
+
+  .menu .menu-together {
+    display: list-item;
+  }
+
+  .file-dot {
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
   }
 }
 

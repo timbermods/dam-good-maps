@@ -70,9 +70,8 @@ function JoinRow(p: { again?: boolean; busy: boolean; onJoin(code: string): void
   );
 }
 
-export function Together(p: { controller: TogetherController; state: TogetherState }) {
-  const { controller: c, state: s } = p;
-  const [open, setOpen] = useState(false);
+export function Together(p: { controller: TogetherController; state: TogetherState; open: boolean; onOpen(open: boolean): void }) {
+  const { controller: c, state: s, open, onOpen: setOpen } = p;
   const wrap = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(s.me.name);
   useEffect(() => {

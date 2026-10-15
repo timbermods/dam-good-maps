@@ -99,7 +99,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
-  (a small people icon and "Together"; the word gives way to the icon below about 1,000px wide; tooltip "Edit this
+  (a small people icon and "Together"; below about 1,340px wide, where the header is full, it gives way to a Together… entry in the File menu and File wears the other player's dot; tooltip "Edit this
   map with someone else"), opens a small panel under it. **Alone:** the player's name (a field, kept in this browser,
   "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
   join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
