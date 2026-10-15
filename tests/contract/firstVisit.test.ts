@@ -63,6 +63,15 @@ describe("the deploy's checks on a first-visit map", () => {
     expect(firstVisitProblems(missed)).toEqual(["it misses one of the three outcomes"]);
   });
 
+  it("judges the file under its own theme's thresholds: an Islands sea over 35% of the map is no flood (D369)", () => {
+    const isl = generate(makeSpec({ seed: 1, theme: "islands", size: { x: 96, y: 96 } }));
+    const flood = isl.report.checks.find((c) => c.id === "water.no_flood");
+    // (the sea is more than an import's 0.35 cap, and within Islands' 0.70)
+    expect(flood?.ok).toBe(true);
+    expect(Number(/(\d+)%/.exec(flood?.message ?? "")?.[1])).toBeGreaterThan(35);
+    expect(firstVisitProblems(isl).join("; ")).not.toMatch(/water\.no_flood/);
+  });
+
   it("turns a map away when its project file reopens as another map", () => {
     const other = generate(makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } }));
     expect(reopensAs(r, MapSession.fromGenerated(other).project()).same).toBe(false);
