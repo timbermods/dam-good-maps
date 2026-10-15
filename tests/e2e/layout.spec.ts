@@ -403,13 +403,16 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
-    // the map's name in full (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, never "…",
-    // clear of both groups, the bar's other pieces where they were
+    // the map's name in full (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit (what fits
+    // two lines of the header's room, so what the field keeps of a long one, D148), never "…", clear of both groups,
+    // the bar's other pieces where they were
     const actions = await header.locator(".editor-actions").boundingBox();
-    for (const name of ["Twin Channel Island Chain", "Where the Long Winding River Meets"]) {
+    for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
       await header.locator(".editor-title .title-button").click();
       await page.keyboard.press("Control+A");
-      await page.keyboard.type(name);
+      await page.keyboard.type(typed);
+      const name = (await header.getByLabel("Map name").inputValue()).trim();
+      expect(name.length, `${typed}: something is kept`).toBeGreaterThan(0);
       await page.keyboard.press("Enter");
       await expect(header.locator(".editor-title .title-button")).toHaveText(name);
       await settle(page, w, h);

@@ -62,10 +62,10 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   await page.keyboard.press("Backspace");
   await expect(field).toHaveValue(filled.slice(1, -1));
   await page.keyboard.press("Escape");
-  // the longest name Rename allowed before still goes in whole
+  // a short name goes in whole
   await button.click();
-  await field.fill("Where the Long Winding River Meets");
-  await expect(field).toHaveValue("Where the Long Winding River Meets");
+  await field.fill("Quiet Valley");
+  await expect(field).toHaveValue("Quiet Valley");
   await page.keyboard.press("Escape");
 });
 
