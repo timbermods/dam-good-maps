@@ -1767,6 +1767,17 @@ export class MapRenderer {
     if (!this.tileTex) return;
     tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+  }
+
+  /** The contamination outline round a box whose tile data was just rewritten in place: `bakeTiles` compares the tile
+   *  bytes, so it would find these already current and leave the outline as it was. The outline reads a tile's
+   *  neighbours: one more all round. */
+  private edgesAround(x0: number, y0: number, x1: number, y1: number): void {
+    const m = this.map;
+    if (!m || !this.edges) return;
+    contaminationEdgesRect(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1893,6 +1904,7 @@ export class MapRenderer {
     if (this.tileTex) {
       for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
       const lower = lowerByTile(m.surface, m.water);

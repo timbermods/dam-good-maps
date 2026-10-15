@@ -398,13 +398,21 @@ export function contaminationEdgesRect(W: number, H: number, tiles: Uint8Array, 
     }
 }
 
+let edgeLo = new Int32Array(0);
+let edgeHi = new Int32Array(0);
+
 /** The outline redone where tile data changed: round each run of tiles (`TileChanges.edgeRows`: tiles that became or stopped
  *  being wet or contaminated), one tile further and a row either side. Returns the rows redone, for the GPU. The same bytes
  *  as `contaminationEdges` of the whole map. */
 export function redoContaminationEdges(W: number, H: number, tiles: Uint8Array, out: Uint8Array, spans: readonly TileSpan[]): TileSpan[] {
   if (!spans.length) return [];
-  const lo = new Int32Array(H).fill(W);
-  const hi = new Int32Array(H).fill(-1);
+  // (the rows' bounds, kept between calls: a water update calls this many times a second)
+  if (edgeLo.length < H) {
+    edgeLo = new Int32Array(H);
+    edgeHi = new Int32Array(H);
+  }
+  const lo = edgeLo.fill(W, 0, H);
+  const hi = edgeHi.fill(-1, 0, H);
   for (const s of spans)
     for (let y = Math.max(0, s.y - 1); y <= Math.min(H - 1, s.y + 1); y++) {
       lo[y] = Math.min(lo[y], s.x0 - 1);
