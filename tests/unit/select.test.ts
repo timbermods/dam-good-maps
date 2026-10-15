@@ -141,3 +141,48 @@ describe("Select's Ctrl+click on land", () => {
     expect(t.sel.count).toBe(6);
   });
 });
+
+// A hit on a run under an overhang (3D view, part 5): the Level number and the Wand read the level of the
+// ground hit, not the tile's top. The selection itself stays a set of tiles.
+describe("Select on a run under an overhang", () => {
+  // every tile's top is 9 (a roof); the ground under it, a cave's floor, is level 3 at x 4…9 of row 5
+  const roofs = new Uint8Array(W * H).fill(9);
+  const floors = (i: number) => (i >= 5 * W + 4 && i <= 5 * W + 9 ? 3 : -1);
+  const press = (ctrl: boolean): PointerEvent => ({ button: 0, ctrlKey: ctrl, metaKey: false, shiftKey: false, altKey: false }) as PointerEvent;
+  const onFloor = (x: number, y: number) => ({ x, y, level: 3, run: { bottom: 0, top: 3 }, face: "top" }) as never;
+  function setup(mode: SelectMode) {
+    const sel = new Selection(W, H);
+    const sampled: number[] = [];
+    const host: SelectHost = {
+      W,
+      H,
+      heights: () => roofs,
+      mode: () => mode,
+      changed: () => undefined,
+      drawing: () => undefined,
+      sample: (level) => sampled.push(level),
+      wet: () => false,
+      hasTop: (i, level) => (floors(i) === level) || (level === 9 && floors(i) < 0),
+    };
+    return { sel, sampled, tool: selectTool(sel, host) };
+  }
+
+  it("Ctrl+click takes the level of the floor hit, not the roof's height", () => {
+    const t = setup("rect");
+    t.tool.down(onFloor(6, 5), press(true));
+    t.tool.up(onFloor(6, 5), press(true));
+    expect(t.sampled).toEqual([3]);
+  });
+
+  it("the Wand takes the ground joined to the floor at its level", () => {
+    const t = setup("wand");
+    t.tool.down(onFloor(6, 5), press(false));
+    expect(t.sel.tiles()).toEqual([4, 5, 6, 7, 8, 9].map((x) => 5 * W + x));
+  });
+
+  it("the Wand on a roof still takes the roofs", () => {
+    const t = setup("wand");
+    t.tool.down({ x: 2, y: 2, level: 9, face: "top" } as never, press(false));
+    expect(t.sel.count).toBe(W * H - 6);
+  });
+});
