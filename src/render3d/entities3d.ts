@@ -431,7 +431,7 @@ function lens(): BufferGeometry {
   return g;
 }
 
-const SAGE: Rgb = [0.45, 0.63, 0.36];
+const SAGE: Rgb = [0.5, 0.67, 0.4];
 const BLUSH: Rgb = [0.86, 0.42, 0.38];
 
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
@@ -453,7 +453,7 @@ function succulent(dead: boolean): Model {
     const r = len * Math.cos(t);
     m.add(lens(), (px, py, pz) => (!dead && px > 0.9 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), {
       sx: len,
-      sy: 0.05,
+      sy: 0.075,
       sz: wid,
       rz: t,
       ry: turn,
