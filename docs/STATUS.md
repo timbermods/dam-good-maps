@@ -23,7 +23,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It hands out
-  decision numbers (**next free: D489**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
+  decision numbers (**next free: D491**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
 - **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14) coordinates: it merges
   every "ready to merge" posted on #236, releases to `main`, settles cross-session questions, and sends Kyler only the
   design questions his decisions don't settle.
@@ -40,9 +40,9 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 ## Open pull requests
 
-Merge order and owner. Everything merges through the planning session's checks and green CI; the owning session judges
-what a player sees and posts "ready to merge" on #236 (D484); Rust and core PRs also need a full CI run by hand (`gh workflow run ci.yml --ref <branch>`), since a PR
-into `dev` runs only the light set and the merge-queue ruleset doesn't exist yet.
+Merge order and owner. A PR merges on its owner's verdict, a fresh reviewer agent's approval and its quick checks (D489);
+the owning session may merge it itself (D490). The browser specs and the suites a change needs run on dev after the merge;
+no full run by hand except for a release.
 
 | PR | Work | Owner | State and what's next |
 |---|---|---|---|
