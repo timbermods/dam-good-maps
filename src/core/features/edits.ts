@@ -22,6 +22,9 @@ export interface PlaceEntityParams {
   y: number;
   orientation: Orientation;
   flipped?: boolean;
+  /** The level it stands on under a roof (a cave's floor, the ground under a ledge: a run's top below
+   *  the tile's surface, D491). Omitted, it stands on the ground's top and rides it as the land is shaped. */
+  z?: number;
   /** Components other than BlockObject, plain JSON (non-integer numbers are written as floats).
    *  When absent, the template's defaults. */
   components?: Record<string, unknown>;
@@ -33,7 +36,7 @@ export type SlopeEdit =
 
 export type EntityEdit =
   | { seq: number; op: "placeEntity"; params: PlaceEntityParams }
-  | { seq: number; op: "moveEntity"; params: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean } }
+  | { seq: number; op: "moveEntity"; params: { id: string; x: number; y: number; z?: number; orientation?: Orientation; quiet?: boolean } }
   | { seq: number; op: "deleteEntities"; params: { entities: string[]; quiet?: boolean } }
   | { seq: number; op: "setEntityProps"; params: { id: string; components: Record<string, unknown>; quiet?: boolean } };
 
@@ -274,7 +277,7 @@ export function applyEntityEdits(
         }
         const p = ed.params;
         at.set(p.id, list.length);
-        list.push(placedEntity(p, g.heights[p.y * g.W + p.x]));
+        list.push(placedEntity(p, p.z ?? g.heights[p.y * g.W + p.x]));
         if (occ) for (const i of tilesOf(list[list.length - 1])) occ.set(i, list.length - 1);
         break;
       }
@@ -285,7 +288,10 @@ export function applyEntityEdits(
           break;
         }
         const { x, y } = ed.params;
-        const moved = movedEntity(list[k], x, y, g.heights[y * g.W + x], ed.params.orientation ?? list[k].orientation);
+        // (an object under a roof that a force carries keeps its level: the force names none, D491)
+        const was = list[k];
+        const pinned = !!ed.params.quiet && was.x >= 0 && was.y >= 0 && was.x < g.W && was.y < g.H && was.z < g.heights[was.y * g.W + was.x];
+        const moved = movedEntity(was, x, y, ed.params.z ?? (pinned ? was.z : g.heights[y * g.W + x]), ed.params.orientation ?? was.orientation);
         if (ed.params.quiet) {
           // an object a force carried onto ground something else now holds is left out (the build's
           // own resources may have grown there again)
