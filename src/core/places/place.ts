@@ -33,7 +33,7 @@ export interface PlaceData {
   format: 1;
   /** A slug of the name: "near-yosemite-valley". */
   id: string;
-  /** "Near Yosemite Valley": the map's name and its file name. */
+  /** "Near Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry. */
   name: string;
   /** The place it is named after: "Yosemite Valley". */
   place: string;
