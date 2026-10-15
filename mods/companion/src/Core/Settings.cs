@@ -22,12 +22,16 @@ namespace DGMCompanion
         public string ReloadKey { get; set; } = DefaultReloadKey;
         // Read the maps from here instead of Documents\Timberborn\Maps (for tests and unusual setups).
         public string MapsFolder { get; set; }
+        // The file exists but is not readable JSON (a hand edit gone wrong): the defaults are used, and the
+        // companion does not write the file, so the player's text is not lost.
+        public bool Damaged { get; private set; }
 
         public static CompanionSettings Parse(string json)
         {
             CompanionSettings s = new CompanionSettings();
             if (!MiniJson.TryParseObject(json, out Dictionary<string, object> obj))
             {
+                s.Damaged = !string.IsNullOrWhiteSpace(json);
                 return s;
             }
             s.Faction = NonEmpty(MiniJson.GetString(obj, "faction"));
@@ -78,9 +82,9 @@ namespace DGMCompanion
             {
                 return File.Exists(file) ? Parse(File.ReadAllText(file, Encoding.UTF8)) : new CompanionSettings();
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            catch (Exception)
             {
-                return new CompanionSettings();
+                return new CompanionSettings { Damaged = true };
             }
         }
 
@@ -88,6 +92,10 @@ namespace DGMCompanion
         // writable: the companion carries on without remembering.
         public bool TrySave(string file)
         {
+            if (Damaged)
+            {
+                return false;
+            }
             try
             {
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file));
@@ -95,12 +103,15 @@ namespace DGMCompanion
                 File.WriteAllText(temp, ToJson(), new UTF8Encoding(false));
                 if (File.Exists(file))
                 {
-                    File.Delete(file);
+                    File.Replace(temp, file, null);
                 }
-                File.Move(temp, file);
+                else
+                {
+                    File.Move(temp, file);
+                }
                 return true;
             }
-            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            catch (Exception)
             {
                 return false;
             }

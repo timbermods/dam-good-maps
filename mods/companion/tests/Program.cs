@@ -25,6 +25,7 @@ namespace DGMCompanion.Tests
                 Settings(root);
                 Keys();
                 Watch(root);
+                Resaves(root);
             }
             finally
             {
@@ -173,6 +174,63 @@ namespace DGMCompanion.Tests
             File.WriteAllText(file, "{\"faction\": \"Folktails\", \"mode\": \"Easy\", \"customMode\": {\"StartingAdults\": 4}}");
             Check(CompanionSettings.Load(file).CustomMode == null, "a named difficulty wins over a custom one");
             Check(!new CompanionSettings().TrySave(Path.Combine(file, "inside-a-file", "s.json")), "an unwritable place is reported, not thrown");
+            File.WriteAllText(file, "{ \"faction\": \"Folktails\", oops");
+            CompanionSettings hand = CompanionSettings.Load(file);
+            Check(hand.Damaged && hand.Faction == null, "a hand edit with a JSON error loads as defaults, marked damaged");
+            hand.Faction = "IronTeeth";
+            Check(!hand.TrySave(file) && File.ReadAllText(file).Contains("oops"), "a damaged file is never overwritten");
+            File.WriteAllText(file, "");
+            Check(!CompanionSettings.Load(file).Damaged, "an empty file is not damaged");
+        }
+
+        private static void Resaves(string root)
+        {
+            string folder = Path.Combine(root, "resaves");
+            Directory.CreateDirectory(folder);
+            DateTime t = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+            string one = Timber(folder, "dgm-river-valley-7.timber", Meta("Made with Dam Good Maps 0.8.0, seed 7."), t.AddHours(-5));
+            Timber(folder, "dgm-river-valley-8.timber", Meta("Made with Dam Good Maps 0.8.0, seed 8."), t.AddHours(1));
+            var start = MapFileWatch.Take(one);
+
+            var offer = MapFileWatch.Check(one, start);
+            Check(offer.Change == FileChange.Unchanged && offer.Target == null, "a map with no re-save is unchanged (another seed's newer file is not its re-save)");
+
+            // The app saves the same map again as a new file, "-2".
+            string two = Timber(folder, "dgm-river-valley-7-2.timber", Meta("Made with Dam Good Maps 0.8.0, seed 7."), t);
+            offer = MapFileWatch.Check(one, start);
+            Check(offer.Change == FileChange.Changed && offer.Target?.Name == "dgm-river-valley-7-2", "a re-save as a new file (-2) is offered");
+            Check(offer.Target?.Path == two, "the offer carries the new file's path");
+
+            // Playing the -2 file: nothing newer, then a -3.
+            var startTwo = MapFileWatch.Take(two);
+            Check(MapFileWatch.Check(two, startTwo).Change == FileChange.Unchanged, "playing the newest save is unchanged (the older original is not offered)");
+            Timber(folder, "dgm-river-valley-7-3.timber", Meta("Made with Dam Good Maps 0.8.0, seed 7."), t.AddHours(2));
+            Check(MapFileWatch.Check(two, startTwo).Target?.Name == "dgm-river-valley-7-3", "playing -2, the -3 save is offered");
+            Check(MapFileWatch.Check(one, start).Target?.Name == "dgm-river-valley-7-3", "playing the original, the newest of the family is offered");
+
+            // The family stays apart from other maps with similar names.
+            Timber(folder, "dgm-river-valley-7-9x.timber", Meta("Made with Dam Good Maps 0.8.0, seed 7."), t.AddHours(9));
+            Timber(folder, "dgm-river-valley-70.timber", Meta("Made with Dam Good Maps 0.8.0, seed 70."), t.AddHours(9));
+            Check(MapFileWatch.Check(one, start).Target?.Name == "dgm-river-valley-7-3", "a name that only starts the same is not the same map");
+
+            // The same file saved again in place (a copy over it) is still seen.
+            string lone = Timber(folder, "dgm-lone.timber", Meta("Made with Dam Good Maps 0.8.0, seed 1."), t.AddHours(-9));
+            var startLone = MapFileWatch.Take(lone);
+            File.SetLastWriteTimeUtc(lone, t);
+            offer = MapFileWatch.Check(lone, startLone);
+            Check(offer.Change == FileChange.Changed && offer.Target?.Path == lone, "the same file saved again in place is offered");
+
+            // Gone, with and without a re-save.
+            File.Delete(lone);
+            Check(MapFileWatch.Check(lone, startLone).Change == FileChange.Missing, "a deleted map with no re-save is missing");
+            File.Delete(one);
+            Check(MapFileWatch.Check(one, start).Target?.Name == "dgm-river-valley-7-3", "a deleted original still finds its re-save");
+
+            // Root detection.
+            Check(LatestMap.FamilyRoot("x-7-2", new[] { "x-7", "x-7-2" }) == "x-7", "x-7-2 belongs to x-7 when x-7 is there");
+            Check(LatestMap.FamilyRoot("dgm-river-valley-2", new[] { "dgm-river-valley-2" }) == "dgm-river-valley-2", "a seed name whose root is absent is its own root");
+            Check(LatestMap.FamilyRoot("x-7-1", new[] { "x-7", "x-7-1" }) == "x-7-1", "-1 is a seed, not a re-save");
+            Check(LatestMap.IsDamGoodMapsFile(two) && !LatestMap.IsDamGoodMapsFile(Path.Combine(folder, "nowhere.timber")), "a Dam Good Maps file is recognised by path");
         }
 
         private static void Keys()
