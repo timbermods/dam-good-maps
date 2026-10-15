@@ -12,6 +12,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 
+/** Every tool and the key that picks it. */
+const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["7", "Block"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const;
+
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
 const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
@@ -124,7 +127,7 @@ const settle = async (page: Page, w: number, h: number) => {
  *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
 /** Where each force's Power and Size stood (x, width, top), by name: every force's must be the first one's (D184: a setting
  *  keeps its place across tools); the brushes' Size is their own, on cells 1–4. */
-const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit"]);
+const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit", "Erode"]);
 const placed = new Map<string, { l: number; w: number; t: number }>();
 
 async function onTheCells(page: Page, state: string) {
@@ -141,7 +144,7 @@ async function onTheCells(page: Page, state: string) {
       groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
-  expect(r.lefts.length, "the bar's fourteen cells").toBe(14);
+  expect(r.lefts.length, "the bar's fifteen cells").toBe(15);
   if (!r.settings) return;
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
@@ -158,7 +161,7 @@ async function onTheCells(page: Page, state: string) {
     }
     return out;
   });
-  expect(cut, `cut off (${state})`).toEqual([]);
+  expect.soft(cut, `cut off (${state})`).toEqual([]);
   if (FORCES_HERE.has(state))
     for (const g of r.groups.filter((g) => g.name === "Power" || g.name === "Size")) {
       const here = { l: g.l, w: g.r - g.l, t: g.t };
@@ -190,8 +193,8 @@ async function onTheCells(page: Page, state: string) {
         expect(ok, `${g.name}'s right edge lines up with the row at ${b} (${state})`).toBe(true);
       }
     }
-  // no empty cells: each row's groups cover its fourteen cells (a group on several rows counts in each)
-  const width = r.rights[13] - r.lefts[0];
+  // no empty cells: each row's groups cover its fifteen cells (a group on several rows counts in each)
+  const width = r.rights[14] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
   for (const top of tops.slice(0, 2)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
@@ -326,7 +329,7 @@ for (const [w, h] of SIZES) {
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
     placed.clear();
     await onTheCells(page, "Select");
-    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["7", "Block"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
+    for (const [key, what] of EVERY_TOOL) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
@@ -449,3 +452,19 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
     }
   });
 }
+
+// The narrowest the bar is drawn for: every tool's settings on the bar's cells and none cut off, as at the larger sizes
+// (Glaciate's Benches "Some" was cut by 2px here once the bar grew past thirteen cells).
+test("at 1280×800: every tool's settings sit on the bar's cells and nothing in them is cut off", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page);
+  await settle(page, 1280, 800);
+  placed.clear();
+  await onTheCells(page, "Select");
+  for (const [key, what] of EVERY_TOOL) {
+    await page.keyboard.press(key);
+    await onTheCells(page, `${what} at 1280`);
+    await page.keyboard.press("Escape");
+  }
+});

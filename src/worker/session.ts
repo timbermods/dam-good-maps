@@ -14,6 +14,7 @@ import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
+import { planCrop, type CropParams } from "../core/doc/crop";
 import { applySelection as applySelectionStep, startCarry } from "../core/doc/start";
 import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
@@ -1861,6 +1862,23 @@ export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
   return changed(s, r.ok, r.errors, t0);
 }
 
+/** What cropping the map to a rectangle would do: the core's one-line reason it cannot, or how many objects the new edge
+ *  would remove (core/doc/crop.ts `planCrop`, D340). Reads the map only. */
+export function cropPlanAt(r: CropParams): { reason: string | null; removedObjects: number } {
+  const s = need();
+  const p = planCrop(s.built.entities, s.size.x, s.size.y, r);
+  return p.ok ? { reason: null, removedObjects: p.removedObjects } : { reason: p.reason, removedObjects: 0 };
+}
+
+/** Crop the map to a rectangle (D340): the map's next generation, one undo step. The page opens the new map (its size
+ *  changed); how many objects the edge removed is counted. */
+export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number } {
+  const t0 = performance.now();
+  const s = need();
+  const res = s.apply({ op: "crop", params: r }, "user");
+  return { ...changed(s, res.ok, res.errors, t0), removedObjects: res.removedObjects ?? 0 };
+}
+
 /** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the
  *  plain reason it holds no water at that level (core/doc/waterEdits.ts `planFill`, D387 (3), D394). */
 export function fillPlanAt(x: number, y: number, level: number): { reason: string | null; tiles: number[]; volume: number; days: number } {
@@ -2453,6 +2471,10 @@ function landFinal(f: NonNullable<typeof force>): boolean {
   const a = shown.heights;
   const b = final.heights;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  // (Erode wears under the surface: the land is final only once its voxels are too, D281)
+  const ma = shown.masks;
+  const mb = final.masks;
+  if (ma && mb) for (let i = 0; i < ma.length; i++) if (ma[i] !== mb[i]) return false;
   return true;
 }
 

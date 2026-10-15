@@ -343,6 +343,58 @@ export function useSelect(ed: Ed): SelectSlice {
     setWaterHint(null);
     setSelectPreview(null);
   }
+  // ------------------------------------------------------------------------------ Crop (D340)
+
+  /** What the core says about cropping the map to the selection's bounding rectangle: its one-line reason it cannot, or
+   *  how many objects the new edge would remove. Asked again whenever the selection or the map changes. */
+  const [cropPlan, setCropPlan] = useState<{ reason: string | null; removed: number } | null>(null);
+  const cropJob = useRef(0);
+  useEffect(() => {
+    const b = selection.current.bounds();
+    const job = ++cropJob.current;
+    if (!b) return setCropPlan(null);
+    void api.cropPlanAt({ x: b.x, y: b.y, w: b.w, h: b.h }).then((r) => {
+      if (job === cropJob.current) setCropPlan({ reason: r.reason, removed: r.removedObjects });
+    });
+  }, [selectionTick, info.version]);
+  /** Why Crop is greyed, in the core's words, or null when it can crop. With nothing selected it says what to do. */
+  const cropWhy = (): string | null => (!selection.current.count ? "Select an area to crop" : cropPlan ? cropPlan.reason : "Checking the selection");
+  /** The core's reason shown on the message line while Crop is hovered (the row's words are too short for it). */
+  const cropShown = useRef<string | null>(null);
+  function endCropHint() {
+    const t = cropShown.current;
+    cropShown.current = null;
+    if (t) setMessage((m) => (m && m.text === t ? null : m));
+    endWaterHint();
+  }
+  /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
+  function previewCrop() {
+    hintJob.current++;
+    const b = selection.current.bounds();
+    const why = cropWhy();
+    if (why && b && cropPlan) {
+      cropShown.current = why;
+      setMessage({ kind: "info", text: why });
+      return setWaterHint("Can't crop this");
+    }
+    if (why || !b || !cropPlan) return setWaterHint(why);
+    const n = cropPlan.removed;
+    setWaterHint(`${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
+  }
+  /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
+   *  that is pressed says its reason on the message line, in full. */
+  function cropMap() {
+    const b = selection.current.bounds();
+    const why = cropWhy();
+    if (why || !b) return setMessage({ kind: "error", text: why ?? "Select an area to crop" });
+    endCropHint();
+    // (a crop of a big map takes about a second: past 300 ms the message line says so, until the new map opens)
+    const slow = window.setTimeout(() => setMessage({ kind: "info", text: "Cropping…" }), 300);
+    void run(() => api.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h })).finally(() => {
+      clearTimeout(slow);
+      if (!ed.resizing.current) setMessage((m) => (m && m.text === "Cropping…" ? null : m));
+    });
+  }
   /** Fill: the hollow under the selection's lowest ground, filled with standing water to the Level, no source (D394). */
   function fillWater(level: number) {
     const spot = fillSpot();
@@ -470,7 +522,7 @@ export function useSelect(ed: Ed): SelectSlice {
       span: 1,
       node: (
         <div class="set">
-          <button type="button" class="set-button" disabled={!z} {...title} {...way(what)} onClick={run}>
+          <button type="button" class="set-button tight" disabled={!z} {...title} {...way(what)} onClick={run}>
             {label}
           </button>
         </div>
@@ -479,6 +531,20 @@ export function useSelect(ed: Ed): SelectSlice {
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 7, node: shapes },
       { key: "size", row: 1, at: 8, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
+      {
+        key: "crop",
+        row: 2,
+        at: 14,
+        span: 2,
+        node: (
+          <div class="set">
+            <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
+              Crop
+            </button>
+          </div>
+        ),
+      },
       // the water's two actions (D387): Fill pours into the hollow under the selection's lowest ground, up to the Level;
       // Remove unfed water takes the pools no source feeds, saying first how many (the words and the marked tiles)
       {
@@ -511,7 +577,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
+            <button type="button" class="set-button tight" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
               Remove unfed water
             </button>
           </div>
@@ -519,7 +585,7 @@ export function useSelect(ed: Ed): SelectSlice {
       },
       // Deselect (Kyler, 2026-10-04): always there, greyed with nothing selected; Esc and X do the same (touch screens
       // have neither)
-      { key: "deselect", row: 1, at: 14, span: 1, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
+      { key: "deselect", row: 1, at: 14, span: 2, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
       {
         key: "level",
         row: 2,
@@ -539,7 +605,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 4,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 13, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 13, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
         row: 2,

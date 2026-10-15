@@ -406,7 +406,10 @@ export function useShelf(ed: Ed): ShelfSlice {
       const at = [0, (56 - w) / 2, 56 - w];
       const top = [56 - w - 2, 56 - w - 8, 56 - w - 2];
       [0, 2, 1].forEach((k) => g.drawImage(imgs[k], at[k], top[k], w, w));
-      setIcons((m) => ({ ...m, [it.id]: c.toDataURL("image/png") }));
+      // (kept like the rest, so the next map's shelf shows it at once)
+      const url = c.toDataURL("image/png");
+      rememberShelfIcon(it.id, url);
+      setIcons((m) => ({ ...m, [it.id]: url }));
     }
   }
   return { pointerWords, flashNote, fitWant, ghostAt, shelfTile, shelfHover, dropShelf };

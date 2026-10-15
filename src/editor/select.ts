@@ -88,8 +88,8 @@ export class Selection {
     return out;
   }
 
-  /** The selection's extent in tiles, and how many it holds. */
-  size(): { w: number; h: number; tiles: number } | null {
+  /** The selection's extent in tiles (its bounding rectangle: top-left tile and size), and how many it holds. */
+  bounds(): { x: number; y: number; w: number; h: number; tiles: number } | null {
     if (!this.count) return null;
     let x0 = Infinity;
     let y0 = Infinity;
@@ -104,7 +104,13 @@ export class Selection {
       if (y < y0) y0 = y;
       if (y > y1) y1 = y;
     }
-    return { w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: this.count };
+    return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, tiles: this.count };
+  }
+
+  /** The selection's extent in tiles, and how many it holds. */
+  size(): { w: number; h: number; tiles: number } | null {
+    const b = this.bounds();
+    return b && { w: b.w, h: b.h, tiles: b.tiles };
   }
 }
 

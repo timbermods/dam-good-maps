@@ -102,7 +102,8 @@ test("the shelf's pictures never go blank when a new map is made", async ({ page
   await panel.getByRole("button", { name: "Surprise me" }).click();
   await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name), { timeout: 120_000 }).not.toBe(before);
   // (the new map's editor has drawn its own pictures by now; the frames between never showed a grey square)
-  await expect(shelf.locator(".shelf-item img")).toHaveCount(15, { timeout: 60_000 });
+  await expect(shelf.locator(".shelf-item").first()).toBeVisible();
+  await expect.poll(async () => { const c = await shelf.locator(".shelf-item").evaluateAll((els) => [els.length, els.filter((e) => e.querySelector("img")).length]); return c[0] > 0 && c[0] === c[1]; }, { timeout: 60_000 }).toBe(true);
   const seen = await page.evaluate(() => ({ blank: (window as unknown as { __blank: number }).__blank, frames: (window as unknown as { __frames: number }).__frames }));
   expect(seen.frames).toBeGreaterThan(0);
   expect(seen.blank).toBe(0);

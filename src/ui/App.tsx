@@ -33,7 +33,7 @@ import {
 } from "../core/spec/mapspec";
 import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
-import type { EditorProps, MapPicture } from "../editor/Editor";
+import type { EditorProps, MapPicture, ResizeCarry } from "../editor/Editor";
 import type { LoadingFrameProps } from "../editor/LoadingFrame";
 import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
@@ -197,7 +197,7 @@ export function App() {
   /** What a link said (made by another generator version, or with settings it couldn't keep). */
   const [note, setNote] = useState<string | null>(init.note ?? null);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean } | null>(null);
+  const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean; carry?: ResizeCarry } | null>(null);
   /** A map being made over the open one (Generate, Surprise me, Another like this): the modal says so, and nothing
    *  else can be clicked or started; "back" while Cancel puts the open map back; the words when it failed. */
   const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
@@ -395,6 +395,26 @@ export function App() {
     kept.current = !isNew && origin.kept !== false;
     openedVersion.current = data.info.version;
     if (!isNew) refresh();
+  }
+
+  /** The open map changed size (a crop, or its undo or redo, D340): the editor opens the session's map again, the camera and
+   *  the minimap fitted to it; the map stays the same row of Your maps, with its new size. */
+  async function resized(carry: ResizeCarry) {
+    // (the old editor's controls are shut, and what it had queued reaches the worker first: the map is taken after it, so the
+    // new editor starts from every step the worker took, and History and Undo agree with the worker)
+    setReplacingMap(true);
+    // (a compare was of the map at its old size)
+    setCompare(null);
+    try {
+      await pendingEdits.current?.();
+      const data = await generator.sessionView();
+      if (entry.current) entry.current = { ...entry.current, size: { w: data.info.W, h: data.info.H } };
+      infoRef.current = data.info;
+      setSession(data.info);
+      setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, carry }));
+    } finally {
+      setReplacingMap(false);
+    }
   }
 
   function onEditorChange(info: SessionInfo) {
@@ -1178,6 +1198,7 @@ export function App() {
         api={generator}
         opened={opened.data}
         onChange={onEditorChange}
+        onResized={(c) => void resized(c)}
         replacing={replacingMap}
         onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
@@ -1193,6 +1214,7 @@ export function App() {
         placesOpen={panel === "places"}
         onPlaces={(o) => setPanel(o ? "places" : null)}
         keepView={opened.keepView}
+        carry={opened.carry}
         compare={compare}
         onStopCompare={() => setCompare(null)}
         onKeepStep={(k, branch) => void keepStep(k, branch)}

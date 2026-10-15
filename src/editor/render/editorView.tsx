@@ -58,6 +58,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               legendOpen={false}
               frameInsets={measureInsets}
               keepView={props.keepView}
+              startMode={props.carry?.mode}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
               viewButtons={viewButtons(ed)}
               caption={layerCaption(ed)}
