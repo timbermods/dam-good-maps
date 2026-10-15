@@ -340,6 +340,14 @@ export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number
   return { ...out, W, H, L };
 }
 
+/** The water a map shows per tile as its checks read it: on terrain above terrain each tile's highest
+ *  wet column, seen through its roofs (`seenThroughRoofs`: a cave's pool, a river under an arch);
+ *  else the settle's own per tile. */
+export function seenWater(b: { water: Float64Array; contamination: Float64Array; settle?: { stack?: StackSettle } }): { depth: Float64Array; contamination: Float64Array } {
+  const s = b.settle?.stack;
+  return s?.stacked ? seenThroughRoofs(s) : { depth: b.water, contamination: b.contamination };
+}
+
 /** The water of stacked columns seen through the roofs: per tile, its highest wet column's depth and
  *  contamination (none: a dry tile). A river under a bridge or through a tunnel is
  *  then one water with the stretches before and after it, as the map's own stored water is read at
@@ -358,6 +366,23 @@ export function seenThroughRoofs(s: StackSettle): { depth: Float64Array; contami
       break;
     }
   return { depth, contamination };
+}
+
+/** The ground under the water `seenThroughRoofs` shows: each tile's highest wet column's floor (a
+ *  cave's pool, a river under an arch), else `surface` (the tile's top). With it the checks that read
+ *  the water from above (a source in another's flow, the drought, the start's water) read that water
+ *  standing on its own floor, not on the roof over it. */
+export function seenFloor(s: StackSettle, surface: ArrayLike<number>): Float64Array {
+  const N = s.W * s.H;
+  const out = Float64Array.from(surface);
+  for (let i = 0; i < N; i++)
+    for (let q = s.count[i] - 1; q >= 0; q--) {
+      const c = q * N + i;
+      if (!(s.depth[c] > 0)) continue;
+      out[i] = s.floor[c];
+      break;
+    }
+  return out;
 }
 
 function emptyStack(cols: WaterColumns): StackSettle {

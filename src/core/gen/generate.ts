@@ -32,7 +32,7 @@ import { TICKS_PER_DAY, WaterSim } from "../sim/water";
 import { prefill, spillLevels } from "../sim/prefill";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
-import { entityJson } from "../format/entities";
+import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
@@ -62,7 +62,8 @@ import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
-import { ACTIVE, type IntentionId } from "../land/intentions";
+import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
+import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
 import { distanceFrom, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
@@ -72,7 +73,7 @@ import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
-import { terrainColumns, terrainData } from "../terrain/runs";
+import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
 import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
@@ -84,7 +85,8 @@ import { lakeFeatures } from "./readback";
 import { planWeir } from "./weir";
 import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
-import { finalChecks, foundIntention, settlerView, type IntentionResult } from "./intentions";
+import { finalChecks, finalCtx, foundIntention, settlerView, type IntentionResult } from "./intentions";
+import { caveStream, checkForm, formsWanted, growOn } from "./forms3d";
 import { toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, type Outcomes } from "./outcomes";
 import { mapWords, type PlayFacts } from "./names";
@@ -435,14 +437,33 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
   const t0 = performance.now();
   const record: RoundRecord = { failures: [], failedAt: [], before: 0 };
-  let r = attemptRound(specIn, opts, t0, 0, record);
+  // (D348 with D488: a map that looks for an arch over a gorge grows it on its finished land, which
+  // changes the land seen from above, so its first look waits for the map: the land shown is the land
+  // at the end. Only at 128² and under, where the first look waits for the settled start anyway;
+  // above, the land is shown as soon as it is planned, and no arch is grown, `formsFor`)
+  let held: Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null = null;
+  const holdLand = !!opts.onLand && !!formsFor(specIn)["gorge-arch"];
+  const o: GenerateOptions = holdLand ? { ...opts, onLand: (l) => void (held ??= l) } : opts;
+  let r = attemptRound(specIn, o, t0, 0, record);
   // D471: a round whose attempts are spent without a map is followed by rounds on fresh lands, until
   // one makes a map (a caller that caps the attempts gets its cap: the measures, the tests)
   for (let k = 1, n = rescueRounds(specIn.size.x, specIn.size.y); !r.report.passed && opts.maxAttempts === undefined && k <= n; k++) {
     record.before = r.attempts;
-    r = attemptRound(specIn, { ...opts, screen: false, intentions: opts.intentions ?? [], ease: k }, t0, k, record);
+    r = attemptRound(specIn, { ...o, screen: false, intentions: o.intentions ?? [], ease: k }, t0, k, record);
   }
+  const shownLand = held as Parameters<NonNullable<GenerateOptions["onLand"]>>[0] | null;
+  if (shownLand) opts.onLand!({ ...shownLand, heights: r.built.heights.slice() });
   return r;
+}
+
+/** The 3D forms a map looks for (D488, gen/forms3d.ts `formsWanted`): its own draw, the same on
+ *  every attempt; no arch above 128² (its first look is not held there, D348), no spring cave on a
+ *  map made with Sources: None. */
+export function formsFor(spec: MapSpec): FormsWanted {
+  const want = formsWanted(spec.theme, spec.settings.terrain.verticality, stream(spec.seed, "forms3d"));
+  if (spec.size.x * spec.size.y > SHOW_PROVED_MOST) delete want["gorge-arch"];
+  if (spec.settings.water.sources === "none") delete want["spring-cave"];
+  return want;
 }
 
 /** The settings a rescue round's land is drawn with (D471): the player's until the fourth round; from
@@ -1580,9 +1601,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const fieldCache: FieldCache = from ? from.fields : new Map();
   const counted = from ? from.counted : new WeakSet<object>();
   const contains = new Set<string>(hy.rivers.map((r) => r.id));
+  // (the 3D forms the map grew on its finished land, D488: the field's terrain as runs)
+  let caves: ColumnTerrain | null = null;
   const fieldOf = (): GeneratedField => {
     const steps = standingSteps(ramps.steps, h, W, H);
-    return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}) };
+    return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}), ...(caves ? { caves } : {}) };
   };
   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
     const b = buildMap({ W, H, seed, features, field: fieldOf() }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
@@ -2889,6 +2912,73 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   info.storage = storage && storage.applicable !== false ? storage.ok : null;
   const tallOk = g.tall || maxOf(built.heights) <= 16;
   const passed = v.report.passed && !straight && tallOk;
+  // ---- 3D forms (D488, D138): a spring cave feeding the river, an overhang sheltering the start, an
+  //      arch over a gorge, grown on the finished map where its land offers them (land/forms3d.ts),
+  //      then the map built and checked again: a form is kept only where every check, intention and
+  //      outcome the map had still holds and its own check confirms it, else dropped, never forced
+  if (passed) {
+    const want = formsFor(specIn);
+    if (Object.keys(want).length) {
+      const vt = specIn.settings.terrain.verticality;
+      const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt));
+      const emerged = intentions.filter((x) => x.ok && x.id in INTENTION_TEXT).map((x) => x.id as IntentionId);
+      const before = outcomesOf({ spec: shown, built, features, intentions }).score;
+      // (and no check, advisory ones included, fails that passed without the forms)
+      const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
+      const records: IntentionResult[] = grown.missed.map((m) => ({ id: m.id, ok: false, note: m.why, outcome: "dropped" as const }));
+      let plans = grown.forms.slice();
+      for (let tries = 0; plans.length && tries < 3; tries++) {
+        const mask = new Uint32Array(N);
+        for (let i = 0; i < N; i++) mask[i] = plainMask(h[i]);
+        for (const p of plans) for (const i of p.tiles) mask[i] = grown.mask[i];
+        const t3 = new ColumnTerrain(W, H, mask);
+        const hWas = h.slice();
+        const streams = plans.filter((p) => p.id === "spring-cave").map((p, k) => caveStream(seed, p, k, W));
+        h.set(t3.heights());
+        caves = t3;
+        for (const f of streams) contains.add(f.id);
+        const f3 = [...features, ...streams];
+        const b3 = build(f3, null);
+        const file3 = toTimberFile(spec, b3);
+        const v3 = validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0 });
+        let k = 0;
+        const checks = plans.map((p) => checkForm(p, b3, p.id === "spring-cave" ? streams[k++].id : null));
+        const ctx3 = finalCtx(b3, hy);
+        const holds =
+          v3.report.passed &&
+          v3.report.checks.every((c) => c.ok || failing.has(c.id)) &&
+          !b3.dropped &&
+          (b3.settle.settled || !built.settle.settled) &&
+          !tooStraight(straightness(W, H, b3.water, { channels: ditches })) &&
+          (g.tall || maxOf(b3.heights) <= 16) &&
+          emerged.every((id) => checkIntention(id, ctx3).ok) &&
+          outcomesOf({ spec: shown, built: b3, features: f3, intentions }).score >= before;
+        if (holds && checks.every((c) => c.ok)) {
+          features = f3;
+          built = b3;
+          file = file3;
+          v = v3;
+          const xy = (i: number): [number, number] => [i % W, Math.floor(i / W)];
+          records.unshift(...plans.map((p, q): IntentionResult => ({ id: p.id, ok: true, note: `${p.note}; ${checks[q].note}`, ...(checks[q].say ? { say: checks[q].say } : {}), at: xy(p.at), from: xy(p.from), outcome: "emerged" })));
+          plans = [];
+          break;
+        }
+        caves = null;
+        h.set(hWas);
+        for (const f of streams) contains.delete(f.id);
+        // (the forms whose own check failed go; when the map's checks failed, the forms near where
+        // they failed, else the boldest kind there is: the arches, then an overhang, then the caves)
+        const failed = checks.some((c) => !c.ok) ? plans.filter((_, q) => !checks[q].ok) : culprits(plans, v3, failing, b3.entities, W);
+        for (const p of failed) {
+          const c = checks[plans.indexOf(p)];
+          records.push({ id: p.id, ok: false, note: `${p.note}; ${c.ok ? "the map's checks did not hold with it" : c.note}`, outcome: "dropped" });
+        }
+        plans = plans.filter((p) => !failed.includes(p));
+      }
+      for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after three builds`, outcome: "dropped" });
+      intentions = [...intentions, ...records];
+    }
+  }
   info.stage = !v.report.passed ? "checks" : straight ? "ruler-straight channel" : !tallOk ? "above 16" : "built";
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)
@@ -2919,6 +3009,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
 }
 
+/** The 3D forms to drop when a map's checks failed with them (D488): those within a dozen tiles of a
+ *  check that failed with them and not without (its `where` tiles), else every form of the boldest
+ *  kind among them (the arches, then an overhang, then the caves). */
+function culprits(plans: readonly FormPlan[], v: Validation, failing: ReadonlySet<string>, entities: readonly EntitySpec[], W: number): FormPlan[] {
+  const at: [number, number][] = [];
+  const byId = new Map(entities.map((e) => [e.id, e]));
+  for (const c of v.report.checks) {
+    if (c.ok || failing.has(c.id)) continue;
+    for (const t of c.where?.tiles ?? []) at.push(t);
+    for (const id of c.where?.entities ?? []) {
+      const e = byId.get(id);
+      if (e) at.push([e.x, e.y]);
+    }
+  }
+  const near = plans.filter((p) => p.tiles.some((i) => at.some(([x, y]) => Math.max(Math.abs((i % W) - x), Math.abs(Math.floor(i / W) - y)) <= 12)));
+  if (near.length) return near;
+  const last = plans[plans.length - 1].id;
+  return plans.filter((p) => p.id === last);
+}
+
 /** Sources: None (D330, the UI brief §8): a generated map without its sources and their water. The
  *  build places none of the features' sources (the field's `dry`), keeping the valleys, basins and
  *  pits they carved, and plants the trees and bushes where the soil was moist as generated, so they
@@ -2935,7 +3045,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
   const fd = r.field!;
   const ramps: [number, number][] = [];
   for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
-  const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned } };
+  const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned }, ...(fd.runs.length ? { caves: ColumnTerrain.fromData(fd, W, H) } : {}) };
   const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
   const file = toTimberFile(r.spec, built);
   const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
@@ -2944,7 +3054,8 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
 
 /** A generation's field as the document stores it (format 3). */
 export function fieldData(f: GeneratedField, W: number): FieldData {
-  const out: FieldData = { ...terrainData(f.heights), contains: [...f.contains].sort() };
+  // (the 3D forms the generation grew are the field's runs, D488)
+  const out: FieldData = { ...(f.caves ? f.caves.toData() : terrainData(f.heights)), contains: [...f.contains].sort() };
   if (f.ramps?.length) out.ramps = f.ramps.flatMap(([a, b]) => [a, b]);
   if (f.top !== undefined) out.top = f.top;
   if (f.dry) {

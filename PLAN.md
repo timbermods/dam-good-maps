@@ -364,6 +364,21 @@ arch, overhangs up to 3; 70–100 up to 22, 5–12 (overhanging cliffs, arches, 
 multi-level valleys, water through mountains). Cave starts only from 70. Every level has a way up without stairs
 (ramps, tunnels, ledges, bridges), except the planned rewards, which need player stairs.
 
+**Built so far** (D488, step 4 part 1; `docs/progress/3d-generation.md`): three forms, grown on the finished map where its
+land offers them and kept only where every check still holds, each an intention with its own check:
+
+| Verticality | A spring cave feeding the river | An overhang sheltering the start | An arch over a gorge |
+|---|---|---|---|
+| 0 | none | none | none |
+| 1–34 | one, on 25% + Verticality% of maps | one, on 20% + Verticality% | none |
+| 35–49 | one | one | one, more often in Canyon and Highlands |
+| 50–74 | up to two | one | one (two at 70+ on most maps) |
+| 75–100 | up to three | one | up to two |
+
+The cave and the overhang are worn below the surface (the land seen from above is unchanged); an arch's deck is new ground
+over its gorge, so a map that looks for one shows its first look when it is done (D348), and none is grown above 128².
+Their water is the stacked engine's on every column (D120).
+
 ---
 
 ## 6. Theme presets

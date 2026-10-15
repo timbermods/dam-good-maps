@@ -9,10 +9,13 @@
 import { entityJson, type EntitySpec } from "../format/entities";
 import type { JsonObject } from "../format/json";
 import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
-import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, settledSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
+import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, settledSimulationSingletons, stackedSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
 import { thumbnailJpeg } from "../render/shade";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
-import type { BuildResult } from "../features/build";
+import { toMapObject, type BuildResult } from "../features/build";
+import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
+import { stackedSoil } from "../sim/soil";
+import { ColumnTerrain } from "../terrain/runs";
 import { GENERATOR_VERSION, THEME_NAMES, type MapSpec } from "../spec/mapspec";
 
 /** Written into world.json; never read by the game (FORMAT.md §4.1). Fixed so files reproduce. */
@@ -158,7 +161,26 @@ export function timberFileOf(world: WorldModel, heights: Uint8Array, description
 }
 
 export function toWorld(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): WorldModel {
-  return worldOf(built.W, built.H, built.heights, built.entities, opts.emptyWater ? null : builtWater(built));
+  const world = worldOf(built.W, built.H, built.heights, built.entities, opts.emptyWater ? null : builtWater(built));
+  return built.waterModel.stacked ? stackedWorld(world, built, !!opts.emptyWater) : world;
+}
+
+/** A new map with terrain above terrain (a generated map's 3D forms, D488, or the Block tool's caves on
+ *  one): its voxels as the build's runs, and its water on every water column and its soil on every
+ *  run (D120), as the game saves such a map (world.ts `stackedSimulationSingletons`), from the build's
+ *  stacked settle; with `empty`, no water, as a heightfield's empty copy. */
+export function stackedWorld(world: WorldModel, built: BuildResult, empty: boolean): WorldModel {
+  const { W, H } = built;
+  const terrain = new ColumnTerrain(W, H, built.waterModel.stacked!.mask);
+  const voxels = terrain.voxels(LAYERS);
+  const stack = built.settle.stack;
+  if (empty || !stack) return { ...world, voxels };
+  const objects = built.entities.map(toMapObject);
+  const cols = waterColumns(terrain, objects);
+  if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
+  const soil = stackedSoil(terrain, cols, stack, objects);
+  const singletons = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });
+  return { ...world, voxels, singletons };
 }
 
 export function toTimberFile(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): TimberFile {

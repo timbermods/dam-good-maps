@@ -252,7 +252,7 @@ fn playability(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], rules: &R
         ("message", s(format!("{} of clean water, aim for {}", counted(clean_count, "tile"), num(min_clean)))),
     ]);
     check_outflow(p, &model, w, h, c);
-    check_sources_in_flow(&model, objects, d, c);
+    check_sources_in_flow(&model, objects, d, hgt, c);
     let cleanf: Vec<f64> = clean.iter().map(|&v| v as f64).collect();
     let bodies = kernels::k_components(&cleanf, false, w, h);
     let count = bodies[nn] as usize;
@@ -505,18 +505,26 @@ fn check_contained(p: &Playable, hgt: &[u8], w: usize, h: usize, c: &mut Collect
     c.add(r);
 }
 
+/// Whether an object stands under terrain: its tile's surface above its own level (a cave's floor).
+fn roofed(o: &Entity, surface: &[u8], w: usize, h: usize) -> bool {
+    o.x >= 0 && o.y >= 0 && (o.x as usize) < w && (o.y as usize) < h && surface[o.y as usize * w + o.x as usize] as i64 > o.z
+}
+
 /// `water.source_in_flow`.
-fn check_sources_in_flow(model: &Model, objects: &[&Entity], depth: &[f64], c: &mut Collector) {
+fn check_sources_in_flow(model: &Model, objects: &[&Entity], depth: &[f64], surface: &[u8], c: &mut Collector) {
     if c.profile == crate::report::Profile::Export {
         c.not_applicable("water.source_in_flow", "design", "Not checked in the editor: sources go anywhere", false);
         return;
     }
-    let r = water::sources_in_flow(model, objects, depth);
+    // (a source under a roof, a cave's spring, D488: the surface's spill levels cannot see into its cave,
+    // so it is judged by its cave alone, whose water leaves by its own mouth)
+    let open: Vec<&Entity> = objects.iter().copied().filter(|o| !roofed(o, surface, model.w, model.h)).collect();
+    let r = water::sources_in_flow(model, &open, depth);
     if r.sources == 0 {
         c.not_applicable("water.source_in_flow", "design", "No water sources on this map", false);
         return;
     }
-    let ents: Vec<String> = r.in_flow.iter().map(|&k| objects[k].id.clone()).filter(|e| !e.is_empty()).collect();
+    let ents: Vec<String> = r.in_flow.iter().map(|&k| open[k].id.clone()).filter(|e| !e.is_empty()).collect();
     let k = r.in_flow.len();
     let mut e = vec![
         ("id", s("water.source_in_flow")),

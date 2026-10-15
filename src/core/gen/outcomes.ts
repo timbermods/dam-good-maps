@@ -8,7 +8,9 @@ import { signatureOf, type Signature } from "../analysis/signature";
 import { waterStory, type WaterStory } from "../analysis/story";
 import type { Feature } from "../features/schema";
 import { KYLERS, type IntentionId } from "../land/intentions";
+import type { FormId } from "../land/forms3d";
 import type { ThemeId } from "../spec/mapspec";
+import { seenWater, type StackSettle } from "../sim/stackWater";
 import * as portable from "../math/portable";
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
@@ -32,9 +34,9 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
 
 export interface OutcomeInput {
   spec: { theme: ThemeId; size: { x: number; y: number } };
-  built: { W: number; H: number; heights: Uint8Array; water: Float64Array; contamination: Float64Array };
+  built: { W: number; H: number; heights: Uint8Array; water: Float64Array; contamination: Float64Array; settle?: { stack?: StackSettle } };
   features: readonly Feature[];
-  intentions: readonly { id: IntentionId; ok: boolean }[];
+  intentions: readonly { id: IntentionId | FormId; ok: boolean }[];
   /** The water as its rivers were planned (the land screens), not settled: lakes read as planned. */
   planned?: boolean;
 }
@@ -45,7 +47,7 @@ export interface Outcomes {
   /** The theme's promise kept (always for Any). */
   promise: boolean;
   /** The standout intention: the first of the map's that emerged (Kyler's own first), or null. */
-  standout: IntentionId | null;
+  standout: IntentionId | FormId | null;
   /** All three held. */
   met: boolean;
   /** How many of the three held, for the best candidate when none holds all three. */
@@ -55,12 +57,14 @@ export interface Outcomes {
 
 export function outcomesOf(r: OutcomeInput): Outcomes {
   const { W, H } = r.built;
-  const story = waterStory(W, H, r.built.water, r.features, r.built.contamination);
-  const signature = signatureOf(W, H, r.built.heights, r.built.water, r.features, !r.planned);
+  // (on terrain above terrain, the water seen through the roofs: a cave's stream, a river under an arch)
+  const seen = seenWater(r.built);
+  const story = waterStory(W, H, seen.depth, r.features, seen.contamination);
+  const signature = signatureOf(W, H, r.built.heights, seen.depth, r.features, !r.planned);
   const theme = r.spec.theme;
   const promise = theme === "any" ? true : PROMISES[theme].holds(signature, Math.min(W, H));
   const emerged = r.intentions.filter((x) => x.ok).map((x) => x.id);
-  const standout = emerged.find((id) => KYLERS.has(id)) ?? emerged[0] ?? null;
+  const standout = emerged.find((id) => KYLERS.has(id as IntentionId)) ?? emerged[0] ?? null;
   const score = (story.readable ? 1 : 0) + (promise ? 1 : 0) + (standout ? 1 : 0);
   const summary = [story.readable ? "water reads" : `water: ${story.why.join("; ")}`, theme === "any" ? "" : promise ? "promise kept" : `no ${PROMISES[theme].text}`, standout ? `standout: ${standout}` : "no standout"].filter(Boolean).join(" | ");
   return { story, signature, promise, standout, met: score === 3, score, summary };

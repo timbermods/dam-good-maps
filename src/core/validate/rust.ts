@@ -25,7 +25,7 @@ import { storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { growthOf } from "../analysis/wood";
 import { isDelayed, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
-import { seenThroughRoofs, worldWaterModel } from "../sim/stackWater";
+import { seenFloor, seenThroughRoofs, worldWaterModel } from "../sim/stackWater";
 import type { WaterModel } from "../sim/water";
 import { EXTRA_BANDS, type PlayabilityAnalysis } from "./playability";
 import type { ValidationReport } from "./report";
@@ -286,7 +286,9 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
     if (stored) inputs[STORED_WET] = stored;
     m.bool(!!opts.mineCutAtOpen);
     if (opts.mineCutAtOpen) m.f64s([...opts.mineCutAtOpen]);
-    inputs[FLOOR] = f64Bytes(model.floor);
+    // (on terrain above terrain, the water seen through the roofs on its own floor, D488: a cave's pool,
+    // a river under an arch)
+    inputs[FLOOR] = f64Bytes(water.stack?.stacked ? seenFloor(water.stack, model.floor) : model.floor);
     inputs[DAM] = f64Bytes(model.dam);
     const seen = water.stack?.stacked ? seenThroughRoofs(water.stack) : water;
     inputs[DEPTH] = f64Bytes(seen.depth);

@@ -236,8 +236,9 @@ export function waterStory(W: number, H: number, depth: ArrayLike<number>, featu
       other += t;
     } else ponds++;
   });
-  // (a spring by the start, D330's fix on a shown land, D348, is no river of the map's story)
-  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring" && f.role !== "river/lakeSpring");
+  // (a spring by the start, D330's fix on a shown land, D348, is no river of the map's story, nor a
+  // cave's spring and its few tiles of stream, D488)
+  const rivers = features.filter((f): f is RiverFeature => f.kind === "river" && !f.params.badwater && f.role !== "river/startSpring" && f.role !== "river/lakeSpring" && !f.role?.startsWith("river/caveSpring"));
   let heads = 0;
   let separate = 0;
   let mainWet = 1;

@@ -309,7 +309,7 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
-    const dropped = groundDropped(input.base, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
+    const dropped = groundDropped(input.base?.terrain ?? input.field?.caves ?? null, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
     if (dropped) b.dropped = dropped;
     return b;
   }
@@ -683,7 +683,7 @@ export class MapSession {
     let t = this.terrains.get(b);
     if (!t) {
       const { x: W, y: H } = this.size;
-      t = terrainUnder(this.mode === "live" ? null : this.baseStuff().terrain.terrain, b.heights, masksOf(b.cache.terrain), W, H);
+      t = terrainUnder(this.caveBase(b), b.heights, masksOf(b.cache.terrain), W, H);
       this.terrains.set(b, t);
     }
     return t;
@@ -693,7 +693,13 @@ export class MapSession {
    *  caves and overhangs, or ground the Block tool dug. A heightfield drops nothing, and none of the
    *  support rule's work is done on one. */
   private layered(b: BuildResult): boolean {
-    return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
+    return (this.mode !== "live" ? this.baseStuff().terrain.columns.size > 0 : !!b.cache.field?.caves) || layeredMasks(masksOf(b.cache.terrain));
+  }
+
+  /** The terrain a build's surface reshapes when it is not a heightfield: an imported (or frozen) map's
+   *  base, or a generated map's field with the 3D forms the generation grew (D488); null otherwise. */
+  private caveBase(b: BuildResult): ColumnTerrain | null {
+    return this.mode === "live" ? (b.cache.field?.caves ?? null) : this.baseStuff().terrain.terrain;
   }
 
   /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
@@ -702,7 +708,8 @@ export class MapSession {
   plainAt(i: number): boolean {
     const m = masksOf(this.cur.cache.terrain).get(i);
     if (m !== undefined) return isPlainMask(m);
-    return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
+    const caves = this.caveBase(this.cur);
+    return !caves || caves.isPlain(i);
   }
 
   /** The map's voxel columns that are not one plain run (tile index → its 23 voxels) as they stand,
@@ -747,7 +754,7 @@ export class MapSession {
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
     if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
     const tops = this.topsOf(this.cur.entities);
-    const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
+    const base = this.caveBase(this.cur);
     const masks = masksOf(this.cur.cache.terrain);
     return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
   }
@@ -1944,7 +1951,9 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
     for (const i of runsToTiles(runs, W)) m[i] = 1;
     return m;
   };
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}) };
+  // (the 3D forms the generation grew, D488: the field's runs)
+  const caves = f.runs.length ? ColumnTerrain.fromData(f, W, H) : null;
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
