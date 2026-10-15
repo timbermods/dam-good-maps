@@ -9,6 +9,7 @@ import type { SessionUpdate, ToolRequest } from "../../worker/session";
 import { startProblemAt, newId, startStatus } from "../features";
 import { modalLevel } from "../../core/features/footprintLevel";
 import { tilesToRuns } from "../../core/math/grid";
+import { dyingTiles } from "../../core/doc/plantSoil";
 import type { PaintParams } from "../../core/doc/paintParams";
 import { hasOptions, placeComponents } from "../../core/doc/objectOps";
 import { FLUIDS } from "../../core/data/parity";
@@ -183,7 +184,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
     // (a tree, bush or thorn has its ring: no "Place here" over it, only the reason it can't grow there)
-    if (item.paint && !problem) return setShapeNote(null);
+    // (on ground where the plants would die: the ring is amber and says so, D235; still allowed)
+    if (item.paint && !problem) return setShapeNote(dryRing.current ? { text: "dry ground: these will die", ok: true, warn: true, ...pointerAt.current } : null);
     setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
@@ -281,7 +283,26 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** The brush's size as a ring round the pointer (the force ring's, the one calm ring), while a plant is held. */
   function paintRing(x: number, y: number) {
     const item = shelfRef.current;
-    if (item?.paint) renderer.current?.setForceRing({ x: x + 0.5, y: y + 0.5, r: Math.max(1, shelfOptionsRef.current.paint[item.paint].size / 2) });
+    if (!item?.paint) return;
+    const size = shelfOptionsRef.current.paint[item.paint].size;
+    const warn = dryUnder(item, x, y, size / 2);
+    renderer.current?.setForceRing({ x: x + 0.5, y: y + 0.5, r: Math.max(1, size / 2), ...(warn ? { warn } : {}) });
+    // (the note follows the ring when it turns amber or back; a reason it can't grow there shows instead)
+    if (warn !== dryRing.current) {
+      dryRing.current = warn;
+      if (!ed.paintSizing.current) shelfWord(problemAt(item, x, y));
+    }
+  }
+  /** Whether the held plant's ring is amber now: some tile it would plant on is soil it would die on. */
+  const dryRing = useRef(false);
+  /** Trees, bushes and mixed woods die on dry or poisoned soil (core/doc/plantSoil.ts); the soil the page shows,
+   *  a held weather day's while one is on. */
+  function dryUnder(item: ShelfItem, x: number, y: number, r: number): boolean {
+    if (item.paint !== "trees" && item.paint !== "bushes" && item.paint !== "woods") return false;
+    const m = mirror.current;
+    const soil = m.daySoil ?? m.soil;
+    if (!soil) return false;
+    return dyingTiles(templateOf(item, shelfOptionsRef.current), paintDisc(x, y, r, info.W, info.H), soil, m.water.depth).length > 0;
   }
   // (the size changed in the object window: the ring takes it where the pointer last was)
   useEffect(() => {
@@ -305,6 +326,7 @@ export function useShelf(ed: Ed): ShelfSlice {
         if (!hit) {
           r.setGhost(null);
           r.setForceRing(null);
+          dryRing.current = false;
           ghostAt.current = null;
           fitWant.current = null;
           shownFit.current = null;
@@ -332,6 +354,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       if (r.tool === t) r.tool = null;
       r.setGhost(null);
       r.setForceRing(null);
+      dryRing.current = false;
       ghostAt.current = null;
     };
   }, [shelf, ready, info.W, info.H]);
