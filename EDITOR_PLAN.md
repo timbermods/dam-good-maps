@@ -1219,8 +1219,9 @@ checks dot counts; every other row is information under Good to know, worded as 
     import's tunnels and overhang bridges, D120, D280, or a hollow the Block tool or Erode made on any map,
     #435) is simulated too, on every water column, by the
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
-    last water stays on show while the canonical settle runs in the background, in slices, the dot saying
-    "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
+    last water stays on show while the canonical settle runs in the background, in slices, on several threads
+    where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
+    water shows when it is done (no live water on such a map). The file gets the settle
     on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
     refused there with one plain line each until each has its rule for water in caves (a refused Drought or
     Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).

@@ -19,6 +19,7 @@
 
 import { parallelWaterSupported, threadsFor } from "./parallelPolicy";
 import { RustStrip, rustWater, sameBits, type RustModel, type RustRules } from "./rustWater";
+import { stackStripHelper, type StackMessage } from "./stackParallel";
 
 export { parallelWaterSupported, threadsFor };
 
@@ -77,7 +78,7 @@ const ERR = 2;
 
 /** Waits until all `parties` threads arrive; false when one of them failed (the run is then given up) or a
  *  helper died (`dead`: the pool's flags, whose DEAD entry a dying helper sets). */
-function barrier(ctl: Int32Array, parties: number, dead: Int32Array | null): boolean {
+export function barrier(ctl: Int32Array, parties: number, dead: Int32Array | null): boolean {
   if (Atomics.load(ctl, ERR)) return false;
   const gen = Atomics.load(ctl, GEN);
   if (Atomics.add(ctl, COUNT, 1) === parties - 1) {
@@ -100,7 +101,7 @@ function barrier(ctl: Int32Array, parties: number, dead: Int32Array | null): boo
 }
 
 /** Marks the run failed and wakes every thread waiting at a barrier. */
-function fail(ctl: Int32Array): void {
+export function fail(ctl: Int32Array): void {
   Atomics.store(ctl, ERR, 1);
   Atomics.add(ctl, GEN, 1);
   Atomics.notify(ctl, GEN);
@@ -286,7 +287,8 @@ type Message =
   | { kind: "init"; job: number; sab: SharedArrayBuffer; ctl: SharedArrayBuffer; info: JobInfo; strips: Strip[]; index: number; seepWriter: number[] }
   | { kind: "run"; job: number; ticks: number; scale: number }
   | { kind: "free"; job: number }
-  | { kind: "stop" };
+  | { kind: "stop" }
+  | StackMessage;
 
 /** A helper thread's message handler (src/worker/waterStrip.worker.ts in the browser; the identity check's
  *  worker_threads in Node): it holds a strip of each job it is given and runs it when asked. Its `died` is for
@@ -294,6 +296,8 @@ type Message =
 export function stripHelper(): ((message: Message) => void) & { died(): void } {
   const jobs = new Map<number, { runner: StripRunner | null; ctl: Int32Array }>();
   let flags: Int32Array | null = null;
+  // (the stacked water's strips: stackParallel.ts)
+  const stacked = stackStripHelper();
   const handle = (msg: Message) => {
     if (msg.kind === "hello") {
       rustWater();
@@ -301,6 +305,7 @@ export function stripHelper(): ((message: Message) => void) & { died(): void } {
       Atomics.store(flags, msg.index, 1);
       return;
     }
+    if (msg.kind === "stack-init" || msg.kind === "stack-run" || msg.kind === "stack-free") return stacked.handle(msg, flags);
     if (msg.kind === "init") {
       jobs.get(msg.job)?.runner?.free();
       const ctl = new Int32Array(msg.ctl);
@@ -331,6 +336,7 @@ export function stripHelper(): ((message: Message) => void) & { died(): void } {
     died() {
       if (flags) Atomics.store(flags, DEAD, 1);
       for (const job of jobs.values()) fail(job.ctl);
+      stacked.died();
     },
   });
 }
@@ -422,6 +428,25 @@ export function installParallelWater(opts: ParallelOptions): boolean {
   }
   pool.grow(opts.eager ?? (forced ?? threadsFor(256 * 256)) - 1);
   return true;
+}
+
+/** The pool, for the stacked water's strips (stackParallel.ts): null without one, once it broke or while
+ *  `withoutParallelWater` runs. */
+export function sharedPool(): {
+  readonly helpers: readonly HelperPort[];
+  readonly ready: Int32Array;
+  readonly forced: number | null;
+  readonly died: boolean;
+  threads(): number;
+  grow(count: number): void;
+  break(): void;
+} | null {
+  if (!pool || pool.broken || paused) return null;
+  if (pool.died) {
+    pool.break();
+    return null;
+  }
+  return pool;
 }
 
 /** Ends the pool (the identity check, when done). */
