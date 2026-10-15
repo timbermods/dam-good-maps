@@ -248,6 +248,39 @@ export function openPart(tiles: readonly (readonly [number, number])[], z: numbe
   return null;
 }
 
+/** The ground that holds the objects set under a roof where they stand (D491): for each tile one of
+ *  them reaches outside its roof (a badtide drain set in a cliff, its mouth over open ground; a ruin
+ *  under a ledge, its top above the ground beside it), the lowest and highest the tile's surface may
+ *  go, as [tile, low, high], ascending by tile. A stroke, a sculpt and a force keep each tile within
+ *  them and shape the rest as normal (the brushes' `hold`), so no edit buries such an object or
+ *  leaves it floating: under its own block the ground stays (low = high), beside a block above the
+ *  ground the surface may rise up to it. The objects are those standing below the ground's top at
+ *  their Coordinates (an object on a top rides it, as on open ground) that the game keeps there.
+ *  `entities` carry their placement (x, y, z, orientation, flipped). */
+export function objectHolds(
+  entities: readonly { template: string; x: number; y: number; z: number; orientation: Orientation; flipped?: boolean }[],
+  g: StandGround & { heights: ArrayLike<number> },
+): [number, number, number][] {
+  const { W, H, heights } = g;
+  const lo = new Map<number, number>();
+  const hi = new Map<number, number>();
+  for (const e of entities) {
+    if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= H || !(e.z < heights[e.y * W + e.x])) continue;
+    const fp = FOOTPRINTS[e.template];
+    if (!fp || standProblem(e.template, e, g)) continue;
+    for (const b of worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })) {
+      const i = b.y * W + b.x;
+      const h = heights[i];
+      // (a block under the tile's top run is under a roof there: the tools shape only the roof's top)
+      if (b.z < h) continue;
+      hi.set(i, Math.min(hi.get(i) ?? 255, b.z));
+      if (b.z === h && (b.below === "ground" || b.below === "groundOrStackable")) lo.set(i, Math.max(lo.get(i) ?? 0, h));
+    }
+  }
+  const tiles = [...new Set([...lo.keys(), ...hi.keys()])].sort((a, b) => a - b);
+  return tiles.map((i) => [i, lo.get(i) ?? 0, hi.get(i) ?? 255]);
+}
+
 /** The ground an object stands on, voxel by voxel: bit z of `mask[i]` set when voxel z of tile i is
  *  solid (terrain/runs.ts `ColumnTerrain`). */
 export interface StandGround {

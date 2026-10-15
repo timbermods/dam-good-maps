@@ -207,6 +207,8 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   if (cut !== null) for (let i = 0; i < N; i++) if (base.heights[i] > cut) keep[i] = 1;
   // (Erode is the force that works under roofs, D281: it reads the map's voxels, caves and all)
   if (req.verb !== "erode") for (const i of input.caves) keep[i] = 1;
+  // (and the ground holding objects set under a roof, a drain in a cliff: the force runs round it, D491)
+  if (req.verb !== "erode") for (const [i] of input.state.hold ?? []) if (i >= 0 && i < N) keep[i] = 1;
   // the working area (D254, D259): the land outside it is locked, unbreakable rock to the force
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;

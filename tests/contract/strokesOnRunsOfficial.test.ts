@@ -33,7 +33,7 @@ const under = (t: ColumnTerrain, i: number) => t.runs(i).slice(0, Math.max(0, t.
 
 describe("the brushes on the official maps with caves (local only)", () => {
   for (const [name, path] of MAPS)
-    it.skipIf(!path)(`${name}: strokes keep every roofed run, drop nothing, refuse what would fall or lose an object, and undo exactly`, () => {
+    it.skipIf(!path)(`${name}: strokes keep every roofed run, drop nothing, refuse what would fall, and undo exactly`, () => {
       const bytes = new Uint8Array(readFileSync(path!));
       const s = MapSession.importMap(bytes, `${name}.timber`);
       // unedited, it exports its normalized world byte for byte
@@ -64,13 +64,6 @@ describe("the brushes on the official maps with caves (local only)", () => {
         const falls = preview.falls();
         const u = s.apply({ op: "brush", params: { ...settings, dabs } as BrushParams });
         if (!u.ok) {
-          // (or an object under a roof or on one the stroke would bury or leave floating: a drain in a cliff, D491)
-          if (/inside the ground or floating, and the game would remove it$/.test(u.errors[0])) {
-            expect(u.errors, k).toHaveLength(1);
-            expect(Array.from(s.terrain.mask), k).toEqual(Array.from(states.at(-1)!));
-            refused++;
-            return;
-          }
           expect(u.errors, k).toEqual([falls.length === 1 ? "1 block of ground would fall: nothing would hold it up" : `${falls.length} blocks of ground would fall: nothing would hold them up`]);
           expect(Array.from(s.terrain.mask), k).toEqual(Array.from(states.at(-1)!));
           refused++;

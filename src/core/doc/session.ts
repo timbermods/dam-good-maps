@@ -25,8 +25,8 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import { standProblem, type StandGround } from "../features/objects";
-import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { objectHolds, standProblem, type StandGround } from "../features/objects";
+import { byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
@@ -742,6 +742,44 @@ export class MapSession {
     return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
   }
 
+  /** The ground holding objects set under a roof on the map as it stands (D491, objects.ts
+   *  `objectHolds`): [tile, low, high]; empty on a heightfield and where no object reaches out of its
+   *  roof. The same for a build. */
+  holds(): [number, number, number][] {
+    const c = this.holdsCache;
+    if (c && c.key === this.cur) return c.holds;
+    const holds = this.layered(this.cur) ? objectHolds(this.cur.entities, { ...this.standGround(), heights: this.cur.heights }) : [];
+    this.holdsCache = { key: this.cur, holds };
+    return holds;
+  }
+  private holdsCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
+
+  /** A stroke or a sculpt with the ground that holds objects set under a roof (D491): it keeps those
+   *  tiles within their floor and ceiling and shapes the rest as normal, never refused for them (D270). */
+  private withHold(op: EditOp): EditOp {
+    if ((op.op !== "brush" && op.op !== "sculpt") || op.params.hold) return op;
+    const hold = this.holds();
+    if (!hold.length) return op;
+    return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
+  }
+
+  /** Why a held stroke or sculpt is refused (D491): only when holding leaves it nothing to shape, every
+   *  tile it covers being ground that holds an object under a roof; null otherwise. */
+  private heldOnly(op: EditOp, before: BuildResult): string | null {
+    if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return null;
+    if (!sameBytes(before.heights, this.cur.heights)) return null;
+    const { x: W, y: H } = this.size;
+    const held = new Set(op.params.hold.map(([i]) => i));
+    const tiles: number[] = [];
+    if (op.op === "brush") {
+      const m = new Uint8Array(W * H);
+      markBrushTiles(op.params, W, H, m);
+      for (let i = 0; i < m.length; i++) if (m[i]) tiles.push(i);
+    } else for (const [y, a, b] of op.params.cells) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) tiles.push(y * W + x);
+    if (!tiles.length || !tiles.every((i) => held.has(i))) return null;
+    return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
+  }
+
   /** The first object the map as it stands would lose that it kept as `before`, in one line, or null
    *  (D491): an object on a tile with a cave or an overhang that the game's rule held on `before`'s ground
    *  and no longer holds (inside the ground or floating: the game removes it on load). Nothing on open
@@ -923,16 +961,25 @@ export class MapSession {
       field: field ? field.heights.slice() : null,
       top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
       pre: t.pre7.slice(),
-      protect: t.protect.slice(),
+      // (the ground holding objects under a roof is left by the integrity pass, as the build leaves it, D491)
+      protect: this.heldProtect(t.protect),
       channel: t.channel.slice(),
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
       ...(this.columns.size ? this.roofState() : {}),
+      ...(this.holds().length ? { hold: this.holds().map((h) => [...h] as [number, number, number]) } : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
     };
+  }
+
+  /** The build's protected tiles with the ground holding objects under a roof (D491). */
+  private heldProtect(protect: Uint8Array): Uint8Array {
+    const out = protect.slice();
+    for (const [i] of this.holds()) if (i >= 0 && i < out.length) out[i] = 1;
+    return out;
   }
 
   /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
@@ -1152,6 +1199,7 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
+    op = this.withHold(op);
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
@@ -1184,8 +1232,9 @@ export class MapSession {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
     }
-    // nor an object under a roof or on one that the game would then remove (D491)
-    const lost = this.lostSince(before);
+    // a stroke held whole by the ground under objects in a cliff or a cave (D491), and, as a last guard,
+    // an object under a roof or on one that the game would then remove
+    const lost = this.heldOnly(op, before) ?? this.lostSince(before);
     if (lost) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [lost], applied: [], dirty: null };
@@ -1230,7 +1279,8 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
-    for (const op of ops) {
+    for (const given of ops) {
+      const op = this.withHold(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {

@@ -19,6 +19,8 @@ import { entityJson, type EntitySpec } from "../../src/core/format/entities";
 import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { validateMap } from "../../src/core/validate/checks";
+import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import type { BrushParams } from "../../src/core/features/raster/brush";
 
 const W = 40;
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -201,6 +203,54 @@ describe("objects in caves (D491): the edge cases", () => {
     const heights = caveSession().built.heights;
     const out = applyEntityEdits([e], [{ seq: 5, op: "moveEntity", params: { id: ID, x: 18, y: 17, quiet: true } }], { W, H: 40, heights }, true);
     expect(out.entities[0]).toMatchObject({ x: 18, z: 3 });
+  });
+});
+
+/** The cave fixture opened with a geothermal field the file holds under the ledge, six of its nine tiles
+ *  over the open lowland (an import's own: the editor would not place it so). */
+function straddled(): MapSession {
+  const file = caveFile();
+  const e = placedEntity({ id: ID, template: "GeothermalField", x: 32, y: 11, orientation: "Cw0", components: placeComponents("GeothermalField") }, 2);
+  file.world.entities = [entityJson(e)];
+  return MapSession.importMap(writeTimber(file), "straddled.timber");
+}
+const tile = (x: number, y: number) => [4 * x + 2, 4 * y + 2];
+const area = (tool: "raise" | "lower", target: number, x0: number, y0: number, x1: number, y1: number): BrushParams => ({ tool, size: 1, strength: 5, shape: "area", target, dabs: [...tile(x0, y0), ...tile(x1, y1)] });
+
+describe("objects in caves (D491): strokes hold the ground under objects set under a roof", () => {
+  for (const [tool, target] of [["raise", 6], ["lower", 0]] as const) {
+    it(`a ${tool} stroke over an object's open part holds its tiles, shapes the rest, and the preview shows exactly that`, () => {
+      const s = straddled();
+      const before = s.built.heights.slice();
+      const params = area(tool, target, 32, 11, 37, 14);
+      // the page's preview, from the terrain state, as the page paints it
+      const { dabs, ...settings } = params;
+      const preview = new StrokePreview(settings, s.terrainState(), s.built.heights.slice(), W, 40);
+      preview.add(dabs);
+      const u = s.apply({ op: "brush", params });
+      expect(u.ok, u.errors.join("; ")).toBe(true);
+      // (its tiles in the open stay; under the ledge the stroke shapes only the ledge's top, D487)
+      const mask = s.standGround().mask;
+      const footprint = new Set(footprintTiles("GeothermalField", { template: "GeothermalField", x: 32, y: 11, z: 2, orientation: "Cw0", flipped: false }).map(([x, y]) => y * W + x).filter((i) => (mask[i] & (mask[i] + 1)) === 0));
+      expect(footprint.size).toBe(6);
+      for (const i of footprint) expect(s.built.heights[i], `tile ${i}`).toBe(before[i]);
+      // (the rest of the stroke is shaped as normal)
+      expect(s.built.heights[12 * W + 36]).not.toBe(before[12 * W + 36]);
+      expect(Array.from(preview.pre.slice(0)).filter((_, i) => footprint.has(i))).toEqual([...footprint].sort((a, b) => a - b).map((i) => before[i]));
+      expect(Array.from(s.terrainState().pre)).toEqual(Array.from(preview.pre));
+      const placement = validateMap(readTimber(s.exportTimber().bytes), { profile: "export", loadOnly: true }).report.checks.find((c) => c.id === "entities.placement")!;
+      expect(placement.ok, placement.message).toBe(true);
+    });
+  }
+
+  it("a stroke only over held ground is refused, saying why; a sculpt there leaves it too", () => {
+    const s = straddled();
+    const u = s.apply({ op: "brush", params: area("raise", 6, 33, 12, 34, 13) });
+    expect(u).toMatchObject({ ok: false, errors: ["nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is"] });
+    const before = s.built.heights.slice();
+    const k = s.apply({ op: "sculpt", params: { mode: "raise", cells: [[12, 33, 36]], amount: 2 } });
+    expect(k.ok, k.errors.join("; ")).toBe(true);
+    expect([s.built.heights[12 * W + 33], s.built.heights[12 * W + 34], s.built.heights[12 * W + 36]]).toEqual([before[12 * W + 33], before[12 * W + 34], before[12 * W + 36] + 2]);
   });
 });
 
