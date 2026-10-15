@@ -32,6 +32,8 @@ export interface ChecksState {
 export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: string; count: number } {
   const flags = c.flags?.length ?? 0;
   const count = c.instant.length + flags + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
+  // (work in flight shows before the problems do, the count badge kept: an edit or a stroke always shows a sign of work)
+  if (c.busy) return { tone: "wait", words: c.progress?.stage === "water" ? "Settling…" : "Checking the map", count };
   if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
   // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
   if (c.flowing !== null || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
