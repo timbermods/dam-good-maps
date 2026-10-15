@@ -594,7 +594,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
   Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
   **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
-  "Add or remove blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
+  "Add or remove blocks on any face"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
   (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
   brush's blocks (`showBlocks`, forces play's final contract, D335): the blocks to add translucent, the blocks to take
   red, ground that would fall solid red, and while any would fall the added and removed blocks muted grey (they will
