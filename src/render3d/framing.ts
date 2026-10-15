@@ -34,6 +34,30 @@ export function zoomLimits(W: number, H: number): { min: number; max: number } {
   return { min: 6, max: Math.max(Math.max(W, H) * 3, 48) };
 }
 
+/** The camera's new target when the wheel zooms about a point of the ground (the point under the pointer): the
+ *  target moves toward it by the same ratio as the distance, so the point stays under the pointer. Pure. `hit` and
+ *  `target` are scene points (x east, y up, z south); the target stays inside the map (`W`, `H`) and between the
+ *  floor and `maxY`. At the zoom's limit (the distance does not change) nothing moves, not even the target. */
+export function zoomTargetToward(
+  target: readonly [number, number, number],
+  hit: readonly [number, number, number],
+  oldDistance: number,
+  newDistance: number,
+  bounds: { W: number; H: number; maxY: number },
+): [number, number, number] {
+  if (!(oldDistance > 0) || !(newDistance > 0) || newDistance === oldDistance) return [target[0], target[1], target[2]];
+  const r = newDistance / oldDistance;
+  const at = (k: number) => hit[k] + (target[k] - hit[k]) * r;
+  return [Math.min(bounds.W, Math.max(0, at(0))), Math.min(bounds.maxY, Math.max(0, at(1))), Math.min(0, Math.max(-bounds.H, at(2)))];
+}
+
+/** Whether a point of the ground plane is on the map (with a margin of a few tiles): a pointer that misses the terrain
+ *  zooms about the plane only there. Just below the horizon the plane is thousands of tiles away, and a zoom about it
+ *  would throw the view across the map. `point` is a scene point (z south). */
+export function onMapPlane(point: readonly [number, number, number], W: number, H: number, margin = 8): boolean {
+  return point[0] >= -margin && point[0] <= W + margin && point[2] <= margin && point[2] >= -H - margin;
+}
+
 /** Maps up to this long a side are framed with their objects, which are a real share of them (a start is a building
  *  seven levels high on a 4-tile map). Larger maps frame by their ground alone, as they always have. */
 export const FRAME_OBJECTS_BELOW = 64;
