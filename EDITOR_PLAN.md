@@ -636,8 +636,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
   full map back exactly, it is recorded and replayed, a saved project opens and saves byte for byte, and the operations
   after it are in the cropped map's tiles. The cropped map is built as an imported one (its water settles again in the
-  background, as after any edit). A source within 4 tiles of a new edge gets M9b's natural lip (`water/edgeLip.ts`:
-  the edge tiles its water could reach, raised), so its water does not pour off the map. A cropped map has no "as opened"
+  background, as after any edit). A source within 4 tiles of a new edge gets a minimal lip (M9b's idea, `water/edgeLip.ts`; `lipNewEdges`):
+  the cropped map's water is settled and only the new-edge tiles its water leaves through are raised, each to the level
+  of the water beside it (a floor level with the surface takes none: the game's head difference is zero), never a tile
+  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). A cropped map has no "as opened"
   map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
   Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
   Collaborative editing leaves a crop to the host (D362 (9)).
