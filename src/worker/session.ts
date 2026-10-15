@@ -10,6 +10,7 @@
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
@@ -103,7 +104,9 @@ export interface ViewUpdate {
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
   /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
-   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+   *  (D280 (3)) or the Block tool dug or built ground (D335; then with `heights` and a `terrainRect`
+   *  even where the surface did not move): the voxel mesher draws those tiles from them, not from
+   *  `heights`. */
   columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
@@ -384,6 +387,20 @@ export function sessionView(): SessionOpen {
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
 }
 
+/** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
+ *  they do not. */
+function diffMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (a === b) return null;
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  for (const i of new Set([...a.keys(), ...b.keys()])) {
+    if (a.get(i) === b.get(i)) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  }
+  return r;
+}
+
 function viewUpdate(s: MapSession): ViewUpdate {
   const b = s.built;
   const out: ViewUpdate = {};
@@ -404,6 +421,18 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.terrainRect = rect;
       // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
       if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
+    }
+  }
+  // (ground the Block tool dug or built under a surface that did not move: its columns go with the
+  // land as they do for a roof's top, and the page takes them with the heights, which are the same)
+  if (prev.terrain !== b.cache.terrain && !out.columns) {
+    const dug = diffMasks(masksOf(prev.terrain as typeof b.cache.terrain), masksOf(b.cache.terrain), b.W);
+    if (dug) {
+      out.columns = columnsOf(s);
+      if (!out.heights) {
+        out.heights = b.heights.slice();
+        out.terrainRect = dug;
+      }
     }
   }
   if (water !== prev.water) out.water = waterOf(s);
