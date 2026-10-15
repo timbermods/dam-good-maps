@@ -610,7 +610,10 @@ layer cut the clipped columns are drawn, a cap only where rock crosses the cut, 
 overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Part
 3, soil per run top (`render3d/runSoil.ts`): a cave's floor takes its own run's moisture, contamination and water from
 a run texture the worker's per-run soil fills, soil3d's value for every run top; maps without caves build no texture
-and draw with the same program (`runSoil.test.ts`). Next: the masks from the worker, water per column.
+and draw with the same program (`runSoil.test.ts`). Items 7 and 8, caves that read: stone on ceilings, cave interiors
+murky but never near-black, objects and falls under roofs in the cave's light, and Standard's baked shadow cast from
+the voxels on maps with terrain above terrain (`light.ts` `shadowRock`); maps without caves draw exactly as before.
+Next: the masks from the worker, water per column.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water

@@ -59,7 +59,7 @@ import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blo
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
+import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect, type ShadowRock } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
@@ -548,6 +548,20 @@ export class MapRenderer {
     }
   }
 
+  /** Whether objects and falls read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
+   *  roof, so every other map draws them with the same program as before (the define is not there at all). */
+  private caveBranch = false;
+
+  private setCaveBranch(on: boolean): void {
+    this.caveBranch = on;
+    for (const mat of [this.std.object, this.std.fall, ...(this.high?.roofedMaterials() ?? [])]) {
+      if (("CAVES" in mat.defines) === on) continue;
+      if (on) mat.defines.CAVES = 1;
+      else delete mat.defines.CAVES;
+      mat.needsUpdate = true;
+    }
+  }
+
   /** Whether the terrain's shaders read the run tops' own soil (runSoil.ts): only on a map with run tops below a
    *  tile's top, so every other map draws with the same program as before (the define is not there at all). */
   private setRunSoilBranch(on: boolean): void {
@@ -844,6 +858,7 @@ export class MapRenderer {
         this.high.shareTerrainUniforms(this.std.terrain);
         this.setCutaway(this.cutaway);
         this.setRunSoilBranch(!!this.runSoil);
+        this.setCaveBranch(this.caveBranch);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -1092,7 +1107,7 @@ export class MapRenderer {
     this.tileTex = tileTexture(W, H, tiles);
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops));
+    this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops, shadowRock(W, H, source.columns)));
     this.cave = CaveLight.build(source, sky);
     this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
@@ -1103,6 +1118,7 @@ export class MapRenderer {
     }
     else u.caveSize.value.set(0, 0, 0);
     this.setCutaway(cutawayOn(source));
+    this.setCaveBranch(!!this.cave);
     this.syncRunSoil();
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
@@ -1373,13 +1389,20 @@ export class MapRenderer {
     this.casters = casters;
     if (rect === null) return;
     if (rect && this.tops) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, m.heights, casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
       this.touchShadows(rect);
     } else {
       this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
-      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops));
+      (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops, this.rock()));
       this.lightTex.needsUpdate = true;
     }
+  }
+
+  /** The rock the baked shadows are cast from on a map with terrain above terrain (light.ts `shadowRock`, kept for
+   *  the same columns); null elsewhere, where the shadows are the heightfield's. */
+  private rock(): ShadowRock | null {
+    const m = this.map;
+    return m ? shadowRock(m.W, m.H, m.source.columns) : null;
   }
 
   /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
@@ -1488,7 +1511,7 @@ export class MapRenderer {
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1, this.rock());
       this.touchShadows(rect);
     } else this.bakeShadows();
     this.relightCaves(rect);
@@ -1817,7 +1840,7 @@ export class MapRenderer {
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
-      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1);
+      shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1, this.rock(), true);
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
     this.relightCaves(c.rect);

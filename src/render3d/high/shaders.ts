@@ -180,6 +180,8 @@ function lit(names: readonly Switch[], more = ""): ShaderHooks {
     sunLit: SHADOW_GLSL,
     haze: HAZE,
     finishEnd: FINISH_END,
+    // under a roof, the soft shadow of the real meshes, the roof included (off: the light volume's sun)
+    roofedSun: "(hlShadows > 0.5 ? lit : cave.y)",
   };
 }
 

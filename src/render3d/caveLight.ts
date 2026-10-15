@@ -3,9 +3,10 @@
 // as investigation/3d-view adopted it). Two bytes a cell, W × H × LIGHT_LEVELS cells (x fastest, then
 // y, then the level), a 3D texture the terrain shader reads half a cell along each face's normal:
 // - R, the sky. Roofed air (below its column's top, not rock) walks it in from its openings: beside an
-//   open cell, that cell's sky; beside the map's edge, 229; then 26 less per step through
-//   roofed air, never below 64 (a cave's mouth as bright as the open ground before it, never brighter,
-//   its depths dim; the shader keeps a 0.30 floor so a cave stays readable). An open cell beside roofed
+//   open cell, that cell's sky; beside the map's edge, 235; then 20 less per step through
+//   roofed air, never below the cave's least (`CAVE_SKY_FLOOR`; a cave's mouth as bright as the open
+//   ground before it, never brighter, its depths murky but readable, never near-black; the shader holds
+//   the same least). An open cell beside roofed
 //   air holds the sky the baked light would give ground at its height there (light.ts: 0.55 + 0.45 × the
 //   sky visibility; on the ground the tile's own, higher up, over a drop, the sky seen from that height),
 //   so the texture's filtering blends a cave's mouth into the ground before it; any other open cell 255.
@@ -31,8 +32,15 @@ import { LIGHT } from "./palette";
 export const LIGHT_LEVELS = LAYERS + 1;
 
 const OPEN = 255;
-const STEP = 26;
-const FLOOR = 64;
+/** The least sky a cave's air takes, however deep (0–1; the shader's floor too, materials.ts `caveLightOf`):
+ *  "cave interiors a little murky" (D280 (2)), dim but never near-black, so a cave's floor, walls and
+ *  ceiling read while editing. */
+export const CAVE_SKY_FLOOR = 0.55;
+/** How much sky the walk in from an opening loses a cell (of 255): about six cells from a mouth to the least. */
+const STEP = 16;
+/** The least as a byte. */
+export const CAVE_FLOOR_BYTE = Math.round(255 * CAVE_SKY_FLOOR);
+const FLOOR = CAVE_FLOOR_BYTE;
 const MARCH = 0.34;
 
 /** Toward the sun in tile space (x east, y north, z up). */
