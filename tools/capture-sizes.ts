@@ -164,8 +164,24 @@ async function main() {
       }
     }
     writeFileSync(join(SHOTS, "list.json"), JSON.stringify(done, null, 1));
-    void readFileSync;
-    void OUT;
+    if (done.length && !VIEWS) {
+      // the sheet: a row a size, a column each of Standard and High on the dark 1920x1080 view and the light 1280x800 one
+      const cols = [["standard", "dark1920", "Standard, dark, 1920x1080"], ["high", "dark1920", "High, dark, 1920x1080"], ["standard", "light1280", "Standard, light, 1280x800"], ["high", "light1280", "High, light, 1280x800"]];
+      const cell = (size: string, [look, screen, label]: string[]) => {
+        const f = done.find((d) => d.size === size && d.look === look && d.screen === screen);
+        const src = f ? `data:image/png;base64,${readFileSync(f.file).toString("base64")}` : "";
+        return `<figure><img src="${src}"><figcaption>${size.replace("x", "×")} - ${label}</figcaption></figure>`;
+      };
+      const rows = [...new Set(done.map((d) => d.size))].map((size) => `<div class="row">${cols.map((c) => cell(size, c)).join("")}</div>`).join("");
+      const sheet = await browser.newPage({ viewport: { width: 1960, height: 400 } });
+      await sheet.setContent(`<style>body{margin:0;background:#222;font:12px sans-serif;color:#ddd}.row{display:flex;gap:4px;padding:4px 4px 0}figure{margin:0;width:480px}img{width:480px;height:300px;object-fit:cover;object-position:top;display:block}figcaption{padding:2px 0}</style>${rows}`);
+      await sheet.waitForTimeout(500);
+      mkdirSync(join(OUT, ".."), { recursive: true });
+      const buf = await sheet.screenshot({ type: "jpeg", quality: 72, fullPage: true });
+      writeFileSync(OUT, buf);
+      console.log(`sheet ${OUT}: ${(buf.length / 1024).toFixed(0)} KB`);
+      await sheet.close();
+    }
   } finally {
     await browser?.close();
     await server.close();
