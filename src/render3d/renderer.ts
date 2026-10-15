@@ -2078,7 +2078,7 @@ export class MapRenderer {
     ctx.putImageData(img, 0, 0);
     const url = canvas.toDataURL();
     this.thumbs.set(template, url);
-    this.requestRender();
+    // (drawn off screen: the map on the canvas is as it was, and needs no frame of its own)
     return url;
   }
 
