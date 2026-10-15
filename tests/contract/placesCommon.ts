@@ -23,33 +23,34 @@ export function placeData(entry: PlaceIndexEntry): PlaceData {
 /** Checks that fail and count: not advisory, applicable, not approximate. */
 export const failing = (checks: readonly CheckResult[]) => checks.filter((c) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate).map((c) => `${c.id}: ${c.message}`);
 
-/** No edge walls (Kyler, 2026-09-25, D151): every place as converted for real-places-done stands in
- *  a full-height wall round the whole map, which `terrain.edge_wall` flags, a principle that blocks
- *  the export profile the places are built in. placeTimber refuses only what would not load, so the
- *  gallery keeps serving them until Real places 2 converts them without it and turns this to
- *  false. */
-export const PLACES_HAVE_EDGE_WALLS = true;
+/** No edge walls (Kyler, 2026-09-25, D151): the places are built from the survey's unsealed land
+ *  (tools/real-places.ts), so no place has the sealed border's wall, which `terrain.edge_wall`
+ *  would flag, a principle that blocks the export profile. */
+export const PLACES_HAVE_EDGE_WALLS = false;
+
+/** Water whose source has no outlet (`water.outflow`, a design check of the generate profile): on
+ *  these places a source's water spreads over flat land and dries before it reaches the edge or a
+ *  lake. Information for a real place (D245): its own land, recorded in `faults` with no note. */
+export const PLACES_WATER_WITHOUT_OUTLET = new Set([
+  "near-tibetan-plateau", "near-waimakariri-river",
+]);
 
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
  *  another source already feeds (`water.source_in_flow`, a design check: it fails the generate
  *  profile; in the export profile it does not apply, since sources go anywhere in the editor,
  *  D184). Real places 2 places sources only at heads and empties this list. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "near-altiplano", "near-atacama-fan", "near-badlands-national-park", "near-bandiagara",
-  "near-blue-mountains-jamison", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
-  "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
-  "near-cliffs-of-moher", "near-colca-canyon", "near-copper-canyon", "near-death-valley",
-  "near-dinaric-karst-plitvice", "near-drakensberg-amphitheatre", "near-ennedi-plateau",
-  "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
-  "near-godavari-delta", "near-goosenecks-san-juan", "near-gullfoss", "near-ilulissat-icefjord",
-  "near-kenai-aialik-bay", "near-lake-toba", "near-lena-delta", "near-lower-mississippi-oxbows",
-  "near-mamore-river", "near-monument-valley", "near-mount-mayon", "near-na-pali-coast",
-  "near-ngorongoro", "near-niagara-falls", "near-painted-desert", "near-phong-nha",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-atacama-fan", "near-bandiagara",
+  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
+  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-ennedi-plateau", "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord",
+  "near-glencoe", "near-goosenecks-san-juan", "near-gullfoss", "near-iguazu-falls",
+  "near-ilulissat-icefjord", "near-kenai-aialik-bay", "near-lena-delta", "near-lofoten",
+  "near-mamore-river", "near-milford-sound", "near-monument-valley", "near-mount-fuji",
+  "near-mount-mayon", "near-niagara-falls", "near-painted-desert", "near-phong-nha",
   "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
   "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-tiger-leaping-gorge", "near-todgha-gorge",
-  "near-toklat-river", "near-torres-del-paine", "near-tsingy-bemaraha", "near-twelve-apostles",
-  "near-victoria-falls", "near-waimakariri-river", "near-western-ghats-mahabaleshwar",
-  "near-yosemite-valley",
+  "near-toklat-river", "near-tsingy-bemaraha", "near-twelve-apostles",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have
@@ -70,33 +71,31 @@ export const PLACES_LACK_BADWATER = true;
  *  works), and these fall below the floor (`start.wood_floor`, the same). Real places 2 plants for
  *  both, in varied, natural ways (D229), and empties the lists. */
 export const PLACES_SHORT_OF_WOOD = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
-  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison",
-  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
-  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-cliffs-of-moher", "near-colca-canyon",
-  "near-colorado-plateau", "near-copper-canyon", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-atacama-fan",
+  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison", "near-blyde-river-canyon",
+  "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
+  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
+  "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
   "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
   "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
   "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
   "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
   "near-kinabatangan-river", "near-lake-toba", "near-lauterbrunnen", "near-lena-delta",
-  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-mamore-river",
-  "near-milford-sound", "near-monument-valley", "near-mount-etna", "near-mount-fuji",
-  "near-mount-mayon", "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast",
-  "near-niagara-escarpment-hamilton", "near-painted-desert", "near-paricutin", "near-phong-nha",
-  "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
-  "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-thousand-islands-saint-lawrence",
-  "near-tibetan-plateau", "near-tiger-leaping-gorge", "near-todgha-gorge", "near-toklat-river",
-  "near-torres-del-paine", "near-tsingy-bemaraha", "near-verdon-gorge", "near-victoria-falls",
-  "near-waimakariri-river", "near-western-ghats-mahabaleshwar", "near-yosemite-valley",
+  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-milford-sound",
+  "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon", "near-mount-roraima",
+  "near-mount-taranaki", "near-na-pali-coast", "near-niagara-escarpment-hamilton", "near-painted-desert",
+  "near-paricutin", "near-phong-nha", "near-roaring-river-fan", "near-sete-cidades",
+  "near-skeidara-outwash", "near-tagliamento-river", "near-taklimakan-kunlun-fan", "near-tara-gorge",
+  "near-thousand-islands-saint-lawrence", "near-tibetan-plateau", "near-tiger-leaping-gorge",
+  "near-todgha-gorge", "near-toklat-river", "near-torres-del-paine", "near-tsingy-bemaraha",
+  "near-verdon-gorge", "near-waimakariri-river", "near-western-ghats-mahabaleshwar",
+  "near-yosemite-valley",
 ]);
 export const PLACES_BELOW_THE_FLOOR = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
-  "near-bandiagara", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
-  "near-colorado-plateau", "near-death-valley", "near-glencoe", "near-godavari-delta",
-  "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta", "near-mamore-river",
-  "near-paricutin", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
-  "near-waimakariri-river",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-bandiagara",
+  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-colorado-plateau", "near-death-valley",
+  "near-glencoe", "near-godavari-delta", "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta",
+  "near-paricutin", "near-sete-cidades", "near-skeidara-outwash", "near-waimakariri-river",
 ]);
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
@@ -105,54 +104,76 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  was a puddle the canonical settle's pre-fill left in a hollow no source's water reaches, water
  *  from nowhere that a Normal drought emptied; since D385 the settle takes such water away, so most
  *  of these starts now reach none (Near Dinaric Karst Plitvice and Near Mount Taranaki joined the
- *  list then). Real places 2 gives the places their water (D300) and empties the list. */
+ *  list then). With the edges open (D151) the rivers run off the map instead of pooling behind the
+ *  survey's sealed border, so more starts lost their water; those whose land offered a spot with
+ *  water moved there (tools/real-places.ts). Real places 2 gives the places their water (D300) and
+ *  empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bungle-bungle",
-  "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau",
+  "near-alaknanda-and-bhagirathi", "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord",
+  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-crater-lake",
   "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice", "near-drumheller",
-  "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
-  "near-kinabatangan-river", "near-lake-toba", "near-mount-mayon", "near-mount-taranaki",
-  "near-na-pali-coast", "near-ngorongoro", "near-niagara-falls", "near-paricutin", "near-phong-nha",
-  "near-taklimakan-kunlun-fan", "near-tibetan-plateau", "near-tsingy-bemaraha", "near-twelve-apostles",
-  "near-uvac-river", "near-victoria-falls", "near-waimakariri-river", "near-yosemite-valley",
+  "near-english-lake-district", "near-finnish-saimaa", "near-fish-river-canyon", "near-glencoe",
+  "near-iguazu-falls", "near-kaieteur-falls", "near-katherine-gorge", "near-kinabatangan-river",
+  "near-lake-toba", "near-lena-delta", "near-li-river-yangshuo", "near-monument-valley",
+  "near-mount-etna", "near-mount-mayon", "near-mount-taranaki", "near-ngorongoro", "near-niagara-falls",
+  "near-phong-nha", "near-rhine-and-moselle", "near-sete-cidades", "near-tibetan-plateau",
+  "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river", "near-verdon-gorge",
+  "near-yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
  *  pre-fill's puddles kept moist (water from nowhere, see above); with that water gone, some stand on
  *  dry soil, which `plants.survive` flags (a playability check: it warns in the export profile).
+ *  With the edges open (D151) the water the sealed border held drained too, so every place has some.
  *  Real places 2 plants them by the settled water and empties the list. */
 export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
-  "near-alaknanda-and-bhagirathi", "near-atacama-fan", "near-badlands-national-park", "near-bardenas-reales",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
+  "near-atacama-fan", "near-badlands-national-park", "near-bandiagara", "near-bardenas-reales",
   "near-blue-mountains-jamison", "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
-  "near-bungle-bungle", "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
-  "near-colorado-plateau", "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice",
-  "near-drakensberg-amphitheatre", "near-drumheller", "near-ethiopian-highlands", "near-finnish-saimaa",
-  "near-fish-river-canyon", "near-goosenecks-san-juan", "near-grand-canyon-colorado", "near-iguazu-falls",
-  "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay", "near-kinabatangan-river",
-  "near-lake-toba", "near-lauterbrunnen", "near-lower-mississippi-oxbows", "near-milford-sound",
-  "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast", "near-niagara-escarpment-hamilton",
-  "near-niagara-falls", "near-painted-desert", "near-paricutin", "near-sete-cidades",
-  "near-skeidara-outwash", "near-taklimakan-kunlun-fan", "near-tibetan-plateau", "near-todgha-gorge",
-  "near-torres-del-paine", "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river",
-  "near-yosemite-valley",
+  "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
+  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
+  "near-crater-lake", "near-danube-delta", "near-death-valley", "near-deccan-plateau",
+  "near-dinaric-karst-plitvice", "near-drakensberg-amphitheatre", "near-drumheller",
+  "near-english-lake-district", "near-ennedi-plateau", "near-ethiopian-highlands", "near-finnish-saimaa",
+  "near-fish-river-canyon", "near-geirangerfjord", "near-glencoe", "near-godavari-delta",
+  "near-goosenecks-san-juan", "near-grand-canyon-colorado", "near-gullfoss", "near-iguazu-falls",
+  "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
+  "near-kinabatangan-river", "near-lake-toba", "near-lauterbrunnen", "near-lena-delta",
+  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-mamore-river",
+  "near-milford-sound", "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon",
+  "near-mount-roraima", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
+  "near-niagara-escarpment-hamilton", "near-niagara-falls", "near-painted-desert", "near-paricutin",
+  "near-phong-nha", "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades",
+  "near-skeidara-outwash", "near-tagliamento-river", "near-taklimakan-kunlun-fan", "near-tara-gorge",
+  "near-thousand-islands-saint-lawrence", "near-tibetan-plateau", "near-tiger-leaping-gorge",
+  "near-todgha-gorge", "near-toklat-river", "near-torres-del-paine", "near-tsingy-bemaraha",
+  "near-twelve-apostles", "near-uvac-river", "near-verdon-gorge", "near-victoria-falls",
+  "near-waimakariri-river", "near-western-ghats-mahabaleshwar", "near-yosemite-valley",
 ]);
 
 /** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'
  *  moist ground, so `start.food` (a playability check, a warning in the export profile) now finds
  *  too few living ones. Real places 2 plants them by the settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "near-atacama-fan", "near-cliffs-of-moher", "near-dinaric-karst-plitvice", "near-iguazu-falls",
-  "near-lake-toba", "near-mount-taranaki", "near-uvac-river", "near-yosemite-valley",
+  "near-aso-caldera", "near-atacama-fan", "near-blyde-river-canyon", "near-bungle-bungle",
+  "near-cliffs-of-moher", "near-danube-delta", "near-dinaric-karst-plitvice", "near-drumheller",
+  "near-iguazu-falls", "near-lake-toba", "near-lena-delta", "near-lofoten", "near-mamore-river",
+  "near-mount-etna", "near-mount-mayon", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
+  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-skeidara-outwash",
+  "near-taklimakan-kunlun-fan", "near-tiger-leaping-gorge", "near-torres-del-paine",
+  "near-tsingy-bemaraha", "near-uvac-river", "near-victoria-falls", "near-waimakariri-river",
+  "near-yosemite-valley",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
- *  flow, the missing mine site and badwater source, the starting wood, the start's water and
+ *  flow, water without an outlet, the missing mine site and badwater source, the starting wood, the start's water and
  *  berries, and plants on dry soil), and which of them fail. */
-export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean; food: boolean; plants: boolean } {
+export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; outflow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean; food: boolean; plants: boolean } {
   const all = failing(checks);
   const known = (f: string) =>
     f.startsWith("terrain.edge_wall:") ||
     f.startsWith("water.source_in_flow:") ||
+    f.startsWith("water.outflow:") ||
     f.startsWith("resources.mine_site:") ||
     f.startsWith("resources.badwater_source:") ||
     f.startsWith("start.wood:") ||
@@ -168,6 +189,7 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     other: all.filter((f) => !known(f)),
     edgeWall: all.some((f) => f.startsWith("terrain.edge_wall:")),
     sourceInFlow: all.some((f) => f.startsWith("water.source_in_flow:")),
+    outflow: all.some((f) => f.startsWith("water.outflow:")),
     mineSite: all.some((f) => f.startsWith("resources.mine_site:")),
     badwater: all.some((f) => f.startsWith("resources.badwater_source:")),
     wood: all.some((f) => f.startsWith("start.wood:")),
@@ -181,7 +203,7 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
 /** Every place in shard `k` of `n`: its .timber, built as the page builds it (build, settle,
  *  validate, write), passes the export profile and every check of the generate profile but its known
  *  faults, which flag it as long as the places have them (`PLACES_HAVE_EDGE_WALLS`,
- *  `PLACES_SOURCES_IN_FLOW`, `PLACES_LACK_MINE_SITES`, `PLACES_LACK_BADWATER`, `PLACES_SHORT_OF_WOOD`,
+ *  `PLACES_SOURCES_IN_FLOW`, `PLACES_WATER_WITHOUT_OUTLET`, `PLACES_LACK_MINE_SITES`, `PLACES_LACK_BADWATER`, `PLACES_SHORT_OF_WOOD`,
  *  `PLACES_BELOW_THE_FLOOR`, `PLACES_START_WITHOUT_FED_WATER`, `PLACES_SHORT_OF_BERRIES`,
  *  `PLACES_PLANTS_ON_DRY_SOIL`), and is the same bytes as the index records. */
 export function checkShard(k: number, n: number): void {
@@ -201,6 +223,7 @@ export function checkShard(k: number, n: number): void {
       expect(f.other).toEqual([]);
       expect(f.edgeWall).toBe(PLACES_HAVE_EDGE_WALLS);
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
+      expect(f.outflow).toBe(PLACES_WATER_WITHOUT_OUTLET.has(entry.id));
       expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
       expect(f.badwater).toBe(PLACES_LACK_BADWATER);
       expect(f.wood).toBe(PLACES_SHORT_OF_WOOD.has(entry.id));
@@ -209,7 +232,7 @@ export function checkShard(k: number, n: number): void {
       expect(f.food).toBe(PLACES_SHORT_OF_BERRIES.has(entry.id));
       expect(f.plants).toBe(PLACES_PLANTS_ON_DRY_SOIL.has(entry.id));
       // the faults the index records are the ones this build has: the gallery hides by them (D421)
-      const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
+      const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
       expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
