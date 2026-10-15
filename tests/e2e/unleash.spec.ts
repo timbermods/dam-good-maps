@@ -104,9 +104,9 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   await expect(work).toBeVisible();
   await page.waitForTimeout(1500);
   await stopIfRunning(page);
-  expect((await labels(page)).at(-1)).toBe("Try another course");
-  // undo twice: the land as it was
-  await page.keyboard.press("Control+z");
+  // (another roll of its one step, D488)
+  expect((await labels(page)).at(-1)).toBe("Unleash a source, roll 2");
+  // undo: the land as it was, the step whole
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);

@@ -9,6 +9,13 @@ import { SHORTCUTS_KEY } from "../help/shortcuts";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
+/** The focus is on the map or the bar (the page itself, the map's canvas, the tools and their settings): never a
+ *  menu, a dialog or a panel, where Tab moves the focus. */
+function onMapOrBar(target: HTMLElement | null): boolean {
+  if (!target || target === document.body || target.tagName === "CANVAS") return true;
+  return !!target.closest(".tool-dock") && !target.closest('[role="menu"], [role="dialog"]');
+}
+
 export function useKeyboard(ed: Ed, props: EditorProps): void {
   const {
     api, setInfo, renderer, setTool, flipRef, forceEscRef, setTurn, setClearWater, selectingRef, selection,
@@ -65,6 +72,14 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         }
         if (mod || /^Digit[0-9]$/.test(ev.code) || ["x", "z", "c", "v", "r", "f", "delete", "backspace", "arrowup", "arrowdown"].includes(ev.key.toLowerCase())) return;
       }
+      // a force's rolls on offer (D488): Tab shows the next, Shift+Tab the one before, only with the focus on the map
+      // or the bar (never a menu or a dialog: Tab keeps its own role there); Esc ends them, the roll shown staying
+      if (ev.key === "Tab" && !mod && !ev.altKey && ed.rollsOffered() && onMapOrBar(target)) {
+        ev.preventDefault();
+        ed.showRoll(ev.shiftKey ? -1 : 1);
+        return;
+      }
+      if (ev.key === "Escape") ed.endRolls();
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
       // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Alt+1–9 glides back to it (Kyler,

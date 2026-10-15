@@ -28,6 +28,8 @@ export function useSave(ed: Ed): SaveSlice {
     // (in the edits' queue, as the .timber download is: a stroke already shown is in it; a force at work is kept
     // first, its land in the file as shown: investigation/page-qa F1)
     await ed.forcer.current?.stop();
+    // (a force's rolls end: the roll shown is the one saved, D488)
+    ed.endRolls?.();
     const p = await enqueue(() => api.project());
     saveFile(p.bytes, p.fileName, "application/gzip");
   }
@@ -56,6 +58,7 @@ export function useSave(ed: Ed): SaveSlice {
       }
       // (a force at work is kept first: its land lives outside the map until then, investigation/page-qa F1)
       await ed.forcer.current?.stop();
+      ed.endRolls?.();
       // (tests only: a slow build, to show the folder was asked for first)
       if (window.dgmSaveDelayMs) await new Promise((done) => setTimeout(done, window.dgmSaveDelayMs));
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));

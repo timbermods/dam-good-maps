@@ -90,7 +90,7 @@ async function settled(page: Page) {
   await idle(page);
 }
 
-test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another replaces it; on the start it strikes and the start is carried", async ({ page }) => {
+test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it back, Esc skips it to its end; Try another makes another roll, Tab shows the first again; on the start it strikes and the start is carried", async ({ page }) => {
   await openTopDown(page);
   const bar = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
@@ -147,15 +147,20 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   expect(kept).not.toEqual(before);
   expect(await worker(page)).toEqual(kept);
 
-  // Try another: the same impact from the same land, another personality, replacing it
+  // Try another: the same impact from the same land, another personality: another roll of its one step (D488)
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 2");
   const other = await heights(page);
   expect(other).not.toEqual(kept);
-  await page.keyboard.press("Control+z");
+  // Tab: the next roll (round to the first), exactly, at once; "2 of 2" a click shows the next too; undo: the land
+  // before it, the step whole
+  await page.keyboard.press("Tab");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(kept);
+  await row.getByRole("button", { name: "Roll 1 of 2" }).click();
+  await idle(page);
+  await expect.poll(() => heights(page)).toEqual(other);
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(() => heights(page)).toEqual(before);
@@ -266,7 +271,7 @@ test("Craterize's details (D309): always shown, each on Auto (choices and an Off
   await expect(details.getByRole("button", { name: "Rays follows the land" })).toHaveAttribute("aria-pressed", "false");
   await row.getByRole("button", { name: "Try another" }).click();
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Try another");
+  expect((await labels(page)).at(-1)).toBe("Craterize, roll 2");
   expect(await raysOn()).toBe(rays);
 });
 

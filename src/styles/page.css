@@ -1276,6 +1276,24 @@
   white-space: nowrap;
 }
 
+/* Try another with a force's rolls on offer (D488): "2 of 4" beside it, on the same cells, 2px between them */
+.set.again-rolls {
+  flex-direction: row;
+  gap: 2px;
+}
+
+.set.again-rolls > .set-button {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.set.again-rolls > .set-button.rolls {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+
 .set-group.centre .set-button {
   width: calc(100% - 8px);
 }

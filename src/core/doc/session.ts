@@ -124,6 +124,17 @@ export interface HistoryMark {
   readonly seq: number;
 }
 
+/** A step of the history kept to be put back exactly (`MapSession.keptStep`, `putStep`): a force's
+ *  roll (core/forces/rolls.ts). */
+export interface KeptStep {
+  readonly ops: readonly AppliedOp[];
+  readonly label?: string;
+  /** The next operation number after the step. */
+  readonly nextSeq: number;
+  /** The map the step built, as it stood. */
+  readonly built: BuildResult;
+}
+
 export interface HistoryItem {
   label: string;
   /** The (first) operation of the step. */
@@ -1135,6 +1146,47 @@ export class MapSession {
     this.seqNext = mark.seq;
     this.redoStack = (mark.redo as HistoryEntry[]).slice();
     for (const k of [...this.snaps.keys()]) if (k > this.undoStack.length) this.snaps.delete(k);
+    return true;
+  }
+
+  /** The latest step of the history, named for `takeBack` (as `stepSince` names one), with what
+   *  Redo holds now; null when undo cannot reach a step. */
+  latestStep(): HistoryMark | null {
+    const depth = this.undoStack.length - 1;
+    if (depth < this.reach) return null;
+    const e = this.undoStack[depth];
+    return { depth, below: this.undoStack[depth - 1] ?? null, redo: this.redoStack.slice(), step: e, seq: e.ops[0].seq };
+  }
+
+  /** The latest step kept as it stands, to put back later exactly (`putStep`): its operations as the
+   *  log keeps them, its label, the next operation number after it, and the map it built (never
+   *  rebuilt when put back). Null when undo cannot reach a step. */
+  keptStep(): KeptStep | null {
+    const top = this.latestStep();
+    if (!top) return null;
+    const e = top.step as HistoryEntry;
+    return { ops: clone(e.ops) as AppliedOp[], ...(e.label ? { label: e.label } : {}), nextSeq: this.seqNext, built: this.cur };
+  }
+
+  /** Put a step kept with `keptStep` back as the latest step, exactly as it was: its operations (their
+   *  numbers too), the map it built as it was (no rebuild: D453), the next operation number after it;
+   *  `label` names it in the history (else its own). Only where it was made (a force's rolls,
+   *  core/forces/rolls.ts): false, and nothing changes, when the log holds an operation numbered at or
+   *  after its first. Nothing is left to redo. */
+  putStep(step: KeptStep, label?: string): boolean {
+    const first = step.ops[0]?.seq;
+    if (first === undefined || (this.log.at(-1)?.seq ?? -Infinity) >= first) return false;
+    const ops = clone(step.ops) as AppliedOp[];
+    for (const op of ops) {
+      delete op.undo;
+      applyOp(this.st, op);
+      this.log.push(op);
+    }
+    const text = label ?? step.label;
+    this.pushHistory({ kind: "ops", ops, ...(text ? { label: text } : {}) });
+    this.seqNext = step.nextSeq;
+    this.cur = step.built;
+    this.snapshot();
     return true;
   }
 

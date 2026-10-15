@@ -13,7 +13,8 @@ import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
-import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
+import { applySelection as applySelectionStep, startCarry } from "../core/doc/start";
+import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
 import { planPaintObjects } from "../core/doc/paint";
@@ -92,6 +93,8 @@ export interface SessionInfo {
   views: SavedView[];
   /** The force Try another would run again (the last one kept is the latest step), or null. */
   forceAgain: Verb | null;
+  /** Its rolls (D488): which is shown (from 1) and how many are kept; null with `forceAgain`. */
+  forceRolls: { shown: number; count: number } | null;
   /** The player removed the map's last badwater spring: it is a No badwater map now (D213). */
   badwaterRemoved: boolean;
   /** True until the canonical water can be carried in a saved project (D367). */
@@ -205,7 +208,8 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     timberName: s.exportTimberName(),
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
-    forceAgain: againVerb(s, history),
+    forceAgain: againVerb(s),
+    forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
     waterPending: s.waterPending,
     version,
@@ -459,6 +463,9 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
   if (ok) {
     version++;
     lastCheck = null;
+    // (the player moved on from a force's rolls, past what redo brings back: the roll shown is the one that
+    // stays, D488; the page settles them itself as soon as the player does anything else, `forceSettle`)
+    if (series && series.session === s && !series.rolls.live && !s.canRedo) series.rolls.settle();
   }
   const view = ok ? viewUpdate(s) : {};
   // with a checks worker the instant checks come as an event a moment later, off this worker
@@ -1988,7 +1995,10 @@ let force: {
   /** The terrain the build's last steps start from, before the force (buildTouches). */
   state: TerrainState;
   request: ForceRequest;
-  replaces?: number;
+  /** Try another's roll: kept, it is another roll of the series' step (core/forces/rolls.ts). */
+  roll?: { series: ForceSeries; water: WarmState | null };
+  /** The settings it runs with, and what its Auto picked in the run (D309). */
+  settings: AnyForceSettings;
   shown: Uint8Array;
   shownEntities: EntityView | null;
   lastEntities: EntitySpec[];
@@ -2001,12 +2011,12 @@ let force: {
  *  whole map's update on the page, so the land's own changes keep the page's frames free. */
 const FORCE_VIEW_MS = 120;
 
-/** The last force kept, and the others tried for it (their operations' seqs): Try another runs it
- *  again from its original land, with the next seed, while one of them is the latest step of the
- *  history. */
+/** The last force kept and its rolls (force variants, D488; core/forces/rolls.ts): Try another runs
+ *  it again from its original land, with the next seed, and keeps that roll beside the others while
+ *  the roll shown is the latest step of the history; Tab shows another. */
 interface ForceSeries {
   session: MapSession;
-  seqs: Set<number>;
+  rolls: ForceRolls<AnyForceSettings, WarmState>;
   base: FullForceMap;
   state: TerrainState;
   request: ForceRequest;
@@ -2021,7 +2031,7 @@ let series: ForceSeries | null = null;
  *  Esc came) is taken back as if it had never been kept, while its step is still the latest. */
 let gestureLast = 0;
 const takenBack = new Set<number>();
-let lastKept: { gesture: number; session: MapSession; mark: HistoryMark; series: ForceSeries | null; seq: number } | null = null;
+let lastKept: { gesture: number; session: MapSession; mark: HistoryMark; series: ForceSeries | null; roll: boolean } | null = null;
 
 /** Water a kept force hands on: the map's water carries on flowing from it. */
 let handoff: WarmState | null = null;
@@ -2069,21 +2079,21 @@ function sessionForceMap(s: MapSession): FullForceMap {
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
-function lastSeq(s: MapSession, history: HistoryItem[] = s.history()): number | undefined {
-  return history.filter((h) => h.applied).at(-1)?.seq;
-}
-
 /** The force Try another would run again: the last kept force (or another tried for it) is the
  *  latest step of the history. */
-function againVerb(s: MapSession, history?: HistoryItem[]): Verb | null {
+function againVerb(s: MapSession): Verb | null {
   if (!series || series.session !== s || force) return null;
-  const last = lastSeq(s, history);
-  return last !== undefined && series.seqs.has(last) ? series.request.verb : null;
+  return series.rolls.live ? series.request.verb : null;
+}
+
+/** The water flowing on the open map now, when it is still settling. */
+function waterInFlight(s: MapSession): WarmState | null {
+  return waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
 }
 
 const refuse = (text: string): ForceStarted => ({ ok: false, errors: [text], frame: null, settings: null });
 
-function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replaces?: number, state: TerrainState = s.terrainState()): ForceStarted {
+function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?: ForceSeries, state: TerrainState = s.terrainState()): ForceStarted {
   // (its gesture, D341: one taken back before it got here never starts)
   const gesture = req.gesture ?? gestureLast + 1;
   if (takenBack.delete(gesture)) return refuse("That force was taken back");
@@ -2095,7 +2105,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
+  const flowing = waterInFlight(s);
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -2113,7 +2123,9 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     before: plan.before,
     state,
     request: req,
-    ...(replaces !== undefined ? { replaces } : {}),
+    // (the roll shown keeps the water it had flowing, for when it is shown again)
+    ...(roll ? { roll: { series: roll, water: flowing } } : {}),
+    settings: { ...req.settings, ...autoPicked(plan.staged) } as AnyForceSettings,
     shown: s.built.heights.slice(),
     shownEntities: sentEntities,
     lastEntities: s.built.entities,
@@ -2122,7 +2134,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   };
   startForceWater(force, flowing);
   // (the settings it ran with, and what its Auto picked in the run, for the row to show: D309)
-  return { ok: true, errors: [], frame: forceFrame(force), settings: { ...req.settings, ...autoPicked(plan.staged) } as AnyForceSettings, verb: req.verb, gesture };
+  return { ok: true, errors: [], frame: forceFrame(force), settings: force.settings, verb: req.verb, gesture };
 }
 
 /** Start a force on the map as it stands: a new series, at its seed. */
@@ -2139,14 +2151,55 @@ export function forceStart(req: ForceRequest): ForceStarted {
  *  per-detail state, `null` for a detail still on Auto (so nature draws it again) or its pinned value
  *  (so it keeps it); left out, every detail resets to Auto (Unleash, and callers outside the row). A
  *  force started without `natural` (a plain caller, its settings already exact) keeps them exactly,
- *  as before D309: nature.ts never ran for it, so there is nothing to reset. Kept, it replaces that
- *  one (one undo step brings the earlier one back); every try takes a seed. */
+ *  as before D309: nature.ts never ran for it, so there is nothing to reset. Kept, it is another roll
+ *  of the force's one step, shown in place of the one shown (D488: Tab shows the others; undo takes
+ *  the step back whole); every try takes a seed. */
 export function forceAgain(pins?: Record<string, unknown>, gesture?: number): ForceStarted {
   const s = need();
   const sr = series;
   if (!sr || !againVerb(s)) return refuse(sr?.request.verb === "carve" || !sr ? "Carve somewhere first: Try another path runs the last carve again" : "Use a force first: Try another runs the last one again");
   sr.nextSeed = nextForceSeed(sr.request.verb, sr.nextSeed);
-  return startForce(s, sr.base, againRequest(sr.request, sr.nextSeed, pins, gesture), lastSeq(s), sr.state);
+  return startForce(s, sr.base, againRequest(sr.request, sr.nextSeed, pins, gesture), sr, sr.state);
+}
+
+/** What a force's rolls answer (D488): the map as the roll shown has it, and the settings it ran with
+ *  (what its Auto details took, D309). */
+export interface RollShown extends SessionUpdate {
+  settings: AnyForceSettings | null;
+}
+
+/** Show another of the force's rolls (D488; core/forces/rolls.ts): `to` the next (1) or the one before
+ *  (−1), or roll `index` (from 0). Each is its real result, put back as it was kept, never worked out
+ *  again; the water it had flowing flows on (its settled water is in its map). One step of the history
+ *  still, under the roll shown; refused with one line while a force works or once the roll shown is no
+ *  longer the latest step. */
+export function forceRoll(to: { step: 1 | -1 } | { index: number }): RollShown {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated() ?? (force ? "A force is at work: let it finish, or press Esc" : null);
+  const sr = series;
+  const reason = blocked ?? (!sr || sr.session !== s || !sr.rolls.live ? "Use a force first: its rolls are on offer right after it" : null);
+  if (reason || !sr) return { ...changed(s, false, [reason!], t0), settings: null };
+  // (the roll shown keeps the water it has flowing; the one shown next carries on from its own)
+  const flowing = waterInFlight(s);
+  const why = "step" in to ? sr.rolls.step(to.step, flowing) : sr.rolls.show(to.index, flowing);
+  if (why) return { ...changed(s, false, [why], t0), settings: sr.rolls.settings };
+  stopWater();
+  lastKept = null;
+  const water = s.waterStale ? sr.rolls.water : null;
+  handoff = water;
+  const u = changed(s, true, [], t0);
+  handoff = null;
+  if (water && u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
+  return { ...u, settings: sr.rolls.settings };
+}
+
+/** The player moved on from a force's rolls without an edit (another tool, Esc, a save: D488): only the
+ *  roll shown stays, and the others' maps are let go. */
+export function forceSettle(): SessionInfo {
+  const s = need();
+  if (series && series.session === s) series.rolls.settle();
+  return sessionInfo(s);
 }
 
 /** A carve's cue (its head where the land shown has it, cutting). */
@@ -2749,10 +2802,9 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   const k = lastKept;
   if (k && k.gesture === gesture && s && k.session === s) {
     lastKept = null;
-    if (!s.takeBack(k.mark)) return { taken: null, reason: "Something changed the map since: undo takes it back" };
-    // (Try another's series as it was before it)
-    if (series && series === k.series) series.seqs.delete(k.seq);
-    else series = k.series;
+    // (Try another's roll: the roll shown before it comes back; a first run: the series before it)
+    if (k.roll ? !(k.series && series === k.series && k.series.rolls.dropLatest()) : !s.takeBack(k.mark)) return { taken: null, reason: "Something changed the map since: undo takes it back" };
+    if (!k.roll) series = k.series;
     // (the map's water flows on from the water before the force, not the force's)
     stopWater();
     const u = changed(s, true, [], t0);
@@ -2789,28 +2841,36 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
   };
+  // Try another's roll (D488): the roll shown is taken back, its map and water kept with it, and this
+  // one kept from the same place, as one step of the force (core/forces/rolls.ts)
+  const roll = f.roll && f.roll.series === series && series.session === s ? series : null;
+  if (f.roll && !(roll && roll.rolls.takeBack(f.roll.water))) return refused(["Something changed the map since: use the force again"]);
   // (its operation assembled in the core, forces/keep.ts)
-  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, ...(f.replaces !== undefined ? { replaces: f.replaces } : {}), standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
-  if (!kept.ok) return refused([kept.error]);
+  const kept = keptForceParams({ before: f.before, request: f.request, carve: f.carve, staged: f.staged, standing: new Set(s.built.entities.map((e) => e.id)), ...(f.play ? { shownCleared: f.play.cleared } : {}) });
+  if (!kept.ok) {
+    roll?.rolls.restore();
+    return refused([kept.error]);
+  }
   const params = kept.params;
   const water: WarmState = flowed ?? (f.carve ? f.carve.liveWater() : f.staged!.liveWater());
   handoff = water;
   // (where the history stood: its Esc, arriving after this keep, takes it back exactly, D341)
   const mark = s.mark();
-  // (Try another replaces the force's start carry too: the start goes back where it stood, D220)
-  const back = f.replaces !== undefined ? startCarriedBack(s, f.replaces, f.before.entities) : [];
-  const res = s.applyAll([{ op: "forceResult", params }, ...back], "user");
+  const res = s.applyAll([{ op: "forceResult", params }], "user");
   if (!res.ok) {
     handoff = null;
+    roll?.rolls.restore();
     return refused(res.errors);
   }
-  carryStart(s, params, back, { inside: f.request.area ? areaDepth(f.request.area, f.before.W, f.before.H) : null, cut: f.request.cut });
-  const seq = lastSeq(s)!;
+  carryStart(s, params, [], { inside: f.request.area ? areaDepth(f.request.area, f.before.W, f.before.H) : null, cut: f.request.cut });
   const seriesBefore = series;
-  if (f.replaces !== undefined && series?.seqs.has(f.replaces)) series.seqs.add(seq);
-  else series = { session: s, seqs: new Set([seq]), base: f.before, state: f.state, request: f.request, nextSeed: f.request.settings.seed ?? 0 };
+  if (roll) roll.rolls.add(f.settings);
+  else {
+    series = { session: s, rolls: new ForceRolls(s), base: f.before, state: f.state, request: f.request, nextSeed: f.request.settings.seed ?? 0 };
+    series.rolls.add(f.settings);
+  }
   const step = s.stepSince(mark);
-  lastKept = step ? { gesture: f.gesture, session: s, mark: step, series: seriesBefore, seq } : null;
+  lastKept = roll ? { gesture: f.gesture, session: s, mark, series: roll, roll: true } : step ? { gesture: f.gesture, session: s, mark: step, series: seriesBefore, roll: false } : null;
   const u = changed(s, true, [], t0);
   handoff = null;
   // the page shows the force's water: the map's water flows on from it, not from the water before

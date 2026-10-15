@@ -57,6 +57,8 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Flip the fault's side (Quake)", keys: ["V"] },
         { what: "Pause or resume a force at work", keys: ["Space"] },
         { what: "Skip a force to its end", keys: ["Esc"] },
+        { what: "The next roll after Try another", keys: ["Tab"] },
+        { what: "The roll before", keys: ["Shift+Tab"] },
       ],
     },
     {

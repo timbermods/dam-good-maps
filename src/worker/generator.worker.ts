@@ -261,6 +261,10 @@ const api = {
   forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
+  /** Another of the force's rolls (D488): the next or the one before (`step`), or roll `index`. */
+  forceRoll: (to: { step: 1 | -1 } | { index: number }) => sendUpdate(ed.forceRoll(to)),
+  /** The player moved on from the rolls (another tool, Esc, a save): only the roll shown stays. */
+  forceSettle: () => ed.forceSettle(),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */
   forceCancel(gesture?: number) {
     const v = ed.forceCancel(gesture);
