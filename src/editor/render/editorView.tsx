@@ -47,7 +47,7 @@ export function editorView(ed: Ed, props: EditorProps) {
             <View3D
               view={view}
               class="editor-view"
-              label={`3D view of ${info.name}. Middle-drag to turn, right-drag to move, wheel to zoom.`}
+              label={`3D view of ${info.name}. Middle-drag to turn, right-drag to move, wheel to zoom toward the pointer.`}
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               markersToggle={ed.markersToggle}

@@ -43,7 +43,7 @@ The generator:
   **File → Download project** keeps the map for editing later.
 
 The editor:
-- Middle-drag turns the view, right-drag moves it, scroll zooms. WASD and the arrow keys move, Q and
+- Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer. WASD and the arrow keys move, Q and
   E turn, Shift is faster.
 - Paint the ground with the brushes in the bar at the bottom: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 2–6). Drag on the map to paint.

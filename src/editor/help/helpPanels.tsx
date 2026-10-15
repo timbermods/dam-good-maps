@@ -129,7 +129,7 @@ function Help(p: { onClose(): void }) {
         </ol>
         <h3>Controls</h3>
         <ul>
-          <li>Middle-drag turns the view, right-drag moves it, scroll zooms.</li>
+          <li>Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer.</li>
           <li>Drag on the map to paint with the tool in hand.</li>
           <li>
             <strong>Undo</strong> and <strong>Redo</strong> are at the top right. <strong>History</strong> lists every step.
