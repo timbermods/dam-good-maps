@@ -594,7 +594,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
-  and Alt subtracts. **Ctrl+click** on the land only takes that tile's level as the Level number (D361, item 7).
+  and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
+  under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles.
+  The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
+  until they work on runs (step 3); hover and Select show the run seen.
+  **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at
   the selection's lowest ground with **Flatten**, **Cut down** and **Fill up** acting at once; **Select all**
@@ -968,7 +972,13 @@ builds the canonical water and the editor adopts it, and `SessionInfo.waterPendi
 can save the map again, now with its stored map. A
 project saved by another version of the app opens by rebuilding.
 
-**Undo and redo** run over the operation list, with periodic snapshots so undo stays fast on 256×256 maps. The
+**Undo and redo** run over the operation list and put back the map each step kept (`MapSession`: every step's
+within 8 steps of where the history stands at 256² (about 6 MB a step), 32 at 128², and one every eight steps
+further back), its own water with it, never rebuilding it; an edit's answer, and undo's and redo's, go to the page
+before the water's settle is even set up, and the water follows in the background (D158, D453). A log another
+session follows (the checks replica, collaborative editing's peers) is rebuilt from where the map stood, as an
+edit is (`followLog`); `spliceStep` takes one step out of the log or puts it back, the steps after it applied
+again, for collaborative editing's undo of a step that is not the latest. The
 history is visible as a list the user can step back through. A map opened from its stored map has its log replayed
 once, where the checks run (the checks worker's replica; the editor's own background check without one), and compared
 with the stored map byte for byte (D455): the same, and undo below the save point works as normal; different (the
@@ -1145,7 +1155,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
 - **3D rendering** (`src/render3d`, `PLAN.md` §20, D45): chunked meshing (32×32 chunks) with remeshing of dirty
   chunks only; one mesher for terrain as runs (`render3d/mesh.ts`, D126): every run's top, underside and walls,
   merged per level and along each edge, the same quads as a heightfield's where a map has no caves; instanced trees, bushes and ruins;
-  picking against the heightfield and the features.
+  picking against the voxels of the runs (the first face a ray meets: a run's top, underside or wall) and the features.
   - The shelf (D184): each object's picture is drawn once by the view itself (the object's model in the map's look,
     into a small render target), and the ghost under the pointer is the object's own model, tinted green or red; a
     source the pointer targets glows (D249).

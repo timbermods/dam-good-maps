@@ -33,6 +33,54 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   after, real Chrome on the RTX 2070 SUPER, 1920×1080, dark): the same picture; the pixel differences are the moving
   water and quad edges on merged faces.
 
+## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
+
+- **What:** `src/render3d/pick.ts` `pickTerrain` walks the voxels of the column masks (`mesh.ts` `columnMask`, the
+  masks the mesher draws) with a 3D DDA and lands on the first solid voxel's face. A `TileHit` now also says its
+  `face` (`top`, `bottom` or `side`, with `side` the way a wall faces), its `run` (`bottom` and `top`: the solid
+  run of the column the face belongs to; the map's floor under air at the bottom is the empty run at level 0) and
+  its `level` (the run's top). So Select and the hover highlight aim at what the player sees: a cave's floor
+  through its mouth, a ledge under an overhang, a run's underside, never a face behind a wall. Every other tool (the
+  brushes, forces, shelf, start and sources) picks the tile's top exactly as the heightfield picker did
+  (`pickEditing`: the same ray walk over plain columns, heights clamped by the cut) until step 3 (D484): through a cave's
+  mouth they get the tile in front, where the pointer is, since their stroke changes that tile's top. A tool says
+  `voxel: true` to be given the ground seen (only Select does).
+  Under a layer cut the walk lands on the cut (voxels at or above it are air); the per-pick copy of every height
+  that cut used to make is gone. `pickHeightfield` stays as the reference (and for the investigations).
+- **Equivalence** (`tests/unit/pickTerrain.test.ts`): on seven generated maps (all themes, 96² to 128²) over a grid
+  of camera angles and screen points, straight-down rays and low rays across the map, with and without a layer
+  cut, every pick gives the heightfield picker's tile, height, face, `t` and point (a few thousand rays a map). The
+  one difference: a ray that reaches the map's floor over a tile of height 0 exactly at the bottom of the box,
+  which the old picker sometimes lost to rounding, now lands on the floor. On hand-made overhangs, caves, a bridge
+  and a floating run, 6,000 rays each (from above, the side, or inside a void) are checked against every exposed
+  face intersected one by one: the first face along the ray, never one behind a wall.
+- **Official maps** (the three with the most cave columns, 192² and 256², checked once by hand, not committed): ~290
+  rays each aimed at cave tiles, checked against every exposed face intersected one by one: none differ.
+- **Pick time (Node, this machine, measured once, information):** 256² River Delta, 4,000 camera rays: 7.3 µs the
+  heightfield picker, 9.5 µs the voxel walk; with a 100 × 100 block of cave columns under the rays, 115 µs (the
+  mask is rebuilt from its 23 bytes at each cell; a mask array from the worker, seam 1 above, would make it a lookup).
+- **Captures:** `docs/sheets/3d-view-picking.jpg` (official map with caves, a cave floor through its mouth and a
+  ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
+  Chrome on the RTX 2070 SUPER): dev's hover highlight and drag land on the wall or roof in front, this branch's (Select) on the floor. The editing
+  tools' cursors are not in the sheet: they stay where dev's are.
+  The selection's tint still covers the whole tile (roof, walls and floor), since the overlay is per tile.
+- **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
+  Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
+  Wand takes the ground joined to the click at that level, a run's top under an overhang too (`levelTiles`, the
+  view's `hasTop`). The Alt+click layer pick cuts at the level hit. A run is not named in the selection or the
+  operations yet; the brushes and Select's actions still work on the heightfield's top until step 3 (D280 (3)) moves
+  them onto runs. Proposed when they do: the selection keeps its tile mask and gains an optional level per tile
+  (`Selection.levels`), set from the hit's `level`.
+- **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
+  the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
+  terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
+  as on dev, until step 3: their cursor, ring and band are drawn where the stroke will actually change the ground, since
+  a cursor on a cave floor whose stroke would raise the roof breaks what you see is what you get. Everywhere else, as before.
+- **Under a layer cut:** the pick treats voxels at or above the cut as air and the cut as a top, and the Wand's
+  `hasTop` applies the same cut (`hasTopAt`: a plain tile counts as min(height, cut)), so a click on the cut plateau
+  takes the whole flat the cut shows. With caves the shader still flattens a roof run into a lid at the cut, while the
+  pick lands on the floor under the drawn lid; part 6 (the cutaway) resolves it.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
@@ -51,8 +99,8 @@ Each reads the same column masks the mesher reads. The seams:
    them per run).
 4. **Water per column:** `waterMesh.ts` already draws lower water columns (`lowerByTile`); seat each slot on its own
    floor and cap it at its ceiling, from the stacked engine's slots, with cave attenuation on its light.
-5. **3D picking and selections:** `pick.ts` picks against the heightfield; pick against the masks (a ray through the
-   voxels, the face hit and its run), then the Select tool in 3D.
+5. **3D picking and selections (built, part 5 above):** `pick.ts` picks against the masks (a ray through the
+   voxels, the face hit and its run) and the Select tool reads the run hit.
 6. **The level-slice cutaway:** today a uniform cuts the world above a level in the shader. 3d-view's rule (D207):
    mesh the clipped mask with caps only where solid rock crosses the cut, lighting from the unsliced terrain.
 7. **Kyler's notes at approval:** the stone pattern stretching on ceilings and at corners; cave interiors and deep
