@@ -547,6 +547,12 @@ export class MapSession {
     return this.gen.generatorVersion !== GENERATOR_VERSION && this.gen.base.world !== null ? "frozen" : "live";
   }
 
+  /** Whether the map was cropped (D340): it is built from the cropped file, and has no "as opened" map to compare
+   *  its problems with, so every problem it has is the player's own. */
+  get cropped(): boolean {
+    return !!this.gen.cropped;
+  }
+
   get spec(): MapSpec | null {
     return this.gen.spec;
   }
@@ -1002,12 +1008,18 @@ export class MapSession {
     return { gen: { spec: null, generatorVersion: GENERATOR_VERSION, base: baseFromFile(file, "import"), field: null, baseFeatures: [], kept: null, meta, cropped: true }, objects };
   }
 
-  /** The map goes on as `gen`: the crop is already the last operation of the log. */
+  /** The map goes on as `gen`: the crop is already the last operation of the log. The map's name goes with it
+   *  (D443: a rename is never undone, so no crop or undo of one brings an older name back). */
   private enterCrop(gen: Generation): void {
     this.past.push({ gen: this.gen, st: this.st, start: this.segStart });
-    this.gen = gen;
+    this.gen = this.named(gen);
     this.st = emptyState(gen.baseFeatures);
     this.segStart = this.log.length - 1;
+  }
+
+  /** `gen` with the name the map has now. */
+  private named(gen: Generation): Generation {
+    return gen.meta.name === this.gen.meta.name ? gen : { ...gen, meta: { ...gen.meta, name: this.gen.meta.name } };
   }
 
   /** The map goes back to the generation before its crop; returns the one it leaves. */
@@ -1015,7 +1027,7 @@ export class MapSession {
     const before = this.past.pop();
     if (!before) throw new Error("there is no map before this crop");
     const left = this.gen;
-    this.gen = before.gen;
+    this.gen = this.named(before.gen);
     this.st = before.st;
     this.segStart = before.start;
     return left;

@@ -363,6 +363,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
     throw new ProjectError("not a Dam Good Maps project file");
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+  // (the retire and upgrade passes below read the top document only; `prior` is written by this version, D475)
   const notes = dropRetired(raw as Record<string, unknown>);
   upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs

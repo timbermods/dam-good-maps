@@ -34,7 +34,8 @@ function rectAroundStart(s: MapSession): { x: number; y: number; w: number; h: n
 function voxelsOn(world: { voxels: Uint8Array; sizeX: number; sizeY: number }, r: { x: number; y: number; w: number; h: number }): number[] {
   const out: number[] = [];
   const plane = world.sizeX * world.sizeY;
-  for (let z = 0; z < LAYERS; z++) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) out.push(world.voxels[z * plane + y * world.sizeX + x]);
+  // (not the two tiles along the edge: the lip at a new edge may raise them)
+  for (let z = 0; z < LAYERS; z++) for (let y = r.y + 2; y < r.y + r.h - 2; y++) for (let x = r.x + 2; x < r.x + r.w - 2; x++) out.push(world.voxels[z * plane + y * world.sizeX + x]);
   return out;
 }
 
@@ -54,7 +55,7 @@ describe("Crop map to selection: a generated map", () => {
     expect(s.built.W).toBe(r.w);
     expect(s.built.H).toBe(r.h);
     // heights are the original's sub-rectangle
-    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) expect(s.built.heights[y * r.w + x]).toBe(original.built.heights[(y + r.y) * W + x + r.x]);
+    for (let y = 2; y < r.h - 2; y++) for (let x = 2; x < r.w - 2; x++) expect(s.built.heights[y * r.w + x]).toBe(original.built.heights[(y + r.y) * W + x + r.x]);
     // so are the voxels of the exported file, every layer
     const after = s.exportFile();
     expect(after.world.sizeX).toBe(r.w);
@@ -325,5 +326,53 @@ describe("Crop map to selection: the water settles again", () => {
     s.apply(crop(r.x, r.y, r.w, r.h));
     expect(s.waterPending).toBe(false);
     expect(s.built.waterFromFile).toBe(false);
+  });
+});
+
+describe("Crop map to selection: the name", () => {
+  it("a rename after a crop is not undone with it (D443), and one before it stays through the crop and its undo", () => {
+    const s = session();
+    const r = rectAroundStart(s);
+    expect(s.setName("Before").ok).toBe(true);
+    expect(s.apply(crop(r.x, r.y, r.w, r.h)).ok).toBe(true);
+    expect(s.meta.name).toBe("Before");
+    expect(s.setName("After").ok).toBe(true);
+    s.undo();
+    expect(s.meta.name).toBe("After");
+    s.redo();
+    expect(s.meta.name).toBe("After");
+    // saved, opened again and undone
+    s.settleCanonical();
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(again.meta.name).toBe("After");
+    again.undo();
+    expect(again.meta.name).toBe("After");
+  });
+});
+
+describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edgeLip.ts)", () => {
+  // seed 4's spring at (12, 50) is a river head 12 tiles in from the west edge: cropped to the west at the
+  // source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured off the new
+  // edge on the tiles beside it
+  it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
+    const original = session(4);
+    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 12);
+    expect(spring.length).toBeGreaterThan(0);
+    const rect = { x: 12 - behind, y: 0, w: W - 12 + behind, h: W };
+    expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
+    original.settleCanonical();
+    const s = session(4);
+    s.settleCanonical();
+    expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
+    const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
+    const wetBeside: number[] = [];
+    let raised = 0;
+    for (let y = 40; y < 60; y++) {
+      const i = y * rect.w;
+      if (s.built.heights[i] > original.built.heights[y * W + rect.x]) raised++;
+      if (!sources.has(i) && s.built.water[i] > 0.02) wetBeside.push(y);
+    }
+    expect(raised, "the edge beside the head stands higher").toBeGreaterThan(0);
+    expect(wetBeside).toEqual([]);
   });
 });

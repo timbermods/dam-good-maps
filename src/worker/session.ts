@@ -1480,7 +1480,8 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -1587,12 +1588,14 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     const w = await settleInSlices(model, current, onProgress);
     if (!w) return null;
     // unedited, the map is the map as it was opened: one settle and one validation serve both
-    if (!originalFull && s.editCount === 0 && !s.waterPending) {
+    if (s.cropped) {
+      // (a cropped map has no map as it was opened to compare with)
+    } else if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
       return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
-    if (!originalFull) {
+    if (!originalFull && !s.cropped) {
       const om = importModel(s, true);
       const ow = await settleInSlices(om, () => session === s, onProgress);
       if (!ow) return null;
