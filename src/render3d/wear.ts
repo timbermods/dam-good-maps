@@ -3,7 +3,8 @@
 // the map's columns as the renderer shows them give a few of those voxels, spread through the stage,
 // each with the way its rock opened (toward the air that was already there: out of a cave's mouth,
 // out from under an overhang, up from a scoured hollow), the level a stone from it lands on, and
-// whether it is under a roof (its dust starts in the rock's shade).
+// whether it is under a roof and how far out the roof ends (its dust stays in the rock's shade until
+// it drifts past there).
 // The columns may show the stage's voxels gone or not yet (either reads the same), or lag behind
 // (the voxel then opens toward the gesture's focus). Nothing here allocates.
 
@@ -16,8 +17,13 @@ export interface Voxels {
 
 /** Floats a sample takes in `wearSamples`' output: the voxel's centre (x, y, z: map axes, x along a row,
  *  y down the rows, z up, in tiles and levels), the way it opened (dx, dy, dz, a unit vector), the level a
- *  stone from it lands on, and 1 under a roof (rock above it in its column, the stage's voxels gone), else 0. */
-export const WEAR_STRIDE = 8;
+ *  stone from it lands on, 1 under a roof (rock above it in its column, the stage's voxels gone) else 0,
+ *  and how far from its centre, across the land along the way it opened, the roof ends (0 in the open;
+ *  ROOF_REACH at most). */
+export const WEAR_STRIDE = 9;
+
+/** How far out (tiles) `wearSamples` looks for a roof's end. */
+export const ROOF_REACH = 8;
 
 /** How far out a stone from the voxel lands, in tiles along the way it opened (the renderer's stones
  *  keep to it, so each lands on the ground this found). */
@@ -48,6 +54,13 @@ function solid(went: ArrayLike<number>, v: Voxels, x: number, y: number, z: numb
   return ((m >>> z) & 1) === 1;
 }
 
+/** Rock above level `z` at (x, y), the stage's voxels gone (off the map: none). */
+function roofed(went: ArrayLike<number>, v: Voxels, x: number, y: number, z: number): boolean {
+  if (z >= 30 || x < 0 || y < 0 || x >= v.W || y >= v.H) return false;
+  const i = y * v.W + x;
+  return (v.mask(i) & ~wentAt(went, v.W * v.H, i)) >>> (z + 1) !== 0;
+}
+
 /** The level a stone falling from level `z` at (x, y) lands on, the stage's voxels gone. */
 function floorBelow(went: ArrayLike<number>, v: Voxels, x: number, y: number, z: number): number {
   const i = y * v.W + x;
@@ -61,8 +74,8 @@ const SIDES = [1, 0, -1, 0, 0, 1, 0, -1] as const;
 /** `count` of the voxels that `went`, spread evenly through it, into `out` (WEAR_STRIDE floats each):
  *  each one's centre, the way its rock opened (toward the air beside it and above it before the stage,
  *  a little upward always; enclosed, toward the gesture's `focus`, or up at it), the level a stone
- *  from it lands on (the ground under where it falls out, STONE_REACH along the way it opened) and
- *  whether it is under a roof. Returns how many it wrote. */
+ *  from it lands on (the ground under where it falls out, STONE_REACH along the way it opened),
+ *  whether it is under a roof and where that roof ends. Returns how many it wrote. */
 export function wearSamples(went: ArrayLike<number>, v: Voxels, focus: { x: number; y: number }, count: number, out: Float32Array): number {
   const N = v.W * v.H;
   const n = Math.min(count, went.length, Math.floor(out.length / WEAR_STRIDE));
@@ -117,7 +130,14 @@ export function wearSamples(went: ArrayLike<number>, v: Voxels, focus: { x: numb
     out[o + 4] = dy;
     out[o + 5] = dz;
     out[o + 6] = floorBelow(went, v, lx, ly, z);
-    out[o + 7] = z < 30 && (v.mask(i) & ~wentAt(went, N, i)) >>> (z + 1) !== 0 ? 1 : 0;
+    const under = roofed(went, v, x, y, z);
+    out[o + 7] = under ? 1 : 0;
+    // where the roof ends, out along the way it opened (straight up: it is open right there)
+    let exit = 0;
+    if (under && h > 0.05)
+      for (exit = 0.25; exit < ROOF_REACH; exit += 0.25)
+        if (!roofed(went, v, Math.floor(x + 0.5 + (dx / h) * exit), Math.floor(y + 0.5 + (dy / h) * exit), z)) break;
+    out[o + 8] = exit;
   }
   return n;
 }
