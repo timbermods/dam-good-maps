@@ -32,9 +32,12 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
     const onKey = (ev: KeyboardEvent) => {
       if (document.querySelector<HTMLElement>(".editor")?.inert) return;
       const target = ev.target as HTMLElement | null;
-      // typing in a field or choosing from a list keeps its keys; a toggle just clicked does not
-      const toggle = target?.tagName === "INPUT" && ["checkbox", "radio", "button"].includes((target as HTMLInputElement).type);
-      if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
+      // typing in a field or choosing from a list keeps its keys; a toggle just clicked does not, and a slider keeps
+      // only the keys that move it (the arrows, Home, End, Page Up and Down): Esc, undo and the tools reach the page
+      const kind = target?.tagName === "INPUT" ? (target as HTMLInputElement).type : "";
+      const toggle = ["checkbox", "radio", "button"].includes(kind);
+      const slider = kind === "range" && !(ev.ctrlKey || ev.metaKey || ev.altKey) && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(ev.key);
+      if (target && !toggle && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") && (kind !== "range" || slider)) return;
       const mod = ev.ctrlKey || ev.metaKey;
       // (F held: the wheel sets the strength, D368 (11), even while a painted Lift is drawn)
       if (!mod && !ev.altKey && ev.key.toLowerCase() === "f") fHeld.current = true;
