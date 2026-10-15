@@ -836,6 +836,26 @@ export class MapSession {
     return new Set(this.columns.keys());
   }
 
+  /** The water an imported map holds under its roofs (the file's own, which the editor shows and the
+   *  export keeps), a bit per level of each tile; null when it has none. Erode never wears rock that
+   *  holds it back (D281). */
+  caveWater(): Uint32Array | null {
+    if (this.mode === "live") return null;
+    const roofed = this.roofedTiles;
+    if (!roofed.size) return null;
+    const w = this.storedWater();
+    const { x: W, y: H } = this.size;
+    let out: Uint32Array | null = null;
+    for (let k = 0; k < w.tile.length; k++) {
+      const i = w.tile[k];
+      if (!roofed.has(i) || !(w.depth[k] > 0.02) || w.floor[k] < 0) continue;
+      out ??= new Uint32Array(W * H);
+      const top = Math.min(LAYERS, Math.ceil(w.floor[k] + w.depth[k] - 0.02));
+      for (let z = Math.floor(w.floor[k]); z < top; z++) out[i] |= 1 << z;
+    }
+    return out;
+  }
+
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
    *  to match the build exactly): copies, safe to hand on. */
   terrainState(): TerrainState {
@@ -1609,14 +1629,12 @@ export class MapSession {
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
-    const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
     // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
     // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
     const ground = this.terrainOf(built);
     const roofed = this.layered(built) ? new Set(ground.notPlain()) : null;
     const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: ground.voxels(), roofed });
-    // the thumbnail shows terrain and water: a new one when either changed
-    const redraw = terrainChanged || !built.waterFromFile;
+    const redraw = this.drawsThumbnail(built);
     let metadata = parse(this.gen.base.metadata) as JsonObject;
     // its player removed its last badwater spring: it says it is a No badwater map (D213)
     if (this.badwaterRemoved(built)) {
@@ -1632,15 +1650,24 @@ export class MapSession {
     }, built.heights);
   }
 
-  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
-   *  profile, PLAN §19.5): they are noted at the end of the map's description. */
+  /** Whether the file's thumbnail is drawn (the core's top-down one): always for a generated map; for an
+   *  imported one when its terrain or water changed, else the file keeps its own picture (PLAN §19.6). */
+  drawsThumbnail(built: BuildResult = this.cur): boolean {
+    if (this.mode === "live") return true;
+    // the thumbnail shows terrain and water: a new one when either changed
+    return !built.waterFromFile || !sameBytes(built.heights, this.baseStuff().terrain.heights);
+  }
+
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
     return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
-  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
+  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
+   *  profile, PLAN §19.5): they are noted at the end of the map's description. `thumbnailDrawn`: the
+   *  file carries the core's top-down thumbnail, which the page may replace with its 3D picture (D488). */
+  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string; thumbnailDrawn: boolean } {
     // a file always gets the canonical settle, never the preview's water (PLAN §19.7)
     this.settleCanonical();
     const name = this.exportTimberName();
@@ -1651,7 +1678,7 @@ export class MapSession {
       const note = `Exported with ${opts.warnings.length === 1 ? "a warning" : `${opts.warnings.length} warnings`}: ${opts.warnings.join("; ")}.`;
       file.metadata = { ...md, MapDescription: text ? `${text}\n\n${note}` : note };
     }
-    return { bytes: writeTimber(file), fileName: name };
+    return { bytes: writeTimber(file), fileName: name, thumbnailDrawn: this.drawsThumbnail() };
   }
 
   /** The map as it was opened, before any edit: the load and design checks of an imported

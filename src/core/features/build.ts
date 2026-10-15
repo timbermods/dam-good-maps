@@ -33,6 +33,7 @@ import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource }
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
 import {
   applyBlocks,
+  applyHollows,
   applySculpt,
   edgeStep,
   finalMasks,
@@ -665,7 +666,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
   // (the Block tool: the tiles its operations touched carry their own masks and floors, and are caves or
   // not by them, so the forces leave the ones it dug as they are)
-  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params));
+  // (and Erode's results, D281: the tiles it hollowed under their surface take their masks the same way)
+  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params) || (isForce(s.params) && !!s.params.runs));
   // (what step 7 would show a tile from the heights as they stand: a block operation works on that)
   const outside = prev ? prev.terrain.pre7 : null;
   const got = (j: number) => (outside && !t.inRegion(j) ? outside[j] : heights[j]);
@@ -693,9 +695,13 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   };
   for (const s of input.sculpts ?? []) {
     if (layer && isBlocks(s.params)) applyBlocks(s.params, t, layer);
-    else applySculpt(s, t, caves, shown, floors);
+    else {
+      if (layer && isForce(s.params) && s.params.runs) applyHollows(s.params.runs, t, layer);
+      applySculpt(s, t, caves, shown, floors);
+    }
     if (watch.length) checkSlopes();
   }
+
   let pre7: Uint8Array;
   if (prev) {
     pre7 = prev.terrain.pre7.slice();

@@ -133,18 +133,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -197,6 +197,16 @@
           "properties": {
             "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
             "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+          }
+        },
+        "runs": {
+          "description": "Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (bit z set where voxel z is solid; levels 0 to 21).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "masks"],
+          "properties": {
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "masks": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 1, "maximum": 4194303 } }
           }
         },
         "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },

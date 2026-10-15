@@ -68,6 +68,20 @@ export const collabEditApi = {
     return { ...a, planted: a.ok && p.ok ? p.plan.map((o) => o.tile) : [] };
   },
 
+  /** Remove unfed water within `tiles` (the whole map with none): one step, or why nothing was removed. */
+  removeUnfedWater(tiles: number[] | null): Promise<Answer> {
+    const op = ed.planned.unfedWater(tiles);
+    if (!op) return Promise.resolve(ed.collabAnswer(false, ["no unfed water stands there"]));
+    return order({ kind: "edit", ops: [op], label: op.op });
+  },
+
+  /** Fill the hollow round (x, y) with standing water to `level`: one step, or the plain reason it holds none. */
+  fillAt(x: number, y: number, level: number): Promise<Answer> {
+    const p = ed.planned.fill(x, y, level);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "nothing to fill"]));
+    return order({ kind: "edit", ops: [p.op], label: p.op.op });
+  },
+
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string): Promise<Answer & { removed: number[] }> {
     const p = ed.planned.remove(tiles, kinds, label);
     const a = await edit(p);

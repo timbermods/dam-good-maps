@@ -189,7 +189,12 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it.
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
+    ends with **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
+    hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
+    fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
+    source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
+    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
@@ -201,13 +206,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
   margin, the foot level with the bar's): one object per row, its picture then its name, in this order: **Start**,
-  **Water source**, **Badwater source** (two items, D212), Natural dam, **Pine**, **Birch**, **Oak**, **Berry
-  bush**, Ruin, Mine site, Relic, Slope, Thorns, Blockage, Geothermal field, each picture a small render in the
-  map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
+  **Water source**, **Badwater source** (two items, D212); then, behind a hairline, Water seep, Badwater seep, Aquifer,
+  Ancient drill, Badtide drain and Natural dam; **Pine**, **Birch**, **Oak**, Succulent, Mixed woods and **Berry
+  bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
+  warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size, a tree's, bush's or thorn patch's Size and Density (a tree's also Age),
-  and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
+  Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
+  also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
+  core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
+  then those of one faction each, with the warning that another faction's good deletes the reserve) and Amount, the
+  Ancient drill's note, and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
   it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
   its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
@@ -256,6 +265,16 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     `planPaintObjects` and the `paintObjects` operation scatter a stroke as literal placed objects in one undo
     step (Size, Density 0.05–1, Age); `markerNotes` labels them; `blastInfo` and `explosionAfter` answer what a
     core clears and draw the map after it goes off, the water re-settled, without changing the session;
+    **on the shelf now** (`shelfItems.ts`, `objectOptions.tsx`): every one of these is a row, with an object window of its
+    own from the core's options (`objectGroups`): a water object's Strength (below 0 it drains) and Starts (At once, or Later
+    and its Cycle), a core's Radius and the cycle it goes off in, a reserve's Holds and Amount, the drill's note (Stand it
+    on an aquifer); Succulent and Mixed woods are plants painted like the trees (Size, Density, Age; a click on Mixed woods
+    plants one of its mix; its picture is a pine, a birch and an oak drawn side by side). The settings go into the placement
+    as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
+    place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
+    is the underground ruins. Still to come: the core's **Show after it goes off** view, and **Crop map to selection**,
+    which the core does not have yet (D340). The list scrolls inside itself when the window is short, keeping the
+    picked row in view;
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
@@ -348,7 +367,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 
 ### The forces' shared rules
 
-Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit; Erode when built) follows these. They are built
+Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode) follows these. They are built
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
@@ -563,8 +582,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   land are the renderer's, to come.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
-  **Size**, **Try another**; two to four seconds of dust and rubble. Prototyped on `investigation/erode`, held
-  until Kyler has tried the other forces.
+  **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the
+  core (`rust/forces/src/erode.rs`, `core/forces/erode.ts`; its rules in `docs/progress/3d-creating.md`): wear starts
+  at the faces the gesture touches, hardest at a face's foot and just under a hard bed, from both sides of a thin
+  ridge, into worn shapes (no one-block walls or slots, nothing sealed); every tile keeps its top three blocks, so the
+  surface and its objects stay; no rock that holds back water wears, nor an object's ground or a source's tile; the
+  rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
+  at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its result writes runs (the operation's `runs`), so
+  any map gains caves; the page's row, tooltip ("Wear caves and arches" with its key), effects and sounds are still
+  to come.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -1257,7 +1283,13 @@ checks dot counts; every other row is information under Good to know, worded as 
     two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
-    export never depends on the preview's history.
+    export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
+    the High look, turned as the new game's camera opens (the start's orientation + 35°) but looking down at 40° at the
+    whole map as the official thumbnails do, not the opening camera's 60° (a deliberate departure), with the water the file
+    starts with drawn still (its badwater share, no moving water's foam), then put in place of the core's top-down
+    one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
+    WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
+    own picture.
 
 ## Claude integration (M12)
 

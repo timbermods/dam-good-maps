@@ -31,6 +31,7 @@ import type { Orientation } from "../core/format/footprints";
 import { describeTileOf, entitiesAtTile, type EntityInfo, type TileDescription } from "../core/doc/describeTile";
 export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
+import { planFill, unfedWater } from "../core/doc/waterEdits";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -339,9 +340,9 @@ function soilKey(s: MapSession): unknown {
   return s.showsStoredWater ? "stored" : s.built.moisture;
 }
 
-/** Whether a roof's top changed between two surfaces. */
+/** Whether a roof's top changed between two surfaces (an imported map's caves, Erode's). */
 function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
-  for (const i of s.roofedTiles) if (a[i] !== b[i]) return true;
+  for (const i of s.columns.keys()) if (a[i] !== b[i]) return true;
   return false;
 }
 
@@ -391,6 +392,12 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
+/** The whole map as it stands, the water its file starts with (nothing marked as sent). */
+function wholeView(s: MapSession): MapView {
+  const b = s.built;
+  return { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+}
+
 /** What a Block operation would do on the map as it stands, with no build (the page's live preview of a click or a
  *  drag): the blocks it adds and takes, the ground the support rule would drop, and the one line it is refused with
  *  (core/doc/blockTool.ts). */
@@ -402,8 +409,7 @@ export function blockFalls(params: BlocksParams): BlockFalls {
 export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
-  const b = s.built;
-  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+  const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
@@ -442,7 +448,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.heights = b.heights.slice();
       out.terrainRect = rect;
       // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
-      if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
+      if (s.columns.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
   // (ground the Block tool dug or built under a surface that did not move: its columns go with the
@@ -1416,6 +1422,9 @@ export const planned = {
   start: (x: number, y: number, orientation?: Orientation) => planStart(need(), x, y, orientation, () => crypto.randomUUID()),
   /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
   stroke: (op: EditOp) => newRampedStroke(op),
+  /** Remove unfed water and Fill: the one operation each would apply, or why none. */
+  unfedWater: (tiles: number[] | null) => unfedWater(need(), tiles && tiles.length ? tiles : null).op,
+  fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -1698,10 +1707,22 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
  *  confirmed; confirmed warnings are noted in the map's description. The water settles
- *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water). */
-export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string }> {
+ *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
+ *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
+ *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
+ *  already is the file's as it stands: it goes to `onPicture` at once, so the page draws it while the
+ *  checks run, and the answer says so (`pictureEarly`); else it comes with the file (`picture`). */
+export async function exportTimber(
+  confirmWarnings: boolean,
+  onProgress?: (p: CheckProgress) => void,
+  opts: { picture?: boolean } = {},
+  onPicture?: (view: MapView) => void,
+): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string; picture?: MapView; pictureEarly?: boolean }> {
   const s = need();
   const v0 = version;
+  // (the build the file is written from, if nothing changes it on the way: no settle, no replay, no edit)
+  const early = opts.picture && onPicture && !s.waterPending && !s.replayPending && s.drawsThumbnail() ? s.built : null;
+  if (early) onPicture!(wholeView(s));
   let bg = await backgroundCheck(onProgress);
   // a newer check of the same map (the page's own, started just after the map opened) takes this
   // one's place: check again, and give up only when the map itself changed
@@ -1711,8 +1732,9 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
   // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
-  return { ok: true, errors: [], bytes, fileName };
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
+  return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }
 
 /** The project file (downloads use gzip level 9; autosave a faster level). */
@@ -1828,6 +1850,40 @@ export function describeTileAt(x: number, y: number): TileDescription | null {
 /** What stands in `tiles`, by template, and how much of it is under water (D345, B5): Delete's menu. */
 export function objectsInArea(tiles: readonly number[]): { counts: Record<string, number>; submerged: Record<string, number> } {
   return objectsIn(need(), tiles);
+}
+
+/** What Remove unfed water would take within `tiles` (or on the whole map with none): its pools, tiles of water and the
+ *  tiles each pool covers, for the row's words and the map's mark (core/doc/waterEdits.ts `unfedWater`, D387 (2)). */
+export function unfedWaterIn(tiles: number[] | null): { pools: number; tiles: number; volume: number; bodies: number[][] } {
+  const u = unfedWater(need(), tiles && tiles.length ? tiles : null);
+  return { pools: u.pools, tiles: u.tiles, volume: u.volume, bodies: u.bodies };
+}
+
+/** Remove unfed water within `tiles` (the whole map with none), as one undo step; fed water is untouched. */
+export function removeUnfedWater(tiles: number[] | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const u = unfedWater(s, tiles && tiles.length ? tiles : null);
+  if (!u.op) return changed(s, false, ["no unfed water stands there"], t0);
+  const r = s.apply(u.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the
+ *  plain reason it holds no water at that level (core/doc/waterEdits.ts `planFill`, D387 (3), D394). */
+export function fillPlanAt(x: number, y: number, level: number): { reason: string | null; tiles: number[]; volume: number; days: number } {
+  const p = planFill(need(), x, y, level);
+  return { reason: p.reason, tiles: p.op ? [...p.op.params.lake.tiles] : [], volume: p.volume, days: p.days };
+}
+
+/** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */
+export function fillAt(x: number, y: number, level: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const p = planFill(s, x, y, level);
+  if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
+  const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
 }
 
 /** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope
@@ -2003,6 +2059,10 @@ export interface ForceFrame {
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Erode (D281): the tiles whose voxels changed since the last frame and each one's voxels now
+   *  (`MapView["columns"]`'s form: LAYERS a tile, 1 solid): the renderer's `updateTerrain` remeshes
+   *  their chunks, as for an imported map's caves. */
+  columns?: MapView["columns"];
   /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
    *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
    *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
@@ -2052,6 +2112,8 @@ let force: {
   request: ForceRequest;
   replaces?: number;
   shown: Uint8Array;
+  /** The voxels last sent, while a force that writes them shows (Erode, D281). */
+  shownMasks: Uint32Array | null;
   shownEntities: EntityView | null;
   lastEntities: EntitySpec[];
   heatSent: boolean;
@@ -2128,7 +2190,11 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
-  return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
+  if (!s.columns.size) return m;
+  const wet = s.caveWater();
+  return { ...m, masks: s.terrain.mask, ...(wet ? { wet } : {}) };
 }
 
 function lastSeq(s: MapSession, history: HistoryItem[] = s.history()): number | undefined {
@@ -2177,6 +2243,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     request: req,
     ...(replaces !== undefined ? { replaces } : {}),
     shown: s.built.heights.slice(),
+    shownMasks: plan.before.masks ? plan.before.masks.slice() : null,
     shownEntities: sentEntities,
     lastEntities: s.built.entities,
     heatSent: false,
@@ -2193,6 +2260,8 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
+  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 
@@ -2240,6 +2309,21 @@ function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
   // the sources it has cleared by this frame (D474): gone from it, whether or not its objects are sent
   const cleared = (f.play ? f.play.cleared : f.staged!.cleared).filter((c) => c.step <= out.shown);
   if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
+  // the voxels that changed since the last frame (Erode's hollows as they open: D281), as columns
+  const masks = map.masks;
+  if (masks && f.shownMasks) {
+    const tiles: number[] = [];
+    for (let i = 0; i < masks.length; i++) if (masks[i] !== f.shownMasks[i]) tiles.push(i);
+    if (tiles.length) {
+      const voxels = new Uint8Array(tiles.length * LAYERS);
+      tiles.forEach((i, k) => {
+        const m = masks[i];
+        for (let z = 0; z < LAYERS; z++) if ((m >>> z) & 1) voxels[k * LAYERS + z] = 1;
+        f.shownMasks![i] = m;
+      });
+      out.columns = { tiles: Int32Array.from(tiles), voxels };
+    }
+  }
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     // (the land as last sent is kept in place, never copied anew a frame; a patch is the changed rows only)
