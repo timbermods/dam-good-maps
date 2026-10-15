@@ -297,8 +297,8 @@ test("D368 (6): the shortcut sits at the end of the tooltip as a small key cap, 
   };
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
-  // Kyler's two: "Carve a river" then Shift+1, "Smooth bumps and steps" then 5
-  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (Shift+1)" }))).toEqual({ text: "Carve a river", caps: ["Shift+1"], last: "tip-key", native: null });
+  // Kyler's two: "Carve a river or canyon" then Shift+1, "Smooth bumps and steps" then 5
+  expect(await tooltipOf(forces.getByRole("button", { name: "Carve (Shift+1)" }))).toEqual({ text: "Carve a river or canyon", caps: ["Shift+1"], last: "tip-key", native: null });
   expect(await tooltipOf(tools.getByRole("button", { name: "Smooth brush (5)" }))).toEqual({ text: "Smooth bumps and steps", caps: ["5"], last: "tip-key", native: null });
   // a few more, keys of every kind: a force's own, a shelf item's (none), the header's, a size's
   expect((await tooltipOf(forces.getByRole("button", { name: "Glaciate (Shift+7)" }))).caps).toEqual(["Shift+7"]);

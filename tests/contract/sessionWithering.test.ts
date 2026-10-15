@@ -1,6 +1,6 @@
 // The plants a held Drought day has surely killed, as the session worker sends them (src/worker/session.ts, D250): each earlier
 // day's soil is worked out off the worker, a day at a time, and the dead tiles follow the day in a `withered` event; a press or a
-// key stops the work and the next idle moment takes it up; a map with caves gets none until the stacked engine gives day soil.
+// key stops the work and the next idle moment takes it up; a map with caves gets its day soil but no withering yet.
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -9,11 +9,11 @@ import { runGenerate } from "../../src/worker/api";
 import { computeDaySoil, type SoilJob } from "../../src/worker/daySoil";
 import * as ed from "../../src/worker/session";
 
-// a map the stacked water model owns, for the cave test: the drought line's own refusal says so
+// a map the stacked water model owns, for the cave test: the one predicate for a map with caves says so
 let caves = false;
-vi.mock("../../src/core/doc/droughtLine", async (original) => {
-  const real = await original<typeof import("../../src/core/doc/droughtLine")>();
-  return { ...real, droughtLineRefusal: (s: Parameters<typeof real.droughtLineRefusal>[0]) => (caves ? "caves" : real.droughtLineRefusal(s)) };
+vi.mock("../../src/core/sim/stackWater", async (original) => {
+  const real = await original<typeof import("../../src/core/sim/stackWater")>();
+  return { ...real, cavesOf: (m: Parameters<typeof real.cavesOf>[0]) => caves || real.cavesOf(m) };
 });
 
 let events: ed.EditorEvent[] = [];

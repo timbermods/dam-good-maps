@@ -571,9 +571,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   useEffect(() => () => clearTimeout(soilTimer.current), []);
   function growSoil(r: MapRenderer, from: SoilView, to: SoilView) {
     clearTimeout(soilTimer.current);
-    const t0 = performance.now();
     const n = to.moisture.length;
+    // (no tile's moisture moves, as after most edits away from the water: the new soil goes in at once, one frame, not
+    // two seconds of frames that each draw the same colours)
+    let moves = false;
+    for (let i = 0; i < n && !moves; i++) moves = from.moisture[i] !== to.moisture[i];
+    if (!moves) return r.updateSoil(to);
+    const t0 = performance.now();
     const moisture = new Uint8Array(n);
+    let first = true;
     const step = () => {
       // (the other version on show: the soil stops here, and the open map's own comes back with it when the key lets go)
       if (comparing.current) return;
@@ -582,18 +588,20 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         r.updateSoil(to);
         return;
       }
+      let changed = first;
+      first = false;
       for (let i = 0; i < n; i++) {
         const a = from.moisture[i];
         const b = to.moisture[i];
-        if (a === b) {
-          moisture[i] = b;
-          continue;
-        }
         // wetter tiles start sooner: moisture spreads out from the water
-        const k = Math.max(0, Math.min(1, t * 1.6 - (1 - Math.max(a, b) / 255) * 0.6));
-        moisture[i] = Math.round(a + (b - a) * k);
+        const v = a === b ? b : Math.round(a + (b - a) * Math.max(0, Math.min(1, t * 1.6 - (1 - Math.max(a, b) / 255) * 0.6)));
+        if (moisture[i] !== v) {
+          moisture[i] = v;
+          changed = true;
+        }
       }
-      r.updateSoil({ moisture, contamination: to.contamination });
+      // (a step that moves no tile draws nothing new: no frame for it)
+      if (changed) r.updateSoil({ moisture, contamination: to.contamination });
       soilTimer.current = window.setTimeout(step, 100);
     };
     step();
@@ -636,8 +644,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       ed.rehover();
     });
   }
-  /** Ask the worker for a day of `hazard`; a refusal (a map with caves or overhangs) shows its one line, as an
-   *  edit's refusal does, and the map's own water comes back. */
+  /** Ask the worker for a day of `hazard`; a failure shows its one line, as an edit's refusal does, and the map's own
+   *  water comes back. */
   function askWeatherDay(hazard: Hazard, day: number | null) {
     api.showWeatherDay(hazard, day).catch((e: unknown) => {
       if (weatherRef.current === hazard) weatherOff();

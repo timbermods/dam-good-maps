@@ -1,7 +1,7 @@
 // The map generator (Kyler's pick, A, the sheet, 2026-10-04): one 640px panel over the map at the left, opened and
 // closed by Map Generator in the header; opening it never resizes the map. It ends above the bar and its settings,
 // vertically centred in the room between them and the header, and shows every setting at once, nothing scrolling: a
-// title block (the map's Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in two columns
+// title block (the next map's Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in two columns
 // (Terrain, Water and Hazards; Resources, Difficulty and what is on the map), each setting on one line.
 
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -51,27 +51,18 @@ const GROUP_TIPS: Record<GroupName, string> = {
   Difficulty: "What the start must have in reach",
 };
 
-/** The map's name, the same as the title: Enter or leaving the field renames it through the core (D443); a name the
- *  core refuses goes back, its reason in the field's name for a moment. One line, a box about 24 letters wide (Kyler,
- *  2026-10-04: no map's name needs more); a longer name scrolls in it, and the title shows it whole. */
-function NameField(p: { name: string; onRename(name: string): Promise<string | null> }) {
-  const [text, setText] = useState(p.name);
-  const [problem, setProblem] = useState<string | null>(null);
-  const timer = useRef(0);
-  useEffect(() => setText(p.name), [p.name]);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const save = async () => {
-    if (text.trim() === p.name) return setText(p.name);
-    const why = await p.onRename(text);
-    if (!why) return setProblem(null);
-    setText(p.name);
-    setProblem(why);
-    clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setProblem(null), 3000);
+/** The name for the next map: the field shows the open map's name until something is typed, and what is typed names the
+ *  map Generate makes next (Enter or leaving the field keeps it; Esc, or a name left blank or unchanged, drops it). The
+ *  open map is never renamed here: the title does that (D443). One line, a box about 24 letters wide (Kyler, 2026-10-04:
+ *  no map's name needs more); a longer name scrolls in it. */
+function NameField(p: { name: string; next: string | null; onNext(name: string | null): void }) {
+  const text = p.next ?? p.name;
+  const settle = () => {
+    if (p.next !== null && (!p.next.trim() || p.next.trim() === p.name)) p.onNext(null);
   };
   return (
-    <div class="set plate line gen-name" {...tip(problem ?? "The map's name: the title above the map")}>
-      <label class={`set-label${problem ? " title-problem" : ""}`} for="map-name" role={problem ? "alert" : undefined}>
+    <div class="set plate line gen-name" {...tip("Name for the next map")}>
+      <label class="set-label" for="map-name">
         Name
       </label>
       <input
@@ -81,19 +72,19 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
         maxLength={80}
         spellcheck={false}
         autoComplete="off"
-        onInput={(e) => setText(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
+        onInput={(e) => p.onNext(limitName(e.target as HTMLInputElement, text, fitsHeaderTwoLines))}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
-            // (Enter renames here; it never makes a new map)
+            // (Enter keeps the name here; it never makes a new map)
             e.preventDefault();
             (e.target as HTMLInputElement).blur();
           } else if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
-            setText(p.name);
+            p.onNext(null);
           }
         }}
-        onBlur={() => void save()}
+        onBlur={settle}
       />
     </div>
   );
@@ -109,6 +100,24 @@ export interface GeneratorPanelProps {
 
 export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelProps) {
   const f = genFields(m);
+  // a short window cuts the panel and it scrolls inside itself: a soft fade at its foot says more lies below, and goes
+  // once the foot is reached
+  const root = useRef<HTMLElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const look = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 2);
+    look();
+    el.addEventListener("scroll", look, { passive: true });
+    const watch = new ResizeObserver(look);
+    watch.observe(el);
+    if (el.firstElementChild) watch.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener("scroll", look);
+      watch.disconnect();
+    };
+  }, []);
   const group = (name: GroupName) => (
     <section class="gen-group" aria-label={name} key={name}>
       <h3 {...tip(GROUP_TIPS[name])}>
@@ -126,7 +135,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
   );
   const counts = onThisMap(held);
   return (
-    <aside class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
+    <aside ref={root} class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
       <form
         class="sheet"
         aria-label="Settings"
@@ -139,7 +148,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
             settings; the three buttons one width, stacked, each level with its row */}
         <div class="sheet-top">
           <div class="sheet-row1">
-            <NameField name={m.name} onRename={m.onRename} />
+            <NameField name={m.name} next={m.nextName} onNext={m.onNextName} />
             {f.seed}
           </div>
           <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
@@ -189,6 +198,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
           </div>
         </div>
       </form>
+      <div class={`gen-more${more ? " on" : ""}`} aria-hidden="true" />
     </aside>
   );
 }
