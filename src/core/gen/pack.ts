@@ -13,7 +13,7 @@ import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTa
 import { thumbnailJpeg } from "../render/shade";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import type { BuildResult } from "../features/build";
-import { GENERATOR_VERSION, THEME_NAMES, type MapSpec } from "../spec/mapspec";
+import { GENERATOR_VERSION, THEME_NAMES, THEMES, type MapSpec, type ThemeId } from "../spec/mapspec";
 
 /** Written into world.json; never read by the game (FORMAT.md §4.1). Fixed so files reproduce. */
 export const TIMESTAMP = "2026-01-01 00:00:00";
@@ -70,6 +70,18 @@ export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" |
   if (top > EDITOR_MAX_HEIGHT) out.push(generatedTallSentence(top));
   out.push(`Made with Dam Good Maps ${GENERATOR_VERSION}, seed ${spec.seed}.`);
   return out.join(" ");
+}
+
+/** The theme a map made with Dam Good Maps says it has: its description, as `description` writes it,
+ *  opens with the theme's name ("A map" for Any) and closes on "Made with Dam Good Maps <version>,
+ *  seed <n>." Null for any other map (an official one, a real place, a description edited away). An
+ *  opened file's checks use its theme's thresholds with it (Islands' water cap, D369). */
+export function generatedThemeOf(text: string): ThemeId | null {
+  if (!/Made with Dam Good Maps \d[^,\s]*, seed \d+\./.test(text)) return null;
+  const head = /^(.+?), \d+×\d+, designed for (easy|normal|hard)\./.exec(text.trimStart());
+  if (!head) return null;
+  if (head[1] === "A map") return "any";
+  return THEMES.find((t) => t !== "any" && THEME_NAMES[t] === head[1]) ?? null;
 }
 
 export interface PackOptions {
