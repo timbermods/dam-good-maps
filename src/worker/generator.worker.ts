@@ -14,6 +14,7 @@ import type { SavedView } from "../core/doc/document";
 import { viewBuffers, type WaterView } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { collabApi } from "./collab";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -165,6 +166,8 @@ const api = {
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
     });
   },
+  /** Collaborative editing's side in the worker (worker/collab.ts). */
+  collab: proxy(collabApi),
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
