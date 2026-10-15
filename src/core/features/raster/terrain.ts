@@ -579,6 +579,21 @@ export function applyBlocks(p: BlocksParams, t: BuildTarget, layer: BlockLayer):
     }
 }
 
+/** Apply Erode's hollows (D281; forces/erode.ts) to the region's tiles: each takes the mask the force
+ *  left (its surface as it was: the hollow is under a roof), the brushes' floor follows its top run, and
+ *  the integrity pass leaves it as it is, as a block operation's tiles. */
+export function applyHollows(runs: { tiles: readonly number[]; masks: readonly number[] }, t: BuildTarget, layer: BlockLayer): void {
+  for (let k = 0; k < runs.tiles.length; k++) {
+    const i = runs.tiles[k];
+    if (!t.inRegion(i)) continue;
+    const m = runs.masks[k];
+    layer.masks.set(i, m);
+    t.heights[i] = surfaceOfMask(m);
+    layer.floors[i] = isPlainMask(m) ? 0 : topRunFloor(m) + 1;
+    t.protectedMask[i] = 1;
+  }
+}
+
 /** The tiles' masks a build leaves: each as the operations left it, its top run on the final surface. */
 export function finalMasks(layer: BlockLayer, final: Uint8Array): Map<number, number> {
   const out = new Map<number, number>();

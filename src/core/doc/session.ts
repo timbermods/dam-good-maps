@@ -836,6 +836,26 @@ export class MapSession {
     return new Set(this.columns.keys());
   }
 
+  /** The water an imported map holds under its roofs (the file's own, which the editor shows and the
+   *  export keeps), a bit per level of each tile; null when it has none. Erode never wears rock that
+   *  holds it back (D281). */
+  caveWater(): Uint32Array | null {
+    if (this.mode === "live") return null;
+    const roofed = this.roofedTiles;
+    if (!roofed.size) return null;
+    const w = this.storedWater();
+    const { x: W, y: H } = this.size;
+    let out: Uint32Array | null = null;
+    for (let k = 0; k < w.tile.length; k++) {
+      const i = w.tile[k];
+      if (!roofed.has(i) || !(w.depth[k] > 0.02) || w.floor[k] < 0) continue;
+      out ??= new Uint32Array(W * H);
+      const top = Math.min(LAYERS, Math.ceil(w.floor[k] + w.depth[k] - 0.02));
+      for (let z = Math.floor(w.floor[k]); z < top; z++) out[i] |= 1 << z;
+    }
+    return out;
+  }
+
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
    *  to match the build exactly): copies, safe to hand on. */
   terrainState(): TerrainState {

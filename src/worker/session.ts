@@ -337,9 +337,9 @@ function soilKey(s: MapSession): unknown {
   return s.showsStoredWater ? "stored" : s.built.moisture;
 }
 
-/** Whether a roof's top changed between two surfaces. */
+/** Whether a roof's top changed between two surfaces (an imported map's caves, Erode's). */
 function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
-  for (const i of s.roofedTiles) if (a[i] !== b[i]) return true;
+  for (const i of s.columns.keys()) if (a[i] !== b[i]) return true;
   return false;
 }
 
@@ -445,7 +445,7 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.heights = b.heights.slice();
       out.terrainRect = rect;
       // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
-      if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
+      if (s.columns.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
   // (ground the Block tool dug or built under a surface that did not move: its columns go with the
@@ -2028,6 +2028,10 @@ export interface ForceFrame {
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
+  /** Erode (D281): the tiles whose voxels changed since the last frame and each one's voxels now
+   *  (`MapView["columns"]`'s form: LAYERS a tile, 1 solid): the renderer's `updateTerrain` remeshes
+   *  their chunks, as for an imported map's caves. */
+  columns?: MapView["columns"];
   /** Sources set to Clear (D474): every source the force has cleared by this frame, each with the
    *  step (`shown`) that took it; absent when none has gone yet. A source listed here is gone from this
    *  frame on, even before `entities` (sent a few times a second) drops it. Carve and Glaciate take the
@@ -2077,6 +2081,8 @@ let force: {
   request: ForceRequest;
   replaces?: number;
   shown: Uint8Array;
+  /** The voxels last sent, while a force that writes them shows (Erode, D281). */
+  shownMasks: Uint32Array | null;
   shownEntities: EntityView | null;
   lastEntities: EntitySpec[];
   heatSent: boolean;
@@ -2153,7 +2159,11 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
-  return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
+  if (!s.columns.size) return m;
+  const wet = s.caveWater();
+  return { ...m, masks: s.terrain.mask, ...(wet ? { wet } : {}) };
 }
 
 function lastSeq(s: MapSession, history: HistoryItem[] = s.history()): number | undefined {
@@ -2202,6 +2212,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
     request: req,
     ...(replaces !== undefined ? { replaces } : {}),
     shown: s.built.heights.slice(),
+    shownMasks: plan.before.masks ? plan.before.masks.slice() : null,
     shownEntities: sentEntities,
     lastEntities: s.built.entities,
     heatSent: false,
@@ -2218,6 +2229,8 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
+  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 
@@ -2265,6 +2278,21 @@ function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
   // the sources it has cleared by this frame (D474): gone from it, whether or not its objects are sent
   const cleared = (f.play ? f.play.cleared : f.staged!.cleared).filter((c) => c.step <= out.shown);
   if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
+  // the voxels that changed since the last frame (Erode's hollows as they open: D281), as columns
+  const masks = map.masks;
+  if (masks && f.shownMasks) {
+    const tiles: number[] = [];
+    for (let i = 0; i < masks.length; i++) if (masks[i] !== f.shownMasks[i]) tiles.push(i);
+    if (tiles.length) {
+      const voxels = new Uint8Array(tiles.length * LAYERS);
+      tiles.forEach((i, k) => {
+        const m = masks[i];
+        for (let z = 0; z < LAYERS; z++) if ((m >>> z) & 1) voxels[k * LAYERS + z] = 1;
+        f.shownMasks![i] = m;
+      });
+      out.columns = { tiles: Int32Array.from(tiles), voxels };
+    }
+  }
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
     // (the land as last sent is kept in place, never copied anew a frame; a patch is the changed rows only)
