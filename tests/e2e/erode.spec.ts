@@ -101,7 +101,7 @@ test("a click wears the land there, kept as one step; one Ctrl+Z restores the ma
   expect(await land(page)).toEqual(before);
 });
 
-test("Try another replaces the first try's hollows on screen: the view holds the worker's tiles, none left from the first", async ({ page }) => {
+test("Try another and Tab between rolls: the view holds exactly the shown roll's hollows, none of another's", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.keyboard.press("Shift+Digit8");
@@ -131,7 +131,21 @@ test("Try another replaces the first try's hollows on screen: the view holds the
   await expect.poll(() => status(page)).not.toBeNull();
   await settled(page);
   expect(await page.evaluate(() => (window as unknown as { dgmFirst: number | null }).dgmFirst), "the first try's hollows are gone as the second begins").toBeLessThan(first.length);
-  expect((await labels(page)).at(-1)).toBe("Try another");
-  const worker = (await land(page)).hollow.sort((a, b) => a - b);
-  expect(await shown()).toEqual(worker);
+  expect((await labels(page)).at(-1)).toBe("Erode, roll 2");
+  const hollow = async () => (await land(page)).hollow.sort((a, b) => a - b);
+  const second = await hollow();
+  expect(second, "the second roll is another wear").not.toEqual(first);
+  expect(await shown()).toEqual(second);
+  // Tab between the two rolls: each shows exactly its own hollows, none of the other's (D488)
+  await page.keyboard.press("Shift+Tab");
+  await expect.poll(async () => (await labels(page)).at(-1)).toBe("Erode, roll 1");
+  await idle(page);
+  const firstAgain = await hollow();
+  expect(firstAgain).toEqual(first);
+  expect(await shown()).toEqual(first);
+  await page.keyboard.press("Tab");
+  await expect.poll(async () => (await labels(page)).at(-1)).toBe("Erode, roll 2");
+  await idle(page);
+  expect(await hollow()).toEqual(second);
+  expect(await shown()).toEqual(second);
 });
