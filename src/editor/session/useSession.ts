@@ -33,6 +33,13 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+export interface EditorNote {
+  kind: "error" | "info";
+  text: string;
+  keep?: boolean;
+}
+
 export interface SessionSlice {
   api: Remote<GeneratorApi>;
   info: SessionInfo;
@@ -71,8 +78,8 @@ export interface SessionSlice {
   setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
-  setMessage: Dispatch<StateUpdater<{ kind: "error" | "info"; text: string } | null>>;
-  message: { kind: "error" | "info"; text: string } | null;
+  setMessage: Dispatch<StateUpdater<EditorNote | null>>;
+  message: EditorNote | null;
   setHover: Dispatch<StateUpdater<string | null>>;
   hover: string | null;
   showHistory: boolean;
@@ -189,7 +196,8 @@ export interface SessionSlice {
   draftWater: { current: WaterView | null };
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
-  showSoil: (soil: SoilView) => void;
+  showSoil: (soil: SoilView, withered?: Int32Array) => void;
+  showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
   /** The worker's latest land, put in place once the page has no stroke of its own in flight. */
@@ -236,7 +244,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
   const [busy, setBusy] = useState(0);
-  const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
+  const [message, setMessage] = useState<EditorNote | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
@@ -245,6 +253,26 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const h = lastHover.current;
     if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y)));
   };
+  // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
+  // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
+  // (info) stays until its × or the next kept edit.
+  const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.keep ? null : m));
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) dropRefusal();
+    };
+    // (a press on the note itself is its ×'s: that closes it)
+    const press = (e: PointerEvent) => {
+      // (the camera's drags, middle and right, leave it: a player looks around to see why)
+      if (e.button === 0 && !(e.target instanceof Element && e.target.closest(".editor-message"))) dropRefusal();
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("keydown", key, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, []);
   const [showHistory, setShowHistory] = useState(false);
   const [check, setCheck] = useState<ExportCheck | null>(null);
   // the background check's progress (the canonical settle, then the checks), and the water layer
@@ -265,6 +293,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [clearWater, setClearWater] = useState(false);
   /** The layer the world is cut at (Alt+scroll, Alt+click), or null. */
   const [sliceLevel, setSliceLevel] = useState<number | null>(null);
+  useEffect(dropRefusal, [tool, shelf?.id, layer, sliceLevel]);
   /** The Select tool (D184): open with M or a Ctrl+drag; its way of picking tiles. */
   // Select is always in hand (Kyler's choice at the v4 verdict): held when a map opens, and whatever is put down
   // returns to it
@@ -461,7 +490,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  the other edits wait: it is kept when it ends, Esc skips it to its end, Ctrl+Z takes it back.) */
   function run(fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void): Promise<void> {
     if (ed.forcer.current?.running) {
-      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Esc skips it to its end, Ctrl+Z takes it back." });
+      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
     const next = queue.current.then(async () => {
@@ -548,6 +577,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       journey.current?.flush();
       player.current?.skip();
       setWeather(hazard);
+      // (the other hazard's withered plants are not this one's)
+      renderer.current?.setWithered(null);
       heldDay.current = null;
       setWeatherDay(null);
       // (working from the click until the day shows: the box's fill starts empty)
@@ -562,6 +593,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(null);
       setWeatherTarget(null);
       mirror.current.daySoil = null;
+      renderer.current?.setWithered(null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
@@ -593,8 +625,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (h) void api.showWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
-  function showSoil(soil: SoilView) {
+  function showWithered(tiles: Int32Array) {
+    renderer.current?.setWithered(tiles);
+  }
+  function showSoil(soil: SoilView, withered?: Int32Array) {
     renderer.current?.updateSoil(soil);
+    // (the plants the days up to this one have surely killed, drawn withered in High, D250: a day that comes without its list
+    // keeps the last one until the new one arrives, so after an edit the dead plants never flash alive; cleared only when the
+    // hazard changes or ends, or the map does)
+    if (withered) renderer.current?.setWithered(withered);
   }
 
   function applyUpdate(u: SessionUpdate): void {
@@ -705,6 +744,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
-    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, applyUpdate, applyView, takeLand
+    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, takeLand
   };
 }

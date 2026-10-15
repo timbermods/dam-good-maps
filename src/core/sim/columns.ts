@@ -245,3 +245,11 @@ export function terrainColumns(t: VoxelMasks): TerrainColumns {
   }
   return { W, H, N, T, count, floor, ceil };
 }
+
+/** The objects the soil reads (those that change water columns, and Thorns, which bar the soil), each without its components
+ *  (`gameSoil` reads only a template, its place and its turn): what a worker needs of a map's objects, a few of thousands. */
+export function soilObjects(objects: readonly MapObject[]): MapObject[] {
+  const out: MapObject[] = [];
+  for (const o of objects) if (OBSTACLES[o.template] || o.template === "Thorns" || o.template === "BadtideDrain") out.push({ template: o.template, x: o.x, y: o.y, z: o.z, orientation: o.orientation, flipped: o.flipped, components: {} });
+  return out;
+}
