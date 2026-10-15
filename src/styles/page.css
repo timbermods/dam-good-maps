@@ -987,7 +987,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(58px, round(down, calc((100vw - 430px) / 14), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 430px) / 14), 1px), 76px);
   }
 
   .tool-dock {
@@ -1240,7 +1240,7 @@
   flex: 1 1 0;
   min-width: 0;
   margin: 0;
-  padding: 0 4px;
+  padding: 0 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1270,7 +1270,7 @@
 .set-button {
   width: 100%;
   height: 100%;
-  padding: 0 4px;
+  padding: 0 2px;
   font-size: 13px;
   white-space: nowrap;
 }

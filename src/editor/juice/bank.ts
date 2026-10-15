@@ -1,7 +1,7 @@
 // The recordings the editor's sounds are made of (D226): Codex's CC0 foley bank (investigation/juice-2,
 // PR #64), copied unchanged to public/sounds/juice-2/ with its manifest (bank.json: each file's
-// source, author, licence, edits and SHA-256) and its provenance note (SOUNDS.md). 30 files, 1,524,025
-// bytes (D459 added Naturalize's two, D281 Erode's four): fetched and decoded on the player's first click or key, four at a time, never with the page.
+// source, author, licence, edits and SHA-256) and its provenance note (SOUNDS.md). 29 files, 1,480,444
+// bytes (D459 added Naturalize's two, D281 Erode's three): fetched and decoded on the player's first click or key, four at a time, never with the page.
 
 /** The recordings (the manifest's ids, in its order): `audio/<id>.mp3` beside bank.json. */
 export const BANK_IDS: readonly string[] = [
@@ -31,9 +31,8 @@ export const BANK_IDS: readonly string[] = [
   "stone-bed",
   "leaves",
   "leaves-bed",
-  // (Erode's, D281: four CC0 Freesound recordings, cut to length; the grind's two end in "bed", so they loop)
+  // (Erode's, D281: three CC0 Freesound recordings, cut to length; the grind ends in "bed", so it loops)
   "grind-bed",
-  "granite-bed",
   "rocks",
   "rockfall",
 ];

@@ -33,11 +33,11 @@ describe("the sound bank (D226)", () => {
     // error for a modest size increase), so no longer byte-identical to investigation/juice-2's
     // frozen 192 kbps copy; the crop and content are, checked here by duration.
     // D459 added Naturalize's two recordings (leaves, leaves-bed: 96,088 bytes)
-    // D281 added Erode's four (337,089 bytes)
-    expect(bytes).toBe(1_524_025);
+    // D281 added Erode's three (293,508 bytes)
+    expect(bytes).toBe(1_480_444);
     const credits = readFileSync(`${DIR}/SOUNDS.md`, "utf8");
     expect(credits).toMatch(/CC0 1\.0/);
-    for (const who of ["Kenney", "Independent.nu", "ezwa", "TinyWorlds", "Tom_Kaszuba", "SamsterBirdies", "qubodup", "Vrymaa", "Mediaman57", "adamgryu", "iwanPlays"]) expect(credits).toContain(who);
+    for (const who of ["Kenney", "Independent.nu", "ezwa", "TinyWorlds", "Tom_Kaszuba", "SamsterBirdies", "qubodup", "Vrymaa", "adamgryu", "iwanPlays"]) expect(credits).toContain(who);
     // (the same recordings as the round's own, just re-encoded, D313)
     const original = JSON.parse(readFileSync("investigation/juice-2/bank.json", "utf8")) as { id: string; duration: number }[];
     const originalById = new Map(original.map((m) => [m.id, m.duration]));

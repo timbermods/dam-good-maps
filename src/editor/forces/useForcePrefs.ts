@@ -84,7 +84,7 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
     depositUiRef.current = u;
     setDepositUiState(u);
   };
-  const [erodeUi, setErodeUiState] = useState<ErodeUi>({ ...DEFAULT_ERODE, ...forcesPrefs.erode });
+  const [erodeUi, setErodeUiState] = useState<ErodeUi>({ ...DEFAULT_ERODE });
   const erodeUiRef = useRef(erodeUi);
   erodeUiRef.current = erodeUi;
   const setErodeUi = (u: ErodeUi) => {
@@ -116,9 +116,8 @@ export function useForcePrefs(ed: Ed): ForcePrefsSlice {
       glaciate: { benches: glaciateUi.benches, steps: glaciateUi.steps, tarn: glaciateUi.tarn, scree: glaciateUi.scree, sources: glaciateUi.sources },
       rift: { walls: riftUi.walls, sources: riftUi.sources },
       deposit: { channels: depositUi.channels, sources: depositUi.sources },
-      erode: { sources: erodeUi.sources },
     });
-  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels, carveUi.sources, craterUi.sources, eruptUi.sources, quakeUi.sources, glaciateUi.sources, riftUi.sources, depositUi.sources, erodeUi.sources]);
+  }, [watch, floor, moreOpen, carveUi.wander, carveUi.walls, carveUi.depth, carveUi.riverDepth, carveUi.banks, craterUi.walls, craterUi.centre, craterUi.debris, craterUi.rays, eruptUi.shape, eruptUi.summit, eruptUi.flows, eruptUi.ridges, quakeUi.scarp, glaciateUi.benches, glaciateUi.steps, glaciateUi.tarn, glaciateUi.scree, riftUi.walls, depositUi.channels, carveUi.sources, craterUi.sources, eruptUi.sources, quakeUi.sources, glaciateUi.sources, riftUi.sources, depositUi.sources]);
   const [, setForceTick] = useState(0);
 
   return {

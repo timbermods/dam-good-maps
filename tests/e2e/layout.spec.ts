@@ -12,6 +12,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 
+/** Every tool and the key that picks it. */
+const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const;
+
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
 const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
@@ -158,7 +161,7 @@ async function onTheCells(page: Page, state: string) {
     }
     return out;
   });
-  expect(cut, `cut off (${state})`).toEqual([]);
+  expect.soft(cut, `cut off (${state})`).toEqual([]);
   if (FORCES_HERE.has(state))
     for (const g of r.groups.filter((g) => g.name === "Power" || g.name === "Size")) {
       const here = { l: g.l, w: g.r - g.l, t: g.t };
@@ -326,7 +329,7 @@ for (const [w, h] of SIZES) {
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
     placed.clear();
     await onTheCells(page, "Select");
-    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const) {
+    for (const [key, what] of EVERY_TOOL) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
@@ -446,3 +449,19 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
     }
   });
 }
+
+// The narrowest the bar is drawn for: every tool's settings on the bar's cells and none cut off, as at the larger sizes
+// (Glaciate's Benches "Some" was cut by 2px here once the bar grew past thirteen cells).
+test("at 1280×800: every tool's settings sit on the bar's cells and nothing in them is cut off", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page);
+  await settle(page, 1280, 800);
+  placed.clear();
+  await onTheCells(page, "Select");
+  for (const [key, what] of EVERY_TOOL) {
+    await page.keyboard.press(key);
+    await onTheCells(page, `${what} at 1280`);
+    await page.keyboard.press("Escape");
+  }
+});

@@ -239,10 +239,10 @@ export function recipe(name: string, params: Partial<SoundParams> = {}, { semito
     case "erode": {
       // (investigation/erode `audio.ts`: stone landing is a slice of a recorded rockfall, pitched by size, and a
       // heavier fall as the opening clears; the grinding wear under it all is `texture`)
-      if (!phase || phase === "land") add(pick("rocks", "rockfall"), 0.9, 0, { rate: r * (0.85 + random() * 0.4), duration: 0.8, offset: random() * 2.5, attack: 0.01, release: 0.25 });
+      if (!phase || phase === "land") add(pick("rocks", "rockfall"), 0.6, 0, { rate: r * (0.85 + random() * 0.4), duration: 0.8, offset: random() * 2.5, attack: 0.01, release: 0.25 });
       if (!phase || phase === "fall") {
         const t = phase ? 0 : 0.35;
-        add("rockfall", 1.1, t, { rate: 0.8 + random() * 0.1, duration: 2.4, attack: 0.01, release: 1.1 });
+        add("rockfall", 1.2, t, { rate: 0.8 + random() * 0.1, duration: 2.4, attack: 0.01, release: 1.1 });
         add("boom", 0.45, t + 0.03, { offset: 0.3, rate: 0.5, duration: 2, lowpass: 480, attack: 0.02, release: 0.8 });
       }
       break;
@@ -317,8 +317,8 @@ export function texture(name: string): Layer[] {
     case "deposit":
       return [bed("waterfall", 0.9, 0.7, 2600), bed("earth-bed", 0.9, 0.6)];
     case "erode":
-      // the wear: recorded rock scraped on rock, with a lower layer of granite under it
-      return [bed("grind-bed", 1, 0.8, 2400), bed("granite-bed", 0.6, 0.55, 2400)];
+      // the wear: recorded rock scraped on rock, with the same scrape slowed and darkened under it
+      return [bed("grind-bed", 1, 0.8, 2400), bed("grind-bed", 0.6, 0.55, 1400)];
     case "glaciate":
       // the ice's grind while it advances: stone, and a low groan of pitched wood
       return [bed("stone-bed", 0.8, 0.42, 1100), bed("wood-body", 0.8, 0.28, 1100)];

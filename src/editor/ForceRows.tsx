@@ -132,10 +132,8 @@ export interface ErodeUi {
   power: number;
   /** How wide it wears along a face, tiles across, or null: it follows Power. */
   size: number | null;
-  /** Sources it reaches: ride with the ground, or cleared (the default). */
-  sources: ForceSources;
 }
-export const DEFAULT_ERODE: ErodeUi = { power: ERODE_DEFAULTS.power, size: null, sources: SOURCES_DEFAULT };
+export const DEFAULT_ERODE: ErodeUi = { power: ERODE_DEFAULTS.power, size: null };
 /** (Erode has no choice of its own: the land decides every form, so Try another has no pins to send.) */
 export const erodeDetails = (): Record<string, unknown> => ({});
 
@@ -155,7 +153,7 @@ export const riftSettingsOf = (u: RiftUi): RiftSettings => ({ ...RIFT_DEFAULTS, 
 export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSIT_DEFAULTS, power: u.power, size: u.size, channels: u.channels ?? "auto", sources: u.sources });
 
 /** Erode's settings (the wear is one rule; a drawn sweep or a click is its gesture, a band for the one, a point for the other). */
-export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size, sources: u.sources });
+export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size });
 
 /** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
  *  Lift still drawn: Esc cancels it), and Revert. */
@@ -601,10 +599,10 @@ export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("erode", u.power, (v) => set({ power: v }), "How deep the rock wears") },
         { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
-        // (no choice of its own to fill the row: Sources takes its place, so the two rows stay full)
-        { key: "sources", row: 1, at: 7, span: 7, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
-        { key: "again", row: 2, at: 10, span: 4, node: again(p, "erosion") },
+        // (no choice of its own, and no Sources: it never wears a source's tile; so Try another takes the row's end and the
+        // Floor the second row, and both rows stay full)
+        { key: "again", row: 1, at: 7, span: 7, node: again(p, "erosion") },
+        { key: "floor", row: 2, at: 1, span: 13, node: <FloorSetting /> },
       ]}
     />
   );

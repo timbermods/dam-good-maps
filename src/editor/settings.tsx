@@ -10,14 +10,11 @@ import { tip } from "../ui/Tooltip";
 
 /** The bar's cells: six tools, the hairline, eight forces. */
 export const BAR_CELLS = 14;
-/** The cells the rows were authored on, before Erode made the eighth force: a group that ended a row there takes the
- *  bar's extra cell, so every row is still full (the last group is the one that has room: Try another, Revert, Apply). */
-const AUTHORED_CELLS = 13;
 const TOOLS_CELLS = 6;
 /** A cell's grid column: the hairline takes a column of its own after the tools. */
 const column = (cell: number) => (cell <= TOOLS_CELLS ? cell : cell + 1);
 
-/** A group on the grid: `span` whole cells from `at` (1–13, as authored; see AUTHORED_CELLS) on `row` (1 or 2; `rows: 2` takes both). */
+/** A group on the grid: `span` whole cells from `at` (1–14) on `row` (1 or 2; `rows: 2` takes both). */
 export interface Group {
   key: string;
   row: 1 | 2;
@@ -29,15 +26,22 @@ export interface Group {
   centre?: boolean;
 }
 
-/** The settings of the tool in hand: its groups on the two rows of the bar's cells. */
+/** A row laid out before Erode's cell was added to the bar (its cells 1–13), on the bar's 14: the new cell is the last,
+ *  after Glaciate's, so a group ending at the old last cell takes it and every other group stays where it was, over the
+ *  buttons it was over. */
+export function fromThirteen(g: Group): Group {
+  return g.at + g.span - 1 >= 13 ? { ...g, span: g.span + 1 } : g;
+}
+
+/** The settings of the tool in hand: its groups on the two rows of the bar's cells (laid out on 13, `fromThirteen`). */
 export function SettingsGrid(p: { label: string; groups: readonly Group[] }) {
   return (
     <div class="settings-grid" role="group" aria-label={p.label}>
-      {p.groups.map((g) => (
+      {p.groups.map(fromThirteen).map((g) => (
         <div
           key={g.key}
           class={`set-group${g.centre ? " centre" : ""}`}
-          style={{ gridColumn: `${column(g.at)} / ${column(g.at + g.span - 1 + (g.at + g.span - 1 === AUTHORED_CELLS ? BAR_CELLS - AUTHORED_CELLS : 0)) + 1}`, gridRow: `${g.row} / ${g.row + (g.rows ?? 1)}` }}
+          style={{ gridColumn: `${column(g.at)} / ${column(g.at + g.span - 1) + 1}`, gridRow: `${g.row} / ${g.row + (g.rows ?? 1)}` }}
         >
           {g.node}
         </div>

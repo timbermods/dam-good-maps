@@ -10,7 +10,7 @@ import { plain } from "../panels";
 import { ForceDriver, paceOf } from "../forceDriver";
 import { carveDetails, carveSettingsOf, DEFAULT_CARVE } from "../CarveRow";
 import { craterDetails, craterSettingsOf, eruptDetails, eruptSettingsOf, quakeDetails } from "../ForceRows";
-import { depositDetails, erodeDetails, glaciateDetails, glaciateSettingsOf, riftDetails, type ForceSources } from "../ForceRows";
+import { depositDetails, erodeDetails, glaciateDetails, glaciateSettingsOf, riftDetails, SOURCES_DEFAULT, type ForceSources } from "../ForceRows";
 import { mergeColumns, type Columns } from "./columns";
 import { depositWidth } from "../../core/forces/deposit";
 import { erodeSize } from "../../core/forces/erode";
@@ -112,12 +112,15 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     if (f.heat) r?.setHeat(f.heat);
     // Erode's hollows as they open (D281): the tiles whose voxels changed, added to the columns the renderer holds
     if (f.columns && r) {
-      shownColumns.current = mergeColumns(shownColumns.current ?? ed.columnsRef.current, f.columns);
+      shownColumns.current = mergeColumns(shownColumns.current ?? seriesColumns.current ?? ed.columnsRef.current, f.columns);
       r.updateTerrain(m.heights, shownColumns.current);
     }
   }
   /** The columns the renderer holds while a force that writes voxels shows (null: none shown, the map's own). */
   const shownColumns = useRef<Columns | null>(null);
+  /** The map's columns as the series' first try found them: each Try another starts from them, as the worker's frames do
+   *  (they list what changed since the series' base, never what an earlier try did). */
+  const seriesColumns = useRef<Columns | null>(null);
   /** The force is over: its frames' columns give way to the map's own (kept: the worker's view carries them already). */
   function endShownColumns(restore: boolean) {
     if (!shownColumns.current) return;
@@ -187,6 +190,13 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         // (the water on screen: the force's water starts from it, not from the worker's further on)
         void api.forceShows(mirror.current.waterView);
         const q = forceReq.current;
+        // (a new series starts from the map as it is; Try another puts back the columns of its start at once, before its
+        // first frame, so the earlier try's hollows are never shown under it)
+        if (!again && q) seriesColumns.current = ed.columnsRef.current;
+        else if (again && seriesColumns.current && seriesColumns.current !== ed.columnsRef.current) {
+          shownColumns.current = null;
+          renderer.current?.updateTerrain(mirror.current.heights, seriesColumns.current);
+        }
         if (again || !q) {
           // Try another: the row's current pins go with it (D309), so a detail still on Auto
           // re-rolls and one the player pinned keeps its value; Unleash (no More button of its own)
@@ -611,7 +621,9 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   }
   /** A force's Sources as its row has it (D474). */
   function forceSourcesOf(verb: Verb): ForceSources {
-    return (verb === "carve" ? carveUiRef : verb === "craterize" ? craterUiRef : verb === "erupt" ? eruptUiRef : verb === "quake" ? quakeUiRef : verb === "rift" ? riftUiRef : verb === "deposit" ? depositUiRef : verb === "erode" ? erodeUiRef : glaciateUiRef).current.sources;
+    // (Erode has no Sources: it never wears a source's tile, so it keeps the default)
+    if (verb === "erode") return SOURCES_DEFAULT;
+    return (verb === "carve" ? carveUiRef : verb === "craterize" ? craterUiRef : verb === "erupt" ? eruptUiRef : verb === "quake" ? quakeUiRef : verb === "rift" ? riftUiRef : verb === "deposit" ? depositUiRef : glaciateUiRef).current.sources;
   }
   function forcePowerOf(verb: Verb): number {
     return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : verb === "erode" ? erodeUiRef.current.power : glaciateUiRef.current.power;
