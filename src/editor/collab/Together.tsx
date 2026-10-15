@@ -70,6 +70,20 @@ function JoinRow(p: { again?: boolean; busy: boolean; onJoin(code: string): void
   );
 }
 
+/** The button's icon and word (the editor's frame shows the same, held still, before any map is open). */
+export function TogetherFace() {
+  return (
+    <>
+      <svg {...ICON}>
+        <circle cx="7.5" cy="6.5" r="2.8" />
+        <circle cx="14" cy="7.5" r="2.3" />
+        <path d="M2.5 16c.3-2.8 2.4-4.4 5-4.4s4.7 1.6 5 4.4M13 11.9c2.4-.2 4.2 1.1 4.5 3.6" />
+      </svg>
+      <span class="together-label">Together</span>
+    </>
+  );
+}
+
 export function Together(p: { controller: TogetherController; state: TogetherState }) {
   const { controller: c, state: s } = p;
   const [open, setOpen] = useState(false);
@@ -111,12 +125,7 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
         {...tip("Edit this map with someone else")}
         onClick={() => setOpen(!open)}
       >
-        <svg {...ICON}>
-          <circle cx="7.5" cy="6.5" r="2.8" />
-          <circle cx="14" cy="7.5" r="2.3" />
-          <path d="M2.5 16c.3-2.8 2.4-4.4 5-4.4s4.7 1.6 5 4.4M13 11.9c2.4-.2 4.2 1.1 4.5 3.6" />
-        </svg>
-        <span class="together-label">Together</span>
+        <TogetherFace />
         {withOther ? <span class={`together-dot who-${withOther.role}${s.phase === "paused" ? " paused" : ""}`} aria-hidden="true" /> : null}
       </button>
       {open ? (

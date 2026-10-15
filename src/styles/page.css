@@ -2823,6 +2823,7 @@
   padding-left: 6px;
   border-left: 1px solid rgba(255, 255, 255, 0.55);
   font-weight: 600;
+}
 
 /* the Look menu, in the page's own controls: the three looks a segmented choice, the chosen cell filled as the settings'
    choices are; High's parts checkbox rows as the Show column's, a name that wraps hanging under its own first letter */

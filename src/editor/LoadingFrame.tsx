@@ -14,6 +14,7 @@ import { Shelf } from "./Shelf";
 import { TopBar } from "./TopBar";
 import { shelfIcons } from "./shelf/iconCache";
 import { DEFAULT_BRUSH } from "./brushes";
+import { TogetherFace } from "./collab/Together";
 
 const nothing = () => undefined;
 const NO_ACTIONS: ItemActions = { onFix: nothing, onShow: nothing, canShow: () => false };
@@ -67,6 +68,13 @@ export function LoadingFrame(p: LoadingFrameProps) {
               </span>
             </button>
           ) : null
+        }
+        together={
+          <div class="together-wrap">
+            <button type="button" class="ghost together-button" tabIndex={-1}>
+              <TogetherFace />
+            </button>
+          </div>
         }
       />
       <div class="editor-main">
