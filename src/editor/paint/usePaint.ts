@@ -110,6 +110,16 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           }
         }
         applyUpdate(u);
+        // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
+        if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
+          ed.collabStale.current = false;
+          const now = await api.terrainNow();
+          if (pendingTerrain.current === 0) {
+            mirror.current.heights = now.heights;
+            terrain.current = now.terrain;
+            renderer.current?.updateTerrain(now.heights);
+          }
+        }
       } catch (e) {
         pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
         setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });

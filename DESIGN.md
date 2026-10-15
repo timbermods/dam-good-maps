@@ -829,3 +829,30 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+
+## Together (collaborative editing, part 6a; D486, `docs/COLLAB-BRIEF.md`)
+
+Defaults the page session built; each is one place in the code, so any is easy to change (the product questions behind them
+go to Kyler as design direction).
+
+- **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
+  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,000px wide the
+  word gives way to the icon, as the checks' words give way to the dot. While a session is live the button wears the other
+  player's colour as a 10px dot (hollow while they are away), and its accessible name says who ("Together with Bo").
+  Tooltip: "Edit this map with someone else".
+- **The panel** opens under the button, right-aligned, in the checks list's and the menus' panel style (the panel colour, the
+  rule border, the page's radius and shadow), 300px wide, one column, 12px inside, an 8px gap. Alone: the name field, **Invite**
+  across the panel's width, a quiet "or", the code field with **Join**. After Invite: the room code in a large monospace
+  (1.9rem, tracked out), **Copy** beside it, "Waiting for them to join…", **Cancel**. Live: the two players, each a swatch and a
+  name ("you" quiet beside the player's own), then **Go to <name>** and **Leave** as two plain buttons. Paused: "<name> has left.
+  Waiting to reconnect." with **Invite again** (the host) or the code field and **Join again** (the guest). A failure is one
+  line in the page's bad colour at the foot. Nothing is lit, no chosen option is a cell in a well (there is no choice to make).
+- **The two colours** are the session's (`PLAYER_COLOURS`, `src/core/collab/wire.ts`; tokens `--collab-host` and
+  `--collab-guest` in `page.css`): the host **#d6338f** (a magenta pink), the guest **#7458ee** (a violet). They were chosen
+  against the map and the page: not the land's greens and browns, not the water's blue, not the contamination's orange-red and not
+  the checks' green and amber, and a swatch, a dot or a marker in either reads on the light page and the dark one (white words on
+  either colour keep 4.4:1 or more). One pair serves both themes.
+- **The other's cursor** is a small arrow in their colour (a white outline and a soft shadow, so it reads over any land), with a
+  pill beside it in the same colour: their name and, after a hairline, the tool they hold. It is drawn over the map by the 3D
+  view's projection like the sources' markers, never in the scene, and goes a second and a half after their last packet.
+- **Captures:** `docs/design/collab-page-*.jpg`, light and dark at 1920×1080, 2560×1440 and 1280×800.

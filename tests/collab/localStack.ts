@@ -69,6 +69,8 @@ export interface Stack {
   relay: { stop(): void; start(): void };
   /** The session page (the real worker, the real client; tests/collab/sessionPage.ts), when asked for with `sessionPage`. */
   sessionUrl: string;
+  /** The app itself, built the way the site is (the editor with its Together panel), when asked for with `app`. */
+  appUrl: string;
   stop(): Promise<void>;
 }
 
@@ -82,6 +84,11 @@ export async function buildSessionPage(outDir: string): Promise<void> {
     worker: { format: "es" },
     build: { outDir, emptyOutDir: true, target: "es2022", minify: false, rollupOptions: { input: path.join(here, "session.html") } },
   });
+}
+
+/** The app built the way the site is (the e2e build, which shows the forces), into a folder, to be served from any path. */
+export async function buildApp(outDir: string): Promise<void> {
+  await build({ root, mode: "e2e", logLevel: "silent", base: "./", build: { outDir, emptyOutDir: true, sourcemap: false } });
 }
 
 /** The harness page's script, bundled from tests/collab/harness.ts (and src/collab). */
@@ -105,6 +112,8 @@ export interface StackOptions {
   vars?: Record<string, string>;
   /** Build and serve the session page (the real worker); takes a little longer to start. */
   sessionPage?: boolean;
+  /** Build and serve the app (the page's own Together panel on the real function and relay); takes a minute to build. */
+  app?: boolean;
 }
 
 export async function startStack(options: StackOptions = {}): Promise<Stack> {
@@ -208,10 +217,30 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       });
       await buildSessionPage(sessionDir);
     }
-    const TYPES: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json" };
+    let appDir: string | null = null;
+    if (options.app) {
+      appDir = mkdtempSync(path.join(tmpdir(), "dgm-collab-app-"));
+      const dir = appDir;
+      cleanups.push(() => {
+        try {
+          rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        } catch {
+          /* left to the system's temp cleanup */
+        }
+      });
+      await buildApp(appDir);
+    }
+    const TYPES: Record<string, string> = { ".js": "text/javascript", ".mjs": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav" };
     const page = createServer((req, res) => {
-      const url = (req.url ?? "/").split("?")[0];
-      if (sessionDir && url.startsWith("/session/")) {
+      const url = decodeURIComponent((req.url ?? "/").split("?")[0]);
+      if (appDir && url.startsWith("/app/")) {
+        // (the site's own headers: the water's threads need the page cross-origin isolated)
+        const rel = path.normalize(url.slice("/app/".length) || "index.html");
+        let file = path.join(appDir, rel.endsWith(path.sep) || rel === "." ? path.join(rel, "index.html") : rel);
+        if (!file.startsWith(appDir)) return void res.writeHead(403).end();
+        if (!existsSync(file)) return void res.writeHead(404).end();
+        res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream", "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" }).end(readFileSync(file));
+      } else if (sessionDir && url.startsWith("/session/")) {
         const file = path.join(sessionDir, path.normalize(url.slice("/session/".length) || "session.html"));
         if (file.startsWith(sessionDir) && existsSync(file)) res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
         else res.writeHead(404).end();
@@ -228,7 +257,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         }),
     );
 
-    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, turnPort, relay, stop };
+    return { workerUrl: `http://127.0.0.1:${workerPort}`, pageUrl: `http://127.0.0.1:${pagePort}/`, sessionUrl: `http://127.0.0.1:${pagePort}/session/session.html`, appUrl: `http://127.0.0.1:${pagePort}/app/`, turnPort, relay, stop };
   } catch (e) {
     await stop();
     throw e;

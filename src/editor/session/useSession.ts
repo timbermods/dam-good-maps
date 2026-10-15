@@ -32,6 +32,13 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+/** The editor's note line: what happened, a refusal's reason, a shared session's news. `action` is a quiet button beside it ("See it"). */
+export interface EditorMessage {
+  kind: "error" | "info";
+  text: string;
+  action?: { label: string; title: string; run(): void };
+}
+
 export interface SessionSlice {
   api: Remote<GeneratorApi>;
   info: SessionInfo;
@@ -70,8 +77,8 @@ export interface SessionSlice {
   setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
-  setMessage: Dispatch<StateUpdater<{ kind: "error" | "info"; text: string } | null>>;
-  message: { kind: "error" | "info"; text: string } | null;
+  setMessage: Dispatch<StateUpdater<EditorMessage | null>>;
+  message: EditorMessage | null;
   setHover: Dispatch<StateUpdater<string | null>>;
   hover: string | null;
   showHistory: boolean;
@@ -231,7 +238,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
   const [busy, setBusy] = useState(0);
-  const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
+  const [message, setMessage] = useState<EditorMessage | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
@@ -589,6 +596,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   function applyUpdate(u: SessionUpdate): void {
+    // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
+    if (u.routed) return;
     // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
 

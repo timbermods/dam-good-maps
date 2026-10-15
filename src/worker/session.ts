@@ -125,6 +125,9 @@ export interface SessionUpdate extends ViewNews {
   ms: number;
   /** The instant checks after the change (PLAN §19.5): null when nothing changed. */
   instant?: InstantCheck | null;
+  /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
+   *  as the session's own `update` event, so this answer carries none and the page leaves the map alone. */
+  routed?: true;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -1161,6 +1164,28 @@ export function collabChanged(): SessionUpdate {
   syncChecks();
   return { ok: true, errors: [], info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending };
 }
+
+/** The answer to an edit the shared session ordered or refused (worker/collabEdit.ts): no news of the map in it, the session's
+ *  `update` event brings that; the page shows the refusal's line. */
+export function collabAnswer(ok: boolean, errors: string[]): SessionUpdate {
+  return { ok, errors, info: sessionInfo(need()), view: {}, ms: 0, instant: null, waterSettled: true, routed: true };
+}
+
+/** The operations an edit would apply, planned on the open map without applying them: the shared session orders them instead
+ *  (worker/collabEdit.ts). Each is the planner the direct edit uses, so a shared edit is the same edit. */
+export const planned = {
+  all: (ops: EditOp[]): EditOp[] => withSpringPools(need(), ops),
+  tool: (req: ToolRequest, id: string): ToolPlan => planTool(req, id),
+  plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
+  remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string) => planRemove(need(), tiles, kinds, label),
+  strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
+  move: (id: string, dx: number, dy: number) => planMoveEntity(need(), id, dx, dy),
+  start: (x: number, y: number, orientation?: Orientation) => planStart(need(), x, y, orientation, () => crypto.randomUUID()),
+  /** Why a new ramped stroke is refused (core/doc/strokes.ts), or null. */
+  stroke: (op: EditOp) => newRampedStroke(op),
+  /** Every tile of the map (Clear everything removes the objects on all of them). */
+  everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
+};
 
 export function closeSession(): void {
   discardSessionWork();

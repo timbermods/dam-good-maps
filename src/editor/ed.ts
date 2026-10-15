@@ -19,5 +19,6 @@ import type { ViewSyncSlice } from "./view/useViewSync";
 import type { StartSlice } from "./start/useStart";
 import type { TestHookSlice } from "./testHook/useTestHook";
 import type { SaveSlice } from "./save/useSave";
+import type { CollabSlice } from "./collab/useCollab";
 
-export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & TestHookSlice & SaveSlice;
+export type Ed = SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & TestHookSlice & SaveSlice & CollabSlice;

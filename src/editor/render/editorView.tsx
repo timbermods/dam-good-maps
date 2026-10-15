@@ -27,7 +27,7 @@ export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick,
-    shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api
+    shapeNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api, presenceMarkers
   } = ed;
   const drawerOpen = props.drawerOpen;
 
@@ -68,6 +68,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               hoverText={hover}
             >
               {sourceMarkers()}
+              {presenceMarkers()}
               {startHintTag()}
               {topBar(ed, props)}
               {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}

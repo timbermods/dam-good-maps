@@ -35,6 +35,9 @@ features share is a member of it.
 - `keyboard/` the keyboard.
 - `testHook/` `window.dgmEditor` for the browser tests.
 - `save/` export and save.
+- `collab/` a shared session (Together): the header's button and panel, the other player's cursor, the map's updates the
+  session orders, notes. The session itself is the page's `Together` (`src/collab/together.ts`); the edits are routed in
+  the worker (`src/worker/collabEdit.ts`), so no other slice knows a session exists.
 - `prefs/` what the viewer last used, kept in `localStorage`.
 - `render/` the markup.
 - `juice/` the sounds and the land's effects. The files beside this one (`brushes.ts`, `select.ts`, `features.ts`,

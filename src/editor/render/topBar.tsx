@@ -19,6 +19,11 @@ export function topBar(ed: Ed, props: EditorProps) {
         {message ? (
           <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
             {message.text}
+            {message.action ? (
+              <button type="button" class="linkish" title={message.action.title} onClick={message.action.run}>
+                {message.action.label}
+              </button>
+            ) : null}
             <button type="button" class="linkish" onClick={() => setMessage(null)} aria-label="Dismiss">
               ×
             </button>
