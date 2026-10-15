@@ -33,6 +33,7 @@ import { BUILDERS, orientationForHigh, type SetPieceBlock, type SetPieceSource }
 import { applyEntityEdits, applySlopeEdits, entityTiles, orphansOf, type EntityEdit, type Orphan, type SlopeEdit } from "./edits";
 import {
   applyBlocks,
+  applyHollows,
   applySculpt,
   edgeStep,
   finalMasks,
@@ -108,6 +109,9 @@ export interface BaseLayer {
   /** The soil the file stores on each tile's top (a stored generation's, frozen): where the edits
    *  changed it, its trees and bushes are judged again (step 11); elsewhere they stand as stored. */
   soil?: { moisture: ArrayLike<number>; contamination: ArrayLike<number> };
+  /** The file's water is not kept even while nothing changes the water: the map was cropped (D340), its
+   *  water is the old map's on tiles whose edge is new, and it settles again as after any edit. */
+  resettle?: boolean;
 }
 
 /** The land a generation's processes made (M9a, docs/m9-design.md §12): the ground build step 1
@@ -662,7 +666,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
   // (the Block tool: the tiles its operations touched carry their own masks and floors, and are caves or
   // not by them, so the forces leave the ones it dug as they are)
-  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params));
+  // (and Erode's results, D281: the tiles it hollowed under their surface take their masks the same way)
+  const blocksIn = (input.sculpts ?? []).some((s) => isBlocks(s.params) || (isForce(s.params) && !!s.params.runs));
   // (what step 7 would show a tile from the heights as they stand: a block operation works on that)
   const outside = prev ? prev.terrain.pre7 : null;
   const got = (j: number) => (outside && !t.inRegion(j) ? outside[j] : heights[j]);
@@ -690,9 +695,13 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   };
   for (const s of input.sculpts ?? []) {
     if (layer && isBlocks(s.params)) applyBlocks(s.params, t, layer);
-    else applySculpt(s, t, caves, shown, floors);
+    else {
+      if (layer && isForce(s.params) && s.params.runs) applyHollows(s.params.runs, t, layer);
+      applySculpt(s, t, caves, shown, floors);
+    }
     if (watch.length) checkSlopes();
   }
+
   let pre7: Uint8Array;
   if (prev) {
     pre7 = prev.terrain.pre7.slice();
@@ -1118,7 +1127,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
-  const fileWater = !!base && sameModelAsBase(base, model, W, H);
+  const fileWater = !!base && !base.resettle && sameModelAsBase(base, model, W, H);
   const needWater = !fileWater || resourceFeatures.length > 0;
   let settle: CanonicalWater | null = null;
   const initial = opts.water === "defer" ? opts.initialWater : undefined;
@@ -1287,6 +1296,20 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    a kept resource never stands under another object (the editor removes those a start or an
   //    object is moved onto, tools.ts `startClears`; this only keeps the file whole)
   let finalEntities = passB.entities;
+  //    (a plant the Block tool left on the top of its run, under a block built over it, stands there, not on the
+  //    surface: each operation's `stands`, the latest first to last, where the ground still holds it)
+  const stood = new Map<string, number>();
+  for (const sc of input.sculpts ?? []) if (isBlocks(sc.params) && sc.params.stands) for (const [id, z] of sc.params.stands) stood.set(id, z);
+  if (stood.size) {
+    const dug = masksOf(terrain);
+    finalEntities = finalEntities.map((e) => {
+      const z = stood.get(e.id);
+      if (z === undefined || z === e.z) return e;
+      const m = dug.get(e.y * W + e.x);
+      // (its ground is the tile's blocks as the operations left them: a block under it, air in it)
+      return m !== undefined && z >= 1 && m & (1 << (z - 1)) && !(m & (1 << z)) ? liftEntity(e, z) : e;
+    });
+  }
   if (keptBy) {
     const held = new Set<number>();
     for (const e of finalEntities) if (!keptBy.has(e.owner)) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) held.add(y * W + x);
@@ -1415,14 +1438,20 @@ function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: nu
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;
+  return liftEntity(e, now);
+}
+
+/** An object at layer `z` of its tile (an imported one carries its coordinates in its raw components). */
+function liftEntity(e: EntitySpec, z: number): EntitySpec {
+  if (!e.raw) return { ...e, z };
   const comps = e.raw.Components as Record<string, unknown> | undefined;
   const bo = comps?.BlockObject as Record<string, unknown> | undefined;
-  if (!bo) return e;
+  if (!bo) return { ...e, z };
   const nb: Record<string, unknown> = {};
-  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: now } : bo[k];
+  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: z } : bo[k];
   const nc: Record<string, unknown> = {};
   for (const k of Object.keys(comps!)) nc[k] = k === "BlockObject" ? nb : comps![k];
-  return { ...e, z: now, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
+  return { ...e, z, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
 }
 
 const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string }>();

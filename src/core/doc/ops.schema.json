@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "blocks"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -30,6 +30,7 @@
     { "if": { "properties": { "op": { "const": "removeUnfedWater" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/removeUnfedWater" } } } },
     { "if": { "properties": { "op": { "const": "fillHollow" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/fillHollow" } } } },
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
+    { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } }
   ],
   "$defs": {
@@ -132,18 +133,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake or Glaciate: D194, D202, D203, D206, D220, D246): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -196,6 +197,16 @@
           "properties": {
             "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
             "bits": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 4194303 } }
+          }
+        },
+        "runs": {
+          "description": "Erode (D281): the tiles it hollowed under their surface, ascending, and each one's voxels now (bit z set where voxel z is solid; levels 0 to 21).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tiles", "masks"],
+          "properties": {
+            "tiles": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 262143 } },
+            "masks": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 1, "maximum": 4194303 } }
           }
         },
         "removed": { "type": "array", "maxItems": 262144, "items": { "$ref": "#/$defs/guid" } },
@@ -289,6 +300,18 @@
       "required": ["x", "y", "orientation"],
       "properties": { "x": { "$ref": "#/$defs/coordinate" }, "y": { "$ref": "#/$defs/coordinate" }, "orientation": { "$ref": "#/$defs/orientation" } }
     },
+    "crop": {
+      "description": "Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles (its top-left tile and its size). The engine refuses a rectangle off the map, a side under 4 or over 512, the whole map, and a crop that would cut the start; objects the edge cuts are removed. The operations after it are in the cropped map's tiles.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
     "removeUnfedWater": {
       "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",
       "type": "object",
@@ -366,7 +389,11 @@
         "at": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } } },
         "size": { "type": "integer", "minimum": 1, "maximum": 8 },
         "shape": { "enum": ["square", "round"] },
-        "cells": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0 } }
+        "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "cut": { "type": "integer", "minimum": 0, "maximum": 22 },
+        "cells": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0 } },
+        "plants": { "type": "array", "maxItems": 65536, "items": { "type": "string" } },
+        "stands": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 2, "maxItems": 2 } }
       }
     },
     "paintObjects": {

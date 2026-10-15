@@ -5,6 +5,7 @@
 // shows them: no key's behaviour is read from this list.
 
 import { BRUSHES } from "../brushes";
+import { COMPARE_KEY } from "../compare/useCompare";
 import { SHOWN_FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
 
 /** One line of the panel: what the key does, and the keys that do it (any one of them; each shows as a key cap). */
@@ -44,6 +45,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Select", keys: ["1"] },
         ...BRUSHES.map((b) => ({ what: b.name, keys: [b.key] })),
+        { what: "Block: add or remove blocks", keys: ["7"] },
         ...SHOWN_FORCES.map((f) => ({ what: forceWhat(f.name), keys: [f.key ?? ""] })).filter((r) => r.keys[0]),
         { what: "Put the tool down", keys: ["X", "Esc"] },
       ],
@@ -66,7 +68,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
-        { what: "Swap Raise and Lower as you paint", keys: ["Shift"] },
+        { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },
         { what: "Add to the selection", keys: ["Shift+drag"] },
         { what: "Take from the selection", keys: ["Alt+drag"] },
@@ -83,6 +85,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Zoom", keys: ["+", "-"] },
         { what: "Show markers", keys: ["M"] },
         { what: "See through the water", keys: ["T"] },
+        { what: "Hold to see the version you compare with", keys: [COMPARE_KEY] },
         { what: "Keep this view in a slot", keys: ["Ctrl+Shift+1–9"] },
         { what: "Go back to a kept view", keys: ["Alt+1–9"] },
         { what: "Step a weather day back or on", keys: ["←", "→"] },

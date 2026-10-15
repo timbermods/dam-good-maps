@@ -401,6 +401,10 @@ guesses, with an original model in both looks, a label in Markers, exact save an
   rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects
   cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are
   re-read. D340 has the rule and its tests.
+  - **The core operation is built** (`crop`, `src/core/doc/crop.ts`; `tests/contract/crop.test.ts`): the rectangle's
+    contents exactly (runs, water, soil, objects, sources), objects cut by the edge removed and counted, one-line
+    refusals, one undo step, recorded, byte-exact on reopen, the edge lip at the new edges. Left for the page and the
+    next pass: the checks dot's edge walls and the re-read name and "how it plays" line (EDITOR_PLAN.md, Select).
 
 ---
 
@@ -603,8 +607,10 @@ else the baked light stands, so maps without caves draw exactly as before. Part 
 ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
 (`pickTerrain.test.ts`); Select reads the run hit. Part 6, the level-slice cutaway (`render3d/cutaway.ts`): under a
 layer cut the clipped columns are drawn, a cap only where rock crosses the cut, so the cut opens into caves and under
-overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Next:
-the masks from the worker, soil per run top, water per column.
+overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Part
+3, soil per run top (`render3d/runSoil.ts`): a cave's floor takes its own run's moisture, contamination and water from
+a run texture the worker's per-run soil fills, soil3d's value for every run top; maps without caves build no texture
+and draw with the same program (`runSoil.test.ts`). Next: the masks from the worker, water per column.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -631,8 +637,8 @@ After the view (D280 (3)).
    or outline). Wind and water wear rock: a cave or alcove at a cliff's foot, an overhang where hard
    rock caps softer rock, an arch through a thin ridge; the land decides which; every shape obeys
    the support rule; a click or a drawn sweep; Power, Size, Try another; two to four seconds of
-   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281); held, like the
-   other forces' investigations, until Kyler has tried it.
+   dust and rubble with CC0 sounds. Built by the milestone session, not Codex (D281). Its core and
+   Rust are built (the rules and what the page and renderer take: docs/progress/3d-creating.md).
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
@@ -763,8 +769,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
    (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
-   heat shimmer and the badtide's sky follow (#67's stage 4).
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
+   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
+   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
+   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
+   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
+   every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's

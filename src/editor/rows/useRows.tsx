@@ -5,7 +5,9 @@ import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
 import { newId, shortStrengthWords, sourceStrengths, sourceStrengthWords } from "../features";
 import { SourceReadout, StrengthSlider, STRONGER_WORDS, strongerThanOfficial, waterWords } from "../panels";
-import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems";
+import { hasAge, objectOptionsOf, PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN } from "../shelfItems";
+import { describeChange, hasOptions, optionsOf, optionsPatch, setOptionsOp, type ObjectOptions } from "../../core/doc/objectOps";
+import { objectGroups } from "../objectOptions";
 import { powerWord } from "../forceDriver";
 import { CarveRow, carveSettingsOf } from "../CarveRow";
 import { craterSettingsOf, CraterizeRow, EruptRow, eruptSettingsOf, ForceAtWork, QuakeRow, quakeSettingsOf } from "../ForceRows";
@@ -27,6 +29,7 @@ const TURNS: [number, string, string][] = [
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
+import { itemName, withArticle } from "../../core/doc/labels";
 
 export interface RowsSlice {
   pickTile: (x: number, y: number) => void;
@@ -51,6 +54,17 @@ export function useRows(ed: Ed): RowsSlice {
       const sources = list.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
       setPicked(sources.length ? { x, y, list: sources } : null);
     });
+  }
+  /** A setting of the object picked on the map changed: its window shows it at once, the core's operation follows (one
+   *  undo step for a slider's run of steps). */
+  function changePlaced(o: EntityInfo, c: Partial<ObjectOptions>) {
+    const before = optionsOf(o.template, o.components);
+    const patch = optionsPatch(o.template, o.components, c);
+    const components: Record<string, unknown> = { ...o.components };
+    for (const [k, v] of Object.entries(patch)) components[k] = { ...((o.components[k] as object | undefined) ?? {}), ...(v as object) };
+    setPickedObject({ ...o, components });
+    const op = setOptionsOp(o.id, o.template, o.components, c);
+    void run(() => api.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
   }
   /** A picked source's water (clean or bad) or strength changed. */
   function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
@@ -104,10 +118,13 @@ export function useRows(ed: Ed): RowsSlice {
     if (pickedObject && !picked) {
       const o = pickedObject;
       const name = o.template === "UndergroundRuins" ? "Mine site" : o.template.replace(/([a-z])([A-Z])/g, "$1 $2");
+      // a water object, an unstable core or a reserve: its own settings, changed in place (D337, D338)
+      const own = hasOptions(o.template) ? objectGroups(o.template, optionsOf(o.template, o.components), (c) => changePlaced(o, c)) : [];
       return {
         label: `${name}, selected`,
         onClose: () => setPickedObject(null),
         groups: [
+          ...own,
           {
             key: "delete",
             node: (
@@ -116,7 +133,7 @@ export function useRows(ed: Ed): RowsSlice {
                 {...tip("Delete it", "Delete")}
                 onClick={() => {
                   setPickedObject(null);
-                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
+                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
                 }}
               >
                 Delete
@@ -240,6 +257,12 @@ export function useRows(ed: Ed): RowsSlice {
         ],
       };
     }
+    // a water object, an unstable core or a reserve: the settings of the next one placed (D337, D338)
+    if (hasOptions(shelf.template) || shelf.template === "AncientAquiferDrill") {
+      const o = objectOptionsOf(shelfOptions, shelf.template);
+      const groups = objectGroups(shelf.template, o, (c) => setShelfOptions({ ...shelfOptions, objects: { ...shelfOptions.objects, [shelf.template]: { ...o, ...c } } }));
+      return groups.length ? { label: `${shelf.name} options`, groups } : null;
+    }
     if (shelf.id === "ruin")
       return {
         label: "Ruin options",
@@ -317,7 +340,7 @@ export function useRows(ed: Ed): RowsSlice {
               />
             ),
           },
-          ...(kind === "trees"
+          ...(hasAge(kind)
             ? [
                 {
                   key: "age",

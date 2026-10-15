@@ -1,6 +1,7 @@
 // What the page gives the map generator's panel and Your maps (the page owns all of it, src/ui/App.tsx; the panels
 // only show it).
 
+import type { VersionParent } from "../../core/doc/document";
 import type { SettingsProps } from "./hints";
 
 /** A map of Your maps: its picture, name and dimensions. */
@@ -10,6 +11,8 @@ export interface YourMapRow {
   size?: { w: number; h: number };
   /** Your maps' stored picture (a PNG data URL), or none yet. */
   thumbnail: string | null;
+  /** A kept version: the map it came from and the History step it was taken at. */
+  parent?: VersionParent;
 }
 
 /** What the page gives the generator and Your maps. */
@@ -34,6 +37,10 @@ export interface GeneratorModel extends SettingsProps {
   onDownloadMap(id: string): void;
   onRenameMap(id: string, name: string): Promise<string | null>;
   onDeleteMaps(ids: readonly string[]): void;
+  /** Compare a map of Your maps with the open one (the same size): the editor flips between them while a key is held. */
+  onCompareMap(id: string): void;
+  /** The open map's size (an unedited map is not in the list), for what compares with it. */
+  openSize?: { w: number; h: number };
   /** The map's name (the title's), and renaming it through the core: null, or why not. */
   name: string;
   onRename(name: string): Promise<string | null>;

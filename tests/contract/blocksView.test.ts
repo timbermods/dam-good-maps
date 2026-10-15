@@ -1,57 +1,38 @@
 // The Block tool's view update (D335): a hollow under a surface that did not move still reaches the
-// renderer, as the columns it dug, with the heights and the rectangle they changed in; a stroke on a
-// heightfield map sends no columns.
+// renderer, as the columns it dug, with the heights and the rectangle they changed in; a stroke on plain
+// ground sends no columns.
 
 import { describe, expect, it } from "vitest";
-import { MapSession } from "../../src/core/doc/session";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { writeTimber } from "../../src/core/format/timber";
 import * as ed from "../../src/worker/session";
+import { CAVE_W as W, caveFile } from "./caveMap";
 
 describe("a hollow's view update", () => {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
-
-  it("carries the hollowed columns, and a stroke sends none", () => {
-    const s0 = MapSession.fromGenerated(r, r.file);
-    const b = s0.built;
-    // a dry spot of level ground, away from objects
-    const near = new Set<number>();
-    for (const e of b.entities) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) near.add((e.y + dy) * b.W + e.x + dx);
-    let at: [number, number] | null = null;
-    for (let y = 8; y < b.H - 8 && !at; y++)
-      for (let x = 8; x < b.W - 8 && !at; x++) {
-        let ok = true;
-        for (let dy = -3; dy <= 3 && ok; dy++) for (let dx = -3; dx <= 3 && ok; dx++) {
-          const i = (y + dy) * b.W + x + dx;
-          if (b.water[i] > 0 || b.channel[i] || near.has(i) || b.heights[i] < 7 || b.heights[i] !== b.heights[y * b.W + x]) ok = false;
-        }
-        if (ok) at = [x, y];
-      }
-    expect(at).not.toBeNull();
-    const [x, y] = at!;
-    const h = b.heights[y * b.W + x];
-    ed.openProject(s0.project());
-    // a stroke on the heightfield: heights, no columns
-    const dabs = [4 * x + 2, 4 * y + 2];
-    const stroke = ed.apply({ op: "brush", params: { tool: "raise", size: 1, strength: 5, dabs } }, "user", "Raise");
+  it("carries the hollowed columns, and a stroke on plain ground sends none", () => {
+    ed.openTimber(writeTimber(caveFile()), "cave.timber");
+    const before = ed.sessionView().view.columns.tiles.length;
+    // a stroke far from the cave and the ledge: heights, no columns
+    const stroke = ed.apply({ op: "brush", params: { tool: "raise", size: 1, strength: 5, dabs: [4 * 5 + 2, 4 * 5 + 2] } }, "user", "Raise");
     expect(stroke.errors).toEqual([]);
     expect(stroke.view.columns).toBeUndefined();
-    // a hollow two layers under the surface: the surface is where it was, the columns come
-    const u = ed.apply({ op: "blocks", params: { mode: "remove", side: "+z", at: [[x + 5, y, h - 3]], size: 3 } }, "user", "Remove blocks");
+    // a 3 x 3 hole in the cave's west wall: the surface is where it was, the columns come
+    const u = ed.apply({ op: "blocks", params: { mode: "remove", side: "+x", at: [[14, 17, 4]], size: 3 } }, "user", "Remove blocks");
     expect(u.errors).toEqual([]);
     const v = u.view;
     expect(v.columns).toBeDefined();
-    expect(Array.from(v.columns!.tiles).sort((a, c) => a - c)).toEqual([-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => (y + dy) * b.W + x + 5 + dx)).sort((a, c) => a - c));
+    const tiles = Array.from(v.columns!.tiles);
+    expect(tiles.length).toBe(before + 3);
+    for (const y of [16, 17, 18]) expect(tiles).toContain(y * W + 14);
     expect(v.heights).toBeDefined();
-    expect(v.terrainRect).toEqual({ x0: x + 4, y0: y - 1, x1: x + 6, y1: y + 1 });
-    // each column has the hole
-    const k = Array.from(v.columns!.tiles).indexOf(y * b.W + x + 5);
-    expect(v.columns!.voxels[k * 23 + h - 3]).toBe(0);
-    expect(v.columns!.voxels[k * 23 + h - 4]).toBe(1);
-    // undo sends the heightfield back: no tile is a column any more
+    expect(v.terrainRect).toEqual({ x0: 14, y0: 16, x1: 14, y1: 18 });
+    const k = tiles.indexOf(17 * W + 14);
+    for (const z of [3, 4, 5]) expect(v.columns!.voxels[k * 23 + z]).toBe(0);
+    expect(v.columns!.voxels[k * 23 + 2]).toBe(1);
+    expect(v.columns!.voxels[k * 23 + 6]).toBe(1);
+    // undo sends the columns back as they were
     const back = ed.undo();
     expect(back.view.columns).toBeDefined();
-    expect(back.view.columns!.tiles.length).toBe(0);
+    expect(back.view.columns!.tiles.length).toBe(before);
     ed.closeSession();
   });
 });

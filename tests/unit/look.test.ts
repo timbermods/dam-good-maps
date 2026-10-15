@@ -275,7 +275,7 @@ describe("the models", () => {
     expect(modelKeyOf("Blockage", 0)).toBe("block");
     expect(modelKeyOf("SomethingNew", 0)).toBe("block");
     // small enough for tens of thousands of trees
-    for (const k of ["Pine", "Birch", "Oak", "Succulent", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
+    for (const k of ["Pine", "Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {

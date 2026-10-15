@@ -97,6 +97,7 @@ test("a deleted map's waiting save is dropped before it is removed, so nothing b
     setConfirm: (c: { onYes(): void }) => void (onYes = c.onYes),
     setMaps() {},
     setSaveState() {},
+    setCompare() {},
     openMap: async () => void order.push("open"),
     generate: async () => void order.push("generate"),
   });

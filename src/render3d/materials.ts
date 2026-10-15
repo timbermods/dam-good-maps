@@ -71,6 +71,7 @@ import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE } from "./light";
 import { LIGHT_LEVELS, type CaveLight } from "./caveLight";
+import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
 const az = LIGHT.sunAzimuth;
 const ce = Math.cos(LIGHT.sunElevation);
@@ -132,9 +133,14 @@ export interface SceneUniforms {
   /** At least the highest ground (caveLight.ts `highest`, kept as edits raise it): the sun's march
    *  under roofs has left the land above it. */
   caveTop: { value: number };
+  /** The soil of the run tops below each tile's top (runSoil.ts): RG a cell, read only where the terrain's
+   *  `RUN_SOIL` branch is compiled (a map with terrain above terrain); elsewhere the light volume's
+   *  placeholder, never read. */
+  runTex: { value: Data3DTexture };
 }
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
+  const noCave = caveTexture(null);
   return {
     sunDir: { value: SUN.clone() },
     sunColor: { value: color(LIGHT.sun) },
@@ -161,10 +167,23 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     sourceTex: { value: overlayTexture(1, 1) },
     sourceLit: { value: 0 },
     flowTex: { value: stillFlow() },
-    caveTex: { value: caveTexture(null) },
+    caveTex: { value: noCave },
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
+    runTex: { value: noCave },
   };
+}
+
+/** The soil per run top as a 3D texture (runSoil.ts): read cell by cell (`texelFetch`), never filtered. */
+export function runTexture(r: RunSoil): Data3DTexture {
+  const t = new Data3DTexture(r.data, r.W, r.H, r.D);
+  t.format = RGFormat;
+  t.type = UnsignedByteType;
+  t.magFilter = NearestFilter;
+  t.minFilter = NearestFilter;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
 }
 
 /** The light under roofs as a 3D texture, filtered (a cave's light softens toward its rock); a single
@@ -401,6 +420,9 @@ export interface ShaderHooks {
   /** Where grass meets earth, and where contamination ends (expressions). */
   moist?: string;
   bad?: string;
+  /** At the start of groundColor, before the pattern warp (g): to keep the tile's own coordinates and, where the Weather
+   *  view's heat shimmer is on, to move g by less than half a pixel. */
+  groundStart?: string;
   /** After the ground's colour, before contamination is layered over it (c, g). */
   groundVariation?: string;
   /** Before groundColor returns (c: its colour with contamination; glow). */
@@ -772,6 +794,30 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float m = floor(g / 16.0);
         return vec4(m, g - m * 16.0, d.a > 0.002 ? 1.0 : 0.0, d.b);
       }
+      #ifdef RUN_SOIL
+        // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
+        uniform highp sampler3D runTex;
+        /** A run top's cell at tile t and level z: x its soil byte (the tile data's G), y 1 a run top, 2 one
+         *  under water, 0 none (outside the map too). */
+        vec2 runAt(vec2 t, float z) {
+          if (t.x < 0.0 || t.y < 0.0 || t.x >= mapSize.x || t.y >= mapSize.y || z < 0.0 || z >= ${f(RUN_LEVELS)}) return vec2(0.0);
+          return floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
+        }
+        /** The soil of the ground at level z of tile t as soilOf gives it (no sky), and in \`here\` whether there is
+         *  ground there to blend toward: a run top below the tile's top, or the tile's own top. */
+        vec4 groundAt(vec2 t, float z, out float here) {
+          vec2 r = runAt(t, z);
+          here = 1.0;
+          if (r.y > 0.5) {
+            float m = floor(r.x / 16.0);
+            return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 0.0);
+          }
+          vec4 d = tileAt(t);
+          if (t.x >= 0.0 && t.y >= 0.0 && t.x < mapSize.x && t.y < mapSize.y && heightOf(d) == z) return soilOf(d);
+          here = 0.0;
+          return vec4(0.0);
+        }
+      #endif
       vec3 heightColor(float z) {
         float t = clamp((z - heightRange.x) / max(1.0, heightRange.y - heightRange.x), 0.0, 1.0);
         return mix(${glColor(HEIGHT_RAMP.low)}, ${glColor(HEIGHT_RAMP.high)}, t);
@@ -816,7 +862,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
         #endif
-        // (the patterns are read through a broad warp, so their repeat never shows from afar)
+${hook(h, "groundStart")}        // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
         vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
         g += patternWarp * 3.2;
@@ -976,7 +1022,39 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             // a floor under an overhang (a cave's or a ledge's): the top's soil, never its water,
             // in the overhang's shade
             float none;
-            c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
+            #ifdef RUN_SOIL
+              // its own run top's soil and water where the worker sent it (runSoil.ts), blending toward the
+              // ground at the same level round it as a top blends toward neighbours of its height; where no run
+              // top is (a cap at a layer cut) the top's, as before
+              vec4 floorSoil = vec4(soil.xyz, 0.0);
+              float floorLevel = clev;
+              float zr = floor(vWorld.y + 0.5);
+              if (runAt(tile, zr).y > 0.5) {
+                float r0;
+                float rx1;
+                float ry1;
+                float rd1;
+                vec4 q0 = groundAt(tile, zr, r0);
+                vec4 q1 = groundAt(tile + vec2(sd.x, 0.0), zr, rx1);
+                vec4 q2 = groundAt(tile + vec2(0.0, sd.y), zr, ry1);
+                vec4 q3 = groundAt(tile + sd, zr, rd1);
+                float rd = rd1 * rx1 * ry1;
+                float u10 = ws.x * (1.0 - ws.y) * rx1;
+                float u01 = (1.0 - ws.x) * ws.y * ry1;
+                float u11 = ws.x * ws.y * rd;
+                float u00 = 1.0 - u10 - u01 - u11;
+                float z10 = w.x * (1.0 - w.y) * rx1;
+                float z01 = (1.0 - w.x) * w.y * ry1;
+                float z11 = w.x * w.y * rd;
+                float z00 = 1.0 - z10 - z01 - z11;
+                floorSoil = vec4(step(0.5, q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(step(0.5, q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
+                  + vec4(step(0.5, q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(step(0.5, q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
+                floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
+              }
+              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel, none);
+            #else
+              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
+            #endif
             glow = 0.0;
             light = lightOf(n, 0.6, 0.85, 0.0);
             if (caveSize.z > 0.5) {

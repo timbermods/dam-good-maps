@@ -176,6 +176,8 @@ function forceTiles(p: ForceResultParams, m: Reader, W: number, H: number): Tile
   for (const i of p.tiles) out.add(i);
   for (const i of p.rock?.tiles ?? []) out.add(i);
   for (const i of p.lake?.tiles ?? []) out.add(i);
+  // (Erode's hollows, under the surface: D281)
+  for (const i of p.runs?.tiles ?? []) out.add(i);
   const byId = new Map(m.built.entities.map((e) => [e.id, e]));
   const standing = (id: string) => {
     const e = byId.get(id);
@@ -305,6 +307,8 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
     case "fillHollow":
       for (const i of op.params.lake.tiles) t.add(i);
       break;
+    // a crop changes the whole map (D340); collaborative editing leaves it to the host
+    case "crop": everywhere(acc); break;
     case "paintObjects": {
       const s = m as MapSession;
       const plan = typeof s.check === "function" ? planPaintObjects(s, op.params) : null;

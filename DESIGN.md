@@ -125,9 +125,13 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
 - **Top right:** Undo, Redo and ⋯, the checks dot with its words, Save to Timberborn. Beneath, the cluster as a grid
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
-- **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
-  in five groups divided by hairlines. The view draws each picture to fill its tile. Fifteen objects fit at 1366×768
-  above the water bar; when more arrive it scrolls inside itself, names kept.
+- **The shelf** hangs under the cluster, 180px wide (so the longest name clears the scrollbar's room): one object per line, a 28px picture then its name,
+  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+  whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
+  inside itself, names kept, and the picked row is scrolled into view
+  ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
+  Select's first row ends with Fill water and Remove unfed water, whose hover words take the size's place
+  ([capture](docs/design/showcase-shelf-select-1920-dark.jpg)).
 - **Bottom left:** the hover readout. **Bottom right:** the water bar (its status, Pause, Speed, Skip, Replay,
   Drought, Badtide), and above it the look's menu as a small plate.
 - **The default view fits the whole map in the free space:** right of the panel, left of the shelf, under the rows
@@ -329,8 +333,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   right edge is on the page's 10px margin (the top-right controls' too) and its bottom level with the bar's bottom.
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
-- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); thirteen cells of one width (76px where there is room,
+- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block (the Block tool,
+  D335, key 7), a hairline,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); fourteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -339,6 +344,8 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
+  - **Block** (the Block tool): Size 7 (a slider, 1 to 8, from the first cell, where the brushes' Size starts) and Shape 7
+    (Square, Round) on row 1; Action 14 (Add, Remove; the other lit while Shift is held) across row 2.
   - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
@@ -373,7 +380,7 @@ refinements and what the mockups left open:
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
-  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 13 cells, every setting a plate on whole cells (its edges on
+  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 14 cells, every setting a plate on whole cells (its edges on
   the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
   of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
   (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;
@@ -865,3 +872,28 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+- **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
+  look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
+  here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
+  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
+  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
+
+## The header and top-right controls (polish audit, 2026-10-14)
+
+- **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
+  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
+  with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
+- **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the
+  view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
+  mockups' "an indicator, not a control".
+- **The speaker's tooltip sits to its left,** level with its middle, so the volume that opens under it is never covered
+  (`data-tip-side="left"`, the shared tooltip layer).
+- **The Look menu uses the page's own controls:** the three looks a segmented choice (the chosen cell filled as the
+  settings' choices are), High's parts checkbox rows of the Show column's 14px box, a name that wraps hanging under its
+  first letter. No browser radios or checkboxes.
+- **Tooltips:** the layer arrows are "Show one layer less" and "Show one layer more"; the checks pill's is "What to fix before
+  playing" (its words are already on it).
+- **The checks' list and the Legend:** the list closes an open Legend while it is shown (the Legend's box keeps its tick
+  and the panel returns when the list closes); the two never overlap. Captures `docs/design/polish-header-*`.
