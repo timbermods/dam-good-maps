@@ -25,6 +25,8 @@ export interface BrushCursorState {
   square?: boolean;
   /** The ring pulses once. */
   pulse?: boolean;
+  /** The Select tool's ring: it lies on the run the pointer aims at (a cave's floor); the editing tools' cursors lie on the tile's top, where their stroke changes the ground. */
+  run?: boolean;
   /** Sources: Clear is on (D249, D322): a small red mark on the ring, so it's never on unnoticed. */
   mark?: boolean;
 }

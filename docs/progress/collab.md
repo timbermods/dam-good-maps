@@ -124,7 +124,7 @@ Firefox as the second peer runs only in CI here (Playwright’s Firefox does not
   warning latency (INTEGRATION.md gate 2) belong to the claims and page work.
 - **Try another** (a force replacing the force before it) is not an entry kind yet.
 - **Single-player quirks the peers work around:** the session leaves a gap in the operations' numbers after any undo, and
-  `applyBatch` does not mark its step. The numbers still agree between peers because every peer takes the same steps.
+  `applyBatch` marks its step (D456). The numbers still agree between peers because every peer takes the same steps.
 - **The undo is conservative where the build is not yet audited:** a force, a feature operation and a water operation touch the
   whole map, so any of them blocks every earlier action of either player, and they block until they are undone themselves.
 - **Names and places.** Refusal lines use the player id (`Names` lets the page supply display names) and `placeOf`: the feature

@@ -566,9 +566,24 @@ export function setAutoWater(on: boolean): void {
   autoWater = on;
 }
 
-/** The water settling in the background, and a token that a newer edit changes. */
-let waterJob: { token: number; job: PreviewJob; version: number; session: MapSession } | null = null;
+/** The water settling in the background, and a token that a newer edit changes. Its job (`jobOf`) is made
+ *  after the edit's answer has gone to the page: the land answers at once, its water follows (D453; the warm
+ *  start alone is a fifth of a second at 256²). */
+interface WaterJob {
+  token: number;
+  job: PreviewJob | null;
+  from: WarmState;
+  model: WaterModel;
+  version: number;
+  session: MapSession;
+}
+let waterJob: WaterJob | null = null;
 let waterToken = 0;
+/** The job of the water settling, made now if it has not been yet (the same job, and so the same water, whenever
+ *  it is made). */
+function jobOf(j: WaterJob): PreviewJob {
+  return (j.job ??= new PreviewJob(j.from, j.model));
+}
 /** Ticks per slice, and how often the page gets the water as it flows. */
 const WATER_SLICE_MS = 10;
 const WATER_FRAME_MS = 150;
@@ -593,7 +608,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
   if (!s) return;
   const W = s.size.x;
   if (!draft || draft.session !== s) {
-    const from = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+    const from = (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
@@ -671,7 +686,7 @@ async function runDraft(token: number): Promise<void> {
 
 function stopWater(): void {
   waterToken++;
-  waterJob?.job.dispose();
+  waterJob?.job?.dispose();
   waterJob = null;
 }
 
@@ -690,12 +705,12 @@ function kickWater(): void {
   draft?.job.dispose();
   draft = null;
   draftToken++;
-  const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
+  const inflight = painted ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
-  waterJob?.job.dispose();
-  waterJob = { token, job: new PreviewJob(from, s.built.waterModel), version, session: s };
+  waterJob?.job?.dispose();
+  waterJob = { token, job: null, from, model: s.built.waterModel, version, session: s };
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
 
@@ -752,17 +767,25 @@ async function runWater(token: number): Promise<void> {
   for (;;) {
     const j = waterJob;
     if (!j || j.token !== token || session !== j.session) return;
+    // (the edit's answer has gone: its water's job is made now, and the page's next message comes before its
+    // first slice)
+    if (!j.job) {
+      jobOf(j);
+      await breathe();
+      continue;
+    }
+    const job = j.job;
     const t0 = performance.now();
     let r: CanonicalWater | null = null;
     while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-      const before = j.job.ticks;
-      r = j.job.advance(4);
+      const before = job.ticks;
+      r = job.advance(4);
       if (r || !listener) continue;
-      const sim = j.job.sim;
-      if (seen) seen.see(sim.D, sim.C, j.job.ticks - before);
+      const sim = job.sim;
+      if (seen) seen.see(sim.D, sim.C, job.ticks - before);
       else seen = new SeenWater(sim.D, sim.C);
       // a frame every few ticks: the page plays them at a pace the eye can follow
-      const ticks = j.job.ticks;
+      const ticks = job.ticks;
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
@@ -776,11 +799,11 @@ async function runWater(token: number): Promise<void> {
   }
 }
 
-function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): void {
+function finishWater(j: WaterJob, water: CanonicalWater): void {
   waterJob = null;
-  j.job.dispose();
+  j.job?.dispose();
   const s = j.session;
-  if (session !== s || !s.adoptWater(j.job.model, water)) return;
+  if (session !== s || !s.adoptWater(j.model, water)) return;
   settledNews(s, viewUpdate(s));
 }
 
@@ -1039,11 +1062,12 @@ export function stopWeather(): ViewUpdate {
 export function settleWater(): ViewUpdate {
   const j = waterJob;
   if (!j || session !== j.session) return {};
-  let r = j.job.advance(Infinity);
-  while (!r) r = j.job.advance(Infinity);
+  const job = jobOf(j);
+  let r = job.advance(Infinity);
+  while (!r) r = job.advance(Infinity);
   waterJob = null;
-  j.job.dispose();
-  if (!j.session.adoptWater(j.job.model, r)) return {};
+  job.dispose();
+  if (!j.session.adoptWater(j.model, r)) return {};
   return viewUpdate(j.session);
 }
 
@@ -1123,11 +1147,12 @@ export function refine(): SessionOpen {
   return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
-/** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
-export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
+/** Open any .timber (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Saves are refused
+ *  with a message (ImportError). */
+export function openTimber(bytes: Uint8Array, fileName: string, place?: string): SessionOpen {
   const blocked = gated(true);
   if (blocked) throw new Error(blocked);
-  return opened(MapSession.importMap(bytes, fileName));
+  return opened(MapSession.importMap(bytes, fileName, place));
 }
 
 /** Open a project file (.damgoodmaps.json). */
@@ -1467,7 +1492,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
+  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
+  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
 }
 
@@ -1861,7 +1887,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
-  const sim = waterJob && waterJob.session === s ? waterJob.job.sim : null;
+  const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
@@ -1891,7 +1917,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
+  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -2166,7 +2192,7 @@ function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Arr
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
 function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
-  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const now = flowing ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;

@@ -124,6 +124,25 @@ const SHADOW_GLSL = /* glsl */ `
     }
     return lit;
   }
+  /** The soft shadow at a point on open ground facing up (a cave's roof line, seen from inside). */
+  float hlSunAt(vec3 world) {
+    vec4 p = hlShadowMatrix * vec4(world + vec3(0.0, 0.045, 0.0), 1.0);
+    vec3 q = p.xyz / p.w * 0.5 + 0.5;
+    if (any(lessThan(q, vec3(0.0))) || any(greaterThan(q, vec3(1.0)))) return 1.0;
+    // (sunLit's receiver-plane bias, for the level plane: its derivatives are the matrix's own columns)
+    vec3 dx = (hlShadowMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz * 0.5;
+    vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
+    float light = 0.0;
+    for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
+      vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
+      light += step(q.z + dot(gradient, offset) - bias, textureLod(hlDepth, q.xy + offset, 0.0).r);
+    }
+    return light / 25.0;
+  }
 `;
 
 /** Ambient occlusion (#65): the map's horizons at four radii in eight directions and the trees' and
@@ -171,6 +190,18 @@ export function terrainHooks(): ShaderHooks {
   uniform vec2 hlFlowSize;
 `),
     skyLight: "ambientVisibility(vWorld, n) * ",
+    // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
+    // (off: the march through the light volume)
+    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
+    // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
+    // than here
+    caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
+    caveSky: /* glsl */ `
+        if (hlAO > 0.5) {
+          float av = ambientVisibility(vWorld, n);
+          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
+          sky *= av;
+        }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
