@@ -291,6 +291,9 @@ function sameModel(a: WaterModel, aEmitters: string, m: WaterModel, mEmitters = 
   for (let i = 0; i < m.floor.length; i++) if (a.floor[i] !== m.floor[i]) return false;
   if (!!a.dam !== !!m.dam) return false;
   if (a.dam && m.dam) for (let i = 0; i < m.dam.length; i++) if (a.dam[i] !== m.dam[i]) return false;
+  // (terrain above terrain: the same surface over other caves is other water)
+  if (!!a.stacked !== !!m.stacked) return false;
+  if (a.stacked && m.stacked && (!sameMaskArrays(a.stacked.mask, m.stacked.mask) || a.stacked.objects.length !== m.stacked.objects.length || a.stacked.objects.some((v, k) => v !== m.stacked!.objects[k]))) return false;
   return sameKeptWater(a, m);
 }
 
@@ -743,6 +746,9 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 
   const { terrain, region } = terrainStage(input, prev, fields);
   const heights = terrain.heights;
+  // the ground as runs when it is not a heightfield (an import's caves, the Block tool's or Erode's
+  // hollows on any map, #435): its water is the stacked engine's
+  const runsGround = caveTerrain(caves, heights, masksOf(terrain), W, H);
   const notes = terrain.notes.slice();
   const target = new BuildTarget({ W, H, seed, features, heights, protectedMask: terrain.protect, channel: terrain.channel, region: fullRegion(W, H), fields });
 
@@ -1062,7 +1068,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   }
   //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
   //    (the resources and the start placed after this hold none)
-  const dropped = groundDropped(base, heights, entities, masksOf(terrain), W, H);
+  const dropped = groundDropped(caves, heights, entities, masksOf(terrain), W, H);
   const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
@@ -1092,7 +1098,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   });
   if (opts.stopBeforeWater) {
     const none = new Float64Array(N);
-    const model = caves ? stackedModel(waterModel(W, H, heights, []), terrainUnder(caves, heights, masksOf(terrain), W, H), []) : waterModel(W, H, heights, []);
+    const model = runsGround ? stackedModel(waterModel(W, H, heights, []), runsGround, []) : waterModel(W, H, heights, []);
     return {
       ...partial,
       water: none,
@@ -1111,9 +1117,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const objects = entities.map(toMapObject);
   // an imported map's caves and overhangs (D120): its water is the stacked-column engine's, on the
   // terrain as it stands (the surface the edits made, the ground the Block tool dug or built, the
-  // other tiles kept: doc/session.ts `terrainOf`, which the export writes); a heightfield's model is
-  // the one it always was (the Block tool's ground on a heightfield map: #435)
-  const stackTerrain = caves ? terrainUnder(caves, heights, masksOf(terrain), W, H) : null;
+  // other tiles kept: doc/session.ts `terrainOf`, which the export writes), and so is any map's the
+  // Block tool or Erode hollowed (#435); a heightfield's model is the one it always was (a map whose
+  // last hollow is undone is a heightfield again, its water and file as before)
+  const stackTerrain = runsGround;
   const model = stackTerrain ? stackedModel(waterModel(W, H, heights, objects), stackTerrain, objects) : waterModel(W, H, heights, objects);
   const cols = model.stacked ? waterColumns(stackTerrain!, objects) : null;
   // the oxbow lakes the carves sealed keep their water (sim/water.ts RetainedWater), and so do the
@@ -1359,10 +1366,23 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
  *  drops nothing and is not worked out; a base's caves and overhangs are its own, and so are the
  *  Block tool's (`masks`, which refuses what would fall). `BuildResult.dropped`
  *  is this, derived, so a stored build leaves it out and its session works it out again. */
-export function groundDropped(base: BaseLayer | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[], masks: ReadonlyMap<number, number> | undefined, W: number, H: number): number {
-  const layered = !!base?.terrain && !base.terrain.allPlain();
+export function groundDropped(caves: ColumnTerrain | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[], masks: ReadonlyMap<number, number> | undefined, W: number, H: number): number {
+  const layered = !!caves && !caves.allPlain();
   if (!layered && !layeredMasks(masks)) return 0;
-  return supportPass(terrainUnder(layered ? base!.terrain! : null, heights, masks, W, H), objects).dropped;
+  return supportPass(terrainUnder(layered ? caves! : null, heights, masks, W, H), objects).dropped;
+}
+
+/** The terrain a build stands on when it is not a heightfield: its caves (an imported map's) under
+ *  its surface, with the ground the Block tool and Erode left; null on a heightfield (#435: a hollow
+ *  dug on a heightfield map is terrain above terrain too). */
+export function caveTerrain(caves: ColumnTerrain | null, heights: ArrayLike<number>, masks: ReadonlyMap<number, number>, W: number, H: number): ColumnTerrain | null {
+  return caves || layeredMasks(masks) ? terrainUnder(caves, heights, masks, W, H) : null;
+}
+
+function sameMaskArrays(a: Uint32Array, b: Uint32Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 /** A base terrain's `topFloors` (the lowest a brush may take each roof's top, D280 (3)), worked out

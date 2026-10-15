@@ -1215,8 +1215,9 @@ checks dot counts; every other row is information under Good to know, worded as 
   lake, pull trees back into moisture reach, remove overlapping entities, add a missing slope. Each fix is a normal
   edit operation, applied live and undoable.
 - **Water preview:** the settled water of the port of the game's rules (`PLAN.md` §10).
-  - **Exact on heightfield terrain**, which covers every generated map. **An imported map with caves or
-    overhangs** (tunnels, overhang bridges; D120, D280) is simulated too, on every water column, by the
+  - **Exact on heightfield terrain**, which covers every generated map. **A map with caves or overhangs** (an
+    import's tunnels and overhang bridges, D120, D280, or a hollow the Block tool or Erode made on any map,
+    #435) is simulated too, on every water column, by the
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
     last water stays on show while the canonical settle runs in the background, in slices, the dot saying
     "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
@@ -1225,8 +1226,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
-    run (D280 (3), D487). Ground the Block tool digs counts with them; on an import with caves its water is
-    simulated the same way, on a map without, not yet (#435).
+    run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    the last hollow is undone the map is a heightfield again, its water and file as before.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
     is a sink that drains its own kind of water (D337). Drought is shown analytically: what the basins still hold after N days.
