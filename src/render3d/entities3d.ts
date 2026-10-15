@@ -5,7 +5,7 @@
 // so a grove is not one flat colour.
 //
 // - Trees by species: pine (tiers of dark cones), birch (a white trunk with dark marks and a light
-//   crown), oak (a thick trunk and a broad crown), succulent (a rosette of fleshy leaves). Dead
+//   crown), oak (a thick trunk and a broad crown), succulent (a sage blue-green rosette of fleshy blades with a coral flower spike). Dead
 //   trees are bare: a pale grey-brown trunk and bare branches at the tree's true size, far lighter
 //   than the dark living crowns.
 // - Berry bushes: dark green, dotted with blue flowers.
@@ -33,7 +33,11 @@
 //   into one structure, with beams across the pit and a bucket on a rope. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages and natural
-//   dams: heaps of stones.
+//   dams: heaps of stones. Timberborn 1.x objects, each in its game footprint: seeps (a pool in a ring of
+//   stones, water-blue or badwater crimson with orange bubbles), the aquifer (damp clay in a plus with a
+//   pool), its drill (a rusty derrick over the well with a stone housing), the badtide drain (a stone
+//   block with a badwater channel, a grate and a spout), the unstable core (a glowing violet sphere on a
+//   scorched crater), and the reserves (a pyramid of logs, a plank shed, a steel tank).
 // - Every other template: a box on each block its footprint occupies.
 // With Markers on (the information layer), dead trees, the slopes' arrows and the start have a
 // minimum size on screen: from afar they grow (the object shader: dead trees up to 2.5 times, the
@@ -44,10 +48,10 @@
 // redraw looks the same.
 
 import { EntityGeometryCache } from "./entityGeometry";
-import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, type ShaderMaterial } from "three";
+import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS } from "./palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, WATER } from "./palette";
 
 type Rgb = readonly [number, number, number];
 
@@ -264,17 +268,8 @@ const MODELS: Record<string, () => Model> = {
     for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_WOOD);
     return m;
   },
-  Succulent: () => {
-    const m = new Model();
-    for (let k = 0; k < 6; k++) m.add(cone(0.07, 0.42, 4), k % 2 ? [0.4, 0.6, 0.5] : [0.36, 0.55, 0.47], { lift: 0.21, rz: -0.6, ry: (k * Math.PI) / 3, y: 0.02 });
-    m.add(cone(0.06, 0.5, 4), [0.44, 0.63, 0.52], { y: 0.25 });
-    return m;
-  },
-  "Succulent.dead": () => {
-    const m = new Model();
-    for (let k = 0; k < 6; k++) m.add(cone(0.06, 0.36, 4), k % 2 ? [0.55, 0.48, 0.36] : [0.5, 0.43, 0.32], { lift: 0.18, rz: -1.15, ry: (k * Math.PI) / 3, y: 0.02 });
-    return m;
-  },
+  Succulent: () => succulent(false),
+  "Succulent.dead": () => succulent(true),
   BlueberryBush: () => {
     const m = new Model().add(ico(0.3), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.72, sx: 1.1 });
     const flowers: [number, number, number][] = [[0.16, 0.3, 0.12], [-0.08, 0.36, 0.15], [0.05, 0.38, -0.15], [0.22, 0.18, -0.12]];
@@ -378,7 +373,226 @@ const MODELS: Record<string, () => Model> = {
     for (let k = 0; k < 6; k++) branch(m, 0.14 + 0.06 * (k % 2), (k * Math.PI) / 3 + 0.3, 0.5 + 0.25 * (k % 3), 0.34, 0.035, k % 2 ? [0.4, 0.2, 0.16] : [0.25, 0.12, 0.1]);
     return m;
   },
+  WaterSeep: () => seep(false),
+  BadwaterSeep: () => seep(true),
+  Aquifer: aquifer,
+  AncientAquiferDrill: aquiferDrill,
+  BadtideDrain: badtideDrain,
+  UnstableCore: unstableCore,
+  ReservePile: reservePile,
+  ReserveWarehouse: reserveWarehouse,
+  ReserveTank: reserveTank,
 };
+
+// ------------------------------------------------------------------------------ the 1.x objects
+
+// Models of our own for the objects Timberborn 1.x added (the succulent, the seeps, the aquifer and its
+// drill, the badtide drain, the unstable core and the reserves), each within the game's footprint
+// (a model's x is east and z south; a footprint's local y runs north, so −z) and centred on it
+// (`CENTRED`). Flat vertex colours and low triangle counts, like the others; both looks draw them.
+
+/** A square-sectioned bar of half-width r from a to b in space (8 triangles). */
+function beam(m: Model, a: readonly number[], b: readonly number[], r: number, color: Rgb): void {
+  const A = new Vector3(a[0], a[1], a[2]);
+  const B = new Vector3(b[0], b[1], b[2]);
+  const d = B.clone().sub(A);
+  const g = new CylinderGeometry(r * Math.SQRT2, r * Math.SQRT2, d.length(), 4, 1, true).rotateY(Math.PI / 4).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.clone().normalize()));
+  const c = A.add(B).multiplyScalar(0.5);
+  m.add(g, color, { x: c.x, y: c.y, z: c.z });
+}
+
+/** The desert plant (the game's succulent): a rosette of fleshy, pointed blades in sage blue-green, the
+ *  outer ones splayed, the inner ones upright, with a flower spike in coral pink. Dead: the blades
+ *  limp and tan, no flower. At most 64 triangles. */
+function succulent(dead: boolean): Model {
+  const m = new Model();
+  const blade = (r: number, len: number, tilt: number, turn: number, y: number, c: Rgb) => m.add(cone(r, len, 3), c, { lift: len / 2, rz: -tilt, ry: turn, y });
+  if (dead) {
+    for (let k = 0; k < 8; k++) blade(0.09, 0.46, 1.15, (k * Math.PI) / 4 + 0.2, 0.04, k % 2 ? [0.58, 0.5, 0.37] : [0.52, 0.45, 0.33]);
+    for (let k = 0; k < 3; k++) blade(0.08, 0.4, 0.8, (k * Math.PI * 2) / 3, 0.06, [0.5, 0.43, 0.32]);
+    return m;
+  }
+  for (let k = 0; k < 6; k++) blade(0.1, 0.5, 0.85, (k * Math.PI) / 3 + 0.2, 0.05, k % 2 ? [0.4, 0.58, 0.49] : [0.36, 0.53, 0.45]);
+  for (let k = 0; k < 4; k++) blade(0.09, 0.72, 0.42, (k * Math.PI) / 2 + 0.5, 0.08, k % 2 ? [0.5, 0.68, 0.58] : [0.46, 0.64, 0.55]);
+  for (let k = 0; k < 2; k++) blade(0.07, 0.9, 0.12, k * Math.PI, 0.1, [0.56, 0.74, 0.62]);
+  m.add(cyl(0.03, 0.018, 0.45, 3), [0.5, 0.58, 0.36], { y: 0.78 });
+  m.add(oct(0.075), [0.95, 0.42, 0.52], { y: 1.04, sy: 1.4 });
+  m.add(oct(0.045), [0.98, 0.58, 0.64], { x: 0.05, y: 0.92, z: 0.03, sy: 1.4 });
+  return m;
+}
+
+/** The light look's succulent: five blades and a bloom. */
+function liteSucculent(): Model {
+  const m = new Model();
+  for (let k = 0; k < 5; k++) m.add(cone(0.12, 0.55, 3), [0.42, 0.62, 0.52], { lift: 0.275, rz: -0.55, ry: (k * Math.PI * 2) / 5, y: 0.05 });
+  return m.add(oct(0.08), [0.95, 0.42, 0.52], { y: 0.62 });
+}
+
+const SEEP_STONE: Rgb = [0.55, 0.54, 0.5];
+const SEEP_BAD_STONE: Rgb = [0.27, 0.23, 0.21];
+
+/** A seep (2 × 2): a round pool in a ring of stones, the water welling up in the middle; clean in
+ *  water-blue with a pale ripple, bad in the badwater crimson with slow orange-brown bubbles. */
+function seep(bad: boolean): Model {
+  const stone = bad ? SEEP_BAD_STONE : SEEP_STONE;
+  const water: Rgb = bad ? WATER.bad : WATER.shallow;
+  const m = new Model().add(post(0.95, 0.95, 0.02, 10), bad ? [0.15, 0.1, 0.09] : [0.34, 0.31, 0.26], { y: 0.01 });
+  m.add(post(0.7, 0.7, 0.05, 10), shade(water, 0.82), { y: 0.06 });
+  m.add(post(0.62, 0.62, 0.012, 10), water, { y: 0.09 });
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4 + (k % 2) * 0.15;
+    const r = 0.72 + (k % 3 === 0 ? 0.04 : 0);
+    const s = 0.17 + 0.03 * (k % 3);
+    m.add(ico(s), shade(stone, 0.85 + 0.05 * ((k * 5) % 4)), { x: Math.cos(a) * r, y: 0.09, z: Math.sin(a) * r, sy: 0.75, ry: k });
+  }
+  if (bad) {
+    m.add(ico(0.22), [0.31, 0.11, 0.09], { y: 0.11, sy: 0.5 });
+    for (const [x, z, r] of [[0.28, 0.12, 0.1], [-0.3, -0.18, 0.08], [0.08, -0.34, 0.09], [-0.12, 0.34, 0.07]]) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.12, z, sy: 0.9 });
+  } else {
+    m.add(post(0.4, 0.4, 0.012, 10), [0.7, 0.88, 0.92], { y: 0.1 });
+    m.add(post(0.33, 0.33, 0.012, 10), water, { y: 0.108 });
+    m.add(ico(0.17), [0.4, 0.74, 0.8], { y: 0.12, sy: 0.55 });
+    m.add(cyl(0.04, 0.03, 0.14, 5), [0.8, 0.92, 0.94], { y: 0.2 });
+  }
+  return m;
+}
+
+/** The aquifer (3 × 3, a plus of five tiles, its corners empty): damp clay with a round pool of clean
+ *  water in the middle, a pale shore round it, pebbles and small puddles along its arms. */
+function aquifer(): Model {
+  const clay: Rgb = [0.43, 0.36, 0.27];
+  const m = new Model();
+  const cells: [number, number][] = [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]];
+  cells.forEach(([x, z], k) => m.add(box(0.98, 0.05, 0.98), shade(clay, 0.9 + 0.06 * (k % 3)), { x, y: 0.025, z }));
+  m.add(post(0.9, 0.9, 0.02, 10), [0.78, 0.9, 0.92], { y: 0.06 });
+  m.add(post(0.76, 0.76, 0.03, 10), WATER.shallow, { y: 0.075 });
+  m.add(post(0.5, 0.5, 0.012, 10), [0.7, 0.88, 0.92], { y: 0.092 });
+  m.add(post(0.44, 0.44, 0.012, 10), WATER.shallow, { y: 0.1 });
+  const pebbles: [number, number, number][] = [[0.95, 0.2, 0.09], [-0.95, -0.25, 0.08], [0.2, 0.98, 0.09], [-0.25, -1.0, 0.08], [1.25, -0.2, 0.07], [-1.2, 0.3, 0.07], [0.3, 1.3, 0.06], [-0.2, -1.3, 0.07]];
+  for (const [x, z, r] of pebbles) m.add(oct(r), shade([0.6, 0.57, 0.5], 0.9 + 0.2 * Math.abs(Math.sin(x * 7 + z * 3))), { x, y: 0.07, z, sy: 0.7 });
+  for (const [x, z] of [[0, -1.12], [0, 1.12], [-1.12, 0], [1.12, 0]]) m.add(post(0.2, 0.2, 0.02, 5), WATER.shallow, { x, y: 0.06 });
+  return m;
+}
+
+/** The ancient aquifer drill (3 × 3 × 5, over an aquifer): a rusty derrick on a plus-shaped stone footing
+ *  round the well, a steel drill pipe up its middle, a pulley under a roof at the top, and a tall stone
+ *  housing on the south side (its local y = 0 tile) with a pipe to the well. */
+function aquiferDrill(): Model {
+  const stone: Rgb = [0.47, 0.45, 0.41];
+  const iron: Rgb = [0.46, 0.3, 0.18];
+  const steel: Rgb = [0.52, 0.55, 0.58];
+  const m = new Model().add(box(1.1, 0.22, 3.0), stone, { y: 0.11 }).add(box(3.0, 0.22, 1.1), shade(stone, 0.94), { y: 0.11 });
+  // the well
+  m.add(post(0.6, 0.6, 0.3, 8), shade(stone, 0.7), { y: 0.37 });
+  m.add(post(0.42, 0.42, 0.02, 8), WATER.shallow, { y: 0.53 });
+  // the derrick: four legs leaning in, rings round it, braces on two faces
+  const half = (y: number) => 0.6 - (0.3 * (y - 0.22)) / 4.08;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) beam(m, [sx * 0.6, 0.22, sz * 0.6], [sx * 0.3, 4.3, sz * 0.3], 0.055, iron);
+  for (const y of [1.2, 2.4, 3.6]) {
+    const e = half(y);
+    for (const s of [-1, 1]) {
+      beam(m, [-e, y, s * e], [e, y, s * e], 0.04, shade(iron, 1.1));
+      beam(m, [s * e, y, -e], [s * e, y, e], 0.04, shade(iron, 1.1));
+    }
+  }
+  m.level = LOD_NEAR;
+  for (const s of [-1, 1]) {
+    beam(m, [s * half(1.2), 1.2, -half(1.2)], [s * half(2.4), 2.4, half(2.4)], 0.03, shade(iron, 0.9));
+    beam(m, [s * half(1.2), 1.2, half(1.2)], [s * half(2.4), 2.4, -half(2.4)], 0.03, shade(iron, 0.9));
+  }
+  m.level = LOD_ALL;
+  // the drill pipe, the crown, the pulley and the roof
+  m.add(cyl(0.16, 0.16, 4.45, 6), steel, { y: 2.45 });
+  m.add(box(0.8, 0.22, 0.8), shade(iron, 0.85), { y: 4.4 });
+  m.add(post(0.22, 0.22, 0.1, 8), steel, { y: 4.64, rz: Math.PI / 2 });
+  m.add(cone(0.62, 0.42, 4), shade(iron, 0.75), { y: 4.82, ry: Math.PI / 4 });
+  // the housing: tall, stone, three dark slits, a roof, and a pipe down to the well
+  m.add(box(0.86, 2.9, 0.66), shade(stone, 1.05), { y: 1.67, z: 1.0 });
+  m.add(box(1.0, 0.14, 0.8), shade(iron, 0.9), { y: 3.19, z: 1.0 });
+  for (const y of [1.1, 1.8, 2.5]) m.add(box(0.5, 0.12, 0.04), [0.1, 0.1, 0.12], { y, z: 1.34 });
+  beam(m, [0, 0.9, 0.67], [0, 0.9, 0.2], 0.07, steel);
+  m.add(post(0.1, 0.1, 0.06, 6), [0.28, 0.55, 0.66], { y: 0.9, z: 0.45, rx: Math.PI / 2 });
+  return m;
+}
+
+/** The badtide drain (1 × 3, its back against a wall on the −y side): a dark stone block with a channel
+ *  of badwater along its top, an iron grate at the back and a lip at the front over the drop, a sheet of
+ *  badwater pouring off it. The model's north (−z) is the footprint's local +y. */
+function badtideDrain(): Model {
+  const stone: Rgb = [0.33, 0.3, 0.28];
+  const iron: Rgb = [0.18, 0.17, 0.17];
+  const m = new Model().add(box(0.96, 0.85, 2.0), stone, { y: 0.425, z: 0.5 });
+  for (const y of [0.3, 0.6]) m.add(box(0.98, 0.04, 2.0), shade(stone, 0.78), { y, z: 0.5 });
+  for (const s of [-1, 1]) m.add(box(0.2, 0.14, 2.0), shade(stone, 0.8), { x: s * 0.38, y: 0.92, z: 0.5 });
+  m.add(box(0.56, 0.03, 2.0), WATER.bad, { y: 0.875, z: 0.5 });
+  // the grate over the channel's back end
+  for (let k = 0; k < 4; k++) m.add(box(0.58, 0.05, 0.05), iron, { y: 0.95, z: 0.95 + 0.12 * k });
+  for (const s of [-1, 1]) m.add(box(0.04, 0.05, 0.5), iron, { x: s * 0.13, y: 0.95, z: 1.13 });
+  // the spout's lip over the drop, and the badwater pouring off it
+  m.add(box(0.6, 0.1, 0.6), shade(stone, 0.9), { y: 0.8, z: -0.8 });
+  m.add(box(0.5, 0.03, 0.6), WATER.bad, { y: 0.87, z: -0.8 });
+  m.add(box(0.5, 1.3, 0.04), WATER.fallBad, { y: 0.15, z: -1.12 });
+  return m;
+}
+
+/** The unstable core (2 × 2): a glowing violet sphere on a scorched crater, hemmed in by dark broken
+ *  stones and jutting violet crystal shards. The sphere's colours are above the lit range, so it shines. */
+function unstableCore(): Model {
+  const m = new Model().add(post(0.98, 0.9, 0.12, 8), [0.16, 0.12, 0.14], { y: 0.06 });
+  for (let k = 0; k < 5; k++) {
+    const a = (k * Math.PI * 2) / 5 + 0.3;
+    m.add(ico(0.24 + 0.03 * (k % 2)), shade([0.28, 0.22, 0.3], 0.9 + 0.08 * k), { x: Math.cos(a) * 0.68, y: 0.2, z: Math.sin(a) * 0.68, sy: 0.85, ry: k });
+  }
+  for (let k = 0; k < 6; k++) m.add(cone(0.09, 0.5, 4), k % 2 ? [0.62, 0.28, 0.72] : [0.54, 0.22, 0.64], { lift: 0.25, rz: -0.35, ry: (k * Math.PI) / 3 + 1, x: Math.cos((k * Math.PI) / 3) * 0.2, z: Math.sin((k * Math.PI) / 3) * 0.2, y: 0.12 });
+  m.add(new IcosahedronGeometry(0.5, 1), [1.0, 0.52, 1.1], { y: 0.74 });
+  m.add(ico(0.55), [0.55, 0.2, 0.65], { y: 0.74, ry: 0.5, sy: 0.4 });
+  return m;
+}
+
+/** A reserve pile (2 × 2 × 2): a pyramid of logs, four, three, two and one. */
+function reservePile(): Model {
+  const m = new Model();
+  const layers: [number, number][] = [[4, 0.2], [3, 0.58], [2, 0.96], [1, 1.34]];
+  let k = 0;
+  for (const [n, y] of layers)
+    for (let i = 0; i < n; i++, k++) m.add(post(0.2, 0.2, 1.8, 5), shade([0.5, 0.34, 0.19], 0.88 + 0.06 * (k % 4)), { rz: Math.PI / 2, ry: k % 2 ? 0.03 : -0.03, y, z: (i - (n - 1) / 2) * 0.44 });
+  return m;
+}
+
+/** A reserve warehouse (2 × 2 × 1): a small plank shed under a gabled roof, its door on the south side
+ *  (the entrance) and two crates by it. */
+function reserveWarehouse(): Model {
+  const wood: Rgb = [0.6, 0.45, 0.28];
+  const roof: Rgb = [0.4, 0.26, 0.17];
+  const m = new Model().add(box(1.9, 0.08, 1.9), [0.3, 0.22, 0.15], { y: 0.04 }).add(box(1.8, 0.78, 1.6), wood, { y: 0.47 });
+  for (const y of [0.4, 0.66, 0.92]) m.add(box(1.82, 0.04, 1.62), shade(wood, 0.8), { y });
+  const x = 1.0;
+  const z = 0.88;
+  const y0 = 0.86;
+  const y1 = 1.5;
+  m.tris([-x, y0, z, x, y0, z, x, y1, 0, -x, y0, z, x, y1, 0, -x, y1, 0], roof);
+  m.tris([x, y0, -z, -x, y0, -z, -x, y1, 0, x, y0, -z, -x, y1, 0, x, y1, 0], shade(roof, 0.85));
+  m.tris([x, y0, z, x, y0, -z, x, y1, 0], wood);
+  m.tris([-x, y0, -z, -x, y0, z, -x, y1, 0], wood);
+  m.add(box(0.5, 0.56, 0.05), [0.22, 0.14, 0.08], { y: 0.36, z: 0.82 });
+  for (const s of [-1, 1]) m.add(box(0.24, 0.24, 0.2), shade(wood, 1.12), { x: s * 0.68, y: 0.16, z: 0.86, ry: 0.15 * s });
+  return m;
+}
+
+/** A reserve tank (2 × 2 × 3): a steel cylinder on a stone slab with rust bands, a water-blue band,
+ *  a low domed top with a hatch, and a ladder up its south side. */
+function reserveTank(): Model {
+  const steel: Rgb = [0.55, 0.58, 0.6];
+  const rust: Rgb = [0.42, 0.3, 0.2];
+  const m = new Model().add(box(1.9, 0.1, 1.9), [0.4, 0.38, 0.35], { y: 0.05 }).add(post(0.88, 0.88, 2.6, 12), steel, { y: 1.4 });
+  for (const y of [0.45, 1.55, 2.5]) m.add(cyl(0.9, 0.9, 0.1, 12), rust, { y });
+  m.add(cyl(0.895, 0.895, 0.5, 12), [0.25, 0.55, 0.65], { y: 1.0 });
+  m.add(post(0.88, 0.55, 0.25, 12), shade(steel, 1.08), { y: 2.825 });
+  m.add(post(0.12, 0.12, 0.12, 6), rust, { x: 0.15, y: 3.01, z: 0.1 });
+  for (const s of [-1, 1]) beam(m, [s * 0.12, 0.1, 0.93], [s * 0.12, 2.7, 0.93], 0.02, rust);
+  for (let k = 0; k < 6; k++) m.add(box(0.3, 0.03, 0.04), rust, { y: 0.35 + 0.4 * k, z: 0.93 });
+  return m;
+}
 
 // ------------------------------------------------------------------------------ mine sites
 
@@ -636,7 +850,7 @@ const LITE_MODELS: Record<string, () => Model> = {
   "Pine.dead": () => liteDead(0.08, 1.35, 0.12, DEAD_WOOD),
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
-  Succulent: () => new Model().add(cone(0.2, 0.5, 4), [0.4, 0.6, 0.5], { y: 0.25 }),
+  Succulent: liteSucculent,
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.28, 0), [0.14, 0.29, 0.14], { y: 0.2, sy: 0.75 }),
 };
 /** The light look's ruin: a column one block per ruin, as it looks from afar (scaled to its height). */
@@ -655,7 +869,24 @@ function liteDead(r: number, h: number, length: number, color: Rgb): Model {
 }
 
 /** Templates whose model stands in the middle of a footprint: the local point it is centred on. */
-const CENTRED: Record<string, [number, number]> = { BadwaterSource: [1, 1], UndergroundRuins: [2, 2], GeothermalField: [1, 1], SmallRelic: [0.5, 0], MediumRelic: [1, 0.5], LargeRelic: [1, 1] };
+const CENTRED: Record<string, [number, number]> = {
+  BadwaterSource: [1, 1],
+  UndergroundRuins: [2, 2],
+  GeothermalField: [1, 1],
+  SmallRelic: [0.5, 0],
+  MediumRelic: [1, 0.5],
+  LargeRelic: [1, 1],
+  // the 1.x objects (footprint size / 2 - 0.5 in tiles, from the origin tile's middle)
+  WaterSeep: [0.5, 0.5],
+  BadwaterSeep: [0.5, 0.5],
+  Aquifer: [1, 1],
+  AncientAquiferDrill: [1, 1],
+  BadtideDrain: [0, 1],
+  UnstableCore: [0.5, 0.5],
+  ReservePile: [0.5, 0.5],
+  ReserveWarehouse: [0.5, 0.5],
+  ReserveTank: [0.5, 0.5],
+};
 
 /** The district center, its door toward +Z (south, a Cw0 start's entrance side), centred on its
  *  3 × 3 footprint: pale walls under a dark roof on a pale deck, so it stands out on any ground. */
