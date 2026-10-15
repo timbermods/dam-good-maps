@@ -152,7 +152,19 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
   `plainLayers(heights, sw)` is the one layer of a map without caves. A cave column's outflows are not in the view
   (its outflows are each tile's open column's), so its falls estimate their flow from its depth, as a fall without
-  outflows always has (`falls.ts`).
+  outflows always has (`falls.ts`), once a column on what it sees beside it.
+- **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
+  beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
+  heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
+  stroke's water, the settled water) remeshes only the chunks within `LAYER_REACH` of the tiles whose columns changed
+  (`changedColumnChunks`: a column's mesh reads nothing further), and those are dealt and meshed in the water mesh
+  workers on the view itself (`waterMesh.worker.ts`; the columns go with a version, their gaps kept with them), never on
+  the page's thread; the page deals them only without workers. A stroke's land meshes the chunks round it on the layers
+  dealt for the water on show, or sends them to the workers when the water has changed since. The open sky's columns
+  ride the land as a heightfield's water does (`rideLand`, now on maps with water under a roof too: a cave's water,
+  whose floor is not the tile's top, stays), and the layers follow (`rideLayers`). No column is drawn above its ceiling,
+  even when a view holds more (`surfaceOn`); the journey's easing pairs each column with the earlier one on its own
+  floor (`src/editor/waterPlayer.ts` `blendWater`), so a cave's pool never eases from the lake on its roof.
 - **Light:** the water shader reads the light volume at the air just inside the water, as objects and falls under a
   roof do (`materials.ts`, `CAVES` on the water's materials of both looks): all the sky at a mouth, the cave's least deep
   in, the sun the open air's at a mouth fading to the volume's going in. High's water under a roof takes its own
@@ -172,11 +184,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   Dev drew 30 of Hollows' 118 falls through rock (its badwater on a roof pouring into the river's cave), 369 of
   Pressure's 430 (between full caves of different ceilings) and 2 of its curtains; now none of 88 and 61. Layers:
   Hollows 7, Pressure 9, Pillars 8, Nomads 4.
-- **Speed (measured once, information):** dealing the layers in Node: Hollows 11 ms, Pressure 24 ms (median). A water
-  update that meshes every chunk again, real Chrome: Hollows 16 → 34 ms (median of 15; on a map with caves every
-  update meshes all of its water, once each settle); a generated 256² map 36 → 27 ms (the same path; noise). A stroke
-  keeps the layers (only the open sky's follows the new tops) until its water comes. Memory: about 22 bytes a tile for
-  each layer past the first, on maps with water under a roof (5 MB on Hollows, 12 MB on Pressure).
+- **Speed (measured once, information):** the page's thread's water work in each frame of the water after an edit,
+  real Chrome (the water updates and the frame's drawing of meshes): Hollows, a lowered riverbed, dev 32 ms median,
+  81 ms the most (every chunk dealt nowhere but meshed on the page) → 1.1 ms median, 7 ms at the 90th percentile, 12 ms
+  the most; Pressure, its one update after the settle, 90 → 13 ms. Dealing the layers in a worker: Hollows about 11 ms,
+  Pressure 24 ms. A generated map draws as on dev (the same path). Memory: about 22 bytes a tile for each layer past
+  the first, on maps with water under a roof (5 MB on Hollows, 12 MB on Pressure), in each worker that deals them.
 - **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
   river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
   tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).

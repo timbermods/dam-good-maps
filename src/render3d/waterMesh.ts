@@ -414,10 +414,9 @@ export function changedWaterChunks(W: number, H: number, a: SurfaceWater, b: Sur
  *  the water there stands on the new ground, its depth kept, as the water's simulation carries it the
  *  moment it sees that ground (a force's, a stroke's). So the land and its water change in the same
  *  frame, whichever of them reaches the page first. Only water standing on `was` moves (a file's water on
- *  something else keeps its own floor); never with caves' lower water. Over the tiles of `rect` (all of
- *  them when left out); true when any moved. */
+ *  something else keeps its own floor, so does water under a roof, whose floor is not the tile's top). Over the
+ *  tiles of `rect` (all of them when left out); true when any moved. */
 export function rideLand(W: number, sw: SurfaceWater, was: ArrayLike<number>, now: ArrayLike<number>, rect?: { x0: number; y0: number; x1: number; y1: number }): boolean {
-  if (sw.lower.length) return false;
   const H = now.length / W;
   const x0 = Math.max(0, rect?.x0 ?? 0);
   const y0 = Math.max(0, rect?.y0 ?? 0);

@@ -8,13 +8,17 @@
 // pieces. If a worker can't start or fails, the chunks go back to the renderer, which meshes them on the
 // page's thread.
 
-import type { SurfaceWater } from "./model";
+import type { MapView, SurfaceWater, WaterView } from "./model";
 import type { WaterMeshData } from "./waterMesh";
 
-/** The water a chunk is meshed on: the arrays meshWaterChunk reads (a map without terrain above terrain only: `plainLayers`). */
+/** The water a chunk is meshed on: the arrays meshWaterChunk reads (its one layer on a heightfield, `plainLayers`). */
 export type MesherWater = Pick<SurfaceWater, "surface" | "floor" | "depth" | "contamination" | "top" | "outflow">;
 
-export type MesherRequest = { kind: "batch"; id: number; version: number; W: number; H: number; heights: Uint8Array; sw: MesherWater; keys: string[] };
+/** With water per column (waterLayers.ts): the view itself and the map's columns, `key` their version, which the
+ *  workers deal into layers. */
+export type MesherLayered = { view: WaterView; columns: MapView["columns"] & { key: number } };
+
+export type MesherRequest = { kind: "batch"; id: number; version: number; W: number; H: number; heights: Uint8Array; sw: MesherWater; keys: string[]; layered?: MesherLayered };
 export type MesherReply = { kind: "batch"; id: number; chunks: { key: string; data: WaterMeshData }[]; failed: { key: string; error: string }[] };
 
 let warned = false;
@@ -75,7 +79,7 @@ export class WaterMesher {
   }
 
   /** Mesh these chunks (nearest the view first) on the water of `version`: one batch, shared out. */
-  mesh(version: number, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, keys: string[]): void {
+  mesh(version: number, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, keys: string[], layered?: MesherLayered): void {
     if (!this.workers.length) return this.lost(keys);
     const id = this.nextId++;
     // (dealt in turn, so each worker gets near and far chunks alike)
@@ -85,7 +89,7 @@ export class WaterMesher {
     const water: MesherWater = { surface: sw.surface, floor: sw.floor, depth: sw.depth, contamination: sw.contamination, top: sw.top, outflow: sw.outflow };
     try {
       // (copies: the page keeps changing its heights in place)
-      parts.forEach((p, j) => p.length && this.workers[j].postMessage({ kind: "batch", id, version, W, H, heights, sw: water, keys: p } satisfies MesherRequest));
+      parts.forEach((p, j) => p.length && this.workers[j].postMessage({ kind: "batch", id, version, W, H, heights, sw: water, keys: p, layered } satisfies MesherRequest));
     } catch (e) {
       this.fail(e instanceof Error ? e.message : "the water couldn't be sent");
     }

@@ -15,7 +15,7 @@ import { FALL_STRIDE, fallPoint } from "../../src/render3d/falls";
 import { chunkCount } from "../../src/render3d/mesh";
 import { columnMap, LAYERS, surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
 import { meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
-import { plainLayers, waterLayers } from "../../src/render3d/waterLayers";
+import { changedColumnChunks, needsLayers, plainLayers, waterLayers } from "../../src/render3d/waterLayers";
 import { openTimber } from "../../src/worker/session";
 import { heightfieldWaterChunk } from "../fixtures/heightfieldWaterMesher";
 
@@ -217,6 +217,45 @@ describe("water at several levels", () => {
     expect(r.layers, "the cave's water in a layer of its own").toBeGreaterThanOrEqual(2);
     // the ledge's water falls into the pool below it, inside the cave
     expect(r.falls).toBeGreaterThan(0);
+  });
+
+  it("a change of water remeshes only the chunks within reach of the columns that changed: every other chunk is the same", () => {
+    expect(needsLayers(W, H, s.heights, s.columns, s.view)).toBe(true);
+    // the chamber's pool turns bad and sinks a little (in the cave), the rest is unchanged
+    const b: WaterView = { ...s.view, depth: s.view.depth.slice(), contamination: s.view.contamination.slice() };
+    for (let k = 0; k < b.count; k++) {
+      const x = b.tile[k] % W;
+      if (b.floor[k] === 4 && x >= 14 && x <= 16) b.depth[k] -= 0.2;
+      if (b.floor[k] === 4 && x >= 14 && x <= 16) b.contamination[k] = 1;
+    }
+    const changed = changedColumnChunks(W, H, s.view, b);
+    const { nx, ny } = chunkCount(W, H);
+    expect(changed.size, "some chunks, not all").toBeGreaterThan(0);
+    expect(changed.size).toBeLessThan(nx * ny);
+    const la = waterLayers(W, H, s.heights, s.columns, s.view, surfaceWater(W, H, s.view));
+    const lb = waterLayers(W, H, s.heights, s.columns, b, surfaceWater(W, H, b));
+    for (let cy = 0; cy < ny; cy++)
+      for (let cx = 0; cx < nx; cx++) {
+        const same = JSON.stringify(pieces(meshWaterChunk(W, H, la, cx, cy))) === JSON.stringify(pieces(meshWaterChunk(W, H, lb, cx, cy)));
+        if (!changed.has(`${cx},${cy}`)) expect(same, `chunk ${cx},${cy}`).toBe(true);
+      }
+  });
+
+  it("water above its ceiling (a view eased between two frames) is drawn at the ceiling, never through the roof", () => {
+    const over: WaterView = { ...s.view, depth: s.view.depth.slice() };
+    // the chamber's pool (floor 4, ceiling 6) given 3 levels of water
+    const k = [...over.tile].findIndex((i, q) => i === 26 * W + 15 && over.floor[q] === 4);
+    over.depth[k] = 3;
+    const layers = waterLayers(W, H, s.heights, s.columns, over, surfaceWater(W, H, over));
+    const l = layers.find((x) => x.own?.[26 * W + 15] && x.sw.top[26 * W + 15] === k)!;
+    expect(l.sw.surface[26 * W + 15]).toBe(6);
+  });
+
+  it("a map with an arch but no water under it or beside it draws its water as a heightfield's, one layer", () => {
+    const arch = scene(20, 10, (x, y, z) => (x >= 8 && x <= 10 ? z < 2 || (z >= 6 && z < 8) : z < 2), [[2, 2, 2, 0.5, 0]]);
+    expect(needsLayers(20, 10, arch.heights, arch.columns, arch.view)).toBe(false);
+    const sw = surfaceWater(20, 10, arch.view);
+    expect(waterLayers(20, 10, arch.heights, arch.columns, arch.view, sw)).toEqual(plainLayers(arch.heights, sw));
   });
 
   it("the cave's pool sees the cave: its shores at the cave's walls, the pool outside through the mouth, never the lake on the roof", () => {

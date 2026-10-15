@@ -72,7 +72,7 @@ import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterF
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
-import { LAYER_REACH, waterLayers, type WaterLayer } from "./waterLayers";
+import { changedColumnChunks, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
@@ -1101,6 +1101,7 @@ export class MapRenderer {
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
+    this.columnsSent = { ...v.columns, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
@@ -1317,15 +1318,59 @@ export class MapRenderer {
       l.layers[0].ground = m.heights;
       return l.layers;
     }
-    const layers = waterLayers(m.W, m.H, m.heights, m.source.columns, m.water, m.surface);
+    const layers = this.layered ? waterLayers(m.W, m.H, m.heights, m.source.columns, m.water, m.surface) : plainLayers(m.heights, m.surface);
     this.layers = { of: m.surface, columns: m.source.columns, layers };
     return layers;
   }
 
-  /** Whether the water is drawn per column (a map with terrain above terrain): a change anywhere remeshes all of
-   *  it, and moving water is meshed here, never in the workers. */
+  /** The water rode the land over `rect` (`rideLand`): the layers made from it follow. */
+  private rodeLand(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const l = this.layers;
+    if (l && l.of === m.surface) rideLayers(m.W, l.layers, m.surface, rect);
+  }
+
+  /** The columns as the worker last sent them (the water mesh workers' copy), and their version. */
+  private columnsSent: MapView["columns"] & { key: number } = { tiles: new Int32Array(0), voxels: new Uint8Array(0), key: 0 };
+  private columnsKey = 0;
+
+  /** Whether the water is drawn per column (waterLayers.ts `needsLayers`: water under a roof, or beside one): then a
+   *  change remeshes the chunks within LAYER_REACH of the tiles whose columns changed (`changedColumnChunks`) and
+   *  moving water is dealt and meshed in the workers on the view itself. Elsewhere, a map with caves too, the water
+   *  is a heightfield's. */
+  private layeredFor: { water: object; columns: object; on: boolean } | null = null;
+
   private get layered(): boolean {
-    return (this.map?.source.columns.size ?? 0) > 0;
+    const m = this.map;
+    if (!m || !m.source.columns.size) return false;
+    const c = this.layeredFor;
+    if (c && c.water === m.water && c.columns === m.source.columns) return c.on;
+    const on = needsLayers(m.W, m.H, m.heights, m.source.columns, m.water);
+    this.layeredFor = { water: m.water, columns: m.source.columns, on };
+    return on;
+  }
+
+  /** With water per column, the land changed over `rect`: the water chunks within LAYER_REACH of it, meshed now on
+   *  the layers dealt for the water on show (only the open sky's follows the land), else (the water changed since,
+   *  a journey's frame) sent to the workers with it, never dealt here. */
+  private layeredWaterNear(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const r = LAYER_REACH;
+    const keys = dirtyChunks(m.W, m.H, { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r });
+    if (this.layers?.of === m.surface && this.layers.columns === m.source.columns) for (const [cx, cy] of keys) this.meshWater(cx, cy);
+    else {
+      for (const [cx, cy] of keys) this.waterQueue.add(`${cx},${cy}`);
+      this.requestRender();
+    }
+  }
+
+  /** Every water chunk of the map. */
+  private allWaterChunks(): Set<string> {
+    const m = this.map!;
+    const { nx, ny } = chunkCount(m.W, m.H);
+    const out = new Set<string>();
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) out.add(`${cx},${cy}`);
+    return out;
   }
 
   /** A water chunk's mesh on the scene, made on the water of `version` (`sw`). */
@@ -1555,12 +1600,13 @@ export class MapRenderer {
     if (rect && this.drawnLand) {
       this.landBefore ??= this.drawnLand.slice();
       for (let i = 0; i < heights.length; i++) if (heights[i] !== this.drawnLand[i]) this.landBefore[i] = this.drawnLand[i];
-      rideLand(m.W, m.surface, this.drawnLand, heights, rect);
+      if (rideLand(m.W, m.surface, this.drawnLand, heights, rect)) this.rodeLand(rect);
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
     if (columns) {
       m.source = { ...m.source, columns: columnMap(columns) };
+      this.columnsSent = { ...columns, key: ++this.columnsKey };
       this.syncCaves();
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
@@ -1593,8 +1639,8 @@ export class MapRenderer {
     if (m.water.count) {
       // (a fall reads the ground two tiles round its lip: the chunks a tile further; with terrain above terrain a
       // column reads what it sees within LAYER_REACH)
-      const r = this.layered ? LAYER_REACH : 1;
-      for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r })) this.meshWater(cx, cy);
+      if (this.layered) this.layeredWaterNear(rect);
+      else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
       this.waterMotion?.waterChanged(heights, m.surface);
     }
@@ -1614,29 +1660,37 @@ export class MapRenderer {
     return surface;
   }
 
-  /** New water: remesh the chunks whose water changed. */
+  /** New water: remesh the chunks whose water changed (with water per column, in the workers, a frame or two on). */
   updateWater(water: WaterView): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    const layered = this.layered ? 1 : 0;
-    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, layered, layered);
+    const before = { water: m.water, surface: m.surface, layered: this.layered };
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
+    const layered = this.layered;
+    // (with water per column, the chunks within reach of a column that changed, or all of them where the water
+    // turns to or from it)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : changedWaterChunks(m.W, m.H, before.surface, surface, 0, 0);
     // (every chunk drawn on water that differs from this at all: moving water drawn within a hair of
     // itself is drawn exactly now; and a stroke's chunks still waiting, or with the worker)
-    for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
-    for (const key of this.waterQueue) changed.add(key);
-    for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
-    for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
-    this.waterQueue.clear();
-    this.waterReady = null;
-    this.mesherOwn?.clear();
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshWater(cx, cy);
+    if (!layered) for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
+    // (water per column is dealt and meshed in the workers where they run, as a journey's frame is: dealing it here
+    // would cost the page a frame for each)
+    if (layered && this.mesher) for (const key of changed) this.waterQueue.add(key);
+    else {
+      for (const key of this.waterQueue) changed.add(key);
+      for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
+      for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
+      this.waterQueue.clear();
+      this.waterReady = null;
+      this.mesherOwn?.clear();
+      for (const key of changed) {
+        const [cx, cy] = key.split(",").map(Number);
+        this.meshWater(cx, cy);
+      }
     }
     // (the water round the brush may have come or gone)
     this.updateClearAround();
@@ -1674,25 +1728,28 @@ export class MapRenderer {
   /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
   private mesherOwn: WaterMesher | null = null;
 
-  /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
-   *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
-   *  nearest the view's middle first, with the ground's tile data under them. While a stroke is
-   *  painted the water can move all over the map (a lake still filling after a force): meshing every
-   *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
-   *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
+  /** A stroke's water or a frame of the water's journey (live editing, D197): the map's water now (the hover,
+   *  picking and the brush's clear water read it at once), and its changed chunks meshed a few milliseconds' worth
+   *  a frame, nearest the view's middle first, with the ground's tile data under them, in the water mesh workers
+   *  where they run. While a stroke is painted the water can move all over the map (a lake still filling after a
+   *  force): meshing every changed chunk in the frame it came cost the page a frame each time (D244's
+   *  measurements). An `updateWater` meshes whatever still waits. With water per column, the chunks within reach of
+   *  the columns that changed, dealt and meshed in the workers on the view itself. */
   updateWaterSoon(water: WaterView): number {
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    if (this.layered) return this.updateWater(water);
+    const before = { water: m.water, layered: this.layered };
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
     // (land not drawn yet is drawn now with this water on it: the chunks it changed, in this same frame;
     // a force's water comes with its land)
     this.flushTerrain();
-    // (what moved since it was drawn: moving water is drawn again where it moved visibly)
-    const changed = waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
+    const layered = this.layered;
+    // (what moved since it was drawn: moving water is drawn again where it moved visibly; with water per column,
+    // the chunks within reach of a column that changed)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     for (const key of changed) this.waterQueue.add(key);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
@@ -1748,8 +1805,11 @@ export class MapRenderer {
     if (!this.waterQueue.size) return;
     if (this.mesherOwn?.busy) return;
     // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing)
-    const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
-    for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
+    const layered = this.layered;
+    if (!layered) {
+      const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
+      for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
+    }
     if (!this.waterQueue.size) return;
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
@@ -1763,7 +1823,7 @@ export class MapRenderer {
     if (mesher) {
       if (mesher.busy) return;
       this.waterSent = m.surface;
-      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k));
+      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k), layered ? { view: m.water, columns: this.columnsSent } : undefined);
       this.waterQueue.clear();
       return;
     }
@@ -1903,7 +1963,10 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
-    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) this.waterMotion?.waterChanged(heights, m.surface);
+    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
+      this.rodeLand(c.rect);
+      this.waterMotion?.waterChanged(heights, m.surface);
+    }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
@@ -1911,10 +1974,8 @@ export class MapRenderer {
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
-      if (this.layered) {
-        const r = LAYER_REACH;
-        for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: c.rect.x0 - r, y0: c.rect.y0 - r, x1: c.rect.x1 + r, y1: c.rect.y1 + r })) this.meshWater(cx, cy);
-      } else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
+      if (this.layered) this.layeredWaterNear(c.rect);
+      else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {

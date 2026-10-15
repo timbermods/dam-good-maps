@@ -19,9 +19,11 @@
 // first layer is the open sky's (each tile's top and the water on it), as the heightfield mesher had it; every
 // column under a roof, and an open one whose view round a cave differs from that, goes into the first other
 // layer that agrees with its view (a new one where none does). A column's mesh depends only on what it sees,
-// never on which layer holds it.
+// never on which layer holds it, so a chunk is meshed again only where the water within reach of it changed
+// (`changedColumnChunks`). Where no column needs a layer of its own (`needsLayers`: no water under a roof, none
+// beside one), the map's water is drawn as a heightfield's, with its moving water meshed in the workers.
 //
-// Pure TypeScript, no three.js.
+// Pure TypeScript, no three.js: the water mesh workers deal and mesh it too (waterMesh.worker.ts).
 
 import { DT } from "../core/sim/water";
 import { CHUNK } from "./mesh";
@@ -46,10 +48,7 @@ export interface WaterLayer {
 }
 
 /** A map without terrain above terrain: one layer, its surface water on its heights. */
-export function plainLayers(
-  heights: Uint8Array,
-  sw: SurfaceWater,
-): WaterLayer[] {
+export function plainLayers(heights: Uint8Array, sw: SurfaceWater): WaterLayer[] {
   return [{ sw, ground: heights, own: null, chunks: null }];
 }
 
@@ -63,22 +62,28 @@ const SX = [1, -1, 0, 0];
 const SY = [0, 0, 1, -1];
 const SIM_SIDE = [3, 1, 2, 0];
 
-/** The water of `view` dealt into layers over the terrain (`columns`: tile → its 23 voxels, 1 solid, for the
- *  tiles that are not one plain run from the bottom). `sw` is the view's surface water as the renderer holds it
- *  (`surfaceWater`, ridden onto new land); on a map without such tiles it is the only layer (`plainLayers`). */
-export function waterLayers(
-  W: number,
-  H: number,
-  heights: Uint8Array,
-  columns: ReadonlyMap<number, ArrayLike<number>>,
-  view: WaterView,
-  sw: SurfaceWater,
-  R = LAYER_REACH,
-): WaterLayer[] {
-  if (!columns.size) return plainLayers(heights, sw);
+/** The air gaps of a map's columns, made once for them (they change only when an edit reshapes a roof) and kept:
+ *  tile i's [bottom, top) pairs, bottom up, the last open to the sky (`SKY`), from gapAt[i] (−1: a plain tile) to
+ *  gapEnd[i] in `gaps`; and the highest ceiling of a gap under a roof within `R` tiles of each tile (`nearRoof`). */
+export interface WaterGaps {
+  W: number;
+  R: number;
+  gapAt: Int32Array;
+  gapEnd: Int32Array;
+  gaps: Int16Array;
+  tiles: Int32Array;
+  nearRoof: Uint8Array;
+}
+
+const gapsKept = new WeakMap<object, WaterGaps[]>();
+
+/** The gaps of `columns` (tile → its 23 voxels, 1 solid, for the tiles that are not one plain run from the
+ *  bottom), kept with that map of columns. */
+export function waterGaps(W: number, H: number, columns: ReadonlyMap<number, ArrayLike<number>>, R = LAYER_REACH): WaterGaps {
+  const kept = gapsKept.get(columns);
+  const found = kept?.find((g) => g.R === R && g.W === W && g.gapAt.length === W * H);
+  if (found) return found;
   const N = W * H;
-  // the air gaps of each tile that is not plain: [bottom, top) pairs, bottom up, the last open to the sky (`SKY`),
-  // tile i's from gapAt[i] (−1: a plain tile) to gapEnd[i] in `flat`
   const gapAt = new Int32Array(N).fill(-1);
   const gapEnd = new Int32Array(N);
   const flat: number[] = [];
@@ -96,33 +101,72 @@ export function waterLayers(
       while (z < LAYERS && !v[z]) z++;
       flat.push(b, z >= LAYERS ? SKY : z);
     }
-    if (flat.length === gapAt[i] || flat[flat.length - 1] !== SKY)
-      flat.push(LAYERS, SKY);
+    if (flat.length === gapAt[i] || flat[flat.length - 1] !== SKY) flat.push(LAYERS, SKY);
     gapEnd[i] = flat.length;
   }
   const gaps = Int16Array.from(flat);
-  /** The gap (its floor) tile j shows a column at level z under ceiling c: the gap holding z; where rock stands
-   *  at z, the lowest gap above it whose floor is under c; else rock. */
-  const resolve = (j: number, z: number, c: number): number => {
-    const q0 = gapAt[j];
-    if (q0 < 0) {
-      const h = heights[j];
-      return z >= h || h < c ? h : ROCK;
-    }
-    for (let q = q0, end = gapEnd[j]; q < end; q += 2) {
-      const b = gaps[q];
-      if (z < b) return b < c ? b : ROCK;
-      if (z < gaps[q + 1]) return b;
-    }
-    return ROCK;
-  };
-  const ceilingOf = (j: number, b: number): number => {
-    const q0 = gapAt[j];
-    if (q0 >= 0)
-      for (let q = q0, end = gapEnd[j]; q < end; q += 2)
-        if (gaps[q] === b) return gaps[q + 1] === SKY ? Infinity : gaps[q + 1];
-    return Infinity;
-  };
+  // a column on the open gap (seeing from z, under the sky) sees a tile's top unless z is under that tile's highest
+  // roof's ceiling (then it sees into the air under the roof); so it sees what the heightfield mesher saw if z stands
+  // above every such ceiling within reach: their highest, over the tiles within R of each tile
+  const roofed = new Uint8Array(N);
+  for (const i of tiles) {
+    const end = gapEnd[i];
+    // (the highest gap under a roof: the one before the open one)
+    if (end - gapAt[i] >= 4) roofed[i] = gaps[end - 3];
+  }
+  const g: WaterGaps = { W, R, gapAt, gapEnd, gaps, tiles: Int32Array.from(tiles), nearRoof: maxWithin(W, H, roofed, R) };
+  if (kept) kept.push(g);
+  else gapsKept.set(columns, [g]);
+  return g;
+}
+
+/** The gap (its floor) tile j shows a column at level z under ceiling c: the gap holding z; where rock stands at z,
+ *  the lowest gap above it whose floor is under c; else rock. */
+function resolve(g: WaterGaps, heights: Uint8Array, j: number, z: number, c: number): number {
+  const q0 = g.gapAt[j];
+  if (q0 < 0) {
+    const h = heights[j];
+    return z >= h || h < c ? h : ROCK;
+  }
+  const gaps = g.gaps;
+  for (let q = q0, end = g.gapEnd[j]; q < end; q += 2) {
+    const b = gaps[q];
+    if (z < b) return b < c ? b : ROCK;
+    if (z < gaps[q + 1]) return b;
+  }
+  return ROCK;
+}
+
+function ceilingOf(g: WaterGaps, j: number, b: number): number {
+  const q0 = g.gapAt[j];
+  if (q0 >= 0) for (let q = q0, end = g.gapEnd[j]; q < end; q += 2) if (g.gaps[q] === b) return g.gaps[q + 1] === SKY ? Infinity : g.gaps[q + 1];
+  return Infinity;
+}
+
+/** Whether any column of `view` needs a layer of its own: water under a roof, or open water beside one that sees
+ *  into the air under it. Without, the map's water is a heightfield's (`plainLayers`). Cheap: only the columns on
+ *  or near a tile that is not plain are looked at. */
+export function needsLayers(W: number, H: number, heights: Uint8Array, columns: ReadonlyMap<number, ArrayLike<number>>, view: WaterView): boolean {
+  if (!columns.size) return false;
+  const g = waterGaps(W, H, columns);
+  for (let k = 0; k < view.count; k++) {
+    const i = view.tile[k];
+    if (g.gapAt[i] < 0 && g.nearRoof[i] === 0) continue;
+    const f = view.floor[k];
+    if (resolve(g, heights, i, f + 0.0005, Infinity) !== heights[i]) return true;
+    if (Math.max(f + 0.0005, f + view.depth[k] - 0.01) < g.nearRoof[i]) return true;
+  }
+  return false;
+}
+
+/** The water of `view` dealt into layers over the terrain (`columns`: tile → its 23 voxels, 1 solid, for the
+ *  tiles that are not one plain run from the bottom). `sw` is the view's surface water as the renderer holds it
+ *  (`surfaceWater`, ridden onto new land: a tile's open column is drawn where `sw` has it); on a map where no
+ *  column needs a layer of its own it is the only layer (`plainLayers`). */
+export function waterLayers(W: number, H: number, heights: Uint8Array, columns: ReadonlyMap<number, ArrayLike<number>>, view: WaterView, sw: SurfaceWater, R = LAYER_REACH): WaterLayer[] {
+  if (!columns.size) return plainLayers(heights, sw);
+  const N = W * H;
+  const g = waterGaps(W, H, columns, R);
   // each wet column's gap (the one holding its floor, or the first above it where the land rose under it) and
   // what it sees from: a hair under its surface, never above its ceiling, never below its floor
   const n = view.count;
@@ -137,9 +181,9 @@ export function waterLayers(
   for (let k = 0; k < n; k++) {
     const i = view.tile[k];
     const f = view.floor[k];
-    const b = resolve(i, f + 0.0005, Infinity);
+    const b = resolve(g, heights, i, f + 0.0005, Infinity);
     gapOf[k] = b;
-    const c = ceilingOf(i, b);
+    const c = ceilingOf(g, i, b);
     refC[k] = c;
     refZ[k] = Math.max(f + 0.0005, Math.min(f + view.depth[k], c) - 0.01);
     if (b === heights[i]) {
@@ -154,21 +198,10 @@ export function waterLayers(
   const waterIn = (j: number, b: number): number => {
     if (b === heights[j]) return openCol[j];
     let best = -1;
-    for (let k = firstIn[j]; k >= 0; k = nextIn[k])
-      if (gapOf[k] === b && (best < 0 || view.floor[best] < view.floor[k]))
-        best = k;
+    for (let k = firstIn[j]; k >= 0; k = nextIn[k]) if (gapOf[k] === b && (best < 0 || view.floor[best] < view.floor[k])) best = k;
     return best;
   };
-  // a column on the open gap (seeing from z, under the sky) sees a tile's top unless z is under that tile's highest
-  // roof's ceiling (then it sees into the air under the roof); so it sees what the heightfield mesher saw if z stands
-  // above every such ceiling within reach: their highest, over the tiles within R of each tile
-  const roofed = new Uint8Array(N);
-  for (const i of tiles) {
-    const end = gapEnd[i];
-    // (the highest gap under a roof: the one before the open one)
-    if (end - gapAt[i] >= 4) roofed[i] = gaps[end - 3];
-  }
-  const nearRoof = maxWithin(W, H, roofed, R);
+  const nearRoof = g.nearRoof;
   // the open sky's layer: every tile's top and the water on it; a column on it near a roof stays only if it sees the
   // same round it
   const own0 = new Uint8Array(N);
@@ -187,6 +220,8 @@ export function waterLayers(
       rest.push(k);
     }
   }
+  // (a plain map's water stood on its surface as the renderer rode it onto new land: it is the one layer)
+  if (!rest.length) return plainLayers(heights, sw);
   rest.sort((a, b) => view.tile[a] - view.tile[b] || gapOf[a] - gapOf[b]);
   // the other layers: each column into the first whose gaps agree with what it sees within reach
   const keys: Int16Array[] = [];
@@ -195,13 +230,7 @@ export function waterLayers(
   const boxes: number[][] = [];
   const seen = new Int16Array((2 * R + 1) * (2 * R + 1));
   /** Whether `key` agrees with `seen` over the tiles x0..x1 by y0..y1. */
-  const fits = (
-    key: Int16Array,
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number,
-  ): boolean => {
+  const fits = (key: Int16Array, x0: number, y0: number, x1: number, y1: number): boolean => {
     let q = 0;
     for (let yy = y0; yy <= y1; yy++)
       for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++, q++) {
@@ -234,7 +263,7 @@ export function waterLayers(
         continue;
       }
       let m = 0;
-      for (let yy = y0; yy <= y1; yy++) seen[m++] = resolve(yy * W + x1, z, c);
+      for (let yy = y0; yy <= y1; yy++) seen[m++] = resolve(g, heights, yy * W + x1, z, c);
       const key = keys[last];
       let ok = true;
       for (let yy = y0, q = 0; yy <= y1; yy++, q++) {
@@ -245,8 +274,7 @@ export function waterLayers(
         }
       }
       if (ok) {
-        for (let yy = y0, q = 0; yy <= y1; yy++, q++)
-          key[yy * W + x1] = seen[q];
+        for (let yy = y0, q = 0; yy <= y1; yy++, q++) key[yy * W + x1] = seen[q];
         const box = boxes[last];
         if (box[2] < x1) box[2] = x1;
         owns[last][i] = 1;
@@ -257,13 +285,10 @@ export function waterLayers(
     lastClass = cls;
     // what it sees round it, once
     let m = 0;
-    for (let yy = y0; yy <= y1; yy++)
-      for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++)
-        seen[m++] = resolve(j, z, c);
+    for (let yy = y0; yy <= y1; yy++) for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++) seen[m++] = resolve(g, heights, j, z, c);
     // (the layer the last column went into first: the next along its row is most often the same water)
     let L = last < keys.length && fits(keys[last], x0, y0, x1, y1) ? last : -1;
-    if (L < 0)
-      for (L = 0; L < keys.length && !fits(keys[L], x0, y0, x1, y1); L++);
+    if (L < 0) for (L = 0; L < keys.length && !fits(keys[L], x0, y0, x1, y1); L++);
     if (L === keys.length) {
       keys.push(new Int16Array(N).fill(UNSET));
       owns.push(new Uint8Array(N));
@@ -277,75 +302,76 @@ export function waterLayers(
     last = L;
     const key = keys[L];
     m = 0;
-    for (let yy = y0; yy <= y1; yy++)
-      for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++)
-        key[j] = seen[m++];
+    for (let yy = y0; yy <= y1; yy++) for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++) key[j] = seen[m++];
     owns[L][i] = 1;
   }
+  // the outflows of the columns under a roof, which the view does not carry (its outflows are each tile's open
+  // column's): estimated once a column, on what it sees beside it
+  const outflow = view.outflow ? view.outflow.slice() : null;
+  if (outflow)
+    for (const k of rest) {
+      if (openCol[view.tile[k]] === k) continue;
+      const i = view.tile[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      const s = view.floor[k] + Math.min(view.depth[k], refC[k] - view.floor[k]);
+      const head = [0, 0, 0, 0];
+      let sum = 0;
+      for (let d = 0; d < 4; d++) {
+        const xx = x + SX[d];
+        const yy = y + SY[d];
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        const b = resolve(g, heights, j, refZ[k], refC[k]);
+        if (b === ROCK) continue;
+        const w = waterIn(j, b);
+        const floor = w >= 0 ? view.floor[w] : b;
+        if (floor >= s) continue;
+        const e = s - (w >= 0 ? view.floor[w] + view.depth[w] : b);
+        if (e > 0) {
+          head[d] = e;
+          sum += e;
+        }
+      }
+      for (let d = 0; d < 4; d++) outflow[k * 4 + SIM_SIDE[d]] = sum > 0 ? (view.depth[k] / DT) * (head[d] / sum) : 0;
+    }
   const nx = Math.ceil(W / CHUNK);
   const ny = Math.ceil(H / CHUNK);
   const chunksOf = (own: Uint8Array, box: readonly number[]): Uint8Array => {
     const c = new Uint8Array(nx * ny);
-    for (let y = box[1]; y <= box[3]; y++)
-      for (let x = box[0]; x <= box[2]; x++)
-        if (own[y * W + x])
-          c[Math.floor(y / CHUNK) * nx + Math.floor(x / CHUNK)] = 1;
+    for (let y = box[1]; y <= box[3]; y++) for (let x = box[0]; x <= box[2]; x++) if (own[y * W + x]) c[Math.floor(y / CHUNK) * nx + Math.floor(x / CHUNK)] = 1;
     return c;
   };
   const layers: WaterLayer[] = [];
   // the first: the open sky's, as the renderer's surface water has it where every tile's top is its only water
-  const first = surfaceOn(W, H, view, (j) => openCol[j], null, [
-    0,
-    0,
-    W - 1,
-    H - 1,
-  ]);
-  layers.push({
-    sw: first,
-    ground: heights,
-    own: moved ? own0 : null,
-    chunks: null,
-  });
+  // (the renderer's surface water, its open columns only: a tile whose highest water is under a roof has none here)
+  const first: SurfaceWater = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: sw.top.slice(), outflow: outflow ?? view.outflow ?? null, lower: [] };
+  for (const k of rest) {
+    const i = view.tile[k];
+    if (first.top[i] !== k) continue;
+    first.top[i] = openCol[i];
+    if (openCol[i] >= 0) continue;
+    first.surface[i] = NaN;
+    first.floor[i] = NaN;
+    first.depth[i] = 0;
+    first.contamination[i] = 0;
+  }
+  layers.push({ sw: first, ground: heights, own: moved ? own0 : null, chunks: null });
   for (let L = 0; L < keys.length; L++) {
     const key = keys[L];
     const box = boxes[L];
     const ground = new Uint8Array(N).fill(WALL);
-    for (let y = box[1]; y <= box[3]; y++)
-      for (let j = y * W + box[0], end = y * W + box[2]; j <= end; j++)
-        if (key[j] >= 0) ground[j] = key[j];
-    const lsw = surfaceOn(
-      W,
-      H,
-      view,
-      (j) => (key[j] >= 0 ? waterIn(j, key[j]) : -1),
-      view.outflow ? view.outflow.slice() : null,
-      box,
-    );
-    const layer: WaterLayer = {
-      sw: lsw,
-      ground,
-      own: owns[L],
-      chunks: chunksOf(owns[L], box),
-    };
-    estimateOutflows(W, layer, (k) => openCol[view.tile[k]] !== k, box);
-    layers.push(layer);
+    for (let y = box[1]; y <= box[3]; y++) for (let j = y * W + box[0], end = y * W + box[2]; j <= end; j++) if (key[j] >= 0) ground[j] = key[j];
+    const lsw = surfaceOn(W, H, view, sw, (j) => (key[j] >= 0 ? waterIn(j, key[j]) : -1), refC, outflow, box);
+    layers.push({ sw: lsw, ground, own: owns[L], chunks: chunksOf(owns[L], box) });
   }
-  // (a plain map's water stood on its surface as the renderer rode it onto new land: keep that where it is the same)
-  if (!moved && !rest.length)
-    layers[0] = { sw, ground: heights, own: null, chunks: null };
   return layers;
 }
 
 /** A layer's surface water: each tile's column `colAt(j)` (−1: none) of the view, over the tiles of `box`
- *  ([x0, y0, x1, y1]; none elsewhere). */
-function surfaceOn(
-  W: number,
-  H: number,
-  view: WaterView,
-  colAt: (j: number) => number,
-  outflow: Float32Array | null,
-  box: readonly number[],
-): SurfaceWater {
+ *  ([x0, y0, x1, y1]; none elsewhere): where it is the renderer's surface water's column there, as that has it
+ *  (ridden onto new land), and never above its ceiling (`ceiling`, by column). */
+function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colAt: (j: number) => number, ceiling: Float64Array, outflow: Float32Array | null, box: readonly number[]): SurfaceWater {
   const N = W * H;
   const surface = new Float32Array(N).fill(NaN);
   const floor = new Float32Array(N).fill(NaN);
@@ -357,61 +383,89 @@ function surfaceOn(
       const k = colAt(j);
       if (k < 0) continue;
       top[j] = k;
-      floor[j] = view.floor[k];
-      depth[j] = view.depth[k];
-      surface[j] = view.floor[k] + view.depth[k];
       contamination[j] = view.contamination[k];
+      if (sw.top[j] === k && ceiling[k] === Infinity) {
+        floor[j] = sw.floor[j];
+        depth[j] = sw.depth[j];
+        surface[j] = sw.surface[j];
+        continue;
+      }
+      const f = view.floor[k];
+      const d = Math.min(view.depth[k], ceiling[k] - f);
+      floor[j] = f;
+      depth[j] = d;
+      surface[j] = f + d;
     }
-  return {
-    surface,
-    floor,
-    depth,
-    contamination,
-    top,
-    outflow: outflow ?? view.outflow ?? null,
-    lower: [],
-  };
+  return { surface, floor, depth, contamination, top, outflow: outflow ?? view.outflow ?? null, lower: [] };
 }
 
-/** The outflows of the columns under a roof, which the view does not carry (its outflows are each tile's open
- *  column's): estimated as a fall's lip is without outflows (falls.ts `lipOutflow`), the column's depth over the
- *  simulation's substep shared among the sides it flows out of by their head, on what the layer sees. */
-function estimateOutflows(
-  W: number,
-  layer: WaterLayer,
-  roofed: (k: number) => boolean,
-  box: readonly number[],
-): void {
-  const { sw, ground } = layer;
-  const o = sw.outflow;
-  if (!o) return;
-  const H = ground.length / W;
-  for (let y = box[1]; y <= box[3]; y++)
-    for (let x = box[0]; x <= box[2]; x++) {
-      const i = y * W + x;
-      const k = sw.top[i];
-      if (k < 0 || !roofed(k)) continue;
-      const s = sw.surface[i];
-      const head = [0, 0, 0, 0];
-      let sum = 0;
-      for (let d = 0; d < 4; d++) {
-        const xx = x + SX[d];
-        const yy = y + SY[d];
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        const ns = sw.surface[j];
-        const wet = ns === ns;
-        if ((wet ? sw.floor[j] : ground[j]) >= s) continue;
-        const e = s - (wet ? ns : ground[j]);
-        if (e > 0) {
-          head[d] = e;
-          sum += e;
-        }
+/** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`) over the tiles of `rect`: the layers'
+ *  open columns there follow it, as they were made from it. */
+export function rideLayers(W: number, layers: readonly WaterLayer[], sw: SurfaceWater, rect: { x0: number; y0: number; x1: number; y1: number }): void {
+  const H = sw.surface.length / W;
+  for (const l of layers) {
+    if (l.sw === sw) continue;
+    for (let y = Math.max(0, rect.y0); y <= Math.min(H - 1, rect.y1); y++)
+      for (let j = y * W + Math.max(0, rect.x0), end = y * W + Math.min(W - 1, rect.x1); j <= end; j++) {
+        const k = l.sw.top[j];
+        if (k < 0 || sw.top[j] !== k) continue;
+        l.sw.floor[j] = sw.floor[j];
+        l.sw.surface[j] = sw.surface[j];
       }
-      for (let d = 0; d < 4; d++)
-        o[k * 4 + SIM_SIDE[d]] =
-          sum > 0 ? (sw.depth[i] / DT) * (head[d] / sum) : 0;
+  }
+}
+
+/** Chunks whose water a change from view `a` to view `b` reaches (a map with water in layers): every tile whose
+ *  columns differ (their count, floor, depth, badwater share or outflows), and the chunks within `LAYER_REACH` of it,
+ *  since a column's mesh reads only what is within that reach. */
+export function changedColumnChunks(W: number, H: number, a: WaterView, b: WaterView): Set<string> {
+  const N = W * H;
+  const first = (v: WaterView) => {
+    const f = new Int32Array(N + 1);
+    for (let k = 0; k < v.count; k++) f[v.tile[k] + 1]++;
+    for (let i = 0; i < N; i++) f[i + 1] += f[i];
+    return f;
+  };
+  // (the views list each tile's columns together, in the same order frame to frame: compared in place, a tile
+  // listed apart counts as changed)
+  const sorted = (v: WaterView) => {
+    for (let k = 1; k < v.count; k++) if (v.tile[k] < v.tile[k - 1]) return false;
+    return true;
+  };
+  const nx = Math.ceil(W / CHUNK);
+  const ny = Math.ceil(H / CHUNK);
+  const dirty = new Uint8Array(nx * ny);
+  const R = LAYER_REACH;
+  const mark = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let cy = Math.floor(Math.max(0, y - R) / CHUNK); cy <= Math.floor(Math.min(H - 1, y + R) / CHUNK); cy++)
+      for (let cx = Math.floor(Math.max(0, x - R) / CHUNK); cx <= Math.floor(Math.min(W - 1, x + R) / CHUNK); cx++) dirty[cy * nx + cx] = 1;
+  };
+  if (!sorted(a) || !sorted(b)) dirty.fill(1);
+  else {
+    const fa = first(a);
+    const fb = first(b);
+    const oa = a.outflow;
+    const ob = b.outflow;
+    for (let i = 0; i < N; i++) {
+      const na = fa[i + 1] - fa[i];
+      const nb = fb[i + 1] - fb[i];
+      if (!na && !nb) continue;
+      let same = na === nb;
+      for (let q = 0; q < na && same; q++) {
+        const ka = fa[i] + q;
+        const kb = fb[i] + q;
+        if (a.floor[ka] !== b.floor[kb] || a.depth[ka] !== b.depth[kb] || a.contamination[ka] !== b.contamination[kb]) same = false;
+        else if (!oa !== !ob) same = false;
+        else if (oa && ob) for (let c = 0; c < 4; c++) if (oa[ka * 4 + c] !== ob[kb * 4 + c]) same = false;
+      }
+      if (!same) mark(i);
     }
+  }
+  const out = new Set<string>();
+  for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
+  return out;
 }
 
 /** The largest of `v` within r tiles (either way, a square) of each tile. */
@@ -420,24 +474,14 @@ function maxWithin(W: number, H: number, v: Uint8Array, r: number): Uint8Array {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let m = 0;
-      for (
-        let xx = Math.max(0, x - r), end = Math.min(W - 1, x + r);
-        xx <= end;
-        xx++
-      )
-        if (v[y * W + xx] > m) m = v[y * W + xx];
+      for (let xx = Math.max(0, x - r), end = Math.min(W - 1, x + r); xx <= end; xx++) if (v[y * W + xx] > m) m = v[y * W + xx];
       rows[y * W + x] = m;
     }
   const out = new Uint8Array(W * H);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let m = 0;
-      for (
-        let yy = Math.max(0, y - r), end = Math.min(H - 1, y + r);
-        yy <= end;
-        yy++
-      )
-        if (rows[yy * W + x] > m) m = rows[yy * W + x];
+      for (let yy = Math.max(0, y - r), end = Math.min(H - 1, y + r); yy <= end; yy++) if (rows[yy * W + x] > m) m = rows[yy * W + x];
       out[y * W + x] = m;
     }
   return out;

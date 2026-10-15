@@ -1,15 +1,27 @@
 // The water journey's easing frames (waterPlayer.ts), blended in typed arrays and only when shown (R1, the
 // performance audit's water blending): the same water as the original blend, column for column, with the
-// outflows blended too (D353), caves' several columns a tile included.
+// outflows blended too (D353), caves' several columns a tile included: since water per column (3D view, part 4)
+// a column on a tile with several blends from the earlier column on its own floor, never from the lake on its roof.
 
 import { describe, expect, it, vi } from "vitest";
 import { blendWater, WaterPlayer } from "../../src/editor/waterPlayer";
 import type { WaterView } from "../../src/render3d/model";
 
-/** The original blend, as it was before R1 (with the current, D353). */
+/** The original blend, as it was before R1 (with the current, D353), a tile with several columns pairing each with the
+ *  earlier one on its own floor (3D view, part 4). */
 function original(a: WaterView, b: WaterView, t: number): WaterView {
-  const at = new Map<number, number>();
-  for (let k = 0; k < a.count; k++) at.set(a.tile[k], k);
+  const all = new Map<number, number[]>();
+  for (let k = 0; k < a.count; k++) all.set(a.tile[k], [...(all.get(a.tile[k]) ?? []), k]);
+  const inB = new Map<number, number>();
+  for (let k = 0; k < b.count; k++) inB.set(b.tile[k], (inB.get(b.tile[k]) ?? 0) + 1);
+  const at = {
+    get: (i: number, k: number): number | undefined => {
+      const list = all.get(i);
+      if (!list) return undefined;
+      if (list.length === 1 && inB.get(i) === 1) return list[0];
+      return [...list].reverse().find((q) => Math.abs(a.floor[q] - b.floor[k]) < 0.5);
+    },
+  };
   const tiles: number[] = [];
   const floor: number[] = [];
   const depth: number[] = [];
@@ -21,7 +33,7 @@ function original(a: WaterView, b: WaterView, t: number): WaterView {
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
     seen.add(i);
-    const j = at.get(i);
+    const j = at.get(i, k);
     tiles.push(i);
     floor.push(b.floor[k]);
     depth.push((j === undefined ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t);
@@ -90,6 +102,22 @@ describe("the journey's easing frames (R1)", () => {
         const b = view(N, cb);
         for (const t of [0, 1 / 17, 0.5, 16 / 17, 1]) same(blendWater(a, b, t), original(a, b, t));
       }
+  });
+
+  it("ease a cave's pool from its own water, never from the lake on its roof", () => {
+    // tile 5: a pool on the cave's floor at 2 (to its ceiling at 4) under a lake on the roof at 8
+    const col = (floor: number[], depth: number[], bad: number[]): WaterView => ({ count: floor.length, tile: Int32Array.from(floor, () => 5), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(bad) });
+    const a = col([2, 8], [1.5, 2], [0, 1]);
+    const b = col([2, 8], [2, 1], [0.2, 1]);
+    const w = blendWater(a, b, 0.5);
+    expect([...w.depth]).toEqual([1.75, 1.5]);
+    expect(w.contamination[0]).toBeCloseTo(0.1);
+    // the lake gone: the pool still eases from itself
+    const c = blendWater(a, col([2], [2], [0]), 0.5);
+    expect([...c.depth]).toEqual([1.75]);
+    // a heightfield tile whose land moved: its one column eases from its one column, as ever
+    const d = blendWater(col([3], [1], [0]), col([4], [2], [0]), 0.5);
+    expect([...d.depth]).toEqual([1.5]);
   });
 
   it("blend the same twice in a row (nothing left over from the last blend)", () => {
