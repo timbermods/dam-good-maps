@@ -20,7 +20,7 @@ The entry is hidden when your Maps folder has no map from Dam Good Maps.
 
 ## Reload after saving again
 
-Changed the map and saved it again? In the game, press **Ctrl+Shift+R**. If the file changed since the game started, confirm **Reload** to start it over as a new game. Progress in the current game is lost.
+Changed the map and saved it again? In the game, press **Ctrl+Shift+R** (**Cmd+Shift+R** on a Mac). Dam Good Maps saves a repeat as a new file, like `name-2`; the mod finds the newest save of the map you are playing. Confirm **Reload** to start it as a new game. Progress in the current game is lost.
 
 ## Settings
 

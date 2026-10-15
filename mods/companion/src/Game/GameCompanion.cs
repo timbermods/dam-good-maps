@@ -61,10 +61,15 @@ namespace DGMCompanion
                     Remember(settings);
                 }
                 LoadChord(settings);
+                // The reload key is for Dam Good Maps' own files; another map is left alone.
                 if (!_config.MapFileReference.Resource)
                 {
-                    _mapPath = _mapRepository.CustomMapNameToFileName(_config.MapFileReference);
-                    _stamp = MapFileWatch.Take(_mapPath);
+                    string path = _mapRepository.CustomMapNameToFileName(_config.MapFileReference);
+                    if (LatestMap.IsDamGoodMapsFile(path))
+                    {
+                        _mapPath = path;
+                        _stamp = MapFileWatch.Take(_mapPath);
+                    }
                 }
                 MapPath = _mapPath;
                 Faction = _config.FactionId;
@@ -82,6 +87,11 @@ namespace DGMCompanion
 
         private void Remember(CompanionSettings settings)
         {
+            if (settings.Damaged)
+            {
+                CompanionEnv.Warn(CompanionEnv.SettingsFile + " is not readable JSON; it is left as it is and nothing is remembered.");
+                return;
+            }
             string mode = ModeSnapshot.NamedMode(_config.GameMode);
             settings.Faction = _config.FactionId;
             settings.Mode = mode;
@@ -116,7 +126,8 @@ namespace DGMCompanion
             {
                 return;
             }
-            bool ctrl = keyboard.ctrlKey.isPressed, shift = keyboard.shiftKey.isPressed, alt = keyboard.altKey.isPressed;
+            // (on a Mac the Command key stands for Ctrl)
+            bool ctrl = keyboard.ctrlKey.isPressed || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed, shift = keyboard.shiftKey.isPressed, alt = keyboard.altKey.isPressed;
             if (ctrl != _chord.Ctrl || shift != _chord.Shift || alt != _chord.Alt)
             {
                 return;
@@ -133,7 +144,10 @@ namespace DGMCompanion
                 return;
             }
             string name = Path.GetFileNameWithoutExtension(_mapPath);
-            switch (MapFileWatch.Compare(_stamp, MapFileWatch.Take(_mapPath)))
+            // The app never overwrites a map: saving it again makes a new file ("name-2"), so the newest save
+            // of the map is looked for in the folder, not only the file this game started on.
+            ReloadOffer offer = MapFileWatch.Check(_mapPath, _stamp);
+            switch (offer.Change)
             {
                 case FileChange.Unchanged:
                     Show($"{name} has not been saved again since this game started.", null);
@@ -142,7 +156,9 @@ namespace DGMCompanion
                     Show($"The file of {name} is gone, so it cannot be reloaded.", null);
                     break;
                 default:
-                    Show($"{name} was saved again. Start it over as a new game? This game's progress is lost unless you save it first.", Reload);
+                    MapCandidate target = offer.Target;
+                    string said = string.Equals(target.Path, _mapPath, StringComparison.OrdinalIgnoreCase) ? $"{name} was saved again." : $"{target.Name} is a newer save of {name}.";
+                    Show(said + " Start it as a new game? This game's progress is lost unless you save it first.", () => Reload(target));
                     break;
             }
         }
@@ -169,12 +185,13 @@ namespace DGMCompanion
             _dialogOpen = false;
         }
 
-        // The same faction, difficulty and settlement name on the map as it is now.
-        private void Reload()
+        // A new game with the same faction and difficulty on the newest save. The settlement name is the one this
+        // game started with: empty when the game asked for it, so it asks again.
+        private void Reload(MapCandidate target)
         {
             _dialogOpen = false;
-            CompanionEnv.Log("reloading " + _mapPath);
-            _gameSceneLoader.StartNewGame(new NewGameConfiguration(_config.FactionId, _config.MapFileReference, _config.GameMode, _config.SettlementName));
+            CompanionEnv.Log("reloading " + target.Path);
+            _gameSceneLoader.StartNewGame(new NewGameConfiguration(_config.FactionId, MapFileReference.FromDisk(target.Path), _config.GameMode, _config.SettlementName));
         }
     }
 }
