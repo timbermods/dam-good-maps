@@ -58,6 +58,10 @@ export interface BlocksParams {
    *  take the ground from. Plants on a tile's top that only rise or sink with it are not here; they ride
    *  (D368 (10)). Filled in by the session. */
   plants?: string[];
+  /** The plants that stand on a layer other than the surface rule's (the top of the tile): [id, layer].
+   *  A plant stays on the top of the run it stands on when a block is built above it, and a plant that
+   *  rides to another run's top keeps it; the build puts each there (D368 (10)). Filled in by the session. */
+  stands?: [string, number][];
 }
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -78,6 +82,7 @@ export function blockProblems(p: BlocksParams, W: number, H: number): string[] {
   if (p.cut !== undefined && !(isInt(p.cut) && p.cut >= 0 && p.cut <= BLOCK_TOP_LAYER + 1)) return [`the view's cut is a layer from 0 to ${BLOCK_TOP_LAYER + 1}`];
   if (p.cells !== undefined && !(Array.isArray(p.cells) && p.cells.length % 2 === 0 && p.cells.every((c, k) => isInt(c) && (k % 2 ? c > 0 && c < 1 << (BLOCK_TOP_LAYER + 1) : c >= 0 && c < W * H)))) return ["a block operation's cells are pairs [tile, layers] on the map"];
   if (p.plants !== undefined && !(Array.isArray(p.plants) && p.plants.every((id) => typeof id === "string"))) return ["a block operation's plants are object ids"];
+  if (p.stands !== undefined && !(Array.isArray(p.stands) && p.stands.every((e) => Array.isArray(e) && e.length === 2 && typeof e[0] === "string" && isInt(e[1]) && e[1] >= 0 && e[1] <= BLOCK_TOP_LAYER + 1))) return ["a block operation's stands are [plant id, layer]"];
   const axis = axisOf(p.side);
   for (const c of p.at) {
     if (c[0] < 0 || c[1] < 0 || c[0] >= W || c[1] >= H) return [`(${c[0]}, ${c[1]}) is outside the map`];
@@ -166,6 +171,8 @@ export interface BlockGround {
   objects: ReadonlySet<number>;
   /** Every cell a plant occupies → the plant. */
   plants: ReadonlyMap<number, Plant>;
+  /** The plants of each tile. */
+  byTile: ReadonlyMap<number, readonly Plant[]>;
 }
 
 /** A plant (a tree, a bush, a succulent, a ruin column): it stands on the surface where it is and rides
@@ -174,6 +181,8 @@ export interface Plant {
   id: string;
   /** The cell it stands in (its lowest block). */
   base: number;
+  /** How many layers it fills (a pine's three). */
+  h: number;
 }
 
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|RuinColumnH\d+)$/;
@@ -184,6 +193,7 @@ export function blockGround(entities: readonly { id: string; template: string; x
   const N = W * H;
   const objects = new Set<number>();
   const plants = new Map<number, Plant>();
+  const byTile = new Map<number, Plant[]>();
   for (const e of entities) {
     const fp = FOOTPRINTS[e.template];
     if (!fp) continue;
@@ -195,11 +205,13 @@ export function blockGround(entities: readonly { id: string; template: string; x
     if (e.x >= 0 && e.y >= 0 && e.x < W && e.y < H && e.z >= 0) cells.push(e.z * N + e.y * W + e.x);
     for (const b of blocks) if (b.x >= 0 && b.y >= 0 && b.x < W && b.y < H && b.z >= 0) cells.push(b.z * N + b.y * W + b.x);
     if (PLANT.test(e.template)) {
-      const plant = { id: e.id, base: e.z * N + e.y * W + e.x };
+      const plant = { id: e.id, base: e.z * N + e.y * W + e.x, h: blocks.reduce((h, b) => Math.max(h, b.z - e.z + 1), 1) };
       for (const c of cells) plants.set(c, plant);
+      const tile = e.y * W + e.x;
+      byTile.set(tile, [...(byTile.get(tile) ?? []), plant]);
     } else for (const c of cells) objects.add(c);
   }
-  return { objects, plants };
+  return { objects, plants, byTile };
 }
 
 /** What an operation does to the ground it meets. */
@@ -211,8 +223,11 @@ export interface BlockEffect {
   removed: number[];
   /** The plants the blocks fill in or take the ground from (ids): the build removes them. */
   plants: string[];
-  /** How many plants stand on a tile's top that rises or sinks: they ride. */
+  /** How many plants stand on the top of a run that rises or sinks: they ride. */
   riding: number;
+  /** The plants the surface rule would put elsewhere than the run top they stand on (a block built over
+   *  them leaves them where they are; one that rides to another run's top): [id, layer]. */
+  stands: [string, number][];
 }
 
 const NEIGHBOURS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
@@ -228,7 +243,7 @@ const NEIGHBOURS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [
  *  the blocks whose face toward `side` is open (the cell beyond is air, or at or above the cut), so a drag
  *  across a hill takes the surface a viewer sees and nothing buried. */
 export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGround | null = null): BlockEffect {
-  const refuse = (e: string): BlockEffect => ({ errors: [e], added: [], removed: [], plants: [], riding: 0 });
+  const refuse = (e: string): BlockEffect => ({ errors: [e], added: [], removed: [], plants: [], riding: 0, stands: [] });
   const { W, H } = t;
   const N = t.N;
   const bad = blockProblems(p, W, H);
@@ -301,30 +316,61 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
   if (!added.length && !removed.length) return refuse(hidden && p.cut !== undefined ? `nothing below layer ${cut} would change` : p.mode === "add" ? "there is no room for a block there" : "there is no block there to remove");
   added.sort((a, b) => a - b);
   removed.sort((a, b) => a - b);
-  // the plants: one on a tile's top rises or sinks with it; one a block fills in elsewhere, or takes the
-  // ground from, goes
-  const gone = new Set<string>();
-  const riding = new Set<string>();
-  if (ground?.plants.size) {
-    const onTop = (plant: Plant) => {
-      const tile = plant.base % N;
-      return t.surface(tile) === Math.floor(plant.base / N);
-    };
-    for (const c of added) {
-      const plant = ground.plants.get(c);
-      if (!plant) continue;
-      if (c === plant.base && onTop(plant)) riding.add(plant.id);
-      else gone.add(plant.id);
+  // the plants (D368 (10)): one stands on the top of its run of blocks. A block added into its cells takes it
+  // away. Only a change to the top of that run moves it: the run grows over its base, or loses its top blocks,
+  // and it rides. A block built above it, with the cells it fills left free, leaves it where it is, under the
+  // block, even where the surface now is higher.
+  const gone: string[] = [];
+  const stands: [string, number][] = [];
+  let riding = 0;
+  if (ground?.byTile.size) {
+    const changed = new Map<number, number>();
+    for (const c of added) changed.set(c % N, (changed.get(c % N) ?? 0) | (1 << Math.floor(c / N)));
+    for (const c of removed) changed.set(c % N, (changed.get(c % N) ?? 0) | (1 << Math.floor(c / N)));
+    for (const [tile, bits] of changed) {
+      const plants = ground.byTile.get(tile);
+      if (!plants) continue;
+      const was = t.mask[tile];
+      const now = (was | (p.mode === "add" ? bits : 0)) & ~(p.mode === "remove" ? bits : 0);
+      const defaultLayer = surfaceOfMask(now);
+      for (const plant of plants) {
+        const z0 = Math.floor(plant.base / N);
+        // (one not standing on a block, or inside one, is the build's: it leaves it)
+        if (z0 < 1 || !(was & (1 << (z0 - 1))) || (was & (1 << z0))) continue;
+        let z1 = z0;
+        if (!(now & (1 << (z0 - 1)))) {
+          // the top of its run was taken: it sinks to what is left of the run
+          let a = z0 - 1;
+          while (a >= 1 && was & (1 << (a - 1))) a--;
+          let top = -1;
+          for (let z = z0 - 2; z >= a; z--) if (now & (1 << z)) {
+            top = z;
+            break;
+          }
+          if (top < 0) {
+            gone.push(plant.id);
+            continue;
+          }
+          z1 = top + 1;
+        } else if (now & (1 << z0)) {
+          // the run grew over its base: it rides up to the new top
+          z1 = z0;
+          while (now & (1 << z1)) z1++;
+        }
+        let free = true;
+        for (let z = z1; z < z1 + plant.h; z++) if (z > BLOCK_TOP_LAYER || now & (1 << z)) free = false;
+        if (!free) {
+          gone.push(plant.id);
+          continue;
+        }
+        if (z1 !== z0) riding++;
+        if (z1 !== defaultLayer) stands.push([plant.id, z1]);
+      }
     }
-    for (const c of removed) {
-      const plant = ground.plants.get(c + N);
-      if (!plant || plant.base !== c + N) continue;
-      if (onTop(plant)) riding.add(plant.id);
-      else gone.add(plant.id);
-    }
-    for (const id of gone) riding.delete(id);
   }
-  return { errors: [], added, removed, plants: [...gone].sort(), riding: riding.size };
+  gone.sort();
+  stands.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return { errors: [], added, removed, plants: gone, riding, stands };
 }
 
 /** Whether the block at (x, y, z) has its `side` face open to a viewer under the layer cut: the cell beyond

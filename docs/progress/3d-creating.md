@@ -108,11 +108,14 @@ refusals).
   control's value; layers from it up are hidden, 0 to 23): the operation touches nothing in layer `cut` or above, those
   layers count as open air for a remove's exposure, and is refused,
   `nothing below layer N would change`, when nothing below it would. The page sends the cut only when one is set.
-- **Plants** (trees, bushes, succulents, ruin columns) never refuse a click (D368 (10)). A plant on a tile's top rises
-  and sinks with it (the build rides it); one a new block fills in anywhere but where it stands on the top, or whose
-  ground a removal takes from under it off the top, goes: the session lists their ids in `params.plants` and the build
-  deletes them quietly with the step (undo brings them back). `blockFalls` counts them: `plantsRemoved`, `plantsRiding`.
-  Anything else standing there (a slope, a source, a building) still refuses, below.
+- **Plants** (trees, bushes, succulents, ruin columns) never refuse a click (D368 (10)). A plant stays on the top of the
+  run of blocks it stands on. Only a change to the top of that run moves it: the run grows over its base, or loses its
+  top blocks, and it rides to the new top (`plantsRiding`). A block added into its cells takes it away
+  (`plantsRemoved`; the session lists the ids in `params.plants` and the build deletes them quietly with the step, undo
+  brings them back). A block added above it, its cells left free, leaves it where it is, under the block, though the
+  tile's surface is now higher: the session records each plant it puts on another layer than the tile's top in
+  `params.stands` ([id, layer]) and the build puts it there. Anything else standing there (a slope, a source, a building)
+  still refuses, below.
 - The session fills in `params.cells` (the blocks changed, pairs [tile, layers]) when it takes the operation; the build and
   every replay apply those literally. A caller never sends it. An operation moves no tile but its own: the integrity pass
   never tidies the tiles beside a dug one.

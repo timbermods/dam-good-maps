@@ -485,6 +485,61 @@ describe("plants in the footprint ride, or go and are counted (D368 (10))", () =
   });
 });
 
+describe("a plant stays on the top of the run it stands on (D368 (10))", () => {
+  const PINE = "11111111-2222-4333-8444-555555555555";
+  const walled = () => {
+    const s = caveSession();
+    expect(s.apply({ op: "placeEntity", params: { id: PINE, template: "Pine", x: 8, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
+    // the wall beside it at x = 7, up to layer 12
+    for (let z = 7; z <= 11; z++) expect(s.apply(op(add("+z", [[7, 30, z]]))).errors).toEqual([]);
+    expect(s.built.heights[at(7, 30)]).toBe(13);
+    return s;
+  };
+  const pine = (s: MapSession) => s.built.entities.find((e) => e.id === PINE);
+
+  it("a block built above it leaves it where it is, and blockFalls says so", () => {
+    for (const layer of [12, 11]) {
+      const s = walled();
+      expect(pine(s)!.z).toBe(8);
+      const over = add("+x", [[7, 30, layer]]);
+      const q = blockFalls(s, over);
+      expect(q.reason, `layer ${layer}`).toBeNull();
+      expect(q.plantsRemoved).toBe(0);
+      expect(q.plantsRiding).toBe(0);
+      expect(s.apply(op(over)).errors).toEqual([]);
+      // the tile's top is the new block's, the plant is under it
+      expect(s.built.heights[at(8, 30)]).toBe(layer + 1);
+      expect(pine(s)!.z, `layer ${layer}`).toBe(8);
+      // the same after a reopen, a replay and an undo and redo
+      s.settleCanonical();
+      expect(pine(MapSession.open(decodeProject(s.project()), { rebuild: true }))!.z).toBe(8);
+      expect(pine(MapSession.open(decodeProject(s.project())))!.z).toBe(8);
+      expect(s.undo()).toBe(true);
+      expect(pine(s)!.z).toBe(8);
+      expect(s.redo()).toBe(true);
+      expect(pine(s)!.z).toBe(8);
+    }
+  });
+
+  it("a block into its cells takes it, and one that takes the top of its run sinks it under the block above", () => {
+    const s = walled();
+    const crown = add("+x", [[7, 30, 9]]);
+    const q = blockFalls(s, crown);
+    expect(q.plantsRemoved).toBe(1);
+    expect(q.plantsRiding).toBe(0);
+    const sunk = caveSession();
+    expect(sunk.apply({ op: "placeEntity", params: { id: PINE, template: "Pine", x: 8, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
+    for (let z = 7; z <= 11; z++) expect(sunk.apply(op(add("+z", [[7, 30, z]]))).errors).toEqual([]);
+    expect(sunk.apply(op(add("+x", [[7, 30, 12]]))).errors).toEqual([]);
+    // the top block of the run it stands on goes: it sinks with the run, not up to the surface
+    const down = remove("+z", [[8, 30, 7]]);
+    expect(blockFalls(sunk, down).plantsRiding).toBe(1);
+    expect(sunk.apply(op(down)).errors).toEqual([]);
+    expect(pine(sunk)!.z).toBe(7);
+    expect(sunk.built.heights[at(8, 30)]).toBe(13);
+  });
+});
+
 describe("the Block tool's steps undo, replay and save exactly", () => {
   it("random blocks and strokes: nothing falls, an incremental build equals a full one, undo and redo give each state's exact runs, the project replays onto the same runs", () => {
     const s = caveSession();

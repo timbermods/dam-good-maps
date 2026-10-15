@@ -1073,8 +1073,8 @@ export class MapSession {
     if (applied.op === "blocks") {
       const { x: W, y: H } = this.size;
       const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), this.groundOf(this.cur.entities));
-      const { plants: _asked, ...rest } = applied.params;
-      applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}) };
+      const { plants: _asked, stands: _stands, ...rest } = applied.params;
+      applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
     }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the

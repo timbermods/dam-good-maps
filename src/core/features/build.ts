@@ -1280,6 +1280,20 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    a kept resource never stands under another object (the editor removes those a start or an
   //    object is moved onto, tools.ts `startClears`; this only keeps the file whole)
   let finalEntities = passB.entities;
+  //    (a plant the Block tool left on the top of its run, under a block built over it, stands there, not on the
+  //    surface: each operation's `stands`, the latest first to last, where the ground still holds it)
+  const stood = new Map<string, number>();
+  for (const sc of input.sculpts ?? []) if (isBlocks(sc.params) && sc.params.stands) for (const [id, z] of sc.params.stands) stood.set(id, z);
+  if (stood.size) {
+    const dug = masksOf(terrain);
+    finalEntities = finalEntities.map((e) => {
+      const z = stood.get(e.id);
+      if (z === undefined || z === e.z) return e;
+      const m = dug.get(e.y * W + e.x);
+      // (its ground is the tile's blocks as the operations left them: a block under it, air in it)
+      return m !== undefined && z >= 1 && m & (1 << (z - 1)) && !(m & (1 << z)) ? liftEntity(e, z) : e;
+    });
+  }
   if (keptBy) {
     const held = new Set<number>();
     for (const e of finalEntities) if (!keptBy.has(e.owner)) for (const [x, y] of entityTiles(e)) if (x >= 0 && x < W && y >= 0 && y < H) held.add(y * W + x);
@@ -1408,14 +1422,20 @@ function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: nu
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;
+  return liftEntity(e, now);
+}
+
+/** An object at layer `z` of its tile (an imported one carries its coordinates in its raw components). */
+function liftEntity(e: EntitySpec, z: number): EntitySpec {
+  if (!e.raw) return { ...e, z };
   const comps = e.raw.Components as Record<string, unknown> | undefined;
   const bo = comps?.BlockObject as Record<string, unknown> | undefined;
-  if (!bo) return e;
+  if (!bo) return { ...e, z };
   const nb: Record<string, unknown> = {};
-  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: now } : bo[k];
+  for (const k of Object.keys(bo)) nb[k] = k === "Coordinates" ? { X: e.x, Y: e.y, Z: z } : bo[k];
   const nc: Record<string, unknown> = {};
   for (const k of Object.keys(comps!)) nc[k] = k === "BlockObject" ? nb : comps![k];
-  return { ...e, z: now, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
+  return { ...e, z, raw: { ...e.raw, Components: nc as EntitySpec["components"] } };
 }
 
 const baseModels = new WeakMap<BaseLayer, { model: WaterModel; emitters: string }>();
