@@ -8,6 +8,7 @@ import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
+import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
@@ -235,9 +236,14 @@ const api = {
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);
   },
-  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void) {
-    const r = await ed.exportTimber(confirmWarnings, onProgress);
-    return transfer(r, [r.bytes.buffer as Transferable]);
+  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void, opts?: { picture?: boolean }) {
+    const r = await ed.exportTimber(confirmWarnings, onProgress, opts);
+    return transfer(r, [r.bytes.buffer as Transferable, ...((r.picture ? viewBuffers(r.picture) : []) as Transferable[])]);
+  },
+  /** A .timber file with another map_thumbnail.jpg (the page's 3D picture, D488), or the reason it can't take it. */
+  replaceThumbnail(timber: Uint8Array, jpeg: Uint8Array) {
+    const r = replaceThumbnail(timber, jpeg);
+    return r.ok ? transfer(r, [r.bytes.buffer as Transferable]) : r;
   },
   project(level?: number) {
     const r = ed.project(level);

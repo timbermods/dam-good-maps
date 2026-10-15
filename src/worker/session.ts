@@ -364,12 +364,17 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
+/** The whole map as it stands, the water its file starts with (nothing marked as sent). */
+function wholeView(s: MapSession): MapView {
+  const b = s.built;
+  return { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+}
+
 /** The whole map view (opening a map, or returning to it). */
 export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
-  const b = s.built;
-  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+  const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
@@ -1424,8 +1429,10 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
  *  confirmed; confirmed warnings are noted in the map's description. The water settles
- *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water). */
-export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string }> {
+ *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
+ *  `picture`: with the file, the map exactly as it is written (its canonical water), when the file
+ *  carries the core's top-down thumbnail, for the page's 3D picture of it (D488). */
+export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void, opts: { picture?: boolean } = {}): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string; picture?: MapView }> {
   const s = need();
   const v0 = version;
   let bg = await backgroundCheck(onProgress);
@@ -1437,8 +1444,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
   // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
-  return { ok: true, errors: [], bytes, fileName };
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  return { ok: true, errors: [], bytes, fileName, ...(opts.picture && thumbnailDrawn ? { picture: wholeView(s) } : {}) };
 }
 
 /** The project file (downloads use gzip level 9; autosave a faster level). */

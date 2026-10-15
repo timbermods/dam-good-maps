@@ -387,7 +387,8 @@ export class MapRenderer {
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
 
-  constructor(canvas: HTMLCanvasElement) {
+  /** `input: false`: a view nobody steers (the map's picture, `hero.ts`): no pointer or key reaches it. */
+  constructor(canvas: HTMLCanvasElement, opts: { input?: boolean } = {}) {
     this.canvas = canvas;
     // a browser that draws in software gets the light look, without multisampling (D110)
     this.software = softwareRendering() && !window.dgmLookTest?.gpu;
@@ -439,7 +440,7 @@ export class MapRenderer {
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
     this.fit();
-    this.bindInput();
+    if (opts.input !== false) this.bindInput();
     if (!this.software) {
       this.gpuName = this.gpu().renderer;
       this.chosenEffects = effectsFrom(savedOff());
@@ -725,6 +726,14 @@ export class MapRenderer {
     this.choice = tier === "standard" ? "standard" : "high";
     this.governor = null;
     this.applyLook(tier);
+  }
+
+  /** The map's picture's look (D488, `hero.ts`): High with every effect, held (Standard where High can't
+   *  be drawn); nothing saved, so the player's own choices stay. */
+  holdShowcase(): void {
+    if (this.software) return;
+    this.chosenEffects = allEffects();
+    this.holdTier(this.canHigh ? "high" : "standard");
   }
 
   /** Report this frame cost instead of the measured one (the fallback's tests), or measure again. */
@@ -2371,26 +2380,8 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
     const outline = drawnOutline(m.W, m.H, m.heights);
-    const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
-    const box = () => {
-      this.placeCamera();
-      const cam = this.camera();
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (let k = 0; k < outline.length; k += 3) {
-        v.set(outline[k], outline[k + 1], outline[k + 2]).project(cam);
-        const x = ((v.x + 1) / 2) * w;
-        const y = ((1 - v.y) / 2) * h;
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-      return { x0, y0, x1, y1 };
-    };
+    const box = () => this.screenBox(outline);
     const r = this.canvas.getBoundingClientRect();
     // the part of the canvas the page's controls leave
     const ins = this.insets;
@@ -2412,6 +2403,30 @@ export class MapRenderer {
       if (!at || !mid) break;
       this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
     }
+  }
+
+  /** The box round world points (x, y, z, three to a point; `drawnOutline`'s) as the camera sees them now, in
+   *  CSS pixels relative to the canvas. */
+  screenBox(points: Float32Array): { x0: number; y0: number; x1: number; y1: number } {
+    this.placeCamera();
+    const cam = this.camera();
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    const v = new Vector3();
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let k = 0; k < points.length; k += 3) {
+      v.set(points[k], points[k + 1], points[k + 2]).project(cam);
+      const x = ((v.x + 1) / 2) * w;
+      const y = ((1 - v.y) / 2) * h;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    return { x0, y0, x1, y1 };
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
