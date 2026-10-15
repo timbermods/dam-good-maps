@@ -91,13 +91,20 @@ refusals).
   run from −⌊(size−1)/2⌋ for `size` blocks. A footprint over the edge of the map or the layers is clipped, as a brush is
   (the cell beyond the face still has to be on the map). A cell that already holds a block (add) or none (remove) is
   skipped.
+- **Exposure (a remove):** a remove takes a swept block only if the cell beyond its `side` face is air (or off the map or
+  the layers) or at or above `cut`, so a drag across a hill takes the surface a viewer sees and nothing buried, and a
+  cut opens what it hides. It is always applied (no `cut` means no cut), read from the ground before the operation: a
+  block taken earlier in the sweep opens nothing for the next. To dig into a wall, aim at its open face; to go deeper,
+  click again (or hold Shift on the page). If every swept block is buried the operation is refused,
+  `there is no block there to remove`.
 - **Chaining (an add):** in sweep order (each swept position's footprint in turn) a block goes into a cell only where it
   touches a block, one of the terrain or one this operation added earlier, so a drag over air grows a span from the
   ground across it. A position reached before the span gets to it adds nothing; the support rule still limits the span
   (a block more than 3 sideways from support falls and the operation is refused with its line).
 - **`area`** is Select's working area as runs, taken as the brushes take it: a cell (the one beyond the face for an add)
   outside it refuses the operation, `(x, y) is outside the selection`. **`cut`** is the view's cut level (the level
-  control's value; layers from it up are hidden): the operation touches nothing in layer `cut` or above, and is refused,
+  control's value; layers from it up are hidden, 0 to 23): the operation touches nothing in layer `cut` or above, those
+  layers count as open air for a remove's exposure, and is refused,
   `nothing below layer N would change`, when nothing below it would. The page sends the cut only when one is set.
 - **Plants** (trees, bushes, succulents, ruin columns) never refuse a click (D368 (10)). A plant on a tile's top rises
   and sinks with it (the build rides it); one a new block fills in anywhere but where it stands on the top, or whose

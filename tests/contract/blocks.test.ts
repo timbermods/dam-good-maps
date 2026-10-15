@@ -29,6 +29,8 @@ const tile = (x: number, y: number) => [4 * x + 2, 4 * y + 2];
 const area = (tool: "raise" | "lower", target: number, x0: number, y0: number, x1: number, y1: number): BrushParams => ({ tool, size: 1, strength: 5, shape: "area", target, dabs: [...tile(x0, y0), ...tile(x1, y1)] });
 const voxelsOut = (s: MapSession) => decodeWorld(strFromU8(unzipSync(s.exportTimber().bytes)["world.json"]).replace(/^﻿/, "")).voxels;
 const maskList = (s: MapSession) => [...masksOf(s.built.cache.terrain)];
+/** A 3 × 3 hole in the cave's west wall, dug from the cave: the open face of the wall's blocks looks at the cave's air. */
+const hollow = (): BlocksParams => remove("+x", [[14, 17, 4]], 3);
 
 describe("the Block tool on a map with a cave and a ledge", () => {
   it("a click adds one block on the face pointed at, on top and against a wall", () => {
@@ -55,15 +57,15 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.apply(op(remove("+z", [[10, 10, 7]]))).errors).toEqual([]);
     expect(s.terrain.runs(at(10, 10))).toEqual([0, 7]);
     expect(s.built.heights[at(10, 10)]).toBe(7);
-    // a 3 × 3 hole three layers under the surface of solid ground
-    const dig = s.apply(op(remove("+z", [[24, 24, 4]], 3)));
+    // a 3 × 3 hole in the wall, dug from the cave
+    const dig = s.apply(op(hollow()));
     expect(dig.errors).toEqual([]);
-    for (let y = 23; y <= 25; y++) for (let x = 23; x <= 25; x++) {
-      expect(s.terrain.runs(at(x, y))).toEqual([0, 4, 5, 8]);
-      expect(s.built.heights[at(x, y)]).toBe(8);
+    for (let y = 16; y <= 18; y++) {
+      expect(s.terrain.runs(at(14, y))).toEqual([0, 3, 6, 8]);
+      expect(s.built.heights[at(14, y)]).toBe(8);
     }
     // (the cave's 6 × 6 and the ledge's 3 × 5 tiles are columns too)
-    expect(s.columns.size).toBe(6 * 6 + 3 * 5 + 9);
+    expect(s.columns.size).toBe(6 * 6 + 3 * 5 + 3);
     expect(Array.from(voxelsOut(s))).toEqual(Array.from(s.terrain.voxels()));
   });
 
@@ -131,29 +133,31 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(s.apply(op(remove("+z", [[8, 30, 7]]))).errors).toEqual(["an object stands on the block at (8, 30) in layer 7"]);
     expect(s.apply(op(remove("+z", [[7, 29, 7]], 3))).errors).toEqual(["an object stands on the block at (8, 30) in layer 7"]);
     expect(s.history().length).toBe(steps);
-    // (lower in the same column the tree stands over: allowed, the tree stays on its top block)
-    expect(s.apply(op(remove("+z", [[8, 30, 3]]))).errors).toEqual([]);
+    // (deeper in the same column the blocks are buried: a remove takes only what a viewer sees)
+    expect(s.apply(op(remove("+z", [[8, 30, 3]]))).errors).toEqual(["there is no block there to remove"]);
     expect(s.built.entities.find((e) => e.id === tree.id)!.z).toBe(8);
   });
 
   it("ground that would fall is refused with its count, which blockFalls shows first", () => {
     const s = caveSession();
-    const before = s.terrain.mask.slice();
-    const seq = s.nextSeq;
-    // the cliff that holds the ledge, cut away (layers 4–7 of five tiles of the wall)
-    const cut = remove("+x", [[29, 12, 5]], 5);
+    // the cliff that holds the ledge, taken from the top down, a layer at a time (each is open once the one above is gone)
+    const wall = (z: number) => remove("+z", [10, 11, 12, 13, 14].map((y): [number, number, number] => [29, y, z]));
+    expect(s.apply(op(wall(7))).errors).toEqual([]);
+    expect(s.apply(op(wall(6))).errors).toEqual([]);
+    const held = s.terrain.mask.slice();
+    const cut = wall(5);
     const q = blockFalls(s, cut);
     expect(q.errors).toEqual([]);
-    expect(q.removed.length).toBe(5 * 5);
-    expect(q.falls.length).toBeGreaterThan(0);
-    // every block named is a solid block of the ledge
+    expect(q.removed.length).toBe(5);
+    // the ledge: three tiles out, three layers, five rows
+    expect(q.falls.length).toBe(3 * 3 * 5);
     for (const [x, y, z] of q.falls) expect(s.terrain.solid(at(x, y), z)).toBe(true);
+    const seq = s.nextSeq;
     const u = s.apply(op(cut));
     expect(u.ok).toBe(false);
     expect(u.errors).toEqual([`${q.falls.length} blocks of ground would fall: nothing would hold them up`]);
     expect(q.reason).toBe(u.errors[0]);
-    expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
-    expect(s.canUndo).toBe(false);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(held));
     expect(s.nextSeq).toBe(seq);
     // an add of ground three tiles past what holds it up falls; one within reach does not
     const far = add("+z", [[34, 12, 7]]);
@@ -167,7 +171,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(fine.reason).toBeNull();
     expect(fine.falls).toEqual([]);
     expect(fine.added).toEqual([[10, 10, 8]]);
-    expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(held));
   });
 
   it("a drag over air chains: each block that touches the ground or one added earlier grows a span", () => {
@@ -226,34 +230,28 @@ describe("the Block tool on a map with a cave and a ledge", () => {
 
   it("the view's cut: nothing from the cut up is touched, and nothing below it to change is refused", () => {
     const s = caveSession();
-    // the roof is layers 6 and 7 over the cave's air; a size 3 cut across the wall at y = 17
-    const wall = remove("+y", [[17, 17, 6]], 3);
-    expect(blockFalls(s, wall).removed.map(([, , z]) => z).sort()).toEqual([6, 6, 6, 7, 7, 7]);
-    const cut7 = { ...wall, cut: 7 };
-    const q = blockFalls(s, cut7);
-    expect(q.removed.map(([, , z]) => z)).toEqual([6, 6, 6]);
-    expect(s.apply(op(cut7)).errors).toEqual([]);
-    expect(s.terrain.runs(at(17, 17))).toEqual([0, 3, 7, 8]);
-    // cut at the roof's underside: only air below it
-    const flush = { ...remove("+y", [[17, 17, 6]], 3), cut: 6 };
-    expect(blockFalls(caveSession(), flush).reason).toBe("nothing below layer 6 would change");
-    expect(caveSession().apply(op(flush)).errors).toEqual(["nothing below layer 6 would change"]);
+    // the wall's 3 × 3 hole reaches layers 3 to 5
+    expect(blockFalls(s, hollow()).removed.map(([, , z]) => z).sort()).toEqual([3, 3, 3, 4, 4, 4, 5, 5, 5]);
+    const cut5 = { ...hollow(), cut: 5 };
+    expect(blockFalls(s, cut5).removed.map(([, , z]) => z).sort()).toEqual([3, 3, 3, 4, 4, 4]);
+    expect(s.apply(op(cut5)).errors).toEqual([]);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 5, 8]);
   });
 
-  it("a hollow whose roof spans too far is refused, a narrower one is not", () => {
+  it("a remove takes what a viewer sees: buried blocks stay, a sweep across a step leaves them, and a layer cut opens what it hides", () => {
     const s = caveSession();
-    // a hole 8 wide under a roof one layer thick: the roof's middle 2 × 2 is four tiles from any wall
-    const wide = remove("+z", [[9, 30, 6]], 8);
-    const q = blockFalls(s, wide);
-    expect(q.errors).toEqual([]);
-    expect(q.removed.length).toBe(64);
-    expect(q.falls.length).toBe(4);
-    expect(s.apply(op(wide)).errors).toEqual(["4 blocks of ground would fall: nothing would hold them up"]);
-    expect(s.canUndo).toBe(false);
-    expect(s.columns.size).toBe(6 * 6 + 3 * 5);
-    // six wide (the game's flat roof spans six) holds
-    expect(s.apply(op(remove("+z", [[9, 30, 6]], 6))).errors).toEqual([]);
-    expect(s.columns.size).toBe(6 * 6 + 3 * 5 + 36);
+    // the plateau around (10, 10) is solid to layer 7 (surface 8): layer 6 is buried, layer 7 is the seen surface
+    const sweep: [number, number, number][] = [[10, 10, 6], [11, 10, 6], [12, 10, 6]];
+    expect(blockFalls(s, remove("+z", sweep)).reason).toBe("there is no block there to remove");
+    expect(s.apply(op(remove("+z", sweep))).errors).toEqual(["there is no block there to remove"]);
+    // the surface layer is open
+    const top: [number, number, number][] = [[10, 10, 7], [11, 10, 7]];
+    expect(blockFalls(s, remove("+z", top)).removed.length).toBe(2);
+    // under a cut at 7 the layer 7 is cut away, so layer 6 is the seen surface
+    expect(blockFalls(s, { ...remove("+z", sweep), cut: 7 }).removed.length).toBe(3);
+    // a cut below everything it could touch, and a bad cut, are refused with a line
+    expect(blockFalls(s, { ...hollow(), cut: 3 }).reason).toBe("nothing below layer 3 would change");
+    expect(blockFalls(s, { ...hollow(), cut: 99 }).reason).toMatch(/cut/);
   });
 
   it("what the query names is what the step changes", () => {
@@ -261,7 +259,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     const rand = mulberry(3);
     let taken = 0;
     for (let k = 0; k < 40; k++) {
-      const p = randomBlocks(rand, 14);
+      const p = randomBlocks(rand, 14, s.built.heights);
       const was = s.terrain.mask.slice();
       const q = blockFalls(s, p);
       const u = s.apply(op(p));
@@ -291,13 +289,18 @@ describe("the Block tool on a map with a cave and a ledge", () => {
 });
 
 /** A random block operation near the cave and the ledge. */
-function randomBlocks(rand: () => number, r: number): BlocksParams {
+function randomBlocks(rand: () => number, r: number, heights?: ArrayLike<number>): BlocksParams {
   const sides: BlocksParams["side"][] = ["+x", "-x", "+y", "-y", "+z", "-z"];
   const side = sides[Math.floor(rand() * 6)];
   const mode = rand() < 0.5 ? "add" : "remove";
   const cx = rand() < 0.6 ? 18 : 31;
   const cy = rand() < 0.6 ? 18 : 12;
-  const pos = (): [number, number, number] => [cx + Math.round((rand() - 0.5) * 2 * r), cy + Math.round((rand() - 0.5) * 2 * r), 1 + Math.floor(rand() * 8)];
+  // (near the surface when the heights are given: a remove takes only what is open to the air)
+  const pos = (): [number, number, number] => {
+    const x = Math.min(W - 1, Math.max(0, cx + Math.round((rand() - 0.5) * 2 * r)));
+    const y = Math.min(H - 1, Math.max(0, cy + Math.round((rand() - 0.5) * 2 * r)));
+    return [x, y, heights ? Math.max(0, heights[y * W + x] - 1 - Math.floor(rand() * 2)) : 1 + Math.floor(rand() * 8)];
+  };
   const first = pos();
   const axis = side[1] === "x" ? 0 : side[1] === "y" ? 1 : 2;
   const at: [number, number, number][] = [first];
@@ -459,7 +462,7 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
       let u;
       if (rand() < 0.2) u = s.apply({ op: "brush", params: randomBrush(rand, W, H, STROKE_TOOLS[Math.floor(rand() * STROKE_TOOLS.length)], { x: 18, y: 18, r: 8 }) });
       else {
-        u = s.apply(op(randomBlocks(rand, 12)));
+        u = s.apply(op(randomBlocks(rand, 12, s.built.heights)));
         if (u.ok) blocks++;
       }
       if (!u.ok) {
@@ -505,7 +508,7 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
   it("a step taken out of the log and put back (collaboration's undo) gives the land of the same log built afresh", () => {
     const s = caveSession();
     s.setWaterMode("defer");
-    for (const p of [remove("+z", [[24, 24, 4]], 3), add("+z", [[10, 10, 7]], 2), remove("+z", [[8, 20, 7]], 2)]) expect(s.apply(op(p)).errors).toEqual([]);
+    for (const p of [hollow(), add("+z", [[10, 10, 7]], 2), remove("+z", [[8, 20, 7]], 2)]) expect(s.apply(op(p)).errors).toEqual([]);
     const all = s.terrain.mask.slice();
     const second = s.logOps[1];
     const kept = s.stepOps(second.seq);
@@ -525,19 +528,19 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
 
   it("a stroke after a block shapes the top and nothing under it, and a block after a stroke builds on it", () => {
     const s = caveSession();
-    expect(s.apply(op(remove("+z", [[24, 24, 4]], 3))).errors).toEqual([]);
-    expect(s.terrain.runs(at(24, 24))).toEqual([0, 4, 5, 8]);
-    expect(s.apply({ op: "brush", params: area("raise", 10, 23, 23, 25, 25) }).errors).toEqual([]);
-    expect(s.terrain.runs(at(24, 24))).toEqual([0, 4, 5, 10]);
-    expect(s.apply({ op: "brush", params: area("lower", 0, 23, 23, 25, 25) }).errors).toEqual([]);
+    expect(s.apply(op(hollow())).errors).toEqual([]);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 6, 8]);
+    expect(s.apply({ op: "brush", params: area("raise", 10, 14, 16, 14, 18) }).errors).toEqual([]);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 6, 10]);
+    expect(s.apply({ op: "brush", params: area("lower", 0, 14, 16, 14, 18) }).errors).toEqual([]);
     // (the roof keeps its lowest layer, as on any roof)
-    expect(s.terrain.runs(at(24, 24))).toEqual([0, 4, 5, 6]);
-    expect(s.apply(op(add("+z", [[24, 24, 5]]))).errors).toEqual([]);
-    expect(s.terrain.runs(at(24, 24))).toEqual([0, 4, 5, 7]);
-    // a plain tile a block dug a cave under becomes plain again when it is filled
-    expect(s.apply(op(add("+z", [[24, 24, 3]], 3))).errors).toEqual([]);
-    expect(s.plainAt(at(24, 24))).toBe(true);
-    expect(s.terrain.runs(at(24, 24))).toEqual([0, 7]);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 6, 7]);
+    expect(s.apply(op(add("+z", [[14, 17, 6]]))).errors).toEqual([]);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 3, 6, 8]);
+    // a tile a block dug a cave under becomes plain again when it is filled
+    expect(s.apply(op(add("+x", [[13, 17, 4]], 3))).errors).toEqual([]);
+    expect(s.plainAt(at(14, 17))).toBe(true);
+    expect(s.terrain.runs(at(14, 17))).toEqual([0, 8]);
   });
 
   it("a block edit settles the water as a stroke does, and a saved project opens from the settled map", () => {
@@ -577,6 +580,13 @@ describe("the Block tool on a generated map", () => {
     throw new Error("no spot");
   }
 
+  /** A 3 × 3 pit two deep at (x, y), and a tunnel from its east side into the wall: a roof one block thick over a hollow. */
+  function tunnel(s: MapSession, x: number, y: number, h: number): void {
+    expect(s.apply(op(remove("+z", [[x, y, h - 1]], 3))).errors).toEqual([]);
+    expect(s.apply(op(remove("+z", [[x, y, h - 2]], 3))).errors).toEqual([]);
+    expect(s.apply(op(remove("-x", [[x + 2, y, h - 2]]))).errors).toEqual([]);
+  }
+
   it("builds up, hollows a cave and exports the ground as it stands", () => {
     const s = MapSession.fromGenerated(r, r.file);
     expect(s.mode).toBe("live");
@@ -584,19 +594,19 @@ describe("the Block tool on a generated map", () => {
     const { x, y } = spot(s);
     const Wg = s.built.W;
     const h = s.built.heights[y * Wg + x];
-    expect(s.apply(op(add("+z", [[x, y, h - 1]], 3))).errors).toEqual([]);
-    expect(s.built.heights[y * Wg + x]).toBe(h + 1);
+    expect(s.apply(op(add("+z", [[x + 5, y, h - 1]], 1))).errors).toEqual([]);
+    expect(s.built.heights[y * Wg + x + 5]).toBe(h + 1);
     expect(s.columns.size).toBe(0);
-    // a 3 × 3 hole two layers under the new surface
-    const dig = s.apply(op(remove("+z", [[x, y, h - 3]], 3)));
-    expect(dig.errors).toEqual([]);
-    expect(s.columns.size).toBe(9);
-    expect(s.plainAt(y * Wg + x)).toBe(false);
-    expect(s.terrain.runs(y * Wg + x)).toEqual([0, h - 3, h - 2, h + 1]);
+    // a pit two deep, and a tunnel from its side into the wall: a roof over a hollow, the surface where it was
+    tunnel(s, x, y, h);
+    expect(s.columns.size).toBe(1);
+    expect(s.plainAt(y * Wg + x + 2)).toBe(false);
+    expect(s.terrain.runs(y * Wg + x + 2)).toEqual([0, h - 2, h - 1, h]);
+    expect(s.built.heights[y * Wg + x + 2]).toBe(h);
     const out = voxelsOut(s);
     expect(Array.from(out)).toEqual(Array.from(s.terrain.voxels()));
-    expect(out[(h - 3) * Wg * s.built.H + y * Wg + x]).toBe(0);
-    // an object in the way is refused, wherever the block would stand
+    expect(out[(h - 2) * Wg * s.built.H + y * Wg + x + 2]).toBe(0);
+    // a plant on the top rides a block built under it
     const tree = s.built.entities.find((e) => e.template === "Pine" || e.template === "Birch" || e.template === "Oak");
     if (tree) {
       const top = s.built.heights[tree.y * Wg + tree.x];
@@ -605,11 +615,14 @@ describe("the Block tool on a generated map", () => {
       expect(s.built.entities.find((e) => e.id === tree.id)?.z).toBe(top + 1);
       expect(s.undo()).toBe(true);
     }
-    // undo takes the hole, then the build-up, back to the heightfield
+    // undo takes the tunnel, the pit and the build-up back to the heightfield
     expect(s.undo()).toBe(true);
     expect(s.columns.size).toBe(0);
     expect(s.undo()).toBe(true);
+    expect(s.undo()).toBe(true);
+    expect(s.undo()).toBe(true);
     expect(s.built.heights[y * Wg + x]).toBe(h);
+    expect(s.built.heights[y * Wg + x + 5]).toBe(h);
     expect(s.canUndo).toBe(false);
   });
 
@@ -618,7 +631,7 @@ describe("the Block tool on a generated map", () => {
     const { x, y } = spot(s);
     const Wg = s.built.W;
     const h = s.built.heights[y * Wg + x];
-    expect(s.apply(op(remove("+z", [[x, y, h - 3]], 3))).errors).toEqual([]);
+    tunnel(s, x, y, h);
     expect(s.apply(op(add("+z", [[x + 5, y, h - 1]], 2, "round"))).errors).toEqual([]);
     s.settleCanonical();
     const bytes = s.project();

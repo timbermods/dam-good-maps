@@ -47,7 +47,7 @@ export interface BlocksParams {
    *  refuses the operation. */
   area?: [number, number, number][];
   /** The view's cut (D196, D207): the layers from this one up are hidden, and the operation touches
-   *  nothing in them. */
+   *  nothing in them; a layer at or above it counts as open air to a remove's exposure test. */
   cut?: number;
   /** The blocks the operation changed, as the session found them when it took it (an add's new
    *  blocks, a remove's old ones): pairs [tile, layers] by ascending tile, `layers` the bits (layer z =
@@ -225,7 +225,9 @@ const NEIGHBOURS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [
  *  layers is clipped, as a brush is; the cells from the view's cut up are left alone.
  *
  *  An add puts a block in a cell only where it touches a block (one of the terrain, or one this operation
- *  added earlier in its sweep): a drag over air grows a span from the ground across it. */
+ *  added earlier in its sweep): a drag over air grows a span from the ground across it. A remove takes only
+ *  the blocks whose face toward `side` is open (the cell beyond is air, or at or above the cut), so a drag
+ *  across a hill takes the surface a viewer sees and nothing buried. */
 export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGround | null = null): BlockEffect {
   const refuse = (e: string): BlockEffect => ({ errors: [e], added: [], removed: [], plants: [], riding: 0 });
   const { W, H } = t;
@@ -261,6 +263,8 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
         placed.add(cell);
       }
     } else if (t.solid(i, z)) {
+      // (a remove takes what a viewer sees: a block whose aimed face is buried in the ground stays)
+      if (!openBeyond(t, x, y, z, p.side, cut)) continue;
       // (the block an object stands on stays)
       if (ground?.objects.has(cell + N)) return refuse(`an object stands on the block at (${x}, ${y}) in layer ${z}`);
       removed.push(cell);
@@ -292,6 +296,18 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, ground: BlockGrou
     for (const id of gone) riding.delete(id);
   }
   return { errors: [], added, removed, plants: [...gone].sort(), riding: riding.size };
+}
+
+/** Whether the block at (x, y, z) has its `side` face open to a viewer under the layer cut: the cell beyond
+ *  it is air, off the map or the layers, or cut away (at or above the cut). Read from the ground before
+ *  the operation: a block taken earlier in a sweep opens nothing for the next. */
+function openBeyond(t: ColumnTerrain, x: number, y: number, z: number, side: BlockSide, cut: number): boolean {
+  const n = NORMAL[side];
+  const nx = x + n[0];
+  const ny = y + n[1];
+  const nz = z + n[2];
+  if (nx < 0 || ny < 0 || nx >= t.W || ny >= t.H || nz < 0 || nz > BLOCK_TOP_LAYER || nz >= cut) return true;
+  return !t.solid(ny * t.W + nx, nz);
 }
 
 /** A working area as a mask over the tiles. */
