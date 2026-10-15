@@ -71,7 +71,7 @@ import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { drawnWater, drewChunk, exactWaterChunks, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -1103,6 +1103,7 @@ export class MapRenderer {
     const t0 = performance.now();
     this.clearMap();
     this.waterQueue.clear();
+    this.waterExact = false;
     // (the last map's water still with the worker is never drawn on this one)
     this.waterVersion++;
     this.waterFloor = this.waterVersion;
@@ -1685,7 +1686,8 @@ export class MapRenderer {
     return surface;
   }
 
-  /** New water: remesh the chunks whose water changed (with water per column, in the workers, a frame or two on). */
+  /** New water: remesh the chunks whose water changed, in the water mesh workers where they run, drawn a frame or
+   *  two on (meshing them here cost the page tens of milliseconds each time water was put in place). */
   updateWater(water: WaterView): number {
     this.flushTerrain();
     const m = this.map;
@@ -1697,15 +1699,21 @@ export class MapRenderer {
     this.waterVersion++;
     const layered = this.layered;
     // (with water per column, the chunks within reach of a column that changed, or all of them where the water
-    // turns to or from it)
-    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : changedWaterChunks(m.W, m.H, before.surface, surface, 0, 0);
-    // (every chunk drawn on water that differs from this at all: moving water drawn within a hair of
-    // itself is drawn exactly now; and a stroke's chunks still waiting, or with the worker)
-    if (!layered) for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
-    // (water per column is dealt and meshed in the workers where they run, as a journey's frame is: dealing it here
-    // would cost the page a frame for each)
-    if (layered && this.mesher) for (const key of changed) this.waterQueue.add(key);
-    else {
+    // turns to or from it; on a heightfield every chunk drawn on water that differs from this at all, so moving water
+    // drawn within a hair of itself is drawn exactly now, and every chunk the water changed in since the last)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : exactWaterChunks(m.W, m.H, this.waterShown, before.surface, surface);
+    const mesher = this.mesher;
+    if (mesher) {
+      // (dealt and meshed in the workers, as a journey's frame is, and drawn whole when they come back; on a
+      // heightfield a stroke's chunks still waiting, or with the workers, go again on this water, all of them drawn)
+      for (const key of changed) this.waterQueue.add(key);
+      if (!layered) {
+        for (const key of this.waterReady?.chunks.keys() ?? []) this.waterQueue.add(key);
+        for (const key of mesher.asked) this.waterQueue.add(key);
+        this.waterExact = true;
+      }
+      this.requestRender();
+    } else {
       for (const key of this.waterQueue) changed.add(key);
       for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
       for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
@@ -1747,13 +1755,22 @@ export class MapRenderer {
   private readonly drawnWater = new Map<string, number>();
   /** The water each tile's chunk was drawn with (moving water is drawn again only where it moved). */
   private waterShown: DrawnWater = drawnWater(0);
-  /** The water the batch out was sent with. */
+  /** The water the batch out was sent with, and whether it was water put in place (`waterExact`). */
   private waterSent: SurfaceWater | null = null;
+  private exactSent = false;
   /** A batch the water workers meshed (one moment of the water, all its chunks), waiting for a frame
    *  to draw it whole. */
-  private waterReady: { version: number; chunks: Map<string, WaterMeshData> } | null = null;
+  private waterReady: { version: number; chunks: Map<string, WaterMeshData>; exact: boolean } | null = null;
   /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
   private mesherOwn: WaterMesher | null = null;
+  /** The chunks waiting are water put in place (`updateWater`): sent whole, none left out for being within a hair
+   *  of what is drawn, until moving water comes again. */
+  private waterExact = false;
+
+  /** Every water chunk is drawn on the water the map holds: none waits to be sent or with the workers. */
+  get waterDrawn(): boolean {
+    return !this.waterQueue.size && !this.waterReady && !this.mesherOwn?.busy;
+  }
 
   /** A stroke's water or a frame of the water's journey (live editing, D197): the map's water now (the hover,
    *  picking and the brush's clear water read it at once), and its changed chunks meshed a few milliseconds' worth
@@ -1778,6 +1795,8 @@ export class MapRenderer {
     // the chunks within reach of a column that changed)
     const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     for (const key of changed) this.waterQueue.add(key);
+    // (moving again: what waits is drawn where it moved visibly)
+    this.waterExact = false;
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
@@ -1797,7 +1816,7 @@ export class MapRenderer {
       (version, chunks) => {
         // (the last map's: dropped)
         if (version < this.waterFloor) return;
-        this.waterReady = { version, chunks };
+        this.waterReady = { version, chunks, exact: this.exactSent };
         this.requestRender();
       },
       (keys) => {
@@ -1822,21 +1841,26 @@ export class MapRenderer {
     const r = this.waterReady;
     const sent = this.waterSent;
     this.waterReady = null;
-    if (r && sent)
+    if (r && sent) {
       for (const [k, data] of r.chunks) {
         if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
         const [cx, cy] = k.split(",").map(Number);
         this.drawWater(k, data, r.version, sent);
         this.waterTiles(m, cx, cy);
       }
+      // (water put in place, drawn: the High look's mist and rings follow its falls)
+      if (r.exact) this.high?.fallsChanged();
+    }
     if (!this.waterQueue.size) return;
     if (this.mesherOwn?.busy) return;
-    // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing)
+    // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing; water put
+    // in place is drawn whole. Only the chunks waiting are looked at, never the whole map)
     const layered = this.layered;
-    if (!layered) {
-      const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
-      for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
-    }
+    if (!layered && !this.waterExact)
+      for (const k of this.waterQueue) {
+        const [cx, cy] = k.split(",").map(Number);
+        if (!waterMovedChunk(m.W, m.H, this.waterShown, m.surface, MOVED_WATER, cx, cy)) this.waterQueue.delete(k);
+      }
     if (!this.waterQueue.size) return;
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
@@ -1850,8 +1874,10 @@ export class MapRenderer {
     if (mesher) {
       if (mesher.busy) return;
       this.waterSent = m.surface;
+      this.exactSent = this.waterExact;
       mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k), layered ? { view: m.water, columns: this.columnsSent } : undefined);
       this.waterQueue.clear();
+      this.waterExact = false;
       return;
     }
     const t0 = performance.now();
