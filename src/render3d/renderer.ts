@@ -41,6 +41,7 @@ import {
   Vector3,
   Vector4,
   WebGLRenderer,
+  type Data3DTexture,
   type DataTexture,
   type Group,
   type InstancedMesh,
@@ -60,7 +61,8 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
-import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { CaveLight } from "./caveLight";
+import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -72,7 +74,7 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, type HighMaterials } from "./high/highLook";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
-import { RowUploads } from "./rowUploads";
+import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
@@ -298,6 +300,10 @@ export class MapRenderer {
   private sourceGlow: readonly number[] = [];
   private tileTex: DataTexture | null = null;
   private lightTex: DataTexture | null = null;
+  /** The light under roofs (null on a map without air under a roof) and its texture. */
+  private cave: CaveLight | null = null;
+  private caveTex: Data3DTexture | null = null;
+  private readonly noCave: Data3DTexture;
   private uniforms: SceneUniforms;
   private patterns: WebGLRenderTarget;
   private terrainMat: ShaderMaterial;
@@ -403,6 +409,8 @@ export class MapRenderer {
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
+    this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
+    this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
     this.waterMat = waterMaterial(this.uniforms, this.software);
@@ -1000,7 +1008,15 @@ export class MapRenderer {
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops));
+    this.cave = CaveLight.build(source, sky);
+    this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
+    u.caveTex.value = this.caveTex ?? this.noCave;
+    if (this.cave) {
+      u.caveSize.value.set(W, H, this.cave.D);
+      u.caveTop.value = this.cave.highest;
+    }
+    else u.caveSize.value.set(0, 0, 0);
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;
@@ -1107,6 +1123,13 @@ export class MapRenderer {
     this.sourceTiles = null;
     this.tileTex?.dispose();
     this.lightTex?.dispose();
+    // (the uniform keeps a texture to bind until the next map's: the placeholder)
+    this.uniforms.caveTex.value = this.noCave;
+    this.uniforms.caveSize.value.set(0, 0, 0);
+    this.caveTex?.dispose();
+    this.caveTex = null;
+    this.cave = null;
+    this.caveRows.clear();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
     this.tileRows.clear();
@@ -1265,6 +1288,17 @@ export class MapRenderer {
     }
   }
 
+  /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
+   *  next frame. */
+  private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map;
+    if (!m || !this.cave) return;
+    const box = this.cave.relight(m.source, m.sky, rect);
+    this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
+    // (the land may have risen: the march under roofs runs up to the highest ground)
+    this.uniforms.caveTop.value = this.cave.highest;
+  }
+
   /** The terrain shader's tile data again (heights, soil, sky, water). */
   private bakeTiles(): void {
     const m = this.map;
@@ -1316,12 +1350,16 @@ export class MapRenderer {
     return instances;
   }
 
-  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed. */
-  updateTerrain(heights: Uint8Array): number {
+  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
+   *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
+   *  roof's top (D280 (3)); those tiles are drawn from them. */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const rect = changedRect(m.W, m.H, m.heights, heights);
+    let rect = changedRect(m.W, m.H, m.heights, heights);
+    // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
+    if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1331,6 +1369,7 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
+    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1357,6 +1396,7 @@ export class MapRenderer {
       shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
       this.touchShadows(rect);
     } else this.bakeShadows();
+    this.relightCaves(rect);
     if (m.water.count) {
       // (a fall reads the ground two tiles round its lip: the chunks a tile further)
       const lower = lowerByTile(m.surface, m.water);
@@ -1417,6 +1457,7 @@ export class MapRenderer {
   /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
   private readonly tileRows: RowUploads;
   private readonly lightRows: RowUploads;
+  private readonly caveRows: BoxUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -1617,6 +1658,7 @@ export class MapRenderer {
       shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1);
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
+    this.relightCaves(c.rect);
     this.shadowChanged = true;
     this.followGround(heights, c.rect);
     this.high?.terrainChanged(heights, c.rect);
@@ -2491,6 +2533,7 @@ export class MapRenderer {
     this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
     this.tileRows.flush();
     this.lightRows.flush();
+    this.caveRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -3050,4 +3093,26 @@ function oneObject(template: string, orientation: number): EntityView {
     strength: Float32Array.of(0),
     ids: [""],
   };
+}
+
+/** The rectangle of tiles whose column differs between two column maps (null: none). */
+function columnsChanged(a: ReadonlyMap<number, Uint8Array>, b: ReadonlyMap<number, Uint8Array>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  const add = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  };
+  for (const [i, c] of b) {
+    const was = a.get(i);
+    if (!was || was.some((v, z) => v !== c[z])) add(i);
+  }
+  for (const i of a.keys()) if (!b.has(i)) add(i);
+  return r;
+}
+
+/** Two rectangles' bounds (either may be null). */
+function grownRect(a: { x0: number; y0: number; x1: number; y1: number } | null, b: { x0: number; y0: number; x1: number; y1: number } | null): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (!a || !b) return a ?? b;
+  return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
 }

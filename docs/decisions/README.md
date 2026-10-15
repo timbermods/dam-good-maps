@@ -136,6 +136,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The editor and its tools](editor.md)
 
+- D487: The brushes on caves and overhangs: the top run only, nothing left that would fall
 - D459: Naturalize sound
 - D158: Live editing
 - D182: The brush kit

@@ -102,6 +102,9 @@ export interface ViewUpdate {
    *  its own copy, exactly as the build applies them). */
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
+   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+  columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
   /** The soil the ground's colours show; it follows the water (Map look, D86). */
@@ -318,6 +321,12 @@ function soilKey(s: MapSession): unknown {
   return s.showsStoredWater ? "stored" : s.built.moisture;
 }
 
+/** Whether a roof's top changed between two surfaces. */
+function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
+  for (const i of s.roofedTiles) if (a[i] !== b[i]) return true;
+  return false;
+}
+
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
@@ -393,6 +402,8 @@ function viewUpdate(s: MapSession): ViewUpdate {
     if (rect) {
       out.heights = b.heights.slice();
       out.terrainRect = rect;
+      // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
+      if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
   if (water !== prev.water) out.water = waterOf(s);
@@ -1145,9 +1156,10 @@ export function refine(): SessionOpen {
   return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
-/** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
-export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
-  return opened(MapSession.importMap(bytes, fileName));
+/** Open any .timber (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Saves are refused
+ *  with a message (ImportError). */
+export function openTimber(bytes: Uint8Array, fileName: string, place?: string): SessionOpen {
+  return opened(MapSession.importMap(bytes, fileName, place));
 }
 
 /** Open a project file (.damgoodmaps.json). */
@@ -1435,7 +1447,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
+  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
+  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
 }
 
