@@ -1175,7 +1175,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
           carried = true;
         } else if (preview && warm) settle = previewSettle({ model: settleEntry!.model, water: settleEntry!.water }, model);
         else {
-          settle = canonicalSettle(model);
+          // (the last canonical settle may stand for this one on a map with caves: sim/stackWater.ts `settledAgain`)
+          settle = canonicalSettle(model, {}, settleEntry);
           opts.settleCache?.set(model, settle);
         }
       }

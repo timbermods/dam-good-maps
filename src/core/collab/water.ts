@@ -53,17 +53,21 @@ export class WaterBarrier {
 }
 
 /** A short text standing for the whole map once its water has settled: everything `stateHash` covers,
- *  all the objects (the resources too), the water and the contamination. The host announces it for the
+ *  all the objects (the resources too), the water and the contamination. On a map with caves or
+ *  overhangs, the whole settled stack too: every water column's geometry, water, pressure and
+ *  contamination, so two peers can't differ under a roof unseen. The host announces it for the
  *  sequence it settled at; a peer compares its own at that sequence. */
 export function settledHash(session: MapSession): string {
   const b = session.built;
-  const entities = new TextEncoder().encode(stable(plainEntities(b.entities)));
-  const water = new Uint8Array(b.water.buffer, b.water.byteOffset, b.water.byteLength);
-  const dirty = new Uint8Array(b.contamination.buffer, b.contamination.byteOffset, b.contamination.byteLength);
-  const all = new Uint8Array(entities.length + water.length + dirty.length + b.heights.length);
-  all.set(entities, 0);
-  all.set(water, entities.length);
-  all.set(dirty, entities.length + water.length);
-  all.set(b.heights, entities.length + water.length + dirty.length);
+  const view = (a: ArrayBufferView) => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+  const parts: Uint8Array[] = [new TextEncoder().encode(stable(plainEntities(b.entities))), view(b.water), view(b.contamination), b.heights];
+  const st = b.settle.stack;
+  if (st?.stacked) parts.push(st.count, view(st.floor), view(st.ceil), view(st.depth), view(st.overflow), view(st.contamination));
+  const all = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.length;
+  }
   return murmur3(all, 0x363).toString(16).padStart(8, "0");
 }

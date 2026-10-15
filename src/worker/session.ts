@@ -1620,9 +1620,10 @@ function breathe(): Promise<void> {
   });
 }
 
-/** Run a canonical settle a slice at a time; null when `current` turns false (a newer edit). */
-async function settleInSlices(model: WaterModel, current: () => boolean, onProgress?: (p: CheckProgress) => void): Promise<CanonicalWater | null> {
-  const run = canonicalRun(model);
+/** Run a canonical settle a slice at a time; null when `current` turns false (a newer edit). `from`, the
+ *  map's last canonical settle, may answer a map with caves at once (sim/prefill.ts `canonicalRun`). */
+async function settleInSlices(model: WaterModel, current: () => boolean, onProgress?: (p: CheckProgress) => void, from?: { model: WaterModel; water: CanonicalWater } | null): Promise<CanonicalWater | null> {
+  const run = canonicalRun(model, {}, from);
   for (;;) {
     const w = run.advance(SLICE_TICKS);
     if (w) return w;
@@ -1655,7 +1656,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
   }
   if (s.waterPending) {
     const model = s.built.waterModel;
-    const w = await settleInSlices(model, current, onProgress);
+    const w = await settleInSlices(model, current, onProgress, s.lastSettled());
     if (!w) return null;
     s.adoptWater(model, w);
     // the canonical water replaces the preview's: the background preview has nothing left to do
