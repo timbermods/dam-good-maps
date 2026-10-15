@@ -429,8 +429,8 @@ export interface OpContext {
   entityIds: ReadonlySet<string>;
   /** Tiles with a slope in the current build. */
   slopeTiles: ReadonlySet<number>;
-  /** Imported caves and overhangs: an old sculpt edit, a force's result and a fill leave them alone (the
-   *  brushes shape their top runs, D487). */
+  /** Caves and overhangs (an imported map's, and ground the Block tool dug): an old sculpt edit, a
+   *  force's result and a fill leave them alone (the brushes shape their top runs, D487). */
   lockedColumns: ReadonlySet<number> | null;
   /** Feature kinds this version builds when a player adds them. */
   buildableKinds?: readonly FeatureKind[];

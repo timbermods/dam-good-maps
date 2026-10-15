@@ -629,7 +629,9 @@ After the view (D280 (3)).
    other forces' investigations, until Kyler has tried it.
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
-   brushes; shows at once any block the game's support rule would drop.
+   brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
+   operation, the support check and the `blockFalls` query, in
+   [docs/progress/3d-creating.md](docs/progress/3d-creating.md); the interface is the page's.)
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
    (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
    that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
