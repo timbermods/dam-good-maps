@@ -722,7 +722,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
        *  never below 0.30 so a cave stays readable, and its sun. Both carry on from the open ground at the
        *  roof line the air opens by (caveMouth): the sun there fades to the cave's own over the first
        *  0.6 of a tile and never exceeds it inside, so the light never steps at the line or rises inward. */
-      vec3 caveLightOf(vec3 n, vec3 cave, float sunHere) {
+      vec3 caveLightOf(vec3 n, vec3 cave, float sunHere, float ao) {
         float ndl = max(dot(n, sunDir), 0.0);
         vec4 mouth = caveMouth(vWorld, n);
         float sun = 0.0;
@@ -736,7 +736,18 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           }
         }
         float sky = cave.x;${hook(h, "caveSky")}
-        return skyColor * (0.7 + 0.3 * n.y) * max(0.30, sky) + sunColor * 0.55 * ndl * sun;
+        return skyColor * (0.7 + 0.3 * n.y) * max(0.30, sky) * ao + sunColor * 0.55 * ndl * sun * mix(1.0, ao, 0.35);
+      }
+      /** Rock at a cell (a tile and a level) of the light volume: in the map, and no air there. */
+      float rockAt(vec2 t, float z) {
+        if (t.x < 0.0 || t.y < 0.0 || t.x >= caveSize.x || t.y >= caveSize.y) return 0.0;
+        return texelFetch(caveTex, ivec3(vec3(t, z)), 0).r < 0.001 ? 1.0 : 0.0;
+      }
+      /** How many levels of rock stand at a neighbour from a floor's level up (0–2): the height of its
+       *  wall, as a top's contact shadow reads it. */
+      float wallAt(vec2 t, float z) {
+        float k = rockAt(t, z);
+        return k > 0.5 ? 1.0 + rockAt(t, z + 1.0) : 0.0;
       }
       /** How much of tile t's ground at y is an eruption's fresh rock (#367): what rose above the ground
        *  its heat came to, until the heat fades with the crust (0–1). */
@@ -868,6 +879,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         vec3 c;
         vec3 light;
         float sunHere = 0.0;
+        // (a cave floor's contact shadow at the foot of the rock beside it, as the open ground's)
+        float caveAo = 1.0;
         if (n.y > 0.5) {
           // the tile and its three neighbours toward this point (the light look: the tile alone)
           vec2 fr = g - tile;
@@ -957,6 +970,16 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
             glow = 0.0;
             light = lightOf(n, 0.6, 0.85, 0.0);
+            if (caveSize.z > 0.5) {
+              float zf = floor(vWorld.y + 0.5);
+              float kx = wallAt(tile + vec2(sd.x, 0.0), zf);
+              float ky = wallAt(tile + vec2(0.0, sd.y), zf);
+              float kd = wallAt(tile + sd, zf);
+              float cx = kx * 0.5 * rx;
+              float cy = ky * 0.5 * ry;
+              float cd = kd * 0.5 * rx * ry * (1.0 - max(step(0.5, kx), step(0.5, ky)));
+              caveAo = 1.0 - 0.75 * clamp(cx + cy + cd - cx * cy, 0.0, 1.0);
+            }
           }
         } else if (n.y < -0.5) {
           c = ${glColor(WALL.mortar)};
@@ -1007,7 +1030,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
         // a face whose air is under a roof (a cave's floor, walls and ceiling, under an overhang or
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
-        if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere);
+        if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere, caveAo);
         c *= light;
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}

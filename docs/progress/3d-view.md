@@ -50,8 +50,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   ambient field, never more than at the point); the sun the open ground's at the line, fading over 0.6 of a tile
   to the cave's own and never above the line's (`caveSun`: Standard marches the ray through the voxels, under
   overhangs too, until rock or the map's highest ground, then the baked shadow; High uses its soft shadow of the
-  real meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the roof
-  above is not a wall at its level). Water and objects under roofs are not lit by it yet (part 4, and item 7).
+  real meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the
+  roof above is not a wall at its level), and a cave floor takes the open ground's contact shadow from the rock
+  beside it at its own level (`wallAt`), so the line holds beside a mouth's side walls too. Water and objects under
+  roofs are not lit by it yet (part 4, and item 7).
 - **Equivalence:** a map with no column that is not plain builds no volume (`caveSize` 0: the shader returns before
   reading it). `tests/unit/caveLight.test.ts` builds the volume anyway on seven generated maps (all six themes and
   Any, 96², 128², 256²), meshes every chunk and samples every quad's middle and four inner points through
@@ -101,6 +103,11 @@ Each reads the same column masks the mesher reads. The seams:
    mesh the clipped mask with caps only where solid rock crosses the cut, lighting from the unsliced terrain.
 7. **Kyler's notes at approval:** the stone pattern stretching on ceilings and at corners; cave interiors and deep
    water under roofs tuned on real maps; objects, slopes, falls and moving water inside caves.
+8. **Standard's open ground before a cave:** its baked shadow (`light.ts`) treats every column as solid to its top,
+   so ground the sun reaches under an overhang (High and a ray through the voxels have it lit) is shaded, and a
+   cave floor beside it carries that shade in about half a tile before its own march lights it (Hollows (47,59,7)
+   south, Pressure (238,161,6)). Marching the open ground through the volume only near caves would move the step
+   to that ring's edge; the fix is a baked shadow from the voxels themselves on maps with caves.
 
 ## Design note
 
