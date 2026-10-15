@@ -1315,7 +1315,7 @@
 /* Select's shapes: one cell each, icon above its name, the group's full height */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 2px;
   height: 100%;
 }

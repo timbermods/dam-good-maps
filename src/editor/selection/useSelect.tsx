@@ -528,8 +528,8 @@ export function useSelect(ed: Ed): SelectSlice {
       ),
     });
     const groups: Group[] = [
-      { key: "shapes", row: 1, at: 1, span: 7, node: shapes },
-      { key: "size", row: 1, at: 8, span: 2, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
+      { key: "size", row: 1, at: 7, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
       // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
       {
         key: "crop",
