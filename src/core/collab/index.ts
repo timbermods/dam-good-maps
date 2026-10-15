@@ -15,3 +15,8 @@ export { applyForce, forceBasis, forceHash, forceMapOfSession, keepForce, planKe
 export { settledHash, WaterBarrier } from "./water";
 export { commandProblem, messageProblem } from "./validate";
 export type { Command, Commit, ForceGesture, LogEntry, MapOpening, Message, PlayerId, Reject, Request, Settled, Snapshot, SnapshotHeader } from "./types";
+export { CollabPeer, type ClaimOutcome, type KeepReason, type Link, type MapPort, type PeerEvent, type PeerOptions, type PeerState, type SubmitResult } from "./peer";
+export { PresenceChannel, type PresenceEvent, type PresenceIn } from "./presence";
+export { decode, encode, GUEST_ID, HOST_ID, idOf, PLAYER_COLOURS, PRESENCE_HZ, roleOfId, SESSION_VERSION, wireProblem, type Payload, type Presence, type SessionMessage, type View, type Wire } from "./wire";
+export { ClaimsState, claimsCheck, parseCommand, reachInto, refusal, refusalForWrites, type ClaimCommand, type ClaimOffer, type ClaimResult, type ClaimsSnapshot, type PlayerNames, type Role } from "./claims";
+export { describeWaterNote, waterNote, waterNotes, type WaterNote } from "./waterNotes";

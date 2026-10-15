@@ -319,42 +319,6 @@ export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: St
   return s;
 }
 
-/** An edited import's simulation singletons (EDITOR_PLAN §6, the roofed-water rule): the settled
- *  water of the heightfield on every tile with one floor (slot 0, the other slots empty), and the
- *  file's own water, outflows, moisture, contamination and evaporation, every slot, on the tiles
- *  under roofs (`roofed`: caves, tunnels, overhangs), which the heightfield model cannot simulate.
- *  An array whose length does not fit its own size field is written as the settled one alone. */
-export function mixedSimulationSingletons(file: JsonObject, W: number, H: number, st: SettledState, roofed: ReadonlySet<number>): JsonObject {
-  const fresh = settledSimulationSingletons(W, H, st);
-  const plane = W * H;
-  const out: JsonObject = {};
-  const mix = (singleton: string, slotsKey: string, keys: string[], empty: string): void => {
-    const n = fresh[singleton] as JsonObject;
-    const f = file[singleton];
-    out[singleton] = n;
-    if (!isObject(f)) return;
-    const slots = slotsKey in f ? num(f[slotsKey]) : 1;
-    const arrays = keys.map((k) => (isObject(f[k]) ? String((f[k] as JsonObject).Array).split(" ") : null));
-    if (arrays.some((a) => !a || a.length !== slots * plane)) return;
-    const o: JsonObject = { ...f, [slotsKey]: slots };
-    keys.forEach((k, q) => {
-      const tokens = arrays[q]!;
-      const settled = String((n[k] as JsonObject).Array).split(" ");
-      const merged: string[] = new Array(slots * plane);
-      for (let s2 = 0; s2 < slots; s2++)
-        for (let i = 0; i < plane; i++) merged[s2 * plane + i] = roofed.has(i) ? tokens[s2 * plane + i] : s2 === 0 ? settled[i] : empty;
-      o[k] = { Array: merged.join(" ") };
-    });
-    out[singleton] = o;
-  };
-  mix("WaterMapNew", "Levels", ["WaterColumns", "ColumnOutflows"], "0");
-  mix("SoilMoistureSimulator", "Size", ["MoistureLevels"], "0");
-  mix("SoilContaminationSimulator", "Size", ["ContaminationCandidates", "ContaminationLevels"], "0");
-  mix("WaterEvaporationMap", "Levels", ["EvaporationModifiers"], "1");
-  out.WaterSimulationMigrator = fresh.WaterSimulationMigrator;
-  return out;
-}
-
 export function repeatToken(token: string, n: number): string {
   if (n <= 0) return "";
   return (token + " ").repeat(n - 1) + token;

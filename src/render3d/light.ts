@@ -10,6 +10,8 @@
 //   and widen with the distance from what casts them. Trees and ruins cast shadows too.
 // - Contact shadows at the foot of walls are drawn by the shader from the tile data (the heights
 //   of the neighbours next to each point), so they stay sharp at every zoom.
+// All of this is the light of open air. A face whose air is under a roof (a cave, an overhang, an
+// arch) takes that air's own light instead, from the light volume (caveLight.ts).
 
 import { DEAD, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
 import { LIGHT } from "./palette";
@@ -45,27 +47,29 @@ export const SKY_REACH = SKY_STEPS[SKY_STEPS.length - 1];
 /** Sky visibility of the tiles of a rectangle, into `out` (the terrain changed there: live
  *  editing redoes only the tiles round what a brush changed). */
 export function skyVisibilityRect(W: number, H: number, heights: Uint8Array, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
+  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
+    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) out[y * W + x] = skyAt(W, H, heights, x, y, heights[y * W + x]);
+}
+
+/** The sky a point of tile (x, y) at height h sees, 0–255 (on the tile's top, its sky visibility; higher
+ *  up, over a drop, more of the sky). */
+export function skyAt(W: number, H: number, heights: Uint8Array, x: number, y: number, h: number): number {
   const norm = 2 / Math.PI;
-  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++) {
-    for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) {
-      const h = heights[y * W + x];
-      let occ = 0;
-      for (const [dx, dy] of SKY_DIRS) {
-        const len = dx && dy ? Math.SQRT2 : 1;
-        let best = 0;
-        for (const k of SKY_STEPS) {
-          const xx = x + dx * k;
-          const yy = y + dy * k;
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
-          const s = (heights[yy * W + xx] - h) / (k * len);
-          if (s > best) best = s;
-        }
-        occ += Math.atan(best) * norm;
-      }
-      // the horizon's angle averaged over the directions; walls hide the sky's low part only
-      out[y * W + x] = Math.round(255 * Math.max(0, 1 - (occ / SKY_DIRS.length) * 0.9));
+  let occ = 0;
+  for (const [dx, dy] of SKY_DIRS) {
+    const len = dx && dy ? Math.SQRT2 : 1;
+    let best = 0;
+    for (const k of SKY_STEPS) {
+      const xx = x + dx * k;
+      const yy = y + dy * k;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+      const s = (heights[yy * W + xx] - h) / (k * len);
+      if (s > best) best = s;
     }
+    occ += Math.atan(best) * norm;
   }
+  // the horizon's angle averaged over the directions; walls hide the sky's low part only
+  return Math.round(255 * Math.max(0, 1 - (occ / SKY_DIRS.length) * 0.9));
 }
 
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). */

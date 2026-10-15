@@ -32,6 +32,8 @@ export interface ChecksState {
 export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: string; count: number } {
   const flags = c.flags?.length ?? 0;
   const count = c.instant.length + flags + (c.check ? c.check.blocking.length + c.check.warnings.length : 0);
+  // (work in flight shows before the problems do, the count badge kept: an edit or a stroke always shows a sign of work)
+  if (c.busy) return { tone: "wait", words: c.progress?.stage === "water" ? "Settling…" : "Checking the map", count };
   if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
   // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
   if (c.flowing !== null || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
@@ -246,6 +248,8 @@ export interface HeaderProps {
   /** A save in progress, and how far along. */
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
   onSave(kind: "timberborn" | "download"): void;
+  /** Pick or change the folder Save to Timberborn writes to. */
+  onChooseFolder(): void;
   onOpenFile(file: File): void;
   onSaveProject(): void;
   /** Remove every source, tree, bush, ruin, object and the start (one undo step, D323 item 44). */
@@ -430,6 +434,13 @@ export function Header(p: HeaderProps) {
                 <li role="none">
                   <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
                     {saving?.kind === "download" ? savingWords : "Download .timber"}
+                  </button>
+                </li>
+              ) : null}
+              {p.canFolder ? (
+                <li role="none">
+                  <button type="button" role="menuitem" disabled={!!saving} title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
+                    Choose Maps folder…
                   </button>
                 </li>
               ) : null}

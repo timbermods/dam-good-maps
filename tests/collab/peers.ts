@@ -25,7 +25,7 @@ const haveFirefox = (ci || process.env.DGM_COLLAB_FIREFOX === "1") && existsSync
  * A browser in its own process. `chromium` is Chrome; `other` is Firefox, or Edge where Firefox isn't available (local).
  * `open` loads the harness page.
  */
-export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>): Promise<Peer> {
+export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>, global = "harness"): Promise<Peer> {
   let server: BrowserServer;
   let name: string;
   let browser: Browser;
@@ -44,7 +44,7 @@ export async function launchPeer(kind: Kind, open: (page: Page) => Promise<void>
   }
   const page = await browser.newPage();
   await open(page);
-  await page.waitForFunction(() => "harness" in window);
+  await page.waitForFunction((g) => g in window, global);
   return { name, server, browser, page };
 }
 

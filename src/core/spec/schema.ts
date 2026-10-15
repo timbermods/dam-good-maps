@@ -51,6 +51,7 @@ export function checkSchema(root: Schema, value: unknown): SchemaError[] {
       if (typeof s.minimum === "number" && v < s.minimum) out.push({ path, message: `must be >= ${s.minimum}` });
       if (typeof s.maximum === "number" && v > s.maximum) out.push({ path, message: `must be <= ${s.maximum}` });
     }
+    if (typeof v === "string" && typeof s.maxLength === "number" && v.length > s.maxLength) out.push({ path, message: `must be at most ${s.maxLength} characters` });
     if (typeof v === "string" && typeof s.pattern === "string" && !new RegExp(s.pattern).test(v)) {
       out.push({ path, message: `must match ${s.pattern}` });
     }

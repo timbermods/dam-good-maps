@@ -30,6 +30,8 @@ import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
+import { blockEffect, blockProblems, type BlocksParams } from "../terrain/blocks";
+import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
 import { CAVE_REFUSALS } from "../sim/stackWater";
@@ -74,6 +76,10 @@ export interface OpParams {
   fillHollow: FillHollowParams;
   /** Explicit player placement; the log stores literal placed objects, never replans. */
   paintObjects: PaintParams;
+  /** The Block tool (D335): blocks added against a face of the ground or removed, in a click or a
+   *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
+   *  an object, and when the result would leave ground the game drops. */
+  blocks: BlocksParams;
 }
 
 export interface RemoveUnfedWaterParams {
@@ -128,7 +134,7 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks">;
 /** A force's operation. */
 export type ForceOp = AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
@@ -277,6 +283,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "blocks":
       state.sculpts.push(op);
       return;
     case "forceResult": {
@@ -363,6 +370,7 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "blocks":
       removeFromList(state.sculpts, op.seq);
       return;
     case "forceResult": {
@@ -422,7 +430,8 @@ export interface OpContext {
   entityIds: ReadonlySet<string>;
   /** Tiles with a slope in the current build. */
   slopeTiles: ReadonlySet<number>;
-  /** Columns the sculpt tools leave alone: imported caves and overhangs (EDITOR_PLAN §3). */
+  /** Caves and overhangs (an imported map's, and ground the Block tool dug): an old sculpt edit, a
+   *  force's result and a fill leave them alone (the brushes shape their top runs, D487). */
   lockedColumns: ReadonlySet<number> | null;
   /** Feature kinds this version builds when a player adds them. */
   buildableKinds?: readonly FeatureKind[];
@@ -437,6 +446,9 @@ export interface OpContext {
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground the Block tool works on and the cells of the objects standing on it (a block
+   *  operation is checked against them; the session gives them for one). */
+  blocks?: { terrain: ColumnTerrain; objects: ReadonlySet<number> };
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
   templateOf?: (id: string) => string | undefined;
@@ -557,9 +569,14 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
 }
 
 /** Why an operation cannot be applied now (empty when it can). */
+/** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
+export function schemaProblems(op: EditOp): string[] {
+  return checkSchema(OPS_SCHEMA, op).map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+}
+
 export function validateOp(op: EditOp, ctx: OpContext): string[] {
-  const schemaErrors = checkSchema(OPS_SCHEMA, op);
-  if (schemaErrors.length) return schemaErrors.map((e) => `${op.op ?? "operation"}${e.path}: ${e.message}`);
+  const schemaErrors = schemaProblems(op);
+  if (schemaErrors.length) return schemaErrors;
   const { state, W, H } = ctx;
   const inMap = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H;
   const featureById = (id: string) => state.features.find((f) => f.id === id);
@@ -607,7 +624,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (p.mode === "terrace" && p.step === undefined) return ["terrace needs a step"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
-          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
+          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang: shape its top with a brush`];
         }
       }
       // (raised past the ceiling, a tile would stop short of what the step says)
@@ -621,6 +638,11 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "brush":
       return brushProblems(op.params, W, H);
+    case "blocks": {
+      const bad = blockProblems(op.params, W, H);
+      if (bad.length || !ctx.blocks) return bad;
+      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.objects).errors;
+    }
     case "forceResult": {
       const p = op.params;
       const errors = forceProblems(p, W, H, FORCE_MAX_LEVEL);

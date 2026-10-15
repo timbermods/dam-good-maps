@@ -1,0 +1,9 @@
+{
+  "Name": "Dam Good Maps Companion",
+  "Version": "0.1.0",
+  "Id": "timbermods.dgmcompanion",
+  "MinimumGameVersion": "1.1.2.4",
+  "Description": "Play your newest Dam Good Maps map from the main menu in one click, and reload it in game after you save it again. Unofficial; not made by Mechanistry.",
+  "RequiredMods": [],
+  "OptionalMods": []
+}
