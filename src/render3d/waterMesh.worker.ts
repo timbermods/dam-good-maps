@@ -22,6 +22,12 @@ self.onmessage = (e: MessageEvent<MesherRequest>) => {
   let layers = plainLayers(m.heights, sw);
   if (m.layered) {
     const c = m.layered.columns;
+    // (columns of a version this worker never had, sent without their voxels: its chunks go back to the page)
+    if (columns?.key !== c.key && !c.tiles.length) {
+      const why = "the map's columns weren't sent to the water worker";
+      (self as unknown as Worker).postMessage({ kind: "batch", id: m.id, chunks: [], failed: m.keys.map((key) => ({ key, error: why })) } satisfies MesherReply);
+      return;
+    }
     if (columns?.key !== c.key) columns = { key: c.key, map: columnMap(c) };
     layers = waterLayers(m.W, m.H, m.heights, columns.map, m.layered.view, sw);
   }

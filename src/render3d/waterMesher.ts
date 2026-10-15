@@ -59,6 +59,8 @@ export class WaterMesher {
         };
         w.onmessageerror = () => this.fail("an answer couldn't be read");
         this.workers.push(w);
+        // (a new worker has no columns: the next batch sends them)
+        this.columnsKey[this.workers.length - 1] = -1;
       }
     } catch (e) {
       this.fail(e instanceof Error ? e.message : "it couldn't start");
@@ -128,6 +130,7 @@ export class WaterMesher {
     warnOnce(why);
     for (const w of this.workers) w.terminate();
     this.workers = [];
+    this.columnsKey.length = 0;
     const keys = this.batch?.keys ?? [];
     this.batch = null;
     if (keys.length) this.lost([...keys]);
@@ -137,5 +140,6 @@ export class WaterMesher {
     for (const w of this.workers) w.terminate();
     this.workers = [];
     this.batch = null;
+    this.columnsKey.length = 0;
   }
 }
