@@ -20,7 +20,7 @@
 import { isTall, surfaceOf, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, groundDropped, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
 import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
@@ -28,8 +28,9 @@ import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
-import { ColumnTerrain, terrainColumns } from "../terrain/runs";
-import { fallsReason, newFalls, stackableTops } from "../terrain/support";
+import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
+import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
+import { fallsReason, newFalls, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
 import { clusterSaturation } from "../sim/moisture";
@@ -57,7 +58,9 @@ import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { versionName } from "../library/keptVersions";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
@@ -66,14 +69,31 @@ import {
   isCrop,
   replay,
   validateOp,
+  schemaProblems,
   type AppliedOp,
   type DocState,
   type EditOp,
   type OpName,
+  type OpParams,
   type OpOrigin,
 } from "./ops";
 
 export type SessionMode = "live" | "frozen" | "import";
+
+/** What the Block tool's operation would do (`MapSession.blockFalls`): the blocks it adds and removes
+ *  and the blocks of ground the support rule would drop because of it, each [x, y, layer]. */
+export interface BlockFalls {
+  /** The one line the operation is refused with, or null when it would be taken. */
+  reason: string | null;
+  errors: string[];
+  added: [number, number, number][];
+  removed: [number, number, number][];
+  falls: [number, number, number][];
+  /** The plants its blocks fill in or take the ground from, which the build removes, and the plants on a
+   *  tile's top that rise or sink with it. */
+  plantsRemoved: number;
+  plantsRiding: number;
+}
 export type WaterMode = "canonical" | "preview" | "defer";
 
 interface Generation {
@@ -274,7 +294,7 @@ export class MapSession {
     // (the generation's slopes the build checked: the same list as this session's, bound to it)
     const slopeList = list && slopes && JSON.stringify(list) === JSON.stringify(slopes) ? slopes : list;
     b.cache = { ...b.cache, base: input.base ?? null, field: input.field ?? null, locked: input.locked ?? null, terrain: { ...b.cache.terrain, slopeList } };
-    const dropped = groundDropped(input.base, b.heights, b.entities);
+    const dropped = groundDropped(input.base, b.heights, b.entities, masksOf(b.cache.terrain), b.W, b.H);
     if (dropped) b.dropped = dropped;
     return b;
   }
@@ -294,6 +314,12 @@ export class MapSession {
   /** Why undo cannot go below the save point now, or null (the replay differed, D455). */
   get undoStopped(): string | null {
     return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
+  }
+
+  /** Whether only the step the history stands at can be kept as a version: the replay differed, so the map as saved is the
+   *  earliest state and no other step can be built (D455). */
+  get keepOnlyHere(): boolean {
+    return !this.pending && this.floor > 0;
   }
 
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
@@ -517,6 +543,49 @@ export class MapSession {
     return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
   }
 
+  /** The map as it stood after History step `k` (the index `history()` lists; −1: before the first step, or at the save
+   *  point of a map whose earlier steps cannot be undone), steps undone since included, as a project file of its own:
+   *  the same land, the History's first steps replayed on it (the operations with their step grouping, so the copy opens
+   *  with its History up to that step, D456), named "<map name> — <step label>", with where it came from in its meta.
+   *  The project carries the stored map, so it reopens byte for byte (D455), when the session has that step's settled
+   *  build (the one it stands at, or a kept one near it: no rebuild). Otherwise it is rebuilt here (`rebuild`, the default,
+   *  a full build: seconds at 256²), or, with `rebuild: false`, the project comes without the stored map and `built` is null
+   *  (the caller builds it elsewhere: it opens by replaying, as a project with no stored map does). A step other than where
+   *  the history stands waits on the replay comparison of a map opened from its stored map, and once that replay differed
+   *  there is none to give (D455). Null when there is no such step. */
+  versionProject(k: number, from: { id?: string } = {}, level = 6, opts: { rebuild?: boolean } = {}): { bytes: Uint8Array; name: string; parent: VersionParent; built: BuildResult | null; stored: boolean } | null {
+    const steps = [...this.undoStack, ...this.redoStack.slice().reverse()];
+    const upto = this.reach + k + 1;
+    if (k < -1 || upto > steps.length) return null;
+    const here = upto === this.undoStack.length;
+    if (!here) {
+      if (this.pending && !this.checkReplay()) return null;
+      if (!this.pending && this.floor > 0) return null;
+    }
+    const label = upto === 0 ? (this.gen.spec ? "The generated map" : "Opened the map") : upto === this.reach ? "The map as saved" : (steps[upto - 1].label ?? labelOf(steps[upto - 1].ops[0]));
+    const parent: VersionParent = { ...(from.id ? { id: from.id } : {}), name: this.gen.meta.name, label, steps: upto };
+    const name = versionName(this.gen.meta.name, label);
+    const doc = this.document;
+    const cut = clone(steps.slice(0, upto).flatMap((e) => e.ops)) as AppliedOp[];
+    const { state } = replay(baseFeaturesOf(doc), cut);
+    const meta = { ...doc.meta, name, parent };
+    delete meta.views;
+    const version: MapDocument = { ...doc, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut, meta };
+    const kept = here ? this.cur : this.snaps.get(upto);
+    if (kept && kept.settle.preview !== true && kept.settle.stale !== true) {
+      let stored: StoredState | null = null;
+      try {
+        stored = storeBuilt(kept, cut.length, this.seqNext);
+      } catch {
+        // a map the stored format cannot carry: kept without it, and reopened by rebuilding
+      }
+      return { bytes: encodeProject(stored ? { ...version, stored } : version, level), name, parent, built: kept, stored: !!stored };
+    }
+    if (opts.rebuild === false) return { bytes: encodeProject(version, level), name, parent, built: null, stored: false };
+    const s = new MapSession(version, undefined, { rebuild: true });
+    return { bytes: s.project(level), name, parent, built: s.built, stored: true };
+  }
+
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
    *  stored map opens from it without rebuilding (D367); `rebuild` builds it from its generation and
    *  its log instead (the replay, D455). */
@@ -547,6 +616,12 @@ export class MapSession {
     return this.gen.generatorVersion !== GENERATOR_VERSION && this.gen.base.world !== null ? "frozen" : "live";
   }
 
+  /** Whether the map was cropped (D340): it is built from the cropped file, and has no "as opened" map to compare
+   *  its problems with, so every problem it has is the player's own. */
+  get cropped(): boolean {
+    return !!this.gen.cropped;
+  }
+
   get spec(): MapSpec | null {
     return this.gen.spec;
   }
@@ -573,49 +648,69 @@ export class MapSession {
 
   /** The map's terrain as it stands, as runs per tile (D119): the build's surface, an imported map's
    *  caves and overhangs with their top runs shaped as the edits left them and everything under a
-   *  roof kept exactly (D280 (3)). A fresh copy. */
+   *  roof kept exactly (D280 (3)), and the ground the Block tool dug or built (D335). A fresh copy. */
   get terrain(): ColumnTerrain {
-    const { x: W, y: H } = this.size;
-    return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
+    const t = this.terrainOf(this.cur);
+    return new ColumnTerrain(t.W, t.H, t.mask.slice());
+  }
+
+  private readonly terrains = new WeakMap<BuildResult, ColumnTerrain>();
+
+  /** The ground of a build of this document (shared, never to be changed): its base under its surface
+   *  with the Block tool's tiles as they left them (terrain/blocks.ts `terrainUnder`). */
+  private terrainOf(b: BuildResult): ColumnTerrain {
+    let t = this.terrains.get(b);
+    if (!t) {
+      const { x: W, y: H } = this.size;
+      t = terrainUnder(this.mode === "live" ? null : this.baseStuff().terrain.terrain, b.heights, masksOf(b.cache.terrain), W, H);
+      this.terrains.set(b, t);
+    }
+    return t;
+  }
+
+  /** Whether a build's ground has any tile that is not one plain run from the bottom: an imported map's
+   *  caves and overhangs, or ground the Block tool dug. A heightfield drops nothing, and none of the
+   *  support rule's work is done on one. */
+  private layered(b: BuildResult): boolean {
+    return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
   }
 
   /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
    *  the forces shape it (the brushes shape every tile's top run, D487).
-   *  Every tile of a generated map. */
+   *  Every tile of a generated map until the Block tool digs one. */
   plainAt(i: number): boolean {
+    const m = masksOf(this.cur.cache.terrain).get(i);
+    if (m !== undefined) return isPlainMask(m);
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
   }
 
-  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels) as they stand,
-   *  for the voxel mesher: the brushes shape their top runs (D280 (3)), nothing else changes them.
-   *  Empty for generated maps (heightfields). */
+  /** The map's voxel columns that are not one plain run (tile index → its 23 voxels) as they stand,
+   *  for the voxel mesher: an imported map's caves and overhangs with their tops as the brushes left
+   *  them (D280 (3)), and the ground the Block tool dug or built (D335). Empty for a heightfield. */
   get columns(): ReadonlyMap<number, Uint8Array> {
-    if (this.mode === "live") return new Map();
-    const b = this.baseStuff().terrain;
-    if (!b.columns.size || b.heights === this.cur.heights) return b.columns;
     const c = this.columnsCache;
-    if (c && c.key === this.cur.heights) return c.columns;
-    const t = b.terrain.withSurface(this.cur.heights);
+    if (c && c.key === this.cur) return c.columns;
     const columns = new Map<number, Uint8Array>();
-    for (const [i, was] of b.columns) columns.set(i, t.surface(i) === b.heights[i] ? was : t.column(i, LAYERS));
-    this.columnsCache = { key: this.cur.heights, columns };
+    if (this.layered(this.cur)) {
+      const t = this.terrainOf(this.cur);
+      for (const i of t.notPlain()) columns.set(i, t.column(i, LAYERS));
+    }
+    this.columnsCache = { key: this.cur, columns };
     return columns;
   }
-  private columnsCache: { key: Uint8Array; columns: Map<number, Uint8Array> } | null = null;
+  private columnsCache: { key: BuildResult; columns: Map<number, Uint8Array> } | null = null;
 
   /** The blocks of ground the map as it stands would lose that it did not lose as `before` (D121,
    *  D280 (3)): what the last step makes fall, by cell (z·N + tile). Empty on a heightfield, and
    *  when neither the ground nor the objects holding ground changed. */
   private fallsSince(before: BuildResult): number[] {
-    if (this.mode === "live") return [];
-    const b = this.baseStuff().terrain;
-    if (!b.columns.size) return [];
-    const { W, H } = b;
     const now = this.cur;
-    const tops0 = stackableTops(W, H, before.entities);
-    const tops1 = stackableTops(W, H, now.entities);
-    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k])) return [];
-    return newFalls(b.terrain.withSurface(before.heights), b.terrain.withSurface(now.heights), tops0, tops1);
+    if (!this.layered(before) && !this.layered(now)) return [];
+    const { x: W, y: H } = this.size;
+    const tops0 = this.topsOf(before.entities);
+    const tops1 = this.topsOf(now.entities);
+    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k]) && sameMasks(masksOf(before.cache.terrain), masksOf(now.cache.terrain))) return [];
+    return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
   }
 
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
@@ -623,15 +718,73 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number {
-    if (this.mode === "live" || (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult")) return 0;
-    const b = this.baseStuff().terrain;
-    if (!b.columns.size) return 0;
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return 0;
+    if (!this.layered(this.cur)) return 0;
+    const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
     if (sameBytes(heights, this.cur.heights)) return 0;
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, b.W, b.H), this.cur.heights, heights, b.W).length) return 0;
-    const tops = stackableTops(b.W, b.H, this.cur.entities);
-    return newFalls(b.terrain.withSurface(this.cur.heights), b.terrain.withSurface(heights), tops, tops).length;
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
+    const tops = this.topsOf(this.cur.entities);
+    const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
+    const masks = masksOf(this.cur.cache.terrain);
+    return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
+  }
+
+  /** The Block tool's query (D335, docs/progress/3d-creating.md): what an operation would do to the
+   *  ground as it stands, and what the game's support rule would drop because of it, before anything
+   *  is applied. `added` and `removed` are the blocks it changes, as [x, y, layer]; `falls` the blocks
+   *  of ground that would drop (nothing holding them up), the cells `apply` refuses with
+   *  `fallsReason`. `errors` is the one line why it cannot be taken at all (a cell off the map or the
+   *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
+  blockFalls(params: OpParams["blocks"]): BlockFalls {
+    const { x: W, y: H } = this.size;
+    const none = (errors: string[]): BlockFalls => ({ reason: errors[0], errors, added: [], removed: [], falls: [], plantsRemoved: 0, plantsRiding: 0 });
+    const bad = schemaProblems({ op: "blocks", params });
+    if (bad.length) return none(bad);
+    const t = this.terrainOf(this.cur);
+    const effect = blockEffect(params, t, this.groundOf(this.cur.entities));
+    if (effect.errors.length) return none(effect.errors);
+    const after = withBlocks(t, effect.added, effect.removed);
+    const cells = (list: readonly number[]) => list.map((c): [number, number, number] => [c % W, Math.floor((c % (W * H)) / W), Math.floor(c / (W * H))]);
+    // (what falls now was falling before, or it is not this step's)
+    const now = unsupportedVoxels(after, this.topsOf(this.cur.entities));
+    const was = this.unsupportedOf(this.cur);
+    const fell: number[] = [];
+    for (let c = 0; c < now.length; c++) if (now[c] && !was[c]) fell.push(c);
+    const falls = cells(fell);
+    return { reason: falls.length ? fallsReason(falls.length) : null, errors: [], added: cells(effect.added), removed: cells(effect.removed), falls, plantsRemoved: effect.plants.length, plantsRiding: effect.riding };
+  }
+
+  // What a build's objects mean to the Block tool and the support rule, worked out once per build (the
+  // page asks on every pointer tile).
+  private readonly grounds = new WeakMap<object, BlockGround>();
+  private readonly tops = new WeakMap<object, number[]>();
+  private readonly unsupported = new WeakMap<BuildResult, Uint8Array>();
+
+  private groundOf(entities: BuildResult["entities"]): BlockGround {
+    let g = this.grounds.get(entities);
+    if (!g) {
+      const { x: W, y: H } = this.size;
+      this.grounds.set(entities, (g = blockGround(entities, W, H)));
+    }
+    return g;
+  }
+
+  private topsOf(entities: BuildResult["entities"]): number[] {
+    let t = this.tops.get(entities);
+    if (!t) {
+      const { x: W, y: H } = this.size;
+      this.tops.set(entities, (t = stackableTops(W, H, entities)));
+    }
+    return t;
+  }
+
+  /** The blocks of a build's ground the game deletes (support.ts `unsupportedVoxels`), once per build. */
+  private unsupportedOf(b: BuildResult): Uint8Array {
+    let u = this.unsupported.get(b);
+    if (!u) this.unsupported.set(b, (u = unsupportedVoxels(this.terrainOf(b), this.topsOf(b.entities))));
+    return u;
   }
 
   /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
@@ -676,10 +829,11 @@ export class MapSession {
     return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
   }
 
-  /** Tiles under roofs (caves, tunnels, overhangs) of an imported map: there the file's own water
-   *  is kept and the preview is approximate (EDITOR_PLAN §6). Empty for generated maps. */
+  /** Tiles under roofs (caves, tunnels, overhangs) of an imported map, and the ground the Block tool
+   *  dug: there the file's own water is kept and the preview is approximate (EDITOR_PLAN §6). Empty
+   *  for a heightfield map. */
   get roofedTiles(): ReadonlySet<number> {
-    return this.mode === "live" ? new Set() : new Set(this.baseStuff().terrain.columns.keys());
+    return new Set(this.columns.keys());
   }
 
   /** What the build's last terrain steps start from (the page's copy, for strokes painted there
@@ -699,8 +853,8 @@ export class MapSession {
       channel: t.channel.slice(),
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
-      columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
-      ...(base && base.columns.size ? this.roofState(base) : {}),
+      columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
+      ...(this.columns.size ? this.roofState() : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
@@ -709,14 +863,15 @@ export class MapSession {
 
   /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
    *  each roof's top may go, the terrain's masks of those tiles as they stand, and the objects' tops
-   *  that hold ground (StrokePreview `falls`). */
-  private roofState(base: BaseTerrain): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
-    const tiles = [...base.columns.keys()].sort((a, b) => a - b);
-    const t = base.terrain.withSurface(this.cur.heights);
+   *  that hold ground (StrokePreview `falls`). The ground the Block tool dug counts as caves. */
+  private roofState(): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
+    const t = this.terrainOf(this.cur);
+    const { x: W, y: H } = this.size;
+    const tiles = [...this.columns.keys()].sort((a, b) => a - b);
     return {
-      floor: base.terrain.topFloors(),
+      floor: t.topFloors(),
       masks: Uint32Array.from(tiles, (i) => t.mask[i]),
-      stackTops: Int32Array.from(stackableTops(base.W, base.H, this.cur.entities)),
+      stackTops: Int32Array.from(this.topsOf(this.cur.entities)),
     };
   }
 
@@ -867,7 +1022,8 @@ export class MapSession {
       generated: !!this.gen.spec,
       entityIds,
       slopeTiles,
-      lockedColumns: this.mode === "live" ? null : new Set(this.baseStuff().terrain.columns.keys()),
+      lockedColumns: this.layered(this.cur) ? new Set(this.columns.keys()) : null,
+      ...(op.op === "blocks" ? { blocks: { terrain: this.terrainOf(this.cur), ground: this.groundOf(this.cur.entities) } } : {}),
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
@@ -888,6 +1044,11 @@ export class MapSession {
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
+    // (the Block tool's ground that would fall is refused before anything is built: the query the page shows)
+    if (op.op === "blocks") {
+      const f = this.blockFalls(op.params);
+      if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
+    }
     if (op.op === "crop") return this.applyCrop(op, origin, label);
     const before = this.cur;
     const mark = this.mark();
@@ -1002,12 +1163,18 @@ export class MapSession {
     return { gen: { spec: null, generatorVersion: GENERATOR_VERSION, base: baseFromFile(file, "import"), field: null, baseFeatures: [], kept: null, meta, cropped: true }, objects };
   }
 
-  /** The map goes on as `gen`: the crop is already the last operation of the log. */
+  /** The map goes on as `gen`: the crop is already the last operation of the log. The map's name goes with it
+   *  (D443: a rename is never undone, so no crop or undo of one brings an older name back). */
   private enterCrop(gen: Generation): void {
     this.past.push({ gen: this.gen, st: this.st, start: this.segStart });
-    this.gen = gen;
+    this.gen = this.named(gen);
     this.st = emptyState(gen.baseFeatures);
     this.segStart = this.log.length - 1;
+  }
+
+  /** `gen` with the name the map has now. */
+  private named(gen: Generation): Generation {
+    return gen.meta.name === this.gen.meta.name ? gen : { ...gen, meta: { ...gen.meta, name: this.gen.meta.name } };
   }
 
   /** The map goes back to the generation before its crop; returns the one it leaves. */
@@ -1015,7 +1182,7 @@ export class MapSession {
     const before = this.past.pop();
     if (!before) throw new Error("there is no map before this crop");
     const left = this.gen;
-    this.gen = before.gen;
+    this.gen = this.named(before.gen);
     this.st = before.st;
     this.segStart = before.start;
     return left;
@@ -1068,6 +1235,13 @@ export class MapSession {
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
+    // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
+    if (applied.op === "blocks") {
+      const { x: W, y: H } = this.size;
+      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), this.groundOf(this.cur.entities));
+      const { plants: _asked, stands: _stands, ...rest } = applied.params;
+      applied.params = { ...rest, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H), ...(e.plants.length ? { plants: e.plants } : {}), ...(e.stands.length ? { stands: e.stands } : {}) };
+    }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
@@ -1427,17 +1601,20 @@ export class MapSession {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
-    if (this.mode === "live") return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+    if (this.mode === "live") {
+      const file = toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+      // (ground the Block tool dug or built is written as it stands: the heightfield file has none)
+      return layeredMasks(masksOf(built.cache.terrain)) ? { ...file, world: { ...file.world, voxels: this.terrainOf(built).voxels(LAYERS) } } : file;
+    }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
     const w = b.file.world;
-    const terrainChanged = !sameBytes(built.heights, b.terrain.heights);
     // the settled water is written, unless the file's own still stands; under roofs (caves, tunnels,
     // overhangs) the file's own water is kept: the heightfield model cannot simulate it (EDITOR_PLAN §6)
-    const roofed = b.terrain.columns.size ? new Set(b.terrain.columns.keys()) : null;
-    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: b.terrain.terrain.withSurface(built.heights).voxels(), roofed });
-    // the thumbnail shows terrain and water: a new one when either changed
-    const redraw = terrainChanged || !built.waterFromFile;
+    const ground = this.terrainOf(built);
+    const roofed = this.layered(built) ? new Set(ground.notPlain()) : null;
+    const world = worldOf(W, H, built.heights, built.entities, built.waterFromFile ? null : builtWater(built), { world: w, voxels: ground.voxels(), roofed });
+    const redraw = this.drawsThumbnail(built);
     let metadata = parse(this.gen.base.metadata) as JsonObject;
     // its player removed its last badwater spring: it says it is a No badwater map (D213)
     if (this.badwaterRemoved(built)) {
@@ -1453,15 +1630,24 @@ export class MapSession {
     }, built.heights);
   }
 
-  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
-   *  profile, PLAN §19.5): they are noted at the end of the map's description. */
+  /** Whether the file's thumbnail is drawn (the core's top-down one): always for a generated map; for an
+   *  imported one when its terrain or water changed, else the file keeps its own picture (PLAN §19.6). */
+  drawsThumbnail(built: BuildResult = this.cur): boolean {
+    if (this.mode === "live") return true;
+    // the thumbnail shows terrain and water: a new one when either changed
+    return !built.waterFromFile || !sameBytes(built.heights, this.baseStuff().terrain.heights);
+  }
+
   /** The exported file's name. */
   exportTimberName(): string {
     // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
     return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
   }
 
-  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string } {
+  /** The .timber file. `warnings` are the problems the player confirmed at export (the `export`
+   *  profile, PLAN §19.5): they are noted at the end of the map's description. `thumbnailDrawn`: the
+   *  file carries the core's top-down thumbnail, which the page may replace with its 3D picture (D488). */
+  exportTimber(opts: { warnings?: readonly string[] } = {}): { bytes: Uint8Array; fileName: string; thumbnailDrawn: boolean } {
     // a file always gets the canonical settle, never the preview's water (PLAN §19.7)
     this.settleCanonical();
     const name = this.exportTimberName();
@@ -1472,7 +1658,7 @@ export class MapSession {
       const note = `Exported with ${opts.warnings.length === 1 ? "a warning" : `${opts.warnings.length} warnings`}: ${opts.warnings.join("; ")}.`;
       file.metadata = { ...md, MapDescription: text ? `${text}\n\n${note}` : note };
     }
-    return { bytes: writeTimber(file), fileName: name };
+    return { bytes: writeTimber(file), fileName: name, thumbnailDrawn: this.drawsThumbnail() };
   }
 
   /** The map as it was opened, before any edit: the load and design checks of an imported
@@ -1591,6 +1777,14 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+/** The same tiles with the same masks (the Block tool's ground). */
+function sameMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [i, m] of a) if (b.get(i) !== m) return false;
+  return true;
+}
+
 /** The same items in the same order (the same objects). */
 function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
@@ -1638,7 +1832,7 @@ export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
   return { mask, heights, entities };
 }
 
-/** A stroke's history label, when the page gave none ("Raise, 38 tiles" when it did). */
+/** A stroke's history label, when the page gave none ("Raise 38 tiles" when it did). */
 const BRUSH_NAMES: Record<string, string> = { raise: "Raise", lower: "Lower", flatten: "Flatten", smooth: "Smooth", naturalize: "Naturalize" };
 
 const KIND_NAMES: Record<string, string> = {
@@ -1657,8 +1851,10 @@ const KIND_NAMES: Record<string, string> = {
 export function labelOf(op: AppliedOp): string {
   if (op.label) return op.label;
   switch (op.op) {
-    case "addFeature":
-      return `Add ${KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind}`;
+    case "addFeature": {
+      const name = KIND_NAMES[op.params.feature.kind] ?? op.params.feature.kind;
+      return `Add ${name === "start" ? "the start" : withArticle(name)}`;
+    }
     case "updateFeature":
       return `Change a feature`;
     case "deleteFeature":
@@ -1672,7 +1868,7 @@ export function labelOf(op: AppliedOp): string {
     case "forceResult":
       return forceLabel(op.params);
     case "placeEntity":
-      return `Place ${op.params.template}`;
+      return placeLabel("Place", op.params.template);
     case "moveEntity":
       return "Move an object";
     case "deleteEntities":
@@ -1684,11 +1880,13 @@ export function labelOf(op: AppliedOp): string {
     case "removeSlope":
       return "Remove a slope";
     case "removeUnfedWater":
-      return op.params.pools ? `Remove unfed water, ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
+      return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
     case "crop":
       return `Crop to ${op.params.w}×${op.params.h}`;
+    case "blocks":
+      return op.params.mode === "add" ? "Add blocks" : "Remove blocks";
     default:
       return (op as { op: string }).op;
   }

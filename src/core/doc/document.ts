@@ -60,6 +60,18 @@ export interface DocMeta {
   modified?: string;
   /** The editor's camera bookmarks (D205): a view per slot 1–9; never part of a build. */
   views?: SavedView[];
+  /** A map kept or branched from another's History (src/core/library/keptVersions.ts): where it came from. Never part of a build. */
+  parent?: VersionParent;
+}
+
+/** Where a kept version came from: the map it was made from (its Your maps id, when it had one), that map's name,
+ *  and the History step it was taken at (the step's label, and how many steps the version holds), so Your maps can
+ *  say it quietly. */
+export interface VersionParent {
+  id?: string;
+  name: string;
+  label: string;
+  steps: number;
 }
 
 /** A camera bookmark: where the editor's view was, in the renderer's terms. */
@@ -363,6 +375,7 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
     throw new ProjectError("not a Dam Good Maps project file");
   }
   if (raw.app !== "dam-good-maps") throw new ProjectError("not a Dam Good Maps project file");
+  // (the retire and upgrade passes below read the top document only; `prior` is written by this version, D475)
   const notes = dropRetired(raw as Record<string, unknown>);
   upgradeCarves(raw as Record<string, unknown>);
   // a spec saved before D164 counts starting trees; it opens with the same wood in logs

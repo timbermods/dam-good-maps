@@ -11,6 +11,8 @@ import { footprintTiles } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { LAYERS } from "../../src/core/format/world";
 import { validateMap } from "../../src/core/validate/checks";
+import { generate } from "../../src/core/gen/generate";
+import { makeSpec } from "../../src/core/spec/mapspec";
 import { map, sha, session, timber } from "./gateHelpers";
 
 const W = 64;
@@ -30,11 +32,15 @@ function rectAroundStart(s: MapSession): { x: number; y: number; w: number; h: n
   throw new Error("no rectangle around the start that cuts an object");
 }
 
-/** The ground of a world: its voxels on the rectangle of `from`, flattened column by column. */
-function voxelsOn(world: { voxels: Uint8Array; sizeX: number; sizeY: number }, r: { x: number; y: number; w: number; h: number }): number[] {
+/** The ground of a world: its voxels on the rectangle `r` of `world`, flattened column by column. The two tiles along
+ *  a side the crop cut are left out (`cut`: the rectangle `from` the whole map it was cut from; the lip at a new edge
+ *  may raise them); the sides it did not cut are compared whole. */
+function voxelsOn(world: { voxels: Uint8Array; sizeX: number; sizeY: number }, r: { x: number; y: number; w: number; h: number }, cut?: { rect: { x: number; y: number; w: number; h: number }; W: number; H: number }): number[] {
   const out: number[] = [];
   const plane = world.sizeX * world.sizeY;
-  for (let z = 0; z < LAYERS; z++) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) out.push(world.voxels[z * plane + y * world.sizeX + x]);
+  const k = (n: boolean) => (n ? 2 : 0);
+  const [w, e, s, nn] = cut ? [k(cut.rect.x > 0), k(cut.rect.x + cut.rect.w < cut.W), k(cut.rect.y > 0), k(cut.rect.y + cut.rect.h < cut.H)] : [0, 0, 0, 0];
+  for (let z = 0; z < LAYERS; z++) for (let y = r.y + s; y < r.y + r.h - nn; y++) for (let x = r.x + w; x < r.x + r.w - e; x++) out.push(world.voxels[z * plane + y * world.sizeX + x]);
   return out;
 }
 
@@ -54,12 +60,12 @@ describe("Crop map to selection: a generated map", () => {
     expect(s.built.W).toBe(r.w);
     expect(s.built.H).toBe(r.h);
     // heights are the original's sub-rectangle
-    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) expect(s.built.heights[y * r.w + x]).toBe(original.built.heights[(y + r.y) * W + x + r.x]);
+    for (let y = r.y > 0 ? 2 : 0; y < r.h - (r.y + r.h < W ? 2 : 0); y++) for (let x = r.x > 0 ? 2 : 0; x < r.w - (r.x + r.w < W ? 2 : 0); x++) expect(s.built.heights[y * r.w + x]).toBe(original.built.heights[(y + r.y) * W + x + r.x]);
     // so are the voxels of the exported file, every layer
     const after = s.exportFile();
     expect(after.world.sizeX).toBe(r.w);
     expect(after.world.sizeY).toBe(r.h);
-    expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h })).toEqual(voxelsOn(before.world, r));
+    expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h }, { rect: r, W, H: W })).toEqual(voxelsOn(before.world, r, { rect: r, W, H: W }));
   });
 
   it("keeps the objects inside, moved to the new origin, and removes the ones the edge cuts, counting them", () => {
@@ -225,7 +231,7 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
     const res = s.apply(crop(r.x, r.y, r.w, r.h));
     expect(res.errors).toEqual([]);
     const after = s.exportFile();
-    expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h })).toEqual(voxelsOn(before.world, r));
+    expect(voxelsOn(after.world, { x: 0, y: 0, w: r.w, h: r.h }, { rect: r, W, H: W })).toEqual(voxelsOn(before.world, r, { rect: r, W, H: W }));
     const inside = at.filter((p) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h);
     expect(inside.length).toBeGreaterThan(0);
     expect([...s.columns.keys()].sort((a, b) => a - b)).toEqual(inside.map((p) => (p.y - r.y) * r.w + p.x - r.x).sort((a, b) => a - b));
@@ -325,5 +331,84 @@ describe("Crop map to selection: the water settles again", () => {
     s.apply(crop(r.x, r.y, r.w, r.h));
     expect(s.waterPending).toBe(false);
     expect(s.built.waterFromFile).toBe(false);
+  });
+});
+
+describe("Crop map to selection: the name", () => {
+  it("a rename after a crop is not undone with it (D443), and one before it stays through the crop and its undo", () => {
+    const s = session();
+    const r = rectAroundStart(s);
+    expect(s.setName("Before").ok).toBe(true);
+    expect(s.apply(crop(r.x, r.y, r.w, r.h)).ok).toBe(true);
+    expect(s.meta.name).toBe("Before");
+    expect(s.setName("After").ok).toBe(true);
+    s.undo();
+    expect(s.meta.name).toBe("After");
+    s.redo();
+    expect(s.meta.name).toBe("After");
+    // saved, opened again and undone
+    s.settleCanonical();
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(again.meta.name).toBe("After");
+    again.undo();
+    expect(again.meta.name).toBe("After");
+  });
+});
+
+describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edgeLip.ts)", () => {
+  // seed 4's spring at (12, 50) is a river head 12 tiles in from the west edge: cropped to the west at the
+  // source itself (0 tiles behind the new edge) or one tile before it (1 behind), its water poured off the new
+  // edge on the tiles beside it
+  it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
+    const original = session(4);
+    const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 12);
+    expect(spring.length).toBeGreaterThan(0);
+    const rect = { x: 12 - behind, y: 0, w: W - 12 + behind, h: W };
+    expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
+    original.settleCanonical();
+    const s = session(4);
+    s.settleCanonical();
+    expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
+    const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
+    const wetBeside: number[] = [];
+    let raised = 0;
+    for (let y = 40; y < 60; y++) {
+      const i = y * rect.w;
+      if (s.built.heights[i] > original.built.heights[y * W + rect.x]) raised++;
+      if (!sources.has(i) && s.built.water[i] > 0.02) wetBeside.push(y);
+    }
+    expect(raised, "the edge beside the head stands higher").toBeGreaterThan(0);
+    expect(wetBeside).toEqual([]);
+  });
+});
+
+describe("Crop map to selection: the lip stays at the new edges and is no wall", () => {
+  // seed 6 at 128²: a source at (27, 127) on the old north edge, cropped to {27, 68, 60, 60}: its river mouth
+  // stands on a side the crop did not cut
+  it("changes no tile on a side the crop did not cut, and little beside the new ones", () => {
+    const original = MapSession.fromGenerated(generate(makeSpec({ seed: 6, size: { x: 128, y: 128 } })));
+    original.settleCanonical();
+    const r = { x: 27, y: 68, w: 60, h: 60 };
+    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 6, size: { x: 128, y: 128 } })));
+    s.settleCanonical();
+    expect(s.apply(crop(r.x, r.y, r.w, r.h)).errors).toEqual([]);
+    let raised = 0;
+    let highest = 0;
+    for (let y = 0; y < r.h; y++)
+      for (let x = 0; x < r.w; x++) {
+        const was = original.built.heights[(y + r.y) * 128 + x + r.x];
+        const now = s.built.heights[y * r.w + x];
+        if (now === was) continue;
+        // the south and east sides are the old map's edge (x = 86 < 127, y = 127): the north side of the map is the old edge
+        const oldSide = y === r.h - 1; // r.y + r.h = 128
+        expect(oldSide, `(${x}, ${y}) is on a side the crop did not cut`).toBe(false);
+        // only the tiles on the new edges
+        expect(x === 0 || y === 0 || x === r.w - 1, `(${x}, ${y}) is beside a new edge`).toBe(true);
+        raised++;
+        highest = Math.max(highest, now - was);
+      }
+    expect(raised).toBeLessThan(20);
+    expect(highest).toBeLessThanOrEqual(3);
+    expect(s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "terrain.edge_wall")?.ok).toBe(true);
   });
 });

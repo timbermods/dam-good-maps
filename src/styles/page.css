@@ -68,6 +68,17 @@
   text-overflow: clip;
 }
 
+/* the shown name never takes more than two lines: past them an ellipsis, and the full name in its tooltip (a name may
+   be longer than the room where the fonts are wide) */
+.editor-title.two-lines h1:not(.title-editing) .title-button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* (two lines at full size; only when two full-size lines can't hold it, two lines in 13px: Kyler, 2026-10-06; at 1280
    every name Rename allows fits two lines in that) */
 .editor-title.two-lines h1 {
@@ -249,6 +260,27 @@
   text-overflow: ellipsis;
 }
 
+/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+.ym-from {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.your-maps li {
+  display: flex;
+}
+
+.your-maps li > .ym-tile {
+  flex: 1;
+  width: auto;
+}
+
 .ym-size {
   flex: none;
   color: var(--muted);
@@ -365,6 +397,43 @@
   font-weight: 600;
 }
 
+/* a step's row, and beside it Keep this version and Branch from here: shown on the row pointed at, focused, or the map is
+   at, so the list stays quiet; the row gives them room, never moving */
+.history-panel .hist-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-panel .hist-item > .hist-row {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.history-panel .hist-acts {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.history-panel .hist-item:hover .hist-acts,
+.history-panel .hist-item:focus-within .hist-acts,
+.history-panel .hist-item:has(> .hist-row[aria-current="true"]) .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-panel .hist-act {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .history-panel .hist-row {
   display: block;
   width: 100%;
@@ -395,7 +464,8 @@
 
 /* (the close × is a square the height of the heading row) */
 .history-panel .hist-close {
-  width: 26px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   font-size: 16px;
   line-height: 1;
@@ -478,7 +548,8 @@
 
 /* the row is never lit; its box is (Timberborn's settings' checkbox: a 1.5px quiet border, 3px corners; ticked, the
    mint with a dark tick) */
-.show-row .cb {
+.show-row .cb,
+.look-part .cb {
   flex: none;
   display: grid;
   place-items: center;
@@ -489,13 +560,15 @@
   border-radius: 3px;
 }
 
-.show-row .cb.on {
+.show-row .cb.on,
+.look-part .cb.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
-.show-row .cb svg {
+.show-row .cb svg,
+.look-part .cb svg {
   width: 12px;
   height: 12px;
 }
@@ -983,18 +1056,18 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (six tools, the hairline, seven forces). Every cell one width, 76px
+   on a grid whose columns are the bar's cells (seven tools, the hairline, seven forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
    the left and the objects menu at the right (each 196px with its gap); the dock on whole pixels. */
 /* (on the view: the readout keeps left of the dock with them) */
 .editor-view {
   --cell: 76px;
-  /* the hairline, the 13 gaps between the 14 columns and the bar's padding */
-  --dock-w: calc(13 * var(--cell) + 48px);
+  /* the hairline, the 14 gaps between the 15 columns and the bar's padding */
+  --dock-w: calc(14 * var(--cell) + 50px);
 }
 
 .tool-dock {
-  --cells: repeat(6, var(--cell)) 14px repeat(7, var(--cell));
+  --cells: repeat(7, var(--cell)) 14px repeat(7, var(--cell));
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -1010,7 +1083,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(62px, round(down, calc((100vw - 440px) / 13), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 440px) / 14), 1px), 76px);
   }
 
   .tool-dock {
@@ -1036,7 +1109,7 @@
   justify-content: center;
   gap: 4px;
   height: 54px;
-  padding: 4px 2px;
+  padding: 4px 1px;
 }
 
 .tool-bar button.icon-button svg {
@@ -1049,6 +1122,8 @@
   padding: 0;
   font-size: 0.8rem;
   line-height: 1.1;
+  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
+  letter-spacing: -0.015em;
   white-space: nowrap;
 }
 
@@ -1312,10 +1387,11 @@
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each, icon above its name, the group's full height */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
+   the last two, its word being the longest */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1330,6 +1406,10 @@
   margin: 0;
   padding: 2px;
   border-radius: 6px;
+}
+
+.set-group > .segmented.shapes > button.whole-map {
+  grid-column: span 2;
 }
 
 .set-group > .segmented.shapes > button .icon-word {
@@ -2198,10 +2278,14 @@
   line-height: 16px;
 }
 
-/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom */
-.view3d-corner .compass {
+/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom; it stays round
+   among the camera group's buttons (the group's own rules give them 8px corners) */
+.view3d-corner .compass,
+.camera-group > button.compass {
   width: var(--corner-h);
   height: var(--corner-h);
+  padding: 0;
+  border-radius: 50%;
 }
 
 /* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
@@ -2599,6 +2683,44 @@
 
 .good-menu button[aria-checked="true"] {
   font-weight: 700;
+}
+
+/* the Look menu, in the page's own controls: the three looks a segmented choice, the chosen cell filled as the settings'
+   choices are; High's parts checkbox rows as the Show column's, a name that wraps hanging under its own first letter */
+.menu.look-menu {
+  box-sizing: border-box;
+  width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.look-menu .note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 0.8rem;
+}
+
+.look-menu .look-part {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 2px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.look-menu .look-part .cb {
+  margin-top: 2px;
+}
+
+/* the checks' list lies over the corner where the open Legend hangs: while it is open the Legend steps aside (it comes
+   back as the list closes; its Legend box keeps its state) */
+body:has(.checks-list) .legend-panel,
+body:has(.checks-list) .show-key {
+  visibility: hidden;
 }
 
 /* the editor's frame while the first map is made (LoadingFrame.tsx): the header, bar and shelf held still, the land's

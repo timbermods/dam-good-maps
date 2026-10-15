@@ -52,7 +52,7 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   await page.waitForFunction(() => /^Naturalize/.test(window.dgmEditor!.info().history.at(-1)?.label ?? ""), null, { timeout: 60_000 });
   await settled(page);
   const i = await info(page);
-  expect(i.history.at(-1)!.label).toMatch(/^Naturalize, \d+ tiles?$/);
+  expect(i.history.at(-1)!.label).toMatch(/^Naturalize \d+ tiles?$/);
   const last = (await page.evaluate(() => window.dgmEditor!.lastStroke())) as { tool: string; weathering?: number; size: number; strength: number } | null;
   expect(last?.tool).toBe("naturalize");
   expect(last?.weathering).toBe(5);

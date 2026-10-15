@@ -33,6 +33,13 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+/** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). */
+export interface EditorNote {
+  kind: "error" | "info";
+  text: string;
+  keep?: boolean;
+}
+
 export interface SessionSlice {
   api: Remote<GeneratorApi>;
   info: SessionInfo;
@@ -71,8 +78,8 @@ export interface SessionSlice {
   setStartDrag: Dispatch<StateUpdater<{ x: number; y: number; check: StartCheck } | null>>;
   setBusy: Dispatch<StateUpdater<number>>;
   busy: number;
-  setMessage: Dispatch<StateUpdater<{ kind: "error" | "info"; text: string } | null>>;
-  message: { kind: "error" | "info"; text: string } | null;
+  setMessage: Dispatch<StateUpdater<EditorNote | null>>;
+  message: EditorNote | null;
   setHover: Dispatch<StateUpdater<string | null>>;
   hover: string | null;
   showHistory: boolean;
@@ -127,6 +134,13 @@ export interface SessionSlice {
   feel: (kind: Parameters<Juice["play"]>[0], x: number, y: number, size?: number, soft?: boolean, what?: string) => void | undefined;
   weather: Hazard | null;
   weatherRef: { current: Hazard | null };
+  /** The other version is on show (the compare key is held, useCompare). */
+  comparing: { current: boolean };
+  /** Whatever draws the open map on the renderer (an edit coming in, an undo, a water frame, a force's frame) first puts the
+   *  open map back, ending the flip: the two maps are never on screen at once. */
+  endFlip: () => void;
+  /** Set by useCompare: how the flip ends. */
+  flipEnd: { current: (() => void) | null };
   setWeather: (on: Hazard | null) => void;
   /** The weather day shown (0 the map's own water), its hazard's default length, how far the day asked for is worked
    *  out (0 to 1, the day box's fill), or null once it shows, and the day asked for (the day box reads it at once). */
@@ -191,7 +205,7 @@ export interface SessionSlice {
   draftWater: { current: WaterView | null };
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
-  showSoil: (soil: SoilView, withered?: Int32Array) => void;
+  showSoil: (soil: SoilView, withered?: Int32Array, day?: number) => void;
   showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
@@ -239,7 +253,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [icons, setIcons] = useState<Record<string, string>>({});
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
   const [busy, setBusy] = useState(0);
-  const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
+  const [message, setMessage] = useState<EditorNote | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
@@ -248,6 +262,26 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const h = lastHover.current;
     if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y)));
   };
+  // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
+  // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
+  // (info) stays until its × or the next kept edit.
+  const dropRefusal = () => setMessage((m) => (m && m.kind === "error" && !m.keep ? null : m));
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!["Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) dropRefusal();
+    };
+    // (a press on the note itself is its ×'s: that closes it)
+    const press = (e: PointerEvent) => {
+      // (the camera's drags, middle and right, leave it: a player looks around to see why)
+      if (e.button === 0 && !(e.target instanceof Element && e.target.closest(".editor-message"))) dropRefusal();
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("keydown", key, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, []);
   const [showHistory, setShowHistory] = useState(props.carry?.history ?? false);
   const resizing = useRef(false);
   const [check, setCheck] = useState<ExportCheck | null>(null);
@@ -269,6 +303,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [clearWater, setClearWater] = useState(props.carry?.clearWater ?? false);
   /** The layer the world is cut at (Alt+scroll, Alt+click), or null. */
   const [sliceLevel, setSliceLevel] = useState<number | null>(null);
+  useEffect(dropRefusal, [tool, shelf?.id, layer, sliceLevel]);
   /** The Select tool (D184): open with M or a Ctrl+drag; its way of picking tiles. */
   // Select is always in hand (Kyler's choice at the v4 verdict): held when a map opens, and whatever is put down
   // returns to it
@@ -312,6 +347,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** A hazard playing (a drought or a badtide to watch), or null. */
   const [weather, setWeatherState] = useState<Hazard | null>(null);
   const weatherRef = useRef<Hazard | null>(null);
+  const comparing = useRef(false);
+  const flipEnd = useRef<(() => void) | null>(null);
+  const endFlip = () => {
+    if (comparing.current) flipEnd.current?.();
+  };
   // the drought line (D133): the worker's channel, drawn in the normal view only (never while a day is held) and only
   // for the map's own version, so an edit puts it away until the new map's comes
   const droughtNews = useRef<DroughtLineNews | null>(null);
@@ -467,7 +507,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // (the map is being opened again after a crop: what the player does meanwhile waits for the new editor)
     if (resizing.current) return Promise.resolve();
     if (ed.forcer.current?.running) {
-      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Esc skips it to its end, Ctrl+Z takes it back." });
+      setMessage({ kind: "info", text: "A force is at work: it is kept when it ends. Skip it to its end or take it back first." });
       return Promise.resolve();
     }
     const next = queue.current.then(async () => {
@@ -501,6 +541,14 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function showWater(w: WaterView, soon = false, held = false) {
     // (a held weather day stays on screen: only the day itself replaces it, Kyler, 2026-10-04)
     if (weatherRef.current && !held) return;
+    // (the other version on show: the water that arrives waits in the page's copy and is drawn when the key lets go)
+    if (comparing.current) {
+      const W = infoRef.current.W;
+      const H = infoRef.current.H;
+      mirror.current.water = surfaceWater(W, H, w);
+      mirror.current.waterView = w;
+      return;
+    }
     const r = renderer.current;
     // (water on its way, a stroke's or the journey's: its chunks meshed a few a frame, so painting
     // and turning the view keep the display's rate)
@@ -523,6 +571,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const n = to.moisture.length;
     const moisture = new Uint8Array(n);
     const step = () => {
+      // (the other version on show: the soil stops here, and the open map's own comes back with it when the key lets go)
+      if (comparing.current) return;
       const t = Math.min(1, (performance.now() - t0) / 2000);
       if (t >= 1) {
         r.updateSoil(to);
@@ -571,6 +621,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherTarget(null);
       mirror.current.daySoil = null;
       renderer.current?.setWithered(null);
+      renderer.current?.setSeason(null, null);
       void api.stopWeather().then((v) => {
         player.current?.clear();
         applyView(v);
@@ -605,12 +656,16 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function showWithered(tiles: Int32Array) {
     renderer.current?.setWithered(tiles);
   }
-  function showSoil(soil: SoilView, withered?: Int32Array) {
+  function showSoil(soil: SoilView, withered?: Int32Array, day = 1) {
+    endFlip();
     renderer.current?.updateSoil(soil);
     // (the plants the days up to this one have surely killed, drawn withered in High, D250: a day that comes without its list
     // keeps the last one until the new one arrives, so after an edit the dead plants never flash alive; cleared only when the
     // hazard changes or ends, or the map does)
     if (withered) renderer.current?.setWithered(withered);
+    // (the High look's dry ground, heat and sky: the day's soil against the map's own, the page's copy of it)
+    // (Day 0 is the map as it is: no dust, no shimmer, no sky)
+    renderer.current?.setSeason(day > 0 ? weatherRef.current : null, mirror.current.soil ?? null);
   }
 
   function applyUpdate(u: SessionUpdate): void {
@@ -624,6 +679,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       // opens from the worker's map after it (App.tsx `resized`). A held drought or badtide is stopped cleanly: its days were
       // the old map's.
       resizing.current = true;
+      // (a compare's flip ends first: the other version's map is not this one's size)
+      endFlip();
       if (weatherRef.current) void enqueue(() => api.stopWeather());
       props.onResized({ history: showHistory, mode: renderer.current?.getView().mode ?? "orbit", layer, clearWater, minimap });
       return;
@@ -660,6 +717,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function takeLand(): void {
     const held = heldLand.current;
     if (!held.heights && !held.terrain) return;
+    if (held.heights) endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
     const m = mirror.current;
@@ -681,7 +739,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  are on their way to the worker, or one is being painted, the page's own terrain is ahead of the
    *  worker's: the worker's waits for them (it is the same, byte for byte). */
   function applyView(v: ViewUpdate): void {
-    const r = renderer.current;
+    // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
+    // copy, and are drawn when the key lets go)
+    if (v.heights) endFlip();
+    const flipped = comparing.current;
+    const r = flipped ? null : renderer.current;
     const m = mirror.current;
     // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
@@ -714,8 +776,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       m.entitiesAt = null;
       m.coverAt = null;
       r?.updateEntities(v.entities);
-      ed.reglow();
-      ed.sourcesChanged();
+      if (!flipped) {
+        ed.reglow();
+        ed.sourcesChanged();
+      }
     }
     if (v.water || v.entities) setWaterTick((t) => t + 1);
   }
@@ -730,7 +794,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
-    feel, weather, weatherRef, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
+    feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,

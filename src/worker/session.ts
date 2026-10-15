@@ -8,8 +8,10 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
-import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
+import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import type { BlocksParams } from "../core/doc/blockTool";
+import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
 import { planCrop, type CropParams } from "../core/doc/crop";
@@ -97,6 +99,8 @@ export interface SessionInfo {
   badwaterRemoved: boolean;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
+  /** Only the step the history stands at can be kept as a version (the replay differed, D455). */
+  keepOnlyHere?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -107,7 +111,9 @@ export interface ViewUpdate {
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
   /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
-   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+   *  (D280 (3)) or the Block tool dug or built ground (D335; then with `heights` and a `terrainRect`
+   *  even where the surface did not move): the voxel mesher draws those tiles from them, not from
+   *  `heights`. */
   columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
@@ -207,6 +213,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceAgain: againVerb(s, history),
     badwaterRemoved: s.badwaterRemoved(),
     waterPending: s.waterPending,
+    keepOnlyHere: s.keepOnlyHere,
     version,
   };
 }
@@ -383,15 +390,41 @@ export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
 }
 
+/** The whole map as it stands, the water its file starts with (nothing marked as sent). */
+function wholeView(s: MapSession): MapView {
+  const b = s.built;
+  return { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+}
+
+/** What a Block operation would do on the map as it stands, with no build (the page's live preview of a click or a
+ *  drag): the blocks it adds and takes, the ground the support rule would drop, and the one line it is refused with
+ *  (core/doc/blockTool.ts). */
+export function blockFalls(params: BlocksParams): BlockFalls {
+  return need().blockFalls(params);
+}
+
 /** The whole map view (opening a map, or returning to it). */
 export function sessionView(): SessionOpen {
   const t0 = performance.now();
   const s = need();
-  const b = s.built;
-  const view: MapView = { W: b.W, H: b.H, heights: b.heights.slice(), columns: columnsOf(s), water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s) };
+  const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
   return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
+}
+
+/** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
+ *  they do not. */
+function diffMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (a === b) return null;
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  for (const i of new Set([...a.keys(), ...b.keys()])) {
+    if (a.get(i) === b.get(i)) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  }
+  return r;
 }
 
 function viewUpdate(s: MapSession): ViewUpdate {
@@ -414,6 +447,18 @@ function viewUpdate(s: MapSession): ViewUpdate {
       out.terrainRect = rect;
       // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
       if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
+    }
+  }
+  // (ground the Block tool dug or built under a surface that did not move: its columns go with the
+  // land as they do for a roof's top, and the page takes them with the heights, which are the same)
+  if (prev.terrain !== b.cache.terrain && !out.columns) {
+    const dug = diffMasks(masksOf(prev.terrain as typeof b.cache.terrain), masksOf(b.cache.terrain), b.W);
+    if (dug) {
+      out.columns = columnsOf(s);
+      if (!out.heights) {
+        out.heights = b.heights.slice();
+        out.terrainRect = dug;
+      }
     }
   }
   if (water !== prev.water) out.water = waterOf(s);
@@ -1482,7 +1527,8 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -1589,12 +1635,14 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     const w = await settleInSlices(model, current, onProgress);
     if (!w) return null;
     // unedited, the map is the map as it was opened: one settle and one validation serve both
-    if (!originalFull && s.editCount === 0 && !s.waterPending) {
+    if (s.cropped) {
+      // (a cropped map has no map as it was opened to compare with)
+    } else if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
       return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
-    if (!originalFull) {
+    if (!originalFull && !s.cropped) {
       const om = importModel(s, true);
       const ow = await settleInSlices(om, () => session === s, onProgress);
       if (!ow) return null;
@@ -1631,10 +1679,22 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
  *  confirmed; confirmed warnings are noted in the map's description. The water settles
- *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water). */
-export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string }> {
+ *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
+ *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
+ *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
+ *  already is the file's as it stands: it goes to `onPicture` at once, so the page draws it while the
+ *  checks run, and the answer says so (`pictureEarly`); else it comes with the file (`picture`). */
+export async function exportTimber(
+  confirmWarnings: boolean,
+  onProgress?: (p: CheckProgress) => void,
+  opts: { picture?: boolean } = {},
+  onPicture?: (view: MapView) => void,
+): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string; picture?: MapView; pictureEarly?: boolean }> {
   const s = need();
   const v0 = version;
+  // (the build the file is written from, if nothing changes it on the way: no settle, no replay, no edit)
+  const early = opts.picture && onPicture && !s.waterPending && !s.replayPending && s.drawsThumbnail() ? s.built : null;
+  if (early) onPicture!(wholeView(s));
   let bg = await backgroundCheck(onProgress);
   // a newer check of the same map (the page's own, started just after the map opened) takes this
   // one's place: check again, and give up only when the map itself changed
@@ -1644,14 +1704,35 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
   // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
-  return { ok: true, errors: [], bytes, fileName };
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
+  return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }
 
 /** The project file (downloads use gzip level 9; autosave a faster level). */
 export function project(level = 9): { bytes: Uint8Array; fileName: string; name: string; version: number } {
   const s = need();
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
+}
+
+/** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
+ *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
+ *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
+ *  the page builds it in a worker of its own (`openVersion`). Null when there is no such step. The open map is untouched. */
+export function keepVersion(k: number, parentId?: string): { bytes: Uint8Array; name: string; parent: VersionParent; stored: boolean; size: { w: number; h: number }; picture: { heights: Uint8Array; W: number; H: number; water: Float32Array } | null } | null {
+  const s = need();
+  const v = s.versionProject(k, parentId ? { id: parentId } : {}, 6, { rebuild: false });
+  if (!v) return null;
+  const size = { w: s.size.x, h: s.size.y };
+  const b = v.built;
+  return { bytes: v.bytes, name: v.name, parent: v.parent, stored: v.stored, size, picture: b ? { heights: b.heights.slice(), W: b.W, H: b.H, water: Float32Array.from(b.water) } : null };
+}
+
+/** Open a version's project by replaying it, a full build (the page does it in a worker of its own, for a step the open
+ *  map had no settled build of): its stored map and picture follow from `project` and `sessionView`. */
+export function openVersion(bytes: Uint8Array): void {
+  opened(MapSession.open(decodeProject(bytes), { rebuild: true }));
+  session!.settleCanonical();
 }
 
 // ------------------------------------------------------------------------------------ the tools

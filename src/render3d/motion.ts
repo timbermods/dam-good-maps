@@ -17,7 +17,7 @@ import type { SurfaceWater } from "./model";
 import { DT, STEPS, type MotionShapes } from "./motionShapes";
 import { outflowGrid } from "./current";
 import type { Baker } from "./high/fields";
-import type { RoughCounts } from "./high/flow";
+import { surfaceContamination, type RoughCounts } from "./high/flow";
 import { HIGH_WATER, WATER } from "./waterPalette";
 
 /** The flow follows the water this long after it changes (and at least this often while it does). */
@@ -160,6 +160,17 @@ function streakMaterial(u: SceneUniforms, viewport: { value: Vector2 }, dpr: { v
       }
     `,
   });
+}
+
+/** A still view's flow texture (`MapRenderer`'s `still`): no current (RG 128), and the contamination
+ *  smoothed as the bake smooths it (B), made at once on this thread, so the water's badwater share shows
+ *  without the moving water. */
+export function stillFlowTexture(W: number, H: number, sw: SurfaceWater): DataTexture {
+  const t = texture(W, H, [128, 128, 0, 255]);
+  const f = t.image.data as Uint8Array;
+  const cont = surfaceContamination(W, H, sw);
+  for (let i = 0; i < W * H; i++) f[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, cont[i])) * 255);
+  return t;
 }
 
 export class WaterMotion {

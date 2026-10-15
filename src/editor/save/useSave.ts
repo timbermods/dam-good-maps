@@ -7,6 +7,7 @@ import { plain } from "../panels";
 import { NO_START, NO_START_REFUSAL } from "../../core/doc/checkItems";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
+import { heroPicture } from "./hero";
 
 const MOVE_IT = `Move the file to ${TIMBERBORN_MAPS_PATH}, then start a new game and pick the map.`;
 
@@ -59,25 +60,29 @@ export function useSave(ed: Ed): SaveSlice {
       // (tests only: a slow build, to show the folder was asked for first)
       if (window.dgmSaveDelayMs) await new Promise((done) => setTimeout(done, window.dgmSaveDelayMs));
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
-      const r = await enqueue(() => api.exportTimber(true, onProgress));
+      // (the map's 3D picture as its thumbnail, D488: drawn while the checks run where it can be)
+      const hero = heroPicture(api);
+      const r = await enqueue(() => api.exportTimber(true, onProgress, { picture: true }, hero.onPicture));
       if (!r.ok) {
         setDotOpen(true);
-        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
+        setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}`, keep: true });
         return;
       }
       // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
       const fileName = r.fileName;
+      // the map's 3D picture as its thumbnail (D488), or the core's top-down one
+      const bytes = await hero.finish(r);
       if (kind === "download") {
-        saveFile(r.bytes, fileName);
+        saveFile(bytes, fileName);
         setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
         return;
       }
-      const v = await saveIntoFolder(choice!, r.bytes, fileName);
+      const v = await saveIntoFolder(choice!, bytes, fileName);
       if (v.via === "fsa") setMessage({ kind: "info", text: `Saved ${v.savedAs ?? fileName} to ${v.folder}. It'll show up in Timberborn's custom maps.` });
       else if (v.via === "download" && v.failed) setMessage({ kind: "info", text: `Couldn't save to the Maps folder, so ${fileName} was downloaded. Move the file to ${TIMBERBORN_MAPS_PATH}.${v.forgotten ? " Save asks for the folder again next time." : ""}` });
       else setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     } catch (e) {
-      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e), keep: true });
     } finally {
       setSaving(null);
     }

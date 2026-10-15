@@ -1,7 +1,7 @@
 # Planning handoff: the planning session
 
 Rewritten 2026-10-14, when a Claude Code session on the dedicated machine replaced the claude.ai planning chat. Read this
-first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, CLAUDE.md's "Coordination", `docs/PERFECT.md`,
+first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, `CLAUDE.md`, `docs/RULES.md`'s "Coordination", `docs/PERFECT.md`,
 `docs/decisions/README.md` and `docs/COLLAB-BRIEF.md`, then #236 from the last few days. The previous versions are in
 `docs/archive/chats/` (the last, 2026-10-14, is the claude.ai chat's).
 
@@ -13,9 +13,11 @@ first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, CLAUDE.m
 - **The planning session** (Claude Code, Opus 5.5, high; the dedicated machine, worktree
   `C:\Users\krams\code\DamGoodMaps-planning`, detached at `origin/dev`) coordinates. It never edits the main clone or
   another session's worktree; merges go through `gh`. Its job:
-  1. **Merge every "ready to merge"** posted on #236, promptly. Before each: the owner's verdict comment and captures on
-     the PR; for a look or interaction change, a fresh Opus reviewer's verdict on the PR; for the milestone's own PRs, its
-     fresh sub-agent's review; green CI, and a full run by hand for core and Rust changes. It never merges its own work.
+  1. **Keep dev healthy.** Each session merges its own PRs once a fresh reviewer agent has approved them and their quick
+     checks are green (D489, D490). The planning session watches dev's post-merge runs (the browser specs
+     and the suites) and the nightly, and sends each failure to whoever's merge broke it, at once, or reverts that merge
+     if it can't be fixed quickly. It merges a "ready to merge" a session can't merge itself (forces play's permission
+     check). No full run by hand except for a release.
   2. **Filter design questions.** A session posts one on #236. If Kyler's recorded decisions (`docs/decisions`,
      `docs/design`, PERFECT, UI-BRIEF, COLLAB-BRIEF) settle it, answer on #236 citing the decision. If not: one
      `needs-kyler` issue (2–4 options, a capture or mockup, the recommended default), at most one batch a day, one plain
@@ -24,7 +26,7 @@ first, then `docs/STATUS.md` and `docs/HANDOFF.md` (tops), `AGENTS.md`, CLAUDE.m
      stopped, order inside a step), after reading the code and the decisions, never relaying a session's guess.
   4. **Keep the order moving.** Watch for stalls. A stopped session gets its resume steps on #236 and one line to Kyler:
      "type 'Resume from #236' in <session>".
-  5. **Release** at the end of each step once the full run, the nightly and a D483 probe batch are green (CLAUDE.md,
+  5. **Release** at the end of each step once the full run, the nightly and a D483 probe batch are green (docs/RULES.md,
      "Deploying"), and say so on #236.
 - **The milestone session** (Claude Code, Opus 5.5, high; the main clone `C:\Users\krams\code\DamGoodMaps`, its branches
   in worktrees) builds everything except the page and the renderer, orchestrates sub-agents, runs probe batches, and owns
@@ -53,7 +55,11 @@ type.
   before judging them.
 - **No excess checks (D454),** above every other rule on checks. **Compute is a resource (D316–D318):** effort matches the
   stakes; quality is never compromised. Haiku for mechanical work, Sonnet for specified building, Opus for judgment (D484).
-- **Green before merge (D341).** Nothing merges into `dev` red. No test stays known-flaky: the cause is found.
+- **Quick checks before merge, the rest after (D341, amended by D489 and D490).** Nothing merges into `dev` with its quick
+  checks red or without a fresh reviewer's approval; the browser specs and suites run on dev's tip after the merge and are
+  fixed forward at once. No test stays known-flaky: the cause is found.
+- **Propose better rules.** The rules evolve (Kyler, 2026-10-15): when one slows good work, propose the change to Kyler
+  with the reason, and make it once he agrees.
 - **A headless core (D342), tooltips (D351), a force always has a visible effect (D356), only the player places objects
   (D368), the first land shown is the map (D348), edits never replay onto new land (D336), speed (D453), the Rust order
   (D381), no old-project compatibility until launch (D475), AGPL v3 or later (D379).**

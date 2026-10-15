@@ -162,7 +162,7 @@ function saveMarkers(on: boolean): void {
 
 export function View3D(props: View3DProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const compass = useRef<HTMLDivElement>(null);
+  const compass = useRef<HTMLSpanElement>(null);
   const controls = useRef<HTMLDivElement>(null);
   const renderer = useRef<MapRenderer | null>(null);
   /** The renderer, for the look's menu (High or Standard, D284). */
@@ -479,12 +479,14 @@ export function View3D(props: View3DProps) {
       ) : null}
     </>
   );
+  // the compass turns the view to face north, as Timberborn's does: a glide round to yaw 0 by the shorter way (the
+  // top-down view always has north up already)
   const compassDial = (
-    <div class="compass" aria-label="Compass: north is the top of the top-down view" role="img">
-      <div ref={compass} class="needle">
+    <button type="button" class="compass" {...tip("Face north")} aria-label="Face north" onClick={() => renderer.current?.glideTo({ ...renderer.current.getView(), yaw: 0 })}>
+      <span ref={compass} class="needle" aria-hidden="true">
         <span>N</span>
-      </div>
-    </div>
+      </span>
+    </button>
   );
   const topDown = (
     <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>

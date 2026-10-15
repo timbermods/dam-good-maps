@@ -55,7 +55,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
-import { BlockGhost, type GhostTile } from "./blockGhost";
+import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
@@ -65,6 +65,7 @@ import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
+import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
@@ -75,7 +76,7 @@ import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, saved
 import { HighLook, type HighMaterials } from "./high/highLook";
 import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
-import { WaterMotion } from "./motion";
+import { stillFlowTexture, WaterMotion } from "./motion";
 import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -319,6 +320,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** A still view (the constructor's `still`). */
+  private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
   /** The Flow view (off by default): the current's streaks over the water. */
@@ -400,9 +403,15 @@ export class MapRenderer {
   private drawnObjects: EntityView | null = null;
   private witheredCount = 0;
   private casterTimer = 0;
+  /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
+  private season: { hazard: "drought" | "badtide"; own: SoilView } | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
+   *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
+   *  worker for them). */
+  constructor(canvas: HTMLCanvasElement, opts: { still?: boolean } = {}) {
     this.canvas = canvas;
+    this.still = !!opts.still;
     // a browser that draws in software gets the light look, without multisampling (D110)
     this.software = softwareRendering() && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
@@ -439,12 +448,14 @@ export class MapRenderer {
     }
     const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reducedMotion = !!motion?.matches;
-    motion?.addEventListener?.("change", () => {
-      this.reducedMotion = motion.matches;
-      // (the High look's wind stops and starts with it)
-      this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
-      this.requestRender();
-    });
+    // (removed with the view's other listeners when it is disposed)
+    if (motion && typeof motion.addEventListener === "function")
+      this.on(motion, "change", () => {
+        this.reducedMotion = motion.matches;
+        // (the High look's wind stops and starts with it)
+        this.high?.setEffects(this.chosenEffects, this.lookNow === "lower");
+        this.requestRender();
+      });
     if (typeof IntersectionObserver !== "undefined") {
       this.seen = new IntersectionObserver((entries) => {
         this.inView = entries.some((e) => e.isIntersecting);
@@ -455,7 +466,7 @@ export class MapRenderer {
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
     this.fit();
-    this.bindInput();
+    if (!this.still) this.bindInput();
     if (!this.software) {
       this.gpuName = this.gpu().renderer;
       this.chosenEffects = effectsFrom(savedOff());
@@ -520,8 +531,22 @@ export class MapRenderer {
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
+    this.blockCells?.setCut(level === null ? null : v);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
+  }
+
+  /** Whether the terrain's shaders open the layer cut over air (cutaway.ts): only on a map with terrain above
+   *  terrain, so every other map draws with the same program as before. */
+  private cutaway = false;
+
+  private setCutaway(on: boolean): void {
+    this.cutaway = on;
+    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+      if (!mat || (mat.defines.CUTAWAY === 1) === on) continue;
+      mat.defines.CUTAWAY = on ? 1 : 0;
+      mat.needsUpdate = true;
+    }
   }
 
   /** One layer up (1) or down (-1), as the game steps them (D207, `LevelVisibilityService`): down
@@ -743,6 +768,14 @@ export class MapRenderer {
     this.applyLook(tier);
   }
 
+  /** The map's picture's look (D488, `hero.ts`): High with every effect, held (Standard where High can't
+   *  be drawn); nothing saved, so the player's own choices stay. */
+  holdShowcase(): void {
+    if (this.software) return;
+    this.chosenEffects = allEffects();
+    this.holdTier(this.canHigh ? "high" : "standard");
+  }
+
   /** Report this frame cost instead of the measured one (the fallback's tests), or measure again. */
   simulateFrameCost(ms: number | null): void {
     this.simulatedCost = ms;
@@ -770,6 +803,7 @@ export class MapRenderer {
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
+        this.setCutaway(this.cutaway);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -800,6 +834,7 @@ export class MapRenderer {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
           this.applyWithered();
+          this.applySeason();
         }
       }
     }
@@ -1027,6 +1062,7 @@ export class MapRenderer {
       u.caveTop.value = this.cave.highest;
     }
     else u.caveSize.value.set(0, 0, 0);
+    this.setCutaway(cutawayOn(source));
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;
@@ -1043,13 +1079,13 @@ export class MapRenderer {
     const waterQuads = this.meshAllWater();
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
-    if (!this.software) {
+    if (!this.software && !this.still) {
       this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    }
+    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -1115,6 +1151,7 @@ export class MapRenderer {
     this.withered = null;
     this.drawnObjects = null;
     this.witheredCount = 0;
+    this.season = null;
     this.droughtLayer?.clear();
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
@@ -1611,8 +1648,29 @@ export class MapRenderer {
     if (!m) return;
     m.soil = soil;
     this.bakeTiles();
+    this.applySeason();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** A drought or a badtide is held (null: none), with the map's own soil: the High look draws its dry ground and straw, heat
+   *  shimmer and sky from the day's soil and water (`high/seasons.ts`); Standard stays as it is. */
+  setSeason(hazard: "drought" | "badtide" | null, own: SoilView | null): void {
+    this.season = hazard && own ? { hazard, own } : null;
+    this.applySeason();
+  }
+
+  /** What the seasons draw now, or all zero (Standard, or no day held): the tests read it. */
+  get seasonLook(): { dry: number; heat: number; sickly: number } {
+    return this.high?.seasonNow ?? { dry: 0, heat: 0, sickly: 0 };
+  }
+
+  private applySeason(): void {
+    const m = this.map;
+    const s = this.season;
+    if (!this.high) return;
+    if (!m || !s || !m.soil || m.soil.moisture.length !== s.own.moisture.length) return this.high.setSeason(null, null);
+    this.high.setSeason(s.hazard, { W: m.W, H: m.H, own: s.own, day: m.soil, depth: m.surface.depth, contamination: m.surface.contamination });
   }
 
   /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
@@ -2191,6 +2249,7 @@ export class MapRenderer {
   private cursorStale = false;
 
   private blockGhost: BlockGhost | null = null;
+  private blockCells: BlockCells | null = null;
   private droughtLayer: DroughtLineLayer | null = null;
 
   /** The drought line (the Weather view, D133): the faint waterline of the drought's last day and the dry tint over beds
@@ -2224,6 +2283,20 @@ export class MapRenderer {
     if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
     else this.blockGhost?.clear();
     this.requestRender();
+  }
+
+  /** The Block tool's preview (D488): the blocks a click would add (translucent), take away (red) and let fall
+   *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
+  showBlocks(preview: BlockPreview | null): void {
+    const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    if (!any && !this.blockCells) return;
+    this.blockCells ??= new BlockCells(this.scene);
+    if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
+  }
+
+  /** The blocks of the Block tool's preview drawn now, by kind (tests). */
+  get blocksDrawn(): { added: number; removed: number; falls: number } {
+    return this.blockCells?.drawn ?? { added: 0, removed: 0, falls: 0 };
   }
 
   /** Show the brush under the cursor (null hides it). */
@@ -2471,26 +2544,8 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
     const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
-    const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
-    const box = () => {
-      this.placeCamera();
-      const cam = this.camera();
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (let k = 0; k < outline.length; k += 3) {
-        v.set(outline[k], outline[k + 1], outline[k + 2]).project(cam);
-        const x = ((v.x + 1) / 2) * w;
-        const y = ((1 - v.y) / 2) * h;
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-      return { x0, y0, x1, y1 };
-    };
+    const box = () => this.screenBox(outline);
     const r = this.canvas.getBoundingClientRect();
     // the part of the canvas the page's controls leave
     const ins = this.insets;
@@ -2512,6 +2567,30 @@ export class MapRenderer {
       if (!at || !mid) break;
       this.view.target = [this.view.target[0] + at.point[0] - mid.point[0], this.view.target[1], this.view.target[2] + at.point[2] - mid.point[2]];
     }
+  }
+
+  /** The box round world points (x, y, z, three to a point; `drawnOutline`'s) as the camera sees them now, in
+   *  CSS pixels relative to the canvas. */
+  screenBox(points: Float32Array): { x0: number; y0: number; x1: number; y1: number } {
+    this.placeCamera();
+    const cam = this.camera();
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    const v = new Vector3();
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let k = 0; k < points.length; k += 3) {
+      v.set(points[k], points[k + 1], points[k + 2]).project(cam);
+      const x = ((v.x + 1) / 2) * w;
+      const y = ((1 - v.y) / 2) * h;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    return { x0, y0, x1, y1 };
   }
 
   private camera(): PerspectiveCamera | OrthographicCamera {
@@ -3081,6 +3160,7 @@ export class MapRenderer {
     this.ring?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
+    this.blockCells?.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

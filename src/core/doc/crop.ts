@@ -11,6 +11,9 @@ import type { TimberFile } from "../format/timber";
 import { LAYERS, storedWater, surfaceOf, type WorldModel } from "../format/world";
 import { MAX_SIDE, MIN_SIDE } from "../spec/mapspec";
 import { thumbnailJpeg } from "../render/shade";
+import { LIP_REACH } from "../water/edgeLip";
+import { waterModelFromWorld } from "../sim/model";
+import { canonicalRun } from "../sim/prefill";
 
 /** The rectangle to keep, in tiles: its top-left tile and its size. */
 export interface CropParams {
@@ -179,9 +182,94 @@ export function cropWorld(w: WorldModel, r: CropParams): { world: WorldModel; ob
   return { world: { ...w, sizeX: r.w, sizeY: r.h, voxels, singletons: cropSingletons(w.singletons, W, H, r), entities }, objects };
 }
 
-/** A file on the rectangle (`cropWorld`), with a thumbnail of the land that is left. */
-export function cropFile(file: TimberFile, r: CropParams): { file: TimberFile; objects: CropObjects } {
+/** How near a new edge a source puts its water on the edge's lip, in tiles. */
+const LIP_NEAR = 4;
+
+/** The depth the cropped terrain's water settles to (the game's rules; the sources the objects give). */
+function settledDepth(world: WorldModel, heights: Uint8Array): Float64Array {
+  const run = canonicalRun(waterModelFromWorld(world, heights));
+  let w = run.advance(Infinity);
+  while (!w) w = run.advance(Infinity);
+  return w.depth as Float64Array;
+}
+
+/** The natural lip at the crop's new edges (M9b's rule, `water/edgeLip.ts`, made minimal): water from a source at or
+ *  near a new edge would pour straight off the map (the game drains every edge tile but a source's own: an edge tile
+ *  takes the water whose surface stands above its floor, and none whose surface is at it, the head difference being
+ *  zero). So the cropped map's water is settled, and only the new-edge tiles that settle leaves the water of such a
+ *  source through are raised, each to the level of the water beside it rounded up to a whole level: no more than a
+ *  level above the generator's lip (a level above the water) would give, and nothing that reads as a wall. The settle
+ *  runs again on the lipped ground (up to three times) until nothing leaves. Never a tile on a side the crop did not
+ *  cut, ground under an object, or a column with a cave or an overhang. Changes `world` in place; returns the tiles
+ *  raised. */
+export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number; H: number }): number {
+  const { sizeX: W, sizeY: H, layers, voxels } = world;
+  const N = W * H;
+  const west = r.x > 0, east = r.x + r.w < from.W, south = r.y > 0, north = r.y + r.h < from.H;
+  if (!west && !east && !south && !north) return 0;
+  const near = (x: number, y: number) => (west && x <= LIP_NEAR) || (east && W - 1 - x <= LIP_NEAR) || (south && y <= LIP_NEAR) || (north && H - 1 - y <= LIP_NEAR);
+  const onNew = (x: number, y: number) => (west && x === 0) || (east && x === W - 1) || (south && y === 0) || (north && y === H - 1);
+  const onOld = (x: number, y: number) => (!west && x === 0) || (!east && x === W - 1) || (!south && y === 0) || (!north && y === H - 1);
+  const keep = new Uint8Array(N);
+  const h0 = surfaceOf(world);
+  for (let i = 0; i < N; i++) {
+    // (a cave or an overhang: a gap under the surface)
+    for (let z = 0; z < h0[i]; z++) if (!voxels[z * N + i]) { keep[i] = 1; break; }
+  }
+  const sources: number[] = [];
+  for (const e of world.entities) {
+    const spec = rawEntity(e, "import");
+    const tiles = (tilesOf(spec) ?? []).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+    for (const i of tiles) keep[i] = 1;
+    if ((spec.template === "WaterSource" || spec.template === "BadwaterSource") && tiles.some((i) => near(i % W, Math.floor(i / W)))) sources.push(...tiles);
+  }
+  if (!sources.length) return 0;
+  let total = 0;
+  const top = layers - 1;
+  for (let pass = 0; pass < 3; pass++) {
+    const h = surfaceOf(world);
+    const depth = settledDepth(world, h);
+    // the water joined to those sources, within the lip's reach of one
+    const wet = new Set<number>(sources);
+    const q = sources.slice();
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W, y = (c - x) / W;
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]] as const) {
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        if (wet.has(n) || !(depth[n] > 0.01)) continue;
+        if (!sources.some((s0) => Math.max(Math.abs((s0 % W) - nx), Math.abs(Math.floor(s0 / W) - ny)) <= LIP_REACH)) continue;
+        wet.add(n);
+        q.push(n);
+      }
+    }
+    const surface = (i: number) => h[i] + (depth[i] > 0.01 ? depth[i] : 0);
+    const raise: [number, number][] = [];
+    for (const i of wet) {
+      const x = i % W, y = (i - x) / W;
+      if (!onNew(x, y) || onOld(x, y) || keep[i] || !(depth[i] > 0.01)) continue;
+      // the water beside it: its own and its neighbours' in the body
+      let level = surface(i);
+      for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]] as const) {
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || !wet.has(ny * W + nx)) continue;
+        level = Math.max(level, surface(ny * W + nx));
+      }
+      const to = Math.min(Math.ceil(level - 1e-9), top);
+      if (to > h[i]) raise.push([i, to]);
+    }
+    if (!raise.length) break;
+    for (const [i, to] of raise) for (let z = h[i]; z < to; z++) voxels[z * N + i] = 1;
+    total += raise.length;
+  }
+  return total;
+}
+
+/** A file on the rectangle (`cropWorld`), with the lip at its new edges (`lipNewEdges`; `lip: false` leaves it out)
+ *  and a thumbnail of the land that is left. */
+export function cropFile(file: TimberFile, r: CropParams, opts: { lip?: boolean } = {}): { file: TimberFile; objects: CropObjects } {
   const { world, objects } = cropWorld(file.world, r);
+  if (opts.lip !== false) lipNewEdges(world, r, { W: file.world.sizeX, H: file.world.sizeY });
   const heights = surfaceOf(world);
   const wet = new Float64Array(r.w * r.h);
   const stored = storedWater(world.singletons, r.w, r.h);

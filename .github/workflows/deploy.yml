@@ -164,7 +164,7 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v5
 
-  # the live check, against the commit this run deployed (CLAUDE.md, Deploying)
+  # the live check, against the commit this run deployed (docs/RULES.md, Deploying)
   live-check:
     needs: deploy
     permissions:

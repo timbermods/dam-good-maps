@@ -43,6 +43,7 @@ import { areaRect, BRUSH_MAX_LEVEL, type BrushParams, type BrushTool } from "../
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
 import { tilesToRuns } from "../core/math/grid";
+import { tileCount } from "../core/doc/labels";
 
 export type { BrushTool };
 
@@ -995,7 +996,7 @@ export class BrushPainter {
     const shown = h.heights();
     const stroke: Stroke = {
       params,
-      label: `${BRUSH_NAMES[st.settings.tool as BrushTool]}, ${tiles} tile${tiles === 1 ? "" : "s"}`,
+      label: `${BRUSH_NAMES[st.settings.tool as BrushTool]} ${tileCount(tiles)}`,
       rect,
       before: { shown: cut(st.preview.start, rect, h.W), pre: cut(before.pre, rect, h.W) },
       after: { shown: cut(shown, rect, h.W), pre: cut(st.preview.pre, rect, h.W) },

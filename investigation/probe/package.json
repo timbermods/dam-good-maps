@@ -10,6 +10,7 @@
     "sheet": "node run.cjs runner/batch.ts --sheet-only",
     "restore": "node run.cjs runner/batch.ts --restore-only",
     "test": "node run.cjs runner/test.ts",
+    "test:companion": "node run.cjs runner/test-companion.ts",
     "typecheck": "node check.cjs"
   },
   "dependencies": {

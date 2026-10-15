@@ -25,6 +25,7 @@ features share is a member of it.
 - `session/` the state the page holds, the queue to the worker, the page's copy of the map (`mirror.ts`).
 - `paint/` the brushes: strokes, undo and redo, picking a tool.
 - `view/` the objects under the pointer, the overlay, the renderer becoming ready, the view kept in step.
+- `block/` the Block tool: add and carve blocks, the gestures' arithmetic (`blockTool.ts`) and the slice (`useBlockTool.ts`).
 - `sources/` water sources: placing, moving, the wheel, the markers, removing.
 - `start/` the start: moving it, its check, the "fits here" hint.
 - `shelf/` the shelf: the ghost under the pointer, placing, the footprint check.

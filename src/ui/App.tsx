@@ -15,6 +15,8 @@ import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
+import { compareProblem } from "../core/library/keptVersions";
+import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
@@ -136,7 +138,7 @@ function noteCurrent(id: string, link: string): void {
 }
 
 /** A row of Your maps: the name and the map's dimensions. */
-const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail });
+const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}) });
 
 /** Your maps' picture of a map (D234): the core's 64px top-down thumbnail (`thumbnailPixels`), as a PNG. */
 function thumbnailUrl(m: MapPicture): string | null {
@@ -219,6 +221,8 @@ export function App() {
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  /** Another version of the open map to flip to (Your maps' Compare with the open map): read once, settled. */
+  const [compare, setCompare] = useState<{ id: string; name: string; view: MapView } | null>(null);
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
   /** The editor's frame, shown while the first map is made. */
   const [FrameMod, setFrameMod] = useState<ComponentType<LoadingFrameProps> | null>(null);
@@ -374,6 +378,7 @@ export function App() {
     // (a reopened map's versions count again from its opening: kept as it stands at that version)
     const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : { ...origin.entry, revision: data.info.version };
     entry.current = e;
+    setCompare(null);
     keeping.current = true;
     setSaveState("");
     nameRef.current = e.name;
@@ -398,6 +403,8 @@ export function App() {
     // (the old editor's controls are shut, and what it had queued reaches the worker first: the map is taken after it, so the
     // new editor starts from every step the worker took, and History and Undo agree with the worker)
     setReplacingMap(true);
+    // (a compare was of the map at its old size)
+    setCompare(null);
     try {
       await pendingEdits.current?.();
       const data = await generator.sessionView();
@@ -460,8 +467,9 @@ export function App() {
     return result.ok ? { ...data, info } : data;
   }
 
-  /** Your maps' menu (Kyler, 2026-10-03): a map's .timber, as File's download makes it for the open map; a closed
-   *  map's from its project, in a worker of its own. */
+  /** Your maps' menu (Kyler, 2026-10-03): a map's .timber; a closed map's from its project, in a worker of its own.
+   *  It keeps the core's top-down thumbnail, unlike File's download: a map that isn't open has no view to draw its
+   *  3D picture from (D488). */
   async function downloadMap(id: string) {
     const e = maps.find((m) => m.id === id);
     if (!e) return;
@@ -483,6 +491,79 @@ export function App() {
       setError(`${e.name} not downloaded: ${words(err)}`);
     } finally {
       bg?.stop();
+    }
+  }
+
+  /** History's Keep this version and Branch from here (src/core/library/keptVersions.ts): the open map as it stood at History
+   *  step `k`, kept in Your maps as a map of its own, named for the map and the step and remembering where it came from.
+   *  A branch is opened too, with its History through that step; a kept version leaves the open map where it is. */
+  async function keepStep(k: number, branch: boolean) {
+    const open = entry.current;
+    if (!open) return;
+    setError(null);
+    try {
+      await pendingEdits.current?.();
+      const v = await generator.keepVersion(k, kept.current ? open.id : undefined);
+      if (!v) throw new Error("that step is no longer in the history");
+      let bytes = v.bytes;
+      let picture = v.picture;
+      if (!v.stored || !picture) {
+        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits)
+        setNote(`Keeping ${v.name}…`);
+        const bg = createBackground();
+        try {
+          await bg.api.openVersion(bytes);
+          const [p, o] = await Promise.all([bg.api.project(6), bg.api.sessionView()]);
+          bytes = p.bytes;
+          picture = { heights: o.view.heights, W: o.view.W, H: o.view.H, water: surfaceWater(o.view.W, o.view.H, o.view.water).depth };
+        } finally {
+          bg.stop();
+          setNote(null);
+        }
+      }
+      const now = new Date().toISOString();
+      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+      const r = await yourMaps.put(e, bytes, null);
+      const problem = storeProblem(r);
+      if (problem) return setError(problem);
+      const list = await yourMaps.list().catch(() => [e, ...maps]);
+      setMaps(list);
+      if (branch) guard(() => void openMap(e.id, list), "Branching");
+      else setNote(`Kept as ${v.name}`);
+    } catch (err) {
+      setError(`That version was not kept: ${words(err)}`);
+    }
+  }
+
+  /** Your maps' Compare with the open map: the other map is opened in a worker of its own, settled, and its land, objects and
+   *  water given to the editor to flip to (the same size only). */
+  async function compareWith(id: string) {
+    const e = maps.find((m) => m.id === id);
+    const info = infoRef.current;
+    if (!e || !info || id === entry.current?.id) return;
+    const why = compareProblem({ w: info.W, h: info.H }, e.size);
+    if (why) return setError(why);
+    setError(null);
+    setNote(`Getting ${e.name} ready to compare…`);
+    const openId = entry.current?.id;
+    const bg = createBackground();
+    try {
+      const bytes = await yourMaps.project(id);
+      if (!bytes) throw new Error("its project is missing from this browser");
+      await bg.api.openProject(bytes);
+      await bg.api.whenWaterSettles();
+      const o = await bg.api.sessionView();
+      if (o.view.W !== info.W || o.view.H !== info.H) throw new Error("it is not the size of the open map");
+      // (another map opened while this one was read: it is no longer the one being compared with)
+      if (entry.current?.id !== openId) return setNote(null);
+      setCompare({ id, name: e.name, view: o.view });
+      setNote(null);
+      setPanel(null);
+    } catch (err) {
+      setNote(null);
+      setError(`${e.name} could not be compared: ${words(err)}`);
+    } finally {
+      bg.stop();
     }
   }
 
@@ -526,6 +607,7 @@ export function App() {
             await yourMaps.remove(m.id).catch(() => null);
           }
           if (here) switching.current = false;
+          setCompare((c) => (c && ids.includes(c.id) ? null : c));
           const left = await yourMaps.list().catch(() => maps.filter((m) => !ids.includes(m.id)));
           setMaps(left);
           if (!here) return;
@@ -947,6 +1029,8 @@ export function App() {
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
     onDeleteMaps: deleteMaps,
+    onCompareMap: (id) => void compareWith(id),
+    openSize: session ? { w: session.W, h: session.H } : undefined,
     name,
     onRename: rename,
   };
@@ -1131,6 +1215,9 @@ export function App() {
         onPlaces={(o) => setPanel(o ? "places" : null)}
         keepView={opened.keepView}
         carry={opened.carry}
+        compare={compare}
+        onStopCompare={() => setCompare(null)}
+        onKeepStep={(k, branch) => void keepStep(k, branch)}
         notice={message}
       />
       {confirmDialog}
