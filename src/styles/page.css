@@ -2778,3 +2778,21 @@ body:has(.checks-list) .show-key {
   place-items: safe center;
   padding-top: 16px;
 }
+
+/* numbers that change while you look at them keep their width: the map's size and seed, a selection's size, a source's
+   strength, the progress words with their percentages, the counts in the legend and on the map's card */
+.editor-title .muted,
+.set-words,
+.working-note,
+.source-readout,
+.source-marker,
+.readout,
+.making-dialog p,
+.first-look-stage,
+.checks-dot .dot-count,
+.gen-otm li,
+.legend-panel.in-column .pick-line,
+.core-moment > span,
+.shape-note {
+  font-variant-numeric: tabular-nums;
+}

@@ -244,3 +244,8 @@ button.linkish {
     gap: 10px;
   }
 }
+
+/* the count of maps shown ("3 of 12 maps") */
+.count {
+  font-variant-numeric: tabular-nums;
+}
