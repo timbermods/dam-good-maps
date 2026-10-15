@@ -42,6 +42,11 @@ export interface BlocksParams {
   size: number;
   /** "square" when absent. */
   shape?: "square" | "round";
+  /** A remove takes only the blocks a viewer sees: those whose face toward `side` is open. The number is the layer
+   *  cut the viewer sees under (layers at or above it are cut away and count as open; 31 for none). Absent: a
+   *  remove takes every swept block, buried or not. The Block tool sets it, so a drag across a hill takes the
+   *  surface it drew and nothing inside. */
+  exposed?: number;
   /** The blocks the operation changed, as the session found them when it took it (an add's new
    *  blocks, a remove's old ones): pairs [tile, layers] by ascending tile, `layers` the bits (layer z =
    *  1 << z) changed in that tile. The build applies these literally, so a replay never looks at the
@@ -63,6 +68,7 @@ export function blockProblems(p: BlocksParams, W: number, H: number): string[] {
   if (!p.at.every((c) => Array.isArray(c) && c.length === 3 && c.every(isInt))) return ["a block is named by three whole numbers: x, y, layer"];
   if (!isInt(p.size) || p.size < BLOCK_SIZE_MIN || p.size > BLOCK_SIZE_MAX) return [`a block's size is ${BLOCK_SIZE_MIN} to ${BLOCK_SIZE_MAX} blocks across`];
   if (p.shape !== undefined && p.shape !== "square" && p.shape !== "round") return ["a block's footprint is square or round"];
+  if (p.exposed !== undefined && !(isInt(p.exposed) && p.exposed >= 1 && p.exposed <= 31)) return ["a block's exposed cut is a layer, 1 to 31"];
   if (p.cells !== undefined && !(Array.isArray(p.cells) && p.cells.length % 2 === 0 && p.cells.every((c, k) => isInt(c) && (k % 2 ? c > 0 && c < 1 << (BLOCK_TOP_LAYER + 1) : c >= 0 && c < W * H)))) return ["a block operation's cells are pairs [tile, layers] on the map"];
   const axis = axisOf(p.side);
   for (const c of p.at) {
@@ -163,6 +169,17 @@ export function objectCells(entities: readonly { template: string; x: number; y:
   return out;
 }
 
+/** Whether the block at (x, y, z) has its `side` face open to a viewer under a layer cut at `cut`: the cell beyond it is
+ *  air, off the map, off the layers, or cut away (at or above the cut). */
+function openFace(t: ColumnTerrain, x: number, y: number, z: number, side: BlockSide, cut: number): boolean {
+  const n = NORMAL[side];
+  const nx = x + n[0];
+  const ny = y + n[1];
+  const nz = z + n[2];
+  if (nx < 0 || ny < 0 || nx >= t.W || ny >= t.H || nz < 0 || nz > BLOCK_TOP_LAYER || nz >= cut) return true;
+  return !t.solid(ny * t.W + nx, nz);
+}
+
 /** What an operation does to the ground it meets. */
 export interface BlockEffect {
   /** One line, or none: why the operation cannot be taken. */
@@ -190,6 +207,7 @@ export function blockEffect(p: BlocksParams, t: ColumnTerrain, objects: Readonly
     if (z < 0 || z > BLOCK_TOP_LAYER) return refuse(layerProblem(z));
     const i = y * W + x;
     const cell = z * N + i;
+    if (p.mode === "remove" && p.exposed !== undefined && t.solid(i, z) && !openFace(t, x, y, z, p.side, p.exposed)) continue;
     if (objects?.has(cell)) return refuse(`an object stands at (${x}, ${y}) in layer ${z}`);
     if (p.mode === "add") {
       // (a block goes only against a block: a cell with no face to put it against is skipped)

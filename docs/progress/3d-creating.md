@@ -152,3 +152,15 @@ operation and one undo step on release; Size 1–8 (F, { }), Shape, Action. EDIT
 `tests/unit/blockTool.test.ts` check it; captures `docs/design/block-tool-*.jpg`. The worker sends `ViewUpdate.columns` whenever
 the session's columns changed (a hollow under the surface included), not only when a roof's top moved. Not done: the blocks'
 own pop-in and crumble (renderer), the Block sounds of D335 (the brushes' thud and dust stand in), Shift-hold digging.
+
+**Review fixes (2026-10-15).** The tool is registered with `voxel: true` and aims with `blockAim(hit, cut, mode)`; falls are
+drawn solid red and, while any fall, the added and removed ghosts are muted grey (forces play's `showBlocks`, D335); the
+page's legend and notes name no amber for them. The page refuses from the cells alone (`blockRefusal`, `blockTool.ts`):
+any cell outside the working area ("That is outside the selected area") and, under a layer cut, any cell at or above it
+("Some blocks are above the cut"), before the core is asked, so a quick press is checked too. The refusal note has its own
+state (`blockNote`), apart from the size flash. A Remove carries `exposed` (the layer cut it is seen under, 31 for none), a new
+optional field of the `blocks` operation (`ops.schema.json`, `terrain/blocks.ts` `blockEffect`): it takes only blocks whose
+face toward `side` is open, so a drag across a hill leaves the buried ones and the preview is what is removed; without it
+(the API's own calls) every swept block goes as before. Select's row is laid out on the 14 cells (not stretched by
+`fromThirteen`); Naturalize has room at 1280. Tests: `tests/unit/blockTool.test.ts`, `tests/contract/blocks.test.ts`,
+`tests/e2e/blockTool.spec.ts`.

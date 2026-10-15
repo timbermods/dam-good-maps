@@ -4,6 +4,7 @@
 // tests/unit/blockTool.test.ts checks it.
 
 import { BLOCK_SIZE_MAX, BLOCK_SIZE_MIN, BLOCK_TOP_LAYER, type BlockMode, type BlockSide, type BlocksParams } from "../../core/doc/blockTool";
+import { blockTargets } from "../../core/terrain/blocks";
 import type { BlockAim, Ray } from "../../render3d/pick";
 
 /** The tool's three settings, kept between visits (prefs/blockPrefs.ts). */
@@ -24,9 +25,29 @@ export const clampSize = (n: number) => Math.max(BLOCK_SIZE_MIN, Math.min(BLOCK_
 /** What a click does with Shift held or not: the setting, or its opposite. */
 export const modeFor = (s: BlockSettings, shift: boolean): BlockMode => (shift ? (s.mode === "add" ? "remove" : "add") : s.mode);
 
-/** The operation a click or a drag makes: `at` the faces swept, the first the one pointed at. */
-export function blockParams(s: BlockSettings, mode: BlockMode, side: BlockSide, at: readonly [number, number, number][]): BlocksParams {
-  return { mode, side, at: at.map((c) => [c[0], c[1], c[2]]), size: clampSize(s.size), ...(s.shape === "round" ? { shape: "round" as const } : {}) };
+/** The operation a click or a drag makes: `at` the faces swept, the first the one pointed at. A remove takes only the
+ *  blocks the viewer sees (`exposed`, under the layer cut `cut`, null for none): the surface drawn, never what is buried. */
+export function blockParams(s: BlockSettings, mode: BlockMode, side: BlockSide, at: readonly [number, number, number][], cut: number | null = null): BlocksParams {
+  return {
+    mode,
+    side,
+    at: at.map((c) => [c[0], c[1], c[2]]),
+    size: clampSize(s.size),
+    ...(s.shape === "round" ? { shape: "round" as const } : {}),
+    ...(mode === "remove" ? { exposed: cut === null ? 31 : Math.max(1, Math.min(31, cut)) } : {}),
+  };
+}
+
+/** Why a click or a drag is refused before the core is asked, or null (the page's own rules, from the cells the
+ *  operation names: the working area, the layer cut). Synchronous, so a press before the preview answers is checked as
+ *  well. `inArea` takes tile indices; `cut` is the layer cut (null: none), above which blocks are hidden and never
+ *  touched. */
+export function blockRefusal(p: BlocksParams, W: number, H: number, inArea: (tiles: readonly number[]) => boolean, cut: number | null): string | null {
+  const cells = blockTargets(p).map((t) => t.cell);
+  const tiles = cells.filter((c) => c[0] >= 0 && c[1] >= 0 && c[0] < W && c[1] < H).map((c) => c[1] * W + c[0]);
+  if (tiles.length && !inArea(tiles)) return "That is outside the selected area";
+  if (cut !== null && cells.some((c) => c[2] >= cut)) return "Some blocks are above the cut";
+  return null;
 }
 
 /** The history label of the step. */
@@ -128,7 +149,7 @@ export class PlaneSweep {
 }
 
 /** A stable key for a preview request: the same operation asks the worker once. */
-export const paramsKey = (p: BlocksParams) => `${p.mode}|${p.side}|${p.size}|${p.shape ?? "square"}|${p.at.map((c) => c.join()).join(";")}`;
+export const paramsKey = (p: BlocksParams) => `${p.mode}|${p.side}|${p.size}|${p.shape ?? "square"}|${p.exposed ?? ""}|${p.at.map((c) => c.join()).join(";")}`;
 
 /** A rectangle on the screen, in the canvas's pixels. */
 export interface ScreenBox {

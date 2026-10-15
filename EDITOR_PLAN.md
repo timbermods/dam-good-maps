@@ -513,17 +513,25 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
   "Add or remove blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
   (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
-  brush's blocks (`showBlocks`): the blocks to add translucent, the blocks to take red, ground that would fall amber,
-  with the reason in red beside the pointer ("12 blocks of ground would fall: nothing would hold them up"); the preview
+  brush's blocks (`showBlocks`, forces play's final contract, D335): the blocks to add translucent, the blocks to take
+  red, ground that would fall solid red, and while any would fall the added and removed blocks muted grey (they will
+  not happen), with the reason in red beside the blocks, clear of them ("12 blocks of ground would fall: nothing would
+  hold them up"); the Block tool is registered with `voxel: true` so the pick is the seen surface, and under a layer cut
+  the aim is `blockAim(hit, cut, mode)` (the cut's cap is the block under it: Remove takes it, Add has nothing there); the preview
   is asked again when the map changes, when Shift goes up or down, when a setting changes and when the camera moves
   under a still pointer. *Acting:* a click adds a block onto the face (the cell beyond it, across the footprint in the
   face's plane); **Shift** does the other of Add and Remove (the Action shows it while Shift is down); a drag paints in the
-  plane of the first face, every cell it crosses (a block goes only against a block, so over air a drag adds nothing: a
-  bridge is built out from the last face, a block at a time, and the support rule says how far); nothing is applied until the press is let go, then it is one `blocks` operation, one undo
+  plane of the first face, every cell it crosses (a block goes only against a block, so nothing is added over air: a
+  bridge is built out from the last face, a block at a time, and the support rule says how far); a Remove takes only the
+  blocks the viewer sees, those whose face toward the aimed side is open (`exposed` on the operation, under the layer
+  cut), never what is buried inside a hill, so the preview and the operation agree; nothing is applied until the press is let go, then it is one `blocks` operation, one undo
   step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
   drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. With a working
-  area (Select), a gesture reaching outside it is refused, "That is outside the selected area". The level slice cuts the
-  preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
+  area (Select), a gesture with any cell outside it is refused, "That is outside the selected area", and under a layer cut a
+  gesture with any cell at or above the cut is refused, "Some blocks are above the cut": both from the cells alone, so a
+  press before the preview answers is checked too, nothing is drawn for them, and a block the view hides is never
+  touched. The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
+  while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
   land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
   renderer's, to come.

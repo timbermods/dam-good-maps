@@ -414,6 +414,7 @@ function blockGroups(s: BlockSettings, set: (patch: Partial<BlockSettings>) => v
       node: (
         <ChoiceSetting<"add" | "remove">
           label="Action"
+          title="What a click does"
           value={flip ? (s.mode === "add" ? "remove" : "add") : s.mode}
           keys={["Shift flips it"]}
           options={[

@@ -278,3 +278,80 @@ test("on an imported cave map a Shift-click removes blocks from a cave wall: the
   await expect.poll(() => edits(page)).toBe(before);
   expect(await page.evaluate((i) => window.dgm3d!.renderer.hasTop(i, 3), tile(14, 17))).toBe(false);
 });
+
+test("inside a selected area a quick click outside it changes nothing, its note is not wiped by a size flash, and a click inside works", async ({ page }) => {
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  const { x, y, h } = await flatSpot(page);
+  const px = x + 2;
+  const py = y + 3;
+  // a 3 × 3 working area (Select's rectangle), then the Block tool at Size 3
+  const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
+  const a = await corner(px, py);
+  const b = await corner(px + 2, py + 2);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(9);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  for (let k = 0; k < 8; k++) await page.keyboard.press("{");
+  await page.keyboard.press("}");
+  await page.keyboard.press("}");
+  expect((await block(page)).settings.size).toBe(3);
+  await look(page, px + 1, py + 1, h);
+
+  // a click outside, pressed the moment the pointer arrives: refused from the cells, nothing raised
+  const before = await edits(page);
+  const out = await face(page, px + 6, py + 1, h - 1, "+z");
+  await page.mouse.move(out.x, out.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await idle(page);
+  expect(await edits(page)).toBe(before);
+  for (let i = 4; i <= 8; i++) expect(await height(page, px + i, py + 1), `x ${px + i}`).toBe(h);
+  const note = page.locator(".shape-note.error");
+  await expect(note).toContainText("outside the selected area");
+  expect((await block(page)).preview, "nothing drawn for a refused click").toBeNull();
+
+  // a size flash beside the pointer neither clears the note nor is cleared by it, and the note stays after the flash ends
+  await page.keyboard.press("}");
+  await expect(page.locator(".shape-note:not(.error)")).toContainText("size 4");
+  await expect(note).toContainText("outside the selected area");
+  await page.keyboard.press("{");
+  await page.waitForTimeout(1600);
+  await expect(page.locator(".shape-note:not(.error)")).toHaveCount(0);
+  await expect(note).toContainText("outside the selected area");
+
+  // inside the area the same tool works
+  await click(page, px + 1, py + 1, h - 1, "+z");
+  expect(await height(page, px + 1, py + 1)).toBe(h + 1);
+});
+
+test("under a layer cut a click that reaches a block the cut hides is refused, and nothing is touched", async ({ page }) => {
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "cave.timber", mimeType: "application/zip", buffer: Buffer.from(writeTimber(caveFile())) });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name)).toBe("cave");
+  await page.waitForFunction(() => window.dgm3d!.renderer.size?.W === 40);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  await page.evaluate(() => window.dgm3d!.renderer.setSlice(6));
+  await look(page, 17, 17, 4, 16);
+  // Size 3 on the wall at layer 5 reaches layer 6, which the cut hides
+  const wall = await face(page, 14, 17, 5, "+x");
+  const before = await edits(page);
+  await page.mouse.move(wall.x, wall.y);
+  await page.keyboard.down("Shift");
+  await expect(page.locator(".shape-note.error")).toContainText("above the cut");
+  expect((await block(page)).preview, "nothing is drawn or planned for it").toBeNull();
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
+  await idle(page);
+  expect(await edits(page)).toBe(before);
+  // (the roof blocks the click would have taken are still there)
+  const solidAbove = await page.evaluate(() => window.dgmEditor!.worker.blockFalls({ mode: "remove", side: "+x", at: [[14, 17, 6]], size: 1 }));
+  expect(solidAbove.removed.length).toBe(1);
+  // one layer lower the same click is whole under the cut and goes
+  await click(page, 14, 17, 4, "+x", true);
+});

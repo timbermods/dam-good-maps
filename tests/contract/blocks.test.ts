@@ -13,7 +13,7 @@ import { masksOf } from "../../src/core/features/build";
 import { generate } from "../../src/core/gen/generate";
 import { decodeWorld } from "../../src/core/format/world";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { BLOCK_TOP_LAYER } from "../../src/core/terrain/blocks";
+import { BLOCK_TOP_LAYER, blockProblems } from "../../src/core/terrain/blocks";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
 import { strFromU8, unzipSync } from "fflate";
 import type { BrushParams } from "../../src/core/features/raster/brush";
@@ -65,6 +65,23 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     // (the cave's 6 × 6 and the ledge's 3 × 5 tiles are columns too)
     expect(s.columns.size).toBe(6 * 6 + 3 * 5 + 9);
     expect(Array.from(voxelsOut(s))).toEqual(Array.from(s.terrain.voxels()));
+  });
+
+  it("an exposed remove takes only the blocks a viewer sees: a sweep across a step leaves the buried ones, and a layer cut opens what it hides", () => {
+    const s = caveSession();
+    // the plateau around (10, 10) is solid to layer 7 (surface 8): layer 6 is buried, layer 7 is the seen surface
+    const sweep: [number, number, number][] = [[10, 10, 6], [11, 10, 6], [12, 10, 6]];
+    // (without the flag, every swept block goes: layer 6 is under the surface layer 7)
+    expect(blockFalls(s, remove("+z", sweep)).removed.length).toBe(3);
+    // exposed: layer 6 has the block at layer 7 above it, so none is seen
+    expect(blockFalls(s, { ...remove("+z", sweep), exposed: 31 }).reason).toBe("there is no block there to remove");
+    // the surface layer is open
+    const top: [number, number, number][] = [[10, 10, 7], [11, 10, 7]];
+    expect(blockFalls(s, { ...remove("+z", top), exposed: 31 }).removed.length).toBe(2);
+    // under a cut at 7 the layer 7 is cut away, so layer 6 is the seen surface
+    expect(blockFalls(s, { ...remove("+z", sweep), exposed: 7 }).removed.length).toBe(3);
+    // a bad cut is refused with a line, never clamped
+    expect(blockProblems({ ...remove("+z", top), exposed: 0 }, W, H)).toEqual(["a block's exposed cut is a layer, 1 to 31"]);
   });
 
   it("a drag paints a layer outward from the face across the cells swept, and a round footprint is a disc", () => {

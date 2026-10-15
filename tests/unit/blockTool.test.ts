@@ -2,7 +2,7 @@
 // and the cells a drag sweeps in the plane of its first face. The core's own checks are tests/contract/blocks.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { blockParams, clampSize, DEFAULT_BLOCK, modeFor, noteSpot, paramsKey, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
+import { blockParams, blockRefusal, clampSize, DEFAULT_BLOCK, modeFor, noteSpot, paramsKey, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
 import { blockAim, pickTerrain, type Ray, type TileHit } from "../../src/render3d/pick";
 import { blockProblems } from "../../src/core/terrain/blocks";
 
@@ -146,5 +146,28 @@ describe("the refusal's note stays clear of the blocks it describes", () => {
   });
   it("without a box sits below and right of the pointer", () => {
     expect(noteSpot(null, { x: 100, y: 100 }, canvas, note)).toEqual({ x: 116, y: 116 });
+  });
+});
+
+describe("the page's own refusals, from the cells alone", () => {
+  const inside = (box: [number, number, number, number]) => (tiles: readonly number[]) => tiles.every((i) => i % 16 >= box[0] && i % 16 <= box[2] && Math.floor(i / 16) >= box[1] && Math.floor(i / 16) <= box[3]);
+  const one = { ...DEFAULT_BLOCK, size: 3 };
+  it("a removal carries the layer cut it is seen under, an add does not", () => {
+    expect(blockParams(one, "remove", "+z", [[5, 5, 2]]).exposed).toBe(31);
+    expect(blockParams(one, "remove", "+z", [[5, 5, 2]], 6).exposed).toBe(6);
+    expect(blockParams(one, "add", "+z", [[5, 5, 2]], 6).exposed).toBeUndefined();
+  });
+  it("refuses a click with any cell outside the working area, with no answer from the core", () => {
+    const p = blockParams(one, "add", "+z", [[5, 5, 2]]);
+    expect(blockRefusal(p, 16, 16, inside([4, 4, 6, 6]), null)).toBeNull();
+    expect(blockRefusal(p, 16, 16, inside([4, 4, 5, 6]), null)).toBe("That is outside the selected area");
+    // (cells off the map are the core's to refuse)
+    expect(blockRefusal(blockParams(one, "add", "+z", [[0, 0, 2]]), 16, 16, () => true, null)).toBeNull();
+  });
+  it("refuses a click that reaches a block the layer cut hides, and a cut above the cells is no matter", () => {
+    const p = blockParams(one, "remove", "+x", [[5, 5, 5]], 6);
+    expect(blockRefusal(p, 16, 16, () => true, 6)).toBe("Some blocks are above the cut");
+    expect(blockRefusal(p, 16, 16, () => true, 7)).toBeNull();
+    expect(blockRefusal(p, 16, 16, () => true, null)).toBeNull();
   });
 });

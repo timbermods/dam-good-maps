@@ -1013,7 +1013,7 @@
   justify-content: center;
   gap: 4px;
   height: 54px;
-  padding: 4px 2px;
+  padding: 4px 1px;
 }
 
 .tool-bar button.icon-button svg {
@@ -1026,6 +1026,8 @@
   padding: 0;
   font-size: 0.8rem;
   line-height: 1.1;
+  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
+  letter-spacing: -0.015em;
   white-space: nowrap;
 }
 

@@ -414,10 +414,10 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: 5, centre: true, node: <Words status>{z ? sizeWords(z) : "Drag on the map to select"}</Words> },
+      { key: "size", row: 1, at: 7, span: 6, centre: true, node: <Words status>{z ? sizeWords(z) : "Drag on the map to select"}</Words> },
       // Deselect (Kyler, 2026-10-04): always there, greyed with nothing selected; Esc and X do the same (touch screens
       // have neither)
-      { key: "deselect", row: 1, at: 12, span: 2, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
+      { key: "deselect", row: 1, at: 13, span: 2, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
       {
         key: "level",
         row: 2,
@@ -434,10 +434,10 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "depth",
         row: 2,
         at: 9,
-        span: 3,
+        span: 4,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 13, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
         row: 2,
@@ -485,7 +485,7 @@ export function useSelect(ed: Ed): SelectSlice {
         ),
       },
     ];
-    return <SettingsGrid label="Selection" groups={groups} />;
+    return <SettingsGrid label="Selection" groups={groups} fresh />;
   }
 
   /** The tiles of each object on more than one tile (a Flatten stroke keeps them level, D204). */

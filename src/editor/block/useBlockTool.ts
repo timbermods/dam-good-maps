@@ -5,13 +5,13 @@
 // its settings and its key are the bar's (TopBar.tsx, useKeyboard.ts).
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { PointerTool } from "../../render3d";
+import type { PointerTool, TileHit } from "../../render3d";
 import type { BlockFalls, BlocksParams } from "../../core/doc/blockTool";
 import { plain } from "../words";
 import { loadBlock, saveBlock } from "../prefs/blockPrefs";
 import type { Ed } from "../ed";
 import { blockAim, type BlockAim } from "../../render3d/pick";
-import { blockLabel, blockParams, clampSize, modeFor, noteSpot, paramsKey, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
+import { blockLabel, blockParams, blockRefusal, clampSize, modeFor, noteSpot, paramsKey, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
 import { showBlocks } from "./view";
 
 export interface BlockSlice {
@@ -21,6 +21,9 @@ export interface BlockSlice {
   blockSettings: BlockSettings;
   /** Shift is down: a click does the other of Add and Remove (the Action shows it). */
   blockFlip: boolean;
+  /** Why the click under the pointer is refused, beside the blocks it would change (kept apart from the size flash,
+   *  so neither clears the other); x and y as the shape note's. */
+  blockNote: { text: string; x: number; y: number } | null;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
   pickBlock: (on: boolean) => void;
@@ -36,13 +39,14 @@ export interface BlockSlice {
 }
 
 export function useBlockTool(ed: Ed): BlockSlice {
-  const { api, info, renderer, ready, infoRef, run, setShapeNote, pointerAt, notePointer, flashNote, feel } = ed;
+  const { api, info, renderer, ready, infoRef, run, pointerAt, notePointer, flashNote, feel, selectionTick } = ed;
 
   const [block, setBlock] = useState(false);
   const blockRef = useRef(false);
   blockRef.current = block;
   const [blockSettings, setSettingsState] = useState<BlockSettings>(loadBlock);
   const [blockFlip, setFlip] = useState(false);
+  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number } | null>(null);
   const settingsRef = useRef(blockSettings);
   settingsRef.current = blockSettings;
   const setBlockSettings = (s: BlockSettings, save = true) => {
@@ -55,7 +59,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
   /** The drag in progress, and where the pointer last was (the face under it, Shift): what a settings change or a key
    *  asks the preview about again. */
   const drag = useRef<{ sweep: PlaneSweep; mode: "add" | "remove" } | null>(null);
-  const last = useRef<{ aim: BlockAim | null; shift: boolean; x: number; y: number }>({ aim: null, shift: false, x: 0, y: 0 });
+  const last = useRef<{ hit: TileHit | null; shift: boolean; x: number; y: number }>({ hit: null, shift: false, x: 0, y: 0 });
+  /** The layer cut now (null: none). */
+  const cutNow = () => renderer.current?.slice ?? null;
+  /** The face the pointer is on, for what a click would do with Shift as it is: under a layer cut, the cut's cap is the
+   *  block just under it (Remove takes it; Add has nothing to fill there). */
+  const aimOf = (hit: TileHit | null, shift: boolean) => blockAim(hit, cutNow(), modeFor(settingsRef.current, shift));
+  /** The question's identity: the operation, and what the page's own rules read (the layer cut, the working area). */
+  const keyOf = (p: BlocksParams) => `${paramsKey(p)}|${cutNow()}|${ed.selection.current.count}`;
   /** The preview: the operation asked about last, the question on its way, the next to ask, the answer. */
   const pv = useRef<{ key: string; inFlight: boolean; queued: BlocksParams | null; result: { key: string; f: BlockFalls } | null; note: string | null }>({ key: "", inFlight: false, queued: null, result: null, note: null });
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
@@ -63,7 +74,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   function clearShown() {
     showBlocks(renderer.current, null);
     pv.current.note = null;
-    setShapeNote((n) => (n && !n.ok ? null : n));
+    setBlockNote(null);
   }
 
   /** The tiles an answer touches. */
@@ -85,18 +96,22 @@ export function useBlockTool(ed: Ed): BlockSlice {
     return box;
   }
 
-  /** Show an answer: the blocks on the map and, when the click would be refused, why, in a note clear of them. */
-  function present(f: BlockFalls) {
-    const tiles = tilesOf(f);
-    const outside = !f.errors.length && tiles.length > 0 && !ed.inArea(tiles);
-    const reason = outside ? "that is outside the selected area" : f.reason;
-    showBlocks(renderer.current, f.errors.length || outside ? null : { added: f.added, removed: f.removed, falls: f.falls });
+  /** Say why a click is refused, in a note clear of the blocks it describes (their screen box, if any are drawn). */
+  function refuse(reason: string | null, box: ScreenBox | null) {
     pv.current.note = reason ? plain(reason) : null;
-    if (!reason) return setShapeNote(null);
+    if (!reason) return setBlockNote(null);
     const c = renderer.current?.canvas;
-    // (the note's own size, about: two lines at most; its left and top are what the page places it by, less 16px each)
-    const spot = c ? noteSpot(boxOf(f), pointerAt.current, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: pointerAt.current.x + 16, y: pointerAt.current.y + 16 };
-    setShapeNote({ text: plain(reason), ok: false, warn: false, x: spot.x - 16, y: spot.y - 16 });
+    // (the note's own size, about: two lines at most; its left and top are what the page places it by, less 16px each;
+    // below the pointer's own words, which show a size beside it for a moment)
+    const at = { x: pointerAt.current.x, y: pointerAt.current.y + 32 };
+    const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: at.x + 16, y: at.y + 16 };
+    setBlockNote({ text: plain(reason), x: spot.x - 16, y: spot.y - 16 });
+  }
+
+  /** Show an answer: the blocks on the map and, when the click would be refused, why. */
+  function present(f: BlockFalls) {
+    showBlocks(renderer.current, f.errors.length ? null : { added: f.added, removed: f.removed, falls: f.falls });
+    refuse(f.reason, boxOf(f));
   }
 
   /** Ask the core what these parameters would do (one question at a time, the latest wins), unless it was just asked. */
@@ -109,9 +124,18 @@ export function useBlockTool(ed: Ed): BlockSlice {
       clearShown();
       return;
     }
-    const key = paramsKey(p);
+    const key = keyOf(p);
     if (key === s.key) return;
     s.key = key;
+    s.result = null;
+    // the page's own rules first, from the cells alone (a press before any answer is checked too): nothing is drawn
+    const why = blockRefusal(p, infoRef.current.W, infoRef.current.H, ed.inArea, cutNow());
+    if (why) {
+      s.queued = null;
+      showBlocks(renderer.current, null);
+      refuse(why, null);
+      return;
+    }
     s.queued = p;
     void pump();
   }
@@ -121,7 +145,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     const p = s.queued;
     s.queued = null;
     s.inFlight = true;
-    const key = paramsKey(p);
+    const key = keyOf(p);
     const version = infoRef.current.version;
     try {
       const f = await api.blockFalls(p);
@@ -142,10 +166,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
   function refresh() {
     const g = drag.current;
     const s = settingsRef.current;
-    if (g) return ask(blockParams(s, g.mode, g.sweep.aim.side, g.sweep.at));
+    if (g) return ask(blockParams(s, g.mode, g.sweep.aim.side, g.sweep.at, cutNow()));
     const l = last.current;
-    if (!l.aim || !blockRef.current) return ask(null);
-    ask(blockParams(s, modeFor(s, l.shift), l.aim.side, [l.aim.at]));
+    const aim = blockRef.current ? aimOf(l.hit, l.shift) : null;
+    if (!aim) return ask(null);
+    ask(blockParams(s, modeFor(s, l.shift), aim.side, [aim.at], cutNow()));
   }
 
   function pickBlock(on: boolean) {
@@ -161,7 +186,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
     } else {
       endBlockSize(false);
       drag.current = null;
-      last.current.aim = null;
+      last.current.hit = null;
       ask(null);
     }
     blockRef.current = on;
@@ -184,12 +209,12 @@ export function useBlockTool(ed: Ed): BlockSlice {
       voxel: true,
       down: (hit, ev) => {
         if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ed.forcer.current?.running || sizing.current) return false;
-        const aim = blockAim(hit);
+        const aim = aimOf(hit, ev.shiftKey);
         // (nothing to point at: the press turns the camera, as anywhere)
         if (!aim) return false;
         const s = settingsRef.current;
         notePointer(ev);
-        last.current = { aim, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
+        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
         drag.current = { sweep: new PlaneSweep(aim, infoRef.current.W, infoRef.current.H), mode: modeFor(s, ev.shiftKey) };
         refresh();
         return true;
@@ -213,7 +238,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         // (F sizing holds the face it began on)
         if (drag.current || sizing.current) return;
         notePointer(ev);
-        last.current = { aim: blockAim(hit), shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
+        last.current = { hit, shift: ev.shiftKey, x: ev.clientX, y: ev.clientY };
         setFlip(ev.shiftKey);
         // (the preview is the cursor: the tile's own light, which the view just lit for the face seen, goes)
         r.setHoverTile(null);
@@ -234,20 +259,23 @@ export function useBlockTool(ed: Ed): BlockSlice {
   useEffect(
     () => () => {
       showBlocks(renderer.current, null);
+      setBlockNote(null);
     },
     [block],
   );
 
   /** The press is let go: one operation. */
   function commit(mode: "add" | "remove", sweep: PlaneSweep) {
-    const params = blockParams(settingsRef.current, mode, sweep.aim.side, sweep.at);
-    const known = pv.current.result?.key === paramsKey(params) ? pv.current.result.f : null;
-    // (the preview is cleared as the edit goes: the new blocks stand where it was)
-    ask(null);
-    if (known && !known.errors.length && tilesOf(known).length && !ed.inArea(tilesOf(known))) {
-      ed.setMessage({ kind: "error", text: "That is outside the selected area" });
+    const params = blockParams(settingsRef.current, mode, sweep.aim.side, sweep.at, cutNow());
+    // (the page's own rules, from the cells: the note and its blocks stay as they were)
+    const why = blockRefusal(params, infoRef.current.W, infoRef.current.H, ed.inArea, cutNow());
+    if (why) {
+      ed.setMessage({ kind: "error", text: why });
       return;
     }
+    const known = pv.current.result?.key === keyOf(params) ? pv.current.result.f : null;
+    // (the preview is cleared as the edit goes: the new blocks stand where it was)
+    ask(null);
     void run(
       () => api.apply({ op: "blocks", params }, "user", blockLabel(mode)),
       (u) => {
@@ -270,7 +298,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
       const r = renderer.current;
       const l = last.current;
       if (!r || !blockRef.current || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
-      l.aim = blockAim(r.pickSeen(l.x, l.y));
+      l.hit = r.pickSeen(l.x, l.y);
       refresh();
     }, 90);
     return () => window.clearTimeout(id);
@@ -291,7 +319,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
       seen = key;
       if (!was || drag.current || sizing.current || !r.canvas.matches(":hover")) return;
       const l = last.current;
-      l.aim = blockAim(r.pickSeen(l.x, l.y));
+      l.hit = r.pickSeen(l.x, l.y);
       refresh();
     };
     watch();
@@ -329,6 +357,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
     if (block) refresh();
   }, [blockSettings]);
 
+  // the working area changed (a selection made or cleared): the page's rules read it
+  useEffect(() => {
+    if (block && !drag.current) refresh();
+  }, [selectionTick]);
+
   // ------------------------------------------------------------------------------ Size from the keys
 
   function blockStep(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
@@ -345,7 +378,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
    *  the pointer is from its middle. */
   function startBlockSize() {
     const r = renderer.current;
-    const aim = last.current.aim;
+    const aim = aimOf(last.current.hit, last.current.shift);
     if (!r || !blockRef.current || !aim || sizing.current || drag.current) return;
     const move = (ev: PointerEvent) => {
       notePointer(ev);
@@ -386,5 +419,5 @@ export function useBlockTool(ed: Ed): BlockSlice {
 
   const blockState = () => ({ held: blockRef.current, dragging: !!drag.current, settings: settingsRef.current, preview: pv.current.result?.f ?? null, note: pv.current.note });
 
-  return { block, blockRef, blockSettings, blockFlip, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState };
+  return { block, blockRef, blockSettings, blockFlip, blockNote, setBlockSettings, pickBlock, blockStep, startBlockSize, endBlockSize, blockCancel, blockState };
 }
