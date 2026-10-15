@@ -10,6 +10,11 @@ import { blockAim, pickTerrain, type BlockFace, type Ray, type TileHit } from ".
 
 type V = [number, number, number];
 
+const norm = (v: V): V => {
+  const l = Math.hypot(...v);
+  return [v[0] / l, v[1] / l, v[2] / l];
+};
+
 function terrain(W: number, H: number, solid: (x: number, y: number, z: number) => boolean): TerrainSource {
   const heights = new Uint8Array(W * H);
   const columns = new Map<number, Uint8Array>();
@@ -85,6 +90,29 @@ describe("the block a pointer is on", () => {
     expect(blockAim(floor)).toBeNull();
     const noRun: TileHit = { x: 1, y: 1, point: [1.5, 3, -1.5], face: "top", level: 3, t: 1 };
     expect(blockAim(noRun)).toBeNull();
+  });
+
+  it("under a layer cut, the cut's cap is no top to aim at, and walls, undersides and tops below it still are", () => {
+    const flat = terrains[3][1]; // level 4 everywhere
+    const mask = (i: number) => columnMask(flat, i);
+    const down: Ray = { origin: [4.5, 10, -4.5], direction: [0, -1, 0] };
+    // cut at 2: the ground is cut to layers 0…1 and the cap is a top at level 2; an add against it would fill the hidden layer 2
+    const cap = pickTerrain(down, W, H, mask, { cut: 2 })!;
+    expect([cap.face, cap.level]).toEqual(["top", 2]);
+    expect(blockAim(cap, 2)).toBeNull();
+    // (cut at 5: above the ground, a real top at level 4 has layer 4 visible above it)
+    expect(blockAim(pickTerrain(down, W, H, mask, { cut: 5 }), 5)).toEqual({ at: [4, 4, 3], side: "+z" });
+    expect(blockAim(pickTerrain(down, W, H, mask), null)).toEqual({ at: [4, 4, 3], side: "+z" });
+    // a wall below the cut aims at the layer hit
+    const wall = pickTerrain({ origin: [-3, 1.5, -4.5], direction: [1, 0, 0] }, W, H, mask, { cut: 2 })!;
+    expect(blockAim(wall, 2)).toEqual({ at: [0, 4, 1], side: "-x" });
+    // an underside below the cut: the overhang's (tile 4, 4: solid at layers 6…7) under a cut at 9
+    const over = terrains[0][1];
+    const under = pickTerrain({ origin: [4.5, 3.5, -4.5], direction: [0.001, 1, 0] }, W, H, (i) => columnMask(over, i), { cut: 9 })!;
+    expect(blockAim(under, 9)).toEqual({ at: [4, 4, 6], side: "-z" });
+    // a real top below the cut (the ledge under the shelf, level 3, under a cut at 9)
+    const ledge = pickTerrain({ origin: [0.5, 5, -4.5], direction: norm([1, -0.45, 0]) }, W, H, (i) => columnMask(over, i), { cut: 9 })!;
+    expect(blockAim(ledge, 9)).toEqual({ at: [4, 4, 2], side: "+z" });
   });
 
   it("a hit that names no layer takes the layer from where it hit, inside its run", () => {

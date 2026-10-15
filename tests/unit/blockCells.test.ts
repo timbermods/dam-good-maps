@@ -1,7 +1,7 @@
 // The Block tool's preview as drawn (3D step 3, D488): the instance matrices of the cells (plain data), and the
 // mesh per kind that is kept, rewritten only when its cells or the layer cut change, and put away.
 
-import { Scene } from "three";
+import { Scene, type Mesh } from "three";
 import { describe, expect, it } from "vitest";
 import { BlockCells, packCells, writeCellMatrices, type Cell } from "../../src/render3d/blockGhost";
 
@@ -56,6 +56,36 @@ describe("the preview's meshes", () => {
     cells.set(preview(200), null);
     expect(cells.drawn.added).toBe(200);
     expect(scene.children.length).toBe(3);
+    cells.dispose();
+  });
+
+  it("draws what would fall in solid red, and while any would, what is added and removed muted (D335)", () => {
+    const scene = new Scene();
+    const cells = new BlockCells(scene);
+    const mat = (name: string) => (scene.getObjectByName(name) as Mesh).material;
+    const valid = { added: preview(2).added, removed: [] as Cell[], falls: [] as Cell[] };
+    cells.set(valid, null);
+    expect(cells.isRefused).toBe(false);
+    const added = mat("blocks.added");
+    // a valid remove keeps the area brush's red look
+    cells.set({ added: [], removed: [[2, 2, 1]], falls: [] }, null);
+    const removed = mat("blocks.removed");
+    expect(removed).not.toBe(added);
+    // the same remove, refused with its falls: added and removed muted (one grey look), the falls red
+    cells.set({ added: preview(2).added, removed: [[2, 2, 1]], falls: [[5, 5, 6]] }, null);
+    expect(cells.isRefused).toBe(true);
+    const falls = mat("blocks.falls");
+    expect(mat("blocks.added")).not.toBe(added);
+    expect(mat("blocks.added")).toBe(mat("blocks.removed"));
+    expect(mat("blocks.removed")).not.toBe(removed);
+    expect(falls).not.toBe(mat("blocks.added"));
+    expect(falls).not.toBe(removed);
+    // (the same cells again change nothing; the falls gone, the looks come back)
+    expect(cells.set({ added: preview(2).added, removed: [[2, 2, 1]], falls: [[5, 5, 6]] }, null)).toBe(false);
+    cells.set({ added: preview(2).added, removed: [[2, 2, 1]], falls: [] }, null);
+    expect(cells.isRefused).toBe(false);
+    expect(mat("blocks.added")).toBe(added);
+    expect(mat("blocks.removed")).toBe(removed);
     cells.dispose();
   });
 

@@ -139,12 +139,17 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   (`TileHit.layer`, new: the voxel the face belongs to) with the wall's way as `+x` east, `-x` west, `+y` north (toward
   y + 1, −Z in world space), `-y` south. Null for no hit (sky, off the map), a hit with no run, and the map's floor under
   air (layer 0 is a block only where the ground holds one). Tested on caves, overhangs and a floating run: a ray at every
-  exposed face of every block gives that block and side.
+  exposed face of every block gives that block and side. **Only right on a hit of the voxel pick (`pickSeen`), so the page
+  registers the Block tool with `voxel: true`.** Under a layer cut, `blockAim(hit, cut)` gives null for a top whose run
+  reaches the cut (the cut's cap, or a real top at the cut: an add there would fill the hidden layer `cut`); walls,
+  undersides and tops below it aim as usual.
 - **`renderer.showBlocks({added, removed, falls} | null)`** (`blockGhost.ts` `BlockCells`): the cells `blockFalls` lists,
-  one instanced mesh per kind, drawn as the area brush's ghost is: added translucent white, removed red just outside the
-  ground's own faces, falls amber, each block with its edges. A mesh is kept and rewritten only when its cells or the
-  layer cut change (nothing per frame); cells at or above the cut are not drawn, and `setSlice` redraws them. The area
-  brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts (tests). Capture:
+  one instanced mesh per kind, each block with its edges. Colours (D335, a refused action shows the blocks that would fall
+  in red): falls solid red; while any fall, `added` and `removed` are drawn muted grey, since they will not happen;
+  otherwise added translucent white and removed red just outside the ground's own faces, as the area brush's ghost. A mesh
+  is kept and rewritten only when its cells or the layer cut change (nothing per frame); cells at or above the cut are not
+  drawn, and `setSlice` redraws them. The area brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts
+  (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
 
 ## The rest of the step (next parts)
