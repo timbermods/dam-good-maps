@@ -122,6 +122,11 @@ const settle = async (page: Page, w: number, h: number) => {
 /** The held tool's settings stand on the bar's cells (Kyler's option B): one panel at the bar's exact width and one
  *  height, 120px (two rows, never a third: Kyler, 2026-10-05), for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
  *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
+/** Where each force's Power and Size stood (x, width, top), by name: every force's must be the first one's (D184: a setting
+ *  keeps its place across tools); the brushes' Size is their own, on cells 1–4. */
+const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit"]);
+const placed = new Map<string, { l: number; w: number; t: number }>();
+
 async function onTheCells(page: Page, state: string) {
   const r = await page.evaluate(() => {
     const box = (e: Element) => e.getBoundingClientRect();
@@ -154,6 +159,17 @@ async function onTheCells(page: Page, state: string) {
     return out;
   });
   expect(cut, `cut off (${state})`).toEqual([]);
+  if (FORCES_HERE.has(state))
+    for (const g of r.groups.filter((g) => g.name === "Power" || g.name === "Size")) {
+      const here = { l: g.l, w: g.r - g.l, t: g.t };
+      const first = placed.get(g.name);
+      if (!first) placed.set(g.name, here);
+      else {
+        same(here.l, first.l, `${g.name}'s left edge is the same in ${state} as in the first force`);
+        same(here.w, first.w, `${g.name}'s width is the same in ${state} as in the first force`);
+        same(here.t, first.t, `${g.name}'s row is the same in ${state} as in the first force`);
+      }
+    }
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
   same(r.settings[2], 120, `the settings' one height (${state})`);
@@ -308,6 +324,7 @@ for (const [w, h] of SIZES) {
       if (panel) await header.getByRole("button", { name: "Map Generator", exact: true }).click();
     }
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
+    placed.clear();
     await onTheCells(page, "Select");
     for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
       await page.keyboard.press(key);

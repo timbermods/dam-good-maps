@@ -1014,7 +1014,8 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
                 continue;
             }
             let i = (o.y * wi + o.x) as usize;
-            if sd[i] > NEAR || md[i] > 0.0 {
+            // (within 20 tiles' walk, the measure the start's food row counts by)
+            if water::reach_at(&walk, w, h, i) > NEAR || md[i] > 0.0 {
                 continue;
             }
             thirsty_count += 1.0;

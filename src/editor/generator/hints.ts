@@ -5,6 +5,9 @@ import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
 
 export interface SettingsProps {
   spec: MapSpec;
+  /** The open map is a file (opened, dropped, a real place): it has no generator settings, so they read "–" until
+   *  the player sets one. */
+  blank?: boolean;
   seedText: string;
   onSeed(text: string): void;
   /** The seed is kept (typed, or from a link): Generate makes that map again. */

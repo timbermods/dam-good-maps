@@ -39,7 +39,9 @@ import {
   Sphere,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderer,
+  type Data3DTexture,
   type DataTexture,
   type Group,
   type InstancedMesh,
@@ -59,19 +61,22 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
-import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
-import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
-import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { CaveLight } from "./caveLight";
+import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
+import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
+import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
-import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
+import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
-import { RowUploads } from "./rowUploads";
+import { BoxUploads, RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
 import { terrainChanges } from "./terrainChanges";
@@ -155,6 +160,9 @@ export interface PointerTool {
   wheel?(ev: WheelEvent): boolean;
   /** The drag was lost (the pointer went away without a release). */
   cancel?(): void;
+  /** It aims at the ground the player sees, a run under an overhang or in a cave (the Select tool); every other tool aims at
+   *  the tile's top, as before step 3. */
+  voxel?: boolean;
   /** It takes Alt+click and Alt+drag itself (the Select tool's subtract), instead of the layer pick. */
   wantsAlt?: boolean;
   /** It points at the water's surface over water, where the cursor is seen (the forces, D321 item
@@ -222,7 +230,7 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 }
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
-export const DEFAULT_YAW = -Math.PI / 6;
+export { DEFAULT_YAW };
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -294,6 +302,10 @@ export class MapRenderer {
   private sourceGlow: readonly number[] = [];
   private tileTex: DataTexture | null = null;
   private lightTex: DataTexture | null = null;
+  /** The light under roofs (null on a map without air under a roof) and its texture. */
+  private cave: CaveLight | null = null;
+  private caveTex: Data3DTexture | null = null;
+  private readonly noCave: Data3DTexture;
   private uniforms: SceneUniforms;
   private patterns: WebGLRenderTarget;
   private terrainMat: ShaderMaterial;
@@ -382,6 +394,12 @@ export class MapRenderer {
   /** The shadow tops of the whole map (redone round each change), and the objects' casters. */
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
+  /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
+   *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
+  private withered: Int32Array | null = null;
+  private drawnObjects: EntityView | null = null;
+  private witheredCount = 0;
+  private casterTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -399,6 +417,8 @@ export class MapRenderer {
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
+    this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
+    this.noCave = this.uniforms.caveTex.value;
     this.uniforms.patternTex.value = this.patterns.texture;
     this.terrainMat = terrainMaterial(this.uniforms, 0, 1, this.software);
     this.waterMat = waterMaterial(this.uniforms, this.software);
@@ -499,7 +519,6 @@ export class MapRenderer {
     const v = level === null ? 99 : Math.max(0, Math.min(40, Math.round(level)));
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
-    this.sliced = null;
     this.droughtLayer?.setHidden(level !== null);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
@@ -537,7 +556,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     const cut = this.slice;
-    const level = Math.min(m.heights[hit.y * m.W + hit.x], cut ?? 99);
+    const level = Math.min(hitLevel(hit, m.heights, m.W), cut ?? 99);
     this.setSlice(cut === null || level < cut ? level : null);
   }
 
@@ -549,8 +568,6 @@ export class MapRenderer {
 
   /** Told when the layer changes (the page says which layer is showing). */
   onSlice: ((level: number | null) => void) | null = null;
-  /** The heights as the slice shows them (picking lands on the cut). */
-  private sliced: Uint8Array | null = null;
 
   /** The sources whose water the pointer is over glow (D196): their middle tiles, or none. */
   setSourceGlow(tiles: readonly number[]): void {
@@ -782,6 +799,7 @@ export class MapRenderer {
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.applyWithered();
         }
       }
     }
@@ -796,6 +814,7 @@ export class MapRenderer {
       this.ghost = null;
     }
     this.governor?.hold(performance.now());
+    this.applyWithered();
     this.requestRender();
     if (was !== tier) this.tellLook();
   }
@@ -999,7 +1018,15 @@ export class MapRenderer {
     this.casters = objectCasters(W, H, v.entities);
     this.tops = { hi: new Float32Array(0), lo: new Float32Array(0) };
     this.lightTex = lightTexture(W, H, shadowMap(W, H, heights, this.casters, this.tops));
+    this.cave = CaveLight.build(source, sky);
+    this.caveTex = this.cave ? caveTexture(this.cave) : null;
     const u = this.uniforms;
+    u.caveTex.value = this.caveTex ?? this.noCave;
+    if (this.cave) {
+      u.caveSize.value.set(W, H, this.cave.D);
+      u.caveTop.value = this.cave.highest;
+    }
+    else u.caveSize.value.set(0, 0, 0);
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;
@@ -1084,7 +1111,12 @@ export class MapRenderer {
   }
 
   private clearMap(): void {
+    // (a held day belonged to the map that goes: the new one withers nothing until it is shown a day of its own)
+    this.withered = null;
+    this.drawnObjects = null;
+    this.witheredCount = 0;
     this.droughtLayer?.clear();
+    clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
@@ -1106,6 +1138,13 @@ export class MapRenderer {
     this.sourceTiles = null;
     this.tileTex?.dispose();
     this.lightTex?.dispose();
+    // (the uniform keeps a texture to bind until the next map's: the placeholder)
+    this.uniforms.caveTex.value = this.noCave;
+    this.uniforms.caveSize.value.set(0, 0, 0);
+    this.caveTex?.dispose();
+    this.caveTex = null;
+    this.cave = null;
+    this.caveRows.clear();
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
     this.tileRows.clear();
@@ -1250,7 +1289,7 @@ export class MapRenderer {
   private bakeShadows(onlyCasters = false): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
-    const casters = objectCasters(m.W, m.H, m.entities);
+    const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
     const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
     this.casters = casters;
     if (rect === null) return;
@@ -1262,6 +1301,17 @@ export class MapRenderer {
       (this.lightTex.image.data as Uint8Array).set(shadowMap(m.W, m.H, m.heights, casters, this.tops));
       this.lightTex.needsUpdate = true;
     }
+  }
+
+  /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
+   *  next frame. */
+  private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map;
+    if (!m || !this.cave) return;
+    const box = this.cave.relight(m.source, m.sky, rect);
+    this.caveRows.touch(box.x0, box.y0, box.x1, box.y1);
+    // (the land may have risen: the march under roofs runs up to the highest ground)
+    this.uniforms.caveTop.value = this.cave.highest;
   }
 
   /** The terrain shader's tile data again (heights, soil, sky, water). */
@@ -1296,6 +1346,7 @@ export class MapRenderer {
     const m = this.map!;
     m.entities = e;
     this.high?.objectsBuilt(group, e);
+    this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
     const old = m.source.cutout ?? new Map<number, number>();
@@ -1315,12 +1366,16 @@ export class MapRenderer {
     return instances;
   }
 
-  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed. */
-  updateTerrain(heights: Uint8Array): number {
+  /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
+   *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
+   *  roof's top (D280 (3)); those tiles are drawn from them. */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
-    const rect = changedRect(m.W, m.H, m.heights, heights);
+    let rect = changedRect(m.W, m.H, m.heights, heights);
+    // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
+    if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -1330,6 +1385,7 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
+    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -1356,6 +1412,7 @@ export class MapRenderer {
       shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, rect.x0, rect.y0, rect.x1, rect.y1);
       this.touchShadows(rect);
     } else this.bakeShadows();
+    this.relightCaves(rect);
     if (m.water.count) {
       // (a fall reads the ground two tiles round its lip: the chunks a tile further)
       const lower = lowerByTile(m.surface, m.water);
@@ -1416,6 +1473,7 @@ export class MapRenderer {
   /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
   private readonly tileRows: RowUploads;
   private readonly lightRows: RowUploads;
+  private readonly caveRows: BoxUploads;
 
   /** Water chunks a stroke's water changed, still to mesh (`updateWaterSoon`). */
   private readonly waterQueue = new Set<string>();
@@ -1557,6 +1615,48 @@ export class MapRenderer {
     this.onMapChange?.();
   }
 
+  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
+   *  null to put them back: drawn withered in the High look (D250, D286 (4)); Standard and the map's own plants stay as
+   *  they are. Plants change state in place, so stepping from day to day costs a layout, not a rebuild. */
+  setWithered(tiles: Int32Array | null): void {
+    this.withered = tiles;
+    this.applyWithered();
+  }
+
+  /** How many plants are drawn withered by the held day now (the tests read it). */
+  get witheredPlants(): number {
+    return this.witheredCount;
+  }
+
+  private applyWithered(): void {
+    const m = this.map;
+    if (!m) return;
+    let flags = m.entities.flags;
+    let count = 0;
+    const tiles = this.withered;
+    if (tiles?.length && this.high && this.lookNow !== "standard" && this.lookNow !== "light") {
+      const dead = new Uint8Array(m.W * m.H);
+      for (const t of tiles) dead[t] = 1;
+      const e = m.entities;
+      flags = e.flags.slice();
+      for (let k = 0; k < e.count; k++) {
+        if (flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
+        if (!isPlant(e.templates[e.template[k]])) continue;
+        flags[k] |= DEAD;
+        count++;
+      }
+    }
+    this.witheredCount = count;
+    const was = this.drawnObjects;
+    this.drawnObjects = count ? { ...m.entities, flags } : null;
+    const changed = this.high?.setPlantsDead(flags) ?? 0;
+    if (!changed && !was === !this.drawnObjects) return;
+    this.requestRender();
+    // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => this.bakeShadows(true), 300);
+  }
+
   updateEntities(e: EntityView): void {
     this.flushTerrain();
     if (!this.map) return;
@@ -1616,6 +1716,7 @@ export class MapRenderer {
       shadowPairRect(this.tops, this.lightTex.image.data as Uint8Array, m.W, m.H, heights, this.casters, c.rect.x0, c.rect.y0, c.rect.x1, c.rect.y1);
       this.touchShadows(c.rect);
     } else this.shadowsStale = true;
+    this.relightCaves(c.rect);
     this.shadowChanged = true;
     this.followGround(heights, c.rect);
     this.high?.terrainChanged(heights, c.rect);
@@ -2253,15 +2354,17 @@ export class MapRenderer {
     return this.highlight !== null;
   }
 
-  setHoverTile(x: number | null, y = 0): void {
+  /** Light the tile under the pointer (null: none). `level`: the run whose top lights up, in a column
+   *  with terrain above terrain (-1: every top of the tile). */
+  setHoverTile(x: number | null, y = 0, level = -1): void {
     const u = this.terrainMat.uniforms.hover;
-    const v = u.value as Vector3;
+    const v = u.value as Vector4;
     if (x === null) {
       if (v.z === 0) return;
-      v.set(0, 0, 0);
+      v.set(0, 0, 0, -1);
     } else {
-      if (v.z === 1 && v.x === x && v.y === y) return;
-      v.set(x, y, 1);
+      if (v.z === 1 && v.x === x && v.y === y && v.w === level) return;
+      v.set(x, y, 1, level);
     }
     this.requestRender();
   }
@@ -2322,7 +2425,7 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2367,7 +2470,7 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const outline = drawnOutline(m.W, m.H, m.heights);
+    const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
     const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
@@ -2462,7 +2565,7 @@ export class MapRenderer {
     this.flushTerrain();
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
-      this.cursor.set(this.brushCursorState, this.map.heights, this.map.W, this.map.H);
+      this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
@@ -2488,6 +2591,7 @@ export class MapRenderer {
     this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
     this.tileRows.flush();
     this.lightRows.flush();
+    this.caveRows.flush();
     this.gl.render(this.scene, cam);
     this.endCost(cost, t0);
     this.endGpuTimer(q);
@@ -2559,18 +2663,49 @@ export class MapRenderer {
   pick(clientX: number, clientY: number): TileHit | null {
     const m = this.map;
     if (!m) return null;
-    const cut = this.slice;
-    if (cut === null) return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, m.heights);
-    // under a slice, the ray lands on the cut
-    if (!this.sliced || this.sliced.length !== m.heights.length) this.sliced = new Uint8Array(m.heights.length);
-    for (let i = 0; i < m.heights.length; i++) this.sliced[i] = Math.min(m.heights[i], cut);
-    return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, this.sliced);
+    return pickEditing(this.rayAt(clientX, clientY), m.W, m.H, m.heights, this.slice ?? undefined);
+  }
+
+  /** The ground the pointer sees under it: the first face along the ray, whichever run's. Only the Select tool, the hover
+   *  highlight and the layer pick use it; the editing tools use `pick`, the tile's top. */
+  pickSeen(clientX: number, clientY: number): TileHit | null {
+    const m = this.map;
+    if (!m) return null;
+    // the ray walks the voxels the terrain is drawn from and lands on the first face it meets, whichever
+    // run's (a cave's floor seen through its mouth, a ledge under an overhang); under a slice, on the cut
+    const src = m.source;
+    const hit = pickTerrain(this.rayAt(clientX, clientY), m.W, m.H, (i) => columnMask(src, i), { cut: this.slice ?? undefined });
+    this.aim = hit?.level ?? null;
+    return hit;
+  }
+
+  /** The level of the ground the pointer last aimed at: the Select tool's ring lies on that run in a
+   *  column with terrain above terrain (null: none). */
+  private aim: number | null = null;
+
+  /** Whether tile `i` has a top at `level`: a run's top, or the map's floor (level 0) under air at the
+   *  bottom; under a layer cut, of the terrain that remains (the cut is a top where solid rock crosses it).
+   *  Select's wand takes the ground joined at a level, under overhangs too. */
+  hasTop(i: number, level: number): boolean {
+    const m = this.map;
+    if (!m) return false;
+    return hasTopAt(m.heights[i], m.source.columns.has(i) ? columnMask(m.source, i) : undefined, level, this.slice);
+  }
+
+  /** The heights the brush cursor lies on: the map's, except for the Select tool's ring (`run`), which
+   *  lies on the run the pointer aims at in a column with terrain above terrain. The editing tools'
+   *  cursors lie where their stroke changes the ground: the tile's top. */
+  private cursorHeights(): Uint8Array {
+    const m = this.map!;
+    const s = this.brushCursorState;
+    if (!s) return m.heights;
+    return aimedHeights(m.heights, m.W, m.H, m.source.columns, (i) => columnMask(m.source, i) & cutKeep(this.slice), this.aim, { x: s.x, y: s.y, radius: s.radius }, s.run === true);
   }
 
   /** The tile under a point on the screen as it is seen: over water, where the ray meets the water's
    *  surface (D321, item 13: a force's cursor is where the pointer is, not on the bed below). */
-  pickSurface(clientX: number, clientY: number): TileHit | null {
-    const hit = this.pick(clientX, clientY);
+  pickSurface(clientX: number, clientY: number, picked?: TileHit | null): TileHit | null {
+    const hit = picked === undefined ? this.pick(clientX, clientY) : picked;
     const m = this.map;
     if (!hit || !m || this.slice !== null) return hit;
     const i = hit.y * m.W + hit.x;
@@ -2582,7 +2717,7 @@ export class MapRenderer {
 
   /** The tile under the pointer for a tool (the water's surface for one that asks for it). */
   private pickFor(t: PointerTool | null, clientX: number, clientY: number): TileHit | null {
-    return t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
+    return t?.voxel ? this.pickSeen(clientX, clientY) : t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
   }
 
   /** The tile under a point on the screen, on a level plane (steady while dragging). */
@@ -2642,7 +2777,7 @@ export class MapRenderer {
       // Alt+middle-click (the game's), or Alt+click: the clicked tile's layer (again: the whole world)
       if ((ev.button === 1 || (ev.button === 0 && !this.tool?.wantsAlt)) && ev.altKey && this.map) {
         ev.preventDefault();
-        const hit = this.pick(ev.clientX, ev.clientY);
+        const hit = this.pickSeen(ev.clientX, ev.clientY);
         if (hit) this.pickSlice(hit);
         return;
       }
@@ -2685,8 +2820,12 @@ export class MapRenderer {
       }
       const hit = this.pick(ev.clientX, ev.clientY);
       this.hoverHit = hit;
-      this.setHoverTile(hit ? hit.x : null, hit?.y ?? 0);
-      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY) : hit, ev);
+      // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
+      const m = this.map;
+      const seen = this.pickSeen(ev.clientX, ev.clientY);
+      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seen && m?.source.columns.has(seen.y * m.W + seen.x) ? (seen.level ?? -1) : -1);
+      const t = this.tool;
+      t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
       this.onHover?.(hit);
     });
     const end = (e: Event) => {
@@ -2707,6 +2846,7 @@ export class MapRenderer {
     this.on(c, "pointerleave", (e) => {
       if (this.drag) return;
       this.hoverHit = null;
+      this.aim = null;
       this.setHoverTile(null);
       this.tool?.hover?.(null, e as PointerEvent);
       this.onHover?.(null);
@@ -2801,8 +2941,8 @@ export class MapRenderer {
 
   zoom(factor: number): void {
     const m = this.map;
-    const span = m ? Math.max(m.W, m.H) : 256;
-    this.setView({ distance: Math.min(span * 3, Math.max(6, this.view.distance * factor)) });
+    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
+    this.setView({ distance: Math.min(max, Math.max(min, this.view.distance * factor)) });
   }
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */
@@ -3011,4 +3151,26 @@ function oneObject(template: string, orientation: number): EntityView {
     strength: Float32Array.of(0),
     ids: [""],
   };
+}
+
+/** The rectangle of tiles whose column differs between two column maps (null: none). */
+function columnsChanged(a: ReadonlyMap<number, Uint8Array>, b: ReadonlyMap<number, Uint8Array>, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  let r: { x0: number; y0: number; x1: number; y1: number } | null = null;
+  const add = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    r = r ? { x0: Math.min(r.x0, x), y0: Math.min(r.y0, y), x1: Math.max(r.x1, x), y1: Math.max(r.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+  };
+  for (const [i, c] of b) {
+    const was = a.get(i);
+    if (!was || was.some((v, z) => v !== c[z])) add(i);
+  }
+  for (const i of a.keys()) if (!b.has(i)) add(i);
+  return r;
+}
+
+/** Two rectangles' bounds (either may be null). */
+function grownRect(a: { x0: number; y0: number; x1: number; y1: number } | null, b: { x0: number; y0: number; x1: number; y1: number } | null): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (!a || !b) return a ?? b;
+  return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
 }

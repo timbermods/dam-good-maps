@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { wrap, type Remote } from "comlink";
 import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES } from "../core/places/attribution";
 import { placeNote, type PlaceIndex, type PlaceIndexEntry } from "../core/places/place";
-import { saveFile, saveToTimberborn, type SaveToTimberbornResult } from "../platform";
+import { chooseSaveFolder, saveFile, saveIntoFolder, wrongFolderNote, type SaveToTimberbornResult } from "../platform";
 import { fetchGalleryIndex, fetchPlace, PLACES_URL } from "./data";
 import type { PlaceWorkerApi } from "./place.worker";
 
@@ -105,8 +105,15 @@ export function Gallery() {
     if (saving[p.id] && "busy" in saving[p.id]) return;
     setSaving(p.id, { busy: true });
     try {
+      // (the folder first, straight from the click: the picker needs its fresh user activation, gone by the time a map is built;
+      // a closed picker saves nothing and says nothing, a folder not named Maps is refused with its line)
+      const choice = await chooseSaveFolder();
+      if (choice.via === "cancelled" || choice.via === "wrong-folder") {
+        setSaving(p.id, choice.via === "cancelled" ? null : { error: wrongFolderNote(choice.picked) });
+        return;
+      }
       const r = await buildPlace(p.id);
-      setSaving(p.id, await saveToTimberborn(r.bytes, r.fileName));
+      setSaving(p.id, await saveIntoFolder(choice, r.bytes, r.fileName));
     } catch (e) {
       setSaving(p.id, { error: `${p.name} could not be built: ${String(e instanceof Error ? e.message : e)}` });
     }
@@ -226,6 +233,11 @@ export function Gallery() {
                                   Saved as <strong>{s.savedAs}</strong>.
                                 </>
                               ) : null}
+                            </>
+                          ) : s.via === "download" && s.failed ? (
+                            <>
+                              Couldn't save to the Maps folder, so it was downloaded. Move the file to <code>Documents\Timberborn\Maps</code>.
+                              {s.forgotten ? " Save asks for the folder again next time." : ""}
                             </>
                           ) : (
                             <>

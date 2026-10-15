@@ -124,8 +124,13 @@ test("the Standard look is the same after High as before it", async ({ page }) =
     await page.waitForTimeout(500);
     return a === (await size());
   }).toBe(true);
-  // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it)
+  // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it, then
+  // put it away. It is the same in both looks, and where its flat and upright strips overlap over the water, the GPU
+  // (software GL and the RTX 2070 SUPER alike) blends it there once or twice between two redraws of one still frame,
+  // with the draw order, the scene, the clock and the camera held: a few pixels up to 21 apart, back and forth. Its
+  // own drawing is checked in droughtLine.spec.ts; the line has no tint on this map)
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
   await still("before");
   const again = await still("again");
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high"));
@@ -466,5 +471,64 @@ test("every basin source's highlight reads, under its own water too, in High as 
   }
   // and both go exactly (software drawing on CI may stray a little on a redraw)
   expect(result.back).toBeLessThanOrEqual(8);
+  expect(errors).toEqual([]);
+});
+
+test("High's visible seasons follow the game's timers: no plant dies of dryness in a normal drought's 9 days, a longer one withers them, a badtide kills on poisoned ground; Standard and Day 0 do not (D250)", async ({ page }) => {
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
+  expect(await look(page)).toBe("high");
+  const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
+  const bar = page.getByRole("toolbar", { name: "Water time" });
+  const day = bar.locator(".day-label");
+  const goTo = async (n: number) => {
+    await day.dblclick();
+    await bar.getByRole("textbox", { name: "Day" }).fill(String(n));
+    await bar.getByRole("textbox", { name: "Day" }).press("Enter");
+    await expect(day).toHaveText(`Day ${n}`);
+    await expect(day).not.toHaveClass(/counting/, { timeout: 240_000 });
+  };
+  expect(await withered()).toBe(0);
+
+  // a normal drought's last day (9): the ground is dry, but no pine, birch or oak has been dry 14 days (1.1 x 13, 11, 15)
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect(day).toHaveText("Day 9");
+  await page.waitForTimeout(1000);
+  expect(await withered()).toBe(0);
+  // a longer one: by day 20 the plants that have stood dry for 1.1 x their days are dead, and stay dead going on
+  await goTo(20);
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  const dry20 = await withered();
+  await goTo(24);
+  // (the day comes first and its list follows, the day soil being worked out in a worker: wait for it, or dry24 is day 20's)
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(dry20);
+  // Standard stays as it is, and High again draws the same plants withered
+  const dry24 = await withered();
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard", false));
+  expect(await withered()).toBe(0);
+  await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("high", false));
+  expect(await withered()).toBe(dry24);
+  // back to day 9 and Day 0: nothing dead yet
+  await goTo(9);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await goTo(0);
+  expect(await withered()).toBe(0);
+  await bar.getByRole("button", { name: "Drought" }).click();
+  await expect(bar.getByRole("button", { name: "Drought" })).toHaveAttribute("aria-pressed", "false");
+
+  // a badtide: contamination that stays two days kills any plant, so the plants on poisoned ground are dead; Day 0 has none
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(day).not.toHaveClass(/counting/, { timeout: 180_000 });
+  await expect.poll(withered, { timeout: 30_000 }).toBeGreaterThan(20);
+  await goTo(0);
+  await expect.poll(withered, { timeout: 30_000 }).toBe(0);
+  await bar.getByRole("button", { name: "Badtide" }).click();
+  await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
+  expect(await withered()).toBe(0);
   expect(errors).toEqual([]);
 });

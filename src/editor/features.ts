@@ -910,11 +910,22 @@ export function feedingGroups(water: SurfaceWater, groups: readonly SourceGroup[
 /** The game's trees (a tree placed by the generator, the shelf or an imported map). */
 const TREE_TEMPLATES = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove)$/;
 
-/** The living trees among the map's objects as the view holds them (its edits included; dead ones aren't counted,
- *  the legend keeps them apart). */
-export function livingTrees(e: EntityView): number {
-  const tree = e.templates.map((t) => TREE_TEMPLATES.test(t));
-  let n = 0;
-  for (let k = 0; k < e.count; k++) if (tree[e.template[k]] && !(e.flags[k] & DEAD)) n++;
+/** What the map holds, counted from its own objects as the view has them now: edits included, whoever put them
+ *  there (the generator, the player or the file). Dead trees and bushes aren't counted. */
+export interface MapCounts {
+  mines: number;
+  ruins: number;
+  bushes: number;
+  trees: number;
+  sources: number;
+}
+
+export function mapCounts(e: EntityView): MapCounts {
+  const kind = e.templates.map((t) => (TREE_TEMPLATES.test(t) ? "trees" : t === "BlueberryBush" ? "bushes" : /^RuinColumnH\d+$/.test(t) ? "ruins" : t === "UndergroundRuins" ? "mines" : t === "WaterSource" ? "sources" : null));
+  const n: MapCounts = { mines: 0, ruins: 0, bushes: 0, trees: 0, sources: 0 };
+  for (let k = 0; k < e.count; k++) {
+    const w = kind[e.template[k]];
+    if (w && !((w === "trees" || w === "bushes") && e.flags[k] & DEAD)) n[w]++;
+  }
   return n;
 }

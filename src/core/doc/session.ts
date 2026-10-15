@@ -3,8 +3,9 @@
 //
 // - `apply` checks an operation, applies it to the state, appends it to the log and rebuilds the
 //   dirty region. Invalid operations are rejected with reasons, never clamped.
-// - `undo` and `redo` step through the history: operations invert with their undo data. Built maps
-//   are kept as snapshots every few steps, so stepping back is instant on 256² maps.
+// - `undo` and `redo` step through the history: operations invert with their undo data. The built map
+//   of every step near where the history stands is kept (one every few steps further back), so
+//   undo and redo put it back as it was, its own water with it, never rebuilding it.
 // - Edits never replay onto new land (PLAN §20, D336): a document keeps the generation it was
 //   made on. Generate makes a new map; the log replays only onto the same land (undo and redo,
 //   reopening a project, share links).
@@ -28,7 +29,10 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, terrainColumns } from "../terrain/runs";
+import { fallsReason, newFalls, stackableTops } from "../terrain/support";
+import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
+import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { rawEntity } from "../format/entities";
@@ -134,9 +138,15 @@ export interface DocOrphan {
   reason: string;
 }
 
-/** Built maps kept for undo and redo. */
+/** Built maps kept for undo and redo: every step's within reach of where the history stands (undo and
+ *  redo put the map back as it was, a copy, never a rebuild: D158, D453), and one every eight steps
+ *  further back (at most eight of those). A kept build holds about 92 bytes a tile beyond the builds
+ *  round it (6 MB at 256²): `NEAR_TILES` keeps 8 steps either side at 256² (about 50 MB with the
+ *  history at its latest step, 100 MB at most, half way back), 32 at 128², 2 at 512². */
 const SNAPSHOT_EVERY = 8;
 const MAX_SNAPSHOTS = 8;
+const NEAR_TILES = 8 * 256 * 256;
+const MIN_NEAR = 2;
 
 export class MapSession {
   private gen: Generation;
@@ -387,18 +397,86 @@ export class MapSession {
 
   /** Follow another session of the same generation (a replica: the editor's checks run on one in
    *  a worker of their own): its log becomes this one's, and the map is rebuilt incrementally from
-   *  where it stood. The history is not kept; the replica never undoes. */
+   *  where it stood, as after an edit (`relog`). The history becomes the log's steps, with nothing to
+   *  redo and no save point. The same map, byte for byte, as replaying the whole log (`replay`). */
   followLog(log: readonly AppliedOp[], nextSeq: number): void {
-    const r = replay(this.gen.baseFeatures, log);
-    this.log = r.log;
-    this.st = r.state;
-    this.seqNext = nextSeq;
-    this.undoStack = stepsOf(this.log);
     this.floor = 0;
     this.pending = null;
+    this.relog(log, nextSeq, null);
+  }
+
+  /** The log becomes `log`: the operations both logs share from the start stay as they are (their
+   *  state, and the caches the build keys on them), those after are taken back and the new ones
+   *  applied in order, and the map is rebuilt from where it stood, as after an edit. The history is
+   *  `steps` (each step's operation numbers, and its label), or the log's own steps; nothing is left
+   *  to redo. The kept maps stay for the leading steps that hold the very same operations as before
+   *  (whether or not the log marks its steps), and only those. */
+  private relog(log: readonly AppliedOp[], nextSeq: number, steps: readonly { seqs: readonly number[]; label?: string }[] | null): void {
+    const before = this.undoStack;
+    let keep = 0;
+    while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
+    for (let k = this.log.length - 1; k >= keep; k--) invertOp(this.st, this.log[k]);
+    this.log.length = keep;
+    for (let k = keep; k < log.length; k++) {
+      const copy = clone(log[k]) as AppliedOp;
+      applyOp(this.st, copy);
+      this.log.push(copy);
+    }
+    this.seqNext = nextSeq;
+    const bySeq = new Map(this.log.map((o) => [o.seq, o]));
+    this.undoStack = steps ? steps.map((g) => ({ kind: "ops" as const, ops: g.seqs.map((n) => bySeq.get(n)!), ...(g.label ? { label: g.label } : {}) })) : stepsOf(this.log);
+    // (the leading steps of the very same operations: their maps stand as they were)
+    let shared = 0;
+    while (shared < before.length && shared < this.undoStack.length && sameItems(before[shared].ops, this.undoStack[shared].ops)) shared++;
     this.redoStack = [];
-    this.snaps.clear();
+    for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
     this.cur = this.rebuilt();
+  }
+
+  /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
+   *  redo of a step that is not the latest, D362): `remove` names a step of the history by its first
+   *  operation's number (`seq`), `insert` gives its operations as the log kept them (`stepOps`), with
+   *  its label. The operations after it are applied again in order, and the map rebuilt from where it
+   *  stood, as an edit is (`relog`): about one edit's cost, never a rebuild of the whole log. The other
+   *  steps stay as they were, each one step; nothing is left to redo. A step below the save point of a
+   *  map opened from its stored map waits on the replay comparison, as undo does (D455). False, and
+   *  nothing changes, when there is no such step to take out, an operation to put back is in the log
+   *  already, or the save point stops it. */
+  spliceStep(change: { remove: number } | { insert: readonly AppliedOp[]; label?: string }): boolean {
+    const steps = this.undoStack.map((e) => ({ seqs: e.ops.map((o) => o.seq), ...(e.label ? { label: e.label } : {}) }));
+    let at: number;
+    let log: AppliedOp[];
+    if ("remove" in change) {
+      at = steps.findIndex((g) => g.seqs[0] === change.remove);
+      if (at < 0) return false;
+      const gone = new Set(steps[at].seqs);
+      steps.splice(at, 1);
+      log = this.log.filter((o) => !gone.has(o.seq));
+    } else {
+      const ops = [...change.insert].sort((a, b) => a.seq - b.seq);
+      const seqs = new Set(this.log.map((o) => o.seq));
+      if (!ops.length || ops.some((o) => seqs.has(o.seq)) || new Set(ops.map((o) => o.seq)).size !== ops.length) return false;
+      at = steps.findIndex((g) => g.seqs[0] > ops[0].seq);
+      if (at < 0) at = steps.length;
+      steps.splice(at, 0, { seqs: ops.map((o) => o.seq), ...(change.label ? { label: change.label } : {}) });
+      log = [...this.log, ...ops].sort((a, b) => a.seq - b.seq);
+    }
+    // (below the save point: the replay comparison first, here, when it is owed; it decides, D455)
+    if (at < this.floor && (!this.pending || !this.checkReplay())) return false;
+    this.relog(log, Math.max(this.seqNext, ...log.map((o) => o.seq + 1)), steps);
+    return true;
+  }
+
+  /** The operations of the history's step whose first operation is `seq`, as the log keeps them
+   *  (for `spliceStep`'s `insert`); empty when there is none. Copies. */
+  stepOps(seq: number): AppliedOp[] {
+    const e = this.undoStack.find((s) => s.ops[0].seq === seq);
+    return e ? (clone(e.ops) as AppliedOp[]) : [];
+  }
+
+  /** The label of the history's step whose first operation is `seq` (for `spliceStep`'s `insert`). */
+  stepLabel(seq: number): string | undefined {
+    return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
@@ -418,9 +496,10 @@ export class MapSession {
     return new MapSession(doc, r.built);
   }
 
-  /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
-  static importMap(bytes: Uint8Array, fileName: string): MapSession {
-    return new MapSession(importDocument(bytes, fileName));
+  /** Import any .timber map (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Throws
+   *  ImportError for saves. */
+  static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
+    return new MapSession(importDocument(bytes, fileName, place));
   }
 
   // --------------------------------------------------------------------------------- reading
@@ -454,23 +533,76 @@ export class MapSession {
     return { x: this.gen.base.sizeX, y: this.gen.base.sizeY };
   }
 
-  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, with an imported
-   *  map's caves and overhangs kept exactly. A fresh copy. */
+  /** The map's terrain as it stands, as runs per tile (D119): the build's surface, an imported map's
+   *  caves and overhangs with their top runs shaped as the edits left them and everything under a
+   *  roof kept exactly (D280 (3)). A fresh copy. */
   get terrain(): ColumnTerrain {
     const { x: W, y: H } = this.size;
     return this.mode === "live" ? ColumnTerrain.fromHeights(this.cur.heights, W, H) : this.baseStuff().terrain.terrain.withSurface(this.cur.heights);
   }
 
-  /** Whether a tile is one plain run from the bottom: no cave or overhang, so the tools may shape it.
+  /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
+   *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map. */
   plainAt(i: number): boolean {
     return this.mode === "live" || this.baseStuff().terrain.terrain.isPlain(i);
   }
 
-  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels), for the voxel
-   *  mesher; they are left as they are by every tool. Empty for generated maps (heightfields). */
+  /** An imported map's columns with caves or overhangs (tile index → its 23 voxels) as they stand,
+   *  for the voxel mesher: the brushes shape their top runs (D280 (3)), nothing else changes them.
+   *  Empty for generated maps (heightfields). */
   get columns(): ReadonlyMap<number, Uint8Array> {
-    return this.mode === "live" ? new Map() : this.baseStuff().terrain.columns;
+    if (this.mode === "live") return new Map();
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size || b.heights === this.cur.heights) return b.columns;
+    const c = this.columnsCache;
+    if (c && c.key === this.cur.heights) return c.columns;
+    const t = b.terrain.withSurface(this.cur.heights);
+    const columns = new Map<number, Uint8Array>();
+    for (const [i, was] of b.columns) columns.set(i, t.surface(i) === b.heights[i] ? was : t.column(i, LAYERS));
+    this.columnsCache = { key: this.cur.heights, columns };
+    return columns;
+  }
+  private columnsCache: { key: Uint8Array; columns: Map<number, Uint8Array> } | null = null;
+
+  /** The blocks of ground the map as it stands would lose that it did not lose as `before` (D121,
+   *  D280 (3)): what the last step makes fall, by cell (z·N + tile). Empty on a heightfield, and
+   *  when neither the ground nor the objects holding ground changed. */
+  private fallsSince(before: BuildResult): number[] {
+    if (this.mode === "live") return [];
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size) return [];
+    const { W, H } = b;
+    const now = this.cur;
+    const tops0 = stackableTops(W, H, before.entities);
+    const tops1 = stackableTops(W, H, now.entities);
+    if (sameBytes(before.heights, now.heights) && tops0.length === tops1.length && tops0.every((c, k) => c === tops1[k])) return [];
+    return newFalls(b.terrain.withSurface(before.heights), b.terrain.withSurface(now.heights), tops0, tops1);
+  }
+
+  /** How many blocks of ground an operation just put in the log would make fall, worked out from the
+   *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
+   *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
+   *  it covers the rest, D280 (3)). */
+  private fallsAhead(op: EditOp): number {
+    if (this.mode === "live" || (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult")) return 0;
+    const b = this.baseStuff().terrain;
+    if (!b.columns.size) return 0;
+    const { heights } = previewTerrain(this.cur, this.input());
+    if (sameBytes(heights, this.cur.heights)) return 0;
+    // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, b.W, b.H), this.cur.heights, heights, b.W).length) return 0;
+    const tops = stackableTops(b.W, b.H, this.cur.entities);
+    return newFalls(b.terrain.withSurface(this.cur.heights), b.terrain.withSurface(heights), tops, tops).length;
+  }
+
+  /** Take back the step taken since `mark` (one that would make ground fall) as if it had never been
+   *  taken, the map back to `before`. */
+  private refuseStep(mark: HistoryMark, seq: number, before: BuildResult): void {
+    const step = this.stepSince(mark);
+    if (!step) return;
+    this.snaps.set(mark.depth, before);
+    if (this.takeBack(step)) this.seqNext = seq;
   }
 
   /** The ground of the map as it was opened (its stored base, before the edits): the forces derive
@@ -530,9 +662,23 @@ export class MapSession {
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: base ? Int32Array.from([...base.columns.keys()].sort((a, b) => a - b)) : new Int32Array(0),
+      ...(base && base.columns.size ? this.roofState(base) : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
+    };
+  }
+
+  /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
+   *  each roof's top may go, the terrain's masks of those tiles as they stand, and the objects' tops
+   *  that hold ground (StrokePreview `falls`). */
+  private roofState(base: BaseTerrain): Pick<TerrainState, "floor" | "masks" | "stackTops"> {
+    const tiles = [...base.columns.keys()].sort((a, b) => a - b);
+    const t = base.terrain.withSurface(this.cur.heights);
+    return {
+      floor: base.terrain.topFloors(),
+      masks: Uint32Array.from(tiles, (i) => t.mask[i]),
+      stackTops: Int32Array.from(stackableTops(base.W, base.H, this.cur.entities)),
     };
   }
 
@@ -697,11 +843,25 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const applied = this.applyChecked(op, origin, label);
+    // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
+    const ahead = this.fallsAhead(op);
+    if (ahead) {
+      invertOp(this.st, applied);
+      this.log.pop();
+      this.seqNext = seq;
+      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+    }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
     this.snapshot();
     const again = this.rideTilted([op], before, mark, seq);
     if (again) return this.ridden(() => this.apply(again[0], origin, label));
+    // nothing an edit does may leave ground the game would drop (D121, D280 (3)): refused, with why
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
 
@@ -753,16 +913,19 @@ export class MapSession {
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
-      done.push(this.applyChecked(op, origin, label));
+      done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
       // later operations of the group may refer to what earlier ones made
       this.cur = this.rebuilt();
     }
-    // (a step of several is marked in the log, so it stays one step when the project is reopened)
-    if (done.length > 1) for (const a of done) a.step = done[0].seq;
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     const again = this.rideTilted(ops, before, mark, seq);
     if (again) return this.ridden(() => this.applyAll(again, origin, label));
+    const falls = this.fallsSince(before);
+    if (falls.length) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
@@ -788,16 +951,21 @@ export class MapSession {
         taken.add(i);
       }
     }
-    const done = ops.map((op) => this.applyChecked(op, origin, label));
+    // (a batch of several is one step in the log too, so it stays one step when the project is reopened: D456)
+    const first = this.seqNext;
+    const done = ops.map((op) => this.applyChecked(op, origin, label, ops.length > 1 ? first : undefined));
     this.cur = this.rebuilt();
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
 
-  private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
+  /** `step`: the `seq` of the first operation of the step, when the step holds several (D456). It is
+   *  set here, before `applyOp` adds the undo data, so a log entry's keys come in one order live and
+   *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
+  private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
-    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}), ...(step !== undefined ? { step } : {}) } as AppliedOp;
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
@@ -848,6 +1016,7 @@ export class MapSession {
     }
     this.redoStack.push(e);
     this.cur = this.snaps.get(this.undoStack.length) ?? this.rebuilt();
+    this.snapshot();
     return true;
   }
 
@@ -906,14 +1075,15 @@ export class MapSession {
     for (const k of [...this.snaps.keys()]) if (k >= this.undoStack.length) this.snaps.delete(k);
   }
 
-  private snapshot(force = false): void {
+  /** Keep the map as it stands for this place in the history (see `NEAR_TILES`). */
+  private snapshot(): void {
     const at = this.undoStack.length;
-    if (!force && at % SNAPSHOT_EVERY !== 0) return;
     this.snaps.set(at, this.cur);
-    while (this.snaps.size > MAX_SNAPSHOTS) {
-      const oldest = [...this.snaps.keys()].filter((k) => k !== 0).sort((a, b) => a - b)[0];
-      this.snaps.delete(oldest);
-    }
+    const near = Math.max(MIN_NEAR, Math.floor(NEAR_TILES / (this.gen.base.sizeX * this.gen.base.sizeY)));
+    // (the steps further away go, but the map as opened and one every few steps)
+    for (const k of [...this.snaps.keys()]) if (k !== 0 && k % SNAPSHOT_EVERY !== 0 && Math.abs(k - at) > near) this.snaps.delete(k);
+    const sparse = [...this.snaps.keys()].filter((k) => k !== 0 && k % SNAPSHOT_EVERY === 0 && Math.abs(k - at) > near).sort((a, b) => a - b);
+    while (sparse.length > MAX_SNAPSHOTS) this.snaps.delete(sparse.shift()!);
   }
 
   // ------------------------------------------------------------------------------ building
@@ -1292,7 +1462,11 @@ function topWater(singletons: JsonObject, W: number, H: number, heights: Uint8Ar
     depth[i] = w.depth[k];
     contamination[i] = w.contamination[k];
   }
-  return { settled: true, ticks: 0, depth, contamination, sat: new Uint8Array(N), preview: true };
+  // (its saturation, as the settle's own is worked out from where water stands: the soil the build
+  // makes from this water before its first settle is the file's water's, not a dry map)
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0 ? 1 : 0;
+  return { settled: true, ticks: 0, depth, contamination, sat: clusterSaturation(wet, W, H), preview: true };
 }
 
 /** Whether two water models are the same map for the water (floors, obstacles and emitters). */
@@ -1316,6 +1490,11 @@ function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+/** The same logged operation: the very object, or its number, kind, step, origin and parameters alike. */
+function sameOp(a: AppliedOp, b: AppliedOp): boolean {
+  return a === b || (a.seq === b.seq && a.op === b.op && a.step === b.step && a.origin === b.origin && (a as { label?: string }).label === (b as { label?: string }).label && JSON.stringify(a.params) === JSON.stringify(b.params));
 }
 
 /** A stored field as the build takes it. */

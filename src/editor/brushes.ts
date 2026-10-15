@@ -389,6 +389,12 @@ export class BrushPainter {
     return this.stroke !== null;
   }
 
+  /** A stroke is being painted, or a Naturalize stroke's land is still coming from the worker (D422): the
+   *  page's land is its own until it is sent. */
+  get busy(): boolean {
+    return this.stroke !== null || this.committing !== null;
+  }
+
   /** A click that set the size: its drag and release do nothing. */
   private swallow = false;
 
