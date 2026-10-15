@@ -239,7 +239,7 @@ test("ground that would fall is shown before the press is let go, and the drag i
 test("on an imported cave map a Shift-click carves into a cave wall: the blocks go, the surface stays, undo gives them back", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "cave.timber", mimeType: "application/zip", buffer: Buffer.from(writeTimber(caveFile())) });
-  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().name)).toBe("cave");
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name)).toBe("cave");
   await page.waitForFunction(() => window.dgm3d!.renderer.size?.W === 40);
   await page.keyboard.press("7");
   await toolInHand(page);
