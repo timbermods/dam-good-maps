@@ -313,7 +313,7 @@
       }
     },
     "removeUnfedWater": {
-      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole). Once the map's water settles, the unfed water on those tiles is taken away and the water settles on from there; water a source feeds is never taken. The engine checks that none of the tiles holds fed water now.",
+      "description": "Remove unfed water (D387 (2)): the water no source feeds, map-wide or within a selection, stored literally as the tiles of the bodies of unfed water it takes (indices y·W + x, ascending; a body with a tile in the selection goes whole, and on a map with caves so does every body on a tile it shares). Once the map's water settles, the unfed water on those tiles is taken away, on every water column of them, and the water settles on from there; water a source feeds is never taken. The engine checks that each tile holds unfed water now.",
       "type": "object",
       "additionalProperties": false,
       "required": ["tiles"],
@@ -324,13 +324,14 @@
       }
     },
     "fillHollow": {
-      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean. Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
+      "description": "Fill (D387 (3), D394): a hollow filled with standing water to a level, with no source: where it was asked, the level, and the hollow's water stored literally as a carve stores its sealed oxbow lake's (D216): the tiles (ascending), their floors, the depths to the level, clean; on a map with caves or overhangs one entry a water column, ascending by tile and then floor, and 'floor' the floor of the column at 'at' it was measured from (a cave's under its roof). Every settle starts the hollow from it and the game's rules evaporate it. The engine checks the hollow, measured on the map now, holds water at that level and is the one stored.",
       "type": "object",
       "additionalProperties": false,
       "required": ["at", "level", "lake"],
       "properties": {
         "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
         "level": { "type": "number", "exclusiveMinimum": 0, "maximum": 64 },
+        "floor": { "type": "integer", "minimum": 0, "maximum": 33 },
         "lake": {
           "type": "object",
           "additionalProperties": false,

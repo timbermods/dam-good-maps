@@ -33,7 +33,7 @@
 import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
-import { CAVE_REFUSALS, canonicalStackRun, type StackSettle } from "./stackWater";
+import { canonicalStackRun, type StackSettle } from "./stackWater";
 import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
@@ -200,11 +200,11 @@ export interface CanonicalWater extends SettleResult {
 
 /** The canonical settle of a model with terrain above terrain (`WaterModel.stacked`, D120), in
  *  slices: the stacked-column engine's (stackWater.ts), told as `canonicalRun` tells a heightfield's,
- *  so whoever shows progress shows it the same way. The water a removal drained has no stacked rule
- *  yet and is refused. */
+ *  so whoever shows progress shows it the same way: the stored lakes on their columns (a Fill in a cave
+ *  included), a sealed basin only evaporating stored as it started (D413), and the unfed water a removal
+ *  drained taken once the water has settled, on every column of its tiles. */
 function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  if (m.drained?.length) throw new Error(CAVE_REFUSALS.removeUnfed);
-  const run = canonicalStackRun(m.W, m.H, m.stacked!, m.retained);
+  const run = canonicalStackRun(m.W, m.H, m.stacked!, m.retained, m.drained);
   let done: CanonicalWater | null = null;
   return {
     advance(ticks: number): CanonicalWater | null {
@@ -222,7 +222,7 @@ function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | n
         contamination[i] = s.contamination[c];
         sat[i] = s.sat[c];
       }
-      done = { settled: s.settled, ticks: s.ticks, depth, contamination, sat, stack: s };
+      done = { settled: s.settled, ticks: s.ticks, ...(s.steadyTicks !== undefined ? { steadyTicks: s.steadyTicks } : {}), depth, contamination, sat, stack: s };
       return done;
     },
     get ticks() {
