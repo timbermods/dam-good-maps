@@ -135,9 +135,15 @@ export function outlineTiles(points: readonly [number, number][], W: number, H: 
 }
 
 /** The ground at the clicked tile's level joined to it (four neighbours), at most `limit` tiles. */
-export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = 65536): number[] {
+export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: number, y: number, limit = W * H): number[] {
+  const level = heights[y * W + x];
+  return levelTiles((j) => heights[j] === level, W, H, x, y, limit);
+}
+
+/** The tiles joined to tile (x, y) (four neighbours) for which `has` holds: the Wand's ground when the
+ *  click was on a run under an overhang (a cave's floor), where `has` asks for a top at that level. */
+export function levelTiles(has: (i: number) => boolean, W: number, H: number, x: number, y: number, limit = W * H): number[] {
   const start = y * W + x;
-  const level = heights[start];
   const seen = new Uint8Array(W * H);
   const out = [start];
   seen[start] = 1;
@@ -147,7 +153,7 @@ export function sameLevelTiles(heights: Uint8Array, W: number, H: number, x: num
     for (const j of [i - 1, i + 1, i - W, i + W]) {
       if (j < 0 || j >= W * H || seen[j] || (j === i - 1 && cx === 0) || (j === i + 1 && cx === W - 1)) continue;
       seen[j] = 1;
-      if (heights[j] === level) out.push(j);
+      if (has(j)) out.push(j);
     }
   }
   return out;
@@ -216,7 +222,10 @@ export interface SelectHost {
   brushSize?(): number;
   /** The Brush mode's ring under the pointer (null: none). */
   ring?(at: [number, number] | null, radius: number): void;
-  /** Ctrl+click on the land: that tile's level, as the Level number (D345, B8). */
+  /** Whether tile i has a ground top at `level` (a run's top under an overhang too); without it the
+   *  Wand reads the tiles' heights. */
+  hasTop?(i: number, level: number): boolean;
+  /** Ctrl+click on the land: the level of the ground hit, as the Level number (D345, B8). */
   sample?(level: number): void;
   /** Shift+scroll: the Level number a step up (1) or down (-1) (D345, B8). */
   dial?(step: 1 | -1, ev: WheelEvent): void;
@@ -274,6 +283,8 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
   };
   return {
     wantsAlt: true,
+    // (it aims at the ground seen, a cave's floor through its mouth)
+    voxel: true,
     down(hit: TileHit | null, ev: PointerEvent) {
       if (ev.button !== 0 || !hit) return false;
       // Ctrl+click: the tile's level, as the Level number, and nothing else: it never creates or changes
@@ -292,7 +303,10 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         // a click on water takes that water; on land, the ground at its level joined to it
         const W = host.W;
         const onWater = host.wet?.(hit.y * W + hit.x) ?? false;
-        sel.apply(onWater ? waterTiles(host.wet!, W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y), how);
+        // (on land, the level of the run the click hit: a cave's floor takes the ground joined to it at its level)
+        const level = hit.level;
+        const land = host.hasTop && level !== undefined ? levelTiles((j) => host.hasTop!(j, level), W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y);
+        sel.apply(onWater ? waterTiles(host.wet!, W, host.H, hit.x, hit.y) : land, how);
         host.changed();
         start = null;
         return true;
@@ -332,7 +346,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         painted = null;
         tiles = [];
         host.drawing(null, null, null);
-        host.sample?.(host.heights()[s.y * host.W + s.x]);
+        host.sample?.(s.level ?? host.heights()[s.y * host.W + s.x]);
         return;
       }
       if (!start) return;

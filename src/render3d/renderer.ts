@@ -39,6 +39,7 @@ import {
   Sphere,
   Vector2,
   Vector3,
+  Vector4,
   WebGLRenderer,
   type DataTexture,
   type Group,
@@ -60,10 +61,10 @@ import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
-import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
+import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
-import { pickHeightfield, pickPlane, type Ray, type TileHit } from "./pick";
+import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
@@ -156,6 +157,9 @@ export interface PointerTool {
   wheel?(ev: WheelEvent): boolean;
   /** The drag was lost (the pointer went away without a release). */
   cancel?(): void;
+  /** It aims at the ground the player sees, a run under an overhang or in a cave (the Select tool); every other tool aims at
+   *  the tile's top, as before step 3. */
+  voxel?: boolean;
   /** It takes Alt+click and Alt+drag itself (the Select tool's subtract), instead of the layer pick. */
   wantsAlt?: boolean;
   /** It points at the water's surface over water, where the cursor is seen (the forces, D321 item
@@ -506,7 +510,6 @@ export class MapRenderer {
     const v = level === null ? 99 : Math.max(0, Math.min(40, Math.round(level)));
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
-    this.sliced = null;
     this.droughtLayer?.setHidden(level !== null);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
@@ -544,7 +547,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     const cut = this.slice;
-    const level = Math.min(m.heights[hit.y * m.W + hit.x], cut ?? 99);
+    const level = Math.min(hitLevel(hit, m.heights, m.W), cut ?? 99);
     this.setSlice(cut === null || level < cut ? level : null);
   }
 
@@ -556,8 +559,6 @@ export class MapRenderer {
 
   /** Told when the layer changes (the page says which layer is showing). */
   onSlice: ((level: number | null) => void) | null = null;
-  /** The heights as the slice shows them (picking lands on the cut). */
-  private sliced: Uint8Array | null = null;
 
   /** The sources whose water the pointer is over glow (D196): their middle tiles, or none. */
   setSourceGlow(tiles: readonly number[]): void {
@@ -2310,15 +2311,17 @@ export class MapRenderer {
     return this.highlight !== null;
   }
 
-  setHoverTile(x: number | null, y = 0): void {
+  /** Light the tile under the pointer (null: none). `level`: the run whose top lights up, in a column
+   *  with terrain above terrain (-1: every top of the tile). */
+  setHoverTile(x: number | null, y = 0, level = -1): void {
     const u = this.terrainMat.uniforms.hover;
-    const v = u.value as Vector3;
+    const v = u.value as Vector4;
     if (x === null) {
       if (v.z === 0) return;
-      v.set(0, 0, 0);
+      v.set(0, 0, 0, -1);
     } else {
-      if (v.z === 1 && v.x === x && v.y === y) return;
-      v.set(x, y, 1);
+      if (v.z === 1 && v.x === x && v.y === y && v.w === level) return;
+      v.set(x, y, 1, level);
     }
     this.requestRender();
   }
@@ -2519,7 +2522,7 @@ export class MapRenderer {
     this.flushTerrain();
     if (this.cursorStale && this.cursor && this.map) {
       this.cursorStale = false;
-      this.cursor.set(this.brushCursorState, this.map.heights, this.map.W, this.map.H);
+      this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
@@ -2616,18 +2619,49 @@ export class MapRenderer {
   pick(clientX: number, clientY: number): TileHit | null {
     const m = this.map;
     if (!m) return null;
-    const cut = this.slice;
-    if (cut === null) return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, m.heights);
-    // under a slice, the ray lands on the cut
-    if (!this.sliced || this.sliced.length !== m.heights.length) this.sliced = new Uint8Array(m.heights.length);
-    for (let i = 0; i < m.heights.length; i++) this.sliced[i] = Math.min(m.heights[i], cut);
-    return pickHeightfield(this.rayAt(clientX, clientY), m.W, m.H, this.sliced);
+    return pickEditing(this.rayAt(clientX, clientY), m.W, m.H, m.heights, this.slice ?? undefined);
+  }
+
+  /** The ground the pointer sees under it: the first face along the ray, whichever run's. Only the Select tool, the hover
+   *  highlight and the layer pick use it; the editing tools use `pick`, the tile's top. */
+  pickSeen(clientX: number, clientY: number): TileHit | null {
+    const m = this.map;
+    if (!m) return null;
+    // the ray walks the voxels the terrain is drawn from and lands on the first face it meets, whichever
+    // run's (a cave's floor seen through its mouth, a ledge under an overhang); under a slice, on the cut
+    const src = m.source;
+    const hit = pickTerrain(this.rayAt(clientX, clientY), m.W, m.H, (i) => columnMask(src, i), { cut: this.slice ?? undefined });
+    this.aim = hit?.level ?? null;
+    return hit;
+  }
+
+  /** The level of the ground the pointer last aimed at: the Select tool's ring lies on that run in a
+   *  column with terrain above terrain (null: none). */
+  private aim: number | null = null;
+
+  /** Whether tile `i` has a top at `level`: a run's top, or the map's floor (level 0) under air at the
+   *  bottom; under a layer cut, of the terrain that remains (the cut is a top where solid rock crosses it).
+   *  Select's wand takes the ground joined at a level, under overhangs too. */
+  hasTop(i: number, level: number): boolean {
+    const m = this.map;
+    if (!m) return false;
+    return hasTopAt(m.heights[i], m.source.columns.has(i) ? columnMask(m.source, i) : undefined, level, this.slice);
+  }
+
+  /** The heights the brush cursor lies on: the map's, except for the Select tool's ring (`run`), which
+   *  lies on the run the pointer aims at in a column with terrain above terrain. The editing tools'
+   *  cursors lie where their stroke changes the ground: the tile's top. */
+  private cursorHeights(): Uint8Array {
+    const m = this.map!;
+    const s = this.brushCursorState;
+    if (!s) return m.heights;
+    return aimedHeights(m.heights, m.W, m.H, m.source.columns, (i) => columnMask(m.source, i) & cutKeep(this.slice), this.aim, { x: s.x, y: s.y, radius: s.radius }, s.run === true);
   }
 
   /** The tile under a point on the screen as it is seen: over water, where the ray meets the water's
    *  surface (D321, item 13: a force's cursor is where the pointer is, not on the bed below). */
-  pickSurface(clientX: number, clientY: number): TileHit | null {
-    const hit = this.pick(clientX, clientY);
+  pickSurface(clientX: number, clientY: number, picked?: TileHit | null): TileHit | null {
+    const hit = picked === undefined ? this.pick(clientX, clientY) : picked;
     const m = this.map;
     if (!hit || !m || this.slice !== null) return hit;
     const i = hit.y * m.W + hit.x;
@@ -2639,7 +2673,7 @@ export class MapRenderer {
 
   /** The tile under the pointer for a tool (the water's surface for one that asks for it). */
   private pickFor(t: PointerTool | null, clientX: number, clientY: number): TileHit | null {
-    return t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
+    return t?.voxel ? this.pickSeen(clientX, clientY) : t?.surface ? this.pickSurface(clientX, clientY) : this.pick(clientX, clientY);
   }
 
   /** The tile under a point on the screen, on a level plane (steady while dragging). */
@@ -2699,7 +2733,7 @@ export class MapRenderer {
       // Alt+middle-click (the game's), or Alt+click: the clicked tile's layer (again: the whole world)
       if ((ev.button === 1 || (ev.button === 0 && !this.tool?.wantsAlt)) && ev.altKey && this.map) {
         ev.preventDefault();
-        const hit = this.pick(ev.clientX, ev.clientY);
+        const hit = this.pickSeen(ev.clientX, ev.clientY);
         if (hit) this.pickSlice(hit);
         return;
       }
@@ -2742,8 +2776,12 @@ export class MapRenderer {
       }
       const hit = this.pick(ev.clientX, ev.clientY);
       this.hoverHit = hit;
-      this.setHoverTile(hit ? hit.x : null, hit?.y ?? 0);
-      this.tool?.hover?.(this.tool.surface ? this.pickSurface(ev.clientX, ev.clientY) : hit, ev);
+      // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
+      const m = this.map;
+      const seen = this.pickSeen(ev.clientX, ev.clientY);
+      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seen && m?.source.columns.has(seen.y * m.W + seen.x) ? (seen.level ?? -1) : -1);
+      const t = this.tool;
+      t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
       this.onHover?.(hit);
     });
     const end = (e: Event) => {
@@ -2764,6 +2802,7 @@ export class MapRenderer {
     this.on(c, "pointerleave", (e) => {
       if (this.drag) return;
       this.hoverHit = null;
+      this.aim = null;
       this.setHoverTile(null);
       this.tool?.hover?.(null, e as PointerEvent);
       this.onHover?.(null);

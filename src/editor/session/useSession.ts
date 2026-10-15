@@ -21,6 +21,7 @@ import { WaterJourney } from "../waterJourney";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
+import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
 import { type Mirror, mirrorOf } from "./mirror";
 import type { Ed } from "../ed";
@@ -85,6 +86,8 @@ export interface SessionSlice {
   setLayers: Dispatch<StateUpdater<WaterLayers | null>>;
   waterLayers: WaterLayers | null;
   waterTick: number;
+  /** Changes when a held weather day's water is put on the map (the minimap draws it). */
+  heldTick: number;
   flowing: number | null;
   markersOn: boolean;
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
@@ -190,6 +193,8 @@ export interface SessionSlice {
   showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
+  /** The worker's latest land, put in place once the page has no stroke of its own in flight. */
+  takeLand: () => void;
 }
 
 export function useSession(ed: Ed, props: EditorProps): SessionSlice {
@@ -248,6 +253,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [layer, setLayer] = useState<LayerKind>("none");
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
   const [waterTick, setWaterTick] = useState(0);
+  const [heldTick, setHeldTick] = useState(0);
   /** The water is flowing into an edit's new shape (how far it has come, 0–1), or null. */
   const [flowing, setFlowing] = useState<number | null>(null);
   /** **Markers** is on (every source shows its marker then, D196). */
@@ -499,6 +505,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const H = infoRef.current.H;
     mirror.current.water = r?.mapState()?.surface ?? surfaceWater(W, H, w);
     mirror.current.waterView = w;
+    if (held) setHeldTick((t) => t + 1);
   }
 
   /** The soil's colours from `from` to `to` over about two seconds (the last step is `to` itself). */
@@ -623,24 +630,43 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     syncDroughtLine();
   }
 
-  /** Apply what changed on the map to the mirror and the renderer. While strokes the page painted
-   *  are on their way to the worker, the page's own terrain is ahead of the worker's: its
-   *  terrain waits for the last of them (it is the same, byte for byte). */
-  function applyView(v: ViewUpdate): void {
-    const r = renderer.current;
+  /** The worker's latest land and terrain, held while the page's own is ahead of it (`takeLand`). */
+  const heldLand = useRef<{ heights?: Uint8Array; terrain?: TerrainState }>({});
+  /** Put the worker's latest land in place once nothing the page painted is its own alone: no stroke being painted
+   *  and none on its way to the worker. Until then the page's land is ahead of the worker's, and the worker's would
+   *  take away what the page shows (#410). When it goes in, the page's strokes are checked against it: the same,
+   *  byte for byte. */
+  function takeLand(): void {
+    const held = heldLand.current;
+    if (!held.heights && !held.terrain) return;
+    if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
+    heldLand.current = {};
     const m = mirror.current;
-    if (v.heights && ed.pendingTerrain.current === 0) {
+    if (held.heights) {
       if (ed.checkStroke.current) {
         ed.checkStroke.current = false;
-        if (!sameBytes(m.heights, v.heights)) {
+        if (!sameBytes(m.heights, held.heights)) {
           ed.strokeMismatches.current++;
           console.warn("a stroke painted on the page differs from the map the worker built; the worker's is shown");
         }
       }
-      m.heights = v.heights;
-      r?.updateTerrain(v.heights);
+      m.heights = held.heights;
+      renderer.current?.updateTerrain(held.heights);
     }
-    if (v.terrain && ed.pendingTerrain.current === 0) ed.terrain.current = v.terrain;
+    if (held.terrain) ed.terrain.current = held.terrain;
+  }
+
+  /** Apply what changed on the map to the mirror and the renderer. While strokes the page painted
+   *  are on their way to the worker, or one is being painted, the page's own terrain is ahead of the
+   *  worker's: the worker's waits for them (it is the same, byte for byte). */
+  function applyView(v: ViewUpdate): void {
+    const r = renderer.current;
+    const m = mirror.current;
+    // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
+    // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
+    if (v.heights) heldLand.current.heights = v.heights;
+    if (v.terrain) heldLand.current.terrain = v.terrain;
+    takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
     else if (v.water) {
       // (the renderer works out the surface water: the page reads it from there)
@@ -676,7 +702,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
-    setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick,
+    setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
     flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, deleteMenu, setDeleteMenu, setDeleteCounts,
@@ -686,6 +712,6 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     firstDoneRef, minimap, setMinimap, minimapRef, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
-    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView
+    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, takeLand
   };
 }
