@@ -421,7 +421,8 @@ export interface OpContext {
   entityIds: ReadonlySet<string>;
   /** Tiles with a slope in the current build. */
   slopeTiles: ReadonlySet<number>;
-  /** Columns the sculpt tools leave alone: imported caves and overhangs (EDITOR_PLAN §3). */
+  /** Imported caves and overhangs: an old sculpt edit, a force's result and a fill leave them alone (the
+   *  brushes shape their top runs, D487). */
   lockedColumns: ReadonlySet<number> | null;
   /** Feature kinds this version builds when a player adds them. */
   buildableKinds?: readonly FeatureKind[];
@@ -472,8 +473,9 @@ export const PLACEABLE = new Set([
 /** The highest level a force may leave: the editor's one ceiling (D244). */
 const FORCE_MAX_LEVEL = CEILING;
 
-/** Largest number of tiles one operation may touch. */
-export const MAX_OP_TILES = 256 * 256;
+/** Largest number of tiles one operation may touch: the whole map (D357: tied to the map's area, so a selection or
+ *  a force may cover a 512² map as it covers a 128² one, and never more than the map has). */
+export const maxOpTiles = (W: number, H: number): number => W * H;
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OPS_SCHEMA = opsSchema as Record<string, unknown>;
@@ -485,7 +487,7 @@ function runsProblems(runs: Runs, W: number, H: number, what: string): string[] 
     n += x1 - x0 + 1;
   }
   if (n === 0) return [`${what} is empty`];
-  if (n > MAX_OP_TILES) return [`${what} covers ${n} tiles, more than one operation may change`];
+  if (n > maxOpTiles(W, H)) return [`${what} covers ${n} tiles, more than one operation may change`];
   return [];
 }
 
@@ -605,7 +607,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (p.mode === "terrace" && p.step === undefined) return ["terrace needs a step"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
-          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang, which the sculpt tools leave as it is`];
+          if (ctx.lockedColumns.has(y * W + x)) return [`(${x}, ${y}) has a cave or overhang: shape its top with a brush`];
         }
       }
       // (raised past the ceiling, a tile would stop short of what the step says)

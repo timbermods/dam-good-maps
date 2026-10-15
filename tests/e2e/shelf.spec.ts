@@ -90,7 +90,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
 
   // a medium relic: on the start, red with the reason, and a click there places nothing
   await shelf.getByRole("button", { name: "Relic", exact: true }).click();
-  await page.getByRole("group", { name: "Relic options" }).getByRole("combobox", { name: "Size" }).selectOption("medium");
+  await page.getByRole("group", { name: "Relic options" }).getByRole("group", { name: "Size" }).getByRole("button", { name: "Medium" }).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const red = await fitAt(page, start[0], start[1], W);
   expect(red.problem).toMatch(/district center/);
@@ -481,12 +481,12 @@ test("an edge wall on an edited map warns in the checks dot, never blocks Save, 
   await expect(dot).toHaveAttribute("aria-label", /thing/, { timeout: 60_000 });
   await dot.click();
   const list = page.getByRole("region", { name: "Checks" });
-  await expect(list).toContainText(/wall along the west edge/i);
+  await expect(list).toContainText(/wall holds back water on the west edge/i);
   await expect(list.getByText("Fix these first")).toHaveCount(0);
   const n = (await labels(page)).length;
   await list.getByRole("button", { name: "Lower the wall" }).click();
   await idle(page);
   expect((await labels(page)).length).toBe(n + 1);
   expect((await labels(page)).at(-1)).toBe("Lower the wall");
-  await expect(list).not.toContainText(/wall along/i, { timeout: 60_000 });
+  await expect(list).not.toContainText(/holds? back water/i, { timeout: 60_000 });
 });

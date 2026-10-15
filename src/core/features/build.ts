@@ -80,8 +80,10 @@ export interface PlacedSource {
 /** An imported map (or a generation's stored base, opened by a newer generator) under the
  *  features: its surface, its caves and overhangs, and its objects. */
 export interface BaseLayer {
-  /** Its terrain as runs per tile (D119). The tiles that are not a plain run from z = 0 are kept
-   *  exactly, left alone by every tool. Absent: a heightfield, every tile plain. */
+  /** Its terrain as runs per tile (D119). On the tiles that are not a plain run from z = 0 only the
+   *  brushes change anything: each one's top run, never below one layer over its underside, every
+   *  run below kept exactly (D280 (3)); the features and the forces leave them as they are. Absent: a
+   *  heightfield, every tile plain. */
   terrain?: ColumnTerrain;
   /** Its surface, derived from the terrain (`terrain.heights()`). */
   heights: Uint8Array;
@@ -606,7 +608,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   for (const f of input.features) if (f.kind === "river" && live(f)) (carved(f) ? markRiverChannel : rasterizeRiver)(f, t);
   // 5. the start bench (and, later, object pads)
   for (const f of input.features) if (f.kind === "start" && live(f)) rasterizeBench(f, t);
-  // 6. sculpt edits and brush strokes, in order (the brushes leave an import's caves alone). The
+  // 6. sculpt edits and brush strokes, in order (on an import's caves and overhangs a brush shapes
+  //    the top run only, never below one layer over the roof's underside, D280 (3)). The
   //    generation's slopes are checked after the features and after each edit: one an edit's ground
   //    breaks is gone for good, even where a later edit gives the step back (D368 (10); the slopes
   //    outside the region keep their verdicts, and the region holds every slope it touches whole)
@@ -642,6 +645,15 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   if (base && !base.terrain && base.columns?.size) throw new Error("the base layer has caves or overhangs but no terrain: pass its terrain as runs");
   const layered = base?.terrain && !base.terrain.allPlain() ? base.terrain : null;
   const caves = layered ? (i: number) => !layered.isPlain(i) : undefined;
+  const floors = layered ? topFloorsOf(layered) : null;
+  //    (the features never reshape a roof: before the strokes, an import's caves and overhangs stand
+  //    as the file has them, and the integrity pass leaves their tops as the strokes leave them)
+  if (base && caves) t.forEach((i) => {
+    if (caves(i)) {
+      heights[i] = base.heights[i];
+      protect[i] = 1;
+    }
+  });
   //    (a Keep stroke keeps its sources' ground as step 7 shows it, reading the tiles as it will)
   const shownLock = input.locked?.mask;
   const shown = {
@@ -650,16 +662,9 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     outside: prev ? prev.terrain.pre7 : null,
   };
   for (const s of input.sculpts ?? []) {
-    applySculpt(s, t, caves, shown);
+    applySculpt(s, t, caves, shown, floors);
     if (watch.length) checkSlopes();
   }
-  //    an imported map's caves and overhangs are left exactly as they are
-  if (base && caves) t.forEach((i) => {
-    if (caves(i)) {
-      heights[i] = base.heights[i];
-      protect[i] = 1;
-    }
-  });
   let pre7: Uint8Array;
   if (prev) {
     pre7 = prev.terrain.pre7.slice();
@@ -1280,6 +1285,15 @@ export function groundDropped(base: BaseLayer | null | undefined, heights: Array
   return base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), objects).dropped : 0;
 }
 
+/** A base terrain's `topFloors` (the lowest a brush may take each roof's top, D280 (3)), worked out
+ *  once per terrain. */
+const floorsOf = new WeakMap<ColumnTerrain, Uint8Array | null>();
+function topFloorsOf(t: ColumnTerrain): Uint8Array | null {
+  let f = floorsOf.get(t);
+  if (f === undefined) floorsOf.set(t, (f = t.topFloors()));
+  return f;
+}
+
 /** Tiles of the landforms whose gentle or terraced edges are "joined by slopes" (PLAN §19.2): the
  *  derived slopes join their steps wherever they are. The key names them for slope reuse. */
 function landformTargets(features: readonly Feature[], t: BuildTarget): { mask: Uint8Array | null; key: string } {
@@ -1360,11 +1374,13 @@ function markDifference(a: readonly number[], b: readonly number[], mask: Uint8A
 }
 
 /** An imported object stays where it was, unless an edit changed the surface of its tile and it
- *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). */
+ *  stood on that surface: then it moves to the new ground (EDITOR_PLAN §3, conflict rules). On a
+ *  roof that is the roof's top, which the brushes shape (D487); an object under the roof, in the
+ *  cave, stands below the surface and stays. */
 function snapToGround(e: EntitySpec, base: BaseLayer, heights: Uint8Array, W: number): EntitySpec {
   if (!e.raw) return e;
   const i = e.y * W + e.x;
-  if (i < 0 || i >= heights.length || (base.terrain && !base.terrain.isPlain(i))) return e;
+  if (i < 0 || i >= heights.length) return e;
   const was = base.heights[i];
   const now = heights[i];
   if (was === now || e.z !== was) return e;

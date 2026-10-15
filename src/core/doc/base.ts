@@ -5,8 +5,8 @@
 //
 // Terrain is stored as format 3's terrain (D119, I-1; terrain/runs.ts): the surface height of every
 // tile plus the solid runs of the tiles that are not one plain run from z = 0 (caves, overhangs,
-// floating ground), kept exactly: the editor's tools edit the surface only, and those columns export
-// unchanged (EDITOR_PLAN §3, "working representation"). Format 1 and 2 files stored those columns
+// floating ground), kept exactly: the brushes shape only each tile's top run, and what lies under a
+// roof exports unchanged (D280 (3); EDITOR_PLAN, "Working representation"). Format 1 and 2 files stored those columns
 // as 23-character strings; they convert to runs when read (the same voxels).
 // In memory the base's terrain is a `ColumnTerrain` (a voxel mask per tile), its surface derived.
 // Everything else of world.json is stored as its exact text with an empty terrain array, so floats

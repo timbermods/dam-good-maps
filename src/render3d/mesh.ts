@@ -19,9 +19,9 @@
 // object's cutout; the site's model draws the pit's walls and floor in the hole. Nothing else
 // changes: the voxels, every wall and every other top stay, so the hole is only where the pit is.
 //
-// Not here yet (docs/progress/3d-view.md): light per run (the sky and the sun under roofs), soil and
-// the Map look per run top, and the level-slice cutaway's caps all read the columns this mesher
-// reads; today the shaders light and colour each face by its tile.
+// The light under roofs reads the same columns (caveLight.ts). Not here yet (docs/progress/3d-view.md):
+// soil and the Map look per run top, and the level-slice cutaway's caps; today the shaders colour
+// each face by its tile.
 //
 // World space: X = x, Y = height, Z = −y (north is −Z). Faces wind counter-clockwise seen from
 // outside. Pure TypeScript, so it runs in Node tests and could run in a worker.
@@ -129,7 +129,7 @@ const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
 /** The column at tile `i` as a mask: bit z set when voxel z is solid. */
-function columnMask(src: TerrainSource, i: number): number {
+export function columnMask(src: TerrainSource, i: number): number {
   const c = src.columns.size > 0 ? src.columns.get(i) : undefined;
   if (!c) {
     const h = src.heights[i];

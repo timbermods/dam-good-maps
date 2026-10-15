@@ -68,6 +68,9 @@ export interface WeatherInput {
   room?: Uint8Array | null;
   /** The lowest each tile may go (ground mode's banks; null: 0). */
   low?: Uint8Array | null;
+  /** The lowest each tile's surface may go whatever the weathering's repairs do (a roof's underside
+   *  and one layer, D280 (3); null on a heightfield): held after everything else. */
+  floor?: Uint8Array | null;
   /** The highest any tile may stand. */
   top: number;
   /** The level water would stand at on each tile of the box's outer ring, clockwise from its top-left
@@ -278,6 +281,15 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
     }
     keepOrder(h, h0, I, bw, bh, ring, w0, klo, khi, p, ref);
+    // (a roof keeps its lowest layer, D280 (3): only on a map with caves or overhangs)
+    const floor = inp.floor;
+    if (floor)
+      for (let y = 0; y < bh; y++)
+        for (let x = 0; x < bw; x++) {
+          const k = y * bw + x;
+          const f = floor[(box.y0 + y) * W + box.x0 + x];
+          if (h[k] < f && h[k] < h0[k]) h[k] = Math.min(h0[k], f);
+        }
   }
   let changed: Rect | null = null;
   for (let y = 0; y < bh; y++)

@@ -5,6 +5,7 @@
 import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { PaintParams } from "../core/doc/paintParams";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -14,6 +15,7 @@ import { viewBuffers, type SoilView, type WaterView } from "../render3d/model";
 import type { SoilBase, SoilJob } from "./daySoil";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
+import { collabApi } from "./collab";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
 
 function responseBuffers(r: GenerateResponse): Transferable[] {
@@ -138,7 +140,8 @@ const api = {
     const place = decodePlaceFile(data);
     const r = placeTimber(place);
     // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
-    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
+    // (marked as the place, so its checks follow the place's rules: D245, D331)
+    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`, place.id));
   },
   sessionView: () => sendOpen(ed.sessionView()),
   terrainNow() {
@@ -202,6 +205,8 @@ const api = {
       spawn: () => new Worker(new URL("./waterStrip.worker.ts", import.meta.url), { type: "module" }),
     });
   },
+  /** Collaborative editing's side in the worker (worker/collab.ts). */
+  collab: proxy(collabApi),
   sessionInfo: () => (ed.hasSession() ? ed.sessionInfo() : null),
   closeSession: () => ed.closeSession(),
   apply: (op: EditOp, origin?: OpOrigin, label?: string) => sendUpdate(ed.apply(op, origin, label)),
@@ -231,6 +236,7 @@ const api = {
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
+  paintAt: (params: PaintParams) => sendUpdate(ed.paintAt(params)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),

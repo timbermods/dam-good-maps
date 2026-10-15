@@ -15,6 +15,8 @@ import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
+import { planPaintObjects } from "../core/doc/paint";
+import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -102,6 +104,9 @@ export interface ViewUpdate {
    *  its own copy, exactly as the build applies them). */
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
+   *  (D280 (3)): the voxel mesher draws those tiles from them, not from `heights`. */
+  columns?: MapView["columns"];
   water?: WaterView;
   entities?: EntityView;
   /** The soil the ground's colours show; it follows the water (Map look, D86). */
@@ -324,6 +329,12 @@ function soilKey(s: MapSession): unknown {
   return s.showsStoredWater ? "stored" : s.built.moisture;
 }
 
+/** Whether a roof's top changed between two surfaces. */
+function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
+  for (const i of s.roofedTiles) if (a[i] !== b[i]) return true;
+  return false;
+}
+
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
@@ -399,6 +410,8 @@ function viewUpdate(s: MapSession): ViewUpdate {
     if (rect) {
       out.heights = b.heights.slice();
       out.terrainRect = rect;
+      // (a roof's top the edit reshaped: the mesher draws those tiles from their columns)
+      if (s.roofedTiles.size && roofIn(s, prev.heights, b.heights)) out.columns = columnsOf(s);
     }
   }
   if (water !== prev.water) out.water = waterOf(s);
@@ -575,9 +588,24 @@ export function setAutoWater(on: boolean): void {
   autoWater = on;
 }
 
-/** The water settling in the background, and a token that a newer edit changes. */
-let waterJob: { token: number; job: PreviewJob; version: number; session: MapSession } | null = null;
+/** The water settling in the background, and a token that a newer edit changes. Its job (`jobOf`) is made
+ *  after the edit's answer has gone to the page: the land answers at once, its water follows (D453; the warm
+ *  start alone is a fifth of a second at 256²). */
+interface WaterJob {
+  token: number;
+  job: PreviewJob | null;
+  from: WarmState;
+  model: WaterModel;
+  version: number;
+  session: MapSession;
+}
+let waterJob: WaterJob | null = null;
 let waterToken = 0;
+/** The job of the water settling, made now if it has not been yet (the same job, and so the same water, whenever
+ *  it is made). */
+function jobOf(j: WaterJob): PreviewJob {
+  return (j.job ??= new PreviewJob(j.from, j.model));
+}
 /** Ticks per slice, and how often the page gets the water as it flows. */
 const WATER_SLICE_MS = 10;
 const WATER_FRAME_MS = 150;
@@ -602,7 +630,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
   if (!s) return;
   const W = s.size.x;
   if (!draft || draft.session !== s) {
-    const from = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+    const from = (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
@@ -680,7 +708,7 @@ async function runDraft(token: number): Promise<void> {
 
 function stopWater(): void {
   waterToken++;
-  waterJob?.job.dispose();
+  waterJob?.job?.dispose();
   waterJob = null;
 }
 
@@ -699,12 +727,12 @@ function kickWater(): void {
   draft?.job.dispose();
   draft = null;
   draftToken++;
-  const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
+  const inflight = painted ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
-  waterJob?.job.dispose();
-  waterJob = { token, job: new PreviewJob(from, s.built.waterModel), version, session: s };
+  waterJob?.job?.dispose();
+  waterJob = { token, job: null, from, model: s.built.waterModel, version, session: s };
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
 
@@ -761,17 +789,25 @@ async function runWater(token: number): Promise<void> {
   for (;;) {
     const j = waterJob;
     if (!j || j.token !== token || session !== j.session) return;
+    // (the edit's answer has gone: its water's job is made now, and the page's next message comes before its
+    // first slice)
+    if (!j.job) {
+      jobOf(j);
+      await breathe();
+      continue;
+    }
+    const job = j.job;
     const t0 = performance.now();
     let r: CanonicalWater | null = null;
     while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-      const before = j.job.ticks;
-      r = j.job.advance(4);
+      const before = job.ticks;
+      r = job.advance(4);
       if (r || !listener) continue;
-      const sim = j.job.sim;
-      if (seen) seen.see(sim.D, sim.C, j.job.ticks - before);
+      const sim = job.sim;
+      if (seen) seen.see(sim.D, sim.C, job.ticks - before);
       else seen = new SeenWater(sim.D, sim.C);
       // a frame every few ticks: the page plays them at a pace the eye can follow
-      const ticks = j.job.ticks;
+      const ticks = job.ticks;
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
@@ -785,11 +821,11 @@ async function runWater(token: number): Promise<void> {
   }
 }
 
-function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): void {
+function finishWater(j: WaterJob, water: CanonicalWater): void {
   waterJob = null;
-  j.job.dispose();
+  j.job?.dispose();
   const s = j.session;
-  if (session !== s || !s.adoptWater(j.job.model, water)) return;
+  if (session !== s || !s.adoptWater(j.model, water)) return;
   settledNews(s, viewUpdate(s));
 }
 
@@ -1175,11 +1211,12 @@ export function stopWeather(): ViewUpdate {
 export function settleWater(): ViewUpdate {
   const j = waterJob;
   if (!j || session !== j.session) return {};
-  let r = j.job.advance(Infinity);
-  while (!r) r = j.job.advance(Infinity);
+  const job = jobOf(j);
+  let r = job.advance(Infinity);
+  while (!r) r = job.advance(Infinity);
   waterJob = null;
-  j.job.dispose();
-  if (!j.session.adoptWater(j.job.model, r)) return {};
+  job.dispose();
+  if (!j.session.adoptWater(j.model, r)) return {};
   return viewUpdate(j.session);
 }
 
@@ -1251,25 +1288,70 @@ function opened(s: MapSession): SessionOpen {
 
 /** Opens the map the generator just made in the editor. */
 export function refine(): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
   const r = lastGenerated();
   if (!r) throw new Error("generate a map first");
   if (!r.report.passed) throw new Error("this map did not pass its checks: generate another one first");
   return opened(MapSession.fromGenerated(r, r.file, lastGeneratedSeedWord()));
 }
 
-/** Open any .timber (PLAN §19.6). Saves are refused with a message (ImportError). */
-export function openTimber(bytes: Uint8Array, fileName: string): SessionOpen {
-  return opened(MapSession.importMap(bytes, fileName));
+/** Open any .timber (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Saves are refused
+ *  with a message (ImportError). */
+export function openTimber(bytes: Uint8Array, fileName: string, place?: string): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(MapSession.importMap(bytes, fileName, place));
 }
 
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
   // (a project saved before its water settled shows its saved base water while the checks replica builds
   // the canonical water)
   const s = MapSession.open(decodeProject(bytes), { deferWater: true });
   // landforms drawn with the old tools become terrain, the land exactly as it was (D182)
   bakeLandforms(s);
   return opened(s);
+}
+
+// the collaboration layer (worker/collab.ts) reaches the open map through these four; nothing else here knows it exists
+let editGate: ((wholeMap: boolean) => string | null) | null = null;
+
+/** While a shared session is on, a direct edit would diverge from the host's log: the layer says when the map is read-only
+ *  (paused, out of step) or edited only through the session. Null clears it. */
+export function collabGate(gate: ((wholeMap: boolean) => string | null) | null): void {
+  editGate = gate;
+}
+
+/** The reason a direct edit is refused now (one line), or null. */
+function gated(wholeMap = false): string | null {
+  return editGate?.(wholeMap) ?? null;
+}
+
+/** The open map, or null. */
+export function collabSession(): MapSession | null {
+  return session;
+}
+
+/** Show this map (the host's copy a guest was sent) as any map opened in the editor. */
+export function collabOpen(s: MapSession): SessionOpen {
+  return opened(s);
+}
+
+/** The collaboration layer applied entries to (or settled the water of) the open map: the page's update. The layer settles the
+ *  water itself (the canonical settle, in the background), so no preview water runs beside it: that would double the work. */
+export function collabChanged(): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  version++;
+  lastCheck = null;
+  stopWater();
+  const view = viewUpdate(s);
+  const instant = !checks ? instantCheck(s) : null;
+  syncChecks();
+  return { ok: true, errors: [], info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending };
 }
 
 export function closeSession(): void {
@@ -1290,6 +1372,8 @@ export function hasSession(): boolean {
 export function apply(op: EditOp, origin: OpOrigin = "user", label?: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const refused = newRampedStroke(op);
   if (refused) return changed(s, false, [refused], t0);
   const r = s.apply(op, origin, label);
@@ -1308,6 +1392,8 @@ const STEP_JOIN_MS = 1500;
 export function applyStep(op: EditOp, label: string, key: string): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const n = s.history().filter((h) => h.applied).length;
   const joins = lastStep && lastStep.session === s && lastStep.key === key && lastStep.length === n && performance.now() - lastStep.at < STEP_JOIN_MS;
   if (joins) s.undo();
@@ -1320,6 +1406,8 @@ export function applyStep(op: EditOp, label: string, key: string): SessionUpdate
 export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   // (a badwater source in the group cuts its spring pool: core/doc/placing.ts `withSpringPools`)
   const r = s.applyAll(withSpringPools(s, ops), origin, label);
   return changed(s, r.ok, r.errors, t0);
@@ -1328,6 +1416,8 @@ export function applyAll(ops: EditOp[], label: string, origin: OpOrigin = "user"
 export function undo(): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const ok = s.undo();
   // (refused at the save point of a map opened from its stored map: the reason, D455)
   const stopped = ok ? null : s.undoStopped;
@@ -1337,6 +1427,8 @@ export function undo(): SessionUpdate {
 export function redo(): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   return changed(s, s.redo(), [], t0);
 }
 
@@ -1344,6 +1436,8 @@ export function redo(): SessionUpdate {
 export function jump(index: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   let applied = s.history().filter((h) => h.applied).length - 1;
   let moved = false;
   while (applied > index && s.undo()) {
@@ -1547,7 +1641,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.map((w) => w.message) });
+  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
+  const { bytes, fileName } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
   return { ok: true, errors: [], bytes, fileName };
 }
 
@@ -1585,6 +1680,8 @@ function planTool(req: ToolRequest, id: string): ToolPlan {
 export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan: ToolPlan } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), plan: { ok: false, errors: [blocked] } as ToolPlan };
   const plan = planTool(req, id);
   // (a refused draft's water goes, and the map's own shows again)
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), plan };
@@ -1600,10 +1697,23 @@ export function applyTool(req: ToolRequest, id: string): SessionUpdate & { plan:
 export function plantAt(template: string, tiles: readonly number[]): SessionUpdate & { planted: number[] } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
   const p = planPlant(s, template, tiles, () => crypto.randomUUID());
   if (!p.ok) return { ...changed(s, false, p.errors, t0), planted: [] };
   const r = s.applyAll(p.ops, "user", p.label);
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? p.planted : [] };
+}
+
+/** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
+ *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const plan = planPaintObjects(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
@@ -1611,6 +1721,8 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
 export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), removed: [] };
   const p = planRemove(s, tiles, kinds, label);
   if (!p.ok) return { ...changed(s, false, p.errors, t0), removed: [] };
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1655,6 +1767,8 @@ export function applySelection(ops: EditOp[], label: string, tiles: readonly num
 export function strokeClearing(op: EditOp, label: string, tiles: readonly number[]): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planStrokeClearing(s, op, label, tiles);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = p.cleared ? s.applyAll(p.ops, "user", p.label) : s.apply(op, "user", label);
@@ -1666,6 +1780,8 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planMoveEntity(s, id, dx, dy);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1678,6 +1794,8 @@ export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate 
 export function moveStartTo(x: number, y: number, orientation?: Orientation): SessionUpdate {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
   const p = planStart(s, x, y, orientation, () => crypto.randomUUID());
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
@@ -1918,7 +2036,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
-  const sim = waterJob && waterJob.session === s ? waterJob.job.sim : null;
+  const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
@@ -1948,7 +2066,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
+  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -1981,6 +2099,8 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
 /** Start a force on the map as it stands: a new series, at its seed. */
 export function forceStart(req: ForceRequest): ForceStarted {
   const s = need();
+  const blocked = gated();
+  if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
@@ -2221,7 +2341,7 @@ function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Arr
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
 function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
-  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const now = flowing ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;
@@ -2619,6 +2739,8 @@ export function forceCancel(gesture?: number): ForceTakenBack {
 export function forceStop(gesture?: number): SessionUpdate & { kept: boolean } {
   const t0 = performance.now();
   const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), kept: false };
   const f = force;
   if (f && f.session !== s) force = null;
   // (a gesture taken back is never kept, D341: nothing lands after Esc)

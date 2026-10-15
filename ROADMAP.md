@@ -595,8 +595,12 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, 3D picking, the level-slice cutaway.
+runs with undersides every exposed face once. Part 2, light in 3D in both looks (`render3d/caveLight.ts`): a face
+whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
+else the baked light stands, so maps without caves draw exactly as before. Part 5, 3D picking (`render3d/pick.ts`): a
+ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
+(`pickTerrain.test.ts`); Select reads the run hit. Next: the masks from the worker, soil per run top, water per column,
+the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -629,7 +633,10 @@ After the view (D280 (3)).
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
    brushes; shows at once any block the game's support rule would drop.
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
-   (1)): on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
+   (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
+   that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
+   what the page and renderer still take are in [docs/progress/3d-creating.md](docs/progress/3d-creating.md)):
+   on a map with no 3D forms a stroke gives the same terrain as before. This supersedes the
    plan for cave carving to extend the top bar's Carve force (D182, D184; that plan is dropped —
    Erode is the magic tool and the block tool is the precision one, D279).
 4. Undo and generate-keeping-edits. Imported caves become editable (D40 retires).
@@ -937,11 +944,27 @@ reported. PLAN §20 D357 has the whole decision.
 
 - **The batch is ready:** the probe group `Sizes` (`investigation/probe/README.md`), with 256×256 and 399×399 as
   references. Our file writer and both validators' other load checks handle every size and shape already.
-- **Our code's limits today,** all to lift when the feature is built: the MapSpec schema (48–256 a side,
-  `src/core/spec/mapspec.schema.json`) and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/mapspec.ts`), which the generator,
-  share links (`src/core/spec/codec.ts`) and the size boxes (`src/ui/SettingsPanel.tsx`) use; the load check
-  `file.size` (4–256) in both validators (`src/core/validate/checks.ts`, `prototype/validate.py`); and FORMAT.md's
-  "4–256 per axis".
+- **Part 1 (done, `feature/custom-sizes`):** any width and height from 4 to 512 is accepted and carried exactly: the MapSpec
+  schema and `MIN_SIDE`/`MAX_SIDE` (`src/core/spec/`), share links (`z=WxH`; old links decode as before), the size boxes
+  (`src/editor/generator/fields.tsx`; beyond 256 a side the boxes turn the warning colour and their tooltip says Timberborn's own editor can't open the map), the load check `file.size` (4–512) in both
+  validators (`rust/checks`, `prototype/validate.py`) and FORMAT.md. `tools/size-smoke.ts` generates once per shape and
+  theme. The generator refuses a side under 48 with a one-line reason (`generatorSizeRefusal`, `src/core/spec/mapspec.ts`)
+  until part 2 shapes for thin maps; the larger shapes generate unchanged. The generated standard maps are byte-identical.
+  Smoke (seed 1, every theme): 64×512, 128×512, 512×256 and 512×512 all generate; 64×512 and 128×512 take 5–109 s,
+  512×256 18–67 s, 512×512 2.3–17 min (Lake Basin slowest), which part 2 should bring down (`tools/size-smoke.ts`).
+- **Editor limits (done in part 1):** a 512-side map is editable everywhere it can be made. The schemas take coordinates to
+  511, dabs to 2047 quarter-tiles, tile indices to 262143 and tile lists to 262144 (`ops.schema.json`,
+  `features.schema.json`); outline points may lie a map side past either edge (-512 to 1023). One operation may cover the
+  whole map: `maxOpTiles(W, H)` is the map's area (`src/core/doc/ops.ts`), tied to the area rather than a larger constant
+  because the whole map is the most one operation can touch, and it scales to every shape. A stroke's run lists, a force's
+  cleared sources and the flood selection are bounded by the area too. Anything past this map's own edge is still refused
+  with its one-line reason (`tests/contract/editLimits.test.ts`). The Rust forces check no coordinates, so none changed.
+  The brush radius ladder stays at 128.
+- **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
+  and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
+  side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs
+  floor, a start with its water), refused below that with its one-line reason; the size stays choosable from 4 for a map
+  shaped by hand (D357). 512² may take minutes to generate (D357), but the page never freezes and shows progress (D453).
 
 ## The dam sketch tool (D383)
 
