@@ -81,6 +81,7 @@ test("Download project captures the map after already queued edits", async () =>
       if (id === "comlink") return { proxy: (v: unknown) => v };
       if (id === "../../platform") return { saveFile: (b: Uint8Array) => downloads.push([...b]) };
       if (id === "../panels") return { plain: (v: unknown) => v };
+      if (id === "../../core/doc/checkItems") return { NO_START: "No start", NO_START_REFUSAL: "" };
       return createRequire(join(process.cwd(), "package.json"))(id);
     },
   });

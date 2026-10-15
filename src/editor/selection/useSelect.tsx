@@ -17,7 +17,7 @@ import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 
 export interface SelectSlice {
-  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
+  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
   openSelect: () => void;
   closeSelect: () => void;
   selectAll: () => void;
@@ -61,10 +61,12 @@ export function useSelect(ed: Ed): SelectSlice {
         const w = mirror.current.water;
         return !!w && w.surface[i] === w.surface[i];
       },
+      // Wand on land: the ground at the level of the run clicked (a cave's floor too), as the view draws it
+      hasTop: (i: number, level: number) => renderer.current?.hasTop(i, level) ?? mirror.current.heights[i] === level,
       brushSize: () => brushRef.current.size,
       ring: (at: [number, number] | null, radius: number) => {
         if (brushToolRef.current) return;
-        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
+        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null, run: true } : null);
       },
       // Ctrl+click on the land: the Level number (as Flatten's sampling)
       sample: (level: number) => {

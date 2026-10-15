@@ -61,11 +61,13 @@
     "command": {
       "type": "object",
       "required": ["kind"],
-      "properties": { "kind": { "enum": ["edit", "select", "force", "newMap"] } },
+      "properties": { "kind": { "enum": ["edit", "select", "force", "undo", "redo", "newMap"] } },
       "allOf": [
         { "if": { "properties": { "kind": { "const": "edit" } } }, "then": { "$ref": "#/$defs/editCommand" } },
         { "if": { "properties": { "kind": { "const": "select" } } }, "then": { "$ref": "#/$defs/selectCommand" } },
         { "if": { "properties": { "kind": { "const": "force" } } }, "then": { "$ref": "#/$defs/forceCommand" } },
+        { "if": { "properties": { "kind": { "const": "undo" } } }, "then": { "$ref": "#/$defs/undoCommand" } },
+        { "if": { "properties": { "kind": { "const": "redo" } } }, "then": { "$ref": "#/$defs/redoCommand" } },
         { "if": { "properties": { "kind": { "const": "newMap" } } }, "then": { "$ref": "#/$defs/newMapCommand" } }
       ]
     },
@@ -94,6 +96,20 @@
       "additionalProperties": false,
       "required": ["kind", "gesture"],
       "properties": { "kind": { "const": "force" }, "gesture": { "$ref": "#/$defs/forceGesture" } }
+    },
+    "undoCommand": {
+      "description": "The author takes back one of their own actions, named by its record (the sequence number of its entry).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target"],
+      "properties": { "kind": { "const": "undo" }, "target": { "type": "integer", "minimum": 1, "maximum": 4294967295 } }
+    },
+    "redoCommand": {
+      "description": "The author brings back one of their own actions they took back.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target"],
+      "properties": { "kind": { "const": "redo" }, "target": { "type": "integer", "minimum": 1, "maximum": 4294967295 } }
     },
     "newMapCommand": {
       "type": "object",
@@ -143,7 +159,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "counter", "reason"],
-      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" } }
+      "properties": { "kind": { "const": "reject" }, "counter": { "type": "integer", "minimum": 0 }, "reason": { "type": "string" }, "busy": { "type": "boolean" }, "target": { "type": "integer", "minimum": 1 }, "block": { "type": "object" } }
     },
     "settled": {
       "description": "The host to everyone: the water has settled for the map after entry seq (the entries after since settled together), with the hash of everything the water decides.",
@@ -169,7 +185,7 @@
       "description": "A rejoin: the host's map at a checkpoint (the project bytes travel beside this header) and the entries since, so the end state is checkpointSeq + tail.length.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "epoch", "checkpointSeq", "tail", "endHash", "records", "counters"],
+      "required": ["kind", "epoch", "checkpointSeq", "tail", "endHash", "records", "fences", "counters"],
       "properties": {
         "kind": { "const": "snapshot" },
         "epoch": { "$ref": "#/$defs/count" },
@@ -177,6 +193,16 @@
         "tail": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/entry" } },
         "endHash": { "$ref": "#/$defs/hash" },
         "records": { "type": "array", "maxItems": 100000, "items": { "type": "object" } },
+        "fences": {
+          "description": "What the actions that left the records fence off: runs of tiles, identity keys, and who they were.",
+          "type": "object",
+          "required": ["tiles", "keys", "who"],
+          "properties": {
+            "tiles": { "type": "array", "items": { "type": "array" } },
+            "keys": { "type": "array", "items": { "type": "array" } },
+            "who": { "type": "array", "items": { "type": "array" } }
+          }
+        },
         "counters": { "type": "object" }
       }
     }
