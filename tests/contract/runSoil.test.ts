@@ -70,11 +70,18 @@ const wetIn = (view: MapView) => (i: number, z: number) => {
   return false;
 };
 
+/** A tunnel at the bottom of the plateau (inclusive tiles). */
+const TUNNEL = { x0: 5, y0: 30, x1: 7, y1: 32 };
+const tile = (x: number, y: number) => [4 * x + 2, 4 * y + 2];
+
 /** The cave map with water in the cave (clean on its east, badwater on its west) and the game's soil for it,
  *  stored as the game saves a map with caves (per water column and per run top). */
 function wetCave(): { bytes: Uint8Array; soil: Soil3d } {
   const voxels = caveVoxels();
   const N = W * H;
+  // and a tunnel at the very bottom (air at z 0–1 under the ground), with water in it: its columns start with the
+  // game's empty run, so a tile's top is its second slot
+  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) for (let z = 0; z < 2; z++) voxels[z * N + y * W + x] = 0;
   const mask = new Uint32Array(N);
   for (let z = 0; z < 23; z++) for (let i = 0; i < N; i++) if (voxels[z * N + i]) mask[i] |= 1 << z;
   const masks: VoxelMasks = { W, H, mask };
@@ -90,6 +97,7 @@ function wetCave(): { bytes: Uint8Array; soil: Soil3d } {
           contamination[k * N + i] = x === CAVE.x0 ? 1 : 0;
         }
     }
+  for (let y = TUNNEL.y0; y <= TUNNEL.y1; y++) for (let x = TUNNEL.x0; x <= TUNNEL.x1; x++) depth[y * W + x] = 1.2;
   const sat = columnSaturation(cols, depth);
   const soil = soil3d(masks, cols, { depth, contamination, sat });
   const file = caveFile(voxels);
@@ -103,18 +111,33 @@ describe("soil per run top (3D view, part 3)", () => {
     const { view } = openTimber(bytes, "cave.timber");
     expect(view.soil?.runs?.tile.length).toBeGreaterThan(0);
     const seen = checkRunTops(view, soil, wetIn(view));
-    // the cave's 36 floors, the ledge's lowland under it (15), and the floors are not their roofs' soil
-    expect(seen.floors).toBe(36 + 15);
+    // the cave's 36 floors, the ledge's lowland under it (15), the tunnel's 9, and the floors are not their roofs' soil
+    expect(seen.floors).toBe(36 + 15 + 9);
     expect(seen.moist).toBeGreaterThan(0);
     expect(seen.bad).toBeGreaterThan(0);
-    expect(seen.wet).toBe(18);
+    expect(seen.wet).toBe(18 + 9);
     expect(seen.unlikeTop).toBeGreaterThan(20);
-    // an edit off the cave: the roofs keep the file's soil, and the view's runs with it
-    const u = apply({ op: "brush", params: { tool: "raise", size: 2, strength: 5, shape: "area", target: 10, dabs: [6, 6, 10, 10] } });
-    expect(u.errors).toEqual([]);
-    const after = { ...view, ...settleWater() } as MapView;
-    expect(after.soil?.runs, "the soil sent after the edit carries the run tops").toBeDefined();
-    checkRunTops({ ...view, soil: after.soil, water: after.water ?? view.water }, soil, wetIn({ ...view, water: after.water ?? view.water }));
+    // the tunnel's tops: their own (dry) run, never the wet empty run under them (checkRunTops checked their value)
+    const N = W * H;
+    const mid = 31 * W + 6;
+    expect(soil.runs.count[mid]).toBe(2);
+    expect(soilNibbles(view.soil!.moisture[mid], view.soil!.contamination[mid])).not.toBe(byte(soil.moisture[mid], soil.contamination[mid]));
+    expect(byte(soil.moisture[mid], 0) >> 4, "the tunnel's floor is moist").toBeGreaterThan(0);
+    expect(byte(soil.moisture[N + mid], 0), "its top is dry").toBe(0);
+    // an edit off the cave, then one on its roof: the roofs keep the file's soil, and the view's runs with them
+    const edits = [
+      { tool: "raise", size: 2, strength: 5, shape: "area", target: 10, dabs: [6, 6, 10, 10] },
+      { tool: "raise", size: 1, strength: 5, shape: "area", target: 10, dabs: [...tile(16, 16), ...tile(19, 19)] },
+    ];
+    let water = view.water;
+    for (const params of edits) {
+      const u = apply({ op: "brush", params } as Parameters<typeof apply>[0]);
+      expect(u.errors).toEqual([]);
+      const after = { ...view, ...u, ...settleWater() } as unknown as MapView;
+      water = after.water ?? water;
+      expect(after.soil?.runs, "the soil sent after the edit carries the run tops").toBeDefined();
+      checkRunTops({ ...view, soil: after.soil, water }, soil, wetIn({ ...view, water }));
+    }
   });
 
   it("a refresh rewrites only what changed and gives its box", () => {

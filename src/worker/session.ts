@@ -62,7 +62,7 @@ import { keptForceParams } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
-import { emptyColumns, entityView, LAYERS, runSoilView, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import { emptyColumns, entityView, LAYERS, runSoilView, soilView, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
@@ -329,9 +329,16 @@ function withRuns(s: MapSession, soil: SoilView): SoilView {
   const cols = s.columns;
   if (!cols.size) return soil;
   const file = s.storedSoilRuns();
-  soil.runs = runSoilView(cols, s.size.x * s.size.y, file.moisture, file.contamination);
+  // (worked out once for the columns and the file's soil, which change only when the ground under a roof or the base
+  // does; each send gets a copy, since the view's arrays are handed over to the page)
+  let r = runsMade;
+  if (!r || r.cols !== cols || r.file !== file) r = runsMade = { cols, file, runs: runSoilView(cols, s.size.x * s.size.y, file.moisture, file.contamination) };
+  soil.runs = { tile: r.runs.tile.slice(), level: r.runs.level.slice(), moisture: r.runs.moisture.slice(), contamination: r.runs.contamination.slice() };
   return soil;
 }
+
+/** The soil per run top last worked out (`withRuns`), and what it was made from. */
+let runsMade: { cols: ReadonlyMap<number, Uint8Array>; file: object; runs: RunSoilView } | null = null;
 
 /** What the sent soil depends on: the settled soil arrays, or the file's. */
 function soilKey(s: MapSession): unknown {

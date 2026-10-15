@@ -53,7 +53,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
       r.setClock(12.5);
       r.resetView();
       r.renderNow();
-      const internals = r as unknown as { std: { terrain: { defines: Record<string, number> } }; gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext } };
+      const internals = r as unknown as { std: { terrain: { defines: Record<string, number>; needsUpdate: boolean } }; gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext } };
       const g = internals.gl.getContext();
       const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
       g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
@@ -69,7 +69,17 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
           if (px[o] >= px[o + 2] || px[o + 1] > px[o + 2] + 10) ground++;
         }
       const broken = (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name);
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slice: r.slice, ground: ground / seen, broken };
+      // the light look (software drawing) with both branches: its program compiled too (forced here: CI's software drawing is
+      // treated as a GPU above, and a GPU never draws it)
+      let lite: { LITE: number; broken: string[] } | null = null;
+      if (lk === "standard") {
+        const t = internals.std.terrain;
+        t.defines.LITE = 1;
+        t.needsUpdate = true;
+        r.renderNow();
+        lite = { LITE: t.defines.LITE, broken: (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name) };
+      }
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slice: r.slice, ground: ground / seen, broken, lite };
       r.dispose();
       host.remove();
       return result;
@@ -79,6 +89,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.runSoil, `${look}: the soil per run top's branch`).toBe(1);
     expect(out.slice, look).toBe(3);
     expect(out.broken, look).toEqual([]);
+    if (look === "standard") expect(out.lite, "the light look's program with both branches").toEqual({ LITE: 1, broken: [] });
     expect(out.ground, `${look}: the terrain draws`).toBeGreaterThan(0.5);
   }
   expect(errors).toEqual([]);

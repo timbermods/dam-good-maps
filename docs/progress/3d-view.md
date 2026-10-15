@@ -100,8 +100,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   level, so it has nothing to agree with.
 - **The contract change** (`src/worker/session.ts`, the view messages): `SoilView` gains an optional `runs`
   (four typed arrays, in `viewBuffers`), set by `soilOf` and `underRoofs` (`withRuns`) on a map with columns that
-  are not plain; absent everywhere else. Nothing else in the messages changes; the worker's cost is 1.1 ms
-  (Hollows) to 1.9 ms (Pressure) per soil sent, never a slice of its own.
+  are not plain; absent everywhere else. Nothing else in the messages changes. The list is worked out once for the
+  columns and the base (1.1 ms on Hollows, 1.9 ms on Pressure) and each send takes a copy of it.
 - **A fix on the way:** a tile's top on a column with air at its bottom read the slot below its top run
   (`ColumnTerrain.runCount` counts solid runs; the game's runs start with an empty one there). The view's soil of
   those tops now reads the right slot: 3,355 tops on Pressure, 2,238 on Pillars, 94 on Nomads, 58 on Hollows, a
@@ -115,13 +115,15 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **On cave maps:** `runSoil.test.ts` opens a hand-made cave with water in it (clean and badwater) through the
   worker and checks every run top: a tile's top in the tile data, every run below it in the run texture at its
   own level (`runSoilAt`, the shader's rule), equal to soil3d's value for that run, with its water, unedited and
-  after an edit. On Hollows and Pressure (local only) the same for every run top: Hollows 5,024 floors below a
+  after an edit off the cave and one on its roof; a tunnel at the very bottom (a column with air at its bottom)
+  checks the top slot's fix. On Hollows and Pressure (local only) the same for every run top: Hollows 5,024 floors below a
   top (2,124 moist, 1,263 contaminated, 984 under water), 3,142 unlike their roof's; Pressure 7,854 (2,895,
   3,371, 5,278), 5,077 unlike their roof's.
-- **Refresh:** a water update rewrites only the cells that changed and sends their box up (`refresh` gives it,
-  `BoxUploads` uploads it). Measured once in Node (information): a water update 1.5 ms on Hollows, 2.7 ms on
-  Pressure; a dab does no run-soil work (strokes shape the top run only; the soil that follows the water
-  refreshes the cells). Building the texture with the map: 7–9 ms.
+- **Refresh:** a water update reads only the water on the run tiles (the run tops' cells, tiles and soil bytes
+  are kept from the last soil, and the same soil sent again is recognised), rewrites the cells that changed and
+  sends their box up (`refresh` gives it, `BoxUploads` uploads it). Measured once in Node (information): a water
+  update 0.42 ms on Hollows, 0.63 ms on Pressure; the same soil again 0.04 ms; a dab does no run-soil work
+  (strokes shape the top run only). Building the texture with the map: 7–9 ms.
 - **Memory:** 2 bytes × 23 levels a tile: 1.7 MB at 192², 3.0 MB at 256², 12 MB at 512² (in memory and on the
   GPU), only on maps with run tops below a top.
 - **Captures:** `docs/sheets/3d-view-soil-runs.jpg` (Hollows cut at 4 over its underground river, Pressure cut at
@@ -129,7 +131,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the river's banks under the roof are dry earth and Pressure's soaked floors clean; after, grass along the river
   and veins on the soaked floors.
 - **Falls short:** objects in caves still read their tile's top soil (a ruin's ivy, plants' looks; item 7). CI's
-  browser test checks the branch compiles and draws (`cutaway.spec.ts`), not its colours.
+  browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's program too), not its
+  colours.
 
 ## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
 

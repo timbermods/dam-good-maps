@@ -33,10 +33,15 @@ export class RunSoil {
   readonly D = RUN_LEVELS;
   /** RG bytes per cell (the texture's data). */
   readonly data: Uint8Array;
-  /** The cells written now (level·N + tile). */
-  private cells = new Set<number>();
-  /** Scratch: 1 on the tiles with run tops, while a refresh reads the water. */
+  /** The run tops and water written now; each run top's cell (level·N + tile) to its run, the tiles with run
+   *  tops (1), and per run its soil byte and whether water stands on it. Kept so a water update reads only the
+   *  water (D453: no rebuild on the page's thread while a stroke's water comes in). */
+  private runs: RunSoilView | null = null;
+  private water: WaterView | null = null;
+  private index = new Map<number, number>();
   private tiles: Uint8Array | null = null;
+  private soilOf = new Uint8Array(0);
+  private wet = new Uint8Array(0);
 
   private constructor(W: number, H: number) {
     this.W = W;
@@ -70,45 +75,65 @@ export class RunSoil {
         if (y > box.y1) box.y1 = y;
       }
     };
-    const now = new Set<number>();
-    if (runs) {
-      // the water standing on a run top: a column of the view whose floor is that level
-      const wet = new Set<number>();
-      if (water?.count) {
-        const tiles = (this.tiles ??= new Uint8Array(N));
-        for (let r = 0; r < runs.tile.length; r++) tiles[runs.tile[r]] = 1;
-        for (let k = 0; k < water.count; k++) {
-          const i = water.tile[k];
-          if (!tiles[i] || !(water.depth[k] > WET)) continue;
-          const z = Math.round(water.floor[k]);
-          if (Math.abs(water.floor[k] - z) < 0.01 && z >= 0 && z < RUN_LEVELS) wet.add(z * N + i);
-        }
-        for (let r = 0; r < runs.tile.length; r++) tiles[runs.tile[r]] = 0;
+    if (runs && this.runs && (runs === this.runs || sameRuns(runs, this.runs))) {
+      // the same run tops (a water update, or the worker's soil sent again): only the water on them can change
+      if (water === this.water) return null;
+    } else {
+      // new run tops: their cells by run, the tiles they are on, and what the old ones leave
+      const index = new Map<number, number>();
+      const tiles = (this.tiles ??= new Uint8Array(N));
+      tiles.fill(0);
+      const n = runs?.tile.length ?? 0;
+      for (let r = 0; r < n; r++) {
+        if (runs!.level[r] >= RUN_LEVELS) continue;
+        index.set(runs!.level[r] * N + runs!.tile[r], r);
+        tiles[runs!.tile[r]] = 1;
       }
-      for (let r = 0; r < runs.tile.length; r++) {
-        const z = runs.level[r];
-        if (z >= RUN_LEVELS) continue;
-        const i = runs.tile[r];
-        const cell = z * N + i;
-        const soilByte = soilNibbles(runs.moisture[r], runs.contamination[r]);
-        const g = wet.has(cell) ? RUN_WET : RUN_TOP;
-        now.add(cell);
-        if (data[cell * 2] !== soilByte || data[cell * 2 + 1] !== g) {
-          data[cell * 2] = soilByte;
-          data[cell * 2 + 1] = g;
-          grow(i);
-        }
+      for (const cell of this.index.keys()) {
+        if (index.has(cell)) continue;
+        data[cell * 2] = 0;
+        data[cell * 2 + 1] = 0;
+        grow(cell % N);
+      }
+      this.index = index;
+      this.wet = new Uint8Array(n);
+      this.soilOf = new Uint8Array(n);
+      for (let r = 0; r < n; r++) this.soilOf[r] = soilNibbles(runs!.moisture[r], runs!.contamination[r]);
+    }
+    this.runs = runs;
+    this.water = water;
+    if (!runs) return box;
+    // the water standing on a run top: a column of the view whose floor is that level
+    const wet = this.wet;
+    wet.fill(0);
+    const tiles = this.tiles!;
+    if (water?.count)
+      for (let k = 0; k < water.count; k++) {
+        const i = water.tile[k];
+        if (!tiles[i] || !(water.depth[k] > WET)) continue;
+        const z = Math.round(water.floor[k]);
+        if (Math.abs(water.floor[k] - z) >= 0.01) continue;
+        const r = this.index.get(z * N + i);
+        if (r !== undefined) wet[r] = 1;
+      }
+    for (const [cell, r] of this.index) {
+      const g = wet[r] ? RUN_WET : RUN_TOP;
+      if (data[cell * 2] !== this.soilOf[r] || data[cell * 2 + 1] !== g) {
+        data[cell * 2] = this.soilOf[r];
+        data[cell * 2 + 1] = g;
+        grow(cell % N);
       }
     }
-    for (const cell of this.cells) {
-      if (now.has(cell)) continue;
-      data[cell * 2] = 0;
-      data[cell * 2 + 1] = 0;
-      grow(cell % N);
-    }
-    this.cells = now;
     return box;
   }
+}
+
+/** Whether two lists of run tops are the same (the worker sends a fresh copy with each soil). */
+function sameRuns(a: RunSoilView, b: RunSoilView): boolean {
+  const n = a.tile.length;
+  if (n !== b.tile.length) return false;
+  for (let r = 0; r < n; r++) if (a.tile[r] !== b.tile[r] || a.level[r] !== b.level[r] || a.moisture[r] !== b.moisture[r] || a.contamination[r] !== b.contamination[r]) return false;
+  return true;
 }
 
 /** Whether a map's terrain needs the run texture: it has run tops below a tile's top whose soil the worker
