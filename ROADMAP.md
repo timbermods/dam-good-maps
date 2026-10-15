@@ -761,8 +761,8 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
    where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
    shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
-   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. D334 retired the poisoned-soil
-   stain (contamination is the veins in every look), so it stays retired.
+   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
+   every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's

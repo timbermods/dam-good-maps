@@ -2,7 +2,7 @@
 // seasons.ts, as adopted): pale dusty dry ground with straw where grass stood and a heat shimmer over it in a drought,
 // a faint sickly sky in a badtide. Plants withering is the other part (core/sim/withering.ts, Forest.setDead). What is
 // drawn follows the day's actual soil and water, never a made-up height or front, and only in the High look
-// (Standard stays as it is, D242). Contamination is the veins in every look (D334): the poisoned-soil stain stays retired.
+// (Standard stays as it is, D242). Contamination is the veins in every look (D334).
 
 import type { SoilView } from "../model";
 
