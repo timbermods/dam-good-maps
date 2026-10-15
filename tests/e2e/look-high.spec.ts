@@ -377,6 +377,11 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
+  // (the drought line comes in by itself once the worker has worked it out, and where its strips overlap over water
+  // the GPU blends it once or twice between redraws of one still frame (the Standard-after-High test above): wait for
+  // it, then put it away, so the frames before and after the highlight compare only what this test is about)
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
   // (the colours at a source, framed as the renderer frames a map alone: the page's insets move the camera)
   await page.evaluate(() => window.dgm3d!.renderer.setFrameInsets({ top: 0, left: 0, bottom: 0, right: 0 }));
   const result = await page.evaluate(() => {
