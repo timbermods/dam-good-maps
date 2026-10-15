@@ -194,6 +194,65 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
   expect((await block(page)).held, "Esc cancelled the drag and kept the tool").toBe(true);
 });
 
+test("a drag out over air chains: each block goes where it touches the last, the preview shows the whole span, and one click-drag is one step", async ({ page }) => {
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  const { x, y, h } = await flatSpot(page);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  for (let k = 0; k < 8; k++) await page.keyboard.press("{");
+  const px = x + 4;
+  const py = y + 4;
+  await look(page, px, py, h + 2, 14);
+  // a pillar one block high, then its east wall dragged up: the cells above the ground touch nothing but the span's own blocks
+  await click(page, px, py, h - 1, "+z");
+  const before = await edits(page);
+  const a = await face(page, px, py, h, "+x");
+  const b = await face(page, px, py, h + 3, "+x");
+  await page.mouse.move(a.x, a.y);
+  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0).toBe(1);
+  await page.mouse.down();
+  for (let t = 1; t <= 8; t++) {
+    await page.mouse.move(a.x + ((b.x - a.x) * t) / 8, a.y + ((b.y - a.y) * t) / 8);
+    await page.waitForTimeout(30);
+  }
+  await expect.poll(async () => (await block(page)).preview?.added.length ?? 0, { message: "the span over the air is in the preview" }).toBeGreaterThanOrEqual(4);
+  const shown = (await block(page)).preview!.added;
+  expect(shown.every((c) => c[0] === px + 1 && c[1] === py)).toBe(true);
+  await page.mouse.up();
+  await expect.poll(() => edits(page)).toBe(before + 1);
+  await idle(page);
+  // what was drawn is what stands: the column beside the pillar rose to its top
+  expect(await height(page, px + 1, py)).toBe(Math.max(...shown.map((c) => c[2])) + 1);
+});
+
+test("a block over a plant says so beside the blocks: the plant is removed, in words that are not a refusal", async ({ page }) => {
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  for (let k = 0; k < 8; k++) await page.keyboard.press("{");
+  // a tile where a block on the ground would stand in a plant's cell
+  const spot = await page.evaluate(async () => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    for (let k = 0; k < m.entities.count; k++) {
+      const x = m.entities.x[k];
+      const y = m.entities.y[k];
+      const h = m.heights[y * m.W + x];
+      if (h < 2 || m.surface.depth[y * m.W + x] > 0.01) continue;
+      const f = await window.dgmEditor!.worker.blockFalls({ mode: "add", side: "+z", at: [[x, y, h - 1]], size: 1 });
+      if (!f.reason && f.plantsRemoved > 0) return { x, y, h };
+    }
+    return null;
+  });
+  expect(spot, "a plant on dry ground").not.toBeNull();
+  await look(page, spot!.x, spot!.y, spot!.h, 14);
+  const p = await face(page, spot!.x, spot!.y, spot!.h - 1, "+z");
+  await page.mouse.move(p.x, p.y);
+  const note = page.locator(".shape-note.warn");
+  await expect(note).toContainText(/plants? removed/);
+  await expect(page.locator(".shape-note.error")).toHaveCount(0);
+  expect((await block(page)).preview!.reason).toBeNull();
+});
+
 test("ground that would fall is shown before the press is let go, and the click is refused with the page's note", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   const { x, y, h } = await flatSpot(page);
@@ -301,7 +360,7 @@ test("inside a selected area a quick click outside it changes nothing, its note 
   expect((await block(page)).settings.size).toBe(3);
   await look(page, px + 1, py + 1, h);
 
-  // a click outside, pressed the moment the pointer arrives: refused from the cells, nothing raised
+  // a click outside, pressed the moment the pointer arrives: refused by the core's own reason, nothing raised
   const before = await edits(page);
   const out = await face(page, px + 6, py + 1, h - 1, "+z");
   await page.mouse.move(out.x, out.y);
@@ -311,24 +370,26 @@ test("inside a selected area a quick click outside it changes nothing, its note 
   expect(await edits(page)).toBe(before);
   for (let i = 4; i <= 8; i++) expect(await height(page, px + i, py + 1), `x ${px + i}`).toBe(h);
   const note = page.locator(".shape-note.error");
-  await expect(note).toContainText("outside the selected area");
-  expect((await block(page)).preview, "nothing drawn for a refused click").toBeNull();
+  await expect(note).toContainText("outside the selection");
+  const refused = (await block(page)).preview!;
+  expect(refused.reason, "the core's own reason").toMatch(/^\(\d+, \d+\) is outside the selection$/);
+  expect(refused.added.length + refused.removed.length, "nothing drawn for a refused click").toBe(0);
 
   // a size flash beside the pointer neither clears the note nor is cleared by it, and the note stays after the flash ends
   await page.keyboard.press("}");
   await expect(page.locator(".shape-note:not(.error)")).toContainText("size 4");
-  await expect(note).toContainText("outside the selected area");
+  await expect(note).toContainText("outside the selection");
   await page.keyboard.press("{");
   await page.waitForTimeout(1600);
   await expect(page.locator(".shape-note:not(.error)")).toHaveCount(0);
-  await expect(note).toContainText("outside the selected area");
+  await expect(note).toContainText("outside the selection");
 
   // inside the area the same tool works
   await click(page, px + 1, py + 1, h - 1, "+z");
   expect(await height(page, px + 1, py + 1)).toBe(h + 1);
 });
 
-test("under a layer cut a click that reaches a block the cut hides is refused, and nothing is touched", async ({ page }) => {
+test("under a layer cut a click takes what is below the cut and leaves the hidden blocks alone", async ({ page }) => {
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await page.getByLabel("Open a map or a project").setInputFiles({ name: "cave.timber", mimeType: "application/zip", buffer: Buffer.from(writeTimber(caveFile())) });
   await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name)).toBe("cave");
@@ -337,21 +398,26 @@ test("under a layer cut a click that reaches a block the cut hides is refused, a
   await toolInHand(page);
   await page.evaluate(() => window.dgm3d!.renderer.setSlice(6));
   await look(page, 17, 17, 4, 16);
-  // Size 3 on the wall at layer 5 reaches layer 6, which the cut hides
+  // Size 3 on the wall at layer 5 reaches layer 6, which the cut hides: the preview holds the cells below it only
   const wall = await face(page, 14, 17, 5, "+x");
-  const before = await edits(page);
   await page.mouse.move(wall.x, wall.y);
   await page.keyboard.down("Shift");
-  await expect(page.locator(".shape-note.error")).toContainText("above the cut");
-  expect((await block(page)).preview, "nothing is drawn or planned for it").toBeNull();
+  await expect.poll(async () => (await block(page)).preview?.removed.length ?? 0).toBeGreaterThan(0);
+  const preview = (await block(page)).preview!;
+  expect(preview.removed.every((c) => c[2] < 6), "nothing from the cut up is planned").toBe(true);
+  await expect(page.locator(".shape-note.error")).toHaveCount(0);
+  const before = await edits(page);
   await page.mouse.down();
   await page.mouse.up();
   await page.keyboard.up("Shift");
-  await idle(page);
-  expect(await edits(page)).toBe(before);
-  // (the roof blocks the click would have taken are still there)
-  const solidAbove = await page.evaluate(() => window.dgmEditor!.worker.blockFalls({ mode: "remove", side: "+x", at: [[14, 17, 6]], size: 1 }));
-  expect(solidAbove.removed.length).toBe(1);
-  // one layer lower the same click is whole under the cut and goes
-  await click(page, 14, 17, 4, "+x", true);
+  await expect.poll(() => edits(page)).toBe(before + 1);
+  // (the block the cut hides is still there: one of its faces is open to a remove)
+  const stands = await page.evaluate(async () => {
+    for (const side of ["+x", "-x", "+y", "-y", "+z", "-z"] as const) {
+      const f = await window.dgmEditor!.worker.blockFalls({ mode: "remove", side, at: [[14, 17, 6]], size: 1 });
+      if (f.removed.length) return true;
+    }
+    return false;
+  });
+  expect(stands).toBe(true);
 });

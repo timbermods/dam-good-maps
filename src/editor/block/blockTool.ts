@@ -4,7 +4,6 @@
 // tests/unit/blockTool.test.ts checks it.
 
 import { BLOCK_SIZE_MAX, BLOCK_SIZE_MIN, BLOCK_TOP_LAYER, type BlockMode, type BlockSide, type BlocksParams } from "../../core/doc/blockTool";
-import { blockTargets } from "../../core/terrain/blocks";
 import type { BlockAim, Ray } from "../../render3d/pick";
 
 /** The tool's three settings, kept between visits (prefs/blockPrefs.ts). */
@@ -25,29 +24,29 @@ export const clampSize = (n: number) => Math.max(BLOCK_SIZE_MIN, Math.min(BLOCK_
 /** What a click does with Shift held or not: the setting, or its opposite. */
 export const modeFor = (s: BlockSettings, shift: boolean): BlockMode => (shift ? (s.mode === "add" ? "remove" : "add") : s.mode);
 
-/** The operation a click or a drag makes: `at` the faces swept, the first the one pointed at. A remove takes only the
- *  blocks the viewer sees (`exposed`, under the layer cut `cut`, null for none): the surface drawn, never what is buried. */
-export function blockParams(s: BlockSettings, mode: BlockMode, side: BlockSide, at: readonly [number, number, number][], cut: number | null = null): BlocksParams {
+/** The operation a click or a drag makes: `at` the faces swept, the first the one pointed at. `area` is the Select
+ *  tool's open selection as runs (null: none) and `cut` the view's layer cut (null: none); the core refuses what
+ *  falls outside the area and leaves what lies from the cut up alone, and says so in its own one line. */
+export function blockParams(s: BlockSettings, mode: BlockMode, side: BlockSide, at: readonly [number, number, number][], cut: number | null = null, area: readonly [number, number, number][] | null = null): BlocksParams {
   return {
     mode,
     side,
     at: at.map((c) => [c[0], c[1], c[2]]),
     size: clampSize(s.size),
     ...(s.shape === "round" ? { shape: "round" as const } : {}),
-    ...(mode === "remove" ? { exposed: cut === null ? 31 : Math.max(1, Math.min(31, cut)) } : {}),
+    ...(area ? { area: area.map((r) => [r[0], r[1], r[2]] as [number, number, number]) } : {}),
+    ...(cut !== null ? { cut: Math.max(0, Math.min(BLOCK_TOP_LAYER + 1, cut)) } : {}),
   };
 }
 
-/** Why a click or a drag is refused before the core is asked, or null (the page's own rules, from the cells the
- *  operation names: the working area, the layer cut). Synchronous, so a press before the preview answers is checked as
- *  well. `inArea` takes tile indices; `cut` is the layer cut (null: none), above which blocks are hidden and never
- *  touched. */
-export function blockRefusal(p: BlocksParams, W: number, H: number, inArea: (tiles: readonly number[]) => boolean, cut: number | null): string | null {
-  const cells = blockTargets(p).map((t) => t.cell);
-  const tiles = cells.filter((c) => c[0] >= 0 && c[1] >= 0 && c[0] < W && c[1] < H).map((c) => c[1] * W + c[0]);
-  if (tiles.length && !inArea(tiles)) return "That is outside the selected area";
-  if (cut !== null && cells.some((c) => c[2] >= cut)) return "Some blocks are above the cut";
-  return null;
+/** What the preview's note says about the plants an operation meets, or null: those its blocks take (the build
+ *  removes them) and those that ride the ground up or down (D368 (10)). */
+export function plantsWords(removed: number, riding: number): string | null {
+  const plants = (n: number) => (n === 1 ? "1 plant" : `${n} plants`);
+  const out: string[] = [];
+  if (removed) out.push(`${plants(removed)} removed`);
+  if (riding) out.push(`${plants(riding)} ${riding === 1 ? "rides" : "ride"} with the ground`);
+  return out.length ? out.join("; ") : null;
 }
 
 /** The history label of the step. */
@@ -106,8 +105,9 @@ export function sizeFromPointer(aim: BlockAim, ray: Ray, shape: "square" | "roun
 }
 
 /** A drag in the plane of its first face: the positions it has swept, in order, the first the face pointed at. The cells
- *  between two moves are filled in, so a fast drag leaves no gaps. A position need not hold a block: the core adds
- *  only against a block, so over air a drag adds nothing (a bridge is built a block out at a time from its last face). */
+ *  between two moves are filled in, so a fast drag leaves no gaps. A position need not hold a block: the core's add
+ *  chains, a cell going in wherever it touches a block, one already there or one added a moment before, so a drag out
+ *  over air grows a span from the ground across it, a bridge or an arch, in the order it was swept. */
 export class PlaneSweep {
   readonly at: [number, number, number][];
   private readonly seen = new Set<string>();
@@ -149,7 +149,7 @@ export class PlaneSweep {
 }
 
 /** A stable key for a preview request: the same operation asks the worker once. */
-export const paramsKey = (p: BlocksParams) => `${p.mode}|${p.side}|${p.size}|${p.shape ?? "square"}|${p.exposed ?? ""}|${p.at.map((c) => c.join()).join(";")}`;
+export const paramsKey = (p: BlocksParams) => `${p.mode}|${p.side}|${p.size}|${p.shape ?? "square"}|${p.cut ?? ""}|${p.area ? p.area.map((r) => r.join()).join(";") : ""}|${p.at.map((c) => c.join()).join(";")}`;
 
 /** A rectangle on the screen, in the canvas's pixels. */
 export interface ScreenBox {

@@ -30,7 +30,7 @@ import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
-import { blockEffect, blockProblems, type BlocksParams } from "../terrain/blocks";
+import { blockEffect, blockProblems, type BlockGround, type BlocksParams } from "../terrain/blocks";
 import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
@@ -282,8 +282,12 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+      state.sculpts.push(op);
+      return;
     case "blocks":
       state.sculpts.push(op);
+      // the plants its blocks fill in or take the ground from go with it (quiet, like a force's)
+      if (op.params.plants?.length) state.entityEdits.push({ op: "deleteEntities", params: { entities: op.params.plants, quiet: true }, seq: op.seq, origin: op.origin });
       return;
     case "forceResult": {
       // Try another replaces the force before it: that one is left out while this one stands
@@ -369,8 +373,11 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+      removeFromList(state.sculpts, op.seq);
+      return;
     case "blocks":
       removeFromList(state.sculpts, op.seq);
+      removeAllFromList(state.entityEdits, op.seq);
       return;
     case "forceResult": {
       removeFromList(state.sculpts, op.seq);
@@ -447,7 +454,7 @@ export interface OpContext {
   heights?: ArrayLike<number>;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
-  blocks?: { terrain: ColumnTerrain; objects: ReadonlySet<number> };
+  blocks?: { terrain: ColumnTerrain; ground: BlockGround };
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
   templateOf?: (id: string) => string | undefined;
@@ -640,7 +647,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     case "blocks": {
       const bad = blockProblems(op.params, W, H);
       if (bad.length || !ctx.blocks) return bad;
-      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.objects).errors;
+      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.ground).errors;
     }
     case "forceResult": {
       const p = op.params;

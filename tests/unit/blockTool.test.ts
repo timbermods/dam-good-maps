@@ -2,7 +2,7 @@
 // and the cells a drag sweeps in the plane of its first face. The core's own checks are tests/contract/blocks.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { blockParams, blockRefusal, clampSize, DEFAULT_BLOCK, modeFor, noteSpot, paramsKey, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
+import { blockParams, clampSize, DEFAULT_BLOCK, modeFor, noteSpot, paramsKey, plantsWords, planeCell, planeHit, PlaneSweep, sizeFromPointer, type BlockAim } from "../../src/editor/block/blockTool";
 import { blockAim, pickTerrain, type Ray, type TileHit } from "../../src/render3d/pick";
 import { blockProblems } from "../../src/core/terrain/blocks";
 
@@ -92,7 +92,7 @@ describe("a drag in the plane of its first face", () => {
     for (const c of s.at) expect(c[2]).toBe(2);
   });
 
-  it("sweeps the cells it crosses whether or not a block is there (the core adds only against a block)", () => {
+  it("sweeps the cells it crosses whether or not a block is there (the core's add chains over the air)", () => {
     const s = new PlaneSweep({ at: [3, 3, 4], side: "+z" }, W, W);
     s.move(ray([5.5, 10, -3.5], [5.5, 0, -3.5]));
     expect(s.at.map((c) => c.join())).toEqual(["3,3,4", "4,3,4", "5,3,4"]);
@@ -149,25 +149,26 @@ describe("the refusal's note stays clear of the blocks it describes", () => {
   });
 });
 
-describe("the page's own refusals, from the cells alone", () => {
-  const inside = (box: [number, number, number, number]) => (tiles: readonly number[]) => tiles.every((i) => i % 16 >= box[0] && i % 16 <= box[2] && Math.floor(i / 16) >= box[1] && Math.floor(i / 16) <= box[3]);
+describe("what the page sends the core", () => {
   const one = { ...DEFAULT_BLOCK, size: 3 };
-  it("a removal carries the layer cut it is seen under, an add does not", () => {
-    expect(blockParams(one, "remove", "+z", [[5, 5, 2]]).exposed).toBe(31);
-    expect(blockParams(one, "remove", "+z", [[5, 5, 2]], 6).exposed).toBe(6);
-    expect(blockParams(one, "add", "+z", [[5, 5, 2]], 6).exposed).toBeUndefined();
+  it("carries the working area and the layer cut when there are any, and neither when there are none", () => {
+    const area: [number, number, number][] = [[4, 4, 6], [5, 4, 6]];
+    expect(blockParams(one, "remove", "+z", [[5, 5, 2]], 6, area)).toMatchObject({ cut: 6, area });
+    const plain = blockParams(one, "add", "+z", [[5, 5, 2]]);
+    expect("cut" in plain).toBe(false);
+    expect("area" in plain).toBe(false);
+    // (a cut of 0 is a cut: everything is hidden)
+    expect(blockParams(one, "add", "+z", [[5, 5, 2]], 0).cut).toBe(0);
   });
-  it("refuses a click with any cell outside the working area, with no answer from the core", () => {
-    const p = blockParams(one, "add", "+z", [[5, 5, 2]]);
-    expect(blockRefusal(p, 16, 16, inside([4, 4, 6, 6]), null)).toBeNull();
-    expect(blockRefusal(p, 16, 16, inside([4, 4, 5, 6]), null)).toBe("That is outside the selected area");
-    // (cells off the map are the core's to refuse)
-    expect(blockRefusal(blockParams(one, "add", "+z", [[0, 0, 2]]), 16, 16, () => true, null)).toBeNull();
+  it("asks again when the area or the cut changes", () => {
+    const at: [number, number, number][] = [[5, 5, 2]];
+    const keys = new Set([blockParams(one, "add", "+z", at), blockParams(one, "add", "+z", at, 6), blockParams(one, "add", "+z", at, null, [[4, 4, 6]]), blockParams(one, "add", "+z", at, null, [[4, 4, 7]])].map(paramsKey));
+    expect(keys.size).toBe(4);
   });
-  it("refuses a click that reaches a block the layer cut hides, and a cut above the cells is no matter", () => {
-    const p = blockParams(one, "remove", "+x", [[5, 5, 5]], 6);
-    expect(blockRefusal(p, 16, 16, () => true, 6)).toBe("Some blocks are above the cut");
-    expect(blockRefusal(p, 16, 16, () => true, 7)).toBeNull();
-    expect(blockRefusal(p, 16, 16, () => true, null)).toBeNull();
+  it("says what plants do beside the blocks", () => {
+    expect(plantsWords(0, 0)).toBeNull();
+    expect(plantsWords(1, 0)).toBe("1 plant removed");
+    expect(plantsWords(3, 2)).toBe("3 plants removed; 2 plants ride with the ground");
+    expect(plantsWords(0, 1)).toBe("1 plant rides with the ground");
   });
 });

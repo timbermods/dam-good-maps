@@ -90,7 +90,7 @@ export function editorView(ed: Ed, props: EditorProps) {
                 </div>
               ) : null}
               {blockNote ? (
-                <div class="map-note shape-note error" role="status" style={{ left: `${blockNote.x + 16}px`, top: `${blockNote.y + 16}px` }}>
+                <div class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} role="status" style={{ left: `${blockNote.x + 16}px`, top: `${blockNote.y + 16}px` }}>
                   {blockNote.text}
                 </div>
               ) : null}

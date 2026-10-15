@@ -11,7 +11,7 @@ import { plain } from "../words";
 import { loadBlock, saveBlock } from "../prefs/blockPrefs";
 import type { Ed } from "../ed";
 import { blockAim, type BlockAim } from "../../render3d/pick";
-import { blockLabel, blockParams, blockRefusal, clampSize, modeFor, noteSpot, paramsKey, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
+import { blockLabel, blockParams, clampSize, modeFor, noteSpot, paramsKey, plantsWords, PlaneSweep, sizeFromPointer, type BlockSettings, type ScreenBox } from "./blockTool";
 import { showBlocks } from "./view";
 
 export interface BlockSlice {
@@ -21,9 +21,10 @@ export interface BlockSlice {
   blockSettings: BlockSettings;
   /** Shift is down: a click does the other of Add and Remove (the Action shows it). */
   blockFlip: boolean;
-  /** Why the click under the pointer is refused, beside the blocks it would change (kept apart from the size flash,
-   *  so neither clears the other); x and y as the shape note's. */
-  blockNote: { text: string; x: number; y: number } | null;
+  /** Why the click under the pointer is refused, or the plants it would take or lift, beside the blocks it would
+   *  change (kept apart from the size flash, so neither clears the other); x and y as the shape note's; `ok` when
+   *  the click would be taken (the plants' words). */
+  blockNote: { text: string; x: number; y: number; ok?: boolean } | null;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
   pickBlock: (on: boolean) => void;
@@ -46,7 +47,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   blockRef.current = block;
   const [blockSettings, setSettingsState] = useState<BlockSettings>(loadBlock);
   const [blockFlip, setFlip] = useState(false);
-  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; ok?: boolean } | null>(null);
   const settingsRef = useRef(blockSettings);
   settingsRef.current = blockSettings;
   const setBlockSettings = (s: BlockSettings, save = true) => {
@@ -65,8 +66,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
   /** The face the pointer is on, for what a click would do with Shift as it is: under a layer cut, the cut's cap is the
    *  block just under it (Remove takes it; Add has nothing to fill there). */
   const aimOf = (hit: TileHit | null, shift: boolean) => blockAim(hit, cutNow(), modeFor(settingsRef.current, shift));
-  /** The question's identity: the operation, and what the page's own rules read (the layer cut, the working area). */
-  const keyOf = (p: BlocksParams) => `${paramsKey(p)}|${cutNow()}|${ed.selection.current.count}`;
+  /** The operation for these faces: the settings, the layer cut and the working area (the core refuses what is
+   *  outside the area and leaves what is under the cut alone). */
+  const paramsFor = (mode: "add" | "remove", side: BlocksParams["side"], at: readonly [number, number, number][]) => blockParams(settingsRef.current, mode, side, at, cutNow(), ed.workingArea());
+  /** The question's identity: the operation. */
+  const keyOf = paramsKey;
   /** The preview: the operation asked about last, the question on its way, the next to ask, the answer. */
   const pv = useRef<{ key: string; inFlight: boolean; queued: BlocksParams | null; result: { key: string; f: BlockFalls } | null; note: string | null }>({ key: "", inFlight: false, queued: null, result: null, note: null });
   const sizing = useRef<{ from: number; stop(): void } | null>(null);
@@ -96,8 +100,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
     return box;
   }
 
-  /** Say why a click is refused, in a note clear of the blocks it describes (their screen box, if any are drawn). */
-  function refuse(reason: string | null, box: ScreenBox | null) {
+  /** Say why a click is refused, or what it does to plants (`ok`), in a note clear of the blocks it describes (their
+   *  screen box, if any are drawn). */
+  function refuse(reason: string | null, box: ScreenBox | null, ok = false) {
     pv.current.note = reason ? plain(reason) : null;
     if (!reason) return setBlockNote(null);
     const c = renderer.current?.canvas;
@@ -105,13 +110,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
     // below the pointer's own words, which show a size beside it for a moment)
     const at = { x: pointerAt.current.x, y: pointerAt.current.y + 32 };
     const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }) : { x: at.x + 16, y: at.y + 16 };
-    setBlockNote({ text: plain(reason), x: spot.x - 16, y: spot.y - 16 });
+    setBlockNote({ text: plain(reason), x: spot.x - 16, y: spot.y - 16, ok });
   }
 
   /** Show an answer: the blocks on the map and, when the click would be refused, why. */
   function present(f: BlockFalls) {
     showBlocks(renderer.current, f.errors.length ? null : { added: f.added, removed: f.removed, falls: f.falls });
-    refuse(f.reason, boxOf(f));
+    // (a click that would be taken may still lift or take plants: said beside its blocks, never as a refusal)
+    refuse(f.reason ?? plantsWords(f.plantsRemoved, f.plantsRiding), boxOf(f), !f.reason);
   }
 
   /** Ask the core what these parameters would do (one question at a time, the latest wins), unless it was just asked. */
@@ -128,14 +134,6 @@ export function useBlockTool(ed: Ed): BlockSlice {
     if (key === s.key) return;
     s.key = key;
     s.result = null;
-    // the page's own rules first, from the cells alone (a press before any answer is checked too): nothing is drawn
-    const why = blockRefusal(p, infoRef.current.W, infoRef.current.H, ed.inArea, cutNow());
-    if (why) {
-      s.queued = null;
-      showBlocks(renderer.current, null);
-      refuse(why, null);
-      return;
-    }
     s.queued = p;
     void pump();
   }
@@ -166,11 +164,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
   function refresh() {
     const g = drag.current;
     const s = settingsRef.current;
-    if (g) return ask(blockParams(s, g.mode, g.sweep.aim.side, g.sweep.at, cutNow()));
+    if (g) return ask(paramsFor(g.mode, g.sweep.aim.side, g.sweep.at));
     const l = last.current;
     const aim = blockRef.current ? aimOf(l.hit, l.shift) : null;
     if (!aim) return ask(null);
-    ask(blockParams(s, modeFor(s, l.shift), aim.side, [aim.at], cutNow()));
+    ask(paramsFor(modeFor(s, l.shift), aim.side, [aim.at]));
   }
 
   function pickBlock(on: boolean) {
@@ -266,14 +264,13 @@ export function useBlockTool(ed: Ed): BlockSlice {
 
   /** The press is let go: one operation. */
   function commit(mode: "add" | "remove", sweep: PlaneSweep) {
-    const params = blockParams(settingsRef.current, mode, sweep.aim.side, sweep.at, cutNow());
-    // (the page's own rules, from the cells: the note and its blocks stay as they were)
-    const why = blockRefusal(params, infoRef.current.W, infoRef.current.H, ed.inArea, cutNow());
-    if (why) {
-      ed.setMessage({ kind: "error", text: why });
+    const params = paramsFor(mode, sweep.aim.side, sweep.at);
+    const known = pv.current.result?.key === keyOf(params) ? pv.current.result.f : null;
+    // (the core has already refused it in the preview: the note and its blocks stay as they were)
+    if (known?.reason) {
+      ed.setMessage({ kind: "error", text: plain(known.reason) });
       return;
     }
-    const known = pv.current.result?.key === keyOf(params) ? pv.current.result.f : null;
     // (the preview is cleared as the edit goes: the new blocks stand where it was)
     ask(null);
     void run(

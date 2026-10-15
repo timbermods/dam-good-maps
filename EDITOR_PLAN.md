@@ -521,16 +521,21 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   is asked again when the map changes, when Shift goes up or down, when a setting changes and when the camera moves
   under a still pointer. *Acting:* a click adds a block onto the face (the cell beyond it, across the footprint in the
   face's plane); **Shift** does the other of Add and Remove (the Action shows it while Shift is down); a drag paints in the
-  plane of the first face, every cell it crosses (a block goes only against a block, so nothing is added over air: a
-  bridge is built out from the last face, a block at a time, and the support rule says how far); a Remove takes only the
-  blocks the viewer sees, those whose face toward the aimed side is open (`exposed` on the operation, under the layer
-  cut), never what is buried inside a hill, so the preview and the operation agree; nothing is applied until the press is let go, then it is one `blocks` operation, one undo
+  plane of the first face, every cell it crosses; an add **chains**: a cell goes in wherever it touches a block, one
+  already there or one added a moment before in the same stroke, so a drag out over air grows a span from the ground
+  across it (a bridge, an arch), in the order it was swept, and the support rule says how far it may reach; a Remove takes only the
+  blocks the viewer sees, those whose face toward the aimed side is open (read by the core from the ground before the
+  operation, under the layer cut), never what is buried inside a hill, so the preview and the operation agree; nothing is
+  applied until the press is let go, then it is one `blocks` operation, one undo
   step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
-  drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. With a working
-  area (Select), a gesture with any cell outside it is refused, "That is outside the selected area", and under a layer cut a
-  gesture with any cell at or above the cut is refused, "Some blocks are above the cut": both from the cells alone, so a
-  press before the preview answers is checked too, nothing is drawn for them, and a block the view hides is never
-  touched. The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
+  drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. The page sends
+  the working area (Select's open selection as runs, `area`) and the view's layer cut (`cut`) with every operation and
+  makes no refusals of its own: the core refuses a cell outside the area ("(x, y) is outside the selection") and
+  leaves every block from the cut up alone (nothing from there is previewed or changed; a click that would change nothing
+  below the cut says "nothing below layer N would change"), each as the one line the preview's note shows before the
+  click. A click that would be taken but meets plants says so in the same note, in quiet words, not as a refusal:
+  "3 plants removed; 2 plants ride with the ground" (those its blocks fill in or take the ground from, and those that
+  rise or sink with it). The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
   while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
   land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
