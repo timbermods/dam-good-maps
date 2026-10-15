@@ -139,15 +139,19 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
     fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
-    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell. **Crop** sends the core's `crop` operation with
+    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
     the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
     core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
-    again, never clamped. Enabled, hovering says "Crop to 32 × 24", adding ", removing 3 objects at the edge" when the edge
-    cuts any. The map is then another size, so the page opens the session's map again (`onResized`: the camera and the
-    minimap fit it, the selection is gone) and its Your maps row takes the new size; Ctrl+Z, History or redo across the crop
-    do the same. Tooltip "Crop the map to the selection", no key.
+    again, never clamped. Enabled, hovering says "Crop to 32 × 24", adding "; cuts 3 objects" when the edge
+    cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
+    another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
+    the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map
+    after it, so History and Undo agree with the worker even with Ctrl+Z held across a crop. The view is carried over
+    (`ResizeCarry`: History open, top-down or 3D, the water overlay, See-through, the minimap) with the camera framed to the
+    new size; the selection is gone, a held Drought or Badtide is stopped through the worker, and its Your maps row takes the
+    new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).

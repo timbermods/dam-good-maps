@@ -18,6 +18,8 @@ import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { Ed } from "./ed";
+import type { ViewMode } from "../render3d";
+import type { LayerKind } from "./panels";
 import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
 import { usePaint } from "./paint/usePaint";
@@ -51,13 +53,26 @@ export interface MapPicture {
   water: ArrayLike<number> | null;
 }
 
+/** What the player has set on the view, carried to the editor that opens after a crop (or its undo): History open, top-down or
+ *  3D, the water overlay, See-through and the minimap; the camera is framed to the new size. */
+export interface ResizeCarry {
+  history: boolean;
+  mode: ViewMode;
+  layer: LayerKind;
+  clearWater: boolean;
+  minimap: boolean;
+}
+
 export interface EditorProps {
   api: Remote<GeneratorApi>;
   opened: SessionOpen;
   /** After every change (autosave keys on `info.version`). */
   onChange(info: SessionInfo): void;
-  /** The map changed size (a crop, or its undo or redo, D340): open the session's map again. */
-  onResized(): void;
+  /** The map changed size (a crop, or its undo or redo, D340): the page opens the session's map again, once the edits queued
+   *  before it have reached the worker, and gives the new editor `carry`: the view as the player had it. */
+  onResized(carry: ResizeCarry): void;
+  /** The view of the editor this one replaces after a change of the map's size. */
+  carry?: ResizeCarry;
   /** Finish queued edits before the page snapshots the outgoing worker session. */
   onPendingEdits?(wait: () => Promise<void>): void;
   /** While the page captures and replaces the outgoing map, its controls cannot start another edit. */

@@ -72,6 +72,8 @@ export interface View3DProps {
   frameInsets?(view: HTMLElement): Partial<FrameInsets>;
   /** The first map keeps the view the kept renderer had (the same map back). */
   keepView?: boolean;
+  /** The view mode the first map starts in (the editor after a crop keeps top-down, framed to the new map). */
+  startMode?: ViewMode;
 }
 
 /** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
@@ -286,9 +288,10 @@ export function View3D(props: View3DProps) {
     // the legend reads the new map now
     setMapTick((n) => n + 1);
     // (the same map back keeps its view, top-down or not)
-    const m: ViewMode = keep ? r.getView().mode : "orbit";
+    const first = mapsShown.current === 1;
+    const m: ViewMode = keep ? r.getView().mode : first && props.startMode ? props.startMode : "orbit";
     setMode(m);
-    if (!keep) r.setMode("orbit");
+    if (!keep) r.setMode(m);
     window.dgm3d = { renderer: r, build: stats };
     props.onReady?.(r, stats);
   }, [props.view]);

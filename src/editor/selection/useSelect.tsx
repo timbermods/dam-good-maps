@@ -378,7 +378,7 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     if (why || !b || !cropPlan) return setWaterHint(why);
     const n = cropPlan.removed;
-    setWaterHint(`Crop to ${b.w} × ${b.h}${n ? `, removing ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"} at the edge` : ""}`);
+    setWaterHint(`Crop to ${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
   }
   /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
    *  that is pressed says its reason on the message line, in full. */
@@ -387,7 +387,12 @@ export function useSelect(ed: Ed): SelectSlice {
     const why = cropWhy();
     if (why || !b) return setMessage({ kind: "error", text: why ?? "Select an area to crop" });
     endCropHint();
-    void run(() => api.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h }));
+    // (a crop of a big map takes about a second: past 300 ms the message line says so, until the new map opens)
+    const slow = window.setTimeout(() => setMessage({ kind: "info", text: "Cropping…" }), 300);
+    void run(() => api.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h })).finally(() => {
+      clearTimeout(slow);
+      if (!ed.resizing.current) setMessage((m) => (m && m.text === "Cropping…" ? null : m));
+    });
   }
   /** Fill: the hollow under the selection's lowest ground, filled with standing water to the Level, no source (D394). */
   function fillWater(level: number) {
@@ -524,12 +529,12 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: 2, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
-      // Crop (D340) sits with them: the map becomes the selection's rectangle; greyed with its reason when it cannot
+      { key: "size", row: 1, at: 7, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
       {
         key: "crop",
-        row: 1,
-        at: 9,
+        row: 2,
+        at: 13,
         span: 1,
         node: (
           <div class="set">
@@ -599,7 +604,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 3,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 12, span: 2, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 12, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       {
         key: "delete",
         row: 2,
