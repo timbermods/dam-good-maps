@@ -136,3 +136,60 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
   }
   expect(errors).toEqual([]);
 });
+
+test("a cave dug after a plain map opened is opened by the cut and lit as a cave, and a map that loses its last goes back to the plain program", async ({ page }) => {
+  // (a Block dig or an Erode cave on a generated map: the renderer learns of its first column with air under a roof from a
+  // terrain update, not from opening the map, and the cut must open into it all the same, what you see is what you get)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const out = await page.evaluate(() => {
+    type R = import("../../src/render3d").MapRenderer;
+    const shown = window.dgm3d!.renderer;
+    const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:480px;opacity:0;pointer-events:none";
+    const c = document.createElement("canvas");
+    c.style.cssText = "width:100%;height:100%;display:block";
+    host.append(c);
+    document.body.append(host);
+    const r = new Make(c);
+    r.setLookChoice("standard", false);
+    type Mat = { defines: Record<string, number> };
+    const internals = r as unknown as { std: { terrain: Mat; object: Mat }; uniforms: { caveSize: { value: { x: number } } } };
+    const state = () => ({ cutaway: internals.std.terrain.defines.CUTAWAY ?? 0, caves: "CAVES" in internals.std.object.defines, volume: internals.uniforms.caveSize.value.x > 0 });
+    // a plain 12² map at level 8, opened with no columns, cut at 3
+    const W = 12;
+    const heights = new Uint8Array(W * W).fill(8);
+    const none = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+    const entities = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
+    const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W) };
+    r.setMap({ W, H: W, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: none, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
+    r.setSlice(3);
+    r.renderNow();
+    const opened = state();
+    // a 3 × 3 hollow dug under the cut: rock at 0–1, air at 2–4, the ground above at 5–7
+    const tiles: number[] = [];
+    for (let y = 4; y < 7; y++) for (let x = 4; x < 7; x++) tiles.push(y * W + x);
+    const voxels = new Uint8Array(tiles.length * 23);
+    tiles.forEach((_, k) => {
+      for (const z of [0, 1, 5, 6, 7]) voxels[k * 23 + z] = 1;
+    });
+    r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
+    r.renderNow();
+    const dug = state();
+    // filled in again: no column left
+    r.updateTerrain(heights.slice(), { tiles: new Int32Array(0), voxels: new Uint8Array(0) } as unknown as Parameters<R["updateTerrain"]>[1]);
+    r.renderNow();
+    const filled = state();
+    r.dispose();
+    host.remove();
+    return { opened, dug, filled };
+  });
+  expect(out.opened, "a plain map: the plain program").toEqual({ cutaway: 0, caves: false, volume: false });
+  expect(out.dug, "its first hollow: the cutaway, the light volume and the roofed objects' branch").toEqual({ cutaway: 1, caves: true, volume: true });
+  expect(out.filled, "its last hollow filled: the plain program again").toEqual({ cutaway: 0, caves: false, volume: false });
+  expect(errors).toEqual([]);
+});

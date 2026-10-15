@@ -506,6 +506,7 @@ the gallery grown to about 150 places. Kyler sees a contact sheet of the whole g
 **Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 33 whose start reaches no fed water (the recorded
 `start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2 fixes them.
 `tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and berry shortfalls wait for round 2.
+The nightly runs `npm run places -- --check` and fails when `public/real-places` differs from a fresh build (2026-10-15: it matched): run `npm run places` and commit.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing

@@ -55,6 +55,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
@@ -1445,6 +1446,37 @@ export class MapRenderer {
     return m ? shadowRock(m.W, m.H, m.source.columns) : null;
   }
 
+  /** A map that gains its first column with air under a roof after it opened (a Block dig, an Erode cave on a plain
+   *  map) or loses its last: the cutaway's branch, the light volume and the roofed objects' branch follow, so the layer
+   *  cut opens into the new hollow and what stands in it takes its light, as on a map that opened with caves. The
+   *  volume is built whole once, when the first such column comes (about as long as a map with caves takes to open). */
+  private syncCaves(): void {
+    const m = this.map;
+    if (!m) return;
+    const want = cutawayOn(m.source);
+    this.setCutaway(want);
+    if (want === !!this.cave) return;
+    const u = this.uniforms;
+    if (want) {
+      this.cave = CaveLight.build(m.source, m.sky);
+      this.caveTex = this.cave ? caveTexture(this.cave) : null;
+      u.caveTex.value = this.caveTex ?? this.noCave;
+      if (this.cave) {
+        u.caveSize.value.set(m.W, m.H, this.cave.D);
+        u.caveTop.value = this.cave.highest;
+      }
+    } else {
+      u.caveTex.value = this.noCave;
+      u.caveSize.value.set(0, 0, 0);
+      this.caveTex?.dispose();
+      this.caveTex = null;
+      this.cave = null;
+      this.caveRows.clear();
+    }
+    this.setCaveBranch(!!this.cave);
+    this.syncRunSoil();
+  }
+
   /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
    *  next frame. */
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
@@ -1527,7 +1559,10 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
-    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
+    if (columns) {
+      m.source = { ...m.source, columns: columnMap(columns) };
+      this.syncCaves();
+    }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -2136,7 +2171,7 @@ export class MapRenderer {
   private surge: Surge | null = null;
   private forceFx: ForceEffects | null = null;
 
-  /** A force's moment (D202, D203, D206): an impact, a fault's crack, an eruption's plume; the
+  /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
    *  one's to its end (D378). Not with reduced motion, not in software. */
   setForceMoment(m: ForceMoment): void {
@@ -2175,8 +2210,22 @@ export class MapRenderer {
       if (!m) return 0;
       const i = Math.max(0, Math.min(m.H - 1, Math.round(y))) * m.W + Math.max(0, Math.min(m.W - 1, Math.round(x)));
       return m.heights[i];
-    }));
+    }, () => this.voxelsShown));
   }
+
+  /** The map's voxels as shown, for Erode's stones (one object, read as the map changes). */
+  private voxelsShown: Voxels = ((r: () => MapState | null) => ({
+    get W() {
+      return r()?.W ?? 0;
+    },
+    get H() {
+      return r()?.H ?? 0;
+    },
+    mask: (i: number) => {
+      const m = r();
+      return m ? columnMask(m.source, i) : 0;
+    },
+  }))(() => this.map);
 
   /** An eruption's heat on the ground (D206): its mask (RGBA a tile, core/forces/runs.ts), or null.
    *  The ground as the heat comes, before the eruption raises it (it comes with the force's first
@@ -2725,6 +2774,8 @@ export class MapRenderer {
       this.ortho.up.set(0, 0, -1);
       this.ortho.lookAt(tx, 0, tz);
       this.ortho.updateProjectionMatrix();
+      // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
+      this.ortho.updateMatrixWorld();
     } else {
       const cp = Math.cos(v.pitch);
       this.persp.aspect = aspect;
@@ -2733,6 +2784,7 @@ export class MapRenderer {
       this.persp.lookAt(tx, ty, tz);
       this.persp.far = v.distance * 4 + 1000;
       this.persp.updateProjectionMatrix();
+      this.persp.updateMatrixWorld();
     }
     // a light haze beyond the point looked at, none from straight above
     const u = this.uniforms;

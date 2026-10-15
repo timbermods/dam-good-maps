@@ -22,6 +22,7 @@ import {
   decodeSpecFragment,
   defaultSettings,
   encodeSpecFragment,
+  GENERATOR_MIN_SIDE,
   GENERATOR_VERSION,
   makeSpec,
   mineSitesForSize,
@@ -302,7 +303,8 @@ export function App() {
   /** A file is the open map: the generator's settings start again from the Any theme's own, at the file's size (a
    *  Generate then makes a new map of that size), and the panel reads "–" for them until one is set. */
   function settingsOfFile(info: SessionInfo) {
-    const z = { x: Math.max(48, Math.min(256, info.W)), y: Math.max(48, Math.min(256, info.H)) };
+    const least = GENERATOR_MIN_SIDE.any;
+    const z = { x: Math.max(least, Math.min(256, info.W)), y: Math.max(least, Math.min(256, info.H)) };
     setBlank(true);
     setSeedText("");
     setSeedPinned(false);

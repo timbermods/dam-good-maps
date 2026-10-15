@@ -23,6 +23,7 @@ import type { Feature, MapObjectFeature } from "../features/schema";
 import { objectTiles } from "../features/objects";
 import { storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { growthOf } from "../analysis/wood";
+import { generatedThemeOf } from "../gen/pack";
 import { isDelayed, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { seenThroughRoofs, worldWaterModel } from "../sim/stackWater";
@@ -212,7 +213,17 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
     m.bool(water.steadyTicks !== undefined);
     if (water.steadyTicks !== undefined) m.f64(water.steadyTicks);
     const spec = opts.spec ?? null;
-    m.bool(!!spec);
+    const description = String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? "");
+    // (an opened map made with Dam Good Maps keeps its theme's thresholds, from its description: an
+    // exported Islands map, opened again, is judged by Islands' water cap, D369; its settings stay
+    // the defaults, as for any opened map)
+    const theme = spec ? null : generatedThemeOf(description);
+    m.bool(!!spec || !!theme);
+    if (!spec && theme) {
+      m.str(String(opts.designedFor ?? "normal"));
+      m.str(theme);
+      m.bool(false);
+    }
     if (spec) {
       m.str(String(spec.designedFor));
       m.str(String(spec.theme));
@@ -234,7 +245,7 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
       }
     }
     m.str(String(opts.designedFor ?? "normal"));
-    m.str(String((file.metadata as { MapDescription?: unknown } | null)?.MapDescription ?? ""));
+    m.str(description);
     const features: readonly Feature[] | null = opts.features ?? null;
     m.bool(!!features);
     if (features) {

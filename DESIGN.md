@@ -14,6 +14,56 @@ mockup and capture named below is in the Release
 2. **Meaning** (below): what each colour, mark, word and state tells the player.
 3. The look. When a look rule and a meaning conflict, the meaning stays and the look changes.
 
+## CSS principles
+
+The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026-10-15). They sit in `src/styles/app.css`
+(tokens, motion, focus, press, text-wrap) and change no layout.
+
+- **Colour tokens:** one set on `:root`, each `light-dark(light, dark)`, with `color-scheme: light dark`; never a second block
+  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root from a stylesheet (a class or an
+  attribute rule), never an inline style from script: the build compiles `light-dark()` into a variable fallback that inline
+  styles don't flip. A value that isn't a
+  colour (a shadow's blur) can't use `light-dark()`; keep it in the one small `prefers-color-scheme` block beside the tokens.
+- **Motion:** take `--ease-out` and the `--dur-*` tokens (add `--ease-in-out` and a longer duration when something first needs them); never `ease-in` on the interface, never
+  `transition: all` (name the properties). Movement (transform, size) goes inside
+  `@media (prefers-reduced-motion: no-preference)`; fades of opacity and colour stay outside it.
+- **Hover only where hover exists:** hover styles sit in `@media (hover: hover) and (pointer: fine)`. A reveal also shows on
+  `:focus-within`, so a touch screen reaches it.
+- **`overflow: clip`, not `hidden`,** wherever the box isn't meant to scroll: it makes no scroll container and keeps
+  `position: sticky` working. Keep `hidden` for `-webkit-line-clamp` and `auto` where something scrolls. A flex or grid item
+  that clips text takes `min-width: 0` (clip, unlike hidden, leaves the item's minimum size alone).
+- **Scrolling:** every inner scroller has `overscroll-behavior: contain`; `html` has `overscroll-behavior-y: none`, restored for
+  coarse pointers. `scrollbar-gutter: stable` only where a scrollbar's arrival would move content and the resting layout
+  stays the same.
+- **Safe alignment:** a centred flex or grid container whose content can overflow uses `safe center`, so the overflow runs off
+  the end instead of both sides.
+- **Tabular numbers:** `font-variant-numeric: tabular-nums` on numeric readouts only (sizes, values, counts, percentages,
+  coordinates), never globally.
+- **One focus ring:** `:focus-visible` draws `max(2px, 0.08em)` in the text colour, a quarter em off the edge; a filled control
+  takes the accent; a control inside something that clips draws it inside its own edge. Never `outline: none` without a
+  replacement.
+- **Press feedback:** a button scales to 0.97 while pressed (100 to 160 ms, `--ease-out`, inside the reduced-motion guard);
+  never the map's canvas, sliders, text fields, connected cells or list rows.
+- **Line breaks:** `text-wrap: balance` on headings and short titles, `text-wrap: pretty` on paragraphs, notes and tooltips.
+- **Tap:** `-webkit-tap-highlight-color: transparent` and `touch-action: manipulation` on interactive elements (a control that
+  takes the gesture itself sets `touch-action: none`); `font-synthesis: none`.
+- **The bar is a container (2026-10-15):** `.tool-dock` is `container-type: inline-size`; its width is the room the minimap and the
+  shelf leave, in whole cells, and each cell is its share of that width (`cqi`, no `@property`). A tool added to the bar
+  changes `--tools` or `--forces` and the cells follow. Use `cqi` against a container where a size follows the room it is in.
+- **Hit areas:** a control under 32px gets an invisible `::after` (`inset: min(0px, calc((100% - 32px) / 2))`) on a desktop
+  pointer; a control that touches its neighbours reaches only up and down. None may reach another control or sit in a clip
+  (tests/e2e/layout.spec.ts). Dense lists (the sheet's lines, the legend's) are left alone.
+- **Optical centring:** a button's words are a span (`.label`, `.icon-word`, `.cb-word`, `.shelf-word`) with
+  `text-box: trim-both cap alphabetic`, single line only, the control's height held by flex or `min-height`.
+- **Big screens:** from 2200px wide (and 1200px tall) the bar's cells reach 88px, the header's controls 44px and the shelf's rows
+  34px, their words 1px larger; nothing else grows.
+- **Menus** grow from their button: `@starting-style` in, `data-closing` out (`useMenuPresence`), from 0.95 and transparent,
+  `display` following with `allow-discrete`; the scaling inside the reduced-motion guard, the fade outside it.
+- **The clipping net:** tests/e2e/layout.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
+  more than 1px) at 1280, 1366, 1600, 1920 and 2560, light and dark, across the main states.
+- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, `text-box` trim on the bar's
+  cells, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
+
 ## Three zones
 
 - **Map:** the 3D view, its sky, overlays, markers, ghosts, rings and the compass. Its colours are the map's own

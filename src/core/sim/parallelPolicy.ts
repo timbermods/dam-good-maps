@@ -12,6 +12,15 @@ export function threadsFor(n: number): number {
   return t;
 }
 
+/** The most threads the canonical settle of a map with caves or overhangs uses (stackParallel.ts): from 128²
+ *  on, since a stacked column costs more than a flat tile; √(n / 1024), about 4 at 128², 6 at 192², 8 at 256². */
+export function stackThreadsFor(n: number): number {
+  if (n < 128 * 128) return 1;
+  let t = 4;
+  while (t < MAX_THREADS && (t + 1) * (t + 1) * 1024 <= n) t++;
+  return t;
+}
+
 /** Whether this thread can run the water on several: a worker on a cross-origin isolated page in Chromium or
  *  Firefox (WebKit stays on one thread, #130). `page`: whether the page's own thread may start helpers for its
  *  worker (it can't wait for them itself). */

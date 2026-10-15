@@ -490,12 +490,12 @@ export function View3D(props: View3DProps) {
   );
   const topDown = (
     <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
-      Top-down
+      <span class="label">Top-down</span>
     </button>
   );
   const reset = (
     <button type="button" title="Frame the whole map again" onClick={() => renderer.current?.resetView()}>
-      Reset view
+      <span class="label">Reset view</span>
     </button>
   );
   if (column)

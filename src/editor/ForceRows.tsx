@@ -626,7 +626,7 @@ export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
         { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
         // (no choice of its own, and no Sources: it never wears a source's tile; so Try another takes the row's end and the
         // Floor the second row, and both rows stay full)
-        { key: "again", row: 1, at: 7, span: 7, node: again(p, "erosion") },
+        { key: "again", row: 1, at: 7, span: 7, node: again(p, "Another erosion, same land") },
         { key: "floor", row: 2, at: 1, span: 13, node: <FloorSetting /> },
       ]}
     />

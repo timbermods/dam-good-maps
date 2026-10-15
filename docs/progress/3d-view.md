@@ -324,10 +324,12 @@ Standard's shadow before a cave (item 8).
   in shade is dark in both looks (an open cliff in shade is as dark); objects' looks by soil under roofs are their
   tile top's.
 - **Known limits:** the shadow map keeps one top a sample, so a cliff face inside an overhang's shadow can show lit
-  above a lit gap below it (the ground itself is right). The objects' and falls' `CAVES` branch is set when a map
-  opens (`setMap`), so a map whose first roof is made by an edit lights them as open air until it is opened again:
-  it matters once step 3 ("creating them") ships, and is set there with the light volume, which is built at the same
-  moment.
+  above a lit gap below it (the ground itself is right).
+- **A cave made after the map opened** (a Block dig or an Erode cave on a plain map; the usability pass's finding):
+  the renderer follows the columns of every terrain update (`renderer.ts` `syncCaves`), so the first column with air
+  under a roof switches on the cutaway's branch, builds the light volume whole (once, about as long as a map with
+  caves takes to open) and the roofed objects' branch, and the last one filled switches them off again. The cut opens
+  into a hollow dug under it as it does on an imported cave map (`tests/e2e/cutaway.spec.ts`, its second test).
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 
