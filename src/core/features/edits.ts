@@ -288,7 +288,10 @@ export function applyEntityEdits(
           break;
         }
         const { x, y } = ed.params;
-        const moved = movedEntity(list[k], x, y, ed.params.z ?? g.heights[y * g.W + x], ed.params.orientation ?? list[k].orientation);
+        // (an object under a roof that a force carries keeps its level: the force names none, D491)
+        const was = list[k];
+        const pinned = !!ed.params.quiet && was.x >= 0 && was.y >= 0 && was.x < g.W && was.y < g.H && was.z < g.heights[was.y * g.W + was.x];
+        const moved = movedEntity(was, x, y, ed.params.z ?? (pinned ? was.z : g.heights[y * g.W + x]), ed.params.orientation ?? was.orientation);
         if (ed.params.quiet) {
           // an object a force carried onto ground something else now holds is left out (the build's
           // own resources may have grown there again)

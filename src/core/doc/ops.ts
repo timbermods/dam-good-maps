@@ -18,7 +18,7 @@ import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
-import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
@@ -467,6 +467,9 @@ export interface OpContext {
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
+   *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
+  masks?: ArrayLike<number> | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -591,6 +594,17 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
   }
 }
 
+/** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
+function levelProblems(f: Feature, ctx: OpContext): string[] {
+  if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  const pl = f.params.placement;
+  const name = OBJECT_NAMES[f.params.kind].toLowerCase();
+  if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, z: pl.z }, "area" in pl ? undefined : pl);
+  return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
 /** Why an operation cannot be applied now (empty when it can). */
 /** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
 export function schemaProblems(op: EditOp): string[] {
@@ -615,7 +629,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const missing = dependenciesOf(f).filter((d) => !featureById(d));
       if (missing.length) return [`it builds on ${missing.join(", ")}, which does not exist`];
       if (op.params.index !== undefined && op.params.index > state.features.length) return [`index ${op.params.index} is past the end of the feature list`];
-      return featureGeometryProblems(f, W, H);
+      const geometry = featureGeometryProblems(f, W, H);
+      return geometry.length ? geometry : levelProblems(f, ctx);
     }
     case "updateFeature": {
       const f = featureById(op.params.id);
@@ -627,7 +642,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (missing.length) return [`it would build on ${missing.join(", ")}, which does not exist`];
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
-      return featureGeometryProblems(after, W, H);
+      const geometry = featureGeometryProblems(after, W, H);
+      return geometry.length ? geometry : levelProblems(after, ctx);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];

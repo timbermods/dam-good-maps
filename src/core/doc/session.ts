@@ -25,7 +25,7 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import type { StandGround } from "../features/objects";
+import { standProblem, type StandGround } from "../features/objects";
 import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
@@ -64,7 +64,7 @@ import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
-import { placeLabel, withArticle } from "./labels";
+import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
@@ -742,6 +742,29 @@ export class MapSession {
     return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
   }
 
+  /** The first object the map as it stands would lose that it kept as `before`, in one line, or null
+   *  (D491): an object on a tile with a cave or an overhang that the game's rule held on `before`'s ground
+   *  and no longer holds (inside the ground or floating: the game removes it on load). Nothing on open
+   *  ground (its objects ride it), and nothing on a heightfield. */
+  private lostSince(before: BuildResult): string | null {
+    const now = this.cur;
+    if (!this.layered(before) && !this.layered(now)) return null;
+    const { x: W, y: H } = this.size;
+    const t0 = this.terrainOf(before);
+    const g0 = { W, H, mask: t0.mask };
+    const g1 = this.standGround();
+    const was = new Map(before.entities.map((e) => [e.id, e]));
+    for (const e of now.entities) {
+      const b = was.get(e.id);
+      if (!b) continue;
+      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+      if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
+      if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
+      return `it would leave ${withArticle(itemName(e.template))} at (${e.x}, ${e.y}) inside the ground or floating, and the game would remove it`;
+    }
+    return null;
+  }
+
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
    *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
@@ -1114,6 +1137,7 @@ export class MapSession {
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
+      masks: this.standGround().mask,
       startObjects,
       cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {
@@ -1159,6 +1183,12 @@ export class MapSession {
     if (falls.length) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
+    // nor an object under a roof or on one that the game would then remove (D491)
+    const lost = this.lostSince(before);
+    if (lost) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [lost], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
@@ -1223,6 +1253,11 @@ export class MapSession {
     if (falls.length) {
       this.refuseStep(mark, seq, before);
       return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+    }
+    const lost = this.lostSince(before);
+    if (lost) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [lost], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }

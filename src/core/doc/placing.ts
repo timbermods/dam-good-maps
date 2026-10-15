@@ -4,7 +4,7 @@
 // it on load).
 
 import { entityTiles } from "../features/edits";
-import { isPickable, standProblem } from "../features/objects";
+import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
@@ -110,6 +110,14 @@ function roofProblem(s: MapSession, p: { template: string; x: number; y: number;
   const b = s.built;
   const top = b.heights[p.y * W + p.x];
   if (p.z !== undefined && p.z >= top) return `level ${p.z} is not under a roof here: the ground's top is ${top}, where it stands without a level`;
+  // the start stands on open ground, as it always has (its door and bench are levelled there)
+  if (p.template === "StartingLocation") return "the start needs open ground: there is a cave or overhang there";
+  const fp = FOOTPRINTS[p.template];
+  if (p.z !== undefined) {
+    const tiles = worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped }).map((c) => [c.x, c.y] as const);
+    const open = openPart(tiles, p.z, { W, H, heights: b.heights });
+    if (open) return open;
+  }
   const z = p.z ?? top;
   const understructure = FLUIDS[p.template]?.on;
   if (understructure && !b.entities.some((e) => e.id !== ignore && understructure.includes(e.template) && e.x === p.x && e.y === p.y && e.z === z)) return "a drill needs an aquifer under it";

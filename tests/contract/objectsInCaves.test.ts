@@ -7,28 +7,28 @@
 // cave's floor feeds the stacked settle.
 
 import { describe, expect, it } from "vitest";
-import { caveFile, caveSession, CAVE, LEDGE } from "./caveMap";
+import { caveFile, caveSession, caveVoxels, CAVE, LEDGE, LOWLAND_X } from "./caveMap";
 import { decodeProject } from "../../src/core/doc/document";
 import { placeComponents } from "../../src/core/doc/objectOps";
 import { entityProblem, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { MapSession } from "../../src/core/doc/session";
-import { placedEntity } from "../../src/core/features/edits";
-import { bottomRunTop, fitProblems, footprintAt, OBJECT_TEMPLATE, rasterizeObjects } from "../../src/core/features/objects";
+import { applyEntityEdits, placedEntity } from "../../src/core/features/edits";
+import { bottomRunTop, fitProblems, footprintAt, OBJECT_TEMPLATE, openPart, rasterizeObjects } from "../../src/core/features/objects";
 import type { MapObjectKind } from "../../src/core/features/schema";
-import { entityJson } from "../../src/core/format/entities";
-import { coordinatesForMinCorner, FOOTPRINTS, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { readTimber } from "../../src/core/format/timber";
+import { entityJson, type EntitySpec } from "../../src/core/format/entities";
+import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
+import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { validateMap } from "../../src/core/validate/checks";
 
 const W = 40;
 const ID = "00000000-0000-4000-8000-000000000001";
 
-/** Whether the game keeps one object standing at (x, y, z) on the cave map: the checks' verdict on a file
- *  holding it alone. */
-function gameKeeps(template: string, x: number, y: number, z: number, orientation: Orientation): boolean {
-  const file = caveFile();
+/** Whether the game keeps one object standing at (x, y, z) on the cave map (or `voxels`): the checks'
+ *  verdict on a file holding it alone, or after `others`. */
+function gameKeeps(template: string, x: number, y: number, z: number, orientation: Orientation, others: EntitySpec[] = [], voxels?: Uint8Array): boolean {
+  const file = caveFile(voxels);
   const e = placedEntity({ id: ID, template, x, y, orientation, components: placeComponents(template) }, z);
-  file.world.entities = [entityJson(e)];
+  file.world.entities = [...others, e].map(entityJson);
   const checks = validateMap(file, { profile: "import", loadOnly: true }).report.checks;
   const dropped = (id: string) => (checks.find((c) => c.id === id)?.where?.entities ?? []).includes(ID);
   return !dropped("entities.placement") && !dropped("plants.clearance");
@@ -56,7 +56,7 @@ const TEMPLATES = [
 ];
 
 describe("objects in caves (D491): the editor's rule is the game's", () => {
-  it("on a cave map, the editor accepts exactly what the checks keep", () => {
+  it("on a cave map, the editor accepts exactly what the checks keep, but at a level partly in the open", () => {
     const s = caveSession();
     const mask = s.standGround().mask;
     const heights = s.built.heights;
@@ -69,10 +69,12 @@ describe("objects in caves (D491): the editor's rule is the game's", () => {
           for (const z of levelsAt(mask[y * W + x])) {
             const top = z === heights[y * W + x];
             const editor = entityProblem(s, { template, x, y, ...(top ? {} : { z }), orientation });
+            // (at a level, it must stand wholly under the roof, so no later stroke reaches its ground)
+            const open = !top && !!openPart(footprintTiles(template, { template, x, y, z, orientation, flipped: false }), z, { W, H: 40, heights });
             const game = gameKeeps(template, x, y, z, orientation);
             tried++;
             if (game) kept++;
-            if ((editor === null) !== game) wrong.push(`${template} at (${x}, ${y}, ${z}) ${orientation}: the editor ${editor === null ? "accepts" : `refuses (${editor})`}, the game ${game ? "keeps it" : "drops it"}`);
+            if ((editor === null) !== (game && !open)) wrong.push(`${template} at (${x}, ${y}, ${z}) ${orientation}: the editor ${editor === null ? "accepts" : `refuses (${editor})`}, the game ${game ? "keeps it" : "drops it"}${open ? ", partly in the open" : ""}`);
           }
         }
       }
@@ -98,13 +100,17 @@ describe("objects in caves (D491): the editor's rule is the game's", () => {
           const tiles = line ? [[x, y] as [number, number]] : footprintAt(kind, x, y, orientation);
           const [cx, cy] = line ? [x, y] : coordinatesForMinCorner(FOOTPRINTS[template].size[0], FOOTPRINTS[template].size[1], x, y, orientation);
           if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+          const inMap = tiles.filter(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H);
+          // (on the top, a feature stands at the highest level under it: rasterizeObjects)
+          const onTop = Math.max(...inMap.map(([tx, ty]) => heights[ty * W + tx]));
           for (const z of levelsAt(mask[cy * W + cx])) {
-            // (a feature under a roof names its level: rasterizeObjects places it there)
-            const fit = fitProblems(kind, tiles, { W, H, heights, masks: mask, z }, line ? undefined : { x, y, orientation });
-            const roofed = z < heights[cy * W + cx] || tiles.some(([tx, ty]) => tx >= 0 && ty >= 0 && tx < W && ty < H && (mask[ty * W + tx] & (mask[ty * W + tx] + 1)) !== 0);
-            if (!roofed) continue;
-            const game = gameKeeps(template, cx, cy, z, orientation);
-            if ((fit.length === 0) !== game) wrong.push(`${kind} at (${x}, ${y}, ${z}) ${orientation}: fitProblems ${fit.length ? `refuses (${fit.join("; ")})` : "accepts"}, the game ${game ? "keeps it" : "drops it"}`);
+            const top = z >= heights[cy * W + cx];
+            const fit = fitProblems(kind, tiles, { W, H, heights, masks: mask, ...(top ? {} : { z }) }, line ? undefined : { x, y, orientation });
+            const roofed = !top || inMap.some(([tx, ty]) => (mask[ty * W + tx] & (mask[ty * W + tx] + 1)) !== 0);
+            if (!roofed || (top && z !== heights[cy * W + cx])) continue;
+            const open = !top && !!openPart(tiles, z, { W, H, heights });
+            const game = gameKeeps(template, cx, cy, top && !line ? onTop : z, orientation);
+            if ((fit.length === 0) !== (game && !open)) wrong.push(`${kind} at (${x}, ${y}, ${z}) ${orientation}: fitProblems ${fit.length ? `refuses (${fit.join("; ")})` : "accepts"}, the game ${game ? "keeps it" : "drops it"}${open ? ", partly in the open" : ""}`);
           }
         }
       }
@@ -124,6 +130,77 @@ describe("objects in caves (D491): the editor's rule is the game's", () => {
     expect(entityProblem(s, { template: "WaterSource", x: 17, y: 17, z: 3, orientation: "Cw0" })).toBeNull();
     expect(entityProblem(s, { template: "WaterSource", x: 31, y: 12, orientation: "Cw0" })).toBe("the game keeps a water source only on ground that goes down to the bottom of the map, not on a roof or a ledge");
     expect(entityProblem(s, { template: "WaterSource", x: 17, y: 17, z: 8, orientation: "Cw0" })).toMatch(/not under a roof here/);
+  });
+});
+
+/** The cave fixture with a taller cave: ground at level 12, air at z 3–8 under a roof three thick. */
+function tallCave(): Uint8Array {
+  const v = caveVoxels();
+  const N = W * 40;
+  for (let y = 0; y < 40; y++) for (let x = 0; x < LOWLAND_X; x++) for (let z = 8; z < 12; z++) v[z * N + y * W + x] = 1;
+  for (let y = CAVE.y0; y <= CAVE.y1; y++) for (let x = CAVE.x0; x <= CAVE.x1; x++) for (let z = 3; z < 9; z++) v[z * N + y * W + x] = 0;
+  return v;
+}
+
+describe("objects in caves (D491): the edge cases", () => {
+  it("a drill stands on an aquifer under a roof where its five levels fit, as the game keeps it", () => {
+    const s = MapSession.importMap(writeTimber(caveFile(tallCave())), "tall.timber");
+    const aquifer = planEntity(s, { template: "Aquifer", x: 16, y: 16, z: 3, orientation: "Cw0" }, "00000000-0000-4000-8000-0000000000c1");
+    expect(aquifer.ok && s.applyBatch(aquifer.ops).ok).toBe(true);
+    const drill = { template: "AncientAquiferDrill", x: 16, y: 16, z: 3, orientation: "Cw0" as const };
+    expect(entityProblem(s, drill)).toBeNull();
+    const a = s.built.entities.find((e) => e.id === "00000000-0000-4000-8000-0000000000c1")!;
+    expect(gameKeeps(drill.template, 16, 16, 3, "Cw0", [a], tallCave())).toBe(true);
+    // in the low cave it has no room, and without the aquifer it has nothing to stand on
+    const low = caveSession();
+    expect(entityProblem(low, drill)).toBe("a drill needs an aquifer under it");
+  });
+
+  it("an object stacked on a stackable is refused, though the game keeps it: ground of objects is not counted", () => {
+    const s = caveSession();
+    const bridge = planEntity(s, { template: "NaturalOverhang2x1", x: 16, y: 16, z: 3, orientation: "Cw0" }, "00000000-0000-4000-8000-0000000000d1");
+    expect(bridge.ok && s.applyBatch(bridge.ops).ok).toBe(true);
+    const o = s.built.entities.find((e) => e.id === "00000000-0000-4000-8000-0000000000d1")!;
+    expect(entityProblem(s, { template: "RuinColumnH1", x: 16, y: 16, z: 4, orientation: "Cw0" })).toBe("the ground under it is not level");
+    expect(gameKeeps("RuinColumnH1", 16, 16, 4, "Cw0", [o])).toBe(true);
+  });
+
+  it("at a level, partly in the open, is refused: no later stroke buries it or leaves it floating", () => {
+    const s = caveSession();
+    expect(entityProblem(s, { template: "GeothermalField", x: 32, y: 11, z: 2, orientation: "Cw0" })).toBe("part of it would stand in the open: under a roof it stands wholly under it");
+    expect(gameKeeps("GeothermalField", 32, 11, 2, "Cw0")).toBe(true);
+  });
+
+  it("on a roof's top straddling the open, a stroke under its open part never leaves it buried or floating", () => {
+    for (const tool of ["raise", "lower"] as const) {
+      const s = caveSession();
+      // a small relic on the cave's roof top and the open ground beside it, both at level 8
+      const relic = planEntity(s, { template: "SmallRelic", x: CAVE.x1, y: 17, orientation: "Cw0" }, "00000000-0000-4000-8000-0000000000e1");
+      expect(relic.ok && s.applyBatch(relic.ops).ok).toBe(true);
+      s.apply({ op: "brush", params: { tool, size: 1, strength: 5, shape: "area", target: tool === "raise" ? 10 : 5, dabs: [4 * (CAVE.x1 + 1) + 2, 4 * 17 + 2, 4 * (CAVE.x1 + 4) + 2, 4 * 17 + 2] } });
+      const file = readTimber(s.exportTimber().bytes);
+      const placement = validateMap(file, { profile: "export", loadOnly: true }).report.checks.find((c) => c.id === "entities.placement")!;
+      expect(placement.ok, `${tool}: ${placement.message}`).toBe(true);
+    }
+  });
+
+  it("a map object feature's level is checked on the map's ground, in one line", () => {
+    const s = caveSession();
+    const relic = (x: number, y: number, z: number) => ({ op: "addFeature" as const, params: { feature: { id: "f-aaaaaaaaaaaab", kind: "mapObject", origin: "user", locked: false, params: { kind: "relicSmall", placement: { x, y, orientation: "Cw0", z } } } as never } });
+    expect(s.check(relic(17, 17, 3))).toEqual([]);
+    expect(s.check(relic(17, 17, 4))).toEqual(["the small relic can't stand at level 4 there: the ground under it is not level"]);
+    expect(s.check(relic(5, 5, 20))).toEqual(["the small relic can't stand at level 20 there: part of it would stand in the open: under a roof it stands wholly under it"]);
+  });
+
+  it("the start stays on open ground", () => {
+    expect(entityProblem(caveSession(), { template: "StartingLocation", x: 16, y: 16, orientation: "Cw0" })).toBe("the start needs open ground: there is a cave or overhang there");
+  });
+
+  it("an object under a roof that a force carries keeps its level", () => {
+    const e = placedEntity({ id: ID, template: "RuinColumnH1", x: 17, y: 17, orientation: "Cw0", components: placeComponents("RuinColumnH1") }, 3);
+    const heights = caveSession().built.heights;
+    const out = applyEntityEdits([e], [{ seq: 5, op: "moveEntity", params: { id: ID, x: 18, y: 17, quiet: true } }], { W, H: 40, heights }, true);
+    expect(out.entities[0]).toMatchObject({ x: 18, z: 3 });
   });
 });
 

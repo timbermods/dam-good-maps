@@ -228,8 +228,11 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     geothermal fields and mine sites on ground that goes down to the map's bottom (a cave's floor, never a ledge or
     a roof's top). A refusal is one plain line ("not enough room under the roof here: the ruin needs 5"). The
     placement names its level (`placeEntity` and `moveEntity` `z`, a run's top below the tile's surface); the
-    object stands there, exports there and a source there feeds the cave's water. A move under a roof keeps its
-    level unless it names another. Strokes paint a roof's top like any ground. A generated
+    object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
+    the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach, and any edit
+    that would leave an object under a roof or on one inside the ground or floating is refused with one line; the
+    start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one

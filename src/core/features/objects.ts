@@ -148,7 +148,7 @@ export function rasterizeObjects(f: MapObjectFeature, W: number, H: number, heig
 export interface FitGround {
   W: number;
   H: number;
-  heights: Uint8Array;
+  heights: ArrayLike<number>;
   /** Settled water depth (null: not known yet, e.g. before the settle). */
   water?: ArrayLike<number> | null;
   /** River channel tiles. */
@@ -192,6 +192,12 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
   const add = (why: string) => {
     if (!out.includes(why)) out.push(why);
   };
+  // (an object at a given level stands wholly under the roof: its ground is then out of every tool's reach
+  // but the Block tool's, so no later edit buries it or leaves it floating)
+  if (g.z !== undefined) {
+    const open = openPart(tiles, g.z, g);
+    if (open) add(open);
+  }
   if (stand && single) {
     if (!at) throw new Error("fitProblems: a single object under a roof needs its placement");
     const s = FOOTPRINTS[template].size;
@@ -228,6 +234,19 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
 }
 
 // --------------------------------------------------------------------------- under a roof (D491)
+
+/** Why an object standing at level `z` (a cave's floor, the ground under a ledge) is not wholly under a
+ *  roof, or null when it is: every tile it covers has ground above `z` (its surface higher). The part in
+ *  the open would be the brushes' and the forces' ground, which a later stroke could raise into it or
+ *  cut from under it; on the roofed part the tools shape only the roof's top (D487). The game would keep
+ *  such an object; the editor refuses it so that no edit buries it or leaves it floating (D491). */
+export function openPart(tiles: readonly (readonly [number, number])[], z: number, g: { W: number; H: number; heights: ArrayLike<number> }): string | null {
+  for (const [x, y] of tiles) {
+    if (x < 0 || y < 0 || x >= g.W || y >= g.H) continue;
+    if (g.heights[y * g.W + x] <= z) return "part of it would stand in the open: under a roof it stands wholly under it";
+  }
+  return null;
+}
 
 /** The ground an object stands on, voxel by voxel: bit z of `mask[i]` set when voxel z of tile i is
  *  solid (terrain/runs.ts `ColumnTerrain`). */

@@ -370,6 +370,8 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 
 /** A sculpt edit (cells with a mode) or a brush stroke (dabs with a brush, raster/brush.ts). */
 export interface SculptEdit {
+  /** Its place in the operation log (a session's; absent where order is not needed). */
+  seq?: number;
   params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean } | BrushParams | ForceResultParams | BlocksParams;
 }
 
