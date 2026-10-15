@@ -1495,6 +1495,18 @@
   z-index: 20;
 }
 
+/* the message is always above the progress dialog, to read and to dismiss */
+.error.floating {
+  z-index: 21;
+}
+
+/* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
+.loading-frame + .making-backdrop {
+  background: none;
+  place-items: start center;
+  padding-top: calc(50vh + 33px + min(256px, 25vh) + 16px);
+}
+
 .making-dialog {
   width: 400px;
   box-sizing: border-box;
@@ -1852,10 +1864,11 @@
   color: var(--muted);
 }
 
-/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them) */
+/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them); the
+   value column holds "30 bushes" whole (70px) */
 .set.plate.line {
   display: grid;
-  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 52px);
+  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 70px);
   align-items: center;
   column-gap: 8px;
   height: var(--line, 25px);
@@ -1960,6 +1973,41 @@
 .gen-name .set-text {
   width: 100%;
   font-weight: 700;
+  /* (a name longer than the box ends in "…" until the field is in hand, never cut mid-letter) */
+  text-overflow: ellipsis;
+}
+
+/* an opened file has no generator settings: they read "–", their controls quiet until one is set */
+.gen.blank .set-range,
+.gen.blank .species-mix .mix-bar {
+  opacity: 0.35;
+}
+
+/* (no knobs: they would sit at the Any theme's defaults and read as the file's values) */
+.gen.blank .set-range {
+  --fill: 0% !important;
+}
+
+/* (the species mix, one even colour: no shares to read) */
+.gen.blank .mix-share {
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.gen.blank .set-range::-webkit-slider-thumb {
+  visibility: hidden;
+}
+
+.gen.blank .set-range::-moz-range-thumb {
+  visibility: hidden;
+}
+
+.gen.blank .mix-edge {
+  visibility: hidden;
+}
+
+.gen.blank .set-text::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 /* the species mix: one bar of four shares, dragged at the three edges between them; each share's name and number
@@ -2542,4 +2590,34 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* the editor's frame while the first map is made (LoadingFrame.tsx): the header, bar and shelf held still, the land's
+   first look in the map's place, the progress dialog over it */
+.loading-frame .loading-view {
+  display: grid;
+  place-items: center;
+  background: var(--map-bg);
+}
+
+.loading-frame .first-look {
+  min-height: 0;
+}
+
+/* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is
+   never left low under empty space */
+.loading-frame .first-look-empty {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.loading-frame .first-look-map {
+  width: min(512px, 50vh);
+}
+
+/* a failed first map has no land above it: its dialog stays in the middle */
+.loading-frame + .making-backdrop.stuck {
+  place-items: center;
+  padding-top: 16px;
 }

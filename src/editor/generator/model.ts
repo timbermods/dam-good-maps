@@ -32,7 +32,7 @@ export interface GeneratorModel extends SettingsProps {
   current: string | null;
   onOpenMap(id: string): void;
   /** Open a real place in the editor (the map it replaces is kept in Your maps). */
-  onOpenPlace(id: string): void;
+  onOpenPlace(id: string, name?: string): void;
   /** A map of Your maps, open or not: its .timber downloaded; renamed (null, or why not); maps deleted (asked once). */
   onDownloadMap(id: string): void;
   onRenameMap(id: string, name: string): Promise<string | null>;
