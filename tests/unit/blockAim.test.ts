@@ -92,7 +92,7 @@ describe("the block a pointer is on", () => {
     expect(blockAim(noRun)).toBeNull();
   });
 
-  it("under a layer cut, the cut's cap is no top to aim at, and walls, undersides and tops below it still are", () => {
+  it("under a layer cut, the cut's cap is the block under it for Remove and nothing for Add, and walls, undersides and tops below it aim as without one", () => {
     const flat = terrains[3][1]; // level 4 everywhere
     const mask = (i: number) => columnMask(flat, i);
     const down: Ray = { origin: [4.5, 10, -4.5], direction: [0, -1, 0] };
@@ -100,6 +100,13 @@ describe("the block a pointer is on", () => {
     const cap = pickTerrain(down, W, H, mask, { cut: 2 })!;
     expect([cap.face, cap.level]).toEqual(["top", 2]);
     expect(blockAim(cap, 2)).toBeNull();
+    expect(blockAim(cap, 2, "add")).toBeNull();
+    // (Remove takes the block just under the cut, which is seen)
+    expect(blockAim(cap, 2, "remove")).toEqual({ at: [4, 4, 1], side: "+z" });
+    // a real top exactly at the cut: the same (an add would fill the hidden layer 4; Remove takes layer 3)
+    const atCut = pickTerrain(down, W, H, mask, { cut: 4 })!;
+    expect(blockAim(atCut, 4, "add")).toBeNull();
+    expect(blockAim(atCut, 4, "remove")).toEqual({ at: [4, 4, 3], side: "+z" });
     // (cut at 5: above the ground, a real top at level 4 has layer 4 visible above it)
     expect(blockAim(pickTerrain(down, W, H, mask, { cut: 5 }), 5)).toEqual({ at: [4, 4, 3], side: "+z" });
     expect(blockAim(pickTerrain(down, W, H, mask), null)).toEqual({ at: [4, 4, 3], side: "+z" });

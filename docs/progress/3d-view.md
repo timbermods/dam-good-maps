@@ -140,9 +140,9 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   y + 1, −Z in world space), `-y` south. Null for no hit (sky, off the map), a hit with no run, and the map's floor under
   air (layer 0 is a block only where the ground holds one). Tested on caves, overhangs and a floating run: a ray at every
   exposed face of every block gives that block and side. **Only right on a hit of the voxel pick (`pickSeen`), so the page
-  registers the Block tool with `voxel: true`.** Under a layer cut, `blockAim(hit, cut)` gives null for a top whose run
-  reaches the cut (the cut's cap, or a real top at the cut: an add there would fill the hidden layer `cut`); walls,
-  undersides and tops below it aim as usual.
+  registers the Block tool with `voxel: true`.** Under a layer cut, `blockAim(hit, cut, mode)` treats a top whose run
+  reaches the cut (the cut's cap, or a real top at the cut) as the block at layer `cut − 1`, which is seen: Remove
+  takes it, and Add gets null (it would fill the hidden layer `cut`); walls, undersides and tops below it aim as usual.
 - **`renderer.showBlocks({added, removed, falls} | null)`** (`blockGhost.ts` `BlockCells`): the cells `blockFalls` lists,
   one instanced mesh per kind, each block with its edges. Colours (D335, a refused action shows the blocks that would fall
   in red): falls solid red; while any fall, `added` and `removed` are drawn muted grey, since they will not happen;
