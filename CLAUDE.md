@@ -69,7 +69,9 @@ maps the documents.
   build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
 - **An owning session judges, a different session merges (D484):** never approve or merge your own PR. Post "ready to
   merge" on #236 with your verdict comment and captures on the PR (and an independent reviewer agent's pass for a look or
-  interaction change); the planning session checks those and green CI, then merges. The milestone session's own PRs get a
+  interaction change); the planning session checks those and the PR's quick checks (typecheck, quick suite, build),
+  then merges. The browser specs and the heavier suites run on dev's tip after the merge, and nightly; a failure there
+  is fixed forward at once by whoever's merge broke it. No full run by hand except for a release (Kyler, 2026-10-15). The milestone session's own PRs get a
   fresh sub-agent's review first; the planning session's own PRs are merged by the milestone session after a fresh
   sub-agent's review.
 - **Labels on your own PRs:** `hold` (never merge). `needs-kyler` holds only design questions and the things only Kyler's

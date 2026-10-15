@@ -149,17 +149,17 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   expect((await objects()).length).toBeGreaterThan(20);
 });
 
-test("one bar at the bottom: Select, the five brushes, a hairline, the forces in their clusters' order (D352), and the held tool's settings directly above it (Layout 2, structure only)", async ({ page }) => {
+test("one bar at the bottom: Select, the five brushes, Block, a hairline, the forces in their clusters' order (D352), and the held tool's settings directly above it (Layout 2, structure only)", async ({ page }) => {
   await openTopDown(page);
   await page.keyboard.press("2");
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
-  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Block", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
   expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
   // the hairline between the tools and the forces
-  const naturalize = await box(tools.getByRole("button", { name: /^Naturalize/ }));
+  const naturalize = await box(tools.getByRole("button", { name: /^Block/ }));
   const carve = await box(tools.getByRole("button", { name: /^Carve/ }));
   const sep = await box(page.locator(".tool-bar .tool-sep"));
   expect(sep.x).toBeGreaterThan(naturalize.x + naturalize.width);

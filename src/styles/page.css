@@ -1033,18 +1033,18 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (six tools, the hairline, seven forces). Every cell one width, 76px
+   on a grid whose columns are the bar's cells (seven tools, the hairline, seven forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
    the left and the objects menu at the right (each 190px with its gap); the dock on whole pixels. */
 /* (on the view: the readout keeps left of the dock with them) */
 .editor-view {
   --cell: 76px;
-  /* the hairline, the 13 gaps between the 14 columns and the bar's padding */
-  --dock-w: calc(13 * var(--cell) + 48px);
+  /* the hairline, the 14 gaps between the 15 columns and the bar's padding */
+  --dock-w: calc(14 * var(--cell) + 50px);
 }
 
 .tool-dock {
-  --cells: repeat(6, var(--cell)) 14px repeat(7, var(--cell));
+  --cells: repeat(7, var(--cell)) 14px repeat(7, var(--cell));
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -1060,7 +1060,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(62px, round(down, calc((100vw - 428px) / 13), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 430px) / 14), 1px), 76px);
   }
 
   .tool-dock {
@@ -1086,7 +1086,7 @@
   justify-content: center;
   gap: 4px;
   height: 54px;
-  padding: 4px 2px;
+  padding: 4px 1px;
 }
 
 .tool-bar button.icon-button svg {
@@ -1099,6 +1099,8 @@
   padding: 0;
   font-size: 0.8rem;
   line-height: 1.1;
+  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
+  letter-spacing: -0.015em;
   white-space: nowrap;
 }
 
@@ -1358,10 +1360,11 @@
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each, icon above its name, the group's full height */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
+   the last two, its word being the longest */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1376,6 +1379,10 @@
   margin: 0;
   padding: 2px;
   border-radius: 6px;
+}
+
+.set-group > .segmented.shapes > button.whole-map {
+  grid-column: span 2;
 }
 
 .set-group > .segmented.shapes > button .icon-word {
