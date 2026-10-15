@@ -22,6 +22,7 @@ test("Keyboard shortcuts lists the keys, ? opens it, Esc and Close close it, and
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("dt", { hasText: "Carve: a river" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
+  await expect(dialog.locator("dt", { hasText: "Mark an area that brushes and forces stay inside" }).locator("xpath=following-sibling::dd")).toHaveText("Ctrl+drag");
   await expect(dialog.locator("dt", { hasText: /^Raise$/ }).locator("xpath=following-sibling::dd")).toHaveText("2");
   // (a key pressed while it shows picks no tool)
   await page.keyboard.press("2");
@@ -40,6 +41,8 @@ test("Help opens from the File menu and closes", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Help" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("link", { name: /installing a map/ })).toHaveAttribute("href", /#install-a-map$/);
+  // (a selection keeps the brushes and forces inside it: said here and on the shortcuts sheet)
+  await expect(dialog.getByText("Select an area first, and the brushes and forces stay inside it.")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });

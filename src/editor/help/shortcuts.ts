@@ -71,6 +71,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
         { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },
+        { what: "Mark an area that brushes and forces stay inside", keys: ["Ctrl+drag"] },
         { what: "Add to the selection", keys: ["Shift+drag"] },
         { what: "Take from the selection", keys: ["Alt+drag"] },
         { what: "Hide the levels above a layer", keys: ["Alt+scroll"] },
