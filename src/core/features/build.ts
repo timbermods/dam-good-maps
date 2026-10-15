@@ -19,7 +19,7 @@ import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHig
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
-import { gameSoil } from "../sim/soil";
+import { gameSoil, type Soil } from "../sim/soil";
 import { fedTiles } from "../sim/fed";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
 import { previewSettle, staleWater } from "../sim/preview";
@@ -292,6 +292,13 @@ export function toMapObject(e: EntitySpec): MapObject {
 
 /** The water model of a map's ground and objects (a force's map, the build's base). */
 export const modelOf = (m: { W: number; H: number; heights: Uint8Array; entities: readonly EntitySpec[] }): WaterModel => waterModel(m.W, m.H, m.heights, m.entities.map(toMapObject));
+
+/** The soil of a map's ground and objects on any water (a held weather day's, D342): the very rules the map's
+ *  own soil is built with (`gameSoil`: the game's, Thorns and soil per run top), so on the map's own water it is
+ *  the map's own soil tile for tile. About one pass over the map; the caller keeps it off the interactive path. */
+export function soilOnWater(m: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[] }, depth: ArrayLike<number>, contamination: ArrayLike<number>): Soil {
+  return gameSoil(m.W, m.H, m.heights, depth, contamination, m.entities.map(toMapObject));
+}
 
 // ----------------------------------------------------------------------------------------- caches
 
