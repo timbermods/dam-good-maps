@@ -325,7 +325,7 @@ const OBJECT_NAMES: Record<string, string> = {
   Birch: "birch",
   Oak: "oak",
   Succulent: "succulent",
-  BlueberryBush: "blueberry bush",
+  BlueberryBush: "berry bush",
   Slope: "slope",
   WaterSource: "water source",
   BadwaterSource: "badwater source",
@@ -386,7 +386,7 @@ export function describeTile(c: TileContext, x: number, y: number): string {
   if (here?.length) {
     // the objects on the tile, unless the area already says it all (a living tree in a forest)
     const names = [...new Set(here.map((k) => objectName(c.entities.templates[c.entities.template[k]], c.entities.flags[k])))];
-    const plain = /^(pine|birch|oak|succulent|blueberry bush)$/;
+    const plain = /^(pine|birch|oak|succulent|berry bush)$/;
     if (!(area && names.length === 1 && plain.test(names[0]))) parts.push(...names.slice(0, 2));
   }
   const text = parts.join(", ");

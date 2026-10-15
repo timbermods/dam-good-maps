@@ -18,6 +18,8 @@ export interface PlanSummary {
   kind: 'smoke' | 'batch';
   /** Played with the installed mods (no settings changed). */
   keepMods?: boolean;
+  /** A companion run (runner/companion.ts): the companion mod is checked in the game, beside DGM Probe. */
+  companion?: boolean;
 }
 
 const pendingFile = () => join(probePaths().runner, 'pending-consent.json');
@@ -25,20 +27,28 @@ const pendingFile = () => join(probePaths().runner, 'pending-consent.json');
 export function planHash(plan: PlanSummary): string {
   // (the maps written count by their bytes, not by whether this run or an earlier one wrote them)
   const written = (plan.written ?? []).map((g) => ({ group: g.group, files: g.files.map((f) => [f.file, f.size, f.sha256]) }));
-  return createHash('sha256').update(JSON.stringify(plan.maps)).update(written.length ? JSON.stringify(written) : '').update(plan.kind).update(plan.keepMods ? 'keep-mods' : 'probe-only').digest('hex').slice(0, 16);
+  return createHash('sha256').update(JSON.stringify(plan.maps)).update(written.length ? JSON.stringify(written) : '').update(plan.kind).update(plan.keepMods ? 'keep-mods' : 'probe-only').update(plan.companion ? 'companion' : '').digest('hex').slice(0, 16);
 }
 
 export function describe(plan: PlanSummary): string {
   const lines = [
-    plan.keepMods
+    plan.companion
+      ? plan.keepMods
+        ? `This run LAUNCHES TIMBERBORN through Steam, once per check below, with your installed mods and the companion mod beside DGM Probe. It changes none of your settings, and both leave your Mods folder afterwards.`
+        : `This run LAUNCHES TIMBERBORN through Steam, once per check below. Only the companion mod and DGM Probe are on during the run: your other mods are switched off and your settings are put back exactly afterwards.`
+      : plan.keepMods
       ? `This run LAUNCHES TIMBERBORN through Steam, with your installed mods (each result records which loaded). It changes none of your settings, and DGM Probe leaves your Mods folder afterwards.`
       : `This run LAUNCHES TIMBERBORN through Steam. Only the DGM Probe mod is on during the run: your other mods are switched off and your settings are put back exactly afterwards.`,
-    `${plan.kind === 'smoke' ? 'Smoke run' : 'Full batch'}: ${plan.maps.length} map${plan.maps.length === 1 ? '' : 's'}, about ${plan.estimateMinutes} minutes.`,
+    plan.companion ? `Companion check: ${plan.maps.length} launch${plan.maps.length === 1 ? '' : 'es'}, about ${plan.estimateMinutes} minutes.` : `${plan.kind === 'smoke' ? 'Smoke run' : 'Full batch'}: ${plan.maps.length} map${plan.maps.length === 1 ? '' : 's'}, about ${plan.estimateMinutes} minutes.`,
   ];
-  for (const m of plan.maps) lines.push(`  - ${m.title} (${m.days} game days): ${m.checks.join(', ') || 'screenshots and records only'}`);
+  for (const m of plan.maps) lines.push(`  - ${m.title}${plan.companion ? '' : ` (${m.days} game days)`}: ${m.checks.join(', ') || 'screenshots and records only'}`);
   for (const g of plan.written ?? []) {
     const n = g.files.filter((f) => f.status === 'written').length;
-    lines.push(`Maps written for this plan by the ${g.group} writer, in ${g.dir} (${n ? `${n} written now, the rest already current` : 'all already current'}):`);
+    lines.push(
+      plan.companion
+        ? `Maps the run writes into the companion test's scratch Maps folder, under ${g.dir} (never Documents\\Timberborn\\Maps):`
+        : `Maps written for this plan by the ${g.group} writer, in ${g.dir} (${n ? `${n} written now, the rest already current` : 'all already current'}):`,
+    );
     for (const f of g.files) lines.push(`  - ${f.file}  ${f.size[0]}×${f.size[1]}  ${(f.bytes / 1024).toFixed(0)} KB  sha256 ${f.sha256}`);
   }
   lines.push(plan.keepMods ? `It never runs if Timberborn is already open, and cleans up its logs and saves afterwards.` : `It never runs if Timberborn is already open, and puts back your settings, logs and saves afterwards.`);

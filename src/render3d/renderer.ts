@@ -407,6 +407,8 @@ export class MapRenderer {
   private drawnObjects: EntityView | null = null;
   private witheredCount = 0;
   private casterTimer = 0;
+  /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
+  private season: { hazard: "drought" | "badtide"; own: SoilView } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -872,6 +874,7 @@ export class MapRenderer {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
           this.applyWithered();
+          this.applySeason();
         }
       }
     }
@@ -1189,6 +1192,7 @@ export class MapRenderer {
     this.withered = null;
     this.drawnObjects = null;
     this.witheredCount = 0;
+    this.season = null;
     this.droughtLayer?.clear();
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
@@ -1690,8 +1694,29 @@ export class MapRenderer {
     m.soil = soil;
     this.bakeTiles();
     this.syncRunSoil();
+    this.applySeason();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** A drought or a badtide is held (null: none), with the map's own soil: the High look draws its dry ground and straw, heat
+   *  shimmer and sky from the day's soil and water (`high/seasons.ts`); Standard stays as it is. */
+  setSeason(hazard: "drought" | "badtide" | null, own: SoilView | null): void {
+    this.season = hazard && own ? { hazard, own } : null;
+    this.applySeason();
+  }
+
+  /** What the seasons draw now, or all zero (Standard, or no day held): the tests read it. */
+  get seasonLook(): { dry: number; heat: number; sickly: number } {
+    return this.high?.seasonNow ?? { dry: 0, heat: 0, sickly: 0 };
+  }
+
+  private applySeason(): void {
+    const m = this.map;
+    const s = this.season;
+    if (!this.high) return;
+    if (!m || !s || !m.soil || m.soil.moisture.length !== s.own.moisture.length) return this.high.setSeason(null, null);
+    this.high.setSeason(s.hazard, { W: m.W, H: m.H, own: s.own, day: m.soil, depth: m.surface.depth, contamination: m.surface.contamination });
   }
 
   /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or

@@ -56,6 +56,9 @@ declare global {
       sourceGlow(): number[];
       /** The Select tool's selection (the working area while it is open, D259), its tiles. */
       selection(): number[];
+      /** The Block tool (D335): whether it is in hand, a drag in progress, its settings, the preview `blockFalls` last gave
+       *  for the face under the pointer and the refusal shown beside it. */
+      block(): { held: boolean; dragging: boolean; settings: { size: number; shape: "square" | "round"; mode: "add" | "remove" }; preview: { reason: string | null; errors: string[]; added: [number, number, number][]; removed: [number, number, number][]; falls: [number, number, number][] } | null; note: string | null };
       /** The water's pace after an edit (tests only: the page always plays it at Normal). */
       waterSpeed(speed: "slower" | "normal" | "faster" | "instant"): void;
       waterSettled(): boolean;

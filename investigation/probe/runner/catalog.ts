@@ -746,7 +746,7 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
     ], 'Normal', (m) => [...weirTiles(m), ...startWater(m).slice(0, 4)]),
   );
   games.push(
-    m9aGame('m9a-rise', 'Highlands 128², ruins on a rise (the first seed with one)', () => firstGenerated((seed) => `s=${seed}&t=highlands&z=128&d=n`, (r) => r.features.some((f) => f.kind === 'setPiece' && f.params.kind === 'obstaclePayoff')), [M9A_BADWATER]),
+    m9aGame('m9a-rise', 'River Valley 128², ruins on a rise (the first seed with one)', () => firstGenerated((seed) => `s=${seed}&t=riverValley&z=128&d=n`, (r) => r.features.some((f) => f.kind === 'setPiece' && f.params.kind === 'obstaclePayoff')), [M9A_BADWATER]),
   );
   // a tall map (Verticality 85: land above 16, D172), a calm day and a half like the tall maps
   games.push({

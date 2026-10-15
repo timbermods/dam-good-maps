@@ -519,6 +519,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
    *  Lower and Flatten, whose target level is theirs); a force's Size set so is off Auto. False when no
    *  tool takes it. */
   function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
+    // the Block tool: { and } its Size (it has no strength)
+    if (ed.blockRef.current) return ed.blockStep(habit, ev);
     const forcePicked = ed.toolRef.current;
     const brushTool = brushToolRef.current;
     // a tree, bush or thorn in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer

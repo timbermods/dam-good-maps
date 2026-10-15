@@ -61,7 +61,7 @@ test("the start: its footprint and what is nearby while it is dragged; on the sh
     .toEqual([door % W, Math.floor(door / W)]);
   await page.mouse.click(pd.x, pd.y);
   await idle(page);
-  expect((await info(page)).history.at(-1)!.label).toBe("Place thorns");
+  expect((await info(page)).history.at(-1)!.label).toBe("Place a thorn");
   // the quiet dot turns amber with it; its list shows what this edit made, and the fix
   const dot = page.getByRole("button", { name: /^Checks: \d+ things? to look at/ });
   await expect(dot).toBeVisible({ timeout: 30_000 });
