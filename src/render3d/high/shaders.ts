@@ -9,9 +9,11 @@
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
 //   section), the water's finish (a continuous crown, an irregular landing, bubbly froth, rough
-//   water), the landmarks' fine detail and slopes' natural material. Stage 4's seasons wait (D286
-//   (4)); its dark stain on contaminated soil is superseded by D334 (contamination's orange-red veins,
-//   the game's own, in every look: materials.ts `veinsOf`).
+//   water), the landmarks' fine detail and slopes' natural material; and stage 4's seasons on a held
+//   Drought or Badtide day (D250, D286 (4); render3d/high/seasons.ts): pale dusty dry ground with straw
+//   where grass was, a heat shimmer over it, and a faint sickly sky in a badtide. Its dark stain on
+//   contaminated soil is superseded by D334 (contamination's orange-red veins, the game's own, in every
+//   look: materials.ts `veinsOf`).
 // - Timberborn's references (D334, investigation/high-soul, adopted with the High look): exposure
 //   1.00 and a restrained grade, a lower ambient-occlusion floor, olive stone, current-aligned
 //   caustics and rolling light on moving water, pink highlights and red contact at rock on
@@ -124,6 +126,25 @@ const SHADOW_GLSL = /* glsl */ `
     }
     return lit;
   }
+  /** The soft shadow at a point on open ground facing up (a cave's roof line, seen from inside). */
+  float hlSunAt(vec3 world) {
+    vec4 p = hlShadowMatrix * vec4(world + vec3(0.0, 0.045, 0.0), 1.0);
+    vec3 q = p.xyz / p.w * 0.5 + 0.5;
+    if (any(lessThan(q, vec3(0.0))) || any(greaterThan(q, vec3(1.0)))) return 1.0;
+    // (sunLit's receiver-plane bias, for the level plane: its derivatives are the matrix's own columns)
+    vec3 dx = (hlShadowMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz * 0.5;
+    vec3 dy = (hlShadowMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz * 0.5;
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    vec2 gradient = abs(determinant) > 1e-10 ? vec2(dy.y * dx.z - dx.y * dy.z, dx.x * dy.z - dy.x * dx.z) / determinant : vec2(0.0);
+    gradient = clamp(gradient, vec2(-2.0), vec2(2.0));
+    float bias = 0.00006 + dot(abs(gradient), vec2(hlTexel)) * 0.7;
+    float light = 0.0;
+    for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
+      vec2 offset = vec2(float(x), float(y)) * hlTexel * 0.8;
+      light += step(q.z + dot(gradient, offset) - bias, textureLod(hlDepth, q.xy + offset, 0.0).r);
+    }
+    return light / 25.0;
+  }
 `;
 
 /** Ambient occlusion (#65): the map's horizons at four radii in eight directions and the trees' and
@@ -162,6 +183,10 @@ function lit(names: readonly Switch[], more = ""): ShaderHooks {
   };
 }
 
+/** Objects and falls under a roof: the soft shadow of the real meshes, the roof included (off: the light volume's
+ *  sun). */
+const ROOFED_SUN = "(hlShadows > 0.5 ? lit : cave.y)";
+
 // ------------------------------------------------------------------------------------ the terrain
 
 export function terrainHooks(): ShaderHooks {
@@ -169,14 +194,59 @@ export function terrainHooks(): ShaderHooks {
     ...lit(["hlAO", "hlStrata", "hlBlend", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], AMBIENT_GLSL + /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
+  uniform sampler2D hlSeasonMask;
+  uniform vec2 hlSeasonSize;
+  uniform float hlDry, hlHeat;
 `),
+    // the seasons (#67 stage 4): the held day's mask (R: dry ground with no water on it, A: grass the map's own soil had),
+    // read at the tile itself, never blended across a moist one. The heat shimmer moves the ground's own pattern by under
+    // half a pixel over dry ground (no pass of its own: D334's crisp map); its waves run in screen space, so they never
+    // alias however many tiles a pixel spans, and the pixel size is taken outside the branch (derivatives need every
+    // pixel of a quad)
+    groundStart: /* glsl */ `
+        vec2 gTile = g;
+        if (hlHeat > 0.5) {
+          float px = max(fwidth(g.x), fwidth(g.y));
+          vec4 shim = texture2D(hlSeasonMask, (floor(g) + 0.5) / hlSeasonSize);
+          if (shim.r > 0.5) {
+            vec2 sp = gl_FragCoord.xy;
+            g += vec2(sin(sp.y * 0.9 + time * 1.1) * sin(sp.x * 0.35 - time * 0.73), sin(sp.x * 0.8 - time * 1.3) * sin(sp.y * 0.4 + time * 0.9)) * px * 0.45;
+          }
+        }
+`,
     skyLight: "ambientVisibility(vWorld, n) * ",
+    // under a roof, the soft shadow of the real meshes, the roof included, as on the ground before it
+    // (off: the march through the light volume)
+    caveSun: "hlShadows > 0.5 ? sunHere : caveSunMarch(vWorld, n, cave.y)",
+    // under a roof, the occlusion of the open ground at the roof line its light comes in by, never more
+    // than here
+    caveSunOpen: "hlShadows > 0.5 ? hlSunAt(mouth.xyz) : sunLit(vec2(mouth.x, -mouth.z), mouth.y)",
+    caveSky: /* glsl */ `
+        if (hlAO > 0.5) {
+          float av = ambientVisibility(vWorld, n);
+          if (mouth.w > 0.5) av = min(av, ambientVisibility(mouth.xyz, vec3(0.0, 1.0, 0.0)));
+          sky *= av;
+        }`,
     // soil edges (#65): a slightly wider blend where grass meets earth and where contamination ends (still
     // crisp at the tile's edge, since the soil weights themselves are: D324's follow-up)
     moist: "hlBlend > 0.5 ? smoothstep(0.36, 0.64, s.x + edge) : smoothstep(0.42, 0.58, s.x + edge)",
     bad: "hlBlend > 0.5 ? smoothstep(0.34, 0.66, s.z + edge * 0.6) : smoothstep(0.4, 0.6, s.z + edge * 0.6)",
     // colour variation (#65): two broad world scales on the ground's colour, not its soil
     groundVariation: /* glsl */ `
+        // pale dusty earth over dry ground (the seasons, #67 stage 4), its cracks kept, straw where grass stood: laid on the
+        // ground's own colour, before contamination's veins are, so the veins keep all their strength (D334)
+        if (hlDry > 0.5) {
+          vec4 season = texture2D(hlSeasonMask, (floor(gTile) + 0.5) / hlSeasonSize);
+          if (season.r > 0.5) {
+            float wear = vnoise(gTile * 0.61 + vec2(7.7, 19.3));
+            float splits = cracks(gTile * 1.41 + 29.3).x;
+            vec3 earth = mix(vec3(0.48, 0.455, 0.415), vec3(0.61, 0.575, 0.50), wear);
+            earth *= 1.0 - splits * 0.25 * detail;
+            float blades = smoothstep(0.69, 0.86, vnoise(gTile * vec2(29.1, 8.7) + vec2(4.7, 9.2)));
+            earth = mix(earth, vec3(0.67, 0.62, 0.43), season.a * (0.22 + blades * 0.35));
+            c = mix(c, earth, 0.66 * (1.0 - bad * 0.5));
+          }
+        }
         if (hlVariation > 0.5) {
           float broad = vnoise(g * 0.043 + vec2(12.0, 33.0)) - 0.5;
           float mottling = vnoise(g * 0.317 + vec2(21.0, 8.0)) - 0.5;
@@ -462,6 +532,7 @@ const BUBBLES_GLSL = /* glsl */ `
 export function fallHooks(): ShaderHooks {
   return {
     ...lit(["hlWater", "hlCrown", "hlLanding", "hlBubbles"], BUBBLES_GLSL + HIGH_WATER_GLSL),
+    roofedSun: ROOFED_SUN,
     // D324: the fall's tone (teal first, white in streaks and at the landing) is in the shared shader; High
     // gives the sheet its own water teal
     fallBody: "(hlWater > 0.5 ? waterBlend(HW_SHALLOW * 1.06, FALL_BAD, cont) : waterBlend(WATER_SHALLOW, badwaterBody(0.25), cont))",
@@ -506,7 +577,7 @@ export function fallHooks(): ShaderHooks {
 // ---------------------------------------------------------------------------------------- objects
 
 export function objectHooks(): ShaderHooks {
-  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * " };
+  return { ...lit(["hlAO"], AMBIENT_GLSL), skyLight: "ambientVisibility(vWorld, n) * ", roofedSun: ROOFED_SUN };
 }
 
 /** The landmarks (#67 stage 3): the High object material with a fine grain and patina close up. */
@@ -514,6 +585,7 @@ export function landmarkHooks(): ShaderHooks {
   return {
     ...lit(["hlAO", "hlObjectDetail"], AMBIENT_GLSL + "\n  varying vec3 hlLocal;"),
     skyLight: "ambientVisibility(vWorld, n) * ",
+    roofedSun: ROOFED_SUN,
     objectVertexDecl: "\n      varying vec3 hlLocal;",
     objectVertex: "        hlLocal = position;\n",
     objectFinal: /* glsl */ `(hlObjectDetail > 0.5 ? vColor * (1.0 + (vnoise(hlLocal.xz * 31.7 + hlLocal.y * vec2(1.3, 19.1)) - 0.5) * 0.12 * (1.0 - smoothstep(0.025, 0.11, max(fwidth(vWorld.x), fwidth(vWorld.y)))) + (vnoise(hlLocal.xz * 5.7 + hlLocal.y * vec2(7.3, 3.1)) - 0.5) * 0.07) : vColor) * light`,
@@ -582,7 +654,7 @@ export function vegetationHooks(slots: number): ShaderHooks {
  *  glow toward the sun instead of a disc; graded like the land. */
 export function skyHooks(): ShaderHooks {
   return {
-    decl: switches(["hlSky", "hlTone", "hlGrade"]) + GRADE_GLSL,
+    decl: switches(["hlSky", "hlTone", "hlGrade"]) + "\n  uniform float hlSickly;" + GRADE_GLSL,
     sky: /* glsl */ `
         if (hlSky > 0.5) {
           float horizon = exp(-abs(d.y) * 5.5);
@@ -596,6 +668,8 @@ export function skyHooks(): ShaderHooks {
           float sun = pow(max(dot(d, normalize(vec3(-0.45, 0.77, -0.45))), 0.0), 24.0);
           c += vec3(0.11, 0.075, 0.028) * sun;
         }
+        // a badtide's sky (#67 stage 4): slightly sickly
+        c = mix(c, vec3(0.66, 0.72, 0.46), hlSickly);
         if (hlTone > 0.5 || hlGrade > 0.5) c = hlGradeColour(c);`,
   };
 }

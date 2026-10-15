@@ -68,6 +68,17 @@
   text-overflow: clip;
 }
 
+/* the shown name never takes more than two lines: past them an ellipsis, and the full name in its tooltip (a name may
+   be longer than the room where the fonts are wide) */
+.editor-title.two-lines h1:not(.title-editing) .title-button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* (two lines at full size; only when two full-size lines can't hold it, two lines in 13px: Kyler, 2026-10-06; at 1280
    every name Rename allows fits two lines in that) */
 .editor-title.two-lines h1 {
@@ -83,7 +94,7 @@
 /* the Look button one width, its widest state's ("Look: Standard"), whatever it says */
 .look-words {
   display: inline-grid;
-  justify-items: center;
+  justify-items: safe center;
 }
 
 .look-words > * {
@@ -97,7 +108,7 @@
 .editor-title .muted {
   display: block;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -143,7 +154,7 @@
 }
 
 .editor-actions > .icon-button {
-  justify-content: center;
+  justify-content: safe center;
   width: 40px;
   padding: 0;
 }
@@ -207,8 +218,10 @@
   font-size: 0.85rem;
 }
 
-.your-maps button.ym-tile:hover {
-  background: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  .your-maps button.ym-tile:hover {
+    background: var(--bg);
+  }
 }
 
 .ym-pic {
@@ -249,6 +262,27 @@
   text-overflow: ellipsis;
 }
 
+/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+.ym-from {
+  display: block;
+  min-width: 0;
+  overflow: clip;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.your-maps li {
+  display: flex;
+}
+
+.your-maps li > .ym-tile {
+  flex: 1;
+  width: auto;
+}
+
 .ym-size {
   flex: none;
   color: var(--muted);
@@ -285,7 +319,7 @@
   color: inherit;
   font: inherit;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
   cursor: text;
 }
@@ -343,14 +377,112 @@
    panels' room, scrolling inside past it; nothing moves when it opens */
 .gen.history-panel {
   width: 640px;
-  padding: 12px;
+  box-sizing: border-box;
+  padding: 10px;
   border: 1px solid var(--rule);
+}
+
+/* its steps are rows, as the panels' other lists are: the one the map is at selected, steps undone dimmed and struck
+   through (a click on any goes back or forward to it) */
+.history-panel .hist-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-panel .hist-sub {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* a step's row, and beside it Keep this version and Branch from here: shown on the row pointed at, focused, or the map is
+   at, so the list stays quiet; the row gives them room, never moving */
+.history-panel .hist-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-panel .hist-item > .hist-row {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.history-panel .hist-acts {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.history-panel .hist-item:focus-within .hist-acts,
+.history-panel .hist-item:has(> .hist-row[aria-current="true"]) .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .history-panel .hist-item:hover .hist-acts {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.history-panel .hist-act {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.history-panel .hist-row {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  overflow: clip;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.history-panel .hist-row[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.history-panel .hist-row.undone {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.history-panel .orphan {
+  margin: 2px 0 0 10px;
+}
+
+/* (the close × is a square the height of the heading row) */
+.history-panel .hist-close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
    Legend is ticked, its left edge on the column's, down to 8px above the minimap at most */
 /* the Show toggles in one row at the top left, below the header (Kyler, 2026-10-04): the toggle look, narrower, the
-   names in full; at 1920×1080 the row ends well short of the water row (a map with roofs adds Under roofs) */
+   names in full; at 1920×1080 the row ends well short of the water row (a map with caves adds Caves and overhangs after Badwater, and the water row may take a second line) */
 .editor-view .view3d-controls.show-bar {
   position: absolute;
   z-index: 2;
@@ -424,7 +556,8 @@
 
 /* the row is never lit; its box is (Timberborn's settings' checkbox: a 1.5px quiet border, 3px corners; ticked, the
    mint with a dark tick) */
-.show-row .cb {
+.show-row .cb,
+.look-part .cb {
   flex: none;
   display: grid;
   place-items: center;
@@ -435,13 +568,15 @@
   border-radius: 3px;
 }
 
-.show-row .cb.on {
+.show-row .cb.on,
+.look-part .cb.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
-.show-row .cb svg {
+.show-row .cb svg,
+.look-part .cb svg {
   width: 12px;
   height: 12px;
 }
@@ -508,7 +643,7 @@
   --legend-row: 17px;
   flex: none;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
   box-sizing: border-box;
   width: 190px;
   padding: 6px 8px;
@@ -534,6 +669,17 @@
   gap: 7px;
   line-height: var(--legend-row);
   white-space: nowrap;
+}
+
+/* Heights' own line: the map's lowest and highest level under the ramp (as the folded key says them) */
+.legend-panel.in-column .height-ends {
+  display: flex;
+  justify-content: space-between;
+  height: var(--legend-row);
+  padding: 0 4px;
+  line-height: var(--legend-row);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .legend-panel.in-column .swatch {
@@ -667,7 +813,7 @@
   height: var(--corner-h);
   padding: 0;
   display: inline-grid;
-  place-items: center;
+  place-items: safe center;
   border-radius: 8px;
   background: var(--overlay);
   box-shadow: var(--shadow);
@@ -699,10 +845,26 @@
   right: 10px;
   bottom: 10px;
   z-index: 2;
-  width: 166px;
+  width: 180px;
+  max-height: var(--dock-max, none);
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* (a window too short for the list and the picked object's window: the list scrolls, the window stays whole) */
+.objects-dock > .object-window {
+  flex: none;
+}
+
+.objects-dock > .objects-menu {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* a thin scrollbar, its room kept whether or not the list scrolls, so no name runs under it */
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .object-window,
@@ -726,9 +888,10 @@
   flex-direction: row;
   justify-content: flex-start;
   gap: 8px;
+  position: relative;
   width: 100%;
   height: 30px;
-  padding: 1px 12px 1px 4px;
+  padding: 1px 4px 1px 4px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -749,19 +912,39 @@
   white-space: nowrap;
 }
 
-.objects-menu .shelf-item:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .objects-menu .shelf-item:hover {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
 }
 
 /* the list's title (Kyler, 2026-10-06): "Items", bold, in the items' own type, one row of their height and one gap above
    them, its words at the names' inset (the row's 4px, the picture's 28px and the 8px gap) */
 .objects-menu .shelf-title {
-  height: 30px;
-  margin: 0 0 2px;
-  padding-left: 40px;
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  background: var(--panel);
+  box-sizing: border-box;
+  /* (up into the list's own padding, so rows scrolling under it never show above it) */
+  height: 36px;
+  margin: -6px 0 2px;
+  padding: 6px 0 0 40px;
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 30px;
+}
+
+/* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the gap above
+   each one's first row: no extra height */
+.objects-menu .shelf-item.shelf-first::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--rule);
 }
 
 /* picked: its row lit in the mint, as the bar lights a tool */
@@ -795,9 +978,30 @@
   min-height: 30px;
 }
 
+.ow-name {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+}
+
+/* a number's value at the right of its name, as the bar's settings say it */
+.ow-value {
+  flex: none;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ow-head .ow-close {
+  margin-left: 6px;
+}
+
 .ow-close {
   flex: none;
-  padding: 0 2px;
+  width: 16px;
+  padding: 0;
+  text-align: center;
   line-height: 15px;
   font-size: 1rem;
 }
@@ -863,18 +1067,18 @@
 }
 
 /* ---- bottom middle: one bar, centred in the map area; the held tool's settings directly above it at its exact width,
-   on a grid whose columns are the bar's cells (six tools, the hairline, seven forces). Every cell one width, 76px
+   on a grid whose columns are the bar's cells (seven tools, the hairline, eight forces). Every cell one width, 76px
    where the map area has room; narrower, in whole pixels, where it hasn't, so the bar stays clear of the minimap at
-   the left and the objects menu at the right (each 190px with its gap); the dock on whole pixels. */
+   the left and the objects menu at the right (each 196px with its gap); the dock on whole pixels. */
 /* (on the view: the readout keeps left of the dock with them) */
 .editor-view {
   --cell: 76px;
-  /* the hairline, the 13 gaps between the 14 columns and the bar's padding */
-  --dock-w: calc(13 * var(--cell) + 48px);
+  /* the hairline, the 15 gaps between the 16 columns and the bar's padding */
+  --dock-w: calc(15 * var(--cell) + 52px);
 }
 
 .tool-dock {
-  --cells: repeat(6, var(--cell)) 14px repeat(7, var(--cell));
+  --cells: repeat(7, var(--cell)) 14px repeat(8, var(--cell));
   position: absolute;
   z-index: 2;
   bottom: 10px;
@@ -890,7 +1094,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(62px, round(down, calc((100vw - 428px) / 13), 1px), 76px);
+    --cell: clamp(56px, round(down, calc((100vw - 442px) / 15), 1px), 76px);
   }
 
   .tool-dock {
@@ -912,11 +1116,11 @@
 .tool-bar button.icon-button {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   gap: 4px;
   height: 54px;
-  padding: 4px 2px;
+  padding: 4px 1px;
 }
 
 .tool-bar button.icon-button svg {
@@ -929,6 +1133,8 @@
   padding: 0;
   font-size: 0.8rem;
   line-height: 1.1;
+  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
+  letter-spacing: -0.015em;
   white-space: nowrap;
 }
 
@@ -970,8 +1176,8 @@
 }
 
 .set-group.centre {
-  justify-content: center;
-  align-items: center;
+  justify-content: safe center;
+  align-items: safe center;
 }
 
 .set {
@@ -1005,7 +1211,7 @@
 
 .set-label {
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
 }
@@ -1136,14 +1342,14 @@
   height: 26px;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .set-seg button {
   flex: 1 1 0;
   min-width: 0;
   margin: 0;
-  padding: 0 4px;
+  padding: 0 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1173,9 +1379,54 @@
 .set-button {
   width: 100%;
   height: 100%;
-  padding: 0 4px;
+  padding: 0 2px;
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* where the bar's cells are narrow (under about 62px, windows up to about 1380px wide), the settings' words are a point
+   smaller, so the longest (Wander, Benches' options, Cut down, Remove unfed water) stay whole */
+@media (max-width: 1380px) {
+  .tool-settings .set-seg button,
+  .tool-settings .set-button {
+    font-size: 12px;
+    padding: 0 1px;
+  }
+
+  .tool-settings .set-label {
+    font-size: 12px;
+  }
+}
+
+/* a long label in two cells (Remove unfed water at 1280, the narrowest cells), as Naturalize's word on the bar */
+.set-button.tight {
+  padding: 0 1px;
+  letter-spacing: -0.015em;
+}
+
+/* Try another keeps its cells whole; with a force's rolls on offer (D488) "2 of 4" sits in its own space just above
+   the panel: the group's top is the panel's padding, a row and the gap below the
+   panel's top (4px + 54px + 4px), and the counter stands 4px clear of it, its right edge on Try another's */
+.set.again {
+  position: relative;
+}
+
+.set.again > .rolls-tab {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 66px);
+  display: flex;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.set.again > .rolls-tab > .set-button.rolls {
+  width: auto;
+  height: 26px;
+  padding: 0 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .set-group.centre .set-button {
@@ -1183,15 +1434,20 @@
 }
 
 .set-words {
+  min-width: 0;
+  max-width: 100%;
+  overflow: clip;
+  text-overflow: ellipsis;
   font-size: 14px;
   color: var(--ink);
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each, icon above its name, the group's full height */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
+   the last two, its word being the longest */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1199,13 +1455,18 @@
 .set-group > .segmented.shapes > button {
   display: flex;
   flex-direction: column;
+  /* (centred, not safe: at 1280 "Rectangle" is 4px wider than its cell, and safe would pin it to the cell's left edge) */
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   gap: 4px;
   height: 100%;
   margin: 0;
   padding: 2px;
   border-radius: 6px;
+}
+
+.set-group > .segmented.shapes > button.whole-map {
+  grid-column: span 2;
 }
 
 .set-group > .segmented.shapes > button .icon-word {
@@ -1331,13 +1592,25 @@
   background: none;
   line-height: 30px;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
 /* a map being made: the page's dialog, one width and height whatever the words, over everything (Kyler, 2026-10-03) */
 .making-backdrop {
   z-index: 20;
+}
+
+/* the message is always above the progress dialog, to read and to dismiss */
+.error.floating {
+  z-index: 21;
+}
+
+/* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
+.loading-frame + .making-backdrop {
+  background: none;
+  place-items: start center;
+  padding-top: calc(50vh + 33px + min(256px, 25vh) + 16px);
 }
 
 .making-dialog {
@@ -1350,7 +1623,7 @@
   min-height: 1.45em;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -1399,7 +1672,7 @@
 /* the object window's settings: each name above its control, the panel's name size and colour */
 .object-window .cell-head {
   height: 16px;
-  overflow: hidden;
+  overflow: clip;
   font-size: 13px;
   line-height: 16px;
   color: color-mix(in srgb, var(--ink) 84%, transparent);
@@ -1447,7 +1720,7 @@
 
 .object-window .cell-body .segmented > button {
   flex: 1 1 0;
-  min-width: 0;
+  min-width: max-content;
   padding-left: 4px;
   padding-right: 4px;
   white-space: nowrap;
@@ -1501,9 +1774,9 @@
 
 /* every dialog centred on the window (the backdrop does that), its buttons centred in it; a dialog of words (a map
    being made, a question such as "Delete <name>?", About) has its words centred too (Kyler, 2026-10-04). The export
-   dialog's lists of checks stay left-aligned, read as lists. */
+   dialog's lists of checks, Help and the shortcuts stay left-aligned, read as lists. */
 .dialog footer {
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .making-dialog,
@@ -1592,8 +1865,8 @@
 
 .size-line .seg-custom {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   border-left: 1px solid var(--rule);
   background: var(--accent);
   color: var(--accent-ink);
@@ -1620,6 +1893,12 @@
   border-bottom: 0;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* a side beyond 256 (D357): the box turns the warning colour, its tooltip says why; nothing moves, nothing is refused */
+.size-line .seg-custom .set-num.over {
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);
 }
 
 /* On this map's heading with Reset settings at its right, the buttons' column's width (Kyler, 2026-10-06) */
@@ -1691,10 +1970,11 @@
   color: var(--muted);
 }
 
-/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them) */
+/* ---- a setting on one line: its name, then its slider and value, or its options (and something small after them); the
+   value column holds "30 bushes" whole (70px) */
 .set.plate.line {
   display: grid;
-  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 52px);
+  grid-template-columns: minmax(max-content, var(--lab, 0px)) minmax(0, 1fr) var(--val, 70px);
   align-items: center;
   column-gap: 8px;
   height: var(--line, 25px);
@@ -1755,8 +2035,8 @@
 /* a toggle beside a field: its word centred in it */
 .set-toggle {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   height: 22px;
   padding: 0 12px;
   font-size: 13px;
@@ -1799,6 +2079,41 @@
 .gen-name .set-text {
   width: 100%;
   font-weight: 700;
+  /* (a name longer than the box ends in "…" until the field is in hand, never cut mid-letter) */
+  text-overflow: ellipsis;
+}
+
+/* an opened file has no generator settings: they read "–", their controls quiet until one is set */
+.gen.blank .set-range,
+.gen.blank .species-mix .mix-bar {
+  opacity: 0.35;
+}
+
+/* (no knobs: they would sit at the Any theme's defaults and read as the file's values) */
+.gen.blank .set-range {
+  --fill: 0% !important;
+}
+
+/* (the species mix, one even colour: no shares to read) */
+.gen.blank .mix-share {
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.gen.blank .set-range::-webkit-slider-thumb {
+  visibility: hidden;
+}
+
+.gen.blank .set-range::-moz-range-thumb {
+  visibility: hidden;
+}
+
+.gen.blank .mix-edge {
+  visibility: hidden;
+}
+
+.gen.blank .set-text::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 /* the species mix: one bar of four shares, dragged at the three edges between them; each share's name and number
@@ -1921,6 +2236,7 @@
   height: 692px;
   box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
 }
 
@@ -1967,6 +2283,7 @@
   box-sizing: border-box;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
   padding: 7px;
 }
 
@@ -1995,8 +2312,10 @@
   font-size: 0.85rem;
 }
 
-.real-places button.ym-tile:hover {
-  background: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  .real-places button.ym-tile:hover {
+    background: var(--bg);
+  }
 }
 
 /* (the picture fills what the line leaves, whole, never cropped) */
@@ -2011,7 +2330,7 @@
 .real-places .rp-name {
   flex: none;
   height: 32px;
-  overflow: hidden;
+  overflow: clip;
   line-height: 16px;
 }
 
@@ -2020,10 +2339,14 @@
   line-height: 16px;
 }
 
-/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom */
-.view3d-corner .compass {
+/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom; it stays round
+   among the camera group's buttons (the group's own rules give them 8px corners) */
+.view3d-corner .compass,
+.camera-group > button.compass {
   width: var(--corner-h);
   height: var(--corner-h);
+  padding: 0;
+  border-radius: 50%;
 }
 
 /* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
@@ -2056,6 +2379,36 @@
 
 .water-bar:has(.day-step:disabled + .day-label + .day-step:disabled) .day-label {
   opacity: 0.45;
+}
+
+/* an Unstable Core's moment against the hazard held (D339): a quiet line under the row, out of its flow so the row never
+   changes shape; lit in the mint while the day shown is one the core may go off on */
+.editor-view .water-bar > .core-moment {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.core-moment > span {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.core-moment > span.now {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* Drought or Badtide held: lit in the mint like every pressed toggle (the row's plate colour had covered the fill) */
@@ -2092,12 +2445,25 @@
   margin-top: var(--legend-drop, 0px);
   max-height: var(--legend-max, none);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  /* (where the room is short the legend scrolls inside itself, its scrollbar thin, so the lines below
+     the edge are known to be there) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  /* (and a soft edge where more lines wait, top or bottom: the panel's colour over them, the edge's shadow behind) */
+  background:
+    linear-gradient(var(--panel) 30%, transparent) top / 100% 22px no-repeat local,
+    linear-gradient(transparent, var(--panel) 70%) bottom / 100% 22px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--muted) 85%, transparent), transparent) top / 100% 9px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--muted) 85%, transparent), transparent) bottom / 100% 9px no-repeat scroll,
+    var(--panel);
 }
 
 .gen {
   top: var(--panel-top, 56px);
   max-height: var(--panel-max, none);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .maps-panel,
@@ -2111,11 +2477,12 @@
   position: relative;
   align-self: stretch;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   margin: 4px 0;
   border-radius: 4px;
-  overflow: hidden;
+  min-width: 0;
+  overflow: clip;
 }
 
 .day-stepper .day-fill {
@@ -2124,7 +2491,13 @@
   top: 0;
   bottom: 0;
   background: color-mix(in srgb, var(--accent) 22%, transparent);
-  transition: width 120ms linear;
+}
+
+/* (the fill grows with the work: a size, so only where motion is welcome) */
+@media (prefers-reduced-motion: no-preference) {
+  .day-stepper .day-fill {
+    transition: width var(--dur-press) linear;
+  }
 }
 
 .day-stepper .day-words {
@@ -2153,7 +2526,8 @@
 
 /* Your maps' heading row (Kyler, 2026-10-05): its name at the left, Rename and Delete at the tiles' right edge, one
    tiles' gap apart and above the tiles; it stays put while the tiles scroll under it */
-.maps-panel .ym-head {
+.maps-panel .ym-head,
+.history-panel .ym-head {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -2167,7 +2541,8 @@
   box-shadow: 0 -10px 0 var(--panel), 0 8px 0 var(--panel);
 }
 
-.maps-panel .ym-title {
+.maps-panel .ym-title,
+.history-panel .ym-title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
@@ -2178,7 +2553,8 @@
   gap: 8px;
 }
 
-.maps-panel .ym-act {
+.maps-panel .ym-act,
+.history-panel .ym-act {
   height: 26px;
   padding: 0 8px;
   font-size: 13px;
@@ -2239,4 +2615,229 @@
 .your-maps .ym-rename {
   display: block;
   box-sizing: border-box;
+}
+
+/* ---- Keyboard shortcuts and Help (File menu; M13): read as lists, so left-aligned like the export dialog's checks */
+.menu li.menu-rule {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rule);
+}
+
+.dialog.help-dialog {
+  text-align: left;
+}
+
+.dialog.help-dialog a {
+  color: var(--accent);
+}
+
+.dialog.help-dialog p,
+.dialog.help-dialog li {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.dialog.help-dialog ol,
+.dialog.help-dialog ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.dialog.help-dialog li + li {
+  margin-top: 3px;
+}
+
+.dialog.shortcuts {
+  width: min(1040px, 100%);
+}
+
+/* three balanced columns of whole groups */
+.shortcut-groups {
+  column-count: 3;
+  column-gap: 28px;
+  margin-top: 4px;
+}
+
+.shortcut-groups > section {
+  break-inside: avoid;
+}
+
+.shortcut-groups > section {
+  padding-bottom: 12px;
+}
+
+.shortcut-groups h3 {
+  margin: 0 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shortcut-groups dl {
+  margin: 0;
+}
+
+.shortcut-groups dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+}
+
+.shortcut-groups dt {
+  font-size: 0.88rem;
+}
+
+.shortcut-groups dd {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  flex-shrink: 0;
+  max-width: 66%;
+}
+
+@media (max-width: 900px) {
+  .shortcut-groups {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .shortcut-groups {
+    column-count: 1;
+  }
+}
+
+/* a reserve's good: a button that opens a menu in the page's own look, under it over the list, its height kept to the window */
+.good-picker {
+  display: flex;
+  width: 100%;
+}
+
+.good-picker .good-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+}
+
+.good-picker .good-button::after {
+  content: "\25BE";
+  font-size: 0.8em;
+}
+
+.good-menu {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  right: 0;
+  left: auto;
+  width: 220px;
+  max-height: 46vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.good-menu li.menu-note {
+  padding: 6px 10px 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.good-menu button[aria-checked="true"] {
+  font-weight: 700;
+}
+
+/* the Look menu, in the page's own controls: the three looks a segmented choice, the chosen cell filled as the settings'
+   choices are; High's parts checkbox rows as the Show column's, a name that wraps hanging under its own first letter */
+.menu.look-menu {
+  box-sizing: border-box;
+  width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.look-menu .note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 0.8rem;
+}
+
+.look-menu .look-part {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 2px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.look-menu .look-part .cb {
+  margin-top: 2px;
+}
+
+/* the checks' list lies over the corner where the open Legend hangs: while it is open the Legend steps aside (it comes
+   back as the list closes; its Legend box keeps its state) */
+body:has(.checks-list) .legend-panel,
+body:has(.checks-list) .show-key {
+  visibility: hidden;
+}
+
+/* the editor's frame while the first map is made (LoadingFrame.tsx): the header, bar and shelf held still, the land's
+   first look in the map's place, the progress dialog over it */
+.loading-frame .loading-view {
+  display: grid;
+  place-items: safe center;
+  background: var(--map-bg);
+}
+
+.loading-frame .first-look {
+  min-height: 0;
+}
+
+/* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is
+   never left low under empty space */
+.loading-frame .first-look-empty {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.loading-frame .first-look-map {
+  width: min(512px, 50vh);
+}
+
+/* a failed first map has no land above it: its dialog stays in the middle */
+.loading-frame + .making-backdrop.stuck {
+  place-items: safe center;
+  padding-top: 16px;
+}
+
+/* numbers that change while you look at them keep their width: the map's size and seed, a selection's size, a source's
+   strength, the progress words with their percentages, the counts in the legend and on the map's card */
+.editor-title .muted,
+.set-words,
+.working-note,
+.source-readout,
+.source-marker,
+.readout,
+.making-dialog p,
+.first-look-stage,
+.checks-dot .dot-count,
+.gen-otm li,
+.legend-panel.in-column .pick-line,
+.core-moment > span,
+.shape-note {
+  font-variant-numeric: tabular-nums;
 }

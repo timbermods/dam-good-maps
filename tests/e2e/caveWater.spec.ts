@@ -30,7 +30,7 @@ test("a map with caves: an edit's water settles in the background and shows when
   const layer = page.getByRole("checkbox", { name: "Caves and overhangs" });
   await expect(layer).toBeVisible();
   await layer.click();
-  await expect(page.getByText("Violet tiles: caves or overhangs, which the tools leave as they are")).toBeVisible();
+  await expect(page.getByText("Caves or overhangs, which the tools leave as they are")).toBeVisible();
   await layer.click();
 
   // the map's checks have run once (their settle is the opened map's own)
@@ -83,5 +83,9 @@ test("a map with caves: an edit's water settles in the background and shows when
     await expect(button).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator(".day-label")).toHaveText("Day –");
     expect(await depthAt(page, 57, 26)).toBe(before);
+    // (the line stays until it is dismissed or the next edit is kept, as every refusal's: dismissed, so the next
+    // hazard's own line is the one checked)
+    await page.locator(".editor-message").getByRole("button", { name: "Dismiss" }).click();
+    await expect(page.getByText(CAVE_REFUSALS.weather)).toHaveCount(0);
   }
 });

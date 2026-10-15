@@ -15,9 +15,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { gen3d } from "../../investigation/terrain3d/proto/gen3d";
 import { MapSession } from "../../src/core/doc/session";
-import { unsupportedVoxels } from "../../src/core/terrain/support";
+import { stackableTops, unsupportedVoxels } from "../../src/core/terrain/support";
 import { GAME_VERSION } from "../../src/core/format/world";
-import { build, checkPlacements, CLEARANCE, stackableTops, t3CaveWater, t4Soil, t5Plants, t6HeightsFrom, t7Sink, type Terrain3dMap } from "../terrain3d-maps";
+import { build, checkPlacements, CLEARANCE, t3CaveWater, t4Soil, t5Plants, t6HeightsFrom, t7Sink, type Terrain3dMap } from "../terrain3d-maps";
 import { repoFile, type BuiltMap, type GroupWriter } from "./group";
 
 const MAKERS: (() => Terrain3dMap)[] = [t3CaveWater, t4Soil, t5Plants, () => t6HeightsFrom(gen3d), t7Sink];

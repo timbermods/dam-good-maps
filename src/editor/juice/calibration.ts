@@ -34,6 +34,8 @@ export const TRIM: Readonly<Record<string, number>> = Object.freeze({
   // listening check covering them with the others)
   rift: 1,
   deposit: 1,
+  // (Erode's recipe is the page's, from the investigation's four recordings: its own level until measured)
+  erode: 1,
   undo: 2.5032,
   waterfall: 0.5741,
   stream: 0.9343,

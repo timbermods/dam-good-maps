@@ -36,6 +36,10 @@ export const ERUPT_SIZE_MAX = 140;
 /** Glaciate's Size, in tiles (the row's slider; null: Auto). */
 export const GLACIATE_SIZE_MIN = 4;
 export const GLACIATE_SIZE_MAX = 64;
+/** Erode's Size, in tiles across (null: it follows Power; rust/forces/src/erode.rs). */
+export const ERODE_SIZE_MIN = 4;
+export const ERODE_SIZE_MAX = 40;
+
 
 /** A number setting: its range, whole levels or not, whether it may be null (`"null"`) or also absent
  *  (`"nullish"`), and the reason given for anything else. */
@@ -100,7 +104,8 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
     ranges: [],
   },
   rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
-  deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a deposit's size is 4 to 64 tiles, or null (it follows Power)" }] },
+  deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 8, max: 64, empty: "null", why: "a deposit's size is 8 to 64 tiles, or null (it follows Power)" }] },
+  erode: { name: "an erosion", choices: { mode: ["wear"] }, flags: [], ranges: [{ key: "size", min: ERODE_SIZE_MIN, max: ERODE_SIZE_MAX, empty: "null", why: `an erosion's size is ${ERODE_SIZE_MIN} to ${ERODE_SIZE_MAX} tiles, or null (it follows Power)` }] },
   glaciate: {
     name: "a glacier",
     choices: { mode: ["flow", "aim"] },

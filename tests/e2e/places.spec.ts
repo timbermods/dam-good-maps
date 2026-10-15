@@ -212,8 +212,12 @@ test.describe("on a phone", () => {
 
 test("an unknown place says so and opens a generated map instead", async ({ page }) => {
   await page.goto("./#place=near-nowhere");
-  await expect(page.getByRole("alert")).toContainText('there is no real place called "near-nowhere"', { timeout: 60_000 });
+  // (the words come at once, with the editor's frame showing, while the map made instead is on its way: the page once
+  // set them only after that map was made, which took longer than the wait on a busy machine, D341)
+  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "near-nowhere"' })).toBeVisible({ timeout: 15_000 });
   await waitForEditor(page);
+  // (and they are still there once the map is)
+  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "near-nowhere"' })).toBeVisible();
   expect((await page.evaluate(() => window.dgmEditor!.info())).kind).toBe("generated");
   expect(entry("near-nowhere")).toBeUndefined();
 });
@@ -223,7 +227,8 @@ test("Real places in the header: the places three across in the generator's box;
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await page.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
   const places = page.getByRole("region", { name: "Real places" });
-  const tile = places.getByTitle(`Open ${SMALL.name.replace(/^Near /, "")}`, { exact: true });
+  // (the name the map, its file and the gallery carry, whole)
+  const tile = places.getByTitle(`Open ${SMALL.name}`, { exact: true });
   await expect(tile).toHaveCount(1, { timeout: 30_000 });
   // three across
   const tops = await places.getByRole("button").evaluateAll((b) => b.slice(0, 4).map((e) => Math.round(e.getBoundingClientRect().top)));
@@ -231,6 +236,27 @@ test("Real places in the header: the places three across in the generator's box;
   expect(tops[3]).toBeGreaterThan(tops[0]);
   await tile.scrollIntoViewIfNeeded();
   await tile.click();
+  // (a place takes seconds to build: the progress dialog says which, with Cancel, at once)
+  await expect(page.getByRole("dialog").getByRole("status")).toHaveText(/^Opening /, { timeout: 5_000 });
   await page.waitForFunction((n) => window.dgmEditor?.info().kind === "import" && window.dgmEditor?.info().name === n, SMALL.name, { timeout: 120_000 });
   await expect(page).toHaveURL(new RegExp(`#place=${SMALL.id}$`));
+});
+
+test("Cancel while a real place opens brings the open map back as it was", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  const name = await page.evaluate(() => window.dgmEditor!.info().name);
+  await page.locator("header.editor-bar").getByRole("button", { name: "Real places", exact: true }).click();
+  const tile = page.getByRole("region", { name: "Real places" }).getByTitle(`Open ${SMALL.name}`, { exact: true });
+  await tile.scrollIntoViewIfNeeded();
+  await tile.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("status")).toHaveText(/^Opening /, { timeout: 5_000 });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0, { timeout: 60_000 });
+  await waitForEditor(page);
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().name), { timeout: 60_000 }).toBe(name);
+  expect((await page.evaluate(() => window.dgmEditor!.info())).kind).toBe("generated");
+  // (the editor takes edits again: nothing is left locked by the open that was ended)
+  await expect(page.locator(".editor[inert]")).toHaveCount(0);
 });

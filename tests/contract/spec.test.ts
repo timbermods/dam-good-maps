@@ -3,7 +3,8 @@
 
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
-import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { generate } from "../../src/core/gen/generate";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -17,17 +18,26 @@ describe("MapSpec schema", () => {
   it("accepts every theme preset at every difficulty and size preset", () => {
     for (const theme of THEMES)
       for (const d of ["easy", "normal", "hard"] as const)
-        for (const s of [48, 96, 128, 192, 256]) {
-          const spec = makeSpec({ seed: 123, theme, designedFor: d, size: { x: s, y: s === 48 ? 256 : s } });
+        for (const s of [4, 48, 96, 128, 192, 256, 512]) {
+          const spec = makeSpec({ seed: 123, theme, designedFor: d, size: { x: s, y: s === 4 ? 512 : s } });
           expect(both(spec), `${theme} ${d} ${s}`).toEqual([true, true]);
         }
+  });
+
+  it("takes 4 and 512 a side, and refuses 3 and 513 with a one-line reason, never clamping (D357)", () => {
+    for (const [axis, v, message] of [["x", 3, "must be >= 4"], ["y", 3, "must be >= 4"], ["x", 513, "must be <= 512"], ["y", 513, "must be <= 512"]] as const) {
+      const spec = makeSpec({ seed: 1 });
+      spec.size[axis] = v;
+      expect(validateSpec(spec)).toEqual([{ path: `/size/${axis}`, message }]);
+      expect(spec.size[axis]).toBe(v);
+    }
   });
 
   const bad: [string, (s: MapSpec) => void][] = [
     ["negative seed", (s) => (s.seed = -1)],
     ["seed above uint32", (s) => (s.seed = 2 ** 32)],
-    ["size above 256", (s) => (s.size.x = 300)],
-    ["size below 48", (s) => (s.size.y = 40)],
+    ["size above 512", (s) => (s.size.x = 513)],
+    ["size below 4", (s) => (s.size.y = 3)],
     ["relief above 100", (s) => (s.settings.terrain.relief = 101)],
     // (item 36: Highest terrain reaches 22 where Verticality allows tall land)
     ["terrain above 22", (s) => (s.settings.terrain.highestTerrain = 23)],
@@ -60,6 +70,34 @@ describe("URL codec (PLAN §14.5)", () => {
     expect(decodeSpecFragment(encodeSpecFragment(wide))!.spec.size).toEqual({ x: 256, y: 150 });
   });
 
+  it("carries any size from 4 to 512 exactly, square or not, and names the ones it refuses (D357)", () => {
+    for (const [x, y] of [[4, 4], [128, 512], [512, 256], [512, 512], [64, 512], [5, 300]]) {
+      const back = decodeSpecFragment(encodeSpecFragment(makeSpec({ seed: 9, size: { x, y } })))!;
+      expect(back.problems, `${x}x${y}`).toEqual([]);
+      expect(back.spec.size).toEqual({ x, y });
+    }
+    for (const z of ["3", "513", "128x3", "513x128"]) {
+      const back = decodeSpecFragment(`s=9&z=${z}`)!;
+      expect(back.problems).toEqual([`size ${z} is outside 4–512`]);
+    }
+  });
+
+  it("the generator refuses a side under its theme's least with a one-line reason naming it, at once (D357)", () => {
+    expect(generatorSizeRefusal(48, 256, "canyon")).toBeNull();
+    expect(generatorSizeRefusal(47, 200, "canyon")).toBe("Canyon needs at least 48 tiles a side to generate");
+    for (const theme of THEMES) expect(generatorSizeRefusal(GENERATOR_MIN_SIDE[theme], GENERATOR_MIN_SIDE[theme], theme)).toBeNull();
+    const t0 = performance.now();
+    expect(() => generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 4, y: 4 } }))).toThrow("River Valley needs at least 48 tiles a side");
+    expect(performance.now() - t0).toBeLessThan(1000);
+  });
+
+  it("still decodes a link made before sizes were lifted", () => {
+    const back = decodeSpecFragment("#v=1.0.0&s=4242&t=canyon&z=192x96&d=h")!;
+    expect(back.problems).toEqual([]);
+    expect(back.spec.size).toEqual({ x: 192, y: 96 });
+    expect(back.spec.theme).toBe("canyon");
+  });
+
   it("writes only the settings that differ from the theme preset", () => {
     for (const theme of ["riverValley", "canyon", "lakeBasin"] as const) {
       const spec = makeSpec({ seed: 7, theme, designedFor: "easy" });
@@ -83,7 +121,7 @@ describe("URL codec (PLAN §14.5)", () => {
     const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
     const int = (lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
     for (let k = 0; k < 200; k++) {
-      const spec = makeSpec({ seed: int(0, 4294967295), theme: pick(THEMES), designedFor: pick(["easy", "normal", "hard"] as const), size: { x: int(48, 256), y: int(48, 256) } });
+      const spec = makeSpec({ seed: int(0, 4294967295), theme: pick(THEMES), designedFor: pick(["easy", "normal", "hard"] as const), size: { x: int(4, 512), y: int(4, 512) } });
       const st = spec.settings;
       st.terrain = { relief: int(0, 100), highestTerrain: int(10, 16), terracing: int(0, 100), buildableLand: pick(["tight", "normal", "generous"] as const), verticality: int(0, 100), variety: int(0, 100) };
       st.water = {

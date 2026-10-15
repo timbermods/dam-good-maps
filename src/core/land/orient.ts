@@ -25,6 +25,9 @@ export function orientationOf(seed: number, k: number, W: number, H: number): Or
 export function orientXY(x: number, y: number, W: number, H: number, o: Orientation): [number, number] {
   let px = o & 4 ? W - 1 - x : x;
   let py = y;
+  // (half round on any shape: two quarter turns read W for both sides, which on a map that is not square
+  // put half its land off the map, D357; on a square map the two agree)
+  if ((o & 3) === 2) return [W - 1 - px, H - 1 - py];
   for (let r = 0; r < (o & 3); r++) {
     // a quarter turn counter-clockwise (square maps only)
     const nx = W - 1 - py;

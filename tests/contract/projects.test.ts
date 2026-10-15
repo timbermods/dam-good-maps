@@ -1,7 +1,7 @@
 // Contract (PLAN §19.6, §20 D16 and D37): every theme's project file reopens and rebuilds the same
 // .timber. Lake Basin's and Islands' terrace rings reach past the map (Lake Basin seed 1 at 96²:
 // x = −2.02), and the feature schema's points allowed only −1…257 until 0.5.0's fix, so their project
-// files were refused as damaged on open. Points may now lie one map side past each edge (−256…512);
+// files were refused as damaged on open. Points may now lie one map side past each edge (the largest side is 512: −512…1023);
 // outlines are never clamped, so every map keeps its bytes. Project files written before the fix
 // open too (tests/fixtures/projects, written by d3b08d5).
 
@@ -45,11 +45,14 @@ function gen(theme: ThemeId, size: number, seed: number): GenerateResult {
   return r;
 }
 
-// One seed per theme and size. Lake Basin's and Islands' seeds are ones whose terrace rings reach
-// past the old bounds (at 0.5.0); the other themes keep their points on the map.
+// One seed per theme and size. Lake Basin's and Islands' seeds are ones whose terrace rings reached
+// past the old bounds (at 0.5.0); the other themes keep their points on the map. Islands 256² is
+// seed 4 since round 6 (generator 0.8.7, D341): seed 2 took four attempts and nine settles of a
+// spring by the start (164–357 s on CI against the 300 s limit); seed 4 makes its map on the first
+// attempt, a feature's point past the map's edge, in about 36 s.
 const RING_SEEDS: Partial<Record<ThemeId, Record<number, number>>> = {
   lakeBasin: { 96: 1, 128: 2, 192: 1, 256: 2 },
-  islands: { 96: 1, 128: 1, 192: 2, 256: 2 },
+  islands: { 96: 1, 128: 1, 192: 2, 256: 4 },
 };
 const SIZES = Object.values(SIZE_PRESETS);
 const CASES = THEMES.flatMap((theme) => SIZES.map((size) => [theme, size, RING_SEEDS[theme]?.[size] ?? 1] as const));
@@ -144,11 +147,11 @@ describe("the feature schema's points (PLAN §19.2)", () => {
   ];
   const both = (outline: number[][]) => [validateFeatures(landform(outline)).length === 0, ajvFeatures(landform(outline)) as boolean];
 
-  it("lie up to one map side (256 tiles) past each edge, in the runtime checker and in Ajv alike", () => {
-    expect(both([[-256, -256], [512, -256], [512, 512], [-256, 512]])).toEqual([true, true]);
+  it("lie up to one map side (512 tiles, the largest) past each edge, in the runtime checker and in Ajv alike", () => {
+    expect(both([[-512, -512], [1023, -512], [1023, 1023], [-512, 1023]])).toEqual([true, true]);
     expect(both([[-2.02, 40], [10, 40], [10, 60]])).toEqual([true, true]);
-    expect(both([[-256.01, 40], [10, 40], [10, 60]])).toEqual([false, false]);
-    expect(both([[0, 0], [512.01, 0], [0, 10]])).toEqual([false, false]);
+    expect(both([[-513, 40], [10, 40], [10, 60]])).toEqual([false, false]);
+    expect(both([[0, 0], [1024, 0], [0, 10]])).toEqual([false, false]);
   });
 });
 

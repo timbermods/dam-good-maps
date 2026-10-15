@@ -49,7 +49,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
       ["Pine", /^Pine, (grown|young|dead)$/],
       ["Birch", /^Birch, (grown|young|dead)$/],
       ["Oak", /^Oak, (grown|young|dead)$/],
-      ["BlueberryBush", /^Blueberry bush, (grown|young|dead)$/],
+      ["BlueberryBush", /^Berry bush, (grown|young|dead)$/],
       ["WaterSource", /^Water source, 1 water\/s$/],
       ["BadwaterSource", /^Badwater source, 3 badwater\/s$/],
     ];

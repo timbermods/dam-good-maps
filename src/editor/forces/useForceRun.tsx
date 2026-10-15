@@ -10,8 +10,10 @@ import { plain } from "../panels";
 import { ForceDriver, paceOf } from "../forceDriver";
 import { carveDetails, carveSettingsOf, DEFAULT_CARVE } from "../CarveRow";
 import { craterDetails, craterSettingsOf, eruptDetails, eruptSettingsOf, quakeDetails } from "../ForceRows";
-import { depositDetails, glaciateDetails, glaciateSettingsOf, riftDetails, type ForceSources } from "../ForceRows";
+import { depositDetails, erodeDetails, glaciateDetails, glaciateSettingsOf, riftDetails, SOURCES_DEFAULT, type ForceSources } from "../ForceRows";
+import { mergeColumns, type Columns } from "./columns";
 import { depositWidth } from "../../core/forces/deposit";
+import { erodeSize } from "../../core/forces/erode";
 import { riftWidth } from "../../core/forces/rift";
 import { sizeOf as glacierSize } from "../../core/forces/glaciate/model";
 import { forceReach } from "../../core/forces/reach";
@@ -24,6 +26,7 @@ import { Words, type Group } from "../settings";
 import { FLOOR_DEFAULT } from "../../core/forces/floor";
 import { keyHabit, sized, sizeForReach, stepPower, stepSize, type SizedForce } from "../forceSize";
 import { hasTarget, nextSize, sizeMax } from "../brushes";
+import { PAINT_DENSITY_MIN, PAINT_SIZE_MAX, PAINT_SIZE_MIN, type PaintedKind, type PaintSettings } from "../shelfItems";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
 
@@ -46,9 +49,18 @@ export interface ForceRunSlice {
   gestureTiles: (path: readonly PathPoint[], radius: number) => number[];
   bandRadius: () => number;
   forceAgain: () => void;
+  /** A force's rolls (D488) on offer now (two or more, right after a run, before anything else): which is shown
+   *  and how many; null when they aren't. */
+  rollsOffered: () => { shown: number; count: number } | null;
+  /** Show another roll: the next (1), the one before (−1). */
+  showRoll: (dir: 1 | -1) => void;
+  /** The player moved on (Esc, a save): the roll shown is the one that stays. */
+  endRolls: () => void;
   cursorFrame: { current: number };
   showForceCursor: (at: [number, number] | null, dot?: boolean) => void;
   forceSizing: { current: { verb: SizedForce; x: number; y: number; level: number; from: number | null; size: number; stop(): void } | null };
+  /** F held with a tree, bush or thorn brush in hand: its Size follows the pointer (the ring's middle and the Size it had). */
+  paintSizing: { current: { kind: PaintedKind; tile: [number, number]; level: number; from: number; size: number; stop(): void } | null };
   fHeld: { current: boolean };
   stepHabit: (habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent) => boolean;
   wheelHabit: (ev: WheelEvent) => boolean;
@@ -63,7 +75,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, localUndo, localRedo, painter,
     notePointer, sourcesChanged, pointerWords, flashNote, carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi,
     craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi,
-    glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, watchRef, floorRef, setForceTick
+    glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, erodeUi, setErodeUi, erodeUiRef, watchRef, floorRef, setForceTick
   } = ed;
 
   /** The map's own views that came while a force was at work (the settled water, a check's): they
@@ -87,6 +99,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const e = v.entities;
     v.entities = null;
     if (drop || !e) return;
+    ed.endFlip();
     const m = mirror.current;
     m.entities = e;
     m.entitiesAt = null;
@@ -98,6 +111,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** A frame of a force at work: the ground it changed, its objects. */
   function showForceFrame(f: ForceFrame) {
+    ed.endFlip();
     const r = renderer.current;
     const m = mirror.current;
     if (applyForceTerrain(m, f, infoRef.current.W)) r?.updateTerrainRect(m.heights, f.rect!);
@@ -105,6 +119,22 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     if (f.entities) v.entities = f.entities;
     if (f.entities && !v.frame) v.frame = requestAnimationFrame(() => flushForceView());
     if (f.heat) r?.setHeat(f.heat);
+    // Erode's hollows as they open (D281): the tiles whose voxels changed, added to the columns the renderer holds
+    if (f.columns && r) {
+      shownColumns.current = mergeColumns(shownColumns.current ?? seriesColumns.current ?? ed.columnsRef.current, f.columns);
+      r.updateTerrain(m.heights, shownColumns.current);
+    }
+  }
+  /** The columns the renderer holds while a force that writes voxels shows (null: none shown, the map's own). */
+  const shownColumns = useRef<Columns | null>(null);
+  /** The map's columns as the series' first try found them: each Try another starts from them, as the worker's frames do
+   *  (they list what changed since the series' base, never what an earlier try did). */
+  const seriesColumns = useRef<Columns | null>(null);
+  /** The force is over: its frames' columns give way to the map's own (kept: the worker's view carries them already). */
+  function endShownColumns(restore: boolean) {
+    if (!shownColumns.current) return;
+    shownColumns.current = null;
+    if (restore) renderer.current?.updateTerrain(mirror.current.heights, ed.columnsRef.current);
   }
 
   function flushDeferred() {
@@ -131,10 +161,14 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           localUndo.current = [];
           localRedo.current = [];
           applyUpdate(u);
+          // (a kept view with no voxel runs of its own leaves the frames' hollows drawn: put the map's columns back)
+          endShownColumns(!u.view?.columns);
           renderer.current?.refreshShadows();
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
           else if (u.ok) {
             setMessage(null);
+            // (its rolls are on offer: Tab shows another, D488)
+            offerRolls(u.info.version);
             // (the first-run hint points at Carve: a force kept is shaping the land too, D352)
             firstDoneRef.current("paint");
           }
@@ -154,6 +188,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           localRedo.current = [];
           applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0, ...(v.waterSettled !== undefined ? { waterSettled: v.waterSettled } : {}) });
         } else applyView(v);
+        endShownColumns(true);
         renderer.current?.refreshShadows();
       }),
     show: showForceFrame,
@@ -164,7 +199,16 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   forcer.current ??= new ForceDriver({
     start: (again, gesture) =>
       enqueue(() => {
+        // (the water on screen: the force's water starts from it, not from the worker's further on)
+        void api.forceShows(mirror.current.waterView);
         const q = forceReq.current;
+        // (a new series starts from the map as it is; Try another puts back the columns of its start at once, before its
+        // first frame, so the earlier try's hollows are never shown under it)
+        if (!again && q) seriesColumns.current = ed.columnsRef.current;
+        else if (again && seriesColumns.current && seriesColumns.current !== ed.columnsRef.current) {
+          shownColumns.current = null;
+          renderer.current?.updateTerrain(mirror.current.heights, seriesColumns.current);
+        }
         if (again || !q) {
           // Try another: the row's current pins go with it (D309), so a detail still on Auto
           // re-rolls and one the player pinned keeps its value; Unleash (no More button of its own)
@@ -185,7 +229,9 @@ export function useForceRun(ed: Ed): ForceRunSlice {
                         ? riftDetails(riftUiRef.current)
                         : verb === "deposit"
                           ? depositDetails(depositUiRef.current)
-                          : undefined;
+                          : verb === "erode"
+                            ? erodeDetails()
+                            : undefined;
           // (and the row's Power, Size and Sources as they are now, D361 (1), D474: Try another answers them)
           const now = { ...(verb === "carve" ? { power: carveUiRef.current.power, width: carveUiRef.current.width } : verb === "quake" ? { power: quakeUiRef.current.power } : verb ? { power: forcePowerOf(verb), size: forceSizeField(verb as SizedForce) } : {}), ...(verb ? { sources: forceSourcesOf(verb) } : {}) };
           return api.forceAgain(pins && { ...pins, ...now, floor: floorRef.current !== FLOOR_DEFAULT ? floorRef.current : undefined }, gesture);
@@ -357,7 +403,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** The water's journey gives way to the force's own water (a held weather day stays on screen and runs again once
    *  the force's water has settled). */
   function clearForForce() {
-    journey.current?.flush();
+    // (the settled water waiting stays unshown: the force's water starts from the water on screen)
+    journey.current?.flush(false);
     player.current?.clear();
     setPicked(null);
     setShapeNote(null);
@@ -421,12 +468,12 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The band's half width for the force picked, as drawn (D344 A3, amended by D361 (2)): the preview
    *  is the player's stroke, never what the force decides. Carve's and Glaciate's width is their Size,
-   *  the player's own, and a rift's too (its drawn fault opens at its Size); a fault, a fissure or a fan's
-   *  line is its line, a narrow band about as wide as a fault's crack (its reach, a fissure's breadth, a fan's
-   *  spread and the ground inside a loop are the force's, never drawn). */
+   *  the player's own, and a rift's and a deposit's too (a drawn fault opens at its Size, a drawn fan is its
+   *  Size wide, #341); a fault or a fissure is its line, a narrow band about as wide as a fault's crack (its
+   *  reach, a fissure's breadth and the ground inside a loop are the force's, never drawn). */
   function bandRadius(): number {
     const verb = ed.toolRef.current;
-    if (verb === "quake" || verb === "erupt" || verb === "deposit") return STROKE_RADIUS;
+    if (verb === "quake" || verb === "erupt") return STROKE_RADIUS;
     return reachNow() ?? 0;
   }
 
@@ -441,6 +488,69 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     if (!forcer.current || forcer.current.running) return;
     clearForForce();
     void forcer.current.start(true);
+  }
+
+  // ------------------------------------------------------------------------ a force's rolls (D488)
+
+  /** The rolls are on offer from a run's keep (or a roll shown) until the player does anything else: the map's
+   *  version and the force in hand then. An edit (the version moves on), another tool, Esc or a save ends it. */
+  const rollsOffer = useRef<{ version: number; tool: string | null } | null>(null);
+
+  function offerRolls(version: number) {
+    rollsOffer.current = { version, tool: ed.toolRef.current };
+    setForceTick((n) => n + 1);
+  }
+
+  function rollsOffered(): { shown: number; count: number } | null {
+    const o = rollsOffer.current;
+    const r = infoRef.current.forceRolls;
+    if (!o || !r || r.count < 2 || forcer.current?.running) return null;
+    return infoRef.current.version === o.version && ed.toolRef.current === o.tool && !brushToolRef.current && !ed.shelfRef.current ? r : null;
+  }
+
+  function endRolls() {
+    if (!rollsOffer.current) return;
+    rollsOffer.current = null;
+    setForceTick((n) => n + 1);
+    // (the other rolls' maps are let go in the worker; the roll shown stays as it is)
+    void enqueue(() => api.forceSettle()).then((i) => {
+      if (!mounted.current || i.version !== infoRef.current.version) return;
+      infoRef.current = i;
+      ed.setInfo(i);
+    });
+  }
+  // (another tool picked, or an edit: the rolls are over)
+  useEffect(() => {
+    const o = rollsOffer.current;
+    if (o && !forcer.current?.running && (ed.info.version !== o.version || tool !== o.tool)) endRolls();
+  }, [tool, ed.info.version]);
+
+  /** Show the next roll (or the one before): its real result, at once (no force runs again). */
+  function showRoll(dir: 1 | -1) {
+    if (!rollsOffered()) return;
+    void enqueue(async () => {
+      setBusy((b) => b + 1);
+      try {
+        const u = await api.forceRoll({ step: dir });
+        if (!mounted.current) return;
+        localUndo.current = [];
+        localRedo.current = [];
+        applyUpdate(u);
+        renderer.current?.refreshShadows();
+        const r = u.info.forceRolls;
+        if (!u.ok || !r) {
+          rollsOffer.current = null;
+          if (u.errors[0]) setMessage({ kind: "info", text: plain(u.errors[0]) });
+          return;
+        }
+        // (its Auto details show what this roll took, D309)
+        const verb = u.info.forceAgain;
+        if (verb && u.settings && forcer.current) forcer.current.lastSettings[verb] = u.settings;
+        offerRolls(u.info.version);
+      } finally {
+        setBusy((b) => b - 1);
+      }
+    });
   }
 
   /** The radius of the picked force's size at its Power and Size (D312), or null: Quake has none to
@@ -460,6 +570,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         return (riftUiRef.current.size ?? Math.round(riftWidth(riftUiRef.current.power) / 2) * 2) / 2;
       case "deposit":
         return (depositUiRef.current.size ?? Math.round(depositWidth(depositUiRef.current.power) / 2) * 2) / 2;
+      case "erode":
+        return (erodeUiRef.current.size ?? Math.round(erodeSize(erodeUiRef.current.power) / 2) * 2) / 2;
       default:
         return null;
     }
@@ -489,7 +601,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     const r = reachNow();
     if (r === null) setForceRing(null);
     else if (r !== ring.r) setForceRing({ ...ring, r });
-  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, riftUi, depositUi, tool]);
+  }, [carveUi, craterUi, eruptUi, quakeUi, glaciateUi, riftUi, depositUi, erodeUi, tool]);
 
   // A force's Size and Power from the keys, exactly as a brush's (D344, A1; forceSize.ts): hold F and
   // move the mouse to size its ring on the map, its size beside the pointer (a click or letting go keeps
@@ -499,13 +611,39 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** F is held (D368 (11): the wheel then sets the strength). */
   const fHeld = useRef(false);
 
+  /** The brush of a tree, bush or thorn in hand (the shelf's own Size and Density, D235), set as a force's are. */
+  const paintSizing = useRef<{ kind: PaintedKind; tile: [number, number]; level: number; from: number; size: number; stop(): void } | null>(null);
+  function setPaint(kind: PaintedKind, c: Partial<PaintSettings>) {
+    const o = ed.shelfOptionsRef.current;
+    const next = { ...o, paint: { ...o.paint, [kind]: { ...o.paint[kind], ...c } } };
+    ed.shelfOptionsRef.current = next;
+    ed.setShelfOptions(next);
+  }
+
   /** One key habit for every tool (D368 (1), (11)): a step of the Size or the strength of the tool
    *  out, beside the pointer (a force's Power; Smooth and Naturalize's strength; nothing on Raise,
    *  Lower and Flatten, whose target level is theirs); a force's Size set so is off Auto. False when no
    *  tool takes it. */
   function stepHabit(habit: { what: "size" | "strength"; dir: 1 | -1 }, ev?: MouseEvent): boolean {
+    // the Block tool: { and } its Size (it has no strength)
+    if (ed.blockRef.current) return ed.blockStep(habit, ev);
     const forcePicked = ed.toolRef.current;
     const brushTool = brushToolRef.current;
+    // a tree, bush or thorn in hand: { and } its Size, [ and ] (F+scroll) its Density (its strength), beside the pointer
+    const held = ed.shelfRef.current;
+    if (held?.paint && !forcePicked && !brushTool) {
+      const now = ed.shelfOptionsRef.current.paint[held.paint];
+      if (habit.what === "size") {
+        const size = Math.max(PAINT_SIZE_MIN, Math.min(PAINT_SIZE_MAX, now.size + habit.dir));
+        setPaint(held.paint, { size });
+        flashNote(`size ${size}`, ev);
+      } else {
+        const density = Math.max(PAINT_DENSITY_MIN, Math.min(1, Math.round(now.density * 20) / 20 + habit.dir * 0.05));
+        setPaint(held.paint, { density });
+        flashNote(`density ${Math.round(density * 100)}%`, ev);
+      }
+      return true;
+    }
     if (forcePicked && !brushTool) {
       if (habit.what === "strength") {
         const power = stepPower(forcePowerOf(forcePicked), habit.dir);
@@ -537,7 +675,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   /** F held and the wheel (D368 (11)): the strength, never the zoom; F's sizing so far is kept. */
   function wheelHabit(ev: WheelEvent): boolean {
     const habit = keyHabit({ delta: ev.deltaY || ev.deltaX, f: fHeld.current, shift: ev.shiftKey, ctrl: ev.ctrlKey || ev.metaKey, alt: ev.altKey });
-    if (!habit || (!ed.toolRef.current && !brushToolRef.current)) return false;
+    if (!habit || (!ed.toolRef.current && !brushToolRef.current && !ed.shelfRef.current?.paint)) return false;
     // (the wheel's number, not the size, beside the pointer from here)
     painter.current?.endResize(true);
     endForceSize(true);
@@ -547,7 +685,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
 
   /** The Size field of a force's row: a number, or null on Auto. */
   function forceSizeField(verb: SizedForce): number | null {
-    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : verb === "rift" ? riftUiRef.current.size : verb === "deposit" ? depositUiRef.current.size : glaciateUiRef.current.size;
+    return verb === "carve" ? carveUiRef.current.width : verb === "craterize" ? craterUiRef.current.size : verb === "erupt" ? eruptUiRef.current.size : verb === "rift" ? riftUiRef.current.size : verb === "deposit" ? depositUiRef.current.size : verb === "erode" ? erodeUiRef.current.size : glaciateUiRef.current.size;
   }
   function setForceSize(verb: SizedForce, size: number | null) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, width: size }));
@@ -555,14 +693,17 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     else if (verb === "erupt") setEruptUi((eruptUiRef.current = { ...eruptUiRef.current, size }));
     else if (verb === "rift") setRiftUi({ ...riftUiRef.current, size });
     else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, size });
+    else if (verb === "erode") setErodeUi({ ...erodeUiRef.current, size });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, size }));
   }
   /** A force's Sources as its row has it (D474). */
   function forceSourcesOf(verb: Verb): ForceSources {
+    // (Erode has no Sources: it never wears a source's tile, so it keeps the default)
+    if (verb === "erode") return SOURCES_DEFAULT;
     return (verb === "carve" ? carveUiRef : verb === "craterize" ? craterUiRef : verb === "erupt" ? eruptUiRef : verb === "quake" ? quakeUiRef : verb === "rift" ? riftUiRef : verb === "deposit" ? depositUiRef : glaciateUiRef).current.sources;
   }
   function forcePowerOf(verb: Verb): number {
-    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : glaciateUiRef.current.power;
+    return verb === "carve" ? carveUiRef.current.power : verb === "craterize" ? craterUiRef.current.power : verb === "erupt" ? eruptUiRef.current.power : verb === "quake" ? quakeUiRef.current.power : verb === "rift" ? riftUiRef.current.power : verb === "deposit" ? depositUiRef.current.power : verb === "erode" ? erodeUiRef.current.power : glaciateUiRef.current.power;
   }
   function setForcePower(verb: Verb, power: number) {
     if (verb === "carve") setCarveUi((carveUiRef.current = { ...carveUiRef.current, power }));
@@ -571,12 +712,14 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     else if (verb === "quake") setQuakeUi({ ...quakeUiRef.current, power });
     else if (verb === "rift") setRiftUi({ ...riftUiRef.current, power });
     else if (verb === "deposit") setDepositUi({ ...depositUiRef.current, power });
+    else if (verb === "erode") setErodeUi({ ...erodeUiRef.current, power });
     else setGlaciateUi((glaciateUiRef.current = { ...glaciateUiRef.current, power }));
   }
 
   /** F went down with a sized force picked and its ring on the map: the ring stays where it is, and
    *  its size follows the pointer's distance from its middle. */
   function startForceSize() {
+    if (ed.shelfRef.current?.paint && !ed.toolRef.current && !brushToolRef.current) return startPaintSize();
     const verb = ed.toolRef.current;
     const ring = gestureRef.current.forceRing;
     const r = renderer.current;
@@ -620,8 +763,59 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     pointerWords.current!.sizing(`size ${size}`);
   }
 
+  /** F went down with a tree, bush or thorn in hand and the pointer on the map: its ring stays, and its Size follows the
+   *  pointer's distance from the ring's middle. */
+  function startPaintSize() {
+    const held = ed.shelfRef.current;
+    const at = ed.shelfTile.current;
+    const r = renderer.current;
+    if (!held?.paint || !at || !r || paintSizing.current) return;
+    const kind = held.paint;
+    const level = r.heightAt(at[0], at[1]);
+    const move = (ev: PointerEvent) => {
+      const f = paintSizing.current;
+      const p = renderer.current?.pickAtLevel(ev.clientX, ev.clientY, f?.level ?? level);
+      notePointer(ev);
+      if (!f || !p) return;
+      const size = Math.max(PAINT_SIZE_MIN, Math.min(PAINT_SIZE_MAX, Math.round(2 * Math.hypot(p.point[0] - (at[0] + 0.5), -p.point[2] - (at[1] + 0.5)))));
+      if (size !== f.size) {
+        f.size = size;
+        setPaint(kind, { size });
+      }
+      pointerWords.current!.sizing(`size ${size}`);
+    };
+    const down = (ev: PointerEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      endForceSize(ev.button === 0);
+    };
+    const from = ed.shelfOptionsRef.current.paint[kind].size;
+    paintSizing.current = {
+      kind,
+      tile: [at[0], at[1]],
+      level,
+      from,
+      size: from,
+      stop: () => {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerdown", down, true);
+      },
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerdown", down, true);
+    pointerWords.current!.sizing(`size ${from}`);
+  }
+
   /** The size is set (F let go, a click) or put back (Esc, a right click). */
   function endForceSize(keep: boolean) {
+    const q = paintSizing.current;
+    if (q) {
+      q.stop();
+      paintSizing.current = null;
+      if (!keep) setPaint(q.kind, { size: q.from });
+      pointerWords.current!.sizing(null);
+      return;
+    }
     const f = forceSizing.current;
     if (!f) return;
     f.stop();
@@ -629,11 +823,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     if (!keep) setForceSize(f.verb, f.from);
     pointerWords.current!.sizing(null);
   }
-  useEffect(() => () => forceSizing.current?.stop(), []);
+  useEffect(() => () => (forceSizing.current?.stop(), paintSizing.current?.stop()), []);
 
   return {
     deferred, forceCalls, forcer, lastUnleash, unleashPower, setUnleashPower, unleash, unleashAgain, unleashDown,
     unleashRow, startForce, steerTiles, pathFrame, showPath, strokeRadius, gestureTiles, bandRadius, forceAgain,
-    cursorFrame, showForceCursor, forceSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
+    rollsOffered, showRoll, endRolls, cursorFrame, showForceCursor, forceSizing, paintSizing, fHeld, stepHabit, wheelHabit, startForceSize, endForceSize
   };
 }

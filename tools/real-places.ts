@@ -240,7 +240,8 @@ for (const item of items) {
   const strictFails = strict.report.checks.filter(counts).map((c) => c.id);
   // the conversion's known faults (every place has them, D151, D200) and the places' own recorded
   // ones are not failures of the tool; anything else is, and so is a map the game would not load
-  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS]);
+  // (and the start-land preferences, information for a real place, D331, as the contract tests have it)
+  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, "start.farmland", "start.level_land"]);
   const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
   const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
   if (unknown.length || !loads) failures++;

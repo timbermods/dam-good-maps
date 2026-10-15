@@ -690,7 +690,7 @@ describe("a carve at work in the editor's worker", () => {
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     expect(Array.from(first)).toEqual(Array.from(shown));
     expect(kept.info.forceAgain).toBe("carve");
-    // Try another path: the same carve from the same land, the next seed; it replaces the first
+    // Try another path: the same carve from the same land, the next seed; another roll of its one step (D488)
     const again = ed.forceAgain();
     expect(again.errors).toEqual([]);
     expect(again.settings!.seed).toBe(1);
@@ -698,11 +698,11 @@ describe("a carve at work in the editor's worker", () => {
     for (let k = 0; k < 2000 && !show(ed.forceAdvance(STEPS_PER_SECOND)).done; k++);
     const other = ed.forceStop();
     expect(other.kept).toBe(true);
-    expect(other.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Try another path");
+    expect(other.info.history.filter((h) => h.applied).at(-1)!.label).toBe("Carve a river, roll 2");
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(shown));
     expect(Array.from(shown)).not.toEqual(Array.from(first));
-    // undo: the first carve, exactly; again: the land before it
-    ed.undo();
+    // Shift+Tab: the first carve, exactly; undo: the land before it, the step whole
+    expect(ed.forceRoll({ step: -1 }).ok).toBe(true);
     expect(Array.from(ed.terrainNow().heights)).toEqual(Array.from(first));
     expect(ed.sessionInfo().forceAgain).toBe("carve");
     ed.undo();

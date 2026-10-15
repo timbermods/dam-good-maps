@@ -119,7 +119,7 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   await hold(page, bx, ay);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(false);
   expect(await labels(page)).toHaveLength(n0 + 1);
-  expect((await labels(page)).at(-1)).toMatch(/^Raise, \d+ tiles, a source cleared$/);
+  expect((await labels(page)).at(-1)).toMatch(/^Raise \d+ tiles, a source cleared$/);
   await page.keyboard.press("Control+z");
   await idle(page);
   await expect.poll(async () => (await sources(page)).some((s) => s.x === bx && s.y === ay)).toBe(true);

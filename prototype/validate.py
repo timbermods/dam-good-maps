@@ -21,8 +21,10 @@ rule, the floor a slope or the start stands on, the room over a plant). The rows
 or the air inside the rock, walk.levels and water.sealed_source, are not computed here: there is no Python
 copy of the 3D rules (PLAN section 20, D279: 3D is verified against the game, not against a second
 implementation kept in step). They are reported as information, marked "information", and the oracle does
-not compare their verdicts; the same holds for water under roofs, which the playability checks see from
-above. On the heightfield maps the generator makes, each of these rows passes by construction.
+not compare their verdicts. So is water under roofs: this validator's water model sees the map from above,
+with no Python engine for the water in caves (D279), so on a map with caves or overhangs every row that
+reads the water is marked "information" and says so. On the heightfield maps the generator makes, the two
+rows pass by construction and no water is under a roof.
 
 Check ids and thresholds are documented in PLAN.md ("Validation"); the evidence behind them is
 in investigation/notes/*.md and investigation/REPORT.md.
@@ -45,7 +47,7 @@ from analysis import (N4, by_template, distance_from, is_dead, placement,  # noq
 from tbmap import GAME_VERSION, TimberMap  # noqa: E402
 
 FOOTPRINTS = os.path.join(os.path.dirname(HERE), "investigation", "notes", "footprints.json")
-LIMITS = {"min_size": 4, "max_size": 256, "layers": 23, "editor_max_height": 16,
+LIMITS = {"min_size": 4, "max_size": 512, "layers": 23, "editor_max_height": 16,
           "game_max_height": 22, "max_object_z": 33, "support_distance": 3}
 COMMON_NATURAL = {"Pine", "Birch", "Oak", "Succulent", "BlueberryBush"}
 ORIENTATIONS = {"Cw0", "Cw90", "Cw180", "Cw270"}
@@ -135,7 +137,7 @@ def world_blocks(fp, p):
 def check_file(m: TimberMap, rep: Report, raw_zip: dict):
     X, Y = m.size_x, m.size_y
     rep.add("file.size", LIMITS["min_size"] <= X <= LIMITS["max_size"] and LIMITS["min_size"] <= Y <= LIMITS["max_size"],
-            f"{X}x{Y}", (X, Y), "4..256")
+            f"{X}x{Y}", (X, Y), "4..512")
     rep.add("file.layers", m.layers == LIMITS["layers"], f"{m.layers} voxel layers", m.layers, 23)
     ver_ok = m.game_version.startswith("1.1.") and raw_zip.get("version.txt", "").strip() == m.game_version
     rep.add("file.version", ver_ok, f"{m.game_version} (generator writes {GAME_VERSION})", m.game_version, "1.1.x")
@@ -463,8 +465,15 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     start = check_start(m, rep, ents, occupied)
     if load_only:
         return rep
-    from playability import check_playability
+    from playability import approximate_id, check_playability
+    first = len(rep.checks)
     check_playability(m, rep, fps, difficulty, spec, features, water, profile, water_rules, soil_rules)
+    # water under roofs: not simulated in Python (D279, see the top); the rows that read the water are information
+    if not m.is_simple():
+        for c in rep.checks[first:]:
+            if approximate_id(c.id) and not c.na:
+                c.information = True
+                c.detail = f"{c.detail}; water under roofs is not simulated in Python: 3D rules are verified against the game (D279)".lstrip("; ")
     # the rows of the floor graph and the air inside the rock: not computed here (D279, see the top)
     note = "not computed in Python: 3D rules are verified against the game (D279)"
     starts = len(ents.get("StartingLocation", []))

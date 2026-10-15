@@ -19,7 +19,8 @@ describe("Deposit fan shaping",()=>{
   const m=fixture("plain",64);m.entities=[];
   for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<28?12:y>=31&&y<=33?14:7;
   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,seed:2},{path:[{x:30,y:30},{x:53,y:30}]}).finishAll();
-  fan(m.heights,r.map.heights,64);expect(r.plan0.stats.deposited).toBe(1685);expect(r.plan0.reach).toBe(23);
+  // (a drag's fan is its Size wide, Auto at Power 100 is 48, Kyler #341; it was 0.95 times the line, 1685)
+  fan(m.heights,r.map.heights,64);expect(r.plan0.stats.deposited).toBe(2461);expect(r.plan0.reach).toBe(23);expect(r.plan0.width).toBe(48);
   const raised=Array.from(r.map.heights).flatMap((h,i)=>h>m.heights[i]?[i]:[]),xs=raised.map(i=>i%64),ys=raised.map(i=>(i/64)|0);
   expect(Math.max(...xs)-Math.min(...xs)+1).toBeGreaterThanOrEqual(24);
   expect(Math.max(...ys)-Math.min(...ys)+1).toBeGreaterThanOrEqual(29);

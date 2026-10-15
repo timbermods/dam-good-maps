@@ -76,6 +76,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Put a stroke's terrain before or after it back on the map, at once. */
   function showStroke(s: Stroke, which: "before" | "after") {
+    ed.endFlip();
     const r = renderer.current;
     const W = infoRef.current.W;
     const snap = s[which];
@@ -93,9 +94,11 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     pendingTerrain.current++;
     const next = queue.current.then(async () => {
       setBusy((b) => b + 1);
+      let counted = false;
       try {
         const u = await fn();
         pendingTerrain.current--;
+        counted = true;
         if (pendingTerrain.current === 0) checkStroke.current = true;
         if (!u.ok) {
           // the worker refused it: the page takes the worker's terrain again
@@ -103,16 +106,22 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           localRedo.current = [];
           if (u.errors.length) setMessage({ kind: "error", text: plain(u.errors[0]) });
           const now = await api.terrainNow();
-          if (pendingTerrain.current === 0) {
-            mirror.current.heights = now.heights;
-            terrain.current = now.terrain;
-            renderer.current?.updateTerrain(now.heights);
-          }
+          // (put in place once nothing else the page painted is on its way; no check: the page showed what was refused)
+          checkStroke.current = false;
+          applyUpdate({ ...u, view: { ...u.view, heights: now.heights, terrain: now.terrain } });
+          return;
         }
         applyUpdate(u);
       } catch (e) {
-        pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
+        if (!counted) pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
         setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+        // (no answer came: the worker's land, as it stands, once nothing else the page painted is on its way; no
+        // check, the page's may be what failed)
+        checkStroke.current = false;
+        await api.terrainNow().then(
+          (now) => ed.applyView({ heights: now.heights, terrain: now.terrain }),
+          () => ed.takeLand(),
+        );
       } finally {
         setBusy((b) => b - 1);
       }
@@ -143,6 +152,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
   function pickTop(t: TopTool | null) {
     if (ed.forcer.current?.running) return;
+    // the Block tool (D335): the others go back as it is picked, and it goes back as another is
+    if (t === "block") return ed.pickBlock(true);
+    if (ed.blockRef.current) ed.pickBlock(false);
     // a force this build doesn't show can't be picked (release.ts, D219)
     const force = t && FORCES.some((f) => f.id === t) ? (t as Verb) : null;
     if (force && !forceShown(force)) return;
@@ -175,6 +187,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     if (t !== brushToolRef.current && brushRef.current.target !== null) setBrush({ ...brushRef.current, target: null }, false);
     setBrushTool(t);
     if (t) {
+      if (ed.blockRef.current) ed.pickBlock(false);
       setTool(null);
       pickShelf(null);
       setPicked(null);
@@ -197,6 +210,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     renderer.current?.setGhost(null);
     ed.ghostAt.current = null;
     if (!item) return;
+    if (ed.blockRef.current) ed.pickBlock(false);
     ed.setStartHint(null);
     painter.current?.end();
     setBrushTool(null);
@@ -333,9 +347,12 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           showWater(e.water, false, true);
           if (e.soil) {
             mirror.current.daySoil = e.soil;
-            showSoil(e.soil);
+            showSoil(e.soil, e.withered, e.day);
           }
           ed.rehover();
+        } else if (e.kind === "withered") {
+          // the plants the held day has surely killed, worked out after the day was shown (the earlier days' soil)
+          if (e.hazard === weatherRef.current && e.day === ed.heldDay.current) ed.showWithered(e.tiles);
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

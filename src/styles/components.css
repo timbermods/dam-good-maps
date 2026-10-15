@@ -267,6 +267,7 @@
   width: min(420px, 90vw);
   max-height: 60vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px 12px;
   font-size: 0.85rem;
 }
@@ -318,14 +319,24 @@
   box-shadow: none;
 }
 
+/* a segmented choice inside a menu (Look) keeps its words centred in their cells */
+.menu .set-seg button {
+  text-align: center;
+}
+
 .select-menu {
   left: 0;
   right: auto;
 }
 
-.menu button:hover,
 .menu button:focus-visible {
   background: var(--code);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .menu button:hover {
+    background: var(--code);
+  }
 }
 
 /* a small picture of the whole map with what the camera sees outlined (the minimap, D205) */
@@ -333,7 +344,7 @@
   position: relative;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
   box-shadow: var(--shadow);
   cursor: crosshair;
   touch-action: none;
@@ -370,9 +381,14 @@
   display: none;
 }
 
-.reveal-group:hover .reveal,
 .reveal-group:focus-within .reveal {
   display: inline-flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reveal-group:hover .reveal {
+    display: inline-flex;
+  }
 }
 
 /* a slider with its label and its value */
@@ -460,6 +476,7 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px 8px 8px 2px;
 }
 
@@ -512,10 +529,16 @@ button.pick-line {
   cursor: pointer;
 }
 
-button.pick-line:hover,
 button.pick-line[aria-pressed="true"] {
   color: inherit;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.pick-line:hover {
+    color: inherit;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
 }
 
 button.pick-line[aria-pressed="true"] {
@@ -648,6 +671,11 @@ button.pick-line[aria-pressed="true"] {
 
 .tip.above {
   transform: translateY(-100%);
+}
+
+/* to the left of its control, level with its middle (the speaker's, so the volume under it stays in view) */
+.tip.beside {
+  transform: translateY(-50%);
 }
 
 .tip-key {

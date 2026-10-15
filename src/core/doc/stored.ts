@@ -240,11 +240,13 @@ class Decoder {
 // ---------------------------------------------------------------------------------- the stored map
 
 /** The built map as the project stores it. `edits` and `nextSeq` are the log it belongs to. What
- *  a session rebinds at open is left out: the generation's layers (`cache.base`, `field`, `locked`
+ *  a session rebinds at open is left out: the ground the support rule drops (`dropped`), the generation's layers (`cache.base`, `field`, `locked`
  *  come from the document) and the memoized distance fields (`cache.fields`, computed on demand).
  *  Opening is not an edit: `dirty` is null. */
 export function storeBuilt(built: BuildResult, edits: number, nextSeq: number): StoredState {
-  const kept: BuildResult = { ...built, dirty: null, cache: { ...built.cache, base: null, field: null, locked: null, fields: new Map() } };
+  // (`dropped` is derived from the base, the ground and the objects: the session works it out again)
+  const { dropped: _dropped, ...rest } = built;
+  const kept: BuildResult = { ...rest, dirty: null, cache: { ...built.cache, base: null, field: null, locked: null, fields: new Map() } };
   const enc = new Encoder();
   enc.count(kept);
   const map = enc.encode(kept);
@@ -316,6 +318,11 @@ export function sameMap(a: BuildResult, b: BuildResult): boolean {
     [a.settle.stack?.contamination, b.settle.stack?.contamination],
   ];
   for (const [x, y] of arrays) if (!sameBytes(x, y)) return false;
+  // (the ground the Block tool dug under its surface is the map's too)
+  const ma = a.cache.terrain.masks;
+  const mb = b.cache.terrain.masks;
+  if ((ma?.size ?? 0) !== (mb?.size ?? 0)) return false;
+  if (ma && mb) for (const [i, m] of ma) if (mb.get(i) !== m) return false;
   if (a.settle.ticks !== b.settle.ticks || a.settle.settled !== b.settle.settled || !!a.settle.preview !== !!b.settle.preview) return false;
   if (a.entities.length !== b.entities.length) return false;
   for (let i = 0; i < a.entities.length; i++) if (exactJson(a.entities[i]) !== exactJson(b.entities[i])) return false;

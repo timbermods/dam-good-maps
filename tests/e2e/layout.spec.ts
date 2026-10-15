@@ -12,6 +12,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 
+/** Every tool and the key that picks it. */
+const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["7", "Block"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"], ["Shift+Digit8", "Erode"]] as const;
+
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
 const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
@@ -122,6 +125,11 @@ const settle = async (page: Page, w: number, h: number) => {
 /** The held tool's settings stand on the bar's cells (Kyler's option B): one panel at the bar's exact width and one
  *  height, 120px (two rows, never a third: Kyler, 2026-10-05), for every tool; every group starts at a cell's left edge and ends at a cell's right edge, so each
  *  edge in one row lines up with the other row and the bar; the two rows full, no empty cells. */
+/** Where each force's Power and Size stood (x, width, top), by name: every force's must be the first one's (D184: a setting
+ *  keeps its place across tools); the brushes' Size is their own, on cells 1–4. */
+const FORCES_HERE = new Set(["Carve", "Craterize", "Erupt", "Quake", "Glaciate", "Rift", "Deposit", "Erode"]);
+const placed = new Map<string, { l: number; w: number; t: number }>();
+
 async function onTheCells(page: Page, state: string) {
   const r = await page.evaluate(() => {
     const box = (e: Element) => e.getBoundingClientRect();
@@ -136,7 +144,7 @@ async function onTheCells(page: Page, state: string) {
       groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
-  expect(r.lefts.length, "the bar's thirteen cells").toBe(13);
+  expect(r.lefts.length, "the bar's fifteen cells").toBe(15);
   if (!r.settings) return;
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
@@ -153,7 +161,18 @@ async function onTheCells(page: Page, state: string) {
     }
     return out;
   });
-  expect(cut, `cut off (${state})`).toEqual([]);
+  expect.soft(cut, `cut off (${state})`).toEqual([]);
+  if (FORCES_HERE.has(state))
+    for (const g of r.groups.filter((g) => g.name === "Power" || g.name === "Size")) {
+      const here = { l: g.l, w: g.r - g.l, t: g.t };
+      const first = placed.get(g.name);
+      if (!first) placed.set(g.name, here);
+      else {
+        same(here.l, first.l, `${g.name}'s left edge is the same in ${state} as in the first force`);
+        same(here.w, first.w, `${g.name}'s width is the same in ${state} as in the first force`);
+        same(here.t, first.t, `${g.name}'s row is the same in ${state} as in the first force`);
+      }
+    }
   same(r.settings[0], r.bar[0], `the settings' left edge is the bar's (${state})`);
   same(r.settings[1], r.bar[1], `the settings' right edge is the bar's (${state})`);
   same(r.settings[2], 120, `the settings' one height (${state})`);
@@ -174,12 +193,12 @@ async function onTheCells(page: Page, state: string) {
         expect(ok, `${g.name}'s right edge lines up with the row at ${b} (${state})`).toBe(true);
       }
     }
-  // no empty cells: each row's groups cover its thirteen cells (a group on several rows counts in each)
-  const width = r.rights[12] - r.lefts[0];
+  // no empty cells: each row's groups cover its fifteen cells (a group on several rows counts in each)
+  const width = r.rights[14] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
   for (const top of tops.slice(0, 2)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
-    const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[5] && g.r > r.lefts[6]) ? 0 : r.lefts[6] - r.rights[5] - 2);
+    const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[6] && g.r > r.lefts[7]) ? 0 : r.lefts[7] - r.rights[6] - 2);
     same(covered, width, `the row at ${top} has no empty cells (${state})`, 1);
   }
 }
@@ -308,8 +327,9 @@ for (const [w, h] of SIZES) {
       if (panel) await header.getByRole("button", { name: "Map Generator", exact: true }).click();
     }
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
+    placed.clear();
     await onTheCells(page, "Select");
-    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
+    for (const [key, what] of EVERY_TOOL) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
@@ -403,18 +423,21 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
-    // the map's name in full (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, never "…",
-    // clear of both groups, the bar's other pieces where they were
+    // the map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
+    // 30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in at most
+    // two lines, clear of both groups, the bar's other pieces where they were
     const actions = await header.locator(".editor-actions").boundingBox();
-    for (const name of ["Twin Channel Island Chain", "Where the Long Winding River Meets"]) {
+    for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
       await header.locator(".editor-title .title-button").click();
       await page.keyboard.press("Control+A");
-      await page.keyboard.type(name);
+      await page.keyboard.type(typed);
+      const name = (await header.getByLabel("Map name").inputValue()).trim();
+      expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
       await page.keyboard.press("Enter");
       await expect(header.locator(".editor-title .title-button")).toHaveText(name);
       await settle(page, w, h);
       const button = header.locator(".editor-title .title-button");
-      // (no "…", at most two lines of its line height)
+      // (at most two lines of its line height, never wider than its box)
       expect(
         await button.evaluate((e) => {
           const cs = getComputedStyle(e);
@@ -429,3 +452,19 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
     }
   });
 }
+
+// The narrowest the bar is drawn for: every tool's settings on the bar's cells and none cut off, as at the larger sizes
+// (Glaciate's Benches "Some" was cut by 2px here once the bar grew past thirteen cells).
+test("at 1280×800: every tool's settings sit on the bar's cells and nothing in them is cut off", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page);
+  await settle(page, 1280, 800);
+  placed.clear();
+  await onTheCells(page, "Select");
+  for (const [key, what] of EVERY_TOOL) {
+    await page.keyboard.press(key);
+    await onTheCells(page, `${what} at 1280`);
+    await page.keyboard.press("Escape");
+  }
+});

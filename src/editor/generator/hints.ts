@@ -5,6 +5,9 @@ import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
 
 export interface SettingsProps {
   spec: MapSpec;
+  /** The open map is a file (opened, dropped, a real place): it has no generator settings, so they read "–" until
+   *  the player sets one. */
+  blank?: boolean;
   seedText: string;
   onSeed(text: string): void;
   /** The seed is kept (typed, or from a link): Generate makes that map again. */
@@ -22,8 +25,8 @@ export interface SettingsProps {
 export const HINT: Record<string, string> = {
   seed: "The same seed and settings make the same map",
   size: "The map's size: the game's, or your own",
-  "size-x": "The map's width in tiles (48 to 256)",
-  "size-y": "The map's height in tiles (48 to 256)",
+  "size-x": "The map's width in tiles (4 to 512)",
+  "size-y": "The map's height in tiles (4 to 512)",
   relief: "How much the land rises and falls",
   verticality: "How steep and tall the cliffs and slopes are",
   highest: "The highest level the land may reach",

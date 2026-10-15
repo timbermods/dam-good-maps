@@ -26,8 +26,34 @@ export const THEME_NAMES: Record<ThemeId, string> = {
 };
 
 export const SIZE_PRESETS: Record<SizePreset, number> = { small: 96, medium: 128, large: 192, max: 256 };
-export const MIN_SIDE = 48;
-export const MAX_SIDE = 256;
+export const MIN_SIDE = 4;
+export const MAX_SIDE = 512;
+
+/** The least a side each theme generates on (D357, found by trying): the smallest side where every setting the panel
+ *  allows still makes a map keeping the absolutes (D471: the starting-logs floor, a start with its water, item 47's
+ *  must-haves) and its theme. Every side from 4 stays valid (the file, the link and the validator take it) for a map
+ *  shaped by hand. At 32² six of the seven themes find no start, badwater source or mine site after all 1,960
+ *  attempts on seeds 1 and 2; at 40² the default settings make every theme's map, but the panel's extremes don't
+ *  (all maximums, Any seed 101: 181 berry bushes in the start's reach where 200 are asked; starved start, Highlands
+ *  seed 101: no start), and at 48² the nightly's every-setting sweep passes, so the line is 48. Islands' is 64: under
+ *  it no river reaches its sea, which drains (seed 1: 3% water and no island at 40×160, 5% at 48×160; 60% at 64×160). */
+export const GENERATOR_MIN_SIDE: Record<ThemeId, number> = {
+  any: 48,
+  riverValley: 48,
+  canyon: 48,
+  highlands: 48,
+  lakeBasin: 48,
+  delta: 48,
+  islands: 64,
+};
+
+/** Why the generator will not build a map of this size for this theme, in one line, or null when it will (D342:
+ *  refused at once, never clamped, never a crash). */
+export function generatorSizeRefusal(x: number, y: number, theme: ThemeId): string | null {
+  const least = GENERATOR_MIN_SIDE[theme];
+  if (x >= least && y >= least) return null;
+  return `${THEME_NAMES[theme]} needs at least ${least} tiles a side to generate`;
+}
 
 export interface Settings {
   terrain: {

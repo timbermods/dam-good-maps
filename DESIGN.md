@@ -14,6 +14,40 @@ mockup and capture named below is in the Release
 2. **Meaning** (below): what each colour, mark, word and state tells the player.
 3. The look. When a look rule and a meaning conflict, the meaning stays and the look changes.
 
+## CSS principles
+
+The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026-10-15). They sit in `src/styles/app.css`
+(tokens, motion, focus, press, text-wrap) and change no layout.
+
+- **Colour tokens:** one set on `:root`, each `light-dark(light, dark)`, with `color-scheme: light dark`; never a second block
+  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root. A value that isn't a
+  colour (a shadow's blur) can't use `light-dark()`; keep it in the one small `prefers-color-scheme` block beside the tokens.
+- **Motion:** take `--ease-out` and `--ease-in-out` and the `--dur-*` tokens; never `ease-in` on the interface, never
+  `transition: all` (name the properties). Movement (transform, size) goes inside
+  `@media (prefers-reduced-motion: no-preference)`; fades of opacity and colour stay outside it.
+- **Hover only where hover exists:** hover styles sit in `@media (hover: hover) and (pointer: fine)`. A reveal also shows on
+  `:focus-within`, so a touch screen reaches it.
+- **`overflow: clip`, not `hidden`,** wherever the box isn't meant to scroll: it makes no scroll container and keeps
+  `position: sticky` working. Keep `hidden` for `-webkit-line-clamp` and `auto` where something scrolls. A flex or grid item
+  that clips text takes `min-width: 0` (clip, unlike hidden, leaves the item's minimum size alone).
+- **Scrolling:** every inner scroller has `overscroll-behavior: contain`; `html` has `overscroll-behavior-y: none`, restored for
+  coarse pointers. `scrollbar-gutter: stable` only where a scrollbar's arrival would move content and the resting layout
+  stays the same.
+- **Safe alignment:** a centred flex or grid container whose content can overflow uses `safe center`, so the overflow runs off
+  the end instead of both sides.
+- **Tabular numbers:** `font-variant-numeric: tabular-nums` on numeric readouts only (sizes, values, counts, percentages,
+  coordinates), never globally.
+- **One focus ring:** `:focus-visible` draws `max(2px, 0.08em)` in the text colour, a quarter em off the edge; a filled control
+  takes the accent; a control inside something that clips draws it inside its own edge. Never `outline: none` without a
+  replacement.
+- **Press feedback:** a button scales to 0.97 while pressed (100 to 160 ms, `--ease-out`, inside the reduced-motion guard);
+  never the map's canvas, sliders, text fields, connected cells or list rows.
+- **Line breaks:** `text-wrap: balance` on headings and short titles, `text-wrap: pretty` on paragraphs, notes and tooltips.
+- **Tap:** `-webkit-tap-highlight-color: transparent` and `touch-action: manipulation` on interactive elements (a control that
+  takes the gesture itself sets `touch-action: none`); `font-synthesis: none`.
+- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, container queries,
+  `text-box` trim, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
+
 ## Three zones
 
 - **Map:** the 3D view, its sky, overlays, markers, ghosts, rings and the compass. Its colours are the map's own
@@ -125,9 +159,13 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
 - **Top right:** Undo, Redo and ⋯, the checks dot with its words, Save to Timberborn. Beneath, the cluster as a grid
   of two columns: the level control (132px) and the compass (38px) in the corner; Slow forces under the level
   control, Sound under the compass.
-- **The shelf** hangs under the cluster at the same width (176px): one object per line, a 28px picture then its name,
-  in five groups divided by hairlines. The view draws each picture to fill its tile. Fifteen objects fit at 1366×768
-  above the water bar; when more arrive it scrolls inside itself, names kept.
+- **The shelf** hangs under the cluster, 180px wide (so the longest name clears the scrollbar's room): one object per line, a 28px picture then its name,
+  in five groups (the sources, the water objects, the plants, the landmarks, the core and reserves) divided by hairlines drawn in the gap above each group's first row, with no extra height; the Items title stays at the top while the list scrolls, and the list keeps its scrollbar's room (thin, kept even when nothing scrolls). The view draws each picture to fill its tile. With every 1.x object (26 rows) the
+  whole list fits at 1920×1080 with nothing held; with an object's window above it, or in a shorter window, it scrolls
+  inside itself, names kept, and the picked row is scrolled into view
+  ([captures](docs/design/showcase-shelf-list-1920-light.jpg), [with a window](docs/design/showcase-shelf-reserve-1280-dark.jpg)).
+  Select's first row ends with Fill water and Remove unfed water, whose hover words take the size's place
+  ([capture](docs/design/showcase-shelf-select-1920-dark.jpg)).
 - **Bottom left:** the hover readout. **Bottom right:** the water bar (its status, Pause, Speed, Skip, Replay,
   Drought, Badtide), and above it the look's menu as a small plate.
 - **The default view fits the whole map in the free space:** right of the panel, left of the shelf, under the rows
@@ -245,7 +283,7 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 `feature/page`** (its decisions below, "The build") (the handoff in
 docs/progress/page.md lists them in full): no scale-up at any size and the `?ui` parameter removed; the right column
 13px wider so every legend line fits; the Badwater caption one line, "Badwater: dark brown · Contaminated soil:
-light brown"; the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
+light brown" (since the polish pass: two swatch rows in the overlay's own colours, never colour names); the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
 (kept in Your maps, used by Save to Timberborn and the .timber file; a new map starts with a default name); Your
 maps at the drawer's foot (name and size, newest first, the current map marked, a click opens it; no stars or
 thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
@@ -329,8 +367,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   right edge is on the page's 10px margin (the top-right controls' too) and its bottom level with the bar's bottom.
   Picking an object lights its row in the mint, as the bar lights a tool.
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
-- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); thirteen cells of one width (76px where there is room,
+- **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block (the Block tool,
+  D335, key 7), a hairline,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode (Glaciate and Erode last, Kyler 2026-10-06); fifteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -339,7 +378,9 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
-  - **Carve** and the other forces: Power 3 · Size 3 (with Auto) · What it leaves 3 · More 2.
+  - **Block** (the Block tool): Size 7 (a slider, 1 to 8, from the first cell, where the brushes' Size starts) and Shape 7
+    (Square, Round) on row 1; Action 14 (Add, Remove; the other lit while Shift is held) across row 2.
+  - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
     group on whole cells; the bar never moves.
@@ -373,17 +414,22 @@ refinements and what the mockups left open:
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
-  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 13 cells, every setting a plate on whole cells (its edges on
+  for every tool (two rows of 54px; never a third, Kyler, 2026-10-05), on one grid of the bar's own 14 cells, every setting a plate on whole cells (its edges on
   the bar's cells, 2px between plates), no empty cells, More gone. One number look (a slider, its value at the right
   of its name), one choice look (segmented; toggles as Off and On), Auto one word in one place; Auto's pick outlined
   (a hollow knob on an unfilled slider, an outlined option), the player's filled; names 13px, one size, brighter;
   no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
-  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; every tool's rows share their
-  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it): Craterize and Erupt
-  on cells 3, 6 and 9, Rift and Deposit on 6 and 9, Quake on 3 and 9, Glaciate on 3, 6, 9
-  and 11, Carve on 3, 5, 7 and 9 (its ten settings two cells each, Power, Wander and Canyon depth wider); the brushes
+  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; each gap between plates lines
+  up with a gap in the other row or a plate there spans it (Rift and Deposit share none and Quake only cell 9,
+  because of their wide Floor). **Power is always
+  cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
+  setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
+  Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
+  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve Wander 7–9, What it leaves 10–11, Walls 12–13 (its rows share 3, 9 and 11), then
+  Canyon depth 1–3, River depth 4–5, Banks 6–7 and the Floor 8–9 on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.
   The rest of this item describes the build before.
@@ -420,7 +466,8 @@ refinements and what the mockups left open:
 - **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
   names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
-  that has them) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
+  that has them) follows Badwater in the row at every width; where the row then leaves the water row no room, the
+  water row takes the second line, as in a narrow window.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
@@ -473,8 +520,10 @@ refinements and what the mockups left open:
   edge).
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
-  scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
-  ("Crater Lake"; two lines kept) and its size;
+  scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
+  ("Near Crater Lake"; two lines kept; the polish audit found "Crater Lake" here and "Near Crater Lake" on the map, in its
+  file and on the gallery page, and D136's plain titles never reached the data, so the panel follows the data until
+  the places are rebuilt) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
@@ -506,13 +555,17 @@ refinements and what the mockups left open:
   22px at 1920×1080; Legend stays centred between Badtide and Top-down.
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
-  checks stay left-aligned.
-- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+  checks, Help and Keyboard shortcuts stay left-aligned, read as lists.
+- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right"; each line is one line at
+  every size ("Shape the land: click the map with Carve below, or drag a brush.").
 - **Messages sit above the bar** (Kyler, 2026-10-05): the editor's (a file saved, a save that failed) and the page's
   (Your maps couldn't keep the map, a version found) sit above the first steps' hints and the bar's settings, one gap
-  apart, never over the bar or another control. A message is exactly as wide as the hints box, 522px, sharing its left
+  apart, never over the bar or another control. A message is exactly as wide as the hints box (the width of its longest line, about 520px), sharing its left
   and right edges to the pixel at every size, and keeps that width with no hints showing, so nothing changes shape
-  when they close; its words are centred and wrap, its × 10px in from the right edge as the hints' is. A save that
+  when they close; its words are centred and wrap, its × 6px in from the right edge as the hints' is. **Every ×** that closes a hint, a note, History or an object's window is
+  one 24px icon button (6px radius, quiet at rest, lit on hover and focus; tooltip "Close", or its own words where recorded),
+  never an underlined link (`docs/design/polish-notes-*`). A refusal's note goes with the next press, key, tool pick or
+  view change; there is no "Working…" note (the checks pill says it). A save that
   another tab overtook says the store's words, text only: "Changed in another tab. Download the project to keep your
   edits." Captures: `docs/design/conflict-*` (1920×1080, 2560×1440, 1300×900), `message-alone-1920x1080`,
   `confirm-1920x1080`.
@@ -525,7 +578,13 @@ refinements and what the mockups left open:
   (`docs/design/close-question-1920x1080`). Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
-  clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
+  clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Near Crater Lake…", with
+  Cancel); before any map exists (a share link, a reload) the dialog stands over the editor's own frame, the header, bar
+  and shelf held still (the header with its Look button in place, so nothing moves when the map arrives) and the land's
+  first look in the map's place, never a blank page with one line (polish audit, `docs/design/polish-generator-*`).
+  Nothing is dimmed there and the dialog sits under the land, not across it. If that first map fails (six seeds in a row,
+  or the worker), the dialog turns into the failure's words with one button, **Make a new map** (a random seed); the
+  message is never left dimmed under the dialog, and any message stands above it. Cancel ends the generator's worker and opens the map that was open again in a new one,
   from its project saved just before (its edits, history and view as they were; "Opening your map…" meanwhile). A
   failed map turns the dialog into its words and Close. Generate's button no longer says what is happening.
 - **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
@@ -539,7 +598,10 @@ refinements and what the mockups left open:
   map when none is left). The browser's own menu doesn't open on the pictures. Your maps' two columns are now equal
   halves whatever the names (a long name widened its column, and a rename made it jump).
 - **Turn** (Kyler, 2026-10-03): an object that turns has its Turn in the object window, 0°, 90°, 180° and 270°, the
-  one R steps through.
+  one R steps through. Trees, bushes and thorns don't turn: their window holds Size and Density (and a tree's Age).
+- **The object window's controls are the bar's** (the polish pass): a number is the bar's slider (the `set-range` look)
+  with its value at the right of its name, on the name's line before the ×; a choice is segmented, the chosen side
+  selected (Water: Clean | Badwater; a relic's Size; a tree's Age); no native dropdown and no browser-blue slider.
 - **Every field shows its whole value:** Theme, Seed (with Keep) and Size each take a full row (a ten-digit seed, or a
   word up to 24 letters, fits), and the map's Name wraps onto more lines when it is long.
 - **Your maps under a solid scrollbar:** with Windows' solid scrollbar showing (15px), every picture stays clear of
@@ -565,7 +627,9 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything and About (Another like this is in
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything and About, then after a hairline
+  Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
+  lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
 - **About** is the page's dialog: the generator's version, the licence, the credits, the unofficial line, Source
   and Close.
@@ -596,7 +660,7 @@ D380 work.
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
   (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
-  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
+  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything,
   About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
@@ -619,7 +683,7 @@ D380 work.
 - **The legend's names (v8):** every line is a name on one line, nothing of what it does in the game: Moist ground ·
   Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
   bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
-  Blockage · Other objects; under "Markers on:": Slope arrows · Level lines · Contamination edge · Mine site
+  Blockage · Other objects; under "Markers on:": Slope arrows · Wall levels · Contamination edge · Mine site
   outline. Each line's tooltip is "Show on the map"; the notes about far-off drawing and clicking are gone. The same
   names serve wherever the legend appears. **Two lines are wider than the column** at the panel's present paddings
   (the column is 164px at 1×, the text has 108px): "Contaminated ground" needs 121px and "Contamination edge" 112px;
@@ -798,10 +862,13 @@ API, every pinned hash, and every role and accessible name the tests use.
 
 - **The keys go by the bar's places**, on the key's code (any keyboard layout): 1 Select, 2 Raise, 3 Lower, 4 Flatten,
   5 Smooth, 6 Naturalize; Shift+1 Carve, Shift+2 Craterize, Shift+3 Erupt, Shift+4 Rift, Shift+5 Quake, Shift+6
-  Deposit, Shift+7 Glaciate; M Markers. The shelf's items, water sources included, have none. Never while typing in a
+  Deposit, Shift+7 Glaciate, Shift+8 Erode; M Markers. The shelf's items, water sources included, have none. Never while typing in a
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.
+- **History's panel is Your maps' panel** (the polish pass): a heading row (the title and a ghost ×, the heading row's
+  height and place), its steps as full-width rows, the step the map is at *selected* (the shelf's look, not lit), steps undone
+  dimmed and struck through, no grey explanation line. Captures `docs/design/polish-panels-*`.
 - **History is a button** in the header, directly left of Undo: "History", pressed (the mint, nothing else changing)
   while its panel is open, no count (the panel's "To review" list stays); gone from File, whose tooltip is "Open and
   download maps, and more". Every control in the header's right group is one height, Save's, 40px on whole pixels,
@@ -827,3 +894,41 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+- **The generator's panel after the polish audit** (`docs/design/polish-generator-*`): an opened file's panel reads "–"
+  for the settings it doesn't have (seed, theme, every slider and choice, the species shares; the sliders at a third of
+  their strength) and shows the file's own size; "On this map" counts the map's objects (Mine sites, Ruins, Berry bushes,
+  Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
+  "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
+  field is in hand.
+- **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
+  open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
+  generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when
+  there is none (`labelLayout.ts`). Markers' wall ledges are named **Wall levels** (the legend's line and Markers'
+  tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
+  toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
+  Drought or Badtide day's water.
+- **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
+  look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
+  here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
+  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
+  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
+
+## The header and top-right controls (polish audit, 2026-10-14)
+
+- **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
+  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
+  with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
+- **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the
+  view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
+  mockups' "an indicator, not a control".
+- **The speaker's tooltip sits to its left,** level with its middle, so the volume that opens under it is never covered
+  (`data-tip-side="left"`, the shared tooltip layer).
+- **The Look menu uses the page's own controls:** the three looks a segmented choice (the chosen cell filled as the
+  settings' choices are), High's parts checkbox rows of the Show column's 14px box, a name that wraps hanging under its
+  first letter. No browser radios or checkboxes.
+- **Tooltips:** the layer arrows are "Show one layer less" and "Show one layer more"; the checks pill's is "What to fix before
+  playing" (its words are already on it).
+- **The checks' list and the Legend:** the list closes an open Legend while it is shown (the Legend's box keeps its tick
+  and the panel returns when the list closes); the two never overlap. Captures `docs/design/polish-header-*`.
