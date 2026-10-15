@@ -65,7 +65,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
@@ -256,6 +256,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place, an opened file or a renamed map as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
+  **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
+  its path); any other is refused with one line naming `Documents\Timberborn\Maps`, and the previous choice stands.
+  Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
+  refused, the folder gone, a write error) falls back to the download with a plain note; a failed write also forgets the remembered folder, so the next Save asks again. **File → Choose Maps folder…**
+  picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
+  the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
+  picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
   highlighted on the map. Never a pop-up.
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet

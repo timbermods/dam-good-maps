@@ -67,9 +67,11 @@ where the job is written down, scripts where it's only waiting.
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
 | The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
-| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | any agent, `model: haiku` | Haiku 4.5 |
+| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines, small well-specified fixes and test updates, simple reviews | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
 | The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
+
+Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15).
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
 and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from

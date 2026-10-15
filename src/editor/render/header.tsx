@@ -24,6 +24,7 @@ export function header(ed: Ed, props: EditorProps) {
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}
+      onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
       onSaveProject={() => void exportProject()}
       onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
