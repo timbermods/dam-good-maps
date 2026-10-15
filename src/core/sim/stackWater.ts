@@ -21,7 +21,7 @@ import { isDelayed, mapObjects, specifiedStrength, waterModel, type MapObject } 
 import { rustWater } from "./rustWater";
 import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
 import { drainColumns, heightLimits, keptColumnSeeds, type StackGraph } from "./stackFed";
-import type { RetainedWater, StackedTerrain, WaterModel } from "./water";
+import { sameRetained, type RetainedWater, type StackedTerrain, type WaterModel } from "./water";
 
 interface Exports {
   memory: { buffer: ArrayBuffer };
@@ -64,6 +64,7 @@ export const STACK_FIELD = {
   drained: 20,
   rowsOut: 21,
   rowsIn: 22,
+  reach: 23,
   emitting: 24,
   allowed: 25,
 } as const;
@@ -256,6 +257,35 @@ export interface StackSettle {
   /** The check at which only sealed basins still changed, their evaporation (D222, D413): the settle stopped
    *  there, the water settled. */
   steadyTicks?: number;
+  /** A canonical settle's only (`canonicalStackRun`, `settledAgain`): 1 on every column that was wet at
+   *  some substep of the settle (rust/water/src/stack.rs `wet_ever`), per column id. */
+  reach?: Uint8Array;
+  /** A canonical settle's only: the pre-fill it started from, its columns with any water, pressure or
+   *  badwater share (ids ascending). */
+  start?: StackStart;
+}
+
+/** A pre-fill, sparse: the columns where depth, pressure or contamination is not 0. */
+export interface StackStart {
+  ids: Uint32Array;
+  depth: Float64Array;
+  overflow: Float64Array;
+  contamination: Float64Array;
+}
+
+function startOf(m: StackWater): StackStart {
+  const d = m.view(STACK_FIELD.depth) as Float64Array;
+  const o = m.view(STACK_FIELD.overflow) as Float64Array;
+  const c = m.view(STACK_FIELD.contamination) as Float64Array;
+  const ids: number[] = [];
+  for (let k = 0; k < d.length; k++) if (d[k] !== 0 || o[k] !== 0 || c[k] !== 0) ids.push(k);
+  const out: StackStart = { ids: Uint32Array.from(ids), depth: new Float64Array(ids.length), overflow: new Float64Array(ids.length), contamination: new Float64Array(ids.length) };
+  for (let j = 0; j < ids.length; j++) {
+    out.depth[j] = d[ids[j]];
+    out.overflow[j] = o[ids[j]];
+    out.contamination[j] = c[ids[j]];
+  }
+  return out;
 }
 
 /** The days a stacked canonical settle may take (#71's, which the probe's test maps were played
@@ -291,27 +321,13 @@ const MAX_ADVANCE = 10_000_000;
  *  given and returns the settle once it is done; `ticks` over `maxTicks` is how far it is, for a
  *  caller to show. `retained` is water sealed basins keep (water.ts `RetainedWater`). */
 export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retained: readonly RetainedWater[] = [], drained: readonly number[] = []): { advance(ticks: number): StackSettle | null; readonly ticks: number; readonly maxTicks: number } {
-  // (a column two lakes hold keeps the later one's water, as the pre-fill would leave it: each entry names
-  // its column by its tile and floor, stackFed.ts `retainedColumn`)
-  const last = new Map<string, number[]>();
-  for (const r of retained)
-    for (let k = 0; k < r.tiles.length; k++) {
-      const f = r.floor[k];
-      const d = r.depth[k];
-      const c = r.contamination[k];
-      // (water outside the water's levels, a file from a taller, modded game, is left out, as its objects are)
-      if (!(f >= 0 && d >= 0 && f + d <= OPEN_CEILING && c >= 0 && c <= 1)) continue;
-      const key = r.tiles[k] + ":" + f;
-      last.delete(key);
-      last.set(key, [r.tiles[k], f, d, c]);
-    }
-  const kept: number[] = [];
-  for (const row of last.values()) kept.push(...row);
+  const kept = retainedRows(retained);
   const m = new StackWater(W, H, t.objects.length / 8, kept.length / 4);
   let done: StackSettle | null = null;
   let ticks = 0;
   let maxTicks = 1;
   let stacked = true;
+  let start: StackStart | undefined;
   // on several threads where this thread has a pool (stackParallel.ts), decided at the first slice; `since`
   // counts the ticks the threads ran since the settle's last check
   let threads: StackThreads | null | undefined;
@@ -329,6 +345,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
     stacked = m.info(STACK_INFO.stacked) === 1;
     m.op(STACK_OP.settleBegin, stacked ? STACK_SETTLE_DAYS : 6);
     maxTicks = Math.max(1, m.info(STACK_INFO.maxTicks));
+    if (stacked) start = startOf(m);
   } catch (e) {
     m.close();
     throw e;
@@ -364,6 +381,9 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           maxTicks = Math.max(maxTicks, base + m.info(STACK_INFO.maxTicks));
         }
         if (m.info(STACK_INFO.settle) === 0) return null;
+        // (where the water went: this thread's own columns, and the strips' when they ran it)
+        const reach = stacked ? (m.copy(STACK_FIELD.reach) as Uint8Array) : undefined;
+        if (reach) threads?.reach(reach);
         threads?.free();
         threads = null;
         if (drainNext) {
@@ -393,6 +413,8 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
           settled: m.info(STACK_INFO.settle) === 1,
           ticks: m.info(STACK_INFO.ticks),
+          // (a settle that took a removal's water ran on from another start: `settledAgain` never stands for it)
+          ...(reach && start && !drained.length ? { reach, start } : {}),
         };
         const steady = m.info(STACK_INFO.steadyTicks);
         if (steady >= 0) done.steadyTicks = steady;
@@ -431,6 +453,166 @@ function drainSettled(m: StackWater, W: number, H: number, t: StackedTerrain, re
   (m.view(STACK_FIELD.contamination) as Float64Array).set(water.contamination);
   (m.view(STACK_FIELD.momentum) as Float64Array).set(water.momentum);
   return true;
+}
+
+/** Retained water as the engine takes it: (tile, floor, depth, contamination) rows, one a column. */
+function retainedRows(retained: readonly RetainedWater[]): number[] {
+  // (a column two lakes hold keeps the later one's water, as the pre-fill would leave it: each entry names
+  // its column by its tile and floor, stackFed.ts `retainedColumn`)
+  const last = new Map<string, number[]>();
+  for (const r of retained)
+    for (let k = 0; k < r.tiles.length; k++) {
+      const f = r.floor[k];
+      const d = r.depth[k];
+      const c = r.contamination[k];
+      // (water outside the water's levels, a file from a taller, modded game, is left out, as its objects are)
+      if (!(f >= 0 && d >= 0 && f + d <= OPEN_CEILING && c >= 0 && c <= 1)) continue;
+      const key = r.tiles[k] + ":" + f;
+      last.delete(key);
+      last.set(key, [r.tiles[k], f, d, c]);
+    }
+  const kept: number[] = [];
+  for (const row of last.values()) kept.push(...row);
+  return kept;
+}
+
+/** Tiles (Chebyshev) within which no changed tile may lie of a settle's reach for that settle to be the
+ *  new map's too (`settledAgain`): a substep's active columns lie within one tile of the wet ones (the
+ *  active list), and each reads the columns and terrain within two tiles of it (stackParallel.ts), so
+ *  three would do; two more to spare. */
+export const REACH_MARGIN = 5;
+/** Tiles round an emitter's anchor its columns can take (stackParallel.ts keeps four). */
+const EMITTER_REACH = 4;
+
+/** The canonical settle of `next`, when it is provably `prev`'s (the canonical settle of `prevModel`)
+ *  with nothing changed: else null, and the settle runs (D453; its proof is D130's, bit for bit).
+ *
+ *  The canonical settle is a run from the pre-fill, so it is the same run when three things hold. The
+ *  objects and the kept water are the same, and so the emitters. The pre-fill is the same on every
+ *  column of every tile the edit left as it was (its terrain, and so its columns), and dry on the
+ *  tiles it changed. And no tile the edit changed lies within `REACH_MARGIN` of any column the old run
+ *  ever wet (`StackSettle.reach`) or of an emitter. A substep reads only the wet columns, their
+ *  neighbours and the sources, and what lies within two tiles of them (rust/water/src/stack.rs `substep`;
+ *  the multi-core settle rests on the same rule): by induction over the substeps every column then holds
+ *  what it held in the old run, each changed tile's stays dry and as the pre-fill left it, the checks
+ *  every 128 ticks see the same water (a dry column adds exactly 0 to the volume, and the columns that
+ *  hold water keep their ids, slot · N + tile), and the run stops at the same tick with the same water.
+ *  The saturation is worked out again on the new columns, as the settle itself ends. Every Block dig or
+ *  build and every Erode cave away from the water then settles at once. */
+export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: WaterModel): StackSettle | null {
+  const a = prevModel.stacked;
+  const b = next.stacked;
+  if (!a || !b || !prev.stacked || !prev.reach || !prev.start) return null;
+  const { W, H } = next;
+  const N = W * H;
+  if (prevModel.W !== W || prevModel.H !== H || prev.W !== W || prev.H !== H) return null;
+  if (a.objects.length !== b.objects.length || a.objects.some((v, k) => v !== b.objects[k])) return null;
+  if (!sameRetained(prevModel.retained, next.retained) || next.drained?.length || prevModel.drained?.length) return null;
+  // the tiles the edit changed: their terrain (then their columns, compared below too)
+  const changed = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (a.mask[i] !== b.mask[i]) changed[i] = 1;
+  // where the old run's water went, and the emitters
+  const near = new Uint8Array(N);
+  for (let c = 0; c < prev.reach.length; c++) if (prev.reach[c]) near[c % N] = 1;
+  for (let k = 0; k < b.objects.length; k += 8) {
+    // (the badtide drains too: whatever can take or give water)
+    if (b.objects[k] < KINDS.BadtideDrain) continue;
+    const x = b.objects[k + 1];
+    const y = b.objects[k + 2];
+    for (let yy = Math.max(0, y - EMITTER_REACH); yy <= Math.min(H - 1, y + EMITTER_REACH); yy++)
+      for (let xx = Math.max(0, x - EMITTER_REACH); xx <= Math.min(W - 1, x + EMITTER_REACH); xx++) near[yy * W + xx] = 1;
+  }
+  const clear = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let yy = Math.max(0, y - REACH_MARGIN); yy <= Math.min(H - 1, y + REACH_MARGIN); yy++)
+      for (let xx = Math.max(0, x - REACH_MARGIN); xx <= Math.min(W - 1, x + REACH_MARGIN); xx++) if (near[yy * W + xx]) return false;
+    return true;
+  };
+  for (let i = 0; i < N; i++) if (changed[i] && !clear(i)) return null;
+  const kept = retainedRows(next.retained ?? []);
+  const m = new StackWater(W, H, b.objects.length / 8, kept.length / 4);
+  try {
+    (m.view(STACK_FIELD.masks) as Uint32Array).set(b.mask);
+    (m.view(STACK_FIELD.objects) as Float64Array).set(b.objects);
+    (m.view(STACK_FIELD.retained) as Float64Array).set(kept);
+    m.op(STACK_OP.build, 0);
+    if (m.info(STACK_INFO.stacked) !== 1) return null;
+    const count = m.copy(STACK_FIELD.count) as Uint8Array;
+    const floor = m.copy(STACK_FIELD.floor) as Int16Array;
+    const ceil = m.copy(STACK_FIELD.ceil) as Int16Array;
+    let L = 1;
+    for (let i = 0; i < N; i++) if (count[i] > L) L = count[i];
+    // a tile whose columns changed counts as changed, whatever its terrain
+    for (let i = 0; i < N; i++) {
+      if (changed[i]) continue;
+      let same = count[i] === prev.count[i];
+      for (let q = 0; same && q < count[i]; q++) same = floor[q * N + i] === prev.floor[q * N + i] && ceil[q * N + i] === prev.ceil[q * N + i];
+      if (same) continue;
+      if (!clear(i)) return null;
+      changed[i] = 1;
+    }
+    m.op(STACK_OP.prefill);
+    const d = m.view(STACK_FIELD.depth) as Float64Array;
+    const o = m.view(STACK_FIELD.overflow) as Float64Array;
+    const c = m.view(STACK_FIELD.contamination) as Float64Array;
+    // the old pre-fill, whole, against the new one
+    const M = prev.reach.length;
+    const pd = new Float64Array(M);
+    const po = new Float64Array(M);
+    const pc = new Float64Array(M);
+    const s0 = prev.start;
+    for (let j = 0; j < s0.ids.length; j++) {
+      pd[s0.ids[j]] = s0.depth[j];
+      po[s0.ids[j]] = s0.overflow[j];
+      pc[s0.ids[j]] = s0.contamination[j];
+    }
+    for (let i = 0; i < N; i++)
+      for (let q = 0; q < L; q++) {
+        const k = q * N + i;
+        if (changed[i]) {
+          if (d[k] !== 0 || o[k] !== 0) return null;
+        } else if (k < M ? d[k] !== pd[k] || o[k] !== po[k] || c[k] !== pc[k] : d[k] !== 0 || o[k] !== 0 || c[k] !== 0) return null;
+      }
+    // (a column the old map has and the new one doesn't held nothing, nor started with anything)
+    for (let k = L * N; k < M; k++) if (pd[k] !== 0 || po[k] !== 0 || pc[k] !== 0 || prev.depth[k] !== 0 || prev.overflow[k] !== 0 || prev.reach[k]) return null;
+    const start = startOf(m);
+    // the old run's water on the tiles left as they were; the pre-fill's (dry) on the changed ones
+    const reach = new Uint8Array(L * N);
+    for (let i = 0; i < N; i++) {
+      if (changed[i]) continue;
+      for (let q = 0; q < count[i]; q++) {
+        const k = q * N + i;
+        d[k] = prev.depth[k];
+        o[k] = prev.overflow[k];
+        c[k] = prev.contamination[k];
+        reach[k] = prev.reach[k];
+      }
+    }
+    m.op(STACK_OP.accept);
+    m.op(STACK_OP.saturation);
+    const done: StackSettle = {
+      W,
+      H,
+      L,
+      stacked: true,
+      count,
+      floor,
+      ceil,
+      depth: m.copy(STACK_FIELD.depth) as Float64Array,
+      overflow: m.copy(STACK_FIELD.overflow) as Float64Array,
+      contamination: m.copy(STACK_FIELD.contamination) as Float64Array,
+      sat: m.copy(STACK_FIELD.saturation) as Uint8Array,
+      settled: prev.settled,
+      ticks: prev.ticks,
+      ...(prev.steadyTicks !== undefined ? { steadyTicks: prev.steadyTicks } : {}),
+      reach,
+      start,
+    };
+    return done;
+  } finally {
+    m.close();
+  }
 }
 
 /** The water of terrain above terrain run on from a given state by the game's rules, with the sources

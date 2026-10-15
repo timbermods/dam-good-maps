@@ -26,6 +26,9 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `base.ts` (the stored base map), `bake.ts` (old drawn landforms become plain terrain, D182).
 - `start.ts`: the start's helpers the forces, Select, the shelf and the checks' fixes share (`startProblem`, `moveStartNear`,
   `startClears`, `startCarry`, `startMiddle`), and Select's step with its start carry (`applySelection`).
+- `startFit.ts` `startFitProblem`: the one rule for where the start may stand (edge, river, water, every other object's
+  whole footprint); `startProblem` and the page's placement preview both call it.
+- `plantSoil.ts` `dyingTiles`: where a plant would die for its soil (the page's "dry ground: these will die" ring).
 - `waterFix.ts` `waterFix`: the operations that would fix the start's water checks after edits (a spring by the start,
   D330), as one step; its places are `water/springSites.ts` `springCandidates`, the generator's rule too. Only its test calls
   it today (the page's fix waits on #92).

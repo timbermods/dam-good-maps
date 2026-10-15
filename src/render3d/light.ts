@@ -463,3 +463,61 @@ export function tileDataRect(W: number, H: number, heights: Uint8Array, sky: Uin
       out[o + 3] = waterByte(sw, heights, i);
     }
 }
+
+/** `soilNibbles` of each moisture byte (high nibble) and each contamination byte (low), for `tileDataChanges`. */
+const NIBBLE_M = Uint8Array.from({ length: 256 }, (_, v) => soilNibbles(v, 0));
+const NIBBLE_C = Uint8Array.from({ length: 256 }, (_, v) => soilNibbles(0, v));
+
+/** A run of tiles in one row (x0…x1 of row y). */
+export interface TileSpan {
+  y: number;
+  x0: number;
+  x1: number;
+}
+
+/** What `tileDataChanges` rewrote: the runs of tiles whose bytes changed, row by row, and the runs where a tile became
+ *  or stopped being wet or contaminated (the contamination outline reads only those two). */
+export interface TileChanges {
+  rows: TileSpan[];
+  edgeRows: TileSpan[];
+}
+
+/** Brings the tile data `out` up to the map as it stands, writing only the tiles whose bytes differ from what `tileData`
+ *  gives (so `out` ends exactly as a whole `tileData`), and says where. A tile's bytes depend on that tile alone, so the
+ *  changed ones are found by comparing, whatever came before: a water update, new soil, or both. The cheap path for the
+ *  frequent update (moving water changes a few tiles; the whole map's bytes are neither rewritten nor uploaded). */
+export function tileDataChanges(W: number, H: number, heights: Uint8Array, sky: Uint8Array, soil: SoilView | null, sw: SurfaceWater | null, out: Uint8Array): TileChanges {
+  const rows: TileSpan[] = [];
+  const edgeRows: TileSpan[] = [];
+  const moisture = soil?.moisture;
+  const contamination = soil?.contamination;
+  const surface = sw?.surface;
+  for (let y = 0; y < H; y++) {
+    let lo = -1;
+    let hi = -1;
+    let elo = -1;
+    let ehi = -1;
+    for (let x = 0, i = y * W; x < W; x++, i++) {
+      const o = i * 4;
+      // (the same values as `soilNibbles` and `waterByte`, the dry tile and the plain soil without a call)
+      const g = moisture ? NIBBLE_M[moisture[i]] | NIBBLE_C[contamination![i]] : 0;
+      const a = surface && surface[i] === surface[i] ? waterByte(sw, heights, i) : 0;
+      const og = out[o + 1];
+      const oa = out[o + 3];
+      if (out[o] === heights[i] && og === g && out[o + 2] === sky[i] && oa === a) continue;
+      out[o] = heights[i];
+      out[o + 1] = g;
+      out[o + 2] = sky[i];
+      out[o + 3] = a;
+      if (lo < 0) lo = x;
+      hi = x;
+      if (((og & 15) > 0) !== ((g & 15) > 0) || oa > 0 !== a > 0) {
+        if (elo < 0) elo = x;
+        ehi = x;
+      }
+    }
+    if (lo >= 0) rows.push({ y, x0: lo, x1: hi });
+    if (elo >= 0) edgeRows.push({ y, x0: elo, x1: ehi });
+  }
+  return { rows, edgeRows };
+}

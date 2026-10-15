@@ -13,9 +13,10 @@ import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { PRESSURE } from "../../src/core/sim/stackFed";
-import { StackRun, stackGraph, type StackSettle } from "../../src/core/sim/stackWater";
-import { CAVE, CAVE_H, CAVE_W, caveFile, caveSession, caveVoxels } from "./caveMap";
-import { dig, exportProblems } from "./caveChecks";
+import { canonicalSettle } from "../../src/core/sim/prefill";
+import { settledAgain, StackRun, stackGraph, type StackSettle } from "../../src/core/sim/stackWater";
+import { CAVE, CAVE_H, CAVE_W, caveFile, caveSession, caveVoxels, dig } from "./caveMap";
+import { exportProblems } from "./caveChecks";
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
 /** A second sealed cave under the plateau, beside the first: air at z 3–5 under a roof at 6–7. */
@@ -136,6 +137,40 @@ describe("Fill water and Remove unfed water on a cave import", () => {
     expect(s.apply(unfedWater(s).op!).errors).toEqual([]);
     expect(s.waterStale).toBe(true);
     expect(s.built.settle.stack!.depth[cave(16, 18)]).toBe(0);
+  });
+
+  it("the settle's shortcut (D453) is never taken by a Fill or a removal, and after a Fill an edit far from it gives the cold settle's bytes", () => {
+    const s = caveSession();
+    const [floor, roof] = CAVE.air;
+    const last = () => ({ model: s.built.waterModel, water: s.built.settle });
+    const cold = () => canonicalSettle(s.built.waterModel).stack!;
+    const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
+    const same = (a: StackSettle, b: StackSettle) => {
+      for (const k of ["depth", "overflow", "contamination", "sat", "reach"] as const) expect(bytes(a[k]!).equals(bytes(b[k]!)), k).toBe(true);
+      expect([a.settled, a.ticks, a.steadyTicks]).toEqual([b.settled, b.ticks, b.steadyTicks]);
+    };
+    // a Fill: its stored lake is new, so the settle runs
+    s.apply(dig(35, 35, 1, "+z"));
+    let prev = last();
+    expect(s.apply(planFill(s, 17, 17, roof, floor).op!).errors).toEqual([]);
+    expect(settledAgain(prev.water.stack!, prev.model, s.built.waterModel)).toBeNull();
+    same(s.built.settle.stack!, cold());
+    // an edit far from the Fill: the shortcut, the cold settle's bytes (the lake as it began, the settle's stop)
+    expect(s.built.settle.stack!.steadyTicks).toBeDefined();
+    prev = last();
+    expect(s.apply(dig(36, 36, 1, "+z")).errors).toEqual([]);
+    const again = settledAgain(prev.water.stack!, prev.model, s.built.waterModel);
+    expect(again).not.toBeNull();
+    same(again!, cold());
+    same(s.built.settle.stack!, cold());
+    // a removal, and every edit after it, settle in full
+    prev = last();
+    expect(s.apply(unfedWater(s).op!).errors).toEqual([]);
+    expect(settledAgain(prev.water.stack!, prev.model, s.built.waterModel)).toBeNull();
+    prev = last();
+    expect(s.apply(dig(37, 37, 1, "+z")).errors).toEqual([]);
+    expect(settledAgain(prev.water.stack!, prev.model, s.built.waterModel)).toBeNull();
+    for (const d of s.built.settle.stack!.depth) expect(d).toBe(0);
   });
 
   it("an import's own cave pools no source feeds are its own (D457); Remove takes the one selected, the other stays exactly as the file has it", () => {

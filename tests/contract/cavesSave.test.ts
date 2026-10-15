@@ -18,8 +18,8 @@ import { failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
-import { caveSession } from "./caveMap";
-import { dig, exportProblems, hillside } from "./caveChecks";
+import { caveSession, dig, hillside } from "./caveMap";
+import { exportProblems } from "./caveChecks";
 
 /** The first dry tile at the foot of a cliff `drop`+ high (Erode wears a cave into its face). */
 function cliffFoot(s: MapSession, drop: number): number {
