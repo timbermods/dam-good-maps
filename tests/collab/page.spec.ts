@@ -236,12 +236,20 @@ test("the guest is killed: the host is paused, read-only, Save still works; Invi
   await expect(message(host.page)).toContainText("Bo has left. Waiting to reconnect.", { timeout: 20_000 });
   await host.page.evaluate(() => window.dgmEditor!.idle());
   expect(await land(host.page)).toBe(before);
-  // saving a copy still works
-  const save = host.page.getByRole("button", { name: /^(Save to Timberborn|Download \.timber)/ });
-  await expect(save).toBeEnabled();
+  // saving a copy still works: Save to Timberborn is enabled (it asks for the Maps folder, which a headless browser cannot show), and the
+  // File menu's Download .timber gives the file
+  await expect(host.page.getByRole("button", { name: /^(Save to Timberborn|Download .timber)/ })).toBeEnabled();
+  await closePanel(host.page);
+  await host.page.getByRole("button", { name: "File", exact: true }).click();
   const download = host.page.waitForEvent("download", { timeout: 120_000 });
-  await save.click();
-  expect((await download).suggestedFilename()).toMatch(/\.timber$/);
+  // (a browser that cannot save into a folder has the download as its main button)
+  const item = host.page.getByRole("menuitem", { name: "Download .timber" });
+  if (await item.count()) await item.click();
+  else {
+    await host.page.keyboard.press("Escape");
+    await host.page.getByRole("button", { name: "Download .timber" }).click();
+  }
+  expect((await download).suggestedFilename()).toMatch(/.timber$/);
   // Invite again: a new code carries on the same session; a new browser joins it and has the map as it stands
   await (await openPanel(host.page)).getByRole("button", { name: "Invite again" }).click();
   const code = (await panel(host.page).getByLabel("Room code", { exact: true }).textContent())!.trim();

@@ -854,7 +854,7 @@ Defaults the page session built; each is one place in the code, so any is easy t
 go to Kyler as design direction).
 
 - **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
-  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,340px wide the
+  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). From 1,340 to 1,400px it is the icon alone; below about 1,340px wide the
   header is full (the longest name must fit two lines beside History at 1280), so the button gives way to a **Together…**
   entry in the File menu and File wears the dot. While a session is live the button wears the other
   player's colour as a 10px dot (hollow while they are away), and its accessible name says who ("Together with Bo").

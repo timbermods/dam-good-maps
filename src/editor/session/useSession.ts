@@ -604,7 +604,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   function applyUpdate(u: SessionUpdate): void {
     // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
-    if (u.routed) return;
+    if (u.routed && !Object.keys(u.view).length) return;
     // (its view goes in through the journey, after the settled parts it still holds, D341)
     // an edit: its water's journey starts from the water right after it
 

@@ -2551,6 +2551,13 @@
   display: none;
 }
 
+/* (from 1,340 to 1,400 the button is the icon alone, so the map's name keeps its room) */
+@media (max-width: 1399px) {
+  .together-label {
+    display: none;
+  }
+}
+
 @media (max-width: 1339px) {
   /* (after File, at the bar's right edge, so the panel hangs from File as the menus do) */
   .editor-actions > .together-wrap {
