@@ -91,10 +91,10 @@ export function registryValues(): Record<string, string> {
 }
 
 export const marker = () => join(probePaths().backup, 'in-progress.json');
-/** Folders the docs listing leaves out: the saves (handled on their own) and DGM Probe's own mod folder
- *  (installed before the snapshot, removed by the runner after the restore). Everything else under
+/** Folders the docs listing leaves out: the saves (handled on their own) and DGM Probe's and the companion's own mod
+ *  folders (installed before the snapshot, removed by the runner after the restore). Everything else under
  *  Documents\Timberborn is covered: the player's other mods' folders, and any DGMProbe folder there. */
-const DOCS_SKIP = ['Saves', 'ExperimentalSaves', join('Mods', 'DGMProbe')];
+const DOCS_SKIP = ['Saves', 'ExperimentalSaves', join('Mods', 'DGMProbe'), join('Mods', 'DGMCompanion')];
 /** A relative path is one of the folders in `skip`, or inside one. */
 const skipped = (rel: string, skip: string[]) => skip.some((s) => rel === s || rel.startsWith(s + '\\') || rel.startsWith(s + '/'));
 /** Steam Cloud rewrites these at every launch of the game, whoever starts it: reported, never put back

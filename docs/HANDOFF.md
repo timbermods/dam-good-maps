@@ -187,6 +187,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   `--confirmed-launch` prints the plan and a one-time code; rerun with `--confirmed-launch <code>`. A group whose maps are made outside the repository has its writer in the runner's catalog, and
   `batch -- --group <name>` writes its maps first (`Tall maps` and `Sizes` have one; `Parity` on `feature/parity`; `Terrain
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
+  `batch -- --companion` checks the companion mod in the game (`mods/companion`, `investigation/probe/README.md` "Companion mode"): `--dry-run` prints the plan, then the same command with `--reference` and the code, like any batch.
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
 - **Merging** (D341, amended by Kyler 2026-10-15): a change merges into `dev` once it is reviewed and its quick checks
