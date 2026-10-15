@@ -81,6 +81,23 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   takes the whole flat the cut shows. With caves the shader still flattens a roof run into a lid at the cut, while the
   pick lands on the floor under the drawn lid; part 6 (the cutaway) resolves it.
 
+## Block tool's rendering (D488; `feature/block-tool-render`)
+
+Two plain pieces for the Block tool, only drawn or plain data; the page's interface wires them up (the operation and
+`blockFalls` are the core's, `docs/progress/3d-creating.md` "Delivers 2" on `feature/block-tool-core`).
+- **`blockAim(hit)`** (`pick.ts`): the 3D pick's hit as `{at: [x, y, layer], side}` for the `blocks` operation. A run's top
+  face is its top block's `+z` (layer `top − 1`), its underside the bottom block's `-z`, a wall the block at the layer hit
+  (`TileHit.layer`, new: the voxel the face belongs to) with the wall's way as `+x` east, `-x` west, `+y` north (toward
+  y + 1, −Z in world space), `-y` south. Null for no hit (sky, off the map), a hit with no run, and the map's floor under
+  air (layer 0 is a block only where the ground holds one). Tested on caves, overhangs and a floating run: a ray at every
+  exposed face of every block gives that block and side.
+- **`renderer.showBlocks({added, removed, falls} | null)`** (`blockGhost.ts` `BlockCells`): the cells `blockFalls` lists,
+  one instanced mesh per kind, drawn as the area brush's ghost is: added translucent white, removed red just outside the
+  ground's own faces, falls amber, each block with its edges. A mesh is kept and rewritten only when its cells or the
+  layer cut change (nothing per frame); cells at or above the cut are not drawn, and `setSlice` redraws them. The area
+  brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts (tests). Capture:
+  `docs/sheets/block-tool-preview.jpg`.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

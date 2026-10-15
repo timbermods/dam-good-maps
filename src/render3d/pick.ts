@@ -36,7 +36,37 @@ export interface TileHit {
   run?: Run;
   /** The level of the ground hit: its run's top. */
   level?: number;
+  /** The layer of the voxel the face belongs to (0 at the bottom); absent where the hit names no voxel (the map's
+   *  floor under air, a hit made some other way). */
+  layer?: number;
   t: number;
+}
+
+/** The six faces of a block, named by the way they face in tile coordinates (x east, y north: `+y` is toward
+ *  y + 1, which is −Z in world space), as the `blocks` operation names them. */
+export type BlockFace = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
+
+/** The block whose face the pointer is on, and which of its faces (the Block tool's aim; `blocks` in
+ *  `ops.schema.json`): `at` is the block's tile and layer, `side` the face that was hit. */
+export interface BlockAim {
+  at: [number, number, number];
+  side: BlockFace;
+}
+
+const SIDE_FACE: Record<NonNullable<TileHit["side"]>, BlockFace> = { east: "+x", west: "-x", north: "+y", south: "-y" };
+
+/** The block a pick hit is on, or null where there is none to point at: no hit (the sky, off the map), a hit that
+ *  names no run (the water's surface), or the map's floor under air (the empty run at level 0: layer 0 is a block
+ *  only where the ground holds one). The top face of a run belongs to its top block, the underside to its bottom
+ *  block, a wall to the block at the height hit. */
+export function blockAim(hit: TileHit | null): BlockAim | null {
+  const run = hit?.run;
+  if (!hit || !run || run.top <= run.bottom) return null;
+  if (hit.face === "top") return { at: [hit.x, hit.y, run.top - 1], side: "+z" };
+  if (hit.face === "bottom") return { at: [hit.x, hit.y, run.bottom], side: "-z" };
+  if (!hit.side) return null;
+  const layer = hit.layer ?? Math.floor(hit.point[1]);
+  return { at: [hit.x, hit.y, Math.max(run.bottom, Math.min(run.top - 1, layer))], side: SIDE_FACE[hit.side] };
 }
 
 /** The level of the ground a hit is on: its run's top, or the tile's height for a hit that names no run. */
@@ -184,9 +214,9 @@ export function pickTerrain(ray: Ray, W: number, H: number, maskAt: (i: number) 
     while (top < 31 && (m >>> top) & 1) top++;
     const point: [number, number, number] = [ox + dxw * t, oy + dy * t, oz + dzw * t];
     const run = { bottom, top };
-    if (axis === 2 || axis === null) return { x, y, point, face: axis === 2 && stepZ > 0 ? "bottom" : "top", run, level: top, t };
+    if (axis === 2 || axis === null) return { x, y, point, face: axis === 2 && stepZ > 0 ? "bottom" : "top", run, level: top, layer: z, t };
     const side = axis === 0 ? (stepX > 0 ? "west" : "east") : stepY > 0 ? "south" : "north";
-    return { x, y, point, face: "side", side, run, level: top, t };
+    return { x, y, point, face: "side", side, run, level: top, layer: z, t };
   };
   for (let guard = 0; guard < 4 * (W + H) + 4 * maxH + 8; guard++) {
     const m = maskAt(y * W + x) & keep;
