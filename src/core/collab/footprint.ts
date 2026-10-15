@@ -34,7 +34,7 @@ import type { Feature, StartFeature } from "../features/schema";
 import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
-import { quakeReach, slideTiles } from "../forces/quake";
+import { quakeExtent } from "../forces/quake";
 import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
@@ -431,10 +431,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
     case "quake": {
       let L = 0;
       for (let k = 1; k < pts.length; k++) L += dist(pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1]);
-      const reach = quakeReach(s.power);
-      const slide = slideTiles(s.power);
-      const r = s.mode === "slide" ? Math.max(reach, L * 1.3, slide + 12) + 12 + slide : Math.max(reach, L * 1.3);
-      return { pts, r: r + JITTER + 2 };
+      return { pts, r: quakeExtent(s.power, L, s.mode === "slide" ? "slide" : "lift") + JITTER + 2 };
     }
     case "carve": {
       if (s.mode !== "aim" || pts.length < 2) return null;

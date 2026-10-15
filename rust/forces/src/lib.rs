@@ -9381,6 +9381,10 @@ struct Fault {
     segments: Vec<FSeg>,
     length: f64,
     reach: f64,
+    /// How far the quake reaches past the drawn line (tiles), set by Power: the ground along the line
+    /// and this far past its ends and sides (or a block 1.3 times the line's length across, whichever
+    /// is wider), not the 40-odd tiles the old shaking ring did.
+    margin: f64,
     lift: f64,
     slide: f64,
     heading: Point,
@@ -9390,6 +9394,7 @@ impl Fault {
     fn new(s0: &Settings, intent: &Intent) -> Self {
         let path = intent.path.clone();
         let reach = 14.0 + n(s0, "power") * 0.5;
+        let margin = 2.0 + round(n(s0, "power") * 0.06);
         let lift = 1.0 + round(n(s0, "power") * 0.075);
         let slide = 2.0 + round(n(s0, "power") * 0.18);
         let mut raw = vec![];
@@ -9529,6 +9534,7 @@ impl Fault {
             segments,
             length: len,
             reach,
+            margin,
             lift,
             slide,
             heading,
@@ -9573,9 +9579,11 @@ impl Fault {
         let side = if f.d >= 0.0 { 1.0 } else { -1.0 };
         let dist = f.d.abs();
         if s(s0, "mode") == "slide" {
-            let reach = max(max(self.reach, self.length * 1.3), self.slide + 12.0);
-            let envelope = (1.0 - smooth((dist - reach) / 12.0))
-                * (1.0 - smooth((f.end - self.slide - 8.0) / 12.0));
+            // The block is the drawn line and a margin (set by Power) past its ends and sides, or a
+            // block 1.3 times the line's length across: the quake's line is its length.
+            let reach = max(self.margin * 2.0, self.length * 1.3);
+            let envelope = (1.0 - smooth((dist - reach) / (self.margin * 0.5)))
+                * (1.0 - smooth((f.end - self.margin * 0.5) / (self.margin * 0.5)));
             let weight = if s(s0, "scarp") == "stepped" {
                 (envelope * 3.0).ceil() / 3.0
             } else {
@@ -9610,9 +9618,9 @@ impl Fault {
             f.dy = dy;
             return f;
         }
-        let block_reach = max(self.reach, self.length * 1.3);
+        let block_reach = max(self.margin * 2.0, self.length * 1.3);
         let envelope = (1.0 - smooth((dist - block_reach * 0.8) / (block_reach * 0.2)))
-            * (1.0 - smooth(f.end / max(8.0, self.reach * 0.6)));
+            * (1.0 - smooth((f.end - self.margin * 0.5) / (self.margin * 0.5)));
         let step = if s(s0, "scarp") == "stepped" {
             min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0)
         } else {
