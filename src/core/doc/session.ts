@@ -29,7 +29,7 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
-import { blockEffect, layeredMasks, objectCells, terrainUnder, withBlocks, type BlockEffect } from "../terrain/blocks";
+import { blockEffect, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
 import { fallsReason, newFalls, stackableTops } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";

@@ -312,16 +312,18 @@ describe("the Block tool's steps undo, replay and save exactly", () => {
     expect(s.terrain.runs(at(24, 24))).toEqual([0, 7]);
   });
 
-  it("the water settles in the background after a block edit, and the settled map is the build's", () => {
+  it("a block edit settles the water as a stroke does, and a saved project opens from the settled map", () => {
     const s = caveSession();
     s.setWaterMode("defer");
     expect(s.apply(op(remove("+z", [[10, 10, 7]], 3))).errors).toEqual([]);
-    expect(s.waterStale || s.waterPending || true).toBe(true);
     s.setWaterMode("canonical");
     s.settleCanonical();
     expect(s.waterPending).toBe(false);
-    const exported = s.exportTimber();
-    expect(exported.bytes.length).toBeGreaterThan(0);
+    // (a project saved after the settle carries the map as it stands, and opens from it)
+    const again = MapSession.open(decodeProject(s.project()));
+    expect(again.openedFromStored).toBe(true);
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
+    expect(Array.from(again.terrain.mask)).toEqual(Array.from(s.terrain.mask));
   });
 });
 
