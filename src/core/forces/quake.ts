@@ -49,16 +49,20 @@ export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
 export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
-/** How far a quake reaches past its drawn line (tiles) at a Power: the ground it changes lies within twice this of the
+/** How far a quake reaches past its drawn line (tiles) at a Power: the ground a Lift changes lies within twice this of the
  *  line, its ends included (D344 A6: the quake's line is its length), or within 1.3 times a longer line's length: 2 tiles
  *  at Power 0, 8 at 100. A short line never reaches the 40 tiles the old shaking did. The same number is in rust/forces
  *  (`Fault::margin`). */
 export const quakeMargin = (power: number) => 2 + Math.round(power * 0.06);
+/** How far a Slide carries its ground (tiles): `slideTiles`, but a short line carries it no further than its own length
+ *  (at least 2 tiles), so the quake stays near its line. The same in rust/forces (`Fault::new`). */
+export const slideTravel = (power: number, lineLength: number) => Math.min(slideTiles(power), Math.max(lineLength, 2));
 /** The most a quake of a line this long (tiles) reaches from it at a Power: the changed ground's distance from the drawn
- *  line (a Slide's land lands that far plus its travel along it). */
+ *  line, a Slide's land landing its travel further along it. A Slide's block is the line's 1.3 times its length or the
+ *  margin around it, and its edge fades over half a margin. */
 export const quakeExtent = (power: number, lineLength: number, mode: "lift" | "slide") => {
   const margin = quakeMargin(power);
-  return Math.max(margin * 2, lineLength * 1.3) + (mode === "slide" ? margin * 0.5 : 0);
+  return mode === "slide" ? Math.max(margin, lineLength * 1.3) + margin * 0.5 + slideTravel(power, lineLength) : Math.max(margin * 2, lineLength * 1.3);
 };
 
 /** Throws why a quake can't start (its settings, settings.ts; its fault on the land). */

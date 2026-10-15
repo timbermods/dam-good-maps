@@ -1523,7 +1523,7 @@ fn start_planting(w: usize, h: usize, objects: &[&Entity], blocked: &[u8], wet: 
         let k = out_t.len();
         let plural = if k > 1 { "s" } else { "" };
         if (k as f64) < oaks {
-            relabel(&mut out_t, format!("Plant {} oak{} on the moist ground, which holds only {} of the {} the logs need", k, plural, k, num(oaks)));
+            relabel(&mut out_t, format!("Plant {} oak{}, all the moist ground holds ({} needed)", k, plural, num(oaks)));
         } else {
             relabel(&mut out_t, format!("Plant {} oak{} for the starting logs", k, plural));
         }
