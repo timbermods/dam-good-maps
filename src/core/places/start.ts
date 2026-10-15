@@ -33,13 +33,14 @@ const SPACING = 4;
 /** Spots for the start's StartingLocation (its corner, facing Cw0 as every place's start does),
  *  nearest the place's own start first, at most `limit`. `depth` and `contamination` are the
  *  place's settled water; `shore` false drops the shore (a dry spot where the place has no water a
- *  pump works from). */
-export function placeStartSpots(p: PlaceData, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>, opts: { limit?: number; shore?: boolean } = {}): [number, number][] {
+ *  pump works from); `walk` widens the shore's walk (`SHORE_WALK`, tiles). */
+export function placeStartSpots(p: PlaceData, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>, opts: { limit?: number; shore?: boolean; walk?: number } = {}): [number, number][] {
   const limit = opts.limit ?? 12;
   const { W, H } = p;
   const taken = new Uint8Array(W * H);
   for (const [x, y] of p.sources) taken[y * W + x] = 1;
-  const shore = opts.shore === false ? null : shoreWalkFrom(heights, W, H, depth, contamination, SHORE_WALK);
+  const reach = opts.walk ?? SHORE_WALK;
+  const shore = opts.shore === false ? null : shoreWalkFrom(heights, W, H, depth, contamination, reach);
   // (the start's corner is its middle less one; its door is the middle's tile two to the south)
   const fromX = p.start[0] + 1;
   const fromY = p.start[1] + 1;
@@ -59,7 +60,7 @@ export function placeStartSpots(p: PlaceData, heights: Uint8Array, depth: ArrayL
       let walk = shore ? Infinity : 0;
       if (shore)
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) walk = Math.min(walk, shore[(y + dy) * W + x + dx] + Math.max(Math.abs(dx), Math.abs(dy)));
-      if (!(walk <= SHORE_WALK)) continue;
+      if (!(walk <= reach)) continue;
       spots.push({ x, y, d: (x - fromX) * (x - fromX) + (y - fromY) * (y - fromY) });
     }
   spots.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);

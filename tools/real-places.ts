@@ -49,6 +49,7 @@ import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
+import { placeSprings } from "../src/core/places/spring";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
 import { validateMap } from "../src/core/validate/checks";
@@ -66,6 +67,15 @@ const EDGE_SOURCE_REACH = 3;
  *  inward, where a longer lip (water/edgeLip.ts's 16, for one river's mouth) joins the lips of the
  *  survey's several inflows along one edge into a wall. */
 const EDGE_LIP_REACH = 6;
+/** The longer walk to a shore a start's spot may have when no nearer spot gives it water (tiles; the
+ *  check allows Normal's 20 from the start's middle). */
+const LONG_SHORE_WALK = 22;
+/** The springs tried by a start that lost its water: [the walk the spring stands within plus 4, the
+ *  places tried], nearer ones first. */
+const SPRING_TRIES: [number, number][] = [
+  [20, 6],
+  [26, 12],
+];
 
 /** Each family's name on the page and how it plays: the survey's "play value" for the family
  *  (investigation/landscapes/FAMILIES.md), in plain words. A family label names the region the
@@ -294,33 +304,62 @@ for (const item of items) {
   if (entries.some((e) => e.id === place.id)) throw new Error(`two places are called ${place.name}`);
   const t = performance.now();
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
-  // a start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
+  // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
   // spot its own land offers; moving it toward water is fine): the spots nearest it that stay dry and
   // have a shore near (a flooded start where the place has none: the nearest dry ones), each built
-  // and checked; the best wins, water first (D245's water floor), then the wood and berries by it,
-  // then the nearest. Never one that falls below the starting-logs floor it met (D224) or fails
-  // anything else it passed but the wood and berries.
+  // and checked, then spots with a longer walk to their shore; the best wins, water first (D245's
+  // water floor), then the wood and berries by it, then the nearest. Never one that falls below the
+  // starting-logs floor it met (D224) or fails anything else it passed but the wood, the berries
+  // and the start land (information, D331).
+  const opened = place;
   let moved: [number, number] | null = null;
   const dry = strictFails.includes("start.dry");
-  if (dry || strictFails.includes("start.water")) {
+  const free = new Set(["start.wood", "start.food", "start.water", "start.farmland", "start.level_land"]);
+  const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.wood") ? 1 : 0) + (fails.includes("start.food") ? 1 : 0);
+  for (const walk of [undefined, LONG_SHORE_WALK]) {
+    if (!strictFails.includes("start.dry") && !strictFails.includes("start.water")) break;
     const had = new Set(strictFails);
-    const spots = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination);
-    if (dry) spots.push(...placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { shore: false, limit: 4 }));
-    const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.wood") ? 1 : 0) + (fails.includes("start.food") ? 1 : 0);
+    const spots = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { walk });
+    if (dry && !walk) spots.push(...placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { shore: false, limit: 4 }));
     let best: { at: [number, number]; r: ReturnType<typeof buildChecked>; score: number } | null = null;
-    const bar = dry ? Infinity : score(strictFails);
+    const bar = had.has("start.dry") ? Infinity : score(strictFails);
     for (const at of spots) {
       const r = buildChecked(withStart(place, at));
-      if (r.strictFails.some((id) => !had.has(id) && id !== "start.wood" && id !== "start.food" && id !== "start.water")) continue;
-      if (!dry && r.strictFails.includes("start.water")) continue;
+      if (r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
+      if (!had.has("start.dry") && r.strictFails.includes("start.water")) continue;
       const sc = score(r.strictFails);
       if (sc >= bar || (best && sc >= best.score)) continue;
       best = { at, r, score: sc };
       if (sc === 0) break;
     }
     if (best) {
-      moved = place.start;
+      moved ??= place.start;
       place = withStart(place, best.at);
+      ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+  }
+  // A place whose start had water a pump reaches on the survey's sealed land and has none now gets a
+  // spring by its start where no spot gives it water (D245's water floor, src/core/places/spring.ts):
+  // opening the edges never leaves a place without the water it had. The first spring the checks
+  // pass wins, one that costs no berries first.
+  let spring: [number, number, number][] | null = null;
+  if (strictFails.includes("start.water") && !buildChecked({ ...opened, heights: encodeHeights(fx.heights) }).strictFails.includes("start.water")) {
+    const had = new Set(strictFails);
+    let best: { add: [number, number, number][]; r: ReturnType<typeof buildChecked>; score: number } | null = null;
+    for (const [rule, tries] of SPRING_TRIES) {
+      for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries })) {
+        const r = buildChecked({ ...place, sources: [...place.sources, ...add] });
+        if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
+        const sc = score(r.strictFails);
+        if (best && sc >= best.score) continue;
+        best = { add, r, score: sc };
+        if (!r.strictFails.some((id) => !had.has(id))) break;
+      }
+      if (best) break;
+    }
+    if (best) {
+      spring = best.add;
+      place = { ...place, sources: [...place.sources, ...best.add] };
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
   }
@@ -339,7 +378,8 @@ for (const item of items) {
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
-      (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}` : ""),
+      (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}` : "") +
+      (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : ""),
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);
