@@ -7,7 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { PlaceIndexEntry } from "../../core/places/place";
 import { fetchGalleryIndex, PLACES_URL } from "../../places/data";
 
-export function RealPlaces(p: { onOpen(id: string): void }) {
+export function RealPlaces(p: { onOpen(id: string, name?: string): void }) {
   const [places, setPlaces] = useState<PlaceIndexEntry[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
@@ -29,22 +29,19 @@ export function RealPlaces(p: { onOpen(id: string): void }) {
           </p>
         ) : null}
         <ul>
-          {(places ?? []).map((e) => {
-            // (the gallery's names begin "Near"; the panel says the place: "Crater Lake")
-            const name = e.name.replace(/^Near /, "");
-            return (
-              <li key={e.id}>
-                <button type="button" class="ym-tile" title={`Open ${name}`} onClick={() => p.onOpen(e.id)}>
-                  <img class="ym-pic" src={PLACES_URL + e.image} alt="" width={240} height={240} loading="lazy" decoding="async" draggable={false} />
-                  {/* (the whole name, on two lines kept for it, then the size) */}
-                  <span class="rp-name">{name}</span>
-                  <span class="ym-size">
-                    {e.size}×{e.size}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {(places ?? []).map((e) => (
+            // (the name the map, its file and the gallery page all carry: "Near Crater Lake")
+            <li key={e.id}>
+              <button type="button" class="ym-tile" title={`Open ${e.name}`} onClick={() => p.onOpen(e.id, e.name)}>
+                <img class="ym-pic" src={PLACES_URL + e.image} alt="" width={240} height={240} loading="lazy" decoding="async" draggable={false} />
+                {/* (the whole name, on two lines kept for it, then the size) */}
+                <span class="rp-name">{e.name}</span>
+                <span class="ym-size">
+                  {e.size}×{e.size}
+                </span>
+              </button>
+            </li>
+          ))}
         </ul>
       </section>
     </aside>
