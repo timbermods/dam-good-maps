@@ -11,7 +11,7 @@
 import type { SurfaceWater } from "./model";
 import type { WaterMeshData } from "./waterMesh";
 
-/** The water a chunk is meshed on: the arrays meshWaterChunk reads (no lower water on this path). */
+/** The water a chunk is meshed on: the arrays meshWaterChunk reads (a map without terrain above terrain only: `plainLayers`). */
 export type MesherWater = Pick<SurfaceWater, "surface" | "floor" | "depth" | "contamination" | "top" | "outflow">;
 
 export type MesherRequest = { kind: "batch"; id: number; version: number; W: number; H: number; heights: Uint8Array; sw: MesherWater; keys: string[] };

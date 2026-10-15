@@ -70,7 +70,8 @@ import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { LAYER_REACH, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
@@ -556,13 +557,13 @@ export class MapRenderer {
     }
   }
 
-  /** Whether objects and falls read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
+  /** Whether objects, falls and water read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
    *  roof, so every other map draws them with the same program as before (the define is not there at all). */
   private caveBranch = false;
 
   private setCaveBranch(on: boolean): void {
     this.caveBranch = on;
-    for (const mat of [this.std.object, this.std.fall, ...(this.high?.roofedMaterials() ?? [])]) {
+    for (const mat of [this.std.object, this.std.fall, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) {
       if (("CAVES" in mat.defines) === on) continue;
       if (on) mat.defines.CAVES = 1;
       else delete mat.defines.CAVES;
@@ -1297,9 +1298,33 @@ export class MapRenderer {
     return d.quads;
   }
 
-  private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
+  private meshWater(cx: number, cy: number): number {
     const m = this.map!;
-    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy), this.waterVersion, m.surface);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface);
+  }
+
+  /** The water dealt into layers for the mesher (waterLayers.ts): every column on its own floor, seeing the water
+   *  and ground at its own level. Made again when the water or the columns change; a change of heights alone (a
+   *  stroke) keeps them, the open sky's layer on the heights drawn, until the water worked out on the new land
+   *  comes (what is under a roof does not change with a top's height). */
+  private layers: { of: object; columns: object; layers: WaterLayer[] } | null = null;
+
+  private waterLayers(): WaterLayer[] {
+    const m = this.map!;
+    const l = this.layers;
+    if (l && l.of === m.surface && l.columns === m.source.columns) {
+      l.layers[0].ground = m.heights;
+      return l.layers;
+    }
+    const layers = waterLayers(m.W, m.H, m.heights, m.source.columns, m.water, m.surface);
+    this.layers = { of: m.surface, columns: m.source.columns, layers };
+    return layers;
+  }
+
+  /** Whether the water is drawn per column (a map with terrain above terrain): a change anywhere remeshes all of
+   *  it, and moving water is meshed here, never in the workers. */
+  private get layered(): boolean {
+    return (this.map?.source.columns.size ?? 0) > 0;
   }
 
   /** A water chunk's mesh on the scene, made on the water of `version` (`sw`). */
@@ -1388,10 +1413,9 @@ export class MapRenderer {
 
   private meshAllWater(): number {
     const m = this.map!;
-    const lower = lowerByTile(m.surface, m.water);
     const { nx, ny } = chunkCount(m.W, m.H);
     let quads = 0;
-    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy, lower);
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy);
     return quads;
   }
 
@@ -1532,9 +1556,10 @@ export class MapRenderer {
     } else this.bakeShadows();
     this.relightCaves(rect);
     if (m.water.count) {
-      // (a fall reads the ground two tiles round its lip: the chunks a tile further)
-      const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy, lower);
+      // (a fall reads the ground two tiles round its lip: the chunks a tile further; with terrain above terrain a
+      // column reads what it sees within LAYER_REACH)
+      const r = this.layered ? LAYER_REACH : 1;
+      for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
       this.waterMotion?.waterChanged(heights, m.surface);
     }
@@ -1560,11 +1585,11 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, m.surface.lower.length, surface.lower.length);
+    const layered = this.layered ? 1 : 0;
+    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, layered, layered);
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
-    const lower = lowerByTile(surface, water);
     // (every chunk drawn on water that differs from this at all: moving water drawn within a hair of
     // itself is drawn exactly now; and a stroke's chunks still waiting, or with the worker)
     for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
@@ -1576,7 +1601,7 @@ export class MapRenderer {
     this.mesherOwn?.clear();
     for (const key of changed) {
       const [cx, cy] = key.split(",").map(Number);
-      this.meshWater(cx, cy, lower);
+      this.meshWater(cx, cy);
     }
     // (the water round the brush may have come or gone)
     this.updateClearAround();
@@ -1624,7 +1649,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
+    if (this.layered) return this.updateWater(water);
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
@@ -1712,7 +1737,7 @@ export class MapRenderer {
     for (const { k, cx, cy } of nearest) {
       if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
-      this.meshWater(cx, cy, null);
+      this.meshWater(cx, cy);
       this.waterTiles(m, cx, cy);
       done = true;
     }
@@ -1851,8 +1876,10 @@ export class MapRenderer {
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
-      const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy, lower);
+      if (this.layered) {
+        const r = LAYER_REACH;
+        for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: c.rect.x0 - r, y0: c.rect.y0 - r, x1: c.rect.x1 + r, y1: c.rect.y1 + r })) this.meshWater(cx, cy);
+      } else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {

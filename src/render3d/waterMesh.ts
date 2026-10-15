@@ -2,8 +2,9 @@
 // like the terrain. Each wet tile gets a flat quad at its surface. Where it pours over a side into
 // water at least FALL_MIN lower, a fall leaves the lip and arcs down into it (falls.ts, D201: the
 // chunk's falls are listed with its water); where a neighbour's ground, or its water just below, is
-// lower, a curtain hangs from the surface down to it, the water's side. Water in caves (below a
-// tile's surface water) gets its top quad only. Each vertex carries a depth and badwater share,
+// lower, a curtain hangs from the surface down to it, the water's side. With terrain above terrain
+// every water column (a cave's pool, the lake on its roof) is drawn the same way on its own floor,
+// seeing the water and ground at its own level round it (waterLayers.ts). Each vertex carries a depth and badwater share,
 // which the shader turns into colour and opacity (Map look, D86: a top's corners share depth with
 // the tiles round the corner, so the water thins toward the shore; D177: the badwater share is
 // blended over the connected water a few tiles round, then shared at the corners too, so where
@@ -13,7 +14,8 @@
 
 import { FALL_MIN, FALL_STRIDE, pushFall } from "./falls";
 import { CHUNK } from "./mesh";
-import type { SurfaceWater, WaterView } from "./model";
+import type { SurfaceWater } from "./model";
+import type { WaterLayer } from "./waterLayers";
 
 /** Foam flags of a water top: bits 0–3 the sides (east, west, north, south) where it meets the
  *  shore, bits 4–7 the sides where a fall comes down into it (its whitewater is the fall's splash),
@@ -188,8 +190,18 @@ export function dropFlags(top: number, bottom: number, edge: boolean): number {
   return edge ? EDGE_CURTAIN : Math.min(254, Math.round((top - bottom) * 30));
 }
 
-export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: SurfaceWater, view: WaterView, lowerByTile: Map<number, number[]> | null, cx: number, cy: number): WaterMeshData {
+/** A chunk's water (its tops, curtains and falls), layer by layer (waterLayers.ts): each layer's columns drawn on
+ *  what they see round them. One layer, the open sky's, on a map without terrain above terrain (`plainLayers`). */
+export function meshWaterChunk(W: number, H: number, layers: readonly WaterLayer[], cx: number, cy: number): WaterMeshData {
   const b = new WaterBuffer();
+  const nx = Math.ceil(W / CHUNK);
+  for (const layer of layers) if (!layer.chunks || layer.chunks[cy * nx + cx]) meshLayer(b, W, H, layer.ground, layer.sw, layer.own, cx, cy);
+  return b.finish();
+}
+
+/** One layer's water in a chunk: the tiles it draws (`own`; every wet tile when null), each seeing the water
+ *  `sw` and the ground `heights` round it. */
+function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw: SurfaceWater, own: Uint8Array | null, cx: number, cy: number): void {
   const x0 = cx * CHUNK;
   const y0 = cy * CHUNK;
   const x1 = Math.min(W, x0 + CHUNK);
@@ -233,7 +245,7 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
     for (let x = x0; x < x1; x++) {
       const i = y * W + x;
       const s = sw.surface[i];
-      if (s === s) {
+      if (s === s && (!own || own[i])) {
         const d = sw.depth[i];
         const c = bad[i];
         const f = sw.floor[i];
@@ -297,16 +309,8 @@ export function meshWaterChunk(W: number, H: number, heights: Uint8Array, sw: Su
           b.quad4([x, so, Z, x + 1, so, Z, x + 1, s, Z, x, s, Z], dd, [c0, c1, c1, c0], 0, 0, 1, dropFlags(s, so, y === 0));
         }
       }
-      const lower = lowerByTile?.get(i);
-      if (lower) {
-        for (const k of lower) {
-          const ls = view.floor[k] + view.depth[k];
-          b.quad([x, ls, -y, x + 1, ls, -y, x + 1, ls, -(y + 1), x, ls, -(y + 1)], view.depth[k], view.contamination[k], 0, 1, 0);
-        }
-      }
     }
   }
-  return b.finish();
 }
 
 /** The water each tile's chunk was last drawn with: its surface (NaN where dry), depth and badwater
@@ -362,19 +366,6 @@ export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: Su
     }
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
   return out;
-}
-
-/** Lower water columns (in caves) grouped by tile. */
-export function lowerByTile(sw: SurfaceWater, view: WaterView): Map<number, number[]> | null {
-  if (!sw.lower.length) return null;
-  const m = new Map<number, number[]>();
-  for (const k of sw.lower) {
-    const i = view.tile[k];
-    const list = m.get(i);
-    if (list) list.push(k);
-    else m.set(i, [k]);
-  }
-  return m;
 }
 
 /** Chunks whose water differs between two surface-water states: a tile's surface, depth or

@@ -2,13 +2,13 @@
 // share of the chunks to mesh on it; each chunk is meshWaterChunk's arrays (the same bytes as on the page)
 // with its bounding sphere, and the whole share goes back at once.
 
-import type { SurfaceWater, WaterView } from "./model";
+import type { SurfaceWater } from "./model";
 import { boundingSphereOf } from "./bounds";
 import { meshWaterChunk, type WaterMeshData } from "./waterMesh";
+import { plainLayers } from "./waterLayers";
 import type { MesherReply, MesherRequest } from "./waterMesher";
 
-// (no lower water on this path: the view's columns are never read)
-const NO_VIEW = {} as WaterView;
+// (a map without terrain above terrain only: one layer, its surface water; a map with it is meshed on the page)
 
 self.onmessage = (e: MessageEvent<MesherRequest>) => {
   const m = e.data;
@@ -19,7 +19,7 @@ self.onmessage = (e: MessageEvent<MesherRequest>) => {
   for (const key of m.keys) {
     const [cx, cy] = key.split(",").map(Number);
     try {
-      const d = meshWaterChunk(m.W, m.H, m.heights, sw, NO_VIEW, null, cx, cy);
+      const d = meshWaterChunk(m.W, m.H, plainLayers(m.heights, sw), cx, cy);
       const sphere = boundingSphereOf(d.positions);
       chunks.push({ key, data: { ...d, sphere } });
       transfer.push(...([d.positions.buffer, d.data.buffer, d.flags.buffer, d.normals.buffer, d.indices.buffer, d.falls.buffer, sphere.buffer] as ArrayBuffer[]));

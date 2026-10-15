@@ -613,7 +613,10 @@ a run texture the worker's per-run soil fills, soil3d's value for every run top;
 and draw with the same program (`runSoil.test.ts`). Items 7 and 8, caves that read: stone on ceilings, cave interiors
 murky but never near-black, objects and falls under roofs in the cave's light, and Standard's baked shadow cast from
 the voxels on maps with terrain above terrain (`light.ts` `shadowRock`); maps without caves draw exactly as before.
-Next: the masks from the worker, water per column.
+Part 4, water per column (`render3d/waterLayers.ts`): every water column is drawn on its own floor under its ceiling,
+seeing the water and ground at its own level (a cave's pool its cave, the lake on the roof its roof), so no water or
+fall is drawn through rock, and water under a roof takes the cave's light; maps without caves draw their water byte
+for byte as before (`waterLayers.test.ts`). Next: the masks from the worker.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
