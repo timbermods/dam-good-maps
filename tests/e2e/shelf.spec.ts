@@ -483,14 +483,14 @@ test("an edge wall on an edited map warns in the checks dot, never blocks Save, 
   await expect(dot).toHaveAttribute("aria-label", /thing/, { timeout: 60_000 });
   await dot.click();
   const list = page.getByRole("region", { name: "Checks" });
-  await expect(list).toContainText(/wall along the west edge/i);
+  await expect(list).toContainText(/wall holds back water on the west edge/i);
   await expect(list.getByText("Fix these first")).toHaveCount(0);
   const n = (await labels(page)).length;
   await list.getByRole("button", { name: "Lower the wall" }).click();
   await idle(page);
   expect((await labels(page)).length).toBe(n + 1);
   expect((await labels(page)).at(-1)).toBe("Lower the wall");
-  await expect(list).not.toContainText(/wall along/i, { timeout: 60_000 });
+  await expect(list).not.toContainText(/holds? back water/i, { timeout: 60_000 });
 });
 
 // ------------------------------------------------------------------------------ every 1.x object (D337, D338, D340)

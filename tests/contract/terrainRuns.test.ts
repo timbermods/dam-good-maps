@@ -74,18 +74,31 @@ describe("terrain as runs per tile (D119)", () => {
     expect(() => ColumnTerrain.fromData({ heights: "AAAA", runs: [] }, W, H)).toThrow(/wrong size/);
   });
 
-  it("a build's new surface changes the plain tiles and keeps caves and overhangs exactly", () => {
+  it("a build's new surface changes the plain tiles, and on a cave or overhang only its top run (D280 (3))", () => {
     const base = ColumnTerrain.fromVoxels(caveVoxels(), W, H);
     const surface = base.heights();
     surface[0] = 9;
     surface[1] = 0;
-    const built = base.withSurface(surface);
+    // the same surface keeps caves and overhangs exactly
+    expect(base.withSurface(base.heights()).mask).toEqual(base.mask);
+    let built = base.withSurface(surface);
     expect(built.runs(0)).toEqual([0, 9]);
     expect(built.runs(1)).toEqual([]);
     expect(built.runs(7)).toEqual(base.runs(7));
     expect(built.runs(8)).toEqual(base.runs(8));
     expect(built.heights()).toEqual(surface);
     expect(base.runs(0)).toEqual([0, 4]); // the base itself is untouched
+    // a roof's top grows, or comes down to one layer above its underside and no further
+    expect([7, 8, 0, 9].map((i) => base.topFloor(i))).toEqual([4, 4, 0, 0]);
+    expect(base.topFloors()![7]).toBe(4);
+    expect(ColumnTerrain.fromHeights(surface, W, H).topFloors()).toBeNull();
+    surface[7] = 8;
+    surface[8] = 6;
+    built = base.withSurface(surface);
+    expect(built.runs(7)).toEqual([0, 1, 3, 8]);
+    expect(built.runs(8)).toEqual([3, 6]);
+    surface[7] = 0;
+    expect(base.withSurface(surface).runs(7)).toEqual([0, 1, 3, 4]);
   });
 
   it("a stored base keeps a map with caves voxel for voxel", () => {

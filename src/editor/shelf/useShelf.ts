@@ -14,6 +14,7 @@ import { hasOptions, placeComponents } from "../../core/doc/objectOps";
 import { FLUIDS } from "../../core/data/parity";
 import { hasAge, objectOptionsOf, paintDisc, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
 import { shelfTool } from "../placeTools";
+import { rememberShelfIcon, shelfIcons } from "./iconCache";
 import { PointerWords } from "../pointerWords";
 import { GHOST_OK, coordinatesAt } from "../tools";
 import { NO_START_HERE, type StartHere } from "../start/startHere";
@@ -355,7 +356,12 @@ export function useShelf(ed: Ed): ShelfSlice {
       c.removeEventListener("pointerup", onUp);
     };
   }, [ready]);
-  // the shelf's icons: each object drawn once by the view, when the page is idle
+  // the shelf's icons: those of the map before are shown at once, and each object is drawn again by the view, when the
+  // page is idle (the pictures never go blank between maps)
+  useLayoutEffect(() => {
+    const kept = shelfIcons();
+    if (Object.keys(kept).length) setIcons((m) => ({ ...kept, ...m }));
+  }, []);
   useEffect(() => {
     const r = renderer.current;
     if (!r) return;
@@ -364,7 +370,10 @@ export function useShelf(ed: Ed): ShelfSlice {
     const draw = (k: number) => {
       if (!live || k >= templates.length) return;
       const url = r.thumbnail(templates[k]);
-      if (url) setIcons((m) => ({ ...m, [templates[k]]: url }));
+      if (url) {
+        rememberShelfIcon(templates[k], url);
+        setIcons((m) => ({ ...m, [templates[k]]: url }));
+      }
       if (k + 1 === templates.length) void composePictures(r);
       const idle = typeof window.requestIdleCallback === "function" ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 500 }) : (fn: () => void) => window.setTimeout(fn, 30);
       idle(() => draw(k + 1));

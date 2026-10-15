@@ -126,6 +126,13 @@ describe.each(MAPS)("an undo soak on $name", (m) => {
         if (label) made.add(label);
         if (command.kind === "undo") undone++;
         if (command.kind === "redo") brought++;
+        // (a redo asked for right after the undo has nothing between it and the action, so it must be ordered: the plain round trip
+        // every map offers, while the random redos above are often blocked by what was done since)
+        if (command.kind === "undo" && n % 24 === 11) {
+          const back = act(t, author, { kind: "redo", target: command.target });
+          expect(back.kind === "reject" ? (back as Reject).reason : "ordered", "a redo right after its undo").toBe("ordered");
+          brought++;
+        }
       } else if (command.kind === "undo" || command.kind === "redo") {
         const reason = (answer as Reject).reason;
         expect(reason, "an undo is refused only by the rule").toMatch(/is on top of this$|has changed since$|has changed for good$/);
