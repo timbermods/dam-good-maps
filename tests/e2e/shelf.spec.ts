@@ -531,7 +531,7 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await options("Water seep").getByRole("slider", { name: "Strength" }).fill("4");
   expect((await fitAt(page, at[0][0], at[0][1], W)).tiles.length).toBe(4);
   await clickTile(page, at[0][0], at[0][1]);
-  expect((await labels(page)).at(-1)).toBe("Place water seep");
+  expect((await labels(page)).at(-1)).toBe("Place a water seep");
   const seep = await standing(page, at[0][0], at[0][1], "WaterSeep");
   expect((seep!.components.WaterSource as { SpecifiedStrength: number }).SpecifiedStrength).toBe(4);
 
@@ -546,19 +546,19 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   // an aquifer, then its drill on it (the drill needs the aquifer: refused anywhere else, with the reason)
   await pick("Aquifer");
   await clickTile(page, at[2][0], at[2][1]);
-  expect((await labels(page)).at(-1)).toBe("Place aquifer");
+  expect((await labels(page)).at(-1)).toBe("Place an aquifer");
   await pick("Ancient drill");
   await expect(options("Ancient drill")).toContainText("Stand it on an aquifer");
   expect((await fitAt(page, at[3][0], at[3][1], W)).problem).toMatch(/needs an aquifer/);
   await fitAt(page, at[2][0], at[2][1], W);
   await clickTile(page, at[2][0], at[2][1]);
-  expect((await labels(page)).at(-1)).toBe("Place ancient aquifer drill");
+  expect((await labels(page)).at(-1)).toBe("Place an ancient aquifer drill");
 
   // a badtide drain turns with R
   await pick("Badtide drain");
   await page.keyboard.press("r");
   await clickTile(page, at[3][0], at[3][1]);
-  expect((await labels(page)).at(-1)).toBe("Place badtide drain");
+  expect((await labels(page)).at(-1)).toBe("Place a badtide drain");
   expect((await standing(page, at[3][0], at[3][1], "BadtideDrain"))!.orientation).toBe("Cw90");
 
   // an unstable core of radius 3, and a reserve pile holding 50 logs
@@ -579,7 +579,7 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await clickTile(page, at[6][0], at[6][1]);
   await pick("Reserve tank");
   await clickTile(page, at[7][0], at[7][1]);
-  expect((await labels(page)).slice(-2)).toEqual(["Place reserve warehouse", "Place reserve tank"]);
+  expect((await labels(page)).slice(-2)).toEqual(["Place a reserve warehouse", "Place a reserve tank"]);
 
   // a placed reserve is picked on the map and its amount changed in its own window: one step
   await page.keyboard.press("Escape");
@@ -591,7 +591,7 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await own.getByRole("slider", { name: "Amount" }).fill("20");
   await idle(page);
   await expect.poll(async () => (await labels(page)).length).toBe(n + 1);
-  expect((await labels(page)).at(-1)).toBe("Reserve Pile: 20 held");
+  expect((await labels(page)).at(-1)).toBe("Reserve pile: 20 held");
   const held = (await standing(page, pile!.x, pile!.y, "ReservePile"))!.components["Inventory:Stockpile"] as { Storage: { Goods: { Amount: number }[] } };
   expect(held.Storage.Goods[0].Amount).toBe(20);
 
@@ -601,7 +601,7 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   await expect(options("Succulent").getByRole("slider", { name: "Size" })).toBeVisible();
   await expect(options("Succulent").getByRole("slider", { name: "Density" })).toBeVisible();
   await clickTile(page, gx - 4, gy);
-  expect((await labels(page)).at(-1)).toBe("Place succulent");
+  expect((await labels(page)).at(-1)).toBe("Place a succulent");
   const a = await client(page, gx - 2, gy + 1);
   const b = await client(page, gx + 2, gy + 1);
   await page.mouse.move(a.x, a.y);
@@ -683,7 +683,7 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await expect(row.getByRole("status")).toContainText(/\d+ pools?, [\d,]+ tiles of water/);
   await row.getByRole("button", { name: "Remove unfed water" }).click();
   await idle(page);
-  await expect.poll(async () => (await labels(page)).at(-1)).toMatch(/^Remove unfed water, \d+ pools?$/);
+  await expect.poll(async () => (await labels(page)).at(-1)).toMatch(/^Remove unfed water from \d+ pools?$/);
   expect(errors).toEqual([]);
 });
 
