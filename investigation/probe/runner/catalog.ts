@@ -397,7 +397,15 @@ const EDITOR = "needs the game's map editor, which the probe does not open";
 
 // ------------------------------------------------------------------------------------ the catalog
 
-export function catalog(extraMaps: string[] = []): GameDef[] {
+/** What a map given on the command line is played as (batch.ts: `--factions`, `--badtide`). */
+export interface GivenOptions {
+  /** The factions each given map is played on, one game each (default: Folktails only). */
+  factions?: ('Folktails' | 'IronTeeth')[];
+  /** After the drought: 3 temperate days and a 3-day badtide, then calm (12.5 days instead of 6.5). */
+  badtide?: boolean;
+}
+
+export function catalog(extraMaps: string[] = [], given: GivenOptions = {}): GameDef[] {
   const games: GameDef[] = [];
   const m1 = 'out/m1/River Valley (4242).timber';
   const m1gap = 'out/m1/River Valley (4242) F2 source gap.timber';
@@ -807,14 +815,20 @@ export function catalog(extraMaps: string[] = []): GameDef[] {
   // Maps from the command line (the M9 prototypes, for example): a Normal drought, compared with the model
   for (const path of extraMaps) {
     const name = basename(path).replace(/\.timber$/i, '');
-    games.push({
-      id: 'map-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), title: name, group: 'Given maps',
-      bytes: memo(() => new Uint8Array(readFileSync(path))), faction: 'Folktails', mode: 'Normal',
-      // 3 temperate days (every generated map's source ramp is under a day), then Normal's longest first drought (3 days)
-      cycles: [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, calm], days: 6.5,
-      tiles: (m) => startWater(m).slice(0, 6), sampleHours: 1, daily: true, model: true,
-      checks: [...GENERIC, { id: 'drought-start-water', title: "The start's water through a Normal drought, against the model and the map's brief", how: 'measure' }],
-    });
+    const baseId = 'map-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const factions = given.factions?.length ? given.factions : (['Folktails'] as const);
+    for (const faction of factions) {
+      games.push({
+        id: baseId + (faction === 'IronTeeth' ? '-it' : ''), title: factions.length > 1 ? `${name} (${faction})` : name, group: 'Given maps',
+        bytes: memo(() => new Uint8Array(readFileSync(path))), faction, mode: 'Normal',
+        // 3 temperate days (every generated map's source ramp is under a day), then Normal's longest first drought (3 days);
+        // with a badtide: 3 more temperate days and a 3-day badtide, then calm
+        cycles: given.badtide ? [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, { temperateDays: 3, hazard: 'badtide', hazardDays: 3 }, calm] : [{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, calm],
+        days: given.badtide ? 12.5 : 6.5,
+        tiles: (m) => startWater(m).slice(0, 6), sampleHours: 1, daily: true, model: true,
+        checks: [...GENERIC, ...(given.badtide ? [{ id: 'cal-timeline', title: "The map's water day by day against the model, through a drought and a badtide", how: 'measure' } as CheckDef] : []), { id: 'drought-start-water', title: "The start's water through a Normal drought, against the model and the map's brief", how: 'measure' }],
+      });
+    }
   }
   games.push(e4game);
   return games;
