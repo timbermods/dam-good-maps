@@ -52,6 +52,8 @@ jobs:
       - run: pip install -r prototype/requirements.txt
       - name: Long property runs, the settings batch and every setting's extremes (D471)
         run: npm run test:heavy
+      - name: Real places match a fresh build (public/real-places, tools/real-places.ts)
+        run: npm run places -- --check || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
 
   oracle:
     runs-on: ubuntu-latest
