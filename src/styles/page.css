@@ -1147,9 +1147,10 @@
 .tool-bar button.icon-button .icon-word {
   display: block;
   padding: 0;
-  font-size: 0.8rem;
+  /* (a word is never wider than its cell: 0.8rem in a cell of 76px, and a cell's own share below that, so a tool added
+     to the bar, which narrows every cell, shrinks the words with it instead of spilling them) */
+  font-size: min(0.8rem, calc(var(--cell) * 0.209));
   line-height: 1.1;
-  /* (Naturalize, the longest word, with a few pixels to spare in the narrowest cell, 60px at 1280) */
   letter-spacing: -0.015em;
   white-space: nowrap;
 }
@@ -1395,7 +1396,7 @@
 .set-button {
   width: 100%;
   height: 100%;
-  padding: 0 1px;
+  padding: 0 2px;
   font-size: 13px;
   white-space: nowrap;
 }
@@ -1488,7 +1489,7 @@
 .set-group > .segmented.shapes > button .icon-word {
   display: block;
   padding: 0;
-  font-size: 13px;
+  font-size: min(13px, calc(var(--cell) * 0.2));
   white-space: nowrap;
 }
 
