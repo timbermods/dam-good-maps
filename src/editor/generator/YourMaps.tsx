@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
 import { tip } from "../../ui/Tooltip";
+import { compareProblem, parentFull, parentLine } from "../../core/library/keptVersions";
 import { limitName } from "../nameFit";
 
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
@@ -93,7 +94,11 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     ev.preventDefault();
     setMenu({ id, x: ev.clientX, y: ev.clientY });
   };
-  const menuItems = (id: string) => [
+  const menuItems = (id: string) => {
+    // (maps of another size cannot flip: the item is greyed, the reason its tooltip)
+    const why = id === m.current ? null : compareProblem(m.openSize, m.maps.find((e) => e.id === id)?.size);
+    return [
+    ...(id === m.current ? [] : [{ label: "Compare with the open map", title: why ?? "Flip between it and the open map", disabled: !!why, run: () => m.onCompareMap(id) }]),
     { label: "Download .timber", title: "Download it for Timberborn's Maps folder", run: () => m.onDownloadMap(id) },
     {
       label: "Rename",
@@ -104,7 +109,8 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
       },
     },
     { label: "Delete", title: "Delete this map from Your maps", run: () => m.onDeleteMaps([id]) },
-  ];
+    ];
+  };
   const finishRename = async (id: string, name: string | null, leaving: boolean) => {
     const was = m.maps.find((e) => e.id === id)?.name;
     if (name === null || name.trim() === was) {
@@ -144,6 +150,12 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                   {e.size ? (
                     <span class="ym-size">
                       {e.size.w}×{e.size.h}
+                    </span>
+                  ) : null}
+                  {/* a kept version: where it came from, small and quiet, a line of its own */}
+                  {e.parent ? (
+                    <span class="ym-from" {...tip(parentFull(e.parent))}>
+                      {parentLine(e.parent)}
                     </span>
                   ) : null}
                 </span>
@@ -238,7 +250,7 @@ function TileName(p: { name: string; onDone(name: string | null, leaving: boolea
 
 /** The right-click menu of a map in Your maps (the File menu's look): at the pointer, kept on the screen; Esc or a
  *  click elsewhere closes it. */
-function MapMenu(p: { at: { x: number; y: number }; items: { label: string; title: string; run(): void }[]; onClose(): void }) {
+function MapMenu(p: { at: { x: number; y: number }; items: { label: string; title: string; disabled?: boolean; run(): void }[]; onClose(): void }) {
   const box = useRef<HTMLUListElement>(null);
   const [pos, setPos] = useState({ left: p.at.x, top: p.at.y });
   useLayoutEffect(() => {
@@ -248,7 +260,7 @@ function MapMenu(p: { at: { x: number; y: number }; items: { label: string; titl
     const left = Math.max(4, Math.min(p.at.x, window.innerWidth - r.width - 4));
     const top = Math.max(4, Math.min(p.at.y, window.innerHeight - r.height - 4));
     setPos({ left, top });
-    (el.querySelector("button") as HTMLButtonElement | null)?.focus();
+    (el.querySelector("button:not(:disabled)") as HTMLButtonElement | null)?.focus();
   }, [p.at.x, p.at.y]);
   useEffect(() => {
     const off = (e: PointerEvent) => {
@@ -277,6 +289,7 @@ function MapMenu(p: { at: { x: number; y: number }; items: { label: string; titl
             type="button"
             role="menuitem"
             title={it.title}
+            disabled={it.disabled}
             onClick={() => {
               p.onClose();
               it.run();

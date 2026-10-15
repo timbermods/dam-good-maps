@@ -226,6 +226,13 @@ const api = {
   undo: routed(() => sendUpdate(ed.undo()), () => collabEditApi.undo().then(sendUpdate)),
   redo: routed(() => sendUpdate(ed.redo()), () => collabEditApi.redo().then(sendUpdate)),
   jump: routed((index: number) => sendUpdate(ed.jump(index)), (...a) => sendUpdate(collabEditApi.jump(...a))),
+  /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
+  keepVersion(k: number, parentId?: string) {
+    const v = ed.keepVersion(k, parentId);
+    return v ? transfer(v, [v.bytes.buffer as ArrayBuffer, ...(v.picture ? [v.picture.heights.buffer as ArrayBuffer, v.picture.water.buffer as ArrayBuffer] : [])]) : null;
+  },
+  /** A version's project opened by replaying it (a worker of the page's own), settled: `project` then has its stored map. */
+  openVersion: (bytes: Uint8Array) => ed.openVersion(bytes),
   // the shelf: an object or a source placed, as one step
   applyTool: routed((req: ed.ToolRequest, id: string) => sendUpdate(ed.applyTool(req, id)), (...a) => collabEditApi.applyTool(...a).then(sendUpdate)),
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */

@@ -76,6 +76,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
 
   /** Put a stroke's terrain before or after it back on the map, at once. */
   function showStroke(s: Stroke, which: "before" | "after") {
+    ed.endFlip();
     const r = renderer.current;
     const W = infoRef.current.W;
     const snap = s[which];

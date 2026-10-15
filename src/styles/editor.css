@@ -330,6 +330,39 @@ button[aria-pressed="true"] {
   pointer-events: auto;
 }
 
+/* Compare: the note while comparing (the flip button and Stop), and the veil while the other version is on show */
+.compare-note .compare-flip {
+  font-weight: 600;
+}
+
+.compare-note .linkish + .linkish {
+  margin-left: 14px;
+}
+
+.compare-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  cursor: default;
+}
+
+.compare-veil .compare-name {
+  position: absolute;
+  left: 50%;
+  top: 128px;
+  transform: translateX(-50%);
+  max-width: min(640px, 90%);
+  padding: 8px 14px;
+  overflow: hidden;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-message.error {
   color: var(--bad);
   border-color: var(--bad);

@@ -150,6 +150,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     open; the host makes a new map in a worker of its own while a session is on, so Cancel never ends it. The guest's
     own attempts say so quietly. **Your maps** keeps the session on both sides (a `keep` event: at a pause, when someone
     leaves, and the old map when the host opens another).
+- **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
+  **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
+  Your maps as "<map name> — <step label>"; Branch does the same and opens the copy, its History through that step. A version
+  is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
+  stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
+  says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
+  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' right-click
+  **Compare with the open map** (the same size only; greyed with the reason for another size) reads the other map once, settled, in a worker of its own; a note
+  "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips the land, objects and
+  water to the other map at the same camera, a name chip over the map while it is on show; anything that redraws the open map (an edit, an undo, a force, a peer) puts it back and ends the flip, the minimap follows the flip, and letting go puts the open map back; Compare shows the surface only on an import with caves or overhangs
+  (`editor/compare/useCompare.tsx`). Captures `docs/design/showcase-versions-*`.
 - **The address** is always the open map's share link (its spec, D7; a link carries no edits): copying it shares the
   map as generated, and a link opens straight into the editor. A reload brings the open map back from Your maps,
   edits and all. A real place's address is `#place=<id>`; an opened file has none.
