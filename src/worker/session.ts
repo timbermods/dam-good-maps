@@ -8,8 +8,9 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
-import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
+import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
@@ -98,6 +99,8 @@ export interface SessionInfo {
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
   caves: boolean;
+  /** Only the step the history stands at can be kept as a version (the replay differed, D455). */
+  keepOnlyHere?: boolean;
 }
 
 /** The parts of the map view that changed. */
@@ -211,6 +214,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     badwaterRemoved: s.badwaterRemoved(),
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
+    keepOnlyHere: s.keepOnlyHere,
     version,
   };
 }
@@ -378,6 +382,13 @@ function markSent(s: MapSession): void {
 export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   const s = need();
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
+}
+
+/** What a Block operation would do on the map as it stands, with no build (the page's live preview of a click or a
+ *  drag): the blocks it adds and takes, the ground the support rule would drop, and the one line it is refused with
+ *  (core/doc/blockTool.ts). */
+export function blockFalls(params: BlocksParams): BlockFalls {
+  return need().blockFalls(params);
 }
 
 /** The whole map view (opening a map, or returning to it). */
@@ -1516,7 +1527,8 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -1625,12 +1637,14 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     const w = (model.stacked ? s.settledFor(model) : null) ?? (await settleInSlices(model, current, onProgress));
     if (!w) return null;
     // unedited, the map is the map as it was opened: one settle and one validation serve both
-    if (!originalFull && s.editCount === 0 && !s.waterPending) {
+    if (s.cropped) {
+      // (a cropped map has no map as it was opened to compare with)
+    } else if (!originalFull && s.editCount === 0 && !s.waterPending) {
       originalFull = s.validateOriginal({ model, settled: w });
       lastWaterOf(originalFull, v0, w, model);
       return { check: grouped(s, originalFull, t0), view, info: sessionInfo(s), waterSettled: !waterSettling() };
     }
-    if (!originalFull) {
+    if (!originalFull && !s.cropped) {
       const om = importModel(s, true);
       const ow = await settleInSlices(om, () => session === s, onProgress);
       if (!ow) return null;
@@ -1688,6 +1702,26 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
 export function project(level = 9): { bytes: Uint8Array; fileName: string; name: string; version: number } {
   const s = need();
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
+}
+
+/** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
+ *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Never a
+ *  rebuild here: a step with no settled build kept comes without its stored map and without a picture (`stored` false), and
+ *  the page builds it in a worker of its own (`openVersion`). Null when there is no such step. The open map is untouched. */
+export function keepVersion(k: number, parentId?: string): { bytes: Uint8Array; name: string; parent: VersionParent; stored: boolean; size: { w: number; h: number }; picture: { heights: Uint8Array; W: number; H: number; water: Float32Array } | null } | null {
+  const s = need();
+  const v = s.versionProject(k, parentId ? { id: parentId } : {}, 6, { rebuild: false });
+  if (!v) return null;
+  const size = { w: s.size.x, h: s.size.y };
+  const b = v.built;
+  return { bytes: v.bytes, name: v.name, parent: v.parent, stored: v.stored, size, picture: b ? { heights: b.heights.slice(), W: b.W, H: b.H, water: Float32Array.from(b.water) } : null };
+}
+
+/** Open a version's project by replaying it, a full build (the page does it in a worker of its own, for a step the open
+ *  map had no settled build of): its stored map and picture follow from `project` and `sessionView`. */
+export function openVersion(bytes: Uint8Array): void {
+  opened(MapSession.open(decodeProject(bytes), { rebuild: true }));
+  session!.settleCanonical();
 }
 
 // ------------------------------------------------------------------------------------ the tools

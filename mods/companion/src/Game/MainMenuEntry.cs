@@ -31,6 +31,9 @@ namespace DGMCompanion
         private Button _button;
         private Label _caption;
 
+        // The entry of this menu (the in-game test asks it to look again once it has put maps in the folder).
+        public static MainMenuEntry Current { get; private set; }
+
         // What the entry shows now (the test reads these).
         public static string ShownCaption { get; private set; }
         public static Button ShownButton { get; private set; }
@@ -52,6 +55,7 @@ namespace DGMCompanion
 
         public void PostLoad()
         {
+            Current = this;
             try
             {
                 Build();
@@ -61,6 +65,24 @@ namespace DGMCompanion
                 // The menu must never break because of the companion.
                 CompanionEnv.Warn("could not add the menu entry: " + e);
             }
+        }
+
+        // The menu's own New game button, and whether our entry is in the menu (the in-game test looks at these).
+        public Button NewGameButton() => _mainMenuPanel.GetPanel().Q<Button>("NewGameButton");
+
+        public bool HasEntry() => _mainMenuPanel.GetPanel().Q<Button>(ButtonName) != null;
+
+        // Looks at the Maps folder again and shows or hides the entry (the in-game test uses it; the menu itself
+        // looks once, each time it opens).
+        public void Rebuild()
+        {
+            _button?.RemoveFromHierarchy();
+            _caption?.RemoveFromHierarchy();
+            _button = null;
+            _caption = null;
+            ShownButton = null;
+            ShownCaption = null;
+            Build();
         }
 
         private void Build()

@@ -112,7 +112,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   const sourceGrab = useRef<{ cancel(): void } | null>(null);
   function grabSource(hit: TileHit | null, ev?: PointerEvent): PointerTool | null {
     // (a force picked takes the map's clicks, a source's too: D257)
-    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current) return null;
+    if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current || ed.blockRef.current) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
@@ -187,7 +187,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   /** A press on an object. With Select in hand a drag on the land marks an area, so a press grabs only the
    *  object already picked (it moves it); `pick`: the press is Select's plain click, which picks it. */
   function grabObject(hit: TileHit | null, pick = false): PointerTool | null {
-    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || selection.current.count) return null;
+    if (!hit || brushToolRef.current || shelfRef.current || ed.toolRef.current || ed.blockRef.current || selection.current.count) return null;
     const W = infoRef.current.W;
     const H = infoRef.current.H;
     const e = mirror.current.entities;

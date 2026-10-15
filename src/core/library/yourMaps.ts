@@ -5,6 +5,7 @@
 // background saving is `saver.ts`.
 
 import { gunzipSync, strFromU8 } from "fflate";
+import type { VersionParent } from "../doc/document";
 
 export interface YourMapEntry {
   id: string;
@@ -27,6 +28,8 @@ export interface YourMapEntry {
   bytes: number;
   /** The map's width and height in tiles ("128�128"); absent only for a map whose project can't be read (the list shows nothing). */
   size?: { w: number; h: number };
+  /** A kept version (src/core/library/keptVersions.ts): the map it came from and the History step it was taken at. */
+  parent?: VersionParent;
 }
 
 /** A project file's map size, read from its base header without rebuilding the map; null if unreadable. */

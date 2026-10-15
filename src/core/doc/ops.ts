@@ -30,11 +30,12 @@ import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
 import { applyMergePatch, clone } from "../spec/mergepatch";
-import { blockEffect, blockProblems, type BlocksParams } from "../terrain/blocks";
+import { blockEffect, blockProblems, type BlockGround, type BlocksParams } from "../terrain/blocks";
 import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
 import { CAVE_REFUSALS } from "../sim/stackWater";
+import { cropRectProblem, type CropParams } from "./crop";
 import type { RetainedWater, WaterModel } from "../sim/water";
 import opsSchema from "./ops.schema.json" with { type: "json" };
 
@@ -76,11 +77,17 @@ export interface OpParams {
   fillHollow: FillHollowParams;
   /** Explicit player placement; the log stores literal placed objects, never replans. */
   paintObjects: PaintParams;
+  /** Crop map to selection (D340): the map becomes exactly this rectangle of itself, in tiles. The first
+   *  operation of the map's next generation (doc/session.ts): the operations after it are in the cropped map's
+   *  tiles. */
+  crop: CropParams;
   /** The Block tool (D335): blocks added against a face of the ground or removed, in a click or a
    *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
    *  an object, and when the result would leave ground the game drops. */
   blocks: BlocksParams;
 }
+
+export type { CropParams };
 
 export interface RemoveUnfedWaterParams {
   /** The tiles of the unfed bodies of water taken (y·W + x), ascending: once the water settles, the
@@ -142,6 +149,7 @@ export type SlopeOp = AppliedOpOf<"pinSlope"> | AppliedOpOf<"removeSlope">;
 export type EntityOp = AppliedOpOf<"placeEntity"> | AppliedOpOf<"moveEntity"> | AppliedOpOf<"deleteEntities"> | AppliedOpOf<"setEntityProps">;
 /** An operation that changes only the water (D387 (2) and (3)). */
 export type WaterOp = AppliedOpOf<"removeUnfedWater"> | AppliedOpOf<"fillHollow">;
+export const isCrop = (op: { op: string }): op is AppliedOpOf<"crop"> => op.op === "crop";
 
 /** The document's current state: the generation's features with the log applied. */
 export interface DocState {
@@ -283,8 +291,12 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+      state.sculpts.push(op);
+      return;
     case "blocks":
       state.sculpts.push(op);
+      // the plants its blocks fill in or take the ground from go with it (quiet, like a force's)
+      if (op.params.plants?.length) state.entityEdits.push({ op: "deleteEntities", params: { entities: op.params.plants, quiet: true }, seq: op.seq, origin: op.origin });
       return;
     case "forceResult": {
       // Try another replaces the force before it: that one is left out while this one stands
@@ -316,6 +328,9 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "removeUnfedWater":
     case "fillHollow":
       state.waterEdits.push(op);
+      return;
+    case "crop":
+      // (the session starts the cropped map's next generation; the state of this one is left as it is)
       return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
@@ -370,8 +385,11 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+      removeFromList(state.sculpts, op.seq);
+      return;
     case "blocks":
       removeFromList(state.sculpts, op.seq);
+      removeAllFromList(state.entityEdits, op.seq);
       return;
     case "forceResult": {
       removeFromList(state.sculpts, op.seq);
@@ -398,6 +416,8 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "removeUnfedWater":
     case "fillHollow":
       removeFromList(state.waterEdits, op.seq);
+      return;
+    case "crop":
       return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
@@ -448,11 +468,13 @@ export interface OpContext {
   heights?: ArrayLike<number>;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
-  blocks?: { terrain: ColumnTerrain; objects: ReadonlySet<number> };
+  blocks?: { terrain: ColumnTerrain; ground: BlockGround };
   /** The objects a start feature builds (its StartingLocation), by id, and that feature's id. */
   startObjects?: ReadonlyMap<string, string>;
   templateOf?: (id: string) => string | undefined;
   componentsOf?: (id: string) => Record<string, unknown> | undefined;
+  /** Why the map cannot be cropped to a rectangle for what stands on it (a start the edge would cut), or null. */
+  cropObjects?: (r: CropParams) => string | null;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -641,7 +663,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     case "blocks": {
       const bad = blockProblems(op.params, W, H);
       if (bad.length || !ctx.blocks) return bad;
-      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.objects).errors;
+      return blockEffect(op.params, ctx.blocks.terrain, ctx.blocks.ground).errors;
     }
     case "forceResult": {
       const p = op.params;
@@ -723,6 +745,12 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     case "paintObjects": {
       const errors = runsProblems(op.params.area, W, H, "the stroke's area");
       return errors.length ? errors : paintParamProblems(op.params);
+    }
+    case "crop": {
+      const why = cropRectProblem(op.params, W, H);
+      if (why) return [why];
+      const objects = ctx.cropObjects?.(op.params);
+      return objects ? [objects] : [];
     }
     case "removeUnfedWater": {
       // (which water a removal takes on a tile with water at several levels is not decided, D280)
