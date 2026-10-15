@@ -225,7 +225,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
-  by itself (D265).
+  by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
+  (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
+  (`src/render3d/framing.ts`).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
   first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
