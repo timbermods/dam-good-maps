@@ -1387,6 +1387,12 @@
   }
 }
 
+/* a long label in two cells (Remove unfed water at 1280, the narrowest cells), as Naturalize's word on the bar */
+.set-button.tight {
+  padding: 0 1px;
+  letter-spacing: -0.015em;
+}
+
 /* Try another keeps its cells whole; with a force's rolls on offer (D488) "2 of 4" sits in its own space just above
    the panel: the group's top is the panel's padding, a row and the gap below the
    panel's top (4px + 54px + 4px), and the counter stands 4px clear of it, its right edge on Try another's */
