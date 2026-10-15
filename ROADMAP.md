@@ -399,6 +399,10 @@ guesses, with an original model in both looks, a label in Markers, exact save an
   rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects
   cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are
   re-read. D340 has the rule and its tests.
+  - **The core operation is built** (`crop`, `src/core/doc/crop.ts`; `tests/contract/crop.test.ts`): the rectangle's
+    contents exactly (runs, water, soil, objects, sources), objects cut by the edge removed and counted, one-line
+    refusals, one undo step, recorded, byte-exact on reopen. Left for the page and the next pass: the edge lip, the
+    checks dot's edge walls and the re-read name and "how it plays" line (EDITOR_PLAN.md, Select).
 
 ---
 
@@ -595,10 +599,12 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Part 5, 3D picking (`render3d/pick.ts`): a ray through the column masks
-lands on the first face along it, and equals the heightfield picker on maps without caves (`pickTerrain.test.ts`); Select
-reads the run hit. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, the level-slice cutaway.
+runs with undersides every exposed face once. Part 2, light in 3D in both looks (`render3d/caveLight.ts`): a face
+whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
+else the baked light stands, so maps without caves draw exactly as before. Part 5, 3D picking (`render3d/pick.ts`): a
+ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
+(`pickTerrain.test.ts`); Select reads the run hit. Next: the masks from the worker, soil per run top, water per column,
+the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water

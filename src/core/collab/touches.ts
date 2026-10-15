@@ -106,6 +106,9 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         if (op.params.replaces !== undefined) keys.add(`action:${op.params.replaces}`);
         if (op.params.lake) keys.add("lakes");
         break;
+      case "crop":
+        whole();
+        break;
       case "removeUnfedWater":
       case "fillHollow":
         // (what a source feeds is read map-wide)

@@ -577,7 +577,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything and About, then after a hairline
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
   lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
@@ -610,7 +610,7 @@ D380 work.
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
   (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
-  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
+  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything,
   About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in

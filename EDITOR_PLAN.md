@@ -65,7 +65,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
-  Download project, Download .timber, Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
@@ -275,6 +275,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
 - **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
   as a word made file-safe; a real place, an opened file or a renamed map as `dgm-<name>`); Save to Timberborn never overwrites: a
   taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
+  **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
+  its path); any other is refused with one line naming `Documents\Timberborn\Maps`, and the previous choice stands.
+  Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission
+  refused, the folder gone, a write error) falls back to the download with a plain note; a failed write also forgets the remembered folder, so the next Save asks again. **File → Choose Maps folder…**
+  picks or changes the remembered folder without saving. The folder is asked for **first**, straight from
+  the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
+  picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
   highlighted on the map. Never a pop-up.
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
@@ -619,6 +626,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that would take any tile past the ceiling is refused with its reason; objects and sources ride changed
   ground; the start moves to the nearest valid ground only if its own can no longer hold it; each action is one
   undo step with a clear label ("Cut 4,210 tiles down to level 16"); the selection stays open until Esc or the ×.
+  **Crop map to selection** (D340; the operation is built in the core, `src/core/doc/crop.ts`): `{op: "crop", params:
+  {x, y, w, h}}` (the selection's bounding rectangle, in tiles) makes the map exactly that rectangle of itself. The
+  ground (its runs: caves and overhangs stay), water, soil, objects and sources inside keep their place relative to the
+  new origin; everything outside is gone; an object whose footprint crosses the edge is removed, counted in the result
+  (`removedObjects`; `planCrop` answers it before applying). One-line refusals, never clamped: a rectangle off the map; a
+  side under 4 or over 512; the same size as the map ("nothing to crop"); a start the edge would cut or leave outside
+  ("The start would be cut off: move it inside the selection first"). The crop is the first operation of the map's next
+  generation (`MapDocument.prior` holds the one before it with its operations), so it is one undo step that brings the
+  full map back exactly, it is recorded and replayed, a saved project opens and saves byte for byte, and the operations
+  after it are in the cropped map's tiles. The cropped map is built as an imported one (its water settles again in the
+  background, as after any edit). Not yet in the core: M9b's edge lip for a river's head left at the new edge, the
+  checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line. Collaborative
+  editing leaves a crop to the host (D362 (9)).
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
@@ -1005,6 +1025,10 @@ afresh, with a view built for its size.
 The editor reuses the generator's validation modules unchanged (one source of truth for what "valid" means), run
 with the `export` profile (`PLAN.md` §19.5, §11). An imported map's own problems, the ones it had when it was
 opened, are listed but never blamed on the player's edits and do not block its export (`PLAN.md` §20, D43).
+A real place opened from Real places is not an imported map in this sense: it is ours, so its checks follow the
+place's absolutes (D245, D331; `checkItems.ts` `groupChecks`): a load problem blocks; a missed starting-logs floor,
+a missed water floor (no clean water a pump can reach from the start) or water that keeps moving is a warning the
+checks dot counts; every other row is information under Good to know, worded as a fact without its target.
 
 - **Instant checks** after every edit, on the dirty region: footprints, ground support, overlaps, start area,
   limits, slopes, terrain support. **Background checks** in a web worker, debounced (0.7 s) and cancelled when a
