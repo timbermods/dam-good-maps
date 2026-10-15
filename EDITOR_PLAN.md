@@ -910,8 +910,9 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 ## 7. Controls
 
-Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms, Alt+scroll slices
-the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
+Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
+(the ground under it stays under it; over the sky or off the map, and for + and -, about the screen's centre),
+Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
 Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.
@@ -989,7 +990,7 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
   until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no
   "Working…" note: the checks pill says "Checking the map". Every × that closes a hint, a note, History or an object's
   window is one 24px icon button with a hover state and a tooltip. The 3D view's screen-reader label reads
-  "Middle-drag to turn, right-drag to move, wheel to zoom".
+  "Middle-drag to turn, right-drag to move, wheel to zoom toward the pointer".
 
 ## 9. The future
 
