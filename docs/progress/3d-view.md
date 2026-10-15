@@ -82,6 +82,55 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   with air under a roof.
 - **Captures:** `docs/sheets/3d-view-light.jpg`.
 
+## Part 3: soil per run top (built, `feature/3d-view-soil-runs`)
+
+- **What:** every run top below its tile's top (a cave's floor, a ledge under an overhang, the map's floor under
+  air) takes its own run's moisture, contamination and the water standing on it, not its roof's. The worker sends
+  the soil per run top with the view's soil (`SoilView.runs`: tile, level and the two soil bytes of every run top
+  below a top, `runSoilView`), the file's own per run as the export keeps it (`MapSession.storedSoilRuns`, read
+  once a base); on the official cave maps that is soil3d's value on the file's water for every run top. The
+  renderer writes it into a run texture (`src/render3d/runSoil.ts`, `RunSoil`): two bytes a cell, W × H × 23
+  levels, R the soil as the tile data's G, G a run top here (1) or one under water (2). The terrain shader's floor
+  branch (`vWorld.y < h0 − 0.5`) reads its own tile and level (`runAt`) and blends toward the ground at the same
+  level round it (a run top in the texture, or a tile whose top is at that level), as a top blends toward
+  neighbours of its height. Where no run top is (a cap at a layer cut) the floor keeps the top's soil, as before,
+  so the cutaway's caps keep their look. Walls and undersides are unchanged. The Map look by height already
+  colours a floor by its own level (`heightColor(vWorld.y)`): unchanged. A soil without runs (the page's soil
+  growing toward the worker's) keeps the last runs drawn. The hover readout names the tile's top only, not a
+  level, so it has nothing to agree with.
+- **The contract change** (`src/worker/session.ts`, the view messages): `SoilView` gains an optional `runs`
+  (four typed arrays, in `viewBuffers`), set by `soilOf` and `underRoofs` (`withRuns`) on a map with columns that
+  are not plain; absent everywhere else. Nothing else in the messages changes; the worker's cost is 1.1 ms
+  (Hollows) to 1.9 ms (Pressure) per soil sent, never a slice of its own.
+- **A fix on the way:** a tile's top on a column with air at its bottom read the slot below its top run
+  (`ColumnTerrain.runCount` counts solid runs; the game's runs start with an empty one there). The view's soil of
+  those tops now reads the right slot: 3,355 tops on Pressure, 2,238 on Pillars, 94 on Nomads, 58 on Hollows, a
+  few elsewhere.
+- **Equivalence:** a map without terrain above terrain has no `runs`, so no texture is built or bound and the
+  terrain's `RUN_SOIL` define is not there at all (the program is the one before this part;
+  `tests/contract/runSoil.test.ts` on seven generated maps, all six themes and Any). Frames before
+  (`feature/3d-view-cutaway`) and after, real Chrome on the RTX 2070 SUPER, Canyon 128 seed 7, Standard and High,
+  the whole map and a cliff, 1920×1080, the water held at one moment: 5–120 pixels differ, all on the river's
+  moving surface, as many as two runs of the same build differ by (93–123); the terrain is pixel-identical.
+- **On cave maps:** `runSoil.test.ts` opens a hand-made cave with water in it (clean and badwater) through the
+  worker and checks every run top: a tile's top in the tile data, every run below it in the run texture at its
+  own level (`runSoilAt`, the shader's rule), equal to soil3d's value for that run, with its water, unedited and
+  after an edit. On Hollows and Pressure (local only) the same for every run top: Hollows 5,024 floors below a
+  top (2,124 moist, 1,263 contaminated, 984 under water), 3,142 unlike their roof's; Pressure 7,854 (2,895,
+  3,371, 5,278), 5,077 unlike their roof's.
+- **Refresh:** a water update rewrites only the cells that changed and sends their box up (`refresh` gives it,
+  `BoxUploads` uploads it). Measured once in Node (information): a water update 1.5 ms on Hollows, 2.7 ms on
+  Pressure; a dab does no run-soil work (strokes shape the top run only; the soil that follows the water
+  refreshes the cells). Building the texture with the map: 7–9 ms.
+- **Memory:** 2 bytes × 23 levels a tile: 1.7 MB at 192², 3.0 MB at 256², 12 MB at 512² (in memory and on the
+  GPU), only on maps with run tops below a top.
+- **Captures:** `docs/sheets/3d-view-soil-runs.jpg` (Hollows cut at 4 over its underground river, Pressure cut at
+  3 over its badwater floors; before and after; Standard and High; 1920×1080 dark and 1280×800 light): before,
+  the river's banks under the roof are dry earth and Pressure's soaked floors clean; after, grass along the river
+  and veins on the soaked floors.
+- **Falls short:** objects in caves still read their tile's top soil (a ruin's ivy, plants' looks; item 7). CI's
+  browser test checks the branch compiles and draws (`cutaway.spec.ts`), not its colours.
+
 ## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
 
 - **What:** `src/render3d/pick.ts` `pickTerrain` walks the voxels of the column masks (`mesh.ts` `columnMask`, the
@@ -164,9 +213,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   branch, Standard and High, 1920×1080 dark, and Hollows at 8 at 1280×800 light): dev's hatched lid over the
   river's cave and over Pressure's tunnels, here the caves open with their water, walls and floors in their own
   light.
-- **Falls short:** water, objects, falls and the drought line are cut as before (water per column is item 4); a
-  cave floor's colour is still its tile's (item 3). CI's browser tests open no map with caves, so the branch's
-  compile is checked by hand in real Chrome.
+- **Falls short:** water, objects, falls and the drought line are cut as before (water per column is item 4).
+  `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
 
 ## The rest of the step (next parts)
 
@@ -177,9 +225,8 @@ Each reads the same column masks the mesher reads. The seams:
    `ColumnTerrain`'s masks (one `Uint32` per tile) instead; that is a change to `src/worker/session.ts`'s view
    messages (the milestone's and the renderer's contract) and makes `columnMask` a lookup.
 2. **Light in 3D:** done (part 2, above). The volume reads `columnMask` too, so item 1 makes its build a lookup.
-3. **Soil and the Map look per run top:** the tile data texture holds one top per tile; a run texture (3d-view's,
-   about 6 MB at 256²) gives each run top its own soil, moisture and contamination (`sim/soil3d.ts` already computes
-   them per run).
+3. **Soil and the Map look per run top (built, part 3 above):** a run texture (3.0 MB at 256²) gives each run top
+   below its tile's top its own soil, moisture, contamination and water.
 4. **Water per column:** `waterMesh.ts` already draws lower water columns (`lowerByTile`); seat each slot on its own
    floor and cap it at its ceiling, from the stacked engine's slots, with cave attenuation on its light (the water shader reads
    `caveTex` as the terrain's does; today water under a roof keeps the open sky's light).

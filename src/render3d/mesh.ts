@@ -21,8 +21,8 @@
 //
 // The light under roofs reads the same columns (caveLight.ts); under a layer cut the shaders fold these
 // meshes onto the cut and open it over air (cutaway.ts), so the mesh never depends on the level shown.
-// Not here yet (docs/progress/3d-view.md): soil and the Map look per run top; today the shaders colour
-// each face by its tile.
+// A floor below its tile's top takes its own run top's soil from the run texture (runSoil.ts); every other
+// face is coloured by its tile.
 //
 // World space: X = x, Y = height, Z = −y (north is −Z). Faces wind counter-clockwise seen from
 // outside. Pure TypeScript, so it runs in Node tests and could run in a worker.
