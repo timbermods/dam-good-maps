@@ -4,6 +4,7 @@
 // title block (the next map's Name, Generate and Surprise me; Theme; Seed and Size), then the five groups in two columns
 // (Terrain, Water and Hazards; Resources, Difficulty and what is on the map), each setting on one line.
 
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import type { MapCounts } from "../features";
 import { tip } from "../../ui/Tooltip";
@@ -99,6 +100,24 @@ export interface GeneratorPanelProps {
 
 export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelProps) {
   const f = genFields(m);
+  // a short window cuts the panel and it scrolls inside itself: a soft fade at its foot says more lies below, and goes
+  // once the foot is reached
+  const root = useRef<HTMLElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const look = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 2);
+    look();
+    el.addEventListener("scroll", look, { passive: true });
+    const watch = new ResizeObserver(look);
+    watch.observe(el);
+    if (el.firstElementChild) watch.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener("scroll", look);
+      watch.disconnect();
+    };
+  }, []);
   const group = (name: GroupName) => (
     <section class="gen-group" aria-label={name} key={name}>
       <h3 {...tip(GROUP_TIPS[name])}>
@@ -116,7 +135,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
   );
   const counts = onThisMap(held);
   return (
-    <aside class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
+    <aside ref={root} class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
       <form
         class="sheet"
         aria-label="Settings"
@@ -179,6 +198,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
           </div>
         </div>
       </form>
+      <div class={`gen-more${more ? " on" : ""}`} aria-hidden="true" />
     </aside>
   );
 }

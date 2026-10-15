@@ -2466,6 +2466,23 @@
   overscroll-behavior: contain;
 }
 
+/* the generator, cut by a short window: a soft fade into the panel's colour at its foot says more settings lie below, and
+   fades out at the bottom. Its height is taken back by the margin, so the panel's layout is the same with or without it */
+.gen > .gen-more {
+  position: sticky;
+  bottom: 0;
+  height: 36px;
+  margin-top: -36px;
+  background: linear-gradient(transparent, var(--panel) 90%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.gen > .gen-more.on {
+  opacity: 1;
+}
+
 .maps-panel,
 .places-panel {
   height: min(692px, var(--panel-max, 692px));
