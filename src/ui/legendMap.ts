@@ -48,7 +48,7 @@ const KEYS: Record<string, string> = {
   Water: "water",
   Badwater: "badwater",
   Walls: "walls",
-  "Level lines": "walls",
+  "Wall levels": "walls",
   "Dead trees": "dead",
   "Trees and bushes": "plants",
   Start: "start",

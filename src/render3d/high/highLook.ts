@@ -130,8 +130,8 @@ export class HighLook {
    *  heat, D206) with Standard's, so a change of look mid-eruption keeps its glow. */
   shareTerrainUniforms(standard: ShaderMaterial): void {
     const t = this.materials.terrain.uniforms;
-    if (t.eruptionMask && t.eruptionMask !== standard.uniforms.eruptionMask) (t.eruptionMask.value as { dispose(): void }).dispose();
-    for (const k of ["heightRange", "hover", "groundMode", "eruptionMask", "eruptionAge", "coolingAge"]) t[k] = standard.uniforms[k];
+    for (const k of ["eruptionMask", "eruptionBase"]) if (t[k] && t[k] !== standard.uniforms[k]) (t[k].value as { dispose(): void }).dispose();
+    for (const k of ["heightRange", "hover", "groundMode", "eruptionMask", "eruptionBase", "eruptionAge", "coolingAge"]) t[k] = standard.uniforms[k];
   }
 
   // ------------------------------------------------------------------------------------ effects

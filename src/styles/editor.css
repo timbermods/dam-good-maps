@@ -307,7 +307,6 @@ button[aria-pressed="true"] {
   top: 16px;
 }
 
-.history header,
 .dialog header {
   display: flex;
   justify-content: space-between;
@@ -315,7 +314,6 @@ button[aria-pressed="true"] {
   gap: 8px;
 }
 
-.history h2,
 .dialog h2 {
   margin: 0;
   font-size: 1rem;
@@ -358,26 +356,6 @@ button[aria-pressed="true"] {
   border-left: 1px solid var(--rule);
   background: var(--panel);
   overflow-y: auto;
-}
-
-.history ol,
-.history ul {
-  padding-left: 18px;
-  font-size: 0.9rem;
-}
-
-.history li {
-  margin: 3px 0;
-}
-
-.history li.undone button {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.history button[aria-current="true"] {
-  font-weight: 700;
-  color: var(--ink);
 }
 
 .orphan {
@@ -437,6 +415,19 @@ button[aria-pressed="true"] {
 
 .layer-legend p + p {
   margin-top: 4px;
+}
+
+/* a caption's colour as a swatch, then its name (the map's overlay colours, shown rather than named) */
+.layer-legend .layer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.layer-legend .layer-row .swatch {
+  width: 22px;
+  height: 13px;
+  margin-top: 2px;
 }
 
 .dialog progress {
@@ -617,6 +608,31 @@ button[aria-pressed="true"] {
   inset: 0;
   pointer-events: none;
   overflow: hidden;
+}
+
+/* a label moved off its source keeps a thin line to it */
+.source-leaders {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.source-leaders line {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.source-leaders circle {
+  fill: var(--accent);
+}
+
+.source-leaders .bad line {
+  stroke: var(--warn);
+  stroke-dasharray: 3 2;
+}
+
+.source-leaders .bad circle {
+  fill: var(--warn);
 }
 
 .source-marker {

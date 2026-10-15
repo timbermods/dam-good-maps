@@ -83,7 +83,7 @@ test("Unleash: a selected source carves its own course, kept as one step when it
     return row;
   };
   let row = await select();
-  await expect(row.getByRole("combobox", { name: "Strength" })).toBeVisible();
+  await expect(row.getByRole("slider", { name: "Strength", exact: true })).toBeVisible();
   await expect(row.getByRole("slider", { name: "Unleash power" })).toBeVisible();
   const n0 = (await labels(page)).length;
   const before = await heights(page);

@@ -69,7 +69,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, EDITOR_LEVEL, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
+import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -422,6 +422,8 @@ const ROUND_GENOMES = 1000;
 
 export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateResult {
   assertSpec(specIn);
+  const tooSmall = generatorSizeRefusal(specIn.size.x, specIn.size.y);
+  if (tooSmall) throw new Error(tooSmall);
   if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
   const t0 = performance.now();
@@ -1652,7 +1654,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
     const built = b ?? build(rivers, null);
     const file = toTimberFile(spec, built);
-    const v = validateMap(file, { profile: "generate", spec, features: rivers, water: { model: built.waterModel, settled: built.settle } });
+    const v = validateMap(file, { profile: "generate", spec, features: rivers, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
     return {
       passed: false,
       replannable,
@@ -2806,7 +2808,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
   let file = toTimberFile(spec, built);
-  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle } });
+  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
   // ---- intentions: checked on the finished map; a start intention is re-steered once (D138)
   let intentions: IntentionResult[] = [];
   if (v.report.passed && g.intentions.length) {
@@ -2826,7 +2828,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);
-      const v3 = validateMap(file3, { profile: "generate", spec, features: f3, water: { model: bb.waterModel, settled: bb.settle } });
+      const v3 = validateMap(file3, { profile: "generate", spec, features: f3, water: { model: bb.waterModel, settled: bb.settle }, dropped: bb.dropped ?? 0 });
       if (!v3.report.passed) return null;
       return {
         built: bb,
@@ -2917,7 +2919,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
   const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned } };
   const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
   const file = toTimberFile(r.spec, built);
-  const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle } });
+  const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
   return { built, file, bytes: v.report.passed ? writeTimber(file) : new Uint8Array(), report: v.report, analysis: v.analysis, field: fieldData(field, W) };
 }
 
@@ -2951,7 +2953,7 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 
 /** Validate a built map in the generate profile, on the build's own canonical settle. */
 export function validateBuilt(spec: MapSpec, features: readonly Feature[], built: BuildResult, file = toTimberFile(spec, built)): Validation {
-  return validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle } });
+  return validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
 }
 
 /** Rebuild a saved generation's map: the same pure path the generator's download takes (PLAN

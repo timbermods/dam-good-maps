@@ -1,17 +1,20 @@
 // The check rows of terrain above terrain (3D Foundations, stage 3) and the floor graph behind them (D122),
-// on small hand-made maps with the core called directly: `walk.levels` (information), `terrain.dropped`,
-// `water.sealed_source` (a warning) and `plants.clearance`, each passing and failing; `terrain.single_floor`
-// an imported map's row only; and D482: the same slope that joins nothing blocks a generated map and only
+// on small hand-made maps with the core called directly: `walk.levels` (information), `terrain.dropped` (with the
+// build's support pass behind it), `water.sealed_source` (a warning) and `plants.clearance`, each passing and
+// failing; `terrain.single_floor` an imported map's row only; and D482: the same slope that joins nothing blocks a generated map and only
 // warns on an imported one, which still exports.
 
 import { describe, expect, it } from "vitest";
 import { groupChecks } from "../../src/core/doc/checkItems";
 import { MapSession } from "../../src/core/doc/session";
+import { buildMap } from "../../src/core/features/build";
+import { generate } from "../../src/core/gen/generate";
 import { entityJson, slope, startingLocation, tree, waterSource, type EntitySpec } from "../../src/core/format/entities";
 import type { Orientation } from "../../src/core/format/footprints";
 import { mapMetadata, writeTimber, type TimberFile } from "../../src/core/format/timber";
 import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
 import { thumbnailJpeg } from "../../src/core/render/shade";
+import { makeSpec } from "../../src/core/spec/mapspec";
 import { PLANT_CLEARANCE, plantsWithoutRoom } from "../../src/core/terrain/clearance";
 import { floorAt, floorGraph } from "../../src/core/terrain/floors";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
@@ -159,6 +162,23 @@ describe("terrain.dropped: what the build's support pass removed (a generated ma
     const s = new Scene(16, 14);
     expect(s.checks({ profile: "import", loadOnly: true, dropped: 12 })["terrain.dropped"]).toBeUndefined();
     expect(s.checks({ profile: "generate", loadOnly: true })["terrain.dropped"]).toBeUndefined();
+  });
+
+  it("reads the build's support pass: a cave-shaped build drops the ground nothing holds, plain terrain none", () => {
+    // a pillar to level 10 at x = 2 with a ledge at level 9 out to x = 7 (support reaches 3: x = 6 and 7
+    // fall), and one block floating at level 8 over x = 12
+    const s = new Scene(16, 14).fill(2, 2, 7, 7, GROUND, 9).fill(3, 7, 7, 7, 9, 9).fill(12, 12, 3, 3, 8, 8);
+    const build = (terrain: ColumnTerrain) => buildMap({ W: s.W, H: s.H, seed: 1, features: [], base: { terrain, heights: terrain.heights(), entities: [] } });
+    const caves = build(ColumnTerrain.fromVoxels(s.voxels, s.W, s.H));
+    expect(caves.dropped).toBe(3);
+    expect(s.checks({ profile: "generate", loadOnly: true, dropped: caves.dropped ?? 0 })["terrain.dropped"]).toMatchObject({ ok: false, value: 3, message: "3 blocks of ground removed: nothing held them up" });
+    const plain = build(ColumnTerrain.fromHeights(new Uint8Array(s.N).fill(GROUND), s.W, s.H));
+    expect(plain.dropped).toBeUndefined();
+    // a generated map: its build drops nothing, and the row says so in the generator's checks and the editor's
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
+    const row = (checks: readonly CheckResult[]) => checks.find((c) => c.id === "terrain.dropped");
+    expect(row(r.report.checks)).toMatchObject({ ok: true, value: 0, message: "No ground had to be removed" });
+    expect(row(MapSession.fromGenerated(r, r.file).validate(undefined, { loadOnly: true }).report.checks)).toMatchObject({ ok: true, value: 0 });
   });
 });
 

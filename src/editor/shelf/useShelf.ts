@@ -8,7 +8,9 @@ import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { SessionUpdate, ToolRequest } from "../../worker/session";
 import { startProblemAt, newId, startStatus } from "../features";
 import { modalLevel } from "../../core/features/footprintLevel";
-import { paintTiles, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
+import { tilesToRuns } from "../../core/math/grid";
+import type { PaintParams } from "../../core/doc/paintParams";
+import { paintDisc, quietWord, SHELF, templateOf, type ShelfItem } from "../shelfItems";
 import { shelfTool } from "../placeTools";
 import { PointerWords } from "../pointerWords";
 import { GHOST_OK, coordinatesAt } from "../tools";
@@ -65,7 +67,10 @@ export function useShelf(ed: Ed): ShelfSlice {
         .then((f) => {
           if (fitWant.current === k) then(f);
         })
-        .catch(() => setFit(null))
+        .catch(() => {
+          shownFit.current = null;
+          setFit(null);
+        })
         .finally(() => {
           fitBusy.current = false;
           const want = fitWant.current;
@@ -74,8 +79,17 @@ export function useShelf(ed: Ed): ShelfSlice {
     };
     next(req, key);
   }
+  /** The spot the fit on show belongs to and its problem, set with it: the page's copy of the fit
+   *  (ed.fitRef) follows a render later, and the pointer's new tile has its own check in flight
+   *  until the worker answers, so a click reads the problem only when it is the clicked spot's. */
+  const shownFit = useRef<{ spot: string; problem: string | null } | null>(null);
+  const spotOf = (item: ShelfItem, x: number, y: number) => `${item.id}|${turnRef.current}|${x},${y}`;
+  /** The problem of the shelf's object at (x, y) as the latest check of that spot found, or null
+   *  when no check of it is on show yet (the core checks the placement itself). */
+  const problemAt = (item: ShelfItem, x: number, y: number) => (shownFit.current?.spot === spotOf(item, x, y) ? shownFit.current.problem : null);
   useEffect(() => {
     fitWant.current = null;
+    shownFit.current = null;
     setFit(null);
   }, [shelf, shelfOptions, turn, info.version]);
 
@@ -92,6 +106,8 @@ export function useShelf(ed: Ed): ShelfSlice {
     const r = renderer.current;
     if (!item || !r) return;
     shelfTile.current = [x, y];
+    // (F held: the ring stays where it is, its size following the pointer)
+    if (!ed.paintSizing.current) paintRing(x, y);
     const W = info.W;
     const h = mirror.current.heights;
     if (item.id === "start") {
@@ -107,6 +123,8 @@ export function useShelf(ed: Ed): ShelfSlice {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H) tiles.push((y + dy) * W + x + dx);
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
       const job = ++shelfStartJob.current;
+      const spot = spotOf(item, x, y);
+      shownFit.current = { spot, problem };
       setFit({ tiles: own, problem, status: problem ? "blocked" : "pending" });
       shelfWord(problem);
       if (!problem && mirror.current.water) {
@@ -116,6 +134,7 @@ export function useShelf(ed: Ed): ShelfSlice {
           .check({ W, H: info.H, heights: m.heights, water: m.water, entities: m.entities, river: indexed?.river ?? null, x, y, door, bench, self: s.owner, needs })
           .then((check) => {
             if (job !== shelfStartJob.current || !mounted.current || !shelfRef.current) return;
+            shownFit.current = { spot, problem: check.problem };
             setFit({ tiles: own, problem: check.problem, status: startStatus(check) });
             renderer.current?.setGhost({ ...ghostAt.current!, ok: GHOST_OK[startStatus(check)] });
           })
@@ -144,6 +163,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     checkFit(item.source ? sourceAtTile(item.source === "bad", x, y) : { tool: "entity", template, x: cx, y: cy, orientation: o }, (f) => {
       // (put away while the worker was checking: nothing shows)
       if (!shelfRef.current) return;
+      shownFit.current = { spot: spotOf(item, x, y), problem: f.problem };
       setFit(f);
       shelfWord(f.problem);
       const now = ghostAt.current;
@@ -158,6 +178,8 @@ export function useShelf(ed: Ed): ShelfSlice {
   function shelfWord(problem: string | null) {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
+    // (a tree, bush or thorn has its ring: no "Place here" over it, only the reason it can't grow there)
+    if (item.paint && !problem) return setShapeNote(null);
     setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
@@ -167,11 +189,12 @@ export function useShelf(ed: Ed): ShelfSlice {
   function placeShelf(x: number, y: number) {
     const item = shelfRef.current;
     if (!item) return;
-    // (refused: the reason is beside the pointer already, once; a check left from the object held before, not yet
-    // cleared, is not this one's: the core checks the placement itself)
+    // (refused: the reason is beside the pointer already, once; a check of another spot (the tile the pointer was
+    // over before, its own check still in flight) or left from the object held before is not this one's: the core
+    // checks the placement itself)
     const own = ghostAt.current?.template === (item.id === "start" ? "StartingLocation" : templateOf(item, shelfOptionsRef.current));
-    const f = own ? ed.fitRef.current : null;
-    if (f?.problem) return shelfWord(f.problem);
+    const problem = own ? problemAt(item, x, y) : null;
+    if (problem) return shelfWord(problem);
     if (item.id === "start") {
       // (a map without a start, D323 item 44: the Start places one)
       const s = startHere ?? NO_START_HERE;
@@ -209,8 +232,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!shelfRef.current) return;
     const hit = cancelled ? null : (renderer.current?.hoverHit ?? null);
     if (!hit) return pickShelf(null);
-    const at = shelfTile.current;
-    const problem = at && at[0] === hit.x && at[1] === hit.y ? (ed.fitRef.current?.problem ?? null) : null;
+    const problem = problemAt(shelfRef.current, hit.x, hit.y);
     if (problem) {
       pickShelf(null);
       flashNote(quietWord(problem));
@@ -219,13 +241,24 @@ export function useShelf(ed: Ed): ShelfSlice {
     placeShelf(hit.x, hit.y);
     pickShelf(null);
   }
-  /** Trees and bushes painted by a drag: planted where they can grow, one step, each with its pop. */
+  /** Trees, bushes and thorns painted by a drag (D235): the core's stroke over the tiles the brush covered, at the
+   *  object window's density (and a tree's age), planted where they can grow, one step, each with its pop. */
   function plantShelf(tiles: number[]) {
     const item = shelfRef.current;
-    if (!item || !tiles.length) return;
-    const template = templateOf(item, shelfOptionsRef.current);
+    if (!item?.paint || !tiles.length) return;
+    const o = shelfOptionsRef.current;
+    const kind = item.paint;
+    const template = templateOf(item, o);
+    const params: PaintParams = {
+      kind,
+      ...(kind === "thorns" ? {} : { template }),
+      area: tilesToRuns(tiles, infoRef.current.W),
+      density: o.paint[kind].density,
+      ...(kind === "trees" ? { age: o.treeAge } : {}),
+      seed: paintSeed.current,
+    };
     void run(
-      () => api.plantAt(template, tiles),
+      () => api.paintAt(params),
       (u) => {
         const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
         if (!u.ok || !planted.length) return;
@@ -237,6 +270,16 @@ export function useShelf(ed: Ed): ShelfSlice {
     );
   }
   const paintSeed = useRef((Math.random() * 0x7fffffff) | 0);
+  /** The brush's size as a ring round the pointer (the force ring's, the one calm ring), while a plant is held. */
+  function paintRing(x: number, y: number) {
+    const item = shelfRef.current;
+    if (item?.paint) renderer.current?.setForceRing({ x: x + 0.5, y: y + 0.5, r: Math.max(1, shelfOptionsRef.current.paint[item.paint].size / 2) });
+  }
+  // (the size changed in the object window: the ring takes it where the pointer last was)
+  useEffect(() => {
+    const at = ed.paintSizing.current?.tile ?? shelfTile.current;
+    if (at) paintRing(at[0], at[1]);
+  }, [shelfOptions]);
   const shelfCalls = useRef({ shelfHover, placeShelf, plantShelf });
   shelfCalls.current = { shelfHover, placeShelf, plantShelf };
   // the shelf's object takes the map's left button while it is picked (at once, when the pick is drawn: a click
@@ -253,8 +296,10 @@ export function useShelf(ed: Ed): ShelfSlice {
         notePointer(ev);
         if (!hit) {
           r.setGhost(null);
+          r.setForceRing(null);
           ghostAt.current = null;
           fitWant.current = null;
+          shownFit.current = null;
           setFit(null);
           setShapeNote(null);
           return;
@@ -264,7 +309,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       place: (x, y) => shelfCalls.current.placeShelf(x, y),
       paintAround: (x, y) => {
         const it = shelfRef.current;
-        return it?.fill ? paintTiles(x, y, 2, it.fill, paintSeed.current, W, H) : null;
+        return it?.paint ? paintDisc(x, y, shelfOptionsRef.current.paint[it.paint].size / 2, W, H) : null;
       },
       painting: (tiles) => {
         setPainted(tiles);
@@ -278,6 +323,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     return () => {
       if (r.tool === t) r.tool = null;
       r.setGhost(null);
+      r.setForceRing(null);
       ghostAt.current = null;
     };
   }, [shelf, ready, info.W, info.H]);

@@ -13,7 +13,7 @@ export interface DepositSettings { mode: "fan"; power: number; size: number | nu
 export interface DepositIntent { path: Point[] }
 export const DEPOSIT_DEFAULTS: DepositSettings = { mode: "fan", power: 70, size: null, channels: "auto", floor: 1, seed: 1 };
 /** Its Size's range, tiles across (core/forces/settings.ts). */
-export const DEPOSIT_SIZE_MIN = 4;
+export const DEPOSIT_SIZE_MIN = 8;
 export const DEPOSIT_SIZE_MAX = 64;
 /** A fan's breadth across, tiles, on Auto: what Power gives (rust/forces/src/deposit.rs). */
 export const depositWidth = (power: number): number => 14 + power * 0.34;

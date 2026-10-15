@@ -14,6 +14,7 @@ import { woodDetail } from "../core/analysis/wood";
 import { startStatus, type StartCheck } from "./features";
 import { plain } from "./words";
 import { tip } from "../ui/Tooltip";
+import { ObjectSlider } from "./ObjectWindow";
 
 // ------------------------------------------------------------------------------ the water layers
 
@@ -27,17 +28,43 @@ export const LAYER_NAMES: Record<LayerKind, string> = {
   roofed: "Caves and overhangs",
 };
 
-/** What the water layer on the map shows, in a line or two. */
+/** The colours the water layers lay over the map (red, green, blue, alpha out of 255): the overlay and its caption's
+ *  swatches read the same ones, so the caption shows the colours rather than naming them. */
+export const LAYER_COLORS: Record<"badwater" | "soil" | "roofed", [number, number, number, number]> = {
+  badwater: [120, 70, 30, 200],
+  soil: [190, 140, 70, 120],
+  roofed: [170, 90, 220, 150],
+};
+
+/** The overlay's colour without its transparency: a swatch looks the same on any panel, light or dark. */
+const swatchOf = (c: readonly number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+
+/** One line of a caption: the colour as it lies on the map, then what it is. */
+function CaptionRow({ color, children }: { color: readonly number[]; children: string }) {
+  return (
+    <p class="layer-row">
+      <span class="swatch" style={{ background: swatchOf(color) }} aria-hidden="true" />
+      {children}
+    </p>
+  );
+}
+
+/** What the water layer on the map shows: each colour as a swatch with its name. */
 export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
-  let text = "";
-  if (kind === "badwater") text = "Badwater: dark brown · Contaminated soil: light brown";
-  else if (kind === "roofed")
-    text = layers.roofed.length
-      ? "Violet tiles: caves or overhangs, which the tools leave as they are"
-      : "No caves or overhangs on this map.";
   return (
     <div class="layer-legend" role="status">
-      <p>{text}</p>
+      {kind === "badwater" ? (
+        <>
+          <CaptionRow color={LAYER_COLORS.badwater}>Badwater</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.soil}>Contaminated soil</CaptionRow>
+        </>
+      ) : kind === "roofed" ? (
+        layers.roofed.length ? (
+          <CaptionRow color={LAYER_COLORS.roofed}>Caves or overhangs, which the tools leave as they are</CaptionRow>
+        ) : (
+          <p>No caves or overhangs on this map.</p>
+        )
+      ) : null}
       {layers.approximate ? <p class="note">Water checks are approximate here: {layers.approximate}.</p> : null}
       {layers.preview && kind !== "roofed" ? <p class="note">Preview water: the exact settle is still running.</p> : null}
     </div>
@@ -46,17 +73,16 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
 
 // ---------------------------------------------------------------------------- a source's strength
 
-/** Water's strength, blocks per second, with the brushes' slider: a few steps from a trickle to
- *  the most the game handles; past the official maps' range it says so, never a block. */
-export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string }) {
-  const k = p.steps.reduce((best, f, j) => (Math.abs(f - p.value) < Math.abs(p.steps[best] - p.value) ? j : best), 0);
-  return (
-    <label class="slider-field" title="Blocks of water a second">
-      <input type="range" min={0} max={p.steps.length - 1} step={1} value={k} aria-label={p.label ?? "Strength"} aria-valuetext={`${p.value} water per second`} onInput={(e) => p.onChange(p.steps[Number((e.target as HTMLInputElement).value)])} />
-      <output>{p.value} water/s</output>
-    </label>
-  );
+/** Water's strength, blocks per second, as the bar's slider with its value: a few steps from a trickle to the most
+ *  the game handles; past the official maps' range it says so, never a block. A strength between the steps (set
+ *  with Ctrl+scroll) is a step of its own. */
+export function StrengthSlider(p: { value: number; steps: readonly number[]; onChange(v: number): void; label?: string; keys?: string[] }) {
+  const steps = [...new Set([...p.steps, p.value])].sort((a, b) => a - b);
+  return <ObjectSlider label={p.label ?? "Strength"} min={0} max={steps.length - 1} step={1} value={steps.indexOf(p.value)} words={`${Number(p.value.toFixed(2))} water per second`} tipText="Water it gives each second" keys={p.keys} onInput={(i) => p.onChange(steps[i])} />;
 }
+
+/** A strength as the window says it, at the right of its name. */
+export const waterWords = (v: number) => `${Number(v.toFixed(2))} water/s`;
 
 /** A strength past the official maps' strongest source. */
 export const STRONGER_WORDS = "Stronger than any official map";
@@ -116,34 +142,33 @@ export function StartIndicators({ check, rules }: { check: StartCheck; rules: { 
 export function HistoryPanel({ info, onJump, onClose }: { info: SessionInfo; onJump(index: number): void; onClose(): void }) {
   const current = info.history.filter((h) => h.applied).length - 1;
   const orphanNotes = info.orphans.filter((o) => !info.history.some((h) => h.seq === o.seq && h.orphaned));
+  /** A step as a row: the one the map is at is selected (the panel's own look for the thing you are on). */
+  const row = (label: string, at: number, title: string, undone = false) => (
+    <button type="button" class={`hist-row${undone ? " undone" : ""}`} aria-current={current === at ? "true" : undefined} {...tip(title)} onClick={() => onJump(at)}>
+      {label}
+    </button>
+  );
   return (
     <aside class="history gen history-panel" aria-label="History">
-      <header>
-        <h2>History</h2>
-        <button type="button" class="linkish" aria-label="Close the history" title="Close the history" onClick={onClose}>
+      <div class="ym-head">
+        <h2 class="ym-title">History</h2>
+        <button type="button" class="ghost ym-act hist-close" aria-label="Close the history" {...tip("Close the history")} onClick={onClose}>
           ×
         </button>
-      </header>
-      <p class="muted">Click a step to go back to it. Nothing is lost: you can go forward again until you make a new edit.</p>
-      <ol>
-        <li>
-          <button type="button" class="linkish" aria-current={current === -1} title="Go back to before any edit" onClick={() => onJump(-1)}>
-            {info.kind === "import" ? "Opened the map" : "The generated map"}
-          </button>
-        </li>
+      </div>
+      <ol class="hist-steps">
+        <li>{row(info.kind === "import" ? "Opened the map" : "The generated map", -1, "Go back to before any edit")}</li>
         {info.history.map((h, k) => (
-          <li key={k} class={h.applied ? "" : "undone"}>
-            <button type="button" class="linkish" aria-current={current === k} title="Go back to this step" onClick={() => onJump(k)}>
-              {h.label}
-            </button>
+          <li key={k}>
+            {row(h.label, k, h.applied ? "Go back to this step" : "Go forward to this step", !h.applied)}
             {h.orphaned ? <p class="orphan">No effect now: {h.orphaned}.</p> : null}
           </li>
         ))}
       </ol>
       {orphanNotes.length ? (
         <>
-          <h3>To review</h3>
-          <ul>
+          <h3 class="hist-sub">To review</h3>
+          <ul class="hist-steps">
             {orphanNotes.map((o) => (
               <li key={o.seq} class="orphan">
                 {o.label}: {o.reason}.

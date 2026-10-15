@@ -1,0 +1,61 @@
+name: Collaboration connection
+
+# The connection test for collaborative editing (D486): the room-code function under `wrangler dev`, a local TURN
+# relay and two separate browser processes (Chromium and Firefox), relay-only, with messages, a killed peer, a
+# reconnect and a renewed relay login (tests/collab, playwright.collab.config.ts). Runs on pull requests that touch the
+# connection, nightly and by hand. Does not deploy anything and has no secrets. The test against the deployed function
+# is collab-live.yml.
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "collab-worker/**"
+      - "src/collab/**"
+      - "tests/collab/**"
+      - "tests/unit/collab*.test.ts"
+      - "playwright.collab.config.ts"
+      - ".github/workflows/collab.yml"
+  schedule:
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collab-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  connection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'dev' || '' }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            collab-worker/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix collab-worker
+      - run: npm run typecheck --prefix collab-worker
+      - run: npx vitest run --project quick tests/unit/collab
+      - name: Install Chromium and Firefox for Playwright
+        run: npx playwright install --with-deps chromium firefox
+      - name: Connection test
+        run: npx playwright test -c playwright.collab.config.ts
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: collab-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

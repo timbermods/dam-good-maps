@@ -12,7 +12,7 @@ say how things are and what is next. Archived files are never rewritten; only th
 - "Stale findings", the last section of this file: the findings later ones replaced, moved from FINDINGS.md.
 - [progress/](progress/README.md): the finished progress logs, one file per milestone and step.
 - [progress-log/](progress-log/README.md): the Progress log issue's monthly copies.
-- [chats/](chats/README.md): the previous versions of the planning chat's handoff (the latest, [2026-10-02](chats/2026-10-02.md), is the one before the prune).
+- [chats/](chats/README.md): the previous versions of the planning handoff (the latest, [2026-10-14](chats/2026-10-14.md), is the claude.ai planning chat's last).
 - [feedback/](feedback/): Kyler's feedback files.
 - [AUDIT.md](AUDIT.md): the early audit. [spike-m3.md](spike-m3.md): the delivery spike. [m9-design.md](m9-design.md): the generator's design (design version 2).
 - [ingame-log.md](ingame-log.md): the in-game log. [merged-branches.md](merged-branches.md): branches merged and deleted.

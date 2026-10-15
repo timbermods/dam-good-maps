@@ -178,6 +178,8 @@ export function useReady(ed: Ed): ReadySlice {
       painting: (on) => {
         if (!on) {
           juice.current?.strokeEnd();
+          // (the worker's land that came while it was painted goes in, unless the stroke is on its way, #410)
+          setTimeout(() => ed.takeLand(), 0);
           return;
         }
         hintJob.current++;

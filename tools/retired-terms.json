@@ -120,7 +120,7 @@
     { "pattern": "\\blooking for a better one\\b", "retired": "D329", "instead": "the first map that passes is shown at once and stays; a version that meets every outcome is looked for in the background", "example": "Found a map. Looking for a better one (2 of 4): checking the map…" },
     { "pattern": "\\byoung,? (?:or |and )?mature\\b", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends", "example": "Young, Mature or Auto" },
     { "pattern": "\\broofed: \"(?:water )?under roofs\"", "retired": "D280 (Kyler, 2026-10-07)", "instead": "the Caves and overhangs layer: its violet tiles are the caves and overhangs the tools leave as they are", "example": "roofed: \"Under roofs\"" },
-    { "pattern": "\\btheir water approximate\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"Violet tiles: caves or overhangs, which the tools leave as they are\": water in caves is simulated", "example": "Violet tiles: under caves or overhangs, their water approximate" },
+    { "pattern": "\\btheir water approximate\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"Caves or overhangs, which the tools leave as they are\" (beside the violet swatch): water in caves is simulated", "example": "Violet tiles: under caves or overhangs, their water approximate" },
     { "pattern": "\\bthe preview is approximate there\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"This map has caves or overhangs. The tools leave them as they are.\"", "example": "Water under them keeps the map's own: the preview is approximate there." }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/STATUS.md", "docs/README.md", "README.md"],

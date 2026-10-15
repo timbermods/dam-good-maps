@@ -15,6 +15,8 @@ import { planStart } from "../core/doc/tools";
 import { applySelection as applySelectionStep, startCarriedBack, startCarry } from "../core/doc/start";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
+import { planPaintObjects } from "../core/doc/paint";
+import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -31,6 +33,8 @@ import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, hazardRefusal, type Hazard } from "../core/sim/weather";
+import { droughtLineRefusal, mapDroughtLine } from "../core/doc/droughtLine";
+import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { moisture } from "../core/sim/moisture";
 import { soilContamination } from "../core/sim/contamination";
 import type { Difficulty, MapSpec } from "../core/spec/mapspec";
@@ -243,7 +247,7 @@ function entityInputs(list: readonly EntitySpec[]) {
 
 /** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
  *  water's own, else the settle's, else the stored file's. */
-function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number>; out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
   const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
   if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
@@ -253,9 +257,19 @@ function waterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination
   return view;
 }
 
-function columnsWaterOf(s: MapSession, live?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, ground: Uint8Array = s.built.heights): WaterView {
+/** Water in flight to show. `weather`: a hazard's day, which an unedited heightfield import shows as the day's water
+ *  (the file's own is day 0 only); any other live water of an unedited import shows the file's. */
+interface LiveWater {
+  depth: ArrayLike<number>;
+  contamination: ArrayLike<number>;
+  weather?: boolean;
+}
+
+function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
   const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
-  if (s.showsStoredWater) {
+  // (a hazard's day on an unedited heightfield import is the day's water, not the file's: maps with caves have no
+  // Drought or Badtide yet, sim/weather.ts `hazardRefusal`)
+  if (s.showsStoredWater && !live?.weather) {
     const w = s.storedWater();
     const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
     return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
@@ -554,9 +568,24 @@ export function setAutoWater(on: boolean): void {
   autoWater = on;
 }
 
-/** The water settling in the background, and a token that a newer edit changes. */
-let waterJob: { token: number; job: PreviewJob; version: number; session: MapSession } | null = null;
+/** The water settling in the background, and a token that a newer edit changes. Its job (`jobOf`) is made
+ *  after the edit's answer has gone to the page: the land answers at once, its water follows (D453; the warm
+ *  start alone is a fifth of a second at 256²). */
+interface WaterJob {
+  token: number;
+  job: PreviewJob | null;
+  from: WarmState;
+  model: WaterModel;
+  version: number;
+  session: MapSession;
+}
+let waterJob: WaterJob | null = null;
 let waterToken = 0;
+/** The job of the water settling, made now if it has not been yet (the same job, and so the same water, whenever
+ *  it is made). */
+function jobOf(j: WaterJob): PreviewJob {
+  return (j.job ??= new PreviewJob(j.from, j.model));
+}
 /** Ticks per slice, and how often the page gets the water as it flows. */
 const WATER_SLICE_MS = 10;
 const WATER_FRAME_MS = 150;
@@ -582,7 +611,7 @@ export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: numb
   if (!s || s.built.waterModel.stacked) return;
   const W = s.size.x;
   if (!draft || draft.session !== s) {
-    const from = (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+    const from = (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
     if (!from) return;
     const src = s.built.waterModel;
     const model: WaterModel = { ...src, floor: src.floor.slice() };
@@ -660,7 +689,7 @@ async function runDraft(token: number): Promise<void> {
 
 function stopWater(): void {
   waterToken++;
-  waterJob?.job.dispose();
+  waterJob?.job?.dispose();
   waterJob = null;
 }
 
@@ -681,12 +710,12 @@ function kickWater(): void {
   draft?.job.dispose();
   draft = null;
   draftToken++;
-  const inflight = painted ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null);
+  const inflight = painted ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null);
   const from: WarmState | null = inflight ?? s.lastSettled();
   if (!from) return;
   const token = ++waterToken;
-  waterJob?.job.dispose();
-  waterJob = { token, job: new PreviewJob(from, s.built.waterModel), version, session: s };
+  waterJob?.job?.dispose();
+  waterJob = { token, job: null, from, model: s.built.waterModel, version, session: s };
   if (autoWater) setTimeout(() => void runWater(token), 0);
 }
 
@@ -743,17 +772,25 @@ async function runWater(token: number): Promise<void> {
   for (;;) {
     const j = waterJob;
     if (!j || j.token !== token || session !== j.session) return;
+    // (the edit's answer has gone: its water's job is made now, and the page's next message comes before its
+    // first slice)
+    if (!j.job) {
+      jobOf(j);
+      await breathe();
+      continue;
+    }
+    const job = j.job;
     const t0 = performance.now();
     let r: CanonicalWater | null = null;
     while (!r && performance.now() - t0 < WATER_SLICE_MS) {
-      const before = j.job.ticks;
-      r = j.job.advance(4);
+      const before = job.ticks;
+      r = job.advance(4);
       if (r || !listener) continue;
-      const sim = j.job.sim;
-      if (seen) seen.see(sim.D, sim.C, j.job.ticks - before);
+      const sim = job.sim;
+      if (seen) seen.see(sim.D, sim.C, job.ticks - before);
       else seen = new SeenWater(sim.D, sim.C);
       // a frame every few ticks: the page plays them at a pace the eye can follow
-      const ticks = j.job.ticks;
+      const ticks = job.ticks;
       if (ticks - lastTicks < frameGap(ticks)) continue;
       lastTicks = ticks;
       const done = Math.min(0.99, ticks / TICKS_PER_DAY);
@@ -767,11 +804,11 @@ async function runWater(token: number): Promise<void> {
   }
 }
 
-function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): void {
+function finishWater(j: WaterJob, water: CanonicalWater): void {
   waterJob = null;
-  j.job.dispose();
+  j.job?.dispose();
   const s = j.session;
-  if (session !== s || !s.adoptWater(j.job.model, water)) return;
+  if (session !== s || !s.adoptWater(j.model, water)) return;
   settledNews(s, viewUpdate(s));
 }
 
@@ -779,6 +816,8 @@ function finishWater(j: NonNullable<typeof waterJob>, water: CanonicalWater): vo
  *  journey ends after them whichever of the worker's paths put the water there (the settle itself, or a
  *  background check that stopped it, D345 B14). */
 function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
+  // (a map with caves has no drought line: the page is told so once its water settles)
+  if (droughtLineRefusal(s)) droughtWatch?.(currentDroughtLine()!);
   if (!listener) return view;
   // (the page takes the event's arrays over when it is sent: the answer that follows has its own copy, made first)
   const copy = structuredClone(view);
@@ -789,14 +828,14 @@ function settledNews(s: MapSession, view: ViewUpdate): ViewUpdate {
 // ------------------------------------------------------------------------------------ weather
 
 /** A held weather view (D180 (8), D181 (3); Kyler, 2026-10-04): a drought or a badtide simulated day by day from the
- *  map's settled water, every day's water and soil kept as it is computed, so any day shows at once once reached
+ *  water the map shows (`MapSession.waterShown`), every day's water and soil kept as it is computed, so any day shows at once once reached
  *  and the player can hold it, inspect it and plan against it. Day 0 is the map's own water; the last day by
  *  default is the hazard's length for the map's difficulty (core/sim/weather.ts), and further days are simulated on
  *  request, without a cap (the game's lengths depend on its difficulty). A drought: every source stops, the rivers
  *  drain, the pools evaporate. A badtide: the clean sources give badwater along the game's opening curve, then at
  *  full strength (a held badtide never ends, so its sources never ease back), and it spreads through the water and
  *  poisons the ground. Nothing plays and nothing comes back: the page shows the day it asks for. After an edit the
- *  page asks again; the map's version has changed, so the run starts again from the edited map's settled water.
+ *  page asks again; the map's version has changed, so the run starts again from the water the edited map shows.
  *  The map never changes. */
 interface WeatherRun {
   session: MapSession;
@@ -804,6 +843,9 @@ interface WeatherRun {
   hazard: Hazard;
   /** The hazard's default length (its last day by default). */
   days: number;
+  /** The water the run started from (the map's water as shown then, `MapSession.waterShown`: the drought line's
+   *  day 0): a run whose map shows other water now (its settle came in) starts again. */
+  from: CanonicalWater;
   /** The hazard's own simulation (its sources' own copies), stepped a day at a time. */
   run: HazardRun;
   sim: WaterSim;
@@ -829,13 +871,16 @@ const weatherRuns: Partial<Record<Hazard, WeatherRun>> = {};
 /** The background work's token: a new one starts it, and an edit, a stroke or a force stops it (the page says so the
  *  moment Kyler acts). */
 let prepToken = 0;
+/** The map whose held weather day the page shows (from `showWeatherDay` until `stopWeather`), or null: its water is
+ *  that day's, not the map's. */
+let weatherShown: MapSession | null = null;
 
 /** A run still good for the map as it is. */
 function currentRun(run: WeatherRun): boolean {
-  return weatherRuns[run.hazard] === run && run.session === session && run.version === version;
+  return weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from === run.session.waterShown();
 }
 
-/** The hazard's run for the map as it is: the kept one, or a new one from the map's settled water. */
+/** The hazard's run for the map as it is: the kept one, or a new one from the water the map shows (`waterShown`). */
 function runFor(hazard: Hazard): WeatherRun {
   const s = need();
   const old = weatherRuns[hazard];
@@ -843,8 +888,10 @@ function runFor(hazard: Hazard): WeatherRun {
   old?.sim.dispose();
   const base = s.built.waterModel;
   // the hazard's steps are the core's (sim/weather.ts `HazardRun`), held without an end: a held badtide never eases back
-  const hazardRun = new HazardRun(base, { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) }, hazard, Infinity);
-  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
+  // from the water the map shows (an unedited import's own, not the build's empty one)
+  const from = s.waterShown();
+  const hazardRun = new HazardRun(base, { depth: Float64Array.from(from.depth), contamination: Float64Array.from(from.contamination) }, hazard, Infinity);
+  const run: WeatherRun = { session: s, version, hazard, days: hazardDays(s.meta.designedFor ?? "normal", hazard), from, run: hazardRun, sim: hazardRun.sim, kept: [null], want: 0, show: null, prep: null, running: false };
   weatherRuns[hazard] = run;
   return run;
 }
@@ -861,6 +908,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   }
   const run = runFor(hazard);
   const target = Math.max(0, day ?? run.days);
+  weatherShown = run.session;
   for (const other of Object.values(weatherRuns)) if (other && other !== run) other.show = null;
   if (target < run.kept.length) {
     run.show = null;
@@ -871,7 +919,7 @@ export function showWeatherDay(hazard: Hazard, day: number | null): void {
   void driveWeather(run);
 }
 
-/** Work out both hazards' default days in the background, from the map's settled water (Kyler, 2026-10-04: then the
+/** Work out both hazards' default days in the background, from the water the map shows (Kyler, 2026-10-04: then the
  *  first click is instant too). The page asks only while Kyler is idle and the water has settled, and stops it the
  *  moment he edits, paints or uses a force; it runs a few milliseconds at a time between his messages. */
 export async function prepareWeather(): Promise<void> {
@@ -900,7 +948,7 @@ function sendWeatherDay(run: WeatherRun, day: number): void {
   if (!k) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s), soil: soilOf(s) });
   const { x: W, y: H } = s.size;
   const soil = soilView(moisture(s.built.heights, k.depth, k.contamination, W, H, null), soilContamination(s.built.heights, k.depth, k.contamination, W, H, null));
-  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice() }), soil });
+  listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out.slice(), weather: true }), soil });
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -933,6 +981,7 @@ async function driveWeather(run: WeatherRun): Promise<void> {
       if (!currentRun(run)) return;
       const { D, C, out } = run.sim;
       run.kept.push({ depth: D.slice(), contamination: C.slice(), out: out.slice() });
+      if (run.hazard === "drought" && day === run.days) droughtLineFrom(run);
       if (run.show !== null) {
         if (day >= run.show) {
           const shown = run.show;
@@ -944,12 +993,77 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   } finally {
     run.running = false;
     if (run.prep !== null && run.kept.length > run.days) run.prep = null;
+    // the map's water was replaced while the page waited for a day (its settle came in): the day from the new water
+    if (run.show !== null && weatherRuns[run.hazard] === run && run.session === session && run.version === version && run.from !== run.session.waterShown()) {
+      const day = run.show;
+      run.show = null;
+      showWeatherDay(run.hazard, day);
+    }
   }
+}
+
+// ------------------------------------------------------------------------------- the drought line
+
+/** The drought line (D133, D269): read from the drought's last day as the run above keeps it, so the line and the
+ *  Drought view's last day agree tile for tile. It comes in the background after each edit with the drought's days
+ *  (`prepareWeather`, which the page asks for once the water has settled and Kyler is idle, and stops the moment he
+ *  acts), never blocking: an edit makes a new version, and the old run, its line with it, is dropped. */
+let droughtLineNow: { session: MapSession; version: number; line: DroughtLine } | null = null;
+/** The drought line of a version of the map, as the page is told it. */
+export interface DroughtLineNews {
+  version: number;
+  line: DroughtLine;
+}
+let droughtWatch: ((n: DroughtLineNews) => void) | null = null;
+
+let droughtLineFailed = false;
+
+/** The line from the run's last day, against the water the run started from. A failure leaves the line absent (said
+ *  once); the day itself is never held up. */
+function droughtLineFrom(run: WeatherRun): void {
+  const k = run.kept[run.days];
+  if (!k) return;
+  let line: DroughtLine;
+  try {
+    line = mapDroughtLine(run.session, k.depth, run.days, run.from);
+  } catch (e) {
+    if (!droughtLineFailed) console.warn("the drought line failed", e);
+    droughtLineFailed = true;
+    return;
+  }
+  droughtLineNow = { session: run.session, version: run.version, line };
+  droughtWatch?.({ version: run.version, line });
+}
+
+/** A newly opened map's line as the page should show it now: its refusal (caves), else none yet. */
+function droughtLineOpened(): void {
+  const s = session;
+  if (!droughtWatch || !s) return;
+  droughtWatch(currentDroughtLine() ?? { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought")) });
+}
+
+/** The drought line of the map as it is (its refusal on a map with caves), or null while it is still to come. */
+function currentDroughtLine(): DroughtLineNews | null {
+  const s = session;
+  if (!s) return null;
+  const refused = droughtLineRefusal(s);
+  if (refused) return { version, line: emptyDroughtLine(s.size.x, s.size.y, hazardDays(s.meta.designedFor ?? "normal", "drought"), refused) };
+  const now = droughtLineNow;
+  return now && now.session === s && now.version === version ? { version, line: now.line } : null;
+}
+
+/** Where the worker sends the drought line (null: nowhere): each one as it is worked out, an empty line (or a map with
+ *  caves' refusal) when a map opens, and that refusal again when its water settles. Its own channel, apart from `listen`'s events. Returns the line of the map as it is now,
+ *  when there is one already. */
+export function watchDroughtLine(fn: ((n: DroughtLineNews) => void) | null): DroughtLineNews | null {
+  droughtWatch = fn;
+  return fn ? currentDroughtLine() : null;
 }
 
 /** Stop the weather view: the map's own water (each hazard's kept days stay, until the map changes). */
 export function stopWeather(): ViewUpdate {
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
+  weatherShown = null;
   const s = session;
   return s ? { water: waterOf(s) } : {};
 }
@@ -964,11 +1078,12 @@ export function settleWater(): ViewUpdate {
     return viewUpdate(session);
   }
   if (!j || session !== j.session) return {};
-  let r = j.job.advance(Infinity);
-  while (!r) r = j.job.advance(Infinity);
+  const job = jobOf(j);
+  let r = job.advance(Infinity);
+  while (!r) r = job.advance(Infinity);
   waterJob = null;
-  j.job.dispose();
-  if (!j.session.adoptWater(j.job.model, r)) return {};
+  job.dispose();
+  if (!j.session.adoptWater(j.model, r)) return {};
   return viewUpdate(j.session);
 }
 
@@ -1013,6 +1128,7 @@ function discardSessionWork(): void {
     weatherRuns[h]?.sim.dispose();
     delete weatherRuns[h];
   }
+  droughtLineNow = null;
   force = null;
   series = null;
   lastKept = null;
@@ -1033,6 +1149,7 @@ function opened(s: MapSession): SessionOpen {
   version++;
   followed = null;
   syncChecks();
+  droughtLineOpened();
   return sessionView();
 }
 
@@ -1395,6 +1512,17 @@ export function plantAt(template: string, tiles: readonly number[]): SessionUpda
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? p.planted : [] };
 }
 
+/** A stroke of trees, bushes or thorns from the shelf (D235): the core's `paintObjects` plan, with its density and age, as
+ *  one step (core/doc/paint.ts). The tiles it planted, for the page's pop. */
+export function paintAt(params: PaintParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const plan = planPaintObjects(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
+}
+
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
  *  the ground (core/doc/remove.ts `planRemove`). The tiles the removed objects stood on. */
 export function removeAt(tiles: readonly number[], kinds: readonly RemoveKind[], label?: string): SessionUpdate & { removed: number[] } {
@@ -1577,6 +1705,9 @@ export interface ForceFrame {
   trail: TrailPoint[];
   cue: ForceCue;
   heights?: Uint8Array;
+  /** Instead of `heights`, when asked for (the browser's advance and painted Lift, #312): only the rows inside
+   *  `rect`, packed left to right, top to bottom, when that is less than the whole map. */
+  heightPatch?: Uint8Array;
   rect?: { x0: number; y0: number; x1: number; y1: number };
   entities?: EntityView;
   heat?: Uint8Array;
@@ -1704,7 +1835,7 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
  *  water in flight, when it is still settling), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
-  const sim = waterJob && waterJob.session === s ? waterJob.job.sim : null;
+  const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
   return fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
 }
 
@@ -1734,7 +1865,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, replac
   const carve = plan.carve;
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
-  const flowing = waterJob && waterJob.session === s ? waterJob.job.state() : null;
+  const flowing = waterJob && waterJob.session === s ? jobOf(waterJob).state() : null;
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -1792,7 +1923,7 @@ function carveCue(p: CarvePlay): ForceCue {
   return { verb: "carve", phase: p.done ? "done" : "carve", progress: p.total ? p.shown / p.total : 0, x: h.x, y: h.y, z: h.z, size: h.width, power: p.run.settings.power };
 }
 
-function forceFrame(f: NonNullable<typeof force>): ForceFrame {
+function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
   const map = f.play ? f.play.map : f.staged!.map;
   const { W, H } = map;
   let head: ForceHead;
@@ -1817,8 +1948,21 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
   if (cleared.length) out.cleared = cleared.map((c) => ({ ...c }));
   const rect = changedRect(W, H, f.shown, map.heights);
   if (rect) {
-    f.shown = map.heights.slice();
-    out.heights = map.heights.slice();
+    // (the land as last sent is kept in place, never copied anew a frame; a patch is the changed rows only)
+    const width = rect.x1 - rect.x0 + 1;
+    const size = width * (rect.y1 - rect.y0 + 1);
+    if (patches && size < map.heights.length) {
+      const patch = new Uint8Array(size);
+      for (let y = rect.y0; y <= rect.y1; y++) {
+        const row = map.heights.subarray(y * W + rect.x0, y * W + rect.x1 + 1);
+        patch.set(row, (y - rect.y0) * width);
+        f.shown.set(row, y * W + rect.x0);
+      }
+      out.heightPatch = patch;
+    } else {
+      f.shown.set(map.heights);
+      out.heights = map.heights.slice();
+    }
     out.rect = rect;
   }
   const now = performance.now();
@@ -1843,7 +1987,7 @@ function forceFrame(f: NonNullable<typeof force>): ForceFrame {
 }
 
 /** Run the force `steps` steps more (ten are a second of a carve), and what changed. */
-export function forceAdvance(steps: number): ForceFrame | null {
+export function forceAdvance(steps: number, patches = false): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session) return null;
   if (f.play) {
@@ -1864,14 +2008,14 @@ export function forceAdvance(steps: number): ForceFrame | null {
     if (f.play) f.play.showTo(f.play.total);
     else f.staged!.finishAll();
   }
-  return withForceWater(f, forceFrame(f));
+  return withForceWater(f, forceFrame(f, patches));
 }
 
 /** A frame whose land changed, its water sent just before it (the page gets the two together and draws
  *  them in one frame: the water never a frame behind its land). */
 function withForceWater(f: NonNullable<typeof force>, frame: ForceFrame): ForceFrame {
   const w = forceWater;
-  if (frame.heights && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
+  if ((frame.heights || frame.heightPatch) && w && w.force === f && forceWaterFlows(w)) sendForceWater(w, true);
   return frame;
 }
 
@@ -1937,9 +2081,11 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
   if (p ? p.run.settings.dry : !f.staged) return;
   const m = p ? p.map : f.staged!.map;
   const model = modelOf(m);
-  const depth = Float64Array.from(m.water.depth);
-  const contamination = Float64Array.from(m.water.contamination);
-  const flows = mapFlows(f.session, m.water.depth, flowing);
+  // (from the water on screen, when the page said which: its journey may run behind the worker's water)
+  const shown = shownByPage(f.session, m);
+  const depth = shown ? shown.depth : Float64Array.from(m.water.depth);
+  const contamination = shown ? shown.contamination : Float64Array.from(m.water.contamination);
+  const flows = shown ? shown.out : mapFlows(f.session, m.water.depth, flowing);
   const front = p ? carveFront(p, model, depth, contamination) : null;
   const sim = new WaterSim(model, { depth, contamination });
   // the map's water carries on as it flowed (its outflows), so only what the force does changes it: from
@@ -1952,10 +2098,49 @@ function startForceWater(f: NonNullable<typeof force>, flowing: WarmState | null
   if (autoWater) setTimeout(() => void runForceWater(token), 0);
 }
 
+/** The water the page shows as a force starts (`forceShows`), for that map and version only. */
+let pageWater: { session: MapSession; version: number; view: WaterView } | null = null;
+
+/** The page says which water it shows, just before it starts a force (or Try another): the map's water
+ *  journey is played at the page's pace and may run behind the worker's, so the force's water starts
+ *  from the water on screen and its first frame never jumps from it. Only the force's water: its plan
+ *  and its result are the map's own. */
+export function forceShows(view: WaterView | null): void {
+  // (a Drought or Badtide shown: that day's water is not the map's, D180 (8))
+  pageWater = session && view && weatherShown !== session ? { session, version, view } : null;
+}
+
+/** The page's water (`forceShows`) as the force's water starts from it: a column a tile on the force's
+ *  ground, its outflows where it has them; null when it has none for this map as it is now (stored
+ *  water or caves, another version, other ground). Used once. */
+function shownByPage(s: MapSession, m: { W: number; H: number; heights: Uint8Array }): { depth: Float64Array; contamination: Float64Array; out: Float64Array | null } | null {
+  const p = pageWater;
+  pageWater = null;
+  if (!p || p.session !== s || p.version !== version || s.showsStoredWater || s.roofedTiles.size) return null;
+  const v = p.view;
+  const N = m.W * m.H;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  const seen = new Uint8Array(N);
+  for (let k = 0; k < v.count; k++) {
+    const t = v.tile[k];
+    if (t < 0 || t >= N || seen[t] || v.floor[k] !== m.heights[t]) return null;
+    seen[t] = 1;
+    depth[t] = v.depth[k];
+    contamination[t] = v.contamination[k];
+  }
+  let out: Float64Array | null = null;
+  if (v.outflow && v.outflow.length === 4 * v.count) {
+    out = new Float64Array(4 * N);
+    for (let k = 0; k < v.count; k++) for (let d = 0; d < 4; d++) out[4 * v.tile[k] + d] = v.outflow[4 * k + d];
+  }
+  return { depth, contamination, out };
+}
+
 /** The outflows of the map's water as it stands (the water in flight, or the last settle's), when that
  *  is the water `depth` holds; else null. */
 function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | null): Float64Array | null {
-  const now = flowing ?? (waterJob && waterJob.session === s ? waterJob.job.state() : null) ?? s.lastSettled();
+  const now = flowing ?? (waterJob && waterJob.session === s ? jobOf(waterJob).state() : null) ?? s.lastSettled();
   const w = now?.water;
   if (!w?.out || w.depth.length !== depth.length) return null;
   for (let i = 0; i < depth.length; i++) if (Math.abs(w.depth[i] - depth[i]) > 1e-6) return null;
@@ -2290,7 +2475,7 @@ async function runForceWater(token: number): Promise<void> {
 
 /** A painted Lift: the fault as it is painted now (the page sends the latest stroke when the worker
  *  is free); the whole result shows at once. */
-export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFrame | null {
+export function forcePaint(path: Point[], side: 1 | -1, power?: number, patches = false): ForceFrame | null {
   const f = force;
   if (!f || f.session !== session || !(f.staged instanceof QuakeRun) || f.request.verb !== "quake") return null;
   try {
@@ -2299,7 +2484,7 @@ export function forcePaint(path: Point[], side: 1 | -1, power?: number): ForceFr
   } catch {
     // (a stroke that reaches the start's ground: the last good one stays)
   }
-  return withForceWater(f, forceFrame(f));
+  return withForceWater(f, forceFrame(f, patches));
 }
 
 /** The page's view back to the map as it stands (a force dropped, or refused). */

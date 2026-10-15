@@ -58,6 +58,7 @@ import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
 import type { ColumnTerrain } from "../terrain/runs";
+import { supportPass } from "../terrain/support";
 
 export { BuildTarget } from "./target";
 export { assignRuinHeights } from "./raster/resources";
@@ -202,6 +203,10 @@ export interface BuildResult {
   notes: string[];
   /** Operations whose targets did not exist when this build applied them. */
   orphans: Orphan[];
+  /** Blocks of ground the build's rule pass found nothing holds up (the support rule, D121; step 7):
+   *  the game deletes them when it loads the map. Absent: none, as on every heightfield (a generated
+   *  map). On an imported map's caves they are counted, not removed: the file keeps them. */
+  dropped?: number;
   /** What changed since the build `rebuild` started from (null for a full build). */
   dirty: DirtyInfo | null;
   /** Everything a later `rebuild` reuses. */
@@ -1006,7 +1011,10 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     if (f.kind !== "setPiece" || !live(f)) continue;
     for (const i of BUILDERS[f.params.kind]?.clears?.(f, W, H, features) ?? []) occupied[i] = 1;
   }
-  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans };
+  //    the support rule (D121, step 7) on the terrain as built, with the objects that hold ground
+  //    (the resources and the start placed after this hold none)
+  const dropped = groundDropped(base, heights, entities);
+  const partial = { W, H, seed, heights, occupied, channel: terrain.channel, entities, slopes, sources, start: startInfo, notes, orphans, ...(dropped ? { dropped } : {}) };
   const makeCache = (over: Partial<BuildCache>): BuildCache => ({
     keys: new Map(features.map((f) => [f.id, featureKey(f)])),
     terrainFeatures: features.filter((f) => isTerrainKind(f) && live(f)).map((f) => JSON.parse(featureKey(f)) as Feature),
@@ -1281,6 +1289,14 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
 }
 
 // -------------------------------------------------------------------------------------- helpers
+
+/** The build's rule pass (D121, step 7): the blocks of ground nothing holds up on the terrain a build
+ *  makes of `base` under `heights`, with `objects` (their stackable tops hold ground). A heightfield
+ *  drops nothing and is not worked out; a base's caves and overhangs are its own. `BuildResult.dropped`
+ *  is this, derived, so a stored build leaves it out and its session works it out again. */
+export function groundDropped(base: BaseLayer | null | undefined, heights: ArrayLike<number>, objects: readonly EntitySpec[]): number {
+  return base?.terrain && !base.terrain.allPlain() ? supportPass(base.terrain.withSurface(heights), objects).dropped : 0;
+}
 
 /** Tiles of the landforms whose gentle or terraced edges are "joined by slopes" (PLAN §19.2): the
  *  derived slopes join their steps wherever they are. The key names them for slope reuse. */

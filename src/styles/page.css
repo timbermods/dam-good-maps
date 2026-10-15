@@ -343,8 +343,62 @@
    panels' room, scrolling inside past it; nothing moves when it opens */
 .gen.history-panel {
   width: 640px;
-  padding: 12px;
+  box-sizing: border-box;
+  padding: 10px;
   border: 1px solid var(--rule);
+}
+
+/* its steps are rows, as the panels' other lists are: the one the map is at selected, steps undone dimmed and struck
+   through (a click on any goes back or forward to it) */
+.history-panel .hist-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-panel .hist-sub {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.history-panel .hist-row {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.history-panel .hist-row[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.history-panel .hist-row.undone {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.history-panel .orphan {
+  margin: 2px 0 0 10px;
+}
+
+/* (the close × is a square the height of the heading row) */
+.history-panel .hist-close {
+  width: 26px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* ---- top left: the Show toggles as one column of rows, one width, left edges aligned; the legend under them while
@@ -536,6 +590,17 @@
   white-space: nowrap;
 }
 
+/* Heights' own line: the map's lowest and highest level under the ramp (as the folded key says them) */
+.legend-panel.in-column .height-ends {
+  display: flex;
+  justify-content: space-between;
+  height: var(--legend-row);
+  padding: 0 4px;
+  line-height: var(--legend-row);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel.in-column .swatch {
   width: 22px;
   height: 13px;
@@ -700,9 +765,20 @@
   bottom: 10px;
   z-index: 2;
   width: 166px;
+  max-height: var(--dock-max, none);
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* (a window too short for the list and the picked object's window: the list scrolls, the window stays whole) */
+.objects-dock > .object-window {
+  flex: none;
+}
+
+.objects-dock > .objects-menu {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .object-window,
@@ -795,9 +871,30 @@
   min-height: 30px;
 }
 
+.ow-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* a number's value at the right of its name, as the bar's settings say it */
+.ow-value {
+  flex: none;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ow-head .ow-close {
+  margin-left: 6px;
+}
+
 .ow-close {
   flex: none;
-  padding: 0 2px;
+  width: 16px;
+  padding: 0;
+  text-align: center;
   line-height: 15px;
   font-size: 1rem;
 }
@@ -1447,7 +1544,7 @@
 
 .object-window .cell-body .segmented > button {
   flex: 1 1 0;
-  min-width: 0;
+  min-width: max-content;
   padding-left: 4px;
   padding-right: 4px;
   white-space: nowrap;
@@ -1501,7 +1598,7 @@
 
 /* every dialog centred on the window (the backdrop does that), its buttons centred in it; a dialog of words (a map
    being made, a question such as "Delete <name>?", About) has its words centred too (Kyler, 2026-10-04). The export
-   dialog's lists of checks stay left-aligned, read as lists. */
+   dialog's lists of checks, Help and the shortcuts stay left-aligned, read as lists. */
 .dialog footer {
   justify-content: center;
 }
@@ -1620,6 +1717,12 @@
   border-bottom: 0;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* a side beyond 256 (D357): the box turns the warning colour, its tooltip says why; nothing moves, nothing is refused */
+.size-line .seg-custom .set-num.over {
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);
 }
 
 /* On this map's heading with Reset settings at its right, the buttons' column's width (Kyler, 2026-10-06) */
@@ -2058,6 +2161,36 @@
   opacity: 0.45;
 }
 
+/* an Unstable Core's moment against the hazard held (D339): a quiet line under the row, out of its flow so the row never
+   changes shape; lit in the mint while the day shown is one the core may go off on */
+.editor-view .water-bar > .core-moment {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.core-moment > span {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+}
+
+.core-moment > span.now {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 /* Drought or Badtide held: lit in the mint like every pressed toggle (the row's plate colour had covered the fill) */
 .editor-view .water-bar > button[aria-pressed="true"] {
   background: var(--accent);
@@ -2092,6 +2225,17 @@
   margin-top: var(--legend-drop, 0px);
   max-height: var(--legend-max, none);
   overflow-y: auto;
+  /* (where the room is short the legend scrolls inside itself, its scrollbar thin, so the lines below
+     the edge are known to be there) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  /* (and a soft edge where more lines wait, top or bottom: the panel's colour over them, the edge's shadow behind) */
+  background:
+    linear-gradient(var(--panel) 30%, transparent) top / 100% 22px no-repeat local,
+    linear-gradient(transparent, var(--panel) 70%) bottom / 100% 22px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--muted) 85%, transparent), transparent) top / 100% 9px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--muted) 85%, transparent), transparent) bottom / 100% 9px no-repeat scroll,
+    var(--panel);
 }
 
 .gen {
@@ -2153,7 +2297,8 @@
 
 /* Your maps' heading row (Kyler, 2026-10-05): its name at the left, Rename and Delete at the tiles' right edge, one
    tiles' gap apart and above the tiles; it stays put while the tiles scroll under it */
-.maps-panel .ym-head {
+.maps-panel .ym-head,
+.history-panel .ym-head {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -2167,7 +2312,8 @@
   box-shadow: 0 -10px 0 var(--panel), 0 8px 0 var(--panel);
 }
 
-.maps-panel .ym-title {
+.maps-panel .ym-title,
+.history-panel .ym-title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
@@ -2178,7 +2324,8 @@
   gap: 8px;
 }
 
-.maps-panel .ym-act {
+.maps-panel .ym-act,
+.history-panel .ym-act {
   height: 26px;
   padding: 0 8px;
   font-size: 13px;
@@ -2239,4 +2386,102 @@
 .your-maps .ym-rename {
   display: block;
   box-sizing: border-box;
+}
+
+/* ---- Keyboard shortcuts and Help (File menu; M13): read as lists, so left-aligned like the export dialog's checks */
+.menu li.menu-rule {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rule);
+}
+
+.dialog.help-dialog {
+  text-align: left;
+}
+
+.dialog.help-dialog a {
+  color: var(--accent);
+}
+
+.dialog.help-dialog p,
+.dialog.help-dialog li {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.dialog.help-dialog ol,
+.dialog.help-dialog ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.dialog.help-dialog li + li {
+  margin-top: 3px;
+}
+
+.dialog.shortcuts {
+  width: min(1040px, 100%);
+}
+
+/* three balanced columns of whole groups */
+.shortcut-groups {
+  column-count: 3;
+  column-gap: 28px;
+  margin-top: 4px;
+}
+
+.shortcut-groups > section {
+  break-inside: avoid;
+}
+
+.shortcut-groups > section {
+  padding-bottom: 12px;
+}
+
+.shortcut-groups h3 {
+  margin: 0 0 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shortcut-groups dl {
+  margin: 0;
+}
+
+.shortcut-groups dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+}
+
+.shortcut-groups dt {
+  font-size: 0.88rem;
+}
+
+.shortcut-groups dd {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  flex-shrink: 0;
+  max-width: 66%;
+}
+
+@media (max-width: 900px) {
+  .shortcut-groups {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .shortcut-groups {
+    column-count: 1;
+  }
 }

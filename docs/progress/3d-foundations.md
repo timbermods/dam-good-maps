@@ -94,8 +94,8 @@ Each leaves dev's behaviour intact unless it says otherwise, and merges on its o
    and the renderer session (the worker's water and soil views feed `src/render3d/model.ts`), posted on #236 when the
    stage starts. Checked by: imports' tests (an unedited import still byte for byte), the information measures on
    the official cave maps (settle against stored water, moisture on 18 of 19), and the probe batch below.
-7. **Closing:** the Python validator's note (water under roofs as information, pointing at D279; no Python engine);
-   PLAN, EDITOR_PLAN and ROADMAP made true; the acceptance list run once; the contact sheet only if a generated map
+7. **Closing:** the Python validator's note (water under roofs as information, pointing at D279; no Python engine;
+   done in stage 3b); PLAN, EDITOR_PLAN and ROADMAP made true; the acceptance list run once; the contact sheet only if a generated map
    changed (none should).
 
 **Probe batch (stage 6, and stage 4 only if a T file's bytes differ):** three or four maps, about 15 minutes: an
@@ -167,11 +167,8 @@ On `feature/3d-foundations-3`. A player sees it: three new rows in the checks li
   `src/core/terrain/clearance.ts` (`PLANT_CLEARANCE`, `plantsWithoutRoom`), which `tools/terrain3d-maps.ts` (T5) now
   uses; the Rust reads the same table. Its fix is the existing "Remove the objects the game would delete".
 - **`terrain.dropped`** (design class: blocks in `generate`, warns on a generated map being edited, absent on an
-  import). The row is in the checks behind `ValidateOptions.dropped`, tested, and **no map shows it yet**: the
-  build has no support pass that could report a count, and the generator's own validations are in
-  `src/core/gen/generate.ts` (lines 1641, 2790, 2810, 2901 and 2935), which this stage may not edit. The follow-up:
-  the build's rule pass (`terrain/support.ts` on the build's terrain, a call that drops nothing on plain terrain)
-  reports its count, and those five calls and `MapSession.validate` pass `dropped`. D115 calls 0 dropped voxels a
+  import). The row is in the checks behind `ValidateOptions.dropped`; the build feeds it since stage 3b (below).
+  D115 calls 0 dropped voxels a
   principle; the principle class would block the export of an edited map for ground the build already removed,
   so the row is design class until Kyler says otherwise.
 - **D482:** `slopes.connect` carries `advisory` on an imported map (`ValidateOptions.external`, which
@@ -199,6 +196,33 @@ On `feature/3d-foundations-3`. A player sees it: three new rows in the checks li
   `start.dry` has no floor rule under roofs: they move onto the floor graph with stage 6, when a cave map's water
   is the engine's. First-run placement beyond what `entities.placement` already checks is unchanged.
 - **Checked:** see the PR.
+
+## Stage 3b: the build reports dropped ground; the Python validator's roofed-water note (built 2026-10-14)
+
+On `feature/3d-foundations-3b`, on top of stage 3. A player sees the `terrain.dropped` row on generated maps, passing
+("No ground had to be removed"), as stage 3 proposed it; nothing else.
+- **The rule pass** (D121, PLAN §19.8 step 7): `terrain/support.ts` `supportPass(terrain, objects)` gives the terrain
+  the game keeps and the blocks it deletes; a heightfield drops nothing and is not worked out. The build runs it at
+  step 9 on its base's caves (`groundDropped`: `base.terrain.withSurface(heights)` with the objects, whose stackable
+  tops hold ground: `stackableTops`, moved out of `tools/terrain3d-maps.ts`) and sets `BuildResult.dropped` only when
+  it is above 0, on every return. It is derived, so a stored build leaves it out and the session works it out again
+  when it opens one: no project's bytes move. On an import the count is not shown (the row is absent there,
+  `terrain.supported` reports such ground) and the ground stays in the file: removing it from an edited import's
+  export would be a change a player sees, left for stage 6 and the milestone session.
+- **Fed to the row:** the generator's five validations (`gen/generate.ts`) and `MapSession.validate` on a generated
+  (live) map pass `dropped: built.dropped ?? 0`; a frozen or imported map passes nothing. A written file checked
+  again has no row unless its caller passes the build's count (the count is the build's to say, not the file's:
+  `validate.test.ts` and `parity.test.ts` pass it).
+- **`unsupportedVoxels` searches only the voxels above each tile's run from z = 0** (that run is supported as a
+  whole): the same cells on 400 random terrains with 124,445 dropped voxels, and about 8 ms instead of about 70 ms
+  on a 256² map with caves, which matters now that a cave import's every build runs it.
+- **The Python validator** (stage 7's note, done here): on a map with caves or overhangs, every row that reads the
+  water is marked `information`, its detail saying water under roofs is not simulated in Python (D279), so the
+  oracle does not compare it; a heightfield map is unchanged.
+- **Checked:** the 84 maps: heights, water, objects, `.timber` and project bytes identical; only the check rows'
+  hash moves (the new passing row). Contract test in `tests/contract/floorRows.test.ts` (a cave-shaped build drops
+  3 blocks and the row reads 3; plain terrain drops none; a generated map's row passes in the generator's checks and
+  the editor's). No Rust change.
 
 ## Stage 4: the multi-slot writer, the engine's core binding, the T1–T6 writers (built 2026-10-07)
 
@@ -335,8 +359,9 @@ Beaverome has 25 such tiles, Diorama 3. Generated maps and heightfield imports a
   (`doc/ops.ts`; the questions in `doc/waterEdits.ts` answer with the same line). A removal an older project
   stored takes nothing on such a map and the session's notices say the line.
 - **Wording:** the opening notice is "This map has caves or overhangs. The tools leave them as they are."; the
-  layer is "Caves and overhangs", its tooltip "Show caves and overhangs", its caption "Violet tiles: caves or
-  overhangs, which the tools leave as they are". The old words are retired interface text
+  layer is "Caves and overhangs", its tooltip "Show caves and overhangs", its caption the violet swatch with
+  "Caves or overhangs, which the tools leave as they are" (dev's swatch captions, #418). The opening notice
+  is shown as the status dot's "Caves or overhangs on N tiles" line (there is no notices strip). The old words are retired interface text
   (`tools/retired-terms.json`, three patterns).
 - **A file from a taller, modded game** (Tower of Beaverlon, objects and water up to level 87): objects and
   stored water outside the water's 34 levels are left out of the stacked model, so the map still opens, edits

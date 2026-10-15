@@ -46,6 +46,7 @@
     "@typescript/typescript6": "6.0.2",
     "ajv": "^8.20.0",
     "fake-indexeddb": "^6.2.5",
+    "node-turn": "^0.0.6",
     "tsx": "^4.23.15",
     "typescript": "~7.0.2",
     "vite": "^8.3.4",

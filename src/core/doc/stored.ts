@@ -240,11 +240,13 @@ class Decoder {
 // ---------------------------------------------------------------------------------- the stored map
 
 /** The built map as the project stores it. `edits` and `nextSeq` are the log it belongs to. What
- *  a session rebinds at open is left out: the generation's layers (`cache.base`, `field`, `locked`
+ *  a session rebinds at open is left out: the ground the support rule drops (`dropped`), the generation's layers (`cache.base`, `field`, `locked`
  *  come from the document) and the memoized distance fields (`cache.fields`, computed on demand).
  *  Opening is not an edit: `dirty` is null. */
 export function storeBuilt(built: BuildResult, edits: number, nextSeq: number): StoredState {
-  const kept: BuildResult = { ...built, dirty: null, cache: { ...built.cache, base: null, field: null, locked: null, fields: new Map() } };
+  // (`dropped` is derived from the base, the ground and the objects: the session works it out again)
+  const { dropped: _dropped, ...rest } = built;
+  const kept: BuildResult = { ...rest, dirty: null, cache: { ...built.cache, base: null, field: null, locked: null, fields: new Map() } };
   const enc = new Encoder();
   enc.count(kept);
   const map = enc.encode(kept);

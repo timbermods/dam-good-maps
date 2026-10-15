@@ -17,7 +17,7 @@ import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 
 export interface SelectSlice {
-  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
+  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
   openSelect: () => void;
   closeSelect: () => void;
   selectAll: () => void;
@@ -61,10 +61,12 @@ export function useSelect(ed: Ed): SelectSlice {
         const w = mirror.current.water;
         return !!w && w.surface[i] === w.surface[i];
       },
+      // Wand on land: the ground at the level of the run clicked (a cave's floor too), as the view draws it
+      hasTop: (i: number, level: number) => renderer.current?.hasTop(i, level) ?? mirror.current.heights[i] === level,
       brushSize: () => brushRef.current.size,
       ring: (at: [number, number] | null, radius: number) => {
         if (brushToolRef.current) return;
-        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null } : null);
+        renderer.current?.setBrushCursor(at ? { x: at[0], y: at[1], radius, tool: "flatten", level: null, run: true } : null);
       },
       // Ctrl+click on the land: the Level number (as Flatten's sampling)
       sample: (level: number) => {
@@ -423,8 +425,8 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
-      act("up", 3, "Up 1", tip("Raise the selection one level", "Up"), "raise", () => selectAction("raise")),
-      act("down", 4, "Down 1", tip("Lower the selection one level", "Down"), "lower", () => selectAction("lower")),
+      act("up", 3, "Up 1", tip("Raise the selection one level", "\u2191"), "raise", () => selectAction("raise")),
+      act("down", 4, "Down 1", tip("Lower the selection one level", "\u2193"), "lower", () => selectAction("lower")),
       act("flatten", 5, "Flatten", tip("Set the area to this level"), "flatten", () => selectAction("flatten", level)),
       act("cut", 6, "Cut down", tip("Cut the ground above this level"), "cut", () => selectAction("cut", level)),
       act("fill", 7, "Fill up", tip("Fill the ground below this level"), "fill", () => selectAction("fill", level)),

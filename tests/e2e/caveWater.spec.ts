@@ -30,7 +30,7 @@ test("a map with caves: an edit's water settles in the background and shows when
   const layer = page.getByRole("checkbox", { name: "Caves and overhangs" });
   await expect(layer).toBeVisible();
   await layer.click();
-  await expect(page.getByText("Violet tiles: caves or overhangs, which the tools leave as they are")).toBeVisible();
+  await expect(page.getByText("Caves or overhangs, which the tools leave as they are")).toBeVisible();
   await layer.click();
 
   // the map's checks have run once (their settle is the opened map's own)

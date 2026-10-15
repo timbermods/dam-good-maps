@@ -2,15 +2,16 @@
 // responsive on 256² maps (PLAN §2.2, EDITOR_PLAN §8). The same core runs in Node for tests and
 // batch runs.
 
-import { expose, proxy, transfer, wrap } from "comlink";
+import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
+import type { PaintParams } from "../core/doc/paintParams";
 import type { BrushParams } from "../core/features/raster/brush";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers } from "../render3d/model";
+import { viewBuffers, type WaterView } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
@@ -30,6 +31,7 @@ function sendOpen(o: ed.SessionOpen): ed.SessionOpen {
 function frameBuffers(f: ed.ForceFrame): Transferable[] {
   const out = viewBuffers({ heights: f.heights, entities: f.entities }) as Transferable[];
   if (f.heat) out.push(f.heat.buffer as Transferable);
+  if (f.heightPatch) out.push(f.heightPatch.buffer as Transferable);
   return out;
 }
 
@@ -70,6 +72,7 @@ function connectChecksWhenEditable() {
   connected = true;
   ed.useChecksWorker(client);
 }
+let droughtFn: ((n: ed.DroughtLineNews) => void) | null = null;
 const api = {
   /** `onProgress` (a Comlink proxy) hears each attempt's stage and its first look as they happen. */
   async generate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
@@ -175,12 +178,22 @@ const api = {
   /** A drought or a badtide to watch, then the water coming back (weather events); stop it at any time. */
   showWeatherDay: (hazard: "drought" | "badtide", day: number | null) => ed.showWeatherDay(hazard, day),
   prepareWeather: () => ed.prepareWeather(),
+  /** Where the worker sends the drought line (D133), or nowhere (null); the line of the map as it is, when there is
+   *  one. (Small, and the worker keeps its own: copied, not taken over.) */
+  watchDroughtLine(fn: ((n: ed.DroughtLineNews) => void) | null) {
+    // (the page's last callback is let go, or its port stays open for good; each crossing makes a new proxy, so the
+    // check is only against releasing the one kept)
+    if (fn !== droughtFn) (droughtFn as { [releaseProxy]?: () => void } | null)?.[releaseProxy]?.();
+    droughtFn = fn;
+    return ed.watchDroughtLine(fn ? (n) => void fn(n) : null);
+  },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
   moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
+  paintAt: (params: PaintParams) => sendUpdate(ed.paintAt(params)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),
@@ -193,13 +206,16 @@ const api = {
   strokeClearing: (op: EditOp, label: string, tiles: number[]) => sendUpdate(ed.strokeClearing(op, label, tiles)),
   // the forces (D194, D202, D203, D206): one at work, a frame at a time; Stop (or its end) keeps it,
   // Esc drops it
+  /** The water the page shows as it starts a force: the force's water starts from it. */
+  forceShows: (water: WaterView | null) => ed.forceShows(water),
   forceStart: (req: ed.ForceRequest) => sendStarted(ed.forceStart(req)),
   /** Try another: the last kept force again, with the next seed. `pins`: the row's current
    *  per-detail state (D309); left out, every detail re-rolls. */
   forceAgain: (pins?: Record<string, unknown>, gesture?: number) => sendStarted(ed.forceAgain(pins, gesture)),
-  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps)),
+  // (the browser takes the changed rows only, written into its own copy, #312)
+  forceAdvance: (steps: number) => sendFrame(ed.forceAdvance(steps, true)),
   /** A painted Lift's fault as it is painted now. */
-  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power)),
+  forcePaint: (path: ed.ForcePoint[], side: 1 | -1, power?: number) => sendFrame(ed.forcePaint(path, side, power, true)),
   /** Keep the force at work (`gesture`: only if it is that one, D341). */
   forceStop: (gesture?: number) => sendUpdate(ed.forceStop(gesture)),
   /** Esc or undo for a force (D341): at work, dropped; kept and still the latest step, taken back. */

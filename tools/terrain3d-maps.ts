@@ -19,7 +19,7 @@ import { soil3d } from "../src/core/sim/soil3d";
 import { canonicalStackSettle } from "../src/core/sim/stackWater";
 import { PLANT_CLEARANCE, plantsWithoutRoom } from "../src/core/terrain/clearance";
 import { ColumnTerrain } from "../src/core/terrain/runs";
-import { unsupportedVoxels } from "../src/core/terrain/support";
+import { stackableTops, unsupportedVoxels } from "../src/core/terrain/support";
 
 export const OWNER = "dgm-probe-terrain3d";
 export const DESCRIPTION = "DGM Probe terrain-3D test map (not for play).";
@@ -406,18 +406,6 @@ export interface Built {
   settled: { settled: boolean; ticks: number } | null;
   /** What the file holds, per water column id and per run id (the golden fixtures hash them). */
   arrays: { depth: Float64Array; overflow: Float64Array; contamination: Float64Array; moisture: Float64Array; soilContamination: Float64Array };
-}
-
-/** The cells (z·N + tile) holding the top of a stackable object's block: the voxel above each counts
- *  as standing on ground (a NaturalOverhang holds the rock over it). */
-export function stackableTops(W: number, H: number, entities: readonly EntitySpec[]): number[] {
-  const out: number[] = [];
-  for (const e of entities) {
-    const fp = FOOTPRINTS[e.template];
-    if (!fp) continue;
-    for (const b of worldBlocks(fp, e)) if (b.stackable && b.x >= 0 && b.x < W && b.y >= 0 && b.y < H) out.push(b.z * W * H + b.y * W + b.x);
-  }
-  return out;
 }
 
 export function build(m: Terrain3dMap): Built {

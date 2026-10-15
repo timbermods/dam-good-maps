@@ -231,7 +231,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
-| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 48–256 (the game allows 4–256; under 48 there is no room for a start zone and a river). Non-square is allowed. |
+| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed. Maps too small or thin for a start are refused with a one-line reason until the generator shapes for them (D357 part 2). |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
@@ -882,7 +882,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 256; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`
@@ -897,7 +897,7 @@ tokens; `Levels` at least the terrain's floor count); `file.metadata` (all 8 key
 | `terrain.supported` | no voxel more than 3 sideways steps from support (0 on heightfields); with stacked terrain, every run not starting at z = 0 checked: no voxel the game's load rule would delete |
 | `terrain.single_floor` | one floor per tile (the water model's scope). An imported map's row only: a generated map has no such row |
 | `terrain.edge_wall` | No edge walls (D151, extending D111): a tile is walled when its outer two tiles stand 2+ levels above the highest of the next three; an edge is walled when 60% of its tiles are. Principle class. (Real places as converted: 89–99% of their most walled edge; official maps at most 38%; generated 128² at most 36%.) Not applicable under 10 tiles a side. |
-| `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The checks have the row (`ValidateOptions.dropped`); the build does not report the count yet, so no map shows it |
+| `terrain.dropped` | A generated map's row only, there when the build says what its support pass removed (D121): 0 blocks of ground. Design class: it blocks in `generate` and warns on a generated map being edited. The build's rule pass (`terrain/support.ts` `supportPass`, step 7) gives the count (`BuildResult.dropped`, absent when none: a heightfield drops nothing and is not worked out); the generator's checks and the editor's pass it (`ValidateOptions.dropped`) |
 | `plants.clearance` | every plant has its blocks' height in air above its floor (3 levels for a pine or an oak, 2 for a birch or a succulent, 1 for a blueberry bush; `terrain/clearance.ts`): the game removes one that has not. Load class. Such a plant is counted here and not in `entities.placement` |
 | `entities.templates`, `.enums`, `.components`, `.ids` | only common templates (§5.7); Orientation ∈ {Cw0, Cw90, Cw180, Cw270}, exact case; RuinModels + Yielder:Ruin on ruins, WaterSource (+WaterDepthStrengthModifier on seeps), UnstableCore on cores; unique lowercase GUIDs |
 | `entities.placement` | each occupied cell of every object (`Coordinates + R(F(local))`) is inside the map, z < 33, not in terrain, with occupation flags disjoint from other objects, MatterBelow met (Ground: solid below; GroundOrStackable: solid or an overhang/drain top below), no object under an OccupyAllBelow block, water objects/geothermal/mine sites on the first terrain column: 0 objects the game would delete |
@@ -963,7 +963,10 @@ checked with its spec and features; any other map as an import. The TypeScript p
 three first shortcuts (D28): a BadwaterSource's tiles come from the footprint transform, whatever its orientation;
 WaterSeep, BadwaterSeep, BadtideDrain and Aquifer are emitters with their rules (§10); multi-tile objects (mine sites,
 geothermal fields, relics, cores) block walking on their whole footprint. The parity test (`npm run oracle`) runs both
-validators on generated maps and on all 19 official maps (import profile), and fails on any disagreement.
+validators on generated maps and on all 19 official maps (import profile), and fails on any disagreement. The rows the
+Python validator does not compute are marked information and not compared (D279: no Python copy of the 3D rules):
+`walk.levels`, `water.sealed_source`, and on a map with caves or overhangs every row that reads the water, since
+the Python water model sees the map from above.
 
 `plants.drought` is **advisory**: the one check that never blocks, in any profile. It flags living berry bushes within
 20 tiles of the start whose moisture comes only from water that drains during a drought longer than 0.9 × their
@@ -1142,7 +1145,7 @@ current.
 
 `MapSpec` is a TypeScript type (`core/spec/mapspec.ts`) and a versioned JSON Schema (`core/spec/mapspec.schema.json`).
 The settings panel, the URL codec and Claude all produce it. It holds `specVersion` (1), `generatorVersion`, the `seed`
-(uint32; text seeds are hashed, §5.1), the `size` (48–256 for generation), the `theme` (the preset the settings started
+(uint32; text seeds are hashed, §5.1), the `size` (4–512 a side), the `theme` (the preset the settings started
 from, §6: "any" or one of the six), the `archetype` (the theme: no per-theme layout planner, §8), an optional
 `premise`, `designedFor` (easy, normal or hard), `settings` (every §5 value, complete, never a diff), `colonies`
 (`{count: 1–4, mod: "none" | "timberTogether"}`, room for Timber Together, D5) and `accepted` (`{attempt, candidate}`,
