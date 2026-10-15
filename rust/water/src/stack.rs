@@ -57,6 +57,26 @@ pub struct Stack {
     active: Vec<usize>,
     source_cols: Vec<usize>,
     seep_on: Vec<bool>,
+    /// Per edge, worked out once from the geometry: 1 when the flow rules let water take it
+    /// (`dir_allowed`), 2 when its target's tile has a partial obstacle at some level (`height_limit`
+    /// can then answer other than -1).
+    edge_rule: Vec<u8>,
+    /// `build_active`'s marks, a bit per column, all clear between calls.
+    mark: Vec<u64>,
+    /// `update_evap`'s bookkeeping: whether it must work the whole map out (at the start and after the
+    /// water was written from outside), the wet columns and a bit per column wet (depth above 0) when it
+    /// last ran, and its lists and marks per tile (clear between calls).
+    evap_full: bool,
+    evap_wet: Vec<usize>,
+    pos: Vec<u64>,
+    tile_mark: Vec<u8>,
+    flipped: Vec<usize>,
+    near: Vec<usize>,
+    ring: Vec<usize>,
+}
+/// Finite and not below 0 (NaN is neither).
+fn finite_amount(v: f64) -> bool {
+    v >= 0.0 && v <= f64::MAX
 }
 fn clamp(v: f64, lo: f64, hi: f64) -> f64 {
     if v < lo {
@@ -182,7 +202,7 @@ impl Stack {
         // a seep starts off, as the game's does (`WaterDepthStrengthModifier._isEnabled` is not saved and starts
         // false): it turns on at the first tick only below its restart depth, as on a heightfield (sim.rs)
         let seep_on = m.emitters.iter().map(|e| e.limit.is_none()).collect();
-        Stack {
+        let mut stack = Stack {
             cols,
             emitters: m.emitters,
             game,
@@ -206,7 +226,29 @@ impl Stack {
             active: Vec::new(),
             source_cols,
             seep_on,
+            edge_rule: Vec::new(),
+            mark: vec![0; size.div_ceil(64)],
+            evap_full: true,
+            evap_wet: Vec::new(),
+            pos: vec![0; size.div_ceil(64)],
+            tile_mark: vec![0; n],
+            flipped: Vec::new(),
+            near: Vec::new(),
+            ring: Vec::new(),
+        };
+        let mut limited = vec![false; n];
+        for &key in stack.cols.height_limit.keys() {
+            limited[key % n] = true;
         }
+        let mut rule = vec![0u8; edges];
+        for c in 0..size {
+            for e in stack.start[c] as usize..stack.start[c + 1] as usize {
+                let t = stack.target[e];
+                rule[e] = stack.dir_allowed(c, t, stack.dir[e]) as u8 | if t >= 0 && limited[t as usize % n] { 2 } else { 0 };
+            }
+        }
+        stack.edge_rule = rule;
+        stack
     }
     pub fn validate_state(&self) -> Result<(), Refusal> {
         let size = self.cols.n * self.cols.levels;
@@ -218,32 +260,172 @@ impl Stack {
         {
             return Err("Water state arrays are malformed.");
         }
-        for c in 0..self.d.len() {
-            let valid = c / self.cols.n < self.cols.count[c % self.cols.n] as usize;
-            if !self.d[c].is_finite()
-                || !self.o[c].is_finite()
-                || !self.c[c].is_finite()
-                || self.d[c] < 0.0
-                || self.o[c] < 0.0
-                || !(0.0..=1.0).contains(&self.c[c])
-                || (valid
-                    && (self.d[c] > (self.cols.ceil[c] - self.cols.floor[c]) as f64
-                        || self.o[c] > (OPEN - self.cols.ceil[c]) as f64 / PRESSURE
-                        || (self.o[c] > 0.0 && self.d[c] != (self.cols.ceil[c] - self.cols.floor[c]) as f64)))
-                || (!valid && (self.d[c] != 0.0 || self.o[c] != 0.0 || self.c[c] != 0.0))
-            {
-                return Err("Water state is malformed.");
+        let n = self.cols.n;
+        for s in 0..self.cols.levels {
+            for i in 0..n {
+                if !self.column_ok(s * n + i, s < self.cols.count[i] as usize) {
+                    return Err("Water state is malformed.");
+                }
             }
         }
-        if self.out.iter().any(|v| !v.is_finite() || *v < 0.0) || self.dold.iter().any(|v| !v.is_finite() || *v < 0.0) {
+        if !self.out.iter().chain(&self.dold).all(|&v| finite_amount(v)) {
             return Err("Water momentum is malformed.");
         }
         validate_params(&self.params, self.emitters.len())
+    }
+    /// Column `c`'s water is well formed: finite, not below 0, within its gap and its pressure's cap
+    /// (`valid`: its tile has this slot), and none on a slot its tile does not have.
+    fn column_ok(&self, c: usize, valid: bool) -> bool {
+        self.column_ok_with(c, valid, self.d[c], self.o[c], self.c[c])
+    }
+    /// `column_ok` for the water `d`, `o`, `k` on column `c`.
+    fn column_ok_with(&self, c: usize, valid: bool, d: f64, o: f64, k: f64) -> bool {
+        if !(finite_amount(d) && finite_amount(o) && (0.0..=1.0).contains(&k)) {
+            return false;
+        }
+        if valid {
+            let cap = (self.cols.ceil[c] - self.cols.floor[c]) as f64;
+            !(d > cap || o > (OPEN - self.cols.ceil[c]) as f64 / PRESSURE || (o > 0.0 && d != cap))
+        } else {
+            d == 0.0 && o == 0.0 && k == 0.0
+        }
     }
     pub fn sync_state(&mut self) -> Result<(), Refusal> {
         self.validate_state()?;
         self.dold.copy_from_slice(&self.d);
         self.wet = (0..self.d.len()).filter(|&c| self.d[c] + self.o[c] > 0.0).collect();
+        self.evap_full = true;
+        Ok(())
+    }
+    /// The water of the tiles of rows `lo..hi` as a block another strip of the same map takes (`import_rows`):
+    /// `[slots, rows, width]`, then depth, pressure, contamination and old depth (each slot by slot, the
+    /// tiles in order), then the momentum of the flows, slot by slot and row by row, each row's count first.
+    pub fn export_rows(&self, lo: usize, hi: usize, block: &mut Vec<f64>) -> Result<(), Refusal> {
+        let n = self.cols.n;
+        let w = self.cols.w;
+        let levels = self.cols.levels;
+        if lo > hi || hi > self.cols.h {
+            return Err("Water rows are invalid.");
+        }
+        block.clear();
+        block.extend_from_slice(&[levels as f64, (hi - lo) as f64, w as f64]);
+        for v in [&self.d, &self.o, &self.c, &self.dold] {
+            for s in 0..levels {
+                block.extend_from_slice(&v[s * n + lo * w..s * n + hi * w]);
+            }
+        }
+        for s in 0..levels {
+            for r in lo..hi {
+                let (a, z) = (self.start[s * n + r * w] as usize, self.start[s * n + (r + 1) * w] as usize);
+                block.push((z - a) as f64);
+                block.extend_from_slice(&self.out[a..z]);
+            }
+        }
+        Ok(())
+    }
+    /// Takes another strip's block of rows `lo..hi` (`export_rows`) between ticks: its halo, from the strips
+    /// beside it. The whole block is checked before any of it is written; the momentum of this strip's own top
+    /// and bottom rows stays its own (their edges are not the map's). The wet columns of those rows are then
+    /// brought up to date; the run's other bookkeeping follows by itself (the evaporation's from the wet
+    /// columns, the flows' from the wet columns' water).
+    pub fn import_rows(&mut self, lo: usize, hi: usize, block: &[f64]) -> Result<(), Refusal> {
+        let n = self.cols.n;
+        let w = self.cols.w;
+        let h = self.cols.h;
+        let unfit: Refusal = "Water rows do not fit this map.";
+        if lo > hi || hi > h {
+            return Err("Water rows are invalid.");
+        }
+        let k = (hi - lo) * w;
+        let theirs = match block.first() {
+            Some(&v) if v >= 1.0 && v <= 34.0 && v.trunc() == v => v as usize,
+            _ => return Err(unfit),
+        };
+        if block.len() < 3 + 4 * theirs * k || block[1] != (hi - lo) as f64 || block[2] != w as f64 {
+            return Err(unfit);
+        }
+        if (lo * w..hi * w).any(|i| self.cols.count[i] as usize > theirs) {
+            return Err(unfit);
+        }
+        let state = |q: usize, s: usize, i: usize| block[3 + (q * theirs + s) * k + (i - lo * w)];
+        // the check
+        for s in 0..theirs {
+            for i in lo * w..hi * w {
+                let (d, o, c, old) = (state(0, s, i), state(1, s, i), state(2, s, i), state(3, s, i));
+                if s >= self.cols.levels {
+                    if d != 0.0 || o != 0.0 || c != 0.0 || old != 0.0 {
+                        return Err(unfit);
+                    }
+                } else if !self.column_ok_with(s * n + i, s < self.cols.count[i] as usize, d, o, c) || !finite_amount(old) {
+                    return Err("Water state is malformed.");
+                }
+            }
+        }
+        let mut at = 3 + 4 * theirs * k;
+        let mut rows = Vec::with_capacity(theirs * (hi - lo));
+        for s in 0..theirs {
+            for r in lo..hi {
+                let len = match block.get(at) {
+                    Some(&v) if v >= 0.0 && v.trunc() == v => v as usize,
+                    _ => return Err(unfit),
+                };
+                at += 1;
+                let values = block.get(at..at + len).ok_or(unfit)?;
+                at += len;
+                if r == 0 || r == h - 1 {
+                    continue;
+                }
+                let (a, z) = if s < self.cols.levels { (self.start[s * n + r * w] as usize, self.start[s * n + (r + 1) * w] as usize) } else { (0, 0) };
+                if z - a != len {
+                    return Err(unfit);
+                }
+                if !values.iter().all(|&v| finite_amount(v)) {
+                    return Err("Water momentum is malformed.");
+                }
+                rows.push((a, at - len, len));
+            }
+        }
+        if at != block.len() {
+            return Err(unfit);
+        }
+        // the writing
+        for s in 0..theirs.min(self.cols.levels) {
+            for i in lo * w..hi * w {
+                let c = s * n + i;
+                self.d[c] = state(0, s, i);
+                self.o[c] = state(1, s, i);
+                self.c[c] = state(2, s, i);
+                self.dold[c] = state(3, s, i);
+            }
+        }
+        for (a, from, len) in rows {
+            self.out[a..a + len].copy_from_slice(&block[from..from + len]);
+        }
+        let (i0, i1) = (lo * w, hi * w);
+        self.wet.retain(|&c| !(i0..i1).contains(&(c % n)));
+        for s in 0..self.cols.levels {
+            for c in s * n + i0..s * n + i1 {
+                if self.d[c] + self.o[c] > 0.0 {
+                    self.wet.push(c);
+                }
+            }
+        }
+        Ok(())
+    }
+    /// The water after `ticks` more ticks run elsewhere (the multi-core settle's strips), written whole:
+    /// checked, and the run's bookkeeping started again from it.
+    ///
+    /// Only depth, pressure and contamination are written: the momentum (`out`) and old depth (`dold`) stay
+    /// as this engine last left them, stale. That is harmless today, since the strips stop exactly at a check
+    /// and only depth, pressure, contamination and saturation are read afterwards; don't run this engine on
+    /// after a settle on several threads without bringing them up to date first.
+    pub fn accept_elsewhere(&mut self, ticks: u64) -> Result<(), Refusal> {
+        self.validate_state()?;
+        self.wet = (0..self.d.len()).filter(|&c| self.d[c] + self.o[c] > 0.0).collect();
+        self.prev_wet.clear();
+        self.f.fill(0.0);
+        self.evap_full = true;
+        self.ticks += ticks;
         Ok(())
     }
     pub(crate) fn set_state(&mut self, s: &State) -> Result<(), Refusal> {
@@ -277,34 +459,38 @@ impl Stack {
         }
         false
     }
-    fn compute_wn(&mut self) {
+    /// A wet column's count of wet tiles around it, itself included; 0 for a dry one.
+    fn wn_at(&self, c: usize) -> i32 {
+        if !(self.d[c] > 0.0) {
+            return 0;
+        }
         let w = self.cols.w;
         let h = self.cols.h;
-        for &c in &self.wet {
-            if !(self.d[c] > 0.0) {
-                self.wn[c] = 0;
+        let i = c % self.cols.n;
+        let x = (i % w) as i32;
+        let y = (i / w) as i32;
+        let mut n = 1;
+        for dy in -1..=1 {
+            let yy = y + dy;
+            if yy < 0 || yy >= h as i32 {
                 continue;
             }
-            let i = c % self.cols.n;
-            let x = (i % w) as i32;
-            let y = (i / w) as i32;
-            let mut n = 1;
-            for dy in -1..=1 {
-                let yy = y + dy;
-                if yy < 0 || yy >= h as i32 {
+            for dx in -1..=1 {
+                if dx == 0 && dy == 0 {
                     continue;
                 }
-                for dx in -1..=1 {
-                    if dx == 0 && dy == 0 {
-                        continue;
-                    }
-                    let xx = x + dx;
-                    if xx >= 0 && xx < w as i32 && self.neighbour_wet(c, yy as usize * w + xx as usize) {
-                        n += 1;
-                    }
+                let xx = x + dx;
+                if xx >= 0 && xx < w as i32 && self.neighbour_wet(c, yy as usize * w + xx as usize) {
+                    n += 1;
                 }
             }
-            self.wn[c] = n;
+        }
+        n
+    }
+    fn compute_wn(&mut self) {
+        for k in 0..self.wet.len() {
+            let c = self.wet[k];
+            self.wn[c] = self.wn_at(c);
         }
     }
     fn best_wn(&self, c: usize, t: usize) -> i32 {
@@ -350,37 +536,126 @@ impl Stack {
         }
         sat
     }
-    fn update_evap(&mut self) {
-        self.modv.fill(1.0);
-        self.compute_wn();
-        for &c in &self.wet {
-            if self.d[c] > 0.0 {
-                let t = (10 - self.sat_at(c)) as f64;
-                self.modv[c] = 0.0595 * (t * t) + 0.101 * t + 0.72;
-            }
-        }
+    fn evap_at(&self, c: usize) -> f64 {
+        let t = (10 - self.sat_at(c)) as f64;
+        0.0595 * (t * t) + 0.101 * t + 0.72
     }
-    fn build_active(&mut self) {
-        self.active.clear();
-        let mut mark = vec![false; self.d.len()];
-        for &c in &self.wet {
-            if !mark[c] {
-                mark[c] = true;
-                self.active.push(c);
+    /// Each wet column's evaporation modifier, from its cluster saturation; 1 on every other column. It
+    /// depends only on which columns are wet within two tiles, so once it has been worked out over the
+    /// whole map it is worked out again only around the columns that turned wet or dry since (the
+    /// heightfield's `update_evap_mod` does the same, sim.rs); the values are the same either way.
+    fn update_evap(&mut self) {
+        let n = self.cols.n;
+        let w = self.cols.w;
+        let h = self.cols.h;
+        let mut full = self.evap_full;
+        if !full {
+            // (a column that turned wet or dry is wet now or was at the last update)
+            for k in 0..self.evap_wet.len() + self.wet.len() {
+                let c = if k < self.evap_wet.len() { self.evap_wet[k] } else { self.wet[k - self.evap_wet.len()] };
+                if (self.d[c] > 0.0) != (self.pos[c >> 6] >> (c & 63) & 1 == 1) {
+                    let i = c % n;
+                    if self.tile_mark[i] == 0 {
+                        self.tile_mark[i] = 1;
+                        self.flipped.push(i);
+                    }
+                }
             }
+            for &i in &self.flipped {
+                self.tile_mark[i] = 0;
+            }
+            // (past a share of the water, working it all out again is quicker)
+            full = self.flipped.len() * 8 > self.wet.len();
+        }
+        if full {
+            for &c in &self.evap_wet {
+                self.modv[c] = 1.0;
+                self.pos[c >> 6] &= !(1 << (c & 63));
+            }
+            self.compute_wn();
+            for k in 0..self.wet.len() {
+                let c = self.wet[k];
+                if self.d[c] > 0.0 {
+                    self.modv[c] = self.evap_at(c);
+                    self.pos[c >> 6] |= 1 << (c & 63);
+                }
+            }
+            self.evap_full = false;
+        } else if !self.flipped.is_empty() {
+            // the tiles within one of a change get their counts again, those within two their modifiers
+            let mut near = core::mem::take(&mut self.near);
+            let mut ring = core::mem::take(&mut self.ring);
+            for &i in &self.flipped {
+                let x = (i % w) as i64;
+                let y = (i / w) as i64;
+                for yy in (y - 2).max(0)..=(y + 2).min(h as i64 - 1) {
+                    for xx in (x - 2).max(0)..=(x + 2).min(w as i64 - 1) {
+                        let t = yy as usize * w + xx as usize;
+                        let close = (yy - y).abs() <= 1 && (xx - x).abs() <= 1;
+                        if self.tile_mark[t] & 1 == 0 {
+                            self.tile_mark[t] |= 1;
+                            ring.push(t);
+                        }
+                        if close && self.tile_mark[t] & 2 == 0 {
+                            self.tile_mark[t] |= 2;
+                            near.push(t);
+                        }
+                    }
+                }
+            }
+            for &t in &near {
+                for s in 0..self.cols.count[t] as usize {
+                    let c = s * n + t;
+                    self.wn[c] = self.wn_at(c);
+                }
+            }
+            for &t in &ring {
+                self.tile_mark[t] = 0;
+                for s in 0..self.cols.count[t] as usize {
+                    let c = s * n + t;
+                    if self.d[c] > 0.0 {
+                        self.modv[c] = self.evap_at(c);
+                        self.pos[c >> 6] |= 1 << (c & 63);
+                    } else {
+                        self.modv[c] = 1.0;
+                        self.pos[c >> 6] &= !(1 << (c & 63));
+                    }
+                }
+            }
+            near.clear();
+            ring.clear();
+            self.near = near;
+            self.ring = ring;
+        }
+        self.flipped.clear();
+        self.evap_wet.clear();
+        self.evap_wet.extend_from_slice(&self.wet);
+    }
+    /// The wet columns, their neighbours and the source columns, once each, in index order: every step
+    /// reads only the substep's start and writes only its own column, so the order changes no result, and
+    /// walking memory in order is faster.
+    fn build_active(&mut self) {
+        let mark = &mut self.mark;
+        for &c in &self.wet {
+            mark[c >> 6] |= 1 << (c & 63);
             for e in self.start[c] as usize..self.start[c + 1] as usize {
                 let t = self.target[e];
-                if t >= 0 && !mark[t as usize] {
-                    mark[t as usize] = true;
-                    self.active.push(t as usize);
+                if t >= 0 {
+                    mark[t as usize >> 6] |= 1 << (t & 63);
                 }
             }
         }
         for &c in &self.source_cols {
-            if !mark[c] {
-                mark[c] = true;
-                self.active.push(c);
+            mark[c >> 6] |= 1 << (c & 63);
+        }
+        self.active.clear();
+        for (k, word) in mark.iter_mut().enumerate() {
+            let mut b = *word;
+            while b != 0 {
+                self.active.push(k * 64 + b.trailing_zeros() as usize);
+                b &= b - 1;
             }
+            *word = 0;
         }
     }
     fn height_limit(&self, c: usize, t: usize, hc: f64) -> f64 {
@@ -423,8 +698,11 @@ impl Stack {
         true
     }
     fn substep(&mut self, scale: f64) {
+        // (the flows of the columns that are dry now are stale; every wet one's are written below)
         for &c in &self.prev_wet {
-            self.f[self.start[c] as usize..self.start[c + 1] as usize].fill(0.0);
+            if !(self.d[c] + self.o[c] > 0.0) {
+                self.f[self.start[c] as usize..self.start[c + 1] as usize].fill(0.0);
+            }
         }
         self.build_active();
         for &c in &self.wet {
@@ -441,7 +719,8 @@ impl Stack {
                 let sink = t == SINK;
                 let ti = if sink { 0 } else { t as usize };
                 let ft = if sink { 0.0 } else { self.cols.floor[ti] as f64 };
-                if ft >= hc || !self.dir_allowed(c, t, self.dir[e]) {
+                let rule = self.edge_rule[e];
+                if ft >= hc || rule & 1 == 0 {
                     self.f[e] = 0.0;
                     continue;
                 }
@@ -465,7 +744,7 @@ impl Stack {
                     ev = d5 + n15 - n15 / PRESSURE;
                 }
                 let prev = KEEP * self.out[e];
-                let lim = if sink { -1.0 } else { self.height_limit(c, ti, hc) };
+                let lim = if rule & 2 == 0 { -1.0 } else { self.height_limit(c, ti, hc) };
                 let fk = if lim >= 0.0 {
                     let hd = hc + pc - ft;
                     if hd < lim {

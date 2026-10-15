@@ -340,37 +340,44 @@ impl SettleRun {
         while self.result.is_none() && left > 0 {
             let n = left.min(self.every - self.since);
             s.run(n, 1.0);
-            self.since += n;
             left -= n;
-            if self.since < self.every {
-                break;
+            self.after(s, n);
+        }
+        self.result
+    }
+    /// Ticks since the last check.
+    pub fn since(&self) -> u64 {
+        self.since
+    }
+    /// `s` has run `n` more ticks (at most to the next check): the check, when one is due.
+    pub fn after(&mut self, s: &Stack, n: u64) -> Option<SettleResult> {
+        if self.result.is_none() {
+            self.since += n;
+            if self.since >= self.every {
+                self.since = 0;
+                self.check(s);
             }
-            self.since = 0;
-            let vol = s.volume();
-            let dv = (vol - self.prev_vol).abs() / max(vol, 1e-9);
-            let moved = (0..s.d.len()).filter(|&c| (s.d[c] - self.prev_d[c]).abs() > 0.005).count();
-            self.k += 1;
-            if dv < 0.002 && moved as f64 <= 0.005 * s.cols.n as f64 {
-                self.result = Some(SettleResult {
-                    settled: true,
-                    ticks: s.ticks,
-                    steady_ticks: None,
-                });
-            } else {
-                if !self.sealed.is_empty()
-                    && self.steady.is_none()
-                    && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, vol, &self.sealed, 0.005, 0.005)
-                {
-                    self.steady = Some(s.ticks);
-                    if self.until_steady {
-                        self.result = Some(SettleResult {
-                            settled: false,
-                            ticks: s.ticks,
-                            steady_ticks: self.steady,
-                        });
-                    }
-                }
-                if self.result.is_none() && self.k >= self.checks {
+        }
+        self.result
+    }
+    fn check(&mut self, s: &Stack) {
+        let vol = s.volume();
+        let dv = (vol - self.prev_vol).abs() / max(vol, 1e-9);
+        let moved = (0..s.d.len()).filter(|&c| (s.d[c] - self.prev_d[c]).abs() > 0.005).count();
+        self.k += 1;
+        if dv < 0.002 && moved as f64 <= 0.005 * s.cols.n as f64 {
+            self.result = Some(SettleResult {
+                settled: true,
+                ticks: s.ticks,
+                steady_ticks: None,
+            });
+        } else {
+            if !self.sealed.is_empty()
+                && self.steady.is_none()
+                && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, vol, &self.sealed, 0.005, 0.005)
+            {
+                self.steady = Some(s.ticks);
+                if self.until_steady {
                     self.result = Some(SettleResult {
                         settled: false,
                         ticks: s.ticks,
@@ -378,12 +385,18 @@ impl SettleRun {
                     });
                 }
             }
-            if self.result.is_none() {
-                self.prev_d.copy_from_slice(&s.d);
-                self.prev_o.copy_from_slice(&s.o);
-                self.prev_vol = vol;
+            if self.result.is_none() && self.k >= self.checks {
+                self.result = Some(SettleResult {
+                    settled: false,
+                    ticks: s.ticks,
+                    steady_ticks: self.steady,
+                });
             }
         }
-        self.result
+        if self.result.is_none() {
+            self.prev_d.copy_from_slice(&s.d);
+            self.prev_o.copy_from_slice(&s.o);
+            self.prev_vol = vol;
+        }
     }
 }

@@ -1422,6 +1422,37 @@ export class MapRenderer {
     return m ? shadowRock(m.W, m.H, m.source.columns) : null;
   }
 
+  /** A map that gains its first column with air under a roof after it opened (a Block dig, an Erode cave on a plain
+   *  map) or loses its last: the cutaway's branch, the light volume and the roofed objects' branch follow, so the layer
+   *  cut opens into the new hollow and what stands in it takes its light, as on a map that opened with caves. The
+   *  volume is built whole once, when the first such column comes (about as long as a map with caves takes to open). */
+  private syncCaves(): void {
+    const m = this.map;
+    if (!m) return;
+    const want = cutawayOn(m.source);
+    this.setCutaway(want);
+    if (want === !!this.cave) return;
+    const u = this.uniforms;
+    if (want) {
+      this.cave = CaveLight.build(m.source, m.sky);
+      this.caveTex = this.cave ? caveTexture(this.cave) : null;
+      u.caveTex.value = this.caveTex ?? this.noCave;
+      if (this.cave) {
+        u.caveSize.value.set(m.W, m.H, this.cave.D);
+        u.caveTop.value = this.cave.highest;
+      }
+    } else {
+      u.caveTex.value = this.noCave;
+      u.caveSize.value.set(0, 0, 0);
+      this.caveTex?.dispose();
+      this.caveTex = null;
+      this.cave = null;
+      this.caveRows.clear();
+    }
+    this.setCaveBranch(!!this.cave);
+    this.syncRunSoil();
+  }
+
   /** The light under roofs round tiles whose heights changed (the box it reaches), to the GPU with the
    *  next frame. */
   private relightCaves(rect: { x0: number; y0: number; x1: number; y1: number }): void {
@@ -1504,7 +1535,10 @@ export class MapRenderer {
     }
     m.heights = heights;
     m.source = { ...m.source, heights };
-    if (columns) m.source = { ...m.source, columns: columnMap(columns) };
+    if (columns) {
+      m.source = { ...m.source, columns: columnMap(columns) };
+      this.syncCaves();
+    }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
@@ -2713,6 +2747,8 @@ export class MapRenderer {
       this.ortho.up.set(0, 0, -1);
       this.ortho.lookAt(tx, 0, tz);
       this.ortho.updateProjectionMatrix();
+      // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
+      this.ortho.updateMatrixWorld();
     } else {
       const cp = Math.cos(v.pitch);
       this.persp.aspect = aspect;
@@ -2721,6 +2757,7 @@ export class MapRenderer {
       this.persp.lookAt(tx, ty, tz);
       this.persp.far = v.distance * 4 + 1000;
       this.persp.updateProjectionMatrix();
+      this.persp.updateMatrixWorld();
     }
     // a light haze beyond the point looked at, none from straight above
     const u = this.uniforms;

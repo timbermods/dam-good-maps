@@ -5,7 +5,7 @@
 // hashed as little-endian binary64, so signed zero and low bits count. `run.ts` runs the same cases in
 // Chromium, Firefox, WebKit and Node and compares them checkpoint by checkpoint.
 
-import { runStackFixture, stackFixtures } from "../rust/stack-fixtures";
+import { runStackFixture, settleFixture, stackFixtures } from "../rust/stack-fixtures";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, THEMES } from "../../src/core/spec/mapspec";
 import { applyBrush, BRUSH_TOOLS } from "../../src/core/features/raster/brush";
@@ -41,7 +41,7 @@ function fullMap(m: ForceMap): FullForceMap {
 
 export interface Case {
   id: string;
-  kind: "stacked-water" | "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling" | "water";
+  kind: "stacked-water" | "stacked-settle" | "generate" | "brush" | "force" | "mixed" | "session" | "placement" | "weather" | "scheduling" | "water";
   n: number;
   [k: string]: any;
 }
@@ -253,6 +253,8 @@ function water(m: any, ticks = 24) {
 export function cases(smoke = false): Case[] {
   if ([...VERBS].sort().join(",") !== [...verbs].sort().join(",")) throw Error("Update the determinism cases for the current force list");
   const out: Case[] = ["cave-valley", "lake-cave", "t7-sink"].map(name => ({ id: `stacked-water/${name}`, kind: "stacked-water", n: 0, name }));
+  // the app's canonical settle of the same maps: on four threads in the threaded engines (stackParallel.ts)
+  for (const name of ["cave-valley", "lake-cave", "t7-sink"]) out.push({ id: `stacked-settle/${name}`, kind: "stacked-settle", n: 0, name });
   for (const n of [128, 256]) {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
@@ -284,6 +286,14 @@ export function cases(smoke = false): Case[] {
 /** One case's checkpoints. */
 export async function runCase(c: Case, progress: (s: string) => void = () => {}): Promise<Row[]> {
   const rows: Row[] = [];
+  if (c.kind === "stacked-settle") {
+    const f = stackFixtures.find(f => f.name === c.name);
+    if (!f) throw Error("Water fixture is unknown.");
+    const s = settleFixture(f);
+    const components: Record<string, string> = { info: await sha(enc.encode(json({ settled: s.settled, ticks: s.ticks }))) };
+    for (const key of ["depth", "overflow", "contamination", "sat"] as const) components[key] = await sha(new Uint8Array(s[key].buffer, s[key].byteOffset, s[key].byteLength));
+    return [{ label: c.id, hash: await sha(enc.encode(json(components))), components }];
+  }
   if (c.kind === "stacked-water") {
     const f = stackFixtures.find(f => f.name === c.name);
     if (!f) throw Error("Water fixture is unknown.");

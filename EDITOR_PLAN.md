@@ -1221,8 +1221,9 @@ checks dot counts; every other row is information under Good to know, worded as 
   - **Exact on heightfield terrain**, which covers every generated map. **An imported map with caves or
     overhangs** (tunnels, overhang bridges; D120, D280) is simulated too, on every water column, by the
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
-    last water stays on show while the canonical settle runs in the background, in slices, the dot saying
-    "Settling…", and the water shows when it is done (no live water on such a map). The file gets the settle
+    last water stays on show while the canonical settle runs in the background, in slices, on several threads
+    where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
+    water shows when it is done (no live water on such a map). The file gets the settle
     on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top

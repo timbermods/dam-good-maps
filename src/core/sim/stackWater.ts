@@ -19,6 +19,7 @@ import { surfaceOf, type WorldModel } from "../format/world";
 import { ColumnTerrain } from "../terrain/runs";
 import { isDelayed, mapObjects, specifiedStrength, waterModel, type MapObject } from "./model";
 import { rustWater } from "./rustWater";
+import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
 import type { RetainedWater, StackedTerrain, WaterModel } from "./water";
 
 interface Exports {
@@ -60,19 +61,25 @@ export const STACK_FIELD = {
   runFloor: 18,
   runTop: 19,
   drained: 20,
+  rowsOut: 21,
+  rowsIn: 22,
 } as const;
 
-/** The engine's operations: `build` (a: 0 the game's rules, 1 the port's); `run` (a ticks, b scale);
- *  `prefill`; `settleBegin` (a: the most days; an open field takes 6, today's settle); `advance` (a: a
- *  tick budget, so a caller can show progress); `accept` (after writing state); `saturation`. */
-export const STACK_OP = { build: 0, run: 1, prefill: 2, settleBegin: 3, advance: 4, accept: 5, saturation: 6 } as const;
+/** The engine's operations: `build` (a: 0 the game's rules, 1 the port's; b: 1 the stacked rules even on
+ *  an open field, a strip of a map with caves); `run` (a ticks, b scale); `prefill`; `settleBegin` (a: the
+ *  most days; an open field takes 6, today's settle); `advance` (a: a tick budget, so a caller can show
+ *  progress); `accept` (after writing state); `saturation`; `exportRows` (rows a..b as a block, `rowsOut`);
+ *  `elsewhere` (a settle's water after a ticks run elsewhere, written whole: its checks run here); `inbox`
+ *  (room for a block of a numbers, `rowsIn`); `importRows` (the block in `rowsIn` as rows a..b). The last
+ *  four are the multi-core settle's (stackParallel.ts). */
+export const STACK_OP = { build: 0, run: 1, prefill: 2, settleBegin: 3, advance: 4, accept: 5, saturation: 6, exportRows: 7, elsewhere: 8, inbox: 9, importRows: 10 } as const;
 
 /** What `info` answers: ticks run; 0 an open field (today's simulation) or 1 stacked; the settle's
  *  state (0 running, 1 settled, 2 out of days); the settle's steady ticks (negative: none); its most
  *  ticks. */
 export const STACK_INFO = { ticks: 0, stacked: 1, settle: 2, steadyTicks: 3, maxTicks: 4 } as const;
 
-const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array] as const;
+const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array] as const;
 
 export type StackView = Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array;
 
@@ -259,6 +266,10 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
   let ticks = 0;
   let maxTicks = 1;
   let stacked = true;
+  // on several threads where this thread has a pool (stackParallel.ts), decided at the first slice; `since`
+  // counts the ticks the threads ran since the settle's last check
+  let threads: StackThreads | null | undefined;
+  let since = 0;
   try {
     (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
     (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
@@ -271,16 +282,39 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
     m.close();
     throw e;
   }
-  return {
+  const run = {
     advance(budget: number): StackSettle | null {
       if (done) return done;
       try {
-        if (m.info(STACK_INFO.settle) === 0) {
-          m.op(STACK_OP.advance, Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget))));
+        if (threads === undefined) threads = stacked && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
+        let left = Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget)));
+        while (threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+          const n = Math.min(left, STACK_CHECK_TICKS - since);
+          if (!threads.run(n)) {
+            // a thread failed: the settle starts again here, on one thread (the same bytes)
+            threads = null;
+            since = 0;
+            m.op(STACK_OP.settleBegin, STACK_SETTLE_DAYS);
+            break;
+          }
+          left -= n;
+          since += n;
+          ticks = m.info(STACK_INFO.ticks) + since;
+          if (since === STACK_CHECK_TICKS) {
+            threads.write(m);
+            m.op(STACK_OP.elsewhere, since);
+            since = 0;
+            ticks = m.info(STACK_INFO.ticks);
+          }
+        }
+        if (!threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
+          m.op(STACK_OP.advance, left);
           ticks = m.info(STACK_INFO.ticks);
           maxTicks = Math.max(maxTicks, m.info(STACK_INFO.maxTicks));
         }
         if (m.info(STACK_INFO.settle) === 0) return null;
+        threads?.free();
+        threads = null;
         m.op(STACK_OP.saturation);
         const count = m.copy(STACK_FIELD.count) as Uint8Array;
         let L = 1;
@@ -304,6 +338,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         m.close();
         return done;
       } catch (e) {
+        threads?.free();
         m.close();
         throw e;
       }
@@ -315,6 +350,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
       return maxTicks;
     },
   };
+  return run;
 }
 
 /** The water of terrain above terrain run on from a given state by the game's rules, with the sources

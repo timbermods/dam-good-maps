@@ -25,10 +25,8 @@
   /* Motion: the curves and durations every transition takes (movement inside prefers-reduced-motion: no-preference,
      fades of opacity and colour outside it; never ease-in on the interface, never transition: all) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --dur-press: 120ms;
   --dur-fast: 160ms;
-  --dur-base: 240ms;
   --dur-fade: 600ms;
 }
 

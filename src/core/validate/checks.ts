@@ -52,7 +52,8 @@ export interface ValidateOptions {
   /** External files (imports) accept any 1.1.x version. */
   external?: boolean;
   /** Thresholds come from the spec; imported maps have none and use `designedFor` (default Normal)
-   *  with the default settings (PLAN §19.5). */
+   *  with the default settings (PLAN §19.5), and the theme a map made with Dam Good Maps names in its
+   *  description (`generatedThemeOf`: Islands' water cap, D369). */
   spec?: MapSpec | null;
   designedFor?: Difficulty;
   /** The features the map was built from, for the checks about planned lakes and basins. */
