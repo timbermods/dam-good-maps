@@ -302,7 +302,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     const m = mirror.current;
     const soil = m.daySoil ?? m.soil;
     if (!soil) return false;
-    return dyingTiles(templateOf(item, shelfOptionsRef.current), paintDisc(x, y, r, info.W, info.H), soil, m.water.depth).length > 0;
+    return dyingTiles(templateOf(item, shelfOptionsRef.current), paintDisc(x, y, r, info.W, info.H), { moisture: soil.moisture, contamination: soil.contamination, depth: m.water.depth }).length > 0;
   }
   // (the size changed in the object window: the ring takes it where the pointer last was)
   useEffect(() => {
