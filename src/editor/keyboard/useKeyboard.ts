@@ -66,7 +66,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
           return;
         }
         // (a new gesture's key in Slow forces: the force jumps to its final land first)
-        if (watching && !mod && !ev.altKey && /^Digit[1-7]$/.test(ev.code)) {
+        if (watching && !mod && !ev.altKey && /^Digit[1-8]$/.test(ev.code)) {
           void c.jump();
           return;
         }
@@ -107,9 +107,9 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         return;
       }
       // the tools by their place in the bar (Kyler, 2026-10-06), on the key's code so any keyboard layout works: 1 Select
-      // (again: its selection goes), 2–6 the brushes (again: it stays out), Shift+1–7 the forces in the bar's order
+      // (again: its selection goes), 2–6 the brushes (again: it stays out), Shift+1–8 the forces in the bar's order
       // (again: put it away); { and } size a brush, Esc cancels a stroke, then puts it away
-      const place = !mod && !ev.altKey ? /^Digit([1-7])$/.exec(ev.code) : null;
+      const place = !mod && !ev.altKey ? /^Digit([1-8])$/.exec(ev.code) : null;
       if (place && !ev.shiftKey) {
         const n = Number(place[1]);
         if (n === 1) {

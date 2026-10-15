@@ -536,7 +536,7 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "crop",
         row: 2,
         at: 14,
-        span: 1,
+        span: 2,
         node: (
           <div class="set">
             <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
@@ -585,7 +585,7 @@ export function useSelect(ed: Ed): SelectSlice {
       },
       // Deselect (Kyler, 2026-10-04): always there, greyed with nothing selected; Esc and X do the same (touch screens
       // have neither)
-      { key: "deselect", row: 1, at: 14, span: 1, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
+      { key: "deselect", row: 1, at: 14, span: 2, node: <ButtonSetting label="Deselect" title="Clear the selection" keys={["Esc", "X"]} disabled={!z} onClick={closeSelect} /> },
       {
         key: "level",
         row: 2,

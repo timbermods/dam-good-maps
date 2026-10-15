@@ -46,10 +46,12 @@ export const FORCE_PACE = { steps: 1, ms: 50 };
 export const CARVE_PACE = FORCE_PACE;
 export const ERUPT_PACE = { steps: 1, ms: 55 };
 export const GLACIATE_PACE = { steps: 1, ms: 100 };
+/** Erode's: its 20 to 40 stages are two to four of its own seconds (core/forces/erode.ts `erodeSeconds`). */
+export const ERODE_PACE = { steps: 1, ms: 100 };
 
 /** A force's own pace (D266: the water's speed doesn't change it). */
 export function paceOf(verb: Verb): { steps: number; ms: number } {
-  return verb === "erupt" ? ERUPT_PACE : verb === "glaciate" ? GLACIATE_PACE : FORCE_PACE;
+  return verb === "erupt" ? ERUPT_PACE : verb === "glaciate" ? GLACIATE_PACE : verb === "erode" ? ERODE_PACE : FORCE_PACE;
 }
 
 /** A glacier's showing in Fast (D374): its own 3.5 seconds once it is worked out, however long that
@@ -434,5 +436,6 @@ export function forcePowerWord(verb: Verb, power: number): string {
   if (verb === "quake") return power < 25 ? "Tremor" : power < 55 ? "Rift" : power < 85 ? "Upheaval" : "Cataclysm";
   if (verb === "erupt") return power < 25 ? "Cinder" : power < 55 ? "Cone" : power < 85 ? "Volcano" : "Cataclysm";
   if (verb === "glaciate") return power < 25 ? "Light scour" : power < 55 ? "Glacier" : power < 85 ? "Great glacier" : "Ice age";
+  if (verb === "erode") return power < 25 ? "Alcove" : power < 55 ? "Cave" : power < 85 ? "Deep cave" : "Cavern";
   return powerWord(power);
 }
