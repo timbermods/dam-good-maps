@@ -67,7 +67,7 @@ test("the drought reserve guard disables what a small map cannot hold", async ({
   // (a Normal map's Plenty reserve needs about 380 tiles of reservoir: more than 15% of a 48² map; the size is set
   // in the drawer, as most 48² River Valley seeds fail their checks and a link to one would open another seed)
   await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
-  // (the map checked and settled first: the page takes the opened map's settings as it settles)
+  // (the map checked first; a number typed in a size box is kept while the page re-draws, as the next test shows)
   await expectReady(page);
   const drawer = await openDrawer(page);
   await pick(drawer, "Size", "Custom");
@@ -80,4 +80,22 @@ test("the drought reserve guard disables what a small map cannot hold", async ({
   const plenty = (await openSection(page, "Water")).getByRole("group", { name: "Drought reserve" }).getByRole("button", { name: "Plenty", exact: true });
   await expect(plenty).toBeDisabled();
   await expect(plenty).toHaveAttribute("title", /too big for this map size/);
+});
+
+test("a size typed in the drawer survives the page re-drawing before it is committed", async ({ page }) => {
+  await openEditor(page, "s=4242&t=riverValley&z=96&d=n");
+  await expectReady(page);
+  const drawer = await openDrawer(page);
+  await pick(drawer, "Size", "Custom");
+  const water = await openSection(page, "Water");
+  const field = page.locator("#size-x");
+  // (typed, not yet committed: the field commits on Tab; anything the page re-draws meanwhile, as the opened map
+  // settles, used to put the old number back)
+  await field.fill("48");
+  await water.getByRole("group", { name: "Waterfalls", exact: true }).getByRole("button", { name: "Many", exact: true }).evaluate((b) => (b as HTMLElement).click());
+  await expect(water.getByRole("group", { name: "Waterfalls", exact: true }).getByRole("button", { name: "Many", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(field).toHaveValue("48");
+  await field.press("Tab");
+  await expect(field).toHaveValue("48");
+  await expect(page.locator("#size-y")).toHaveValue("80");
 });
