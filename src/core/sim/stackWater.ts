@@ -354,7 +354,9 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
     advance(budget: number): StackSettle | null {
       if (done) return done;
       try {
-        if (threads === undefined) threads = stacked && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
+        // (a settle that takes a removal's water runs on one thread: it settles on from the whole engine's state,
+        // its flows' momentum and seeps included, which the strips don't hand back)
+        if (threads === undefined) threads = stacked && !drained.length && m.info(STACK_INFO.settle) === 0 && maxTicks % STACK_CHECK_TICKS === 0 ? stackThreads(m, W, H, t.mask, t.objects)?.watch(run) ?? null : null;
         let left = Math.max(0, Math.min(MAX_ADVANCE, Math.floor(budget)));
         while (threads && left > 0 && m.info(STACK_INFO.settle) === 0) {
           const n = Math.min(left, STACK_CHECK_TICKS - since);
