@@ -631,7 +631,9 @@ const WEAR_SAMPLES = 14;
 const DUST_F = 16;
 /** Dust puffs a second at most (the pool's turnover: no stage takes them all, so the last stages get
  *  their share), and a stage's when it has none before it. */
-const DUST_RATE = 150;
+const DUST_RATE = 190;
+/** How far (tiles) dust from under a roof is pushed out at most. */
+const DUST_PUSH = 5;
 const STAGE_MS = 100;
 /** A stone's floats: its origin (x, y, z), its speed across (x, z), up (y) as it breaks off, the height it
  *  rests at, when it lands, how high it bounces, when it is born (ms), its radius, its spin (x, y, z),
@@ -774,7 +776,7 @@ class Wear {
     // the stage's dust: more where more went, within the stage's share of the pool's turnover
     const dt = Math.max(40, Math.min(200, this.lastStage ? now - this.lastStage : STAGE_MS));
     this.lastStage = now;
-    const puffs = Math.max(2, Math.min(Math.round(2 + Math.sqrt(e.went.length) * 0.8), Math.floor((DUST_RATE * dt) / 1000), 2 * n));
+    const puffs = Math.max(2, Math.min(Math.round(3 + Math.sqrt(e.went.length)), Math.floor((DUST_RATE * dt) / 1000), 2 * n));
     // a few stones a stage, more where more went
     const stones = Math.max(1, Math.min(4, Math.round(Math.sqrt(e.went.length) / 4)));
     const every = Math.max(1, Math.floor(n / stones));
@@ -794,9 +796,12 @@ class Wear {
       for (let k = 0; k < many; k++) {
         const q = this.seq++;
         // (out of the opening: from a little way along it, quickly at first, slowing as it spreads)
-        const speed = 1.3 + 1.7 * hash(q);
         const out = (roofed ? 0.8 : 0.4) + 0.6 * hash(q + 0.23);
         const h = Math.hypot(dx, dy);
+        const exit = roofed && h > 0.05 ? Math.max(0, s[o + 8] - out * h) : 0;
+        // (pushed out: under a roof, fast enough to carry it a little past the roof's end, as far as
+        // DUST_PUSH tiles; dust from deeper stays in the cave's shade)
+        const speed = exit > 0 ? (Math.min(DUST_PUSH, exit + 0.6 + 0.9 * hash(q)) * DUST_DRAG) / h : 1.3 + 1.7 * hash(q);
         const jx = (hash(q + 0.31) - 0.5) * 0.7;
         const jy = (hash(q + 0.57) - 0.5) * 0.7;
         this.puff(
@@ -805,7 +810,7 @@ class Wear {
           level - 0.2 + dz * out + hash(q + 0.83) * 0.5,
           -(yRow + dy * out + jy * 0.6),
           dx * speed + jx * 0.6,
-          dz * speed * 0.6 + 0.15,
+          exit > 0 ? 0.15 + 0.3 * hash(q + 0.37) : dz * speed * 0.6 + 0.15,
           -(dy * speed + jy * 0.6),
           1.2 + 0.7 * hash(q + 0.13),
           0.5 + 0.4 * hash(q + 0.71),
@@ -814,7 +819,7 @@ class Wear {
           roofed ? 0.35 : 1,
           0,
           // (open air: out already; under a roof straight up: out as it rises)
-          !roofed ? -1 : h > 0.05 ? s[o + 8] - out * h : 0,
+          !roofed ? -1 : exit,
           h > 0.05 ? speed * h : 1.5,
         );
       }
