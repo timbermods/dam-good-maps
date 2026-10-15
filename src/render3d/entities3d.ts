@@ -443,8 +443,8 @@ function succulent(dead: boolean): Model {
   const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
   const cx = dead ? 0 : 0.03;
   const m = new Model();
-  const rings: [number, number][] = [[0.13, 0.22], [0.22, 0.25], [0.25, 0.2], [0.2, 0.1]];
-  rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.19, 6), k % 2 ? dark : mid, { x: cx, y: 0.095 + 0.19 * k, ry: 0.3 * k }));
+  const rings: [number, number][] = [[0.1, 0.17], [0.17, 0.19], [0.19, 0.15], [0.15, 0.08]];
+  rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.17, 6), k % 2 ? dark : mid, { x: cx, y: 0.085 + 0.17 * k, ry: 0.3 * k }));
   const green: Rgb = dead ? [0.62, 0.54, 0.4] : SAGE;
   // (a pad as an oval lens, `len` long and `wid` wide: its inner end at (x, y, z), leaning out along `turn` at `tilt` above
   // the horizontal, so the crown's pads fan up and out past the trunk; its outer tip blushes. A dead plant's droop.)
@@ -470,11 +470,11 @@ function succulent(dead: boolean): Model {
   // middle, three higher up and steeper, so its outline is a pinecone ringed by green paddles
   for (let k = 0; k < 4; k++) {
     const a = k * (Math.PI / 2) + 0.4;
-    pad(cx + Math.cos(a) * 0.2, 0.5, -Math.sin(a) * 0.2, a, 0.22, 0.115, 0.105);
+    pad(cx + Math.cos(a) * 0.17, 0.42, -Math.sin(a) * 0.17, a, 0.25, 0.145, 0.13);
   }
   for (let k = 0; k < 3; k++) {
     const a = k * ((2 * Math.PI) / 3) + 1.2;
-    pad(cx + Math.cos(a) * 0.09, 0.74, -Math.sin(a) * 0.09, a, 0.6, 0.12, 0.11);
+    pad(cx + Math.cos(a) * 0.07, 0.66, -Math.sin(a) * 0.07, a, 0.65, 0.14, 0.125);
   }
   // the young plant beside it: a small rosette of four pads from the ground
   for (let k = 0; k < 4; k++) {
