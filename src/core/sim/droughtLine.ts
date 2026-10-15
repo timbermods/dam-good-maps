@@ -6,14 +6,12 @@
 // tile: a tile holds water on the last day exactly when the view draws water there (deeper than
 // `WATER_BODY`, render3d/model.ts `WET`). Every claim is the model's: the sources stop, the water
 // drains through the map's edges and evaporates (the cycles investigation's verified rules, through
-// `HazardRun`); nothing here promises a colony survives.
+// `HazardRun`); nothing here promises a colony survives. On a map with caves or overhangs both are
+// the water seen from above, each tile's top column (the Drought view's run is the stacked engine's
+// there, #391), on the map's surface: the line runs on the water a player sees from above.
 
 import { tileShoreWalk, walkDistance, walkWorld, PUMP_CLEAN, WATER_BODY, type WalkObject } from "../analysis/walk";
 import { components } from "../analysis/regions";
-
-/** Why a map has no drought line, in one plain line: terrain above terrain has no drought rule yet
- *  (the hazard runs step one water column a tile; PR #370 refuses Drought there the same way). */
-export const DROUGHT_LINE_CAVES = "The drought line isn't worked out for maps with caves yet";
 
 /** Bits of `DroughtLine.line.sides`: the tile's side that faces land dry on the drought's last day. */
 export const SIDE_WEST = 1; // towards x − 1
@@ -35,8 +33,8 @@ export const SIDE_SOUTH = 8; // towards y + 1
  *   water (4-connected, as now) holds none on the last day, the lake or river that dries out (the
  *   faint dry tint goes over these), 0 where the water only drew back; `start`, 1 on the start's water.
  * - `startWater`: how many of the tiles holding water now are the start's water (its bodies, below).
- * - `refused`: why there is no line (a map with caves, `DROUGHT_LINE_CAVES`), else null; a refused
- *   line has no entries.
+ * - `refused`: why there is no line, in one plain line, else null; a refused line has no entries.
+ *   Every map has its line since #391 (caves and overhangs included), so the core gives null.
  *
  * The start's water is the lakes and rivers the start's pumps would draw from: each body of water
  * (4-connected, settled, over `WATER_BODY`) with a tile a pump on a shore reaches within the start's
@@ -74,8 +72,6 @@ export interface DroughtLineInput {
   days: number;
   /** The start's water, a mask over the tiles (`startWaterMask`), or null for none. */
   startWater: Uint8Array | null;
-  /** The map has terrain above terrain (a cave, an overhang): no line yet. */
-  caves?: boolean;
 }
 
 /** A line with nothing on it, and the reason when there is one. */
@@ -105,7 +101,6 @@ export function emptyDroughtLine(W: number, H: number, days: number, refused: st
 /** The drought line from the settled water and the drought's last day (see `DroughtLine`). */
 export function droughtLine(p: DroughtLineInput): DroughtLine {
   const { W, H, heights, settled, last, days } = p;
-  if (p.caves) return emptyDroughtLine(W, H, days, DROUGHT_LINE_CAVES);
   const N = W * H;
   const nowWet = new Uint8Array(N);
   const lastWet = new Uint8Array(N);

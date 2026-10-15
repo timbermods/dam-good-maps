@@ -1,10 +1,10 @@
 // The drought line (D133, D269; ROADMAP.md "Weather view"): every lake and river's water on the last day of a
 // drought, its shore, the beds that dry out and the start's water, read from the Drought view's own last day. On a
 // few generated maps it matches the Drought view's last-day water tile for tile, marks the start's water, and leaves
-// the map's bytes as they were; plain terrain without water has no line; a map with caves is refused with one line.
+// the map's bytes as they were; plain terrain without water has no line (a map with caves has its line too: caveImport.test.ts).
 
 import { describe, expect, it } from "vitest";
-import { droughtLine, startWaterMask, DROUGHT_LINE_CAVES, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST } from "../../src/core/sim/droughtLine";
+import { droughtLine, startWaterMask, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST } from "../../src/core/sim/droughtLine";
 import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { pumpShoreDistance, walkDistance, walkWorld, WATER_BODY } from "../../src/core/analysis/walk";
 import { components } from "../../src/core/analysis/regions";
@@ -164,7 +164,7 @@ describe("the drought line (D133, D269)", () => {
     expect(without.line.start.every((v) => v === 0)).toBe(true);
   });
 
-  it("plain terrain without water has no line, and a map with caves is refused with one line", () => {
+  it("plain terrain without water has no line", () => {
     const N = 32 * 32;
     const flat = {
       W: 32,
@@ -180,14 +180,7 @@ describe("the drought line (D133, D269)", () => {
     };
     const dry = droughtLine(flat);
     expect([dry.line.count, dry.bed.count, dry.startWater, dry.refused]).toEqual([0, 0, 0, null]);
-    const caves = droughtLine({ ...flat, caves: true });
-    expect([caves.line.count, caves.bed.count, caves.refused]).toEqual([0, 0, DROUGHT_LINE_CAVES]);
     expect(DIFFICULTY_RULES.normal.waterWithin).toBeGreaterThan(0);
-    // the session's question refuses a map with caves too (a stacked water model, or an import's columns)
-    const stub = (stacked: boolean, columns: number) =>
-      ({ built: { W: 32, H: 32, waterModel: stacked ? { stacked: {} } : {} }, columns: new Map(Array.from({ length: columns }, (_, k) => [k, new Uint8Array(23)])) }) as unknown as MapSession;
-    expect(mapDroughtLine(stub(true, 0), flat.last, 9).refused).toBe(DROUGHT_LINE_CAVES);
-    expect(mapDroughtLine(stub(false, 3), flat.last, 9).refused).toBe(DROUGHT_LINE_CAVES);
   });
 
   it("is only ever the map's line as it is: none yet when a map opens, none after an edit or once it closes", async () => {

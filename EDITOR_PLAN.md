@@ -839,7 +839,9 @@ Make a valley, drop a source, and there's a river.
   hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
-  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. **An Unstable Core's
+  edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
+  water the map shows (an unedited import's own), on every map, caves and overhangs included (#391; there a day's soil
+  is worked out per run top, and no plant withers yet). **An Unstable Core's
   moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
   that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
   temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
@@ -848,7 +850,8 @@ Make a valley, drop a source, and there's a river.
   its shore where its water will stand on the drought's last day; a lake or river that dries out shows a faint dry
   tint over its bed; the start's water (the lakes and rivers its pumps draw from) is marked a little more strongly.
   It is read from the Drought view's own last day, so the two agree tile for tile (`core/sim/droughtLine.ts`), and
-  comes in the background with the drought's days after each edit, never blocking. None on a map with caves yet.
+  comes in the background with the drought's days after each edit, never blocking. On a map with caves or
+  overhangs both days are read on each tile's column standing on its ground (`surfaceWater`).
   The core, the worker's channel (`watchDroughtLine`) and the drawing are built (`render3d/droughtLine.ts`: an amber waterline at the last day's level along the shore, flat and upright by the bank, and an amber tint over beds that dry out completely, both a little stronger on the start's water; one mesh made once per line, drawn in both looks, never while a day is held, put away at the next edit until the new map's line comes). The map card says nothing about droughts or badtides (D472).
 - **Optional water sounds,** our own. **What you watch is what you'll play:** the final water always matches the
   game's settled result.
@@ -1223,9 +1226,12 @@ checks dot counts; every other row is information under Good to know, worded as 
     last water stays on show while the canonical settle runs in the background, in slices, on several threads
     where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
     water shows when it is done (no live water on such a map). The file gets the settle
-    on every column and the soil on every run top. Drought and Badtide, Fill and Remove unfed water are
-    refused there with one plain line each until each has its rule for water in caves (a refused Drought or
-    Badtide shows its line as an edit's refusal does, and the button and the day box go back as they were).
+    on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
+    same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
+    the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
+    (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water are refused there with one plain
+    line each until each has its rule for water in caves (`sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
     run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once

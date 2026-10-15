@@ -338,7 +338,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
     const m = fixture(c.n);
     // (the editor's badtide, core/sim/weather.ts `HazardRun`, a day of 60 ticks)
     const run = new HazardRun(modelOf(m), m.water, "badtide", 1.5, 60);
-    const sim = run.sim;
+    const sim = run.sim!;
     for (let k = 0; k < c.count; k++) {
       const contamination = run.step(1)!;
       m.water = { depth: sim.D.slice(), contamination: sim.C.slice() };

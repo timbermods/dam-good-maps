@@ -644,8 +644,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       ed.rehover();
     });
   }
-  /** Ask the worker for a day of `hazard`; a refusal (a map with caves or overhangs) shows its one line, as an
-   *  edit's refusal does, and the map's own water comes back. */
+  /** Ask the worker for a day of `hazard`; a failure shows its one line, as an edit's refusal does, and the map's own
+   *  water comes back. */
   function askWeatherDay(hazard: Hazard, day: number | null) {
     api.showWeatherDay(hazard, day).catch((e: unknown) => {
       if (weatherRef.current === hazard) weatherOff();
