@@ -105,7 +105,8 @@ refusals).
   (a block more than 3 sideways from support falls and the operation is refused with its line).
 - **`area`** is Select's working area as runs, taken as the brushes take it: a cell (the one beyond the face for an add)
   outside it refuses the operation, `(x, y) is outside the selection`. **`cut`** is the view's cut level (the level
-  control's value; layers from it up are hidden, 0 to 23): the operation touches nothing in layer `cut` or above, those
+  control's value; layers from it up are hidden, 0 to 22: the page sends none for no cut, and 22 hides nothing, layer 22
+  being empty): the operation touches nothing in layer `cut` or above, those
   layers count as open air for a remove's exposure, and is refused,
   `nothing below layer N would change`, when nothing below it would. The page sends the cut only when one is set.
 - **Plants** (trees, bushes, succulents, ruin columns) never refuse a click (D368 (10)). A plant stays on the top of the

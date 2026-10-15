@@ -367,7 +367,7 @@
         "size": { "type": "integer", "minimum": 1, "maximum": 8 },
         "shape": { "enum": ["square", "round"] },
         "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
-        "cut": { "type": "integer", "minimum": 0, "maximum": 23 },
+        "cut": { "type": "integer", "minimum": 0, "maximum": 22 },
         "cells": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0 } },
         "plants": { "type": "array", "maxItems": 65536, "items": { "type": "string" } },
         "stands": { "type": "array", "maxItems": 65536, "items": { "type": "array", "minItems": 2, "maxItems": 2 } }
