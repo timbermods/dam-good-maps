@@ -39,6 +39,7 @@ export function header(ed: Ed, props: EditorProps) {
       }}
       name={props.name}
       onRename={props.onRename}
+      renameLocked={collab?.role === "guest" && (collab.phase === "live" || collab.phase === "paused") ? "The host names the shared map" : undefined}
       drawerOpen={props.drawerOpen}
       onDrawer={() => props.onDrawer(!props.drawerOpen)}
       mapsOpen={props.mapsOpen}
@@ -46,9 +47,7 @@ export function header(ed: Ed, props: EditorProps) {
       placesOpen={props.placesOpen}
       onPlaces={() => props.onPlaces(!props.placesOpen)}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
-      together={together && collab ? <Together controller={together} state={collab} open={ed.togetherOpen} onOpen={ed.setTogetherOpen} /> : null}
-      onTogether={together ? () => ed.setTogetherOpen(true) : undefined}
-      togetherDot={collab && collab.other && collab.phase !== "alone" && collab.phase !== "inviting" && collab.phase !== "joining" ? collab.other.role : null}
+      together={together && collab ? <Together controller={together} state={collab} /> : null}
     />
   );
 }

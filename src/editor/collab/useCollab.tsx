@@ -21,9 +21,6 @@ export interface CollabSlice {
   presenceMarkers: () => JSX.Element | null;
   /** The map changed under a stale page: the other player's terrain came while this player's strokes were on their way. */
   collabStale: { current: boolean };
-  /** The Together panel is open (the header's button, or the File menu's entry where the header is full). */
-  togetherOpen: boolean;
-  setTogetherOpen: (open: boolean) => void;
 }
 
 /** The name of what this player holds, for the other's marker ("Raise", "Carve", "Select"). */
@@ -38,7 +35,6 @@ export function heldName(e: Pick<Ed, "forcer" | "tool" | "brushTool" | "shelf" |
 export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
   const together = props.together;
   const [, setTick] = useState(0);
-  const [togetherOpen, setTogetherOpen] = useState(false);
   const state = together?.state ?? null;
   const collabStale = useRef(false);
   const latest = useRef(ed);
@@ -155,5 +151,5 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
     );
   }
 
-  return { together, collab: state, presenceMarkers, collabStale, togetherOpen, setTogetherOpen };
+  return { together, collab: state, presenceMarkers, collabStale };
 }

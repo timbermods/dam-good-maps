@@ -43,6 +43,7 @@ function launch(kind: Kind, fragment: string): Promise<Peer> {
       await page.goto(`${stack.appUrl}#${fragment}`);
     },
     "dgmEditor",
+    true,
   );
 }
 

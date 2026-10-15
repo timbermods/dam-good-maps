@@ -472,12 +472,15 @@ export function App() {
   }
 
   /** Ask before replacing an edited map only when Your maps isn't keeping it. */
+  /** A guest's map is the host's: changing the whole map is the host's alone (§9). True, with the one-line reason said, for a guest. */
+  function refuseGuest(): boolean {
+    if (!together.isGuest) return false;
+    setNote(`Only ${together.state.other?.name ?? "the host"} can open another map while you are together. Leave first to open one yourself.`);
+    return true;
+  }
+
   function guard(action: () => void, what: string) {
-    // a guest's map is the host's: changing the whole map is the host's alone (§9)
-    if (together.isGuest) {
-      setNote(`Only ${together.state.other?.name ?? "the host"} can open another map while you are together. Leave first to open one yourself.`);
-      return;
-    }
+    if (refuseGuest()) return;
     if (!keeping.current && session && session.edits > 0) {
       setConfirm({ text: `${what} closes ${nameRef.current}, which this browser isn't keeping. Download the project first to keep its edits.`, yes: "Close it", onYes: () => {
           discardAllowed.current = true;
@@ -1100,7 +1103,7 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
-      <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
+      <button type="button" class="linkish" title="Open the version that was found" onClick={() => (refuseGuest() ? setVersion(null) : void openVersion(version.response))}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>

@@ -109,7 +109,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
-  (a small people icon and "Together", the icon alone below about 1,400px wide; below about 1,340px wide, where the header is full, it gives way to a Together… entry in the File menu and File wears the other player's dot; tooltip "Edit this
+  (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide, and below about 1,340px wide the Look button reads just "Look" to make room; tooltip "Edit this
   map with someone else"), opens a small panel under it. **Alone:** the player's name (a field, kept in this browser,
   "Player" by default), **Invite** (makes a room code and shows it large with **Copy** and "Waiting for them to
   join…", **Cancel** takes it back), and a code field with **Join**. **Live:** the two players, each with their colour
@@ -119,6 +119,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   **Invite again** (the host) makes a new code that carries on the same session, the guest types the new code under
   **Join again**. The button wears the other player's colour dot while a session is live (hollow while they are
   away). The colours are the session's (`PLAYER_COLOURS`, tokens `--collab-host` and `--collab-guest`, DESIGN.md).
+  A guest cannot rename the map (the host names the shared map: the title's tooltip says so) or open another one.
   - **How edits route.** The page's controller `Together` (`src/collab/together.ts`, one object for the page's life,
     beside the editor, which remounts for each map) owns the `CollabClient`. From **Invite** on, the worker sends every
     edit through the session instead of applying it: `generator.worker.ts` hands each edit function (`apply`,

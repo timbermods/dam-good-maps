@@ -125,7 +125,30 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     // the relay
     const turnPort = await freeUdpPort();
     const require = createRequire(import.meta.url);
-    const Turn = require("node-turn") as new (o: object) => { start(): void; stop(): void };
+    type Addr = { address: string; port: number };
+    type Allocation = { mappedAddress: Addr; channelBindings: Record<number, Addr>; sockets: { send(data: Buffer, port: number, address: string): void }[] };
+    const Turn = require("node-turn") as new (o: object) => {
+      start(): void;
+      stop(): void;
+      allocations: Record<string, Allocation>;
+      network: { sockets: { on(e: "message", fn: (data: Buffer, from: Addr) => void): void }[] };
+    };
+    // node-turn answers a ChannelBind without MESSAGE-INTEGRITY, which the browsers do not accept: they retransmit it for about 40 s
+    // and then fail the whole connection (every session dropped about a minute in). It also ignores the ChannelData a browser sends
+    // once the bind is accepted. The real relay does both properly; here the bind is answered with its integrity and the
+    // client's ChannelData is relayed to the bound peer (the other direction, relay to client, node-turn already does).
+    const bind = require("node-turn/lib/methods/channelBind") as { prototype: { channelBind(msg: unknown, reply: { addAttribute(n: string): void; resolve(): void }): void } };
+    const answered = bind.prototype.channelBind;
+    if (!(bind.prototype as { patched?: boolean }).patched)
+      bind.prototype.channelBind = function (msg, reply) {
+        const resolve = reply.resolve.bind(reply);
+        reply.resolve = () => {
+          reply.addAttribute("message-integrity");
+          resolve();
+        };
+        return answered.call(this, msg, reply);
+      };
+    (bind.prototype as { patched?: boolean }).patched = true;
     const turn = new Turn({
       listeningPort: turnPort,
       listeningIps: ["127.0.0.1"],
@@ -139,6 +162,22 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       debugLevel: "OFF",
     });
     turn.start();
+    // (a relay that is stopped and started again has new sockets)
+    const seen = new WeakSet<object>();
+    const relayChannelData = () => {
+      for (const socket of turn.network.sockets) {
+        if (seen.has(socket)) continue;
+        seen.add(socket);
+        socket.on("message", (data, from) => {
+          // ChannelData (RFC 8656 section 12): its first two bits are 01
+          if (data.length < 4 || (data[0] & 0xc0) !== 0x40) return;
+          const allocation = Object.values(turn.allocations).find((a) => a.mappedAddress.address === from.address && a.mappedAddress.port === from.port);
+          const peer = allocation?.channelBindings[data.readUInt16BE(0)];
+          if (allocation && peer) allocation.sockets[0].send(data.subarray(4, 4 + data.readUInt16BE(2)), peer.port, peer.address);
+        });
+      }
+    };
+    relayChannelData();
     let relayUp = true;
     const relay = {
       stop: () => {
@@ -152,7 +191,10 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
         relayUp = false;
       },
       start: () => {
-        if (!relayUp) turn.start();
+        if (!relayUp) {
+          turn.start();
+          relayChannelData();
+        }
         relayUp = true;
       },
     };

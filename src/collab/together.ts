@@ -389,13 +389,6 @@ export class Together {
     for (const fn of [...this.presenceListeners]) fn();
   }
 
-  /** The session ended from outside (the page's worker was replaced): back to alone. */
-  ended(reason: string): void {
-    this.client = null;
-    this.reset();
-    this.set({ problem: reason });
-  }
-
   /** The camera goes where the other player is looking. Never automatic. */
   goTo(): void {
     if (this.theirView) this.binding?.goTo(this.theirView);

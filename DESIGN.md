@@ -868,16 +868,16 @@ Defaults the page session built; each is one place in the code, so any is easy t
 go to Kyler as design direction).
 
 - **One quiet button, before File** in the header's right group: a 1.8px people icon (the other icons' stroke) and the word
-  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). From 1,340 to 1,400px it is the icon alone; below about 1,340px wide the
-  header is full (the longest name must fit two lines beside History at 1280), so the button gives way to a **Together…**
-  entry in the File menu and File wears the dot. While a session is live the button wears the other
-  player's colour as a 10px dot (hollow while they are away), and its accessible name says who ("Together with Bo").
+  Together, a plain button like History: never lit (Save to Timberborn stays the only lit control). Below about 1,400px it is the icon alone, 40px square like Undo and Redo, and below about
+  1,340px the Look button reads just **Look** (its menu shows the current look) so the longest name still fits two lines at
+  1280. While a session is live the button wears the other
+  player's colour as a 10px dot (hollow while they are away; a badge on the icon's corner when it is icon-only), and its accessible name says who ("Together with Bo").
   Tooltip: "Edit this map with someone else".
 - **The panel** opens under the button, right-aligned, in the checks list's and the menus' panel style (the panel colour, the
   rule border, the page's radius and shadow), 300px wide, one column, 12px inside, an 8px gap. Alone: the name field, **Invite**
   across the panel's width, a quiet "or", the code field with **Join**. After Invite: the room code in a large monospace
   (1.9rem, tracked out), **Copy** beside it, "Waiting for them to join…", **Cancel**. Live: the two players, each a swatch and a
-  name ("you" quiet beside the player's own), then **Go to <name>** and **Leave** as two plain buttons. Paused: "<name> has left.
+  name ("you" quiet beside the player's own), then **Go to <name>** (tooltip "Move the camera to where they are looking") and **Leave** ("Leave and keep the map") as two plain buttons. A guest's map title is not clickable while together (its tooltip: "The host names the shared map"). Paused: "<name> has left.
   Waiting to reconnect." with **Invite again** (the host) or the code field and **Join again** (the guest). A failure is one
   line in the page's bad colour at the foot. Nothing is lit, no chosen option is a cell in a well (there is no choice to make).
 - **The two colours** are the session's (`PLAYER_COLOURS`, `src/core/collab/wire.ts`; tokens `--collab-host` and

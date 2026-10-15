@@ -61,7 +61,9 @@ export function LoadingFrame(p: LoadingFrameProps) {
           look ? (
             <button type="button" class="ghost" tabIndex={-1}>
               <span class="look-words">
-                <span>Look: Standard</span>
+                <span>
+                  Look<span class="look-state">: Standard</span>
+                </span>
               </span>
             </button>
           ) : null

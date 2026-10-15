@@ -70,8 +70,9 @@ function JoinRow(p: { again?: boolean; busy: boolean; onJoin(code: string): void
   );
 }
 
-export function Together(p: { controller: TogetherController; state: TogetherState; open: boolean; onOpen(open: boolean): void }) {
-  const { controller: c, state: s, open, onOpen: setOpen } = p;
+export function Together(p: { controller: TogetherController; state: TogetherState }) {
+  const { controller: c, state: s } = p;
+  const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(s.me.name);
   useEffect(() => {
@@ -91,6 +92,10 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
   useEffect(() => {
     if (s.phase === "inviting" || s.problem) setOpen(true);
   }, [s.phase === "inviting", s.problem]);
+  // (a problem said stays only while the panel is open)
+  useEffect(() => {
+    if (!open) c.dismissProblem();
+  }, [open]);
   const busy = !!s.working;
   const withOther = s.other && s.phase !== "alone" && s.phase !== "inviting" && s.phase !== "joining" ? s.other : null;
   const otherName = s.other?.name ?? "The other player";
@@ -229,7 +234,7 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
                     Get the map again
                   </button>
                 ) : null}
-                <button type="button" class="ghost" {...tip("Leave the session; the map stays here")} onClick={() => void c.leave()}>
+                <button type="button" class="ghost" {...tip("Leave and keep the map")} onClick={() => void c.leave()}>
                   Leave
                 </button>
               </div>

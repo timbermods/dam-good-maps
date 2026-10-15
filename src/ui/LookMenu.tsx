@@ -65,9 +65,11 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
       <button type="button" class={props.buttonClass} aria-label={`Look: ${high ? "High" : "Standard"}`} aria-expanded={open} aria-controls="look-menu" onClick={() => setOpen(!open)} title="Choose how the map is drawn">
         {/* (one width whatever it says, its widest's: the header's right side never changes width, Kyler 2026-10-06) */}
         <span class="look-words">
-          <span>Look: {high ? "High" : "Standard"}</span>
+          <span>
+            Look<span class="look-state">: {high ? "High" : "Standard"}</span>
+          </span>
           <span class="look-sizer" aria-hidden="true">
-            Look: Standard
+            Look<span class="look-state">: Standard</span>
           </span>
         </span>
       </button>
