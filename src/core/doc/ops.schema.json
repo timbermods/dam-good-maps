@@ -356,7 +356,7 @@
       }
     },
     "blocks": {
-      "description": "The Block tool (D335): blocks added against a face of the ground, or removed, in a click or a drag, across a footprint of 1 to 8 blocks. `at[0]` is the block whose `side` face was pointed at; a drag adds the blocks it swept over, all in that face's plane (the same x for an east or west face, y for north or south, layer for top or bottom). An add puts a block in the cell beyond each swept face, a remove takes the swept blocks themselves. Nothing is clamped: a cell off the map or the layers, or on an object, refuses the operation, as does one that would leave ground the game drops.",
+      "description": "The Block tool (D335): blocks added against a face of the ground, or removed, in a click or a drag, across a footprint of 1 to 8 blocks. `at[0]` is the block whose `side` face was pointed at; a drag adds the blocks it swept over, all in that face's plane (the same x for an east or west face, y for north or south, layer for top or bottom). An add puts a block in the cell beyond each swept face, where there is a block to put it against (a cell with no face is skipped), a remove takes the swept blocks themselves. `cells` is filled in by the session: the blocks changed, as pairs [tile, layers]. Nothing is clamped: a cell off the map or the layers, or on an object, refuses the operation, as does one that would leave ground the game drops.",
       "type": "object",
       "additionalProperties": false,
       "required": ["mode", "side", "at", "size"],
@@ -365,7 +365,8 @@
         "side": { "enum": ["+x", "-x", "+y", "-y", "+z", "-z"] },
         "at": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } } },
         "size": { "type": "integer", "minimum": 1, "maximum": 8 },
-        "shape": { "enum": ["square", "round"] }
+        "shape": { "enum": ["square", "round"] },
+        "cells": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0 } }
       }
     },
     "paintObjects": {

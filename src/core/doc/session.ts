@@ -29,7 +29,7 @@ import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
-import { blockEffect, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
+import { blockEffect, cellPairs, layeredMasks, objectCells, terrainUnder, withBlocks } from "../terrain/blocks";
 import { fallsReason, newFalls, stackableTops } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
@@ -64,6 +64,7 @@ import {
   invertOp,
   replay,
   validateOp,
+  schemaProblems,
   type AppliedOp,
   type DocState,
   type EditOp,
@@ -637,6 +638,8 @@ export class MapSession {
    *  layers, on an object, nothing to change); then the three are empty. Plain data, nothing changes. */
   blockFalls(params: OpParams["blocks"]): BlockFalls {
     const { x: W, y: H } = this.size;
+    const bad = schemaProblems({ op: "blocks", params });
+    if (bad.length) return { reason: bad[0], errors: bad, added: [], removed: [], falls: [] };
     const t = this.terrainOf(this.cur);
     const effect = blockEffect(params, t, objectCells(this.cur.entities, W, H));
     if (effect.errors.length) return { reason: effect.errors[0], errors: effect.errors, added: [], removed: [], falls: [] };
@@ -1022,6 +1025,12 @@ export class MapSession {
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string): AppliedOp {
     const text = label ?? (op as { label?: string }).label;
     const applied = { op: op.op, params: clone(op.params), seq: this.seqNext++, origin, ...(text ? { label: text } : {}) } as AppliedOp;
+    // a block operation keeps the blocks it changed, as it found them: the build and every replay apply those
+    if (applied.op === "blocks") {
+      const { x: W, y: H } = this.size;
+      const e = blockEffect({ ...applied.params, cells: undefined }, this.terrainOf(this.cur), objectCells(this.cur.entities, W, H));
+      applied.params = { ...applied.params, cells: cellPairs(applied.params.mode === "add" ? e.added : e.removed, W * H) };
+    }
     // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
     // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,

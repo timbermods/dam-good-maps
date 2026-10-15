@@ -171,6 +171,24 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
   });
 
+  it("a drag puts blocks only where there is a face to put them against", () => {
+    const s = caveSession();
+    // (29, 20) is the cliff's top, (30, 20) the lowland beside it: air at layer 7, so no face there
+    const q = blockFalls(s, add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7]]));
+    expect(q.errors).toEqual([]);
+    expect(q.added).toEqual([[29, 20, 8]]);
+    expect(s.apply(op(add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7]]))).errors).toEqual([]);
+    expect(s.built.heights[at(29, 20)]).toBe(9);
+    expect(s.built.heights[at(30, 20)]).toBe(2);
+    // and a footprint that overhangs the edge of the ground puts none past it
+    const edge = blockFalls(s, add("+z", [[29, 20, 7]], 3));
+    expect(edge.errors).toEqual([]);
+    expect(edge.added.every(([x]) => x <= 29)).toBe(true);
+    expect(edge.added.length).toBe(3 * 2 - 1);
+    // the operation keeps the blocks it changed
+    expect(s.logOps.at(-1)!.op === "blocks" && (s.logOps.at(-1)!.params as BlocksParams).cells).toEqual([at(29, 20), 1 << 8]);
+  });
+
   it("a hollow whose roof spans too far is refused, a narrower one is not", () => {
     const s = caveSession();
     // a hole 8 wide under a roof one layer thick: the roof's middle 2 × 2 is four tiles from any wall
@@ -240,6 +258,93 @@ function randomBlocks(rand: () => number, r: number): BlocksParams {
   }
   return { mode, side, at, size: 1 + Math.floor(rand() * 4), ...(rand() < 0.4 ? { shape: "round" as const } : {}) };
 }
+
+describe("the Block tool on a generated map after strokes", () => {
+  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+
+  it("what blockFalls names is what the step changes, and no other tile moves", () => {
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    const Wg = s.built.W;
+    const Hg = s.built.H;
+    const rand = mulberry(21);
+    const cx = 40;
+    const cy = 24;
+    let taken = 0;
+    let refused = 0;
+    let strokes = 0;
+    for (let k = 0; k < 140; k++) {
+      if (k < 20 || rand() < 0.15) {
+        if (s.apply({ op: "brush", params: randomBrush(rand, Wg, Hg, STROKE_TOOLS[Math.floor(rand() * STROKE_TOOLS.length)], { x: cx, y: cy, r: 12 }) }).ok) strokes++;
+        continue;
+      }
+      const sides: BlocksParams["side"][] = ["+x", "-x", "+y", "-y", "+z", "-z"];
+      const side = sides[Math.floor(rand() * 6)];
+      const axis = side[1] === "x" ? 0 : side[1] === "y" ? 1 : 2;
+      const x = cx + Math.round((rand() - 0.5) * 24);
+      const y = cy + Math.round((rand() - 0.5) * 24);
+      const h = s.built.heights[y * Wg + x];
+      const first: [number, number, number] = [x, y, Math.max(0, h - 1 - Math.floor(rand() * 4))];
+      const list: [number, number, number][] = [first];
+      for (let j = Math.floor(rand() * 6); j > 0; j--) {
+        const c: [number, number, number] = [first[0] + Math.round((rand() - 0.5) * 8), first[1] + Math.round((rand() - 0.5) * 8), first[2] + Math.round((rand() - 0.5) * 4)];
+        c[axis] = first[axis];
+        list.push(c);
+      }
+      const params: BlocksParams = { mode: rand() < 0.5 ? "add" : "remove", side, at: list, size: 1 + Math.floor(rand() * 8), ...(rand() < 0.5 ? { shape: "round" as const } : {}) };
+      const was = s.terrain.mask.slice();
+      const wasH = s.built.heights.slice();
+      const q = blockFalls(s, params);
+      const u = s.apply(op(params));
+      if (q.reason !== null) {
+        expect(u.errors, `step ${k}`).toEqual([q.reason]);
+        expect(Array.from(s.terrain.mask)).toEqual(Array.from(was));
+        expect(Array.from(s.built.heights)).toEqual(Array.from(wasH));
+        refused++;
+        continue;
+      }
+      expect(u.errors, `step ${k}`).toEqual([]);
+      const now = s.terrain;
+      const key = (c: [number, number, number][]) => c.map(([a, b, z]) => `${a},${b},${z}`).sort();
+      const gained: string[] = [];
+      const lost: string[] = [];
+      const touched = new Set<number>();
+      for (let i = 0; i < now.N; i++) {
+        if (was[i] === now.mask[i]) {
+          expect(s.built.heights[i], `step ${k} tile ${i}`).toBe(wasH[i]);
+          continue;
+        }
+        touched.add(i);
+        for (let z = 0; z < 23; z++) {
+          const a = !!(was[i] & (1 << z));
+          const b = now.solid(i, z);
+          if (!a && b) gained.push(`${i % Wg},${Math.floor(i / Wg)},${z}`);
+          if (a && !b) lost.push(`${i % Wg},${Math.floor(i / Wg)},${z}`);
+        }
+      }
+      expect(gained.sort(), `step ${k}`).toEqual(key(q.added));
+      expect(lost.sort(), `step ${k}`).toEqual(key(q.removed));
+      // no tile outside the cells changed, its surface included
+      for (let i = 0; i < now.N; i++) if (!touched.has(i)) expect(s.built.heights[i], `step ${k} tile ${i}`).toBe(wasH[i]);
+      taken++;
+    }
+    expect(strokes).toBeGreaterThan(10);
+    expect(taken).toBeGreaterThan(15);
+    expect(refused).toBeGreaterThan(0);
+    const full = s.fullBuild();
+    expect(Array.from(full.heights)).toEqual(Array.from(s.built.heights));
+    expect([...masksOf(full.cache.terrain)]).toEqual([...masksOf(s.built.cache.terrain)]);
+  });
+
+  it("the block an object stands on stays: a slope's too", () => {
+    const s = MapSession.fromGenerated(r, r.file);
+    const slope = s.built.entities.find((e) => e.template === "Slope");
+    expect(slope).toBeDefined();
+    const u = s.apply(op(remove("+z", [[slope!.x, slope!.y, slope!.z - 1]])));
+    expect(u.errors).toEqual([`an object stands on the block at (${slope!.x}, ${slope!.y}) in layer ${slope!.z - 1}`]);
+    expect(s.canUndo).toBe(false);
+  });
+});
 
 describe("the Block tool's steps undo, replay and save exactly", () => {
   it("random blocks and strokes: nothing falls, an incremental build equals a full one, undo and redo give each state's exact runs, the project replays onto the same runs", () => {
