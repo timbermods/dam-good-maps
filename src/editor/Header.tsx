@@ -142,7 +142,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; clipped: boolean; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: { name: string; clipped: boolean; onShown(): void; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
   const [text, setText] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
@@ -154,6 +154,10 @@ function TitleName(p: { name: string; clipped: boolean; onRename(name: string): 
       input.current?.select();
     }
   }, [text !== null]);
+  // (clipping is measured only while the name is shown, not while its field is open: measure again once it is back)
+  useLayoutEffect(() => {
+    if (text === null) p.onShown();
+  }, [text === null]);
   const say = (problem: string | null, forAWhile = false) => {
     clearTimeout(timer.current);
     p.onProblem(problem);
@@ -375,7 +379,7 @@ export function Header(p: HeaderProps) {
         Your maps
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} clipped={clipped} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>

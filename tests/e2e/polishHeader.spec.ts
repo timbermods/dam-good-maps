@@ -25,6 +25,9 @@ const shownLines = (button: Locator) =>
     return { lines: Math.round(e.clientHeight / line), wide: e.scrollWidth > e.clientWidth + 0.5 };
   });
 
+// (a hovered control's title waits in data-tip-held while the page's tooltip shows, as tooltips.spec reads it)
+const tip = (button: Locator) => button.evaluate((e) => e.getAttribute("title") ?? e.getAttribute("data-tip-held"));
+
 const box = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox())!;
 
 test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a key past it does nothing, and the header holds it", async ({ page }) => {
@@ -199,16 +202,20 @@ test("a name the room cannot hold in two lines is shown clamped to two with an e
   await expect(field).toHaveValue(wide);
   await page.keyboard.press("Enter");
   await expect(button).toHaveText(wide);
-  const shown = await shownLines(button);
-  expect(shown.lines).toBeLessThanOrEqual(2);
-  expect(shown.wide).toBe(false);
+  // (the header re-fits the new name in the frames after the field closes; the settled state is what is judged)
+  await expect
+    .poll(async () => {
+      const s = await shownLines(button);
+      return s.lines <= 2 && !s.wide;
+    })
+    .toBe(true);
   expect(await button.evaluate((e) => e.scrollHeight > e.clientHeight + 1)).toBe(true);
   expect(await button.evaluate((e) => getComputedStyle(e).textOverflow)).toBe("ellipsis");
-  await expect(button).toHaveAttribute("title", wide);
+  await expect.poll(() => tip(button)).toBe(wide);
   expect((await box(page, "header.editor-bar")).height).toBe(header.height);
   // a short name is whole again, its tooltip back to what the click does
   await button.click();
   await field.fill("Quiet Valley");
   await page.keyboard.press("Enter");
-  await expect(button).toHaveAttribute("title", "Rename");
+  await expect.poll(() => tip(button)).toBe("Rename");
 });
