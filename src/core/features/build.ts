@@ -99,6 +99,9 @@ export interface BaseLayer {
   /** The soil the file stores on each tile's top (a stored generation's, frozen): where the edits
    *  changed it, its trees and bushes are judged again (step 11); elsewhere they stand as stored. */
   soil?: { moisture: ArrayLike<number>; contamination: ArrayLike<number> };
+  /** The file's water is not kept even while nothing changes the water: the map was cropped (D340), its
+   *  water is the old map's on tiles whose edge is new, and it settles again as after any edit. */
+  resettle?: boolean;
 }
 
 /** The land a generation's processes made (M9a, docs/m9-design.md §12): the ground build step 1
@@ -1078,7 +1081,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   const emitters = JSON.stringify(model.emitters);
   const resourceFeatures = resourceOrder(features).filter(live);
   // an imported map keeps its file's water until its terrain or water objects change
-  const fileWater = !!base && sameModelAsBase(base, model, W, H);
+  const fileWater = !!base && !base.resettle && sameModelAsBase(base, model, W, H);
   const needWater = !fileWater || resourceFeatures.length > 0;
   let settle: CanonicalWater | null = null;
   const initial = opts.water === "defer" ? opts.initialWater : undefined;
