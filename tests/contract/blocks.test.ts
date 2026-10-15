@@ -750,6 +750,9 @@ describe("the Block tool on a generated map", () => {
     tunnel(s, x, y, h);
     expect(s.apply(op(add("+z", [[x + 5, y, h - 1]], 2, "round"))).errors).toEqual([]);
     s.settleCanonical();
+    // (#435: the hollow makes terrain above terrain, whose water is the stacked engine's on every column)
+    expect(s.built.waterModel.stacked).toBeDefined();
+    expect(s.built.settle.stack?.stacked).toBe(true);
     const bytes = s.project();
     const again = MapSession.open(decodeProject(bytes));
     expect(Array.from(again.terrain.mask)).toEqual(Array.from(s.terrain.mask));

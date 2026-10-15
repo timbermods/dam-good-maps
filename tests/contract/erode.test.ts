@@ -381,6 +381,9 @@ describe("Erode as an operation (D342)", () => {
     // (planned, a few of its steps shown, then stopped)
     for (let k = 0; k < 3; k++) expect(ed.forceAdvance(2)!.done).toBe(false);
     expect(ed.forceStop().kept).toBe(true);
+    // (its hollows are terrain above terrain, whose water settles in the background, #435: settled, the
+    // project stores the map)
+    ed.settleWater();
     const doc = decodeProject(ed.project().bytes);
     expect(MapSession.replayMatchesStored(doc)).toBe(true);
     const kept = MapSession.open(doc).terrain.mask;
