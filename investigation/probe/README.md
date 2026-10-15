@@ -14,7 +14,7 @@ Needs Windows, Timberborn 1.1.2.4 from Steam, the .NET 8 SDK and Node 22 or late
 
 ```sh
 npm --prefix investigation/probe ci
-npm --prefix investigation/probe test
+npm --prefix investigation/probe test   # CI runs this and the typecheck every night (.github/workflows/probe.yml)
 npm --prefix investigation/probe run batch -- --smoke
 ```
 

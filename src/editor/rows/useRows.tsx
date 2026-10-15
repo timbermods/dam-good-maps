@@ -27,6 +27,7 @@ const TURNS: [number, string, string][] = [
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
+import { itemName, withArticle } from "../../core/doc/labels";
 
 export interface RowsSlice {
   pickTile: (x: number, y: number) => void;
@@ -116,7 +117,7 @@ export function useRows(ed: Ed): RowsSlice {
                 {...tip("Delete it", "Delete")}
                 onClick={() => {
                   setPickedObject(null);
-                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${name.toLowerCase()}`));
+                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
                 }}
               >
                 Delete

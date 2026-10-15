@@ -68,6 +68,17 @@
   text-overflow: clip;
 }
 
+/* the shown name never takes more than two lines: past them an ellipsis, and the full name in its tooltip (a name may
+   be longer than the room where the fonts are wide) */
+.editor-title.two-lines h1:not(.title-editing) .title-button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* (two lines at full size; only when two full-size lines can't hold it, two lines in 13px: Kyler, 2026-10-06; at 1280
    every name Rename allows fits two lines in that) */
 .editor-title.two-lines h1 {
@@ -395,7 +406,8 @@
 
 /* (the close × is a square the height of the heading row) */
 .history-panel .hist-close {
-  width: 26px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   font-size: 16px;
   line-height: 1;
@@ -478,7 +490,8 @@
 
 /* the row is never lit; its box is (Timberborn's settings' checkbox: a 1.5px quiet border, 3px corners; ticked, the
    mint with a dark tick) */
-.show-row .cb {
+.show-row .cb,
+.look-part .cb {
   flex: none;
   display: grid;
   place-items: center;
@@ -489,13 +502,15 @@
   border-radius: 3px;
 }
 
-.show-row .cb.on {
+.show-row .cb.on,
+.look-part .cb.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
-.show-row .cb svg {
+.show-row .cb svg,
+.look-part .cb svg {
   width: 12px;
   height: 12px;
 }
@@ -2171,10 +2186,14 @@
   line-height: 16px;
 }
 
-/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom */
-.view3d-corner .compass {
+/* the compass the top band's height too, so Top-down, Reset view and it share one top and one bottom; it stays round
+   among the camera group's buttons (the group's own rules give them 8px corners) */
+.view3d-corner .compass,
+.camera-group > button.compass {
   width: var(--corner-h);
   height: var(--corner-h);
+  padding: 0;
+  border-radius: 50%;
 }
 
 /* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
@@ -2532,6 +2551,44 @@
   .shortcut-groups {
     column-count: 1;
   }
+}
+
+/* the Look menu, in the page's own controls: the three looks a segmented choice, the chosen cell filled as the settings'
+   choices are; High's parts checkbox rows as the Show column's, a name that wraps hanging under its own first letter */
+.menu.look-menu {
+  box-sizing: border-box;
+  width: 260px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.look-menu .note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 0.8rem;
+}
+
+.look-menu .look-part {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 2px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.look-menu .look-part .cb {
+  margin-top: 2px;
+}
+
+/* the checks' list lies over the corner where the open Legend hangs: while it is open the Legend steps aside (it comes
+   back as the list closes; its Legend box keeps its state) */
+body:has(.checks-list) .legend-panel,
+body:has(.checks-list) .show-key {
+  visibility: hidden;
 }
 
 /* the editor's frame while the first map is made (LoadingFrame.tsx): the header, bar and shelf held still, the land's
