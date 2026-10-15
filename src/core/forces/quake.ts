@@ -49,12 +49,13 @@ export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
 export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
-/** How far a quake reaches past its drawn line (tiles) at a Power: the ground along the line and this far
- *  past its ends and sides (D344 A6: the quake's line is its length): 2 tiles at Power 0, 8 at 100. A
- *  longer line moves a block 1.3 times its length across, as before; a short one, twice the margin: it never reaches
- *  the 40 tiles the old shaking did. The same number is in rust/forces (Fault::new). */
+/** How far a quake reaches past its drawn line (tiles) at a Power: the ground it changes lies within twice this of the
+ *  line, its ends included (D344 A6: the quake's line is its length), or within 1.3 times a longer line's length: 2 tiles
+ *  at Power 0, 8 at 100. A short line never reaches the 40 tiles the old shaking did. The same number is in rust/forces
+ *  (`Fault::margin`). */
 export const quakeMargin = (power: number) => 2 + Math.round(power * 0.06);
-/** The most a quake of a line this long (tiles) reaches from it, at a Power. */
+/** The most a quake of a line this long (tiles) reaches from it at a Power: the changed ground's distance from the drawn
+ *  line (a Slide's land lands that far plus its travel along it). */
 export const quakeExtent = (power: number, lineLength: number, mode: "lift" | "slide") => {
   const margin = quakeMargin(power);
   return Math.max(margin * 2, lineLength * 1.3) + (mode === "slide" ? margin * 0.5 : 0);

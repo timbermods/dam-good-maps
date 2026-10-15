@@ -11,7 +11,7 @@ import { outlineBounds, type OpParams } from "../core/doc/ops";
 import { movePatch as corePatch } from "../core/doc/tools";
 import { OBJECT_NAMES as OBJECT_KIND_NAMES, objectTiles } from "../core/features/objects";
 import { DEAD, FLIPPED, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "../render3d/model";
-import { makesRoomForStart, startFitProblem } from "../core/doc/startFit";
+import { startFitProblem, takenTiles } from "../core/doc/startFit";
 import { walkRegions } from "../core/analysis/regions";
 import { pumpShoreDistance, reachAt, walkDistance } from "../core/analysis/walk";
 import { noWood, type WoodBySpecies, type WoodSpecies } from "../core/analysis/wood";
@@ -628,15 +628,20 @@ function startTaken(c: TileContext, self: string | null): Uint8Array {
   if (!byOwner) startTakenOf.set(c.entitiesAt, (byOwner = new Map()));
   let taken = byOwner.get(self);
   if (taken) return taken;
-  taken = new Uint8Array(c.W * c.H);
   const e = c.entities;
-  for (let k = 0; k < e.count; k++) {
-    const t = e.templates[e.template[k]];
-    const owner = e.owners[e.owner[k]];
-    if (owner === self || !FOOTPRINTS[t] || makesRoomForStart(t, owner === "import")) continue;
-    const p = { template: t, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
-    for (const [tx, ty] of footprintTiles(t, p)) if (tx >= 0 && ty >= 0 && tx < c.W && ty < c.H) taken[ty * c.W + tx] = 1;
-  }
+  taken = takenTiles(
+    c.W,
+    c.H,
+    (function* () {
+      for (let k = 0; k < e.count; k++) {
+        const template = e.templates[e.template[k]];
+        if (!FOOTPRINTS[template]) continue;
+        const p = { template, x: e.x[k], y: e.y[k], z: e.z[k], orientation: ORIENTATION_NAMES[e.orientation[k]] as Orientation, flipped: (e.flags[k] & FLIPPED) !== 0 };
+        yield { template, owner: e.owners[e.owner[k]], raw: e.owners[e.owner[k]] === "import", tiles: () => footprintTiles(template, p) };
+      }
+    })(),
+    self,
+  );
   byOwner.set(self, taken);
   return taken;
 }

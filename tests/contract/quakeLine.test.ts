@@ -41,7 +41,7 @@ describe("Quake keeps to its line", () => {
           expect(changed).toBeGreaterThanOrEqual(9);
         });
 
-  it("the margin grows with Power, from 2 to 8 tiles, and a long line still moves a block 1.3 times its length across", () => {
+  it("the margin grows with Power, from 2 to 8 tiles, and a long line still moves a block 1.3 times its length", () => {
     expect([quakeMargin(0), quakeMargin(50), quakeMargin(100)]).toEqual([2, 5, 8]);
     expect(quakeExtent(100, 8, "lift")).toBe(16);
     expect(quakeExtent(100, 100, "lift")).toBe(130);
