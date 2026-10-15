@@ -21,7 +21,7 @@ test("Keyboard shortcuts lists the keys, ? opens it, Esc and Close close it, and
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("dt", { hasText: "Carve: a river" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
+  await expect(dialog.locator("dt", { hasText: "Carve: a river or canyon" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
   // the mouse's camera moves are on the sheet
   const mouse = dialog.locator("dt", { hasText: /^(Turn the view|Move the view|Zoom)$/ });
   for (const [what, key] of [["Turn the view", "Middle-drag"], ["Move the view", "Right-drag"], ["Zoom", "Scroll"]]) {
