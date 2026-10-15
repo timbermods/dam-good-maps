@@ -14,6 +14,40 @@ mockup and capture named below is in the Release
 2. **Meaning** (below): what each colour, mark, word and state tells the player.
 3. The look. When a look rule and a meaning conflict, the meaning stays and the look changes.
 
+## CSS principles
+
+The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026-10-15). They sit in `src/styles/app.css`
+(tokens, motion, focus, press, text-wrap) and change no layout.
+
+- **Colour tokens:** one set on `:root`, each `light-dark(light, dark)`, with `color-scheme: light dark`; never a second block
+  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root. A value that isn't a
+  colour (a shadow's blur) can't use `light-dark()`; keep it in the one small `prefers-color-scheme` block beside the tokens.
+- **Motion:** take `--ease-out` and `--ease-in-out` and the `--dur-*` tokens; never `ease-in` on the interface, never
+  `transition: all` (name the properties). Movement (transform, size) goes inside
+  `@media (prefers-reduced-motion: no-preference)`; fades of opacity and colour stay outside it.
+- **Hover only where hover exists:** hover styles sit in `@media (hover: hover) and (pointer: fine)`. A reveal also shows on
+  `:focus-within`, so a touch screen reaches it.
+- **`overflow: clip`, not `hidden`,** wherever the box isn't meant to scroll: it makes no scroll container and keeps
+  `position: sticky` working. Keep `hidden` for `-webkit-line-clamp` and `auto` where something scrolls. A flex or grid item
+  that clips text takes `min-width: 0` (clip, unlike hidden, leaves the item's minimum size alone).
+- **Scrolling:** every inner scroller has `overscroll-behavior: contain`; `html` has `overscroll-behavior-y: none`, restored for
+  coarse pointers. `scrollbar-gutter: stable` only where a scrollbar's arrival would move content and the resting layout
+  stays the same.
+- **Safe alignment:** a centred flex or grid container whose content can overflow uses `safe center`, so the overflow runs off
+  the end instead of both sides.
+- **Tabular numbers:** `font-variant-numeric: tabular-nums` on numeric readouts only (sizes, values, counts, percentages,
+  coordinates), never globally.
+- **One focus ring:** `:focus-visible` draws `max(2px, 0.08em)` in the text colour, a quarter em off the edge; a filled control
+  takes the accent; a control inside something that clips draws it inside its own edge. Never `outline: none` without a
+  replacement.
+- **Press feedback:** a button scales to 0.97 while pressed (100 to 160 ms, `--ease-out`, inside the reduced-motion guard);
+  never the map's canvas, sliders, text fields, connected cells or list rows.
+- **Line breaks:** `text-wrap: balance` on headings and short titles, `text-wrap: pretty` on paragraphs, notes and tooltips.
+- **Tap:** `-webkit-tap-highlight-color: transparent` and `touch-action: manipulation` on interactive elements (a control that
+  takes the gesture itself sets `touch-action: none`); `font-synthesis: none`.
+- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, container queries,
+  `text-box` trim, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
+
 ## Three zones
 
 - **Map:** the 3D view, its sky, overlays, markers, ghosts, rings and the compass. Its colours are the map's own
