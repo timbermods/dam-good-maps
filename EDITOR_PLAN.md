@@ -202,7 +202,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
     about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
-    fit, "Move the start here" for the start where it does, "Place here" for the rest. Click to place, R to
+    fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
     places it there (the start moves the map's one start); a drag that doesn't place always ends placement. The

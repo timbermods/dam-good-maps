@@ -13,7 +13,7 @@ import { entityTiles } from "../features/edits";
 import { isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import type { MapSession } from "./session";
 import { levelFootprint, levelProblem } from "./placing";
-import { cornerFor, startClears, startMiddle } from "./start";
+import { cornerFor, startClears, startGroundOf, startMiddle, startProblem } from "./start";
 import { startEntranceTile, type Orientation } from "../format/footprints";
 import { withArticle } from "./labels";
 
@@ -223,6 +223,10 @@ function movePlan(s: MapSession, id: string, dx: number, dy: number): PlannedEdi
  *  on its own ground; `newId` names it. The step's operations and label, or why not. */
 export function planStart(s: MapSession, x: number, y: number, orientation: Orientation | undefined, newId: () => string): { ok: true; ops: EditOp[]; label: string } | { ok: false; errors: string[] } {
   const f = s.features.find((g) => g.kind === "start");
+  // (the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
+  const own = s.built.entities.find((g) => g.template === "StartingLocation");
+  const why = startProblem(s.built, x, y, orientation ?? (f && f.kind === "start" ? f.params.orientation : (own?.orientation ?? "Cw0")), false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
+  if (why) return fail(`the start can't stand there: ${why}`);
   if (f && f.kind === "start") {
     const at = startMiddle(s)!;
     const moves = x !== at[0] || y !== at[1];

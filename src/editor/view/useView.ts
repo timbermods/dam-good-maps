@@ -164,7 +164,7 @@ export function useView(ed: Ed): ViewSlice {
       if (e.templates[e.template[k]] !== "StartingLocation") continue;
       const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
       const [cx, cy] = cornerToCentre(e.x[k], e.y[k], o);
-      return { x: cx, y: cy, orientation: o, feature: null, owner: e.owners[e.owner[k]] };
+      return { x: cx, y: cy, orientation: o, feature: null, owner: null };
     }
     return null;
   }, [info.features, info.version]);

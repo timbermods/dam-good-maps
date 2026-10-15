@@ -3,6 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { cornerFor } from "../../core/doc/tools";
+import { startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
 import { footprintTiles, startEntranceTile, type Orientation } from "../../core/format/footprints";
 import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { SessionUpdate, ToolRequest } from "../../worker/session";
@@ -102,6 +103,12 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** Where the ghost stands, and the tile the pointer was last over (R turns it there). */
   const ghostAt = useRef<{ template: string; x: number; y: number; z: number; orientation: number } | null>(null);
   const shelfTile = useRef<[number, number] | null>(null);
+  /** The generation's objects that keep a distance from the start, made once per map version, not per pointer move (core/doc/startFit.ts). */
+  const fitExtras = useRef<{ version: number; extras: StartFitExtra[] } | null>(null);
+  function startExtras(): StartFitExtra[] {
+    if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H) };
+    return fitExtras.current.extras;
+  }
   /** The shelf's object over tile (x, y): its ghost there at once, then whether it fits (the
    *  worker's footprint check; the start's own check on the page), with the reason beside the
    *  pointer when it doesn't. */
@@ -126,11 +133,13 @@ export function useShelf(ed: Ed): ShelfSlice {
       const tiles: number[] = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H) tiles.push((y + dy) * W + x + dx);
       const own = [...tiles, ...(door[0] >= 0 && door[1] >= 0 && door[0] < W && door[1] < info.H ? [door[1] * W + door[0]] : [])];
+      // (it fits but the checks would flag it: amber with the first warning, and no "Move the start here", D361)
+      const warning = problem ? null : (startFitWarnings(startExtras(), W, info.H, x, y)[0] ?? null);
       const job = ++shelfStartJob.current;
       const spot = spotOf(item, x, y);
       shownFit.current = { spot, problem };
-      setFit({ tiles: own, problem, status: problem ? "blocked" : "pending" });
-      shelfWord(problem);
+      setFit({ tiles: own, problem, status: problem ? "blocked" : warning ? "warn" : "pending" });
+      shelfWord(problem, warning);
       if (!problem && mirror.current.water) {
         // (whether it meets the start requirements: the walks, in the start's own worker)
         const m = mirror.current;
@@ -139,14 +148,15 @@ export function useShelf(ed: Ed): ShelfSlice {
           .then((check) => {
             if (job !== shelfStartJob.current || !mounted.current || !shelfRef.current) return;
             shownFit.current = { spot, problem: check.problem };
-            setFit({ tiles: own, problem: check.problem, status: startStatus(check) });
-            renderer.current?.setGhost({ ...ghostAt.current!, ok: GHOST_OK[startStatus(check)] });
+            const status = check.problem || !warning ? startStatus(check) : "warn";
+            setFit({ tiles: own, problem: check.problem, status });
+            renderer.current?.setGhost({ ...ghostAt.current!, ok: GHOST_OK[status] });
           })
           .catch(() => undefined);
       }
       // (an opened map's start is levelled to the height most of its footprint stands at: D328)
       ghostAt.current = { template: "StartingLocation", x: cx, y: cy, z: bench ? bench.level : modalLevel(own.map((i) => h[i])), orientation: ORIENTATION_NAMES.indexOf(o) };
-      r.setGhost({ ...ghostAt.current, ok: problem ? false : null });
+      r.setGhost({ ...ghostAt.current, ok: problem ? false : warning ? "warn" : null });
       return;
     }
     const template = templateOf(item, shelfOptionsRef.current);
@@ -180,12 +190,13 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** The one label beside the pointer for the shelf's object (D323, item 32): the reason it can't
    *  stand there, or where it fits what the click does ("Move the start here", else "Place here").
    *  Nothing picked, no label. */
-  function shelfWord(problem: string | null) {
+  function shelfWord(problem: string | null, warning: string | null = null) {
     const item = shelfRef.current;
     if (!item) return setShapeNote(null);
     // (a tree, bush or thorn has its ring: no "Place here" over it, only the reason it can't grow there)
     // (on ground where the plants would die: the ring is amber and says so, D235; still allowed)
     if (item.paint && !problem) return setShapeNote(dryRing.current ? { text: "dry ground: these will die", ok: true, warn: true, ...pointerAt.current } : null);
+    if (!problem && warning) return setShapeNote({ text: warning, ok: true, warn: true, ...pointerAt.current });
     setShapeNote({ text: problem ? quietWord(problem) : item.id === "start" && startHereRef.current ? "Move the start here" : "Place here", ok: true, warn: !!problem, ...pointerAt.current });
   }
   /** The start's facing with the shelf's turns (R). */
