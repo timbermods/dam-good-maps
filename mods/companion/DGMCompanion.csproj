@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Dam Good Maps companion mod, built against the local game install (see README.md and scripts/build.mjs). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>DGMCompanion</AssemblyName>
+    <RootNamespace>DGMCompanion</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <Version>0.1.0</Version>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DebugType>none</DebugType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Timberborn</GameDir>
+    <Managed>$(GameDir)\Timberborn_Data\Managed</Managed>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="$(Managed)\Timberborn.*.dll" Private="false" />
+    <Reference Include="$(Managed)\UnityEngine.dll" Private="false" />
+    <Reference Include="$(Managed)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(Managed)\UnityEngine.ScreenCaptureModule.dll" Private="false" />
+    <Reference Include="$(Managed)\UnityEngine.UIElementsModule.dll" Private="false" />
+    <Reference Include="$(Managed)\UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="$(Managed)\Unity.InputSystem.dll" Private="false" />
+    <Reference Include="$(Managed)\Bindito.Core.dll" Private="false" />
+    <Reference Include="$(Managed)\System.Collections.Immutable.dll" Private="false" />
+  </ItemGroup>
+</Project>
