@@ -69,7 +69,7 @@ import {
 import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE } from "./light";
+import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
@@ -362,25 +362,69 @@ export function hatchMarks(W: number, H: number, overlay: Uint8Array, into?: Uin
 export function contaminationEdges(W: number, H: number, tiles: Uint8Array, into?: Uint8Array): Uint8Array {
   const out = into ?? new Uint8Array(W * H * 4);
   out.fill(0);
-  const bad = (i: number) => (tiles[i * 4 + 1] & 15) > 0;
-  const wet = (i: number) => tiles[i * 4 + 3] > 0;
-  const sides: [number, number, number][] = [[1, 0, 1], [-1, 0, 2], [0, 1, 4], [0, -1, 8]];
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  contaminationEdgesRect(W, H, tiles, out, 0, 0, W - 1, H - 1);
+  return out;
+}
+
+/** The outline's tiles x0…x1 × y0…y1 only, into `out` (the same bytes as the whole map's). A tile's outline reads the tile
+ *  data of that tile and its four neighbours: after a change to tile data, redo the changed tiles and one tile round them. */
+export function contaminationEdgesRect(W: number, H: number, tiles: Uint8Array, out: Uint8Array, x0: number, y0: number, x1: number, y1: number): void {
+  const xa = Math.max(0, x0);
+  const xb = Math.min(W - 1, x1);
+  for (let y = Math.max(0, y0); y <= Math.min(H - 1, y1); y++)
+    for (let x = xa; x <= xb; x++) {
       const i = y * W + x;
-      const b = bad(i);
+      const b = (tiles[i * 4 + 1] & 15) > 0;
+      const wetHere = tiles[i * 4 + 3] > 0;
       let bits = 0;
-      for (const [dx, dy, bit] of sides) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const j = ny * W + nx;
-        if (bad(j) === b) continue;
-        if (b ? !wet(i) : wet(j)) bits |= bit;
+      // (a side counts when the neighbour differs in contamination: the dirty tile's side where it is dry, else the dirty neighbour's wet side)
+      if (x + 1 < W) {
+        const j = i + 1;
+        if ((tiles[j * 4 + 1] & 15) > 0 !== b && (b ? !wetHere : tiles[j * 4 + 3] > 0)) bits |= 1;
+      }
+      if (x > 0) {
+        const j = i - 1;
+        if ((tiles[j * 4 + 1] & 15) > 0 !== b && (b ? !wetHere : tiles[j * 4 + 3] > 0)) bits |= 2;
+      }
+      if (y + 1 < H) {
+        const j = i + W;
+        if ((tiles[j * 4 + 1] & 15) > 0 !== b && (b ? !wetHere : tiles[j * 4 + 3] > 0)) bits |= 4;
+      }
+      if (y > 0) {
+        const j = i - W;
+        if ((tiles[j * 4 + 1] & 15) > 0 !== b && (b ? !wetHere : tiles[j * 4 + 3] > 0)) bits |= 8;
       }
       out[i * 4] = bits;
     }
-  return out;
+}
+
+let edgeLo = new Int32Array(0);
+let edgeHi = new Int32Array(0);
+
+/** The outline redone where tile data changed: round each run of tiles (`TileChanges.edgeRows`: tiles that became or stopped
+ *  being wet or contaminated), one tile further and a row either side. Returns the rows redone, for the GPU. The same bytes
+ *  as `contaminationEdges` of the whole map. */
+export function redoContaminationEdges(W: number, H: number, tiles: Uint8Array, out: Uint8Array, spans: readonly TileSpan[]): TileSpan[] {
+  if (!spans.length) return [];
+  // (the rows' bounds, kept between calls: a water update calls this many times a second)
+  if (edgeLo.length < H) {
+    edgeLo = new Int32Array(H);
+    edgeHi = new Int32Array(H);
+  }
+  const lo = edgeLo.fill(W, 0, H);
+  const hi = edgeHi.fill(-1, 0, H);
+  for (const s of spans)
+    for (let y = Math.max(0, s.y - 1); y <= Math.min(H - 1, s.y + 1); y++) {
+      lo[y] = Math.min(lo[y], s.x0 - 1);
+      hi[y] = Math.max(hi[y], s.x1 + 1);
+    }
+  const done: TileSpan[] = [];
+  for (let y = 0; y < H; y++) {
+    if (hi[y] < 0) continue;
+    contaminationEdgesRect(W, H, tiles, out, lo[y], y, hi[y], y);
+    done.push({ y, x0: Math.max(0, lo[y]), x1: Math.min(W - 1, hi[y]) });
+  }
+  return done;
 }
 
 /** The terrain shader's per-tile data (light.ts `tileData`): nearest, one texel per tile. */
