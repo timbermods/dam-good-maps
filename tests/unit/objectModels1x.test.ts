@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS } from "../../src/core/format/footprints";
-import { buildEntities, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { buildEntities, mineCutout, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { entityView } from "../../src/render3d/model";
 
 const BUDGET: Record<string, number> = {
@@ -15,10 +15,10 @@ const BUDGET: Record<string, number> = {
   BadwaterSeep: 400,
   Aquifer: 400,
   AncientAquiferDrill: 450,
-  BadtideDrain: 200,
-  UnstableCore: 300,
-  ReservePile: 220,
-  ReserveWarehouse: 140,
+  BadtideDrain: 260,
+  UnstableCore: 360,
+  ReservePile: 340,
+  ReserveWarehouse: 240,
   ReserveTank: 340,
 };
 
@@ -31,20 +31,18 @@ describe("the 1.x objects' models", () => {
       const fp = FOOTPRINTS[template].size;
       // (the model is centred on its footprint: x east, z south, the footprint's y running north)
       const p = modelOf(key).pos;
-      const half = key === "BadtideDrain" ? [0.5, 1.5] : [fp[0] / 2, fp[1] / 2];
-      const mid = key === "BadtideDrain" ? [0, 0] : [0, 0];
+      const half = [fp[0] / 2, fp[1] / 2];
       let lo = [Infinity, Infinity];
       let hi = [-Infinity, -Infinity];
       for (let k = 0; k < p.length; k += 3) {
         lo = [Math.min(lo[0], p[k]), Math.min(lo[1], p[k + 2])];
         hi = [Math.max(hi[0], p[k]), Math.max(hi[1], p[k + 2])];
       }
-      // (a drain's spout sheet hangs just past its last tile; everything else stays inside)
-      const slack = key === "BadtideDrain" ? 0.2 : 0.03;
-      expect(lo[0]).toBeGreaterThanOrEqual(mid[0] - half[0] - slack);
-      expect(hi[0]).toBeLessThanOrEqual(mid[0] + half[0] + slack);
-      expect(lo[1]).toBeGreaterThanOrEqual(mid[1] - half[1] - slack);
-      expect(hi[1]).toBeLessThanOrEqual(mid[1] + half[1] + slack);
+      const slack = 0.03;
+      expect(lo[0]).toBeGreaterThanOrEqual(-half[0] - slack);
+      expect(hi[0]).toBeLessThanOrEqual(half[0] + slack);
+      expect(lo[1]).toBeGreaterThanOrEqual(-half[1] - slack);
+      expect(hi[1]).toBeLessThanOrEqual(half[1] + slack);
     });
   }
 
@@ -54,7 +52,14 @@ describe("the 1.x objects' models", () => {
       .map((template, i) => ({ template, x: 4 + i * 4, y: 4, z: 0 }));
     for (const lite of [false, true]) {
       const names = new Set((buildEntities(entityView(list as unknown as Parameters<typeof entityView>[0]), new ShaderMaterial(), null, 0, lite).group.children as unknown as { name: string }[]).map((m) => m.name));
-      for (const { template } of list) expect(names.has(lite && template === "Succulent" ? "Succulent.lite" : template + (lite ? "" : ""))).toBe(true);
+      for (const { template } of list) expect(names.has(lite && template === "Succulent" ? "Succulent.lite" : template)).toBe(true);
     }
+  });
+
+  it("a seep's pit cuts out the terrain over its whole 2 × 2, as a mine site's does", () => {
+    const view = entityView([{ template: "WaterSeep", x: 10, y: 20, z: 5, orientation: "Cw90" }, { template: "Aquifer", x: 40, y: 40, z: 5, orientation: "Cw0" }] as unknown as Parameters<typeof entityView>[0]);
+    const cut = mineCutout(view, 64, 64);
+    expect(cut.size).toBe(4);
+    for (const v of cut.values()) expect(v).toBe(5);
   });
 });

@@ -387,9 +387,10 @@ const MODELS: Record<string, () => Model> = {
 // ------------------------------------------------------------------------------ the 1.x objects
 
 // Models of our own for the objects Timberborn 1.x added (the succulent, the seeps, the aquifer and its
-// drill, the badtide drain, the unstable core and the reserves), each within the game's footprint
-// (a model's x is east and z south; a footprint's local y runs north, so −z) and centred on it
-// (`CENTRED`). Flat vertex colours and low triangle counts, like the others; both looks draw them.
+// drill, the badtide drain, the unstable core and the reserves), each shaped after the game's own
+// object, within its footprint (a model's x is east and z south; a footprint's local y runs north, so
+// −z) and centred on it (`CENTRED`). Flat vertex colours and low triangle counts, like the others;
+// both looks draw them. A seep's pit is a terrain cut-out (`mineCutout`), like a mine site's.
 
 /** A square-sectioned bar of half-width r from a to b in space (8 triangles). */
 function beam(m: Model, a: readonly number[], b: readonly number[], r: number, color: Rgb): void {
@@ -401,196 +402,223 @@ function beam(m: Model, a: readonly number[], b: readonly number[], r: number, c
   m.add(g, color, { x: c.x, y: c.y, z: c.z });
 }
 
-/** The desert plant (the game's succulent): a rosette of fleshy, pointed blades in sage blue-green, the
- *  outer ones splayed, the inner ones upright, with a flower spike in coral pink. Dead: the blades
- *  limp and tan, no flower. At most 64 triangles. */
+/** The desert plant (the game's succulent): a brown, pineapple-like trunk topped with four round
+ *  green paddle pads with reddish edges. Dead: a grey-tan trunk and limp tan pads. At most 64 triangles. */
 function succulent(dead: boolean): Model {
-  const m = new Model();
-  const blade = (r: number, len: number, tilt: number, turn: number, y: number, c: Rgb) => m.add(cone(r, len, 3), c, { lift: len / 2, rz: -tilt, ry: turn, y });
-  if (dead) {
-    for (let k = 0; k < 8; k++) blade(0.09, 0.46, 1.15, (k * Math.PI) / 4 + 0.2, 0.04, k % 2 ? [0.58, 0.5, 0.37] : [0.52, 0.45, 0.33]);
-    for (let k = 0; k < 3; k++) blade(0.08, 0.4, 0.8, (k * Math.PI * 2) / 3, 0.06, [0.5, 0.43, 0.32]);
-    return m;
-  }
-  for (let k = 0; k < 6; k++) blade(0.1, 0.5, 0.85, (k * Math.PI) / 3 + 0.2, 0.05, k % 2 ? [0.4, 0.58, 0.49] : [0.36, 0.53, 0.45]);
-  for (let k = 0; k < 4; k++) blade(0.09, 0.72, 0.42, (k * Math.PI) / 2 + 0.5, 0.08, k % 2 ? [0.5, 0.68, 0.58] : [0.46, 0.64, 0.55]);
-  for (let k = 0; k < 2; k++) blade(0.07, 0.9, 0.12, k * Math.PI, 0.1, [0.56, 0.74, 0.62]);
-  m.add(cyl(0.03, 0.018, 0.45, 3), [0.5, 0.58, 0.36], { y: 0.78 });
-  m.add(oct(0.075), [0.95, 0.42, 0.52], { y: 1.04, sy: 1.4 });
-  m.add(oct(0.045), [0.98, 0.58, 0.64], { x: 0.05, y: 0.92, z: 0.03, sy: 1.4 });
+  const trunk: Rgb = dead ? [0.55, 0.47, 0.36] : [0.43, 0.29, 0.17];
+  const m = new Model().add(cyl(0.2, 0.12, 0.66, 5), trunk, { y: 0.33 });
+  const green: Rgb = dead ? [0.58, 0.5, 0.36] : [0.36, 0.58, 0.3];
+  const rim: Rgb = dead ? [0.48, 0.38, 0.28] : [0.64, 0.27, 0.22];
+  // (a pad: a flat green dome over a wider reddish one, standing at `tilt` from upright, facing out along `turn`)
+  const pad = (turn: number, tilt: number, out: number, y: number) => {
+    const t = { rz: -tilt, ry: turn, x: Math.cos(turn) * out, z: -Math.sin(turn) * out, y };
+    m.add(cone(0.28, 0.05, 6), rim, t);
+    m.add(cone(0.22, 0.07, 6), green, { ...t, lift: 0.025 });
+  };
+  const droop = dead ? 0.5 : 0;
+  pad(0.3, 1.2 + droop, 0.19, 0.8);
+  pad(1.9, 1.25 + droop, 0.19, 0.7);
+  pad(3.5, 1.2 + droop, 0.19, 0.82);
+  pad(5.0, 1.25 + droop, 0.19, 0.68);
   return m;
 }
 
-/** The light look's succulent: five blades and a bloom. */
+/** The light look's succulent: a trunk and a pad on it. */
 function liteSucculent(): Model {
-  const m = new Model();
-  for (let k = 0; k < 5; k++) m.add(cone(0.12, 0.55, 3), [0.42, 0.62, 0.52], { lift: 0.275, rz: -0.55, ry: (k * Math.PI * 2) / 5, y: 0.05 });
-  return m.add(oct(0.08), [0.95, 0.42, 0.52], { y: 0.62 });
+  return new Model().add(cone(0.15, 0.6, 3), [0.43, 0.29, 0.17], { y: 0.3 }).add(cone(0.22, 0.1, 4), [0.4, 0.6, 0.32], { y: 0.7 });
 }
 
-const SEEP_STONE: Rgb = [0.55, 0.54, 0.5];
-const SEEP_BAD_STONE: Rgb = [0.27, 0.23, 0.21];
-
-/** A seep (2 × 2): a round pool in a ring of stones, the water welling up in the middle; clean in
- *  water-blue with a pale ripple, bad in the badwater crimson with slow orange-brown bubbles. */
+/** A seep (2 × 2): the game's square pit, stepped, sunk into the ground (the terrain's tops over the
+ *  footprint are cut out, `mineCutout`), with grey rocks heaped on its floor under the water: water-blue
+ *  and grey, or, for badwater, rust-crusted rocks in the renderer's badwater reds. */
 function seep(bad: boolean): Model {
-  const stone = bad ? SEEP_BAD_STONE : SEEP_STONE;
-  const water: Rgb = bad ? WATER.bad : WATER.shallow;
-  const m = new Model().add(post(0.95, 0.95, 0.02, 10), bad ? [0.15, 0.1, 0.09] : [0.34, 0.31, 0.26], { y: 0.01 });
-  m.add(post(0.7, 0.7, 0.05, 10), shade(water, 0.82), { y: 0.06 });
-  m.add(post(0.62, 0.62, 0.012, 10), water, { y: 0.09 });
-  for (let k = 0; k < 8; k++) {
-    const a = (k * Math.PI) / 4 + (k % 2) * 0.15;
-    const r = 0.72 + (k % 3 === 0 ? 0.04 : 0);
-    const s = 0.17 + 0.03 * (k % 3);
-    m.add(ico(s), shade(stone, 0.85 + 0.05 * ((k * 5) % 4)), { x: Math.cos(a) * r, y: 0.09, z: Math.sin(a) * r, sy: 0.75, ry: k });
-  }
-  if (bad) {
-    m.add(ico(0.22), [0.31, 0.11, 0.09], { y: 0.11, sy: 0.5 });
-    for (const [x, z, r] of [[0.28, 0.12, 0.1], [-0.3, -0.18, 0.08], [0.08, -0.34, 0.09], [-0.12, 0.34, 0.07]]) m.add(ico(r), [0.62, 0.3, 0.1], { x, y: 0.12, z, sy: 0.9 });
-  } else {
-    m.add(post(0.4, 0.4, 0.012, 10), [0.7, 0.88, 0.92], { y: 0.1 });
-    m.add(post(0.33, 0.33, 0.012, 10), water, { y: 0.108 });
-    m.add(ico(0.17), [0.4, 0.74, 0.8], { y: 0.12, sy: 0.55 });
-    m.add(cyl(0.04, 0.03, 0.14, 5), [0.8, 0.92, 0.94], { y: 0.2 });
-  }
-  return m;
-}
-
-/** The aquifer (3 × 3, a plus of five tiles, its corners empty): damp clay with a round pool of clean
- *  water in the middle, a pale shore round it, pebbles and small puddles along its arms. */
-function aquifer(): Model {
-  const clay: Rgb = [0.43, 0.36, 0.27];
+  const wall: Rgb = bad ? [0.27, 0.13, 0.1] : [0.19, 0.3, 0.33];
+  const ledge: Rgb = bad ? [0.38, 0.2, 0.12] : [0.27, 0.41, 0.44];
+  const floor: Rgb = bad ? WATER.badDeep : [0.14, 0.26, 0.3];
+  const rock: Rgb = bad ? [0.5, 0.3, 0.17] : [0.48, 0.55, 0.57];
+  const d1 = 0.28;
+  const d2 = 0.62;
   const m = new Model();
-  const cells: [number, number][] = [[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]];
-  cells.forEach(([x, z], k) => m.add(box(0.98, 0.05, 0.98), shade(clay, 0.9 + 0.06 * (k % 3)), { x, y: 0.025, z }));
-  m.add(post(0.9, 0.9, 0.02, 10), [0.78, 0.9, 0.92], { y: 0.06 });
-  m.add(post(0.76, 0.76, 0.03, 10), WATER.shallow, { y: 0.075 });
-  m.add(post(0.5, 0.5, 0.012, 10), [0.7, 0.88, 0.92], { y: 0.092 });
-  m.add(post(0.44, 0.44, 0.012, 10), WATER.shallow, { y: 0.1 });
-  const pebbles: [number, number, number][] = [[0.95, 0.2, 0.09], [-0.95, -0.25, 0.08], [0.2, 0.98, 0.09], [-0.25, -1.0, 0.08], [1.25, -0.2, 0.07], [-1.2, 0.3, 0.07], [0.3, 1.3, 0.06], [-0.2, -1.3, 0.07]];
-  for (const [x, z, r] of pebbles) m.add(oct(r), shade([0.6, 0.57, 0.5], 0.9 + 0.2 * Math.abs(Math.sin(x * 7 + z * 3))), { x, y: 0.07, z, sy: 0.7 });
-  for (const [x, z] of [[0, -1.12], [0, 1.12], [-1.12, 0], [1.12, 0]]) m.add(post(0.2, 0.2, 0.02, 5), WATER.shallow, { x, y: 0.06 });
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      m.add(plane(2, d1), wall, { y: -d1 / 2, z: -1 });
+      m.add(plane(2, 0.22), ledge, { rx: -Math.PI / 2, y: -d1, z: -0.89 });
+      m.add(plane(1.56, d2 - d1), shade(wall, 0.8), { y: -d1 - (d2 - d1) / 2, z: -0.78 });
+    });
+  m.add(plane(1.56, 1.56), floor, { rx: -Math.PI / 2, y: -d2 });
+  const rocks: [number, number, number, number][] = [
+    // x, z, radius, height of the middle over the floor
+    [0, 0, 0.24, 0.3],
+    [0.3, 0.12, 0.19, 0.2],
+    [-0.28, 0.2, 0.2, 0.18],
+    [0.1, -0.3, 0.19, 0.2],
+    [-0.2, -0.28, 0.17, 0.14],
+    [0.5, -0.32, 0.15, 0.1],
+    [-0.5, -0.05, 0.15, 0.1],
+    [0.15, 0.5, 0.15, 0.1],
+    [-0.1, 0.52, 0.14, 0.09],
+  ];
+  rocks.forEach(([x, z, r, h], k) => m.add(ico(r), shade(rock, 0.85 + 0.1 * (k % 3)), { x, y: -d2 + h, z, sy: 0.8, ry: k }));
+  if (bad) for (const [x, z] of [[0.05, 0.05], [0.3, 0.12], [-0.28, 0.2]]) m.add(oct(0.06), [0.78, 0.4, 0.12], { x: x + 0.05, y: -d2 + 0.42, z });
   return m;
 }
 
-/** The ancient aquifer drill (3 × 3 × 5, over an aquifer): a rusty derrick on a plus-shaped stone footing
- *  round the well, a steel drill pipe up its middle, a pulley under a roof at the top, and a tall stone
- *  housing on the south side (its local y = 0 tile) with a pipe to the well. */
+/** The aquifer (3 × 3, a plus of five tiles, its corners empty): dry, dark rubble over a cross, a dark
+ *  hole in the middle and a few stones strewn past its arms. It gives no water until a drill runs. */
+function aquifer(): Model {
+  const dark: Rgb = [0.23, 0.22, 0.21];
+  const m = new Model();
+  // (a flat, ragged patch: a blob over each tile of the cross)
+  const blobs: [number, number, number, number][] = [[0, 0, 0.7, 0.7], [0, -0.85, 0.55, 0.5], [0, 0.85, 0.55, 0.5], [-0.85, 0, 0.5, 0.55], [0.85, 0, 0.5, 0.55]];
+  blobs.forEach(([x, z, sx, sz], k) => m.add(ico(1), shade(dark, 0.8 + 0.1 * (k % 3)), { x, y: 0.0, z, sx, sy: 0.07, sz, ry: k }));
+  // rubble heaped over the cross and its edges
+  const stones: [number, number, number][] = [
+    [0.38, 0.38, 0.2], [-0.4, 0.34, 0.19], [0.36, -0.4, 0.18], [-0.38, -0.4, 0.2], [0.05, 0.62, 0.16], [0.02, -0.64, 0.17], [0.62, 0.02, 0.16], [-0.64, 0.05, 0.17],
+    [0.3, 0.95, 0.2], [-0.25, 1.05, 0.19], [0.1, 1.3, 0.14], [0.35, -1.02, 0.19], [-0.2, -1.12, 0.2], [-0.05, -1.3, 0.14],
+    [1.0, 0.3, 0.2], [1.1, -0.25, 0.19], [1.3, 0.05, 0.14], [-1.02, 0.28, 0.2], [-1.12, -0.25, 0.19], [-1.3, -0.05, 0.14],
+    [0.6, 0.62, 0.1], [-0.6, -0.6, 0.1], [0.6, -0.62, 0.1], [-0.6, 0.6, 0.1],
+  ];
+  stones.forEach(([x, z, r], k) => m.add(oct(r * 1.3), shade([0.36, 0.34, 0.32], 0.8 + 0.12 * (k % 4)), { x, y: 0.04 + r * 0.3, z, sy: 0.5, ry: k }));
+  // the hole: a ring of rubble round a dark mouth
+  for (let k = 0; k < 7; k++) {
+    const a = (k * Math.PI * 2) / 7;
+    m.add(oct(0.1), shade([0.3, 0.28, 0.26], 0.8 + 0.15 * (k % 3)), { x: Math.cos(a) * 0.27, y: 0.09, z: Math.sin(a) * 0.27, sy: 0.6, ry: k });
+  }
+  m.add(post(0.2, 0.2, 0.02, 7), [0.08, 0.06, 0.05], { y: 0.07 });
+  return m;
+}
+
+/** The ancient aquifer drill (3 × 3 × 5, over an aquifer): a yellow-and-black tripod holding a big screw
+ *  auger, a dark housing beside it and a long pipe running off on black trestles. */
 function aquiferDrill(): Model {
-  const stone: Rgb = [0.47, 0.45, 0.41];
-  const iron: Rgb = [0.46, 0.3, 0.18];
-  const steel: Rgb = [0.52, 0.55, 0.58];
-  const m = new Model().add(box(1.1, 0.22, 3.0), stone, { y: 0.11 }).add(box(3.0, 0.22, 1.1), shade(stone, 0.94), { y: 0.11 });
-  // the well
-  m.add(post(0.6, 0.6, 0.3, 8), shade(stone, 0.7), { y: 0.37 });
-  m.add(post(0.42, 0.42, 0.02, 8), WATER.shallow, { y: 0.53 });
-  // the derrick: four legs leaning in, rings round it, braces on two faces
-  const half = (y: number) => 0.6 - (0.3 * (y - 0.22)) / 4.08;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) beam(m, [sx * 0.6, 0.22, sz * 0.6], [sx * 0.3, 4.3, sz * 0.3], 0.055, iron);
-  for (const y of [1.2, 2.4, 3.6]) {
-    const e = half(y);
-    for (const s of [-1, 1]) {
-      beam(m, [-e, y, s * e], [e, y, s * e], 0.04, shade(iron, 1.1));
-      beam(m, [s * e, y, -e], [s * e, y, e], 0.04, shade(iron, 1.1));
-    }
+  const yellow: Rgb = [0.95, 0.76, 0.1];
+  const black: Rgb = [0.12, 0.12, 0.13];
+  const steel: Rgb = [0.6, 0.62, 0.65];
+  const m = new Model();
+  for (let k = 0; k < 3; k++) {
+    const a = (k * Math.PI * 2) / 3 + 0.5;
+    beam(m, [Math.cos(a) * 0.1, 2.3, Math.sin(a) * 0.1], [Math.cos(a) * 0.85, 0.12, Math.sin(a) * 0.85], 0.085, yellow);
+    m.add(box(0.28, 0.1, 0.28), black, { x: Math.cos(a) * 0.88, y: 0.05, z: Math.sin(a) * 0.88, ry: a });
   }
+  // the auger: a steel shaft with flights climbing it, a black pole and a yellow collar on top
+  m.add(cyl(0.17, 0.17, 2.3, 6), steel, { y: 1.2 });
+  for (let k = 0; k < 6; k++) m.add(oct(0.36), shade(steel, 0.85 + 0.1 * (k % 2)), { y: 0.35 + k * 0.32, sy: 0.18, ry: k * 0.7 });
+  m.add(cyl(0.07, 0.07, 0.7, 4), black, { y: 2.65 });
+  m.add(cyl(0.16, 0.16, 0.12, 6), yellow, { y: 2.38 });
+  // the housing, on the south side: dark panels in a yellow frame
+  m.add(box(0.7, 1.5, 0.3), [0.28, 0.29, 0.33], { x: -0.35, y: 0.95, z: 0.62 });
+  for (const s of [-1, 1]) m.add(box(0.07, 1.54, 0.34), yellow, { x: -0.35 + s * 0.32, y: 0.95, z: 0.62 });
+  m.add(box(0.74, 0.07, 0.34), yellow, { x: -0.35, y: 1.72, z: 0.62 });
   m.level = LOD_NEAR;
-  for (const s of [-1, 1]) {
-    beam(m, [s * half(1.2), 1.2, -half(1.2)], [s * half(2.4), 2.4, half(2.4)], 0.03, shade(iron, 0.9));
-    beam(m, [s * half(1.2), 1.2, half(1.2)], [s * half(2.4), 2.4, -half(2.4)], 0.03, shade(iron, 0.9));
-  }
+  m.add(box(0.5, 0.5, 0.04), [0.2, 0.21, 0.25], { x: -0.35, y: 1.1, z: 0.79 });
   m.level = LOD_ALL;
-  // the drill pipe, the crown, the pulley and the roof
-  m.add(cyl(0.16, 0.16, 4.45, 6), steel, { y: 2.45 });
-  m.add(box(0.8, 0.22, 0.8), shade(iron, 0.85), { y: 4.4 });
-  m.add(post(0.22, 0.22, 0.1, 8), steel, { y: 4.64, rz: Math.PI / 2 });
-  m.add(cone(0.62, 0.42, 4), shade(iron, 0.75), { y: 4.82, ry: Math.PI / 4 });
-  // the housing: tall, stone, three dark slits, a roof, and a pipe down to the well
-  m.add(box(0.86, 2.9, 0.66), shade(stone, 1.05), { y: 1.67, z: 1.0 });
-  m.add(box(1.0, 0.14, 0.8), shade(iron, 0.9), { y: 3.19, z: 1.0 });
-  for (const y of [1.1, 1.8, 2.5]) m.add(box(0.5, 0.12, 0.04), [0.1, 0.1, 0.12], { y, z: 1.34 });
-  beam(m, [0, 0.9, 0.67], [0, 0.9, 0.2], 0.07, steel);
-  m.add(post(0.1, 0.1, 0.06, 6), [0.28, 0.55, 0.66], { y: 0.9, z: 0.45, rx: Math.PI / 2 });
+  // the pipe, off to the west, on two black trestles
+  m.add(cyl(0.12, 0.12, 1.1, 6), [0.85, 0.82, 0.7], { x: -0.95, y: 0.6, z: 0.62, rz: Math.PI / 2 });
+  for (const x of [-0.85, -1.25]) m.add(box(0.1, 0.5, 0.2), black, { x, y: 0.27, z: 0.62 });
   return m;
 }
 
-/** The badtide drain (1 × 3, its back against a wall on the −y side): a dark stone block with a channel
- *  of badwater along its top, an iron grate at the back and a lip at the front over the drop, a sheet of
- *  badwater pouring off it. The model's north (−z) is the footprint's local +y. */
+/** The badtide drain (1 × 3, its back against a wall on the −y side): a rusty, grated metal box, its
+ *  open end out over the drop. The model's north (−z) is the footprint's local +y. */
 function badtideDrain(): Model {
-  const stone: Rgb = [0.33, 0.3, 0.28];
-  const iron: Rgb = [0.18, 0.17, 0.17];
-  const m = new Model().add(box(0.96, 0.85, 2.0), stone, { y: 0.425, z: 0.5 });
-  for (const y of [0.3, 0.6]) m.add(box(0.98, 0.04, 2.0), shade(stone, 0.78), { y, z: 0.5 });
-  for (const s of [-1, 1]) m.add(box(0.2, 0.14, 2.0), shade(stone, 0.8), { x: s * 0.38, y: 0.92, z: 0.5 });
-  m.add(box(0.56, 0.03, 2.0), WATER.bad, { y: 0.875, z: 0.5 });
-  // the grate over the channel's back end
-  for (let k = 0; k < 4; k++) m.add(box(0.58, 0.05, 0.05), iron, { y: 0.95, z: 0.95 + 0.12 * k });
-  for (const s of [-1, 1]) m.add(box(0.04, 0.05, 0.5), iron, { x: s * 0.13, y: 0.95, z: 1.13 });
-  // the spout's lip over the drop, and the badwater pouring off it
-  m.add(box(0.6, 0.1, 0.6), shade(stone, 0.9), { y: 0.8, z: -0.8 });
-  m.add(box(0.5, 0.03, 0.6), WATER.bad, { y: 0.87, z: -0.8 });
-  m.add(box(0.5, 1.3, 0.04), WATER.fallBad, { y: 0.15, z: -1.12 });
-  return m;
-}
-
-/** The unstable core (2 × 2): a glowing violet sphere on a scorched crater, hemmed in by dark broken
- *  stones and jutting violet crystal shards. The sphere's colours are above the lit range, so it shines. */
-function unstableCore(): Model {
-  const m = new Model().add(post(0.98, 0.9, 0.12, 8), [0.16, 0.12, 0.14], { y: 0.06 });
-  for (let k = 0; k < 5; k++) {
-    const a = (k * Math.PI * 2) / 5 + 0.3;
-    m.add(ico(0.24 + 0.03 * (k % 2)), shade([0.28, 0.22, 0.3], 0.9 + 0.08 * k), { x: Math.cos(a) * 0.68, y: 0.2, z: Math.sin(a) * 0.68, sy: 0.85, ry: k });
+  const rust: Rgb = [0.5, 0.29, 0.14];
+  const metal: Rgb = [0.2, 0.22, 0.22];
+  const m = new Model().add(box(0.9, 0.7, 2.7), metal, { y: 0.4, z: 0.1 });
+  // the grate: slats across the top
+  for (let k = 0; k < 7; k++) m.add(box(0.8, 0.05, 0.1), rust, { y: 0.77, z: 1.25 - 0.34 * k });
+  // the frame: rails along the top and posts at the corners
+  for (const s of [-1, 1]) {
+    m.add(box(0.07, 0.07, 2.7), shade(rust, 0.85), { x: s * 0.43, y: 0.78, z: 0.1 });
+    for (const z of [1.4, -1.2]) m.add(box(0.09, 0.7, 0.09), shade(rust, 0.9), { x: s * 0.43, y: 0.4, z });
   }
-  for (let k = 0; k < 6; k++) m.add(cone(0.09, 0.5, 4), k % 2 ? [0.62, 0.28, 0.72] : [0.54, 0.22, 0.64], { lift: 0.25, rz: -0.35, ry: (k * Math.PI) / 3 + 1, x: Math.cos((k * Math.PI) / 3) * 0.2, z: Math.sin((k * Math.PI) / 3) * 0.2, y: 0.12 });
-  m.add(new IcosahedronGeometry(0.5, 1), [1.0, 0.52, 1.1], { y: 0.74 });
-  m.add(ico(0.55), [0.55, 0.2, 0.65], { y: 0.74, ry: 0.5, sy: 0.4 });
+  m.add(box(0.9, 0.07, 0.07), shade(rust, 0.85), { y: 0.78, z: 1.4 });
+  // the open end: a dark mouth, its frame, and a lip of slats over the drop
+  m.add(box(0.7, 0.45, 0.04), [0.04, 0.04, 0.05], { y: 0.4, z: -1.255 });
+  for (const y of [0.18, 0.62]) m.add(box(0.9, 0.07, 0.07), rust, { y, z: -1.25 });
+  m.add(box(0.7, 0.05, 0.4), shade(rust, 1.1), { y: 0.14, z: -1.3 });
+  // two pipes bent along the side
+  for (const s of [-1, 1]) beam(m, [s * 0.47, 0.3, 0.9], [s * 0.47, 0.5, 0.3], 0.04, [0.38, 0.22, 0.12]);
   return m;
 }
 
-/** A reserve pile (2 × 2 × 2): a pyramid of logs, four, three, two and one. */
+/** The unstable core (2 × 2): a small dark metal dome in segmented panels with one red glowing eye, half
+ *  sunk into the ground, on a scorch mark of orange. Its glow is above the lit range, so it shines. */
+function unstableCore(): Model {
+  const R = 0.56;
+  const m = new Model().add(post(0.85, 0.85, 0.012, 10), [0.5, 0.26, 0.1], { y: 0.012 });
+  m.add(post(0.66, 0.66, 0.014, 10), [0.72, 0.36, 0.1], { y: 0.02 });
+  m.add(post(0.6, 0.6, 0.05, 8), [0.1, 0.09, 0.08], { y: 0.03 });
+  m.add(new IcosahedronGeometry(0.5, 1), [0.34, 0.34, 0.38], { y: 0.03, sy: 0.8 });
+  // six ribs over the dome, from the eye to its foot (two bars each, hugging its curve)
+  for (let k = 0; k < 6; k++) {
+    const a = (k * Math.PI) / 3 + 0.3;
+    const at = (polar: number): number[] => [Math.sin(polar) * Math.cos(a) * R, 0.03 + Math.cos(polar) * R * 0.8, Math.sin(polar) * Math.sin(a) * R];
+    beam(m, at(0.35), at(0.85), 0.022, [0.52, 0.49, 0.46]);
+    beam(m, at(0.85), at(1.45), 0.022, [0.52, 0.49, 0.46]);
+  }
+  m.add(post(0.17, 0.17, 0.05, 8), [0.62, 0.57, 0.52], { y: 0.45 });
+  m.add(ico(0.11), [1.3, 0.4, 0.35], { y: 0.5, sy: 0.7 });
+  return m;
+}
+
+const PEN_WALL: Rgb = [0.44, 0.56, 0.54];
+const PEN_POST: Rgb = [0.38, 0.24, 0.2];
+const PEN_SIGN: Rgb = [0.62, 0.46, 0.3];
+
+/** A reserve pile (2 × 2 × 2): a low fenced pen of grey-green planks with brown corner posts, logs and
+ *  pale stones inside, and a sign on posts at its south side. */
 function reservePile(): Model {
   const m = new Model();
-  const layers: [number, number][] = [[4, 0.2], [3, 0.58], [2, 0.96], [1, 1.34]];
-  let k = 0;
-  for (const [n, y] of layers)
-    for (let i = 0; i < n; i++, k++) m.add(post(0.2, 0.2, 1.8, 5), shade([0.5, 0.34, 0.19], 0.88 + 0.06 * (k % 4)), { rz: Math.PI / 2, ry: k % 2 ? 0.03 : -0.03, y, z: (i - (n - 1) / 2) * 0.44 });
+  for (const s of [-1, 1]) {
+    m.add(box(1.8, 0.24, 0.08), PEN_WALL, { y: 0.14, z: s * 0.86 });
+    m.add(box(0.08, 0.24, 1.64), PEN_WALL, { y: 0.14, x: s * 0.86 });
+    for (const t of [-1, 1]) m.add(box(0.14, 0.4, 0.14), PEN_POST, { x: s * 0.88, y: 0.2, z: t * 0.88 });
+  }
+  const log: Rgb = [0.34, 0.2, 0.14];
+  const lay = (x: number, y: number, k: number) => m.add(post(0.17, 0.17, 1.25, 5), shade(log, 0.85 + 0.1 * (k % 3)), { rx: Math.PI / 2, x, y, z: -0.2 });
+  lay(-0.62, 0.18, 0);
+  lay(-0.26, 0.18, 1);
+  lay(-0.44, 0.4, 2);
+  lay(0.18, 0.18, 3);
+  lay(0.54, 0.18, 4);
+  lay(0.36, 0.4, 5);
+  const stones: [number, number, number][] = [[-0.55, 0.62, 0.15], [-0.2, 0.68, 0.14], [0.15, 0.6, 0.15], [0.5, 0.66, 0.14], [-0.35, 0.5, 0.11], [0.3, 0.5, 0.11]];
+  stones.forEach(([x, z, r], k) => m.add(oct(r), shade([0.8, 0.7, 0.54], 0.9 + 0.1 * (k % 3)), { x, y: 0.1, z, sy: 0.8, ry: k }));
+  for (const s of [-1, 1]) m.add(box(0.07, 0.5, 0.07), PEN_POST, { x: s * 0.26, y: 0.3, z: 0.95 });
+  m.add(box(0.64, 0.3, 0.05), PEN_SIGN, { y: 0.6, z: 0.95 });
   return m;
 }
 
-/** A reserve warehouse (2 × 2 × 1): a small plank shed under a gabled roof, its door on the south side
- *  (the entrance) and two crates by it. */
+/** A reserve warehouse (2 × 2 × 1): an open pallet yard: blue-grey crates stacked on a low wooden floor,
+ *  corner posts joined by rope, and a sign on posts at its south side. */
 function reserveWarehouse(): Model {
-  const wood: Rgb = [0.6, 0.45, 0.28];
-  const roof: Rgb = [0.4, 0.26, 0.17];
-  const m = new Model().add(box(1.9, 0.08, 1.9), [0.3, 0.22, 0.15], { y: 0.04 }).add(box(1.8, 0.78, 1.6), wood, { y: 0.47 });
-  for (const y of [0.4, 0.66, 0.92]) m.add(box(1.82, 0.04, 1.62), shade(wood, 0.8), { y });
-  const x = 1.0;
-  const z = 0.88;
-  const y0 = 0.86;
-  const y1 = 1.5;
-  m.tris([-x, y0, z, x, y0, z, x, y1, 0, -x, y0, z, x, y1, 0, -x, y1, 0], roof);
-  m.tris([x, y0, -z, -x, y0, -z, -x, y1, 0, x, y0, -z, -x, y1, 0, x, y1, 0], shade(roof, 0.85));
-  m.tris([x, y0, z, x, y0, -z, x, y1, 0], wood);
-  m.tris([-x, y0, -z, -x, y0, z, -x, y1, 0], wood);
-  m.add(box(0.5, 0.56, 0.05), [0.22, 0.14, 0.08], { y: 0.36, z: 0.82 });
-  for (const s of [-1, 1]) m.add(box(0.24, 0.24, 0.2), shade(wood, 1.12), { x: s * 0.68, y: 0.16, z: 0.86, ry: 0.15 * s });
+  const crate: Rgb = [0.4, 0.5, 0.66];
+  const m = new Model().add(box(1.9, 0.1, 1.9), [0.45, 0.3, 0.2], { y: 0.05 });
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1])
+      for (let h = 0; h < 2; h++) m.add(box(0.44, 0.4, 0.44), shade(crate, 0.92 + 0.08 * ((h + (sx > 0 ? 1 : 0) + (sz > 0 ? 1 : 0)) % 3)), { x: sx * 0.42, y: 0.3 + h * 0.4, z: sz * 0.34 - 0.1, ry: 0.08 * sx * sz });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.add(box(0.1, 0.8, 0.1), PEN_POST, { x: sx * 0.88, y: 0.4, z: sz * 0.88 });
+  const rope: Rgb = [0.86, 0.78, 0.6];
+  for (const s of [-1, 1]) {
+    beam(m, [s * 0.88, 0.72, -0.88], [s * 0.88, 0.72, 0.88], 0.018, rope);
+    beam(m, [-0.88, 0.72, s * 0.88], [0.88, 0.72, s * 0.88], 0.018, rope);
+  }
+  for (const s of [-1, 1]) m.add(box(0.07, 0.5, 0.07), PEN_POST, { x: s * 0.22, y: 0.3, z: 0.93 });
+  m.add(box(0.6, 0.28, 0.05), PEN_SIGN, { y: 0.55, z: 0.93 });
   return m;
 }
 
-/** A reserve tank (2 × 2 × 3): a steel cylinder on a stone slab with rust bands, a water-blue band,
- *  a low domed top with a hatch, and a ladder up its south side. */
+/** A reserve tank (2 × 2 × 3): a wooden-stave barrel on four splayed legs, green-grey staves in brown
+ *  bands under a domed lid, with a pump housing and its wheel at the side. */
 function reserveTank(): Model {
-  const steel: Rgb = [0.55, 0.58, 0.6];
-  const rust: Rgb = [0.42, 0.3, 0.2];
-  const m = new Model().add(box(1.9, 0.1, 1.9), [0.4, 0.38, 0.35], { y: 0.05 }).add(post(0.88, 0.88, 2.6, 12), steel, { y: 1.4 });
-  for (const y of [0.45, 1.55, 2.5]) m.add(cyl(0.9, 0.9, 0.1, 12), rust, { y });
-  m.add(cyl(0.895, 0.895, 0.5, 12), [0.25, 0.55, 0.65], { y: 1.0 });
-  m.add(post(0.88, 0.55, 0.25, 12), shade(steel, 1.08), { y: 2.825 });
-  m.add(post(0.12, 0.12, 0.12, 6), rust, { x: 0.15, y: 3.01, z: 0.1 });
-  for (const s of [-1, 1]) beam(m, [s * 0.12, 0.1, 0.93], [s * 0.12, 2.7, 0.93], 0.02, rust);
-  for (let k = 0; k < 6; k++) m.add(box(0.3, 0.03, 0.04), rust, { y: 0.35 + 0.4 * k, z: 0.93 });
+  const stave: Rgb = [0.5, 0.62, 0.53];
+  const wood: Rgb = [0.38, 0.24, 0.19];
+  const m = new Model().add(post(0.72, 0.72, 1.5, 10), stave, { y: 1.75 });
+  for (const y of [1.2, 2.3]) m.add(cyl(0.745, 0.745, 0.1, 10), wood, { y });
+  m.add(post(0.72, 0.5, 0.16, 10), shade(stave, 0.9), { y: 2.58 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) beam(m, [sx * 0.45, 1.05, sz * 0.45], [sx * 0.8, 0.05, sz * 0.8], 0.05, wood);
+  m.add(box(0.4, 0.6, 0.5), [0.45, 0.28, 0.2], { x: 0.78, y: 0.4 });
+  m.add(post(0.17, 0.17, 0.05, 8), [0.6, 0.45, 0.3], { x: 0.78, y: 0.45, z: 0.28, rx: Math.PI / 2 });
   return m;
 }
 
@@ -755,16 +783,18 @@ function tower(m: Model, k: number, h: number): void {
   else m.add(box(0.6, 0.04, 0.14), shade(MINE.wood, 0.92), { x: cx - sx * 0.05, y: 1.0, z: cz - sz * 0.05, ry: 0.5 });
 }
 
-/** Where the terrain leaves its tops out for mine sites' pits (mesh.ts `cutout`): tile index →
- *  the site's level, for every tile of each site's 5 × 5 footprint (the model covers them all:
- *  its frame the edge, its pit the rest). */
+/** Where the terrain leaves its tops out for mine sites' and seeps' pits (mesh.ts `cutout`): tile
+ *  index → the object's level, for every tile of each mine site's 5 × 5 footprint (the model covers
+ *  them all: its frame the edge, its pit the rest) and of each seep's 2 × 2 (its pit, whole). */
 export function mineCutout(v: EntityView, W: number, H: number): Map<number, number> {
   const out = new Map<number, number>();
   for (let k = 0; k < v.count; k++) {
-    if (v.templates[v.template[k]] !== "UndergroundRuins") continue;
+    const template = v.templates[v.template[k]];
+    const size = template === "UndergroundRuins" ? 5 : template === "WaterSeep" || template === "BadwaterSeep" ? 2 : 0;
+    if (!size) continue;
     const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
-    for (let ly = 0; ly < 5; ly++)
-      for (let lx = 0; lx < 5; lx++) {
+    for (let ly = 0; ly < size; ly++)
+      for (let lx = 0; lx < size; lx++) {
         const [dx, dy] = rotate(o, lx, ly);
         const x = v.x[k] + dx;
         const y = v.y[k] + dy;
