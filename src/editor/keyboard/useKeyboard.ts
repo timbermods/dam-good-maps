@@ -9,11 +9,11 @@ import { SHORTCUTS_KEY } from "../help/shortcuts";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
-/** The focus is on the map or the bar (the page itself, the map's canvas, the tools and their settings): never a
- *  menu, a dialog or a panel, where Tab moves the focus. */
+/** The focus is on the map or the bar (the page itself, the map's canvas, the tools and their settings, a picked
+ *  source's window with its Try another): never a menu, a dialog or another panel, where Tab moves the focus. */
 function onMapOrBar(target: HTMLElement | null): boolean {
   if (!target || target === document.body || target.tagName === "CANVAS") return true;
-  return !!target.closest(".tool-dock") && !target.closest('[role="menu"], [role="dialog"]');
+  return !!target.closest(".tool-dock, .object-window") && !target.closest('[role="menu"], [role="dialog"]');
 }
 
 export function useKeyboard(ed: Ed, props: EditorProps): void {
@@ -79,7 +79,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         ed.showRoll(ev.shiftKey ? -1 : 1);
         return;
       }
-      if (ev.key === "Escape") ed.endRolls();
+      if (ev.key === "Escape" && onMapOrBar(target)) ed.endRolls();
       // a fault or a fissure still being drawn: Esc lets it go
       if (ev.key === "Escape" && forceEscRef.current?.()) return;
       // camera bookmarks (D205): Ctrl+Shift+1–9 keeps the view in that slot, Alt+1–9 glides back to it (Kyler,

@@ -108,4 +108,33 @@ describe("a force's rolls (D488)", () => {
     ed.undo();
     expect(land()).toEqual(land(before));
   });
+  it("eight kept and the first shown (Tab round from the eighth): a ninth drops the oldest but never the roll shown, which Tab and Esc after the keep bring back", async () => {
+    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 64, y: 64 } }));
+    ed.refine();
+    const at = { x: 16, y: 40 };
+    const req: ed.ForceRequest = { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 70 }, path: [at, { x: at.x + 14, y: at.y - 8 }], cut: null, natural: true };
+    play(false, req);
+    const first = shot();
+    for (let k = 1; k < MAX_ROLLS; k++) play(true, req);
+    expect(ed.sessionInfo().forceRolls).toEqual({ shown: MAX_ROLLS, count: MAX_ROLLS });
+    // Tab from the eighth: round to the first
+    expect(ed.forceRoll({ step: 1 }).ok).toBe(true);
+    expect(shot()).toEqual(first);
+    // a ninth, from the first shown: the oldest that isn't it goes
+    expect(ed.forceAgain(undefined, 7001).errors).toEqual([]);
+    for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
+    expect(ed.forceStop(7001).kept).toBe(true);
+    expect(ed.sessionInfo().forceRolls).toEqual({ shown: MAX_ROLLS, count: MAX_ROLLS });
+    expect(land()).not.toEqual(land(first));
+    // Esc whose keep was on its way: the first comes back, as it was
+    expect(ed.forceCancel(7001).taken).toBe("kept");
+    expect(shot()).toEqual(first);
+    expect(ed.sessionInfo().forceRolls).toEqual({ shown: 1, count: MAX_ROLLS - 1 });
+    // and Tab round reaches it again after another ninth
+    expect(ed.forceAgain(undefined, 7002).errors).toEqual([]);
+    for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
+    expect(ed.forceStop(7002).kept).toBe(true);
+    expect(ed.forceRoll({ index: 0 }).ok).toBe(true);
+    expect(land()).toEqual(land(first));
+  });
 });

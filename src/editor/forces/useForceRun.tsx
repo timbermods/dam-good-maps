@@ -515,7 +515,6 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         const verb = u.info.forceAgain;
         if (verb && u.settings && forcer.current) forcer.current.lastSettings[verb] = u.settings;
         offerRolls(u.info.version);
-        flashNote(`roll ${r.shown} of ${r.count}`);
       } finally {
         setBusy((b) => b - 1);
       }

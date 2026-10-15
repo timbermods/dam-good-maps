@@ -74,9 +74,12 @@ export class ForceRolls<S, W = unknown> {
     if (!step) return false;
     this.list.push({ step, settings, water });
     this.highest = Math.max(this.highest, step.nextSeq);
+    // (past MAX_ROLLS the oldest goes, but never the roll that was shown before this one: Esc after the keep
+    // shows it again, D341, and it is the one the player was looking at)
     if (this.list.length > MAX_ROLLS) {
-      this.list.shift();
-      this.prior--;
+      const drop = this.prior === 0 ? 1 : 0;
+      this.list.splice(drop, 1);
+      if (this.prior > drop) this.prior--;
     }
     this.at = this.list.length - 1;
     this.entry = this.session.latestStep()!.step;
