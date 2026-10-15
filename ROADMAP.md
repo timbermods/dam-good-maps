@@ -26,6 +26,8 @@ Neither the page nor the milestone session touches the other's files: the page s
 interface, `Editor.tsx` and its split. Models and effort: D389. Messages between sessions go on the Coordination issue
 (#236, D470); what waits for Kyler carries the `needs-kyler` label.
 
+For the next three weeks (D488): 3D creation first (#370, the Foundations release, the Block tool, Erode, 3D in generation), then generation with intent (Showcase mode, landmarks, ruins with meaning, custom sizes up to 256², the opening shot), with the renderer and the page working alongside; collaborative editing, sizes above 256, the tour, M13's accessibility and Lighthouse passes, Pick a place and Real places 2 are paused.
+
 **0. In flight now** (2026-10-07; each line is a PR or branch and the session that owns it)
 
 - **3D, step 1: Foundations** (D481; milestone session's `build` agents, `feature/3d-foundations`, its own worktree):
@@ -375,7 +377,7 @@ Not yet scheduled.
   widen abruptly. Pending #83: the new trees in Standard, only if they cost little on real hardware (D241). Optional, later:
   richer or higher-resolution textures, softened block edges and grass lips, full-resolution rendering and anti-aliasing, more
   detailed bush and ruin models, dry contaminated ground's cracks a little more visible from far away. Visible seasons
-  (#67's stage, with D250's badtide withering) join the Weather view, so they aren't drawn twice (D286 (4)).
+  (#67's stage, with D250's badtide withering) are built with the Weather view, so they aren't drawn twice (D286 (4)).
 
 ---
 
@@ -595,8 +597,12 @@ Its parts and where each stands are in [docs/progress/3d-view.md](docs/progress/
 
 **Done already:** part 1, the one mesher for runs with undersides in both looks (`render3d/mesh.ts`): on maps
 without caves the same mesh, byte for byte, as the heightfield mesher it replaced (`meshEquivalence.test.ts`); on
-runs with undersides every exposed face once. Next: the masks from the worker, light in 3D, soil per run top, water
-per column, 3D picking, the level-slice cutaway.
+runs with undersides every exposed face once. Part 2, light in 3D in both looks (`render3d/caveLight.ts`): a face
+whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
+else the baked light stands, so maps without caves draw exactly as before. Part 5, 3D picking (`render3d/pick.ts`): a
+ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
+(`pickTerrain.test.ts`); Select reads the run hit. Next: the masks from the worker, soil per run top, water per column,
+the level-slice cutaway.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -746,6 +752,16 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    of that day, in both looks (the light look tints). Day 0 shows the map's own ground again. `tests/unit/weather-veins.test.ts`
    pins that no poisoned tile is dropped on the way; `tests/e2e/waterFlow.spec.ts` checks the held day's soil. The
    capture is `tools/capture-weather.ts`.
+   **Built: High's visible seasons, plants first.** On a held Drought or Badtide day, in High only, the plants the game
+   would surely have killed by then are drawn withered, by the game's timers, not the editor's instant rule
+   (`core/sim/withering.ts`, pure, `tests/unit/withering.test.ts`): dry for 1.1 x the species' `DaysToDieDry` in a row
+   (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
+   soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
+   drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
+   (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
+   heat shimmer and the badtide's sky follow (#67's stage 4).
+
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
    temperate days, drawn from the difficulty's range, so it is a range: a core at cycle 5 and 10.5 days, goes off

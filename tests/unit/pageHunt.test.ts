@@ -50,8 +50,10 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
     keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
+    switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
   });
-  runInContext(compile(functions("src/ui/App.tsx", ["run", "cancelMaking"])), env);
+  // (run holds the open map back through holdBack: the project Cancel opens again)
+  runInContext(compile(functions("src/ui/App.tsx", ["run", "holdBack", "cancelMaking"])), env);
   const run = env.run({ seed: 4242 });
   const cancelled = env.cancelMaking();
   // The old worker is still serving the only recovery project. It must survive until that reply.
@@ -79,6 +81,7 @@ test("Download project captures the map after already queued edits", async () =>
       if (id === "comlink") return { proxy: (v: unknown) => v };
       if (id === "../../platform") return { saveFile: (b: Uint8Array) => downloads.push([...b]) };
       if (id === "../panels") return { plain: (v: unknown) => v };
+      if (id === "../../core/doc/checkItems") return { NO_START: "No start", NO_START_REFUSAL: "" };
       return createRequire(join(process.cwd(), "package.json"))(id);
     },
   });

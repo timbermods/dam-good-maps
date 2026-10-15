@@ -67,9 +67,11 @@ where the job is written down, scripts where it's only waiting.
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
 | The planning session: coordination, merging, releasing | (the session) | Opus 5.5, high |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
-| Mechanical work: watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines (D484) | any agent, `model: haiku` | Haiku 4.5 |
+| Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status and doc lines, small well-specified fixes and test updates, simple reviews | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
 | The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
+
+Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15).
 
 `m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
 and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
@@ -191,8 +193,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   word. No test stays known-flaky: one that passes and fails on the same commit has its cause found and fixed.
 - **Findings, decisions, pending defaults:** a finding worth keeping gets a line in [FINDINGS.md](FINDINGS.md) (D316); a
   replaced one moves to the archive's "Stale findings" ([archive/README.md](archive/README.md)). Kyler's decisions
-  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D488**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
-  is away go into `docs/decisions-pending.md`, marked as a default the session chose (the next is **#155**; M9b's branch
+  go into their topic file in `docs/decisions/`, with a line in its index (the next is **D489**; a number only for a rule that constrains future work, D470; model choices, who does what and Kyler's verdict on a round go in STATUS or the Progress log, unnumbered) and into the living docs in the same change (D188). Defaults chosen while he
   holds up to #154, weather-days #120–#125).
 - **The review rule:** every review is measured against [PERFECT.md](PERFECT.md) (D225). No blind reviews; Kyler judges visual
   work from before/after captures (with greyscale and colour-blindness sheets).

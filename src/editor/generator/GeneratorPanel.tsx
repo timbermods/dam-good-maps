@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
-import type { SessionInfo } from "../../worker/session";
+import type { MapCounts } from "../features";
 import { tip } from "../../ui/Tooltip";
 import { genFields, GROUPS, onThisMap, type GroupName } from "./fields";
 import type { GeneratorModel } from "./model";
@@ -100,14 +100,13 @@ function NameField(p: { name: string; onRename(name: string): Promise<string | n
 
 export interface GeneratorPanelProps {
   model: GeneratorModel;
-  info: SessionInfo;
-  /** The living trees on the map as it is now, edits included (dead ones aren't counted). */
-  trees: number;
+  /** What the map holds now, counted from its own objects (edits included). */
+  counts: MapCounts;
   /** Each object's picture, once the view can draw it (what is on the map). */
   icon(template: string): string | null;
 }
 
-export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelProps) {
+export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelProps) {
   const f = genFields(m);
   const group = (name: GroupName) => (
     <section class="gen-group" aria-label={name} key={name}>
@@ -124,9 +123,9 @@ export function GeneratorPanel({ model: m, info, trees, icon }: GeneratorPanelPr
       ))}
     </section>
   );
-  const counts = onThisMap(info.features, trees);
+  const counts = onThisMap(held);
   return (
-    <aside class="gen" aria-label="Map Generator">
+    <aside class={`gen${m.blank ? " blank" : ""}`} aria-label="Map Generator">
       <form
         class="sheet"
         aria-label="Settings"
