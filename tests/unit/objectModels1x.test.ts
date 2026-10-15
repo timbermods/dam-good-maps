@@ -9,16 +9,16 @@ import { buildEntities, mineCutout, modelKeyOf, modelOf, modelTriangles } from "
 import { entityView } from "../../src/render3d/model";
 
 const BUDGET: Record<string, number> = {
-  Succulent: 64,
+  Succulent: 120,
   "Succulent.dead": 64,
   WaterSeep: 400,
   BadwaterSeep: 400,
   Aquifer: 400,
   AncientAquiferDrill: 450,
   BadtideDrain: 260,
-  UnstableCore: 360,
+  UnstableCore: 380,
   ReservePile: 340,
-  ReserveWarehouse: 240,
+  ReserveWarehouse: 400,
   ReserveTank: 340,
 };
 
@@ -59,7 +59,8 @@ describe("the 1.x objects' models", () => {
   it("a seep's pit cuts out the terrain over its whole 2 × 2, as a mine site's does", () => {
     const view = entityView([{ template: "WaterSeep", x: 10, y: 20, z: 5, orientation: "Cw90" }, { template: "Aquifer", x: 40, y: 40, z: 5, orientation: "Cw0" }] as unknown as Parameters<typeof entityView>[0]);
     const cut = mineCutout(view, 64, 64);
-    expect(cut.size).toBe(4);
+    // (turned a quarter, its tiles run west to east and south to north from its corner: x 10–11, y 19–20)
+    expect([...cut.keys()].sort((a, b) => a - b)).toEqual([19 * 64 + 10, 19 * 64 + 11, 20 * 64 + 10, 20 * 64 + 11]);
     for (const v of cut.values()) expect(v).toBe(5);
   });
 });

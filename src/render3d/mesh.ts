@@ -15,8 +15,8 @@
 //
 // Each tile emits its own faces, so a chunk depends only on its tiles and their neighbours' columns:
 // a terrain edit remeshes the chunks within one tile of the changed rectangle (`dirtyChunks`). A
-// mine site's pit leaves its tiles' tops out (`cutout`), as the game hides the terrain under an
-// object's cutout; the site's model draws the pit's walls and floor in the hole. Nothing else
+// mine site's or seep's pit leaves its tiles' tops out (`cutout`), as the game hides the terrain under an
+// object's cutout; the object's model draws the pit's walls and floor in the hole. Nothing else
 // changes: the voxels, every wall and every other top stay, so the hole is only where the pit is.
 //
 // The light under roofs reads the same columns (caveLight.ts). Not here yet (docs/progress/3d-view.md):
@@ -37,7 +37,7 @@ export interface TerrainSource {
   heights: Uint8Array;
   /** Tile index → 23 voxels (1 = solid), for columns that are not one solid run from z = 0. */
   columns: ReadonlyMap<number, Uint8Array>;
-  /** Tile index → a level whose top face is not drawn: a mine site's pit, whose model draws the
+  /** Tile index → a level whose top face is not drawn: a mine site's or a seep's pit, whose model draws the
    *  pit's walls and floor instead (as the game hides the terrain's top under an object's cutout).
    *  Only the top at exactly that level is left out; the voxels and every wall stay. */
   cutout?: ReadonlyMap<number, number>;
