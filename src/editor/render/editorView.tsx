@@ -40,7 +40,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onClose={() => setShowHistory(false)} /> : null}
+        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -68,6 +68,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               hoverText={hover}
             >
               {sourceMarkers()}
+              {ed.compareVeil()}
               {startHintTag()}
               {topBar(ed, props)}
               {player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} coreNotes={weather ? coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay) : []} /> : null}

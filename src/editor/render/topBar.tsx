@@ -10,12 +10,13 @@ export function topBar(ed: Ed, props: EditorProps) {
   const {
     brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
     setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef,
-    message, setMessage
+    message, setMessage, compareNote
   } = ed;
   const notes =
-    message || props.notice ? (
+    message || props.notice || props.compare ? (
       <>
         {props.notice ?? null}
+        {compareNote()}
         {message ? (
           <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
             {message.text}

@@ -8,7 +8,7 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
-import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
+import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
 import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
@@ -60,7 +60,7 @@ import { keptForceParams } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
-import { emptyColumns, entityView, LAYERS, soilView, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
+import { emptyColumns, entityView, LAYERS, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type WaterView } from "../render3d/model";
 import { lastGenerated, lastGeneratedSeedWord, lifeOf, responseOf, variantOf, type GenerateResponse } from "./api";
 
 export interface SessionInfo {
@@ -1443,6 +1443,17 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
 export function project(level = 9): { bytes: Uint8Array; fileName: string; name: string; version: number } {
   const s = need();
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
+}
+
+/** A version of the open map kept or branched at History step `k` (core/doc/session.ts `versionProject`; showcase versions):
+ *  its project file, its name and parent, and the land and water the page draws Your maps' picture of it from. Null when
+ *  there is no such step. The open map itself is untouched. */
+export function keepVersion(k: number, parentId?: string): { bytes: Uint8Array; name: string; parent: VersionParent; size: { w: number; h: number }; picture: { heights: Uint8Array; W: number; H: number; water: Float32Array } } | null {
+  const v = need().versionProject(k, parentId ? { id: parentId } : {});
+  if (!v) return null;
+  const b = v.session.built;
+  const water = surfaceWater(b.W, b.H, waterOf(v.session)).depth;
+  return { bytes: v.bytes, name: v.name, parent: v.parent, size: { w: b.W, h: b.H }, picture: { heights: b.heights.slice(), W: b.W, H: b.H, water: water.slice() } };
 }
 
 // ------------------------------------------------------------------------------------ the tools

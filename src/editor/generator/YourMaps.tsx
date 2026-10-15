@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
 import { tip } from "../../ui/Tooltip";
+import { parentFull, parentLine } from "../../core/library/keptVersions";
 
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
   // the right-click menu, and the map whose name is being renamed in place
@@ -93,6 +94,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setMenu({ id, x: ev.clientX, y: ev.clientY });
   };
   const menuItems = (id: string) => [
+    ...(id === m.current ? [] : [{ label: "Compare with the open map", title: "Flip between it and the open map", run: () => m.onCompareMap(id) }]),
     { label: "Download .timber", title: "Download it for Timberborn's Maps folder", run: () => m.onDownloadMap(id) },
     {
       label: "Rename",
@@ -143,6 +145,12 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                   {e.size ? (
                     <span class="ym-size">
                       {e.size.w}×{e.size.h}
+                    </span>
+                  ) : null}
+                  {/* a kept version: where it came from, small and quiet, a line of its own */}
+                  {e.parent ? (
+                    <span class="ym-from" title={parentFull(e.parent)}>
+                      {parentLine(e.parent)}
                     </span>
                   ) : null}
                 </span>

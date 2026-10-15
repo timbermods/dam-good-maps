@@ -249,6 +249,27 @@
   text-overflow: ellipsis;
 }
 
+/* a kept version's parent under the size: one quiet line, ellipsized; the tiles of a row share their height */
+.ym-from {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.your-maps li {
+  display: flex;
+}
+
+.your-maps li > .ym-tile {
+  flex: 1;
+  width: auto;
+}
+
 .ym-size {
   flex: none;
   color: var(--muted);
@@ -363,6 +384,43 @@
   margin: 12px 0 6px;
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+/* a step's row, and beside it Keep this version and Branch from here: shown on the row pointed at, focused, or the map is
+   at, so the list stays quiet; the row gives them room, never moving */
+.history-panel .hist-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-panel .hist-item > .hist-row {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.history-panel .hist-acts {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.history-panel .hist-item:hover .hist-acts,
+.history-panel .hist-item:focus-within .hist-acts,
+.history-panel .hist-item:has(> .hist-row[aria-current="true"]) .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-panel .hist-act {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .history-panel .hist-row {

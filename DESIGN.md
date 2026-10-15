@@ -847,3 +847,9 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+- **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
+  look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
+  here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line
+  under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
+  their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
+  <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.

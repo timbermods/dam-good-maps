@@ -17,6 +17,7 @@ import type { Remote } from "comlink";
 import { useEffect } from "preact/hooks";
 import type { GeneratorApi } from "../worker/generator.worker";
 import type { SessionInfo, SessionOpen } from "../worker/session";
+import type { MapView } from "../render3d/model";
 import type { Ed } from "./ed";
 import type { GeneratorModel } from "./generator/model";
 import { useSession } from "./session/useSession";
@@ -41,6 +42,7 @@ import { useStart } from "./start/useStart";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
+import { useCompare } from "./compare/useCompare";
 import { editorView } from "./render/editorView";
 
 /** The map's land and water as the editor shows them, for Your maps' picture. */
@@ -81,6 +83,13 @@ export interface EditorProps {
   onMaps(open: boolean): void;
   placesOpen: boolean;
   onPlaces(open: boolean): void;
+  /** Another version of this map to flip to (Your maps' Compare): its settled land, objects and water, the same size. */
+  compare?: { name: string; view: MapView } | null;
+  /** Stop comparing. */
+  onStopCompare?(): void;
+  /** History's Keep this version and Branch from here: the step (the index History lists, −1 before the first) kept as a
+   *  map of Your maps, and opened too when it is a branch. */
+  onKeepStep?(step: number, branch: boolean): void;
   /** The map opens with the view where it was (the same map back, after a Cancel). */
   keepView?: boolean;
 }
@@ -107,6 +116,7 @@ export default function Editor(props: EditorProps) {
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));
+  Object.assign(ed, useCompare(ed, props));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);

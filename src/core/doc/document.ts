@@ -57,6 +57,18 @@ export interface DocMeta {
   modified?: string;
   /** The editor's camera bookmarks (D205): a view per slot 1–9; never part of a build. */
   views?: SavedView[];
+  /** A map kept or branched from another's History (src/core/library/keptVersions.ts): where it came from. Never part of a build. */
+  parent?: VersionParent;
+}
+
+/** Where a kept version came from: the map it was made from (its Your maps id, when it had one), that map's name,
+ *  and the History step it was taken at (the step's label, and how many steps the version holds), so Your maps can
+ *  say it quietly. */
+export interface VersionParent {
+  id?: string;
+  name: string;
+  label: string;
+  steps: number;
 }
 
 /** A camera bookmark: where the editor's view was, in the renderer's terms. */

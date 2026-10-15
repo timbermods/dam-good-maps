@@ -15,6 +15,8 @@ import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
+import { compareProblem } from "../core/library/keptVersions";
+import type { MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
@@ -123,7 +125,7 @@ function noteCurrent(id: string, link: string): void {
 }
 
 /** A row of Your maps: the name and the map's dimensions. */
-const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail });
+const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: e.size, thumbnail: e.thumbnail, ...(e.parent ? { parent: e.parent } : {}) });
 
 /** Your maps' picture of a map (D234): the core's 64px top-down thumbnail (`thumbnailPixels`), as a PNG. */
 function thumbnailUrl(m: MapPicture): string | null {
@@ -202,6 +204,8 @@ export function App() {
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  /** Another version of the open map to flip to (Your maps' Compare with the open map): read once, settled. */
+  const [compare, setCompare] = useState<{ id: string; name: string; view: MapView } | null>(null);
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
 
   const entry = useRef<YourMapEntry | null>(null);
@@ -331,6 +335,7 @@ export function App() {
     // (a reopened map's versions count again from its opening: kept as it stands at that version)
     const e: YourMapEntry = isNew ? { id: newId(), name: data.info.name, kind: origin.kind, createdAt: now, editedAt: now, thumbnail: null, revision: data.info.version, savedToTimberborn: null, bytes: 0, size: { w: data.info.W, h: data.info.H } } : { ...origin.entry, revision: data.info.version };
     entry.current = e;
+    setCompare(null);
     keeping.current = true;
     setSaveState("");
     nameRef.current = e.name;
@@ -424,6 +429,60 @@ export function App() {
     }
   }
 
+  /** History's Keep this version and Branch from here (src/core/library/keptVersions.ts): the open map as it stood at History
+   *  step `k`, kept in Your maps as a map of its own, named for the map and the step and remembering where it came from.
+   *  A branch is opened too, with its History through that step; a kept version leaves the open map where it is. */
+  async function keepStep(k: number, branch: boolean) {
+    const open = entry.current;
+    if (!open) return;
+    setError(null);
+    try {
+      await pendingEdits.current?.();
+      const v = await generator.keepVersion(k, kept.current ? open.id : undefined);
+      if (!v) throw new Error("that step is no longer in the history");
+      const now = new Date().toISOString();
+      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: thumbnailUrl(v.picture), revision: 1, savedToTimberborn: null, bytes: v.bytes.length, size: v.size, parent: v.parent };
+      const r = await yourMaps.put(e, v.bytes, null);
+      const problem = storeProblem(r);
+      if (problem) return setError(problem);
+      const list = await yourMaps.list().catch(() => [e, ...maps]);
+      setMaps(list);
+      if (branch) guard(() => void openMap(e.id, list), "Branching");
+      else setNote(`Kept as ${v.name}`);
+    } catch (err) {
+      setError(`That version was not kept: ${words(err)}`);
+    }
+  }
+
+  /** Your maps' Compare with the open map: the other map is opened in a worker of its own, settled, and its land, objects and
+   *  water given to the editor to flip to (the same size only). */
+  async function compareWith(id: string) {
+    const e = maps.find((m) => m.id === id);
+    const info = infoRef.current;
+    if (!e || !info || id === entry.current?.id) return;
+    const why = compareProblem({ w: info.W, h: info.H }, e.size);
+    if (why) return setError(why);
+    setError(null);
+    setNote(`Getting ${e.name} ready to compare…`);
+    const bg = createBackground();
+    try {
+      const bytes = await yourMaps.project(id);
+      if (!bytes) throw new Error("its project is missing from this browser");
+      await bg.api.openProject(bytes);
+      await bg.api.whenWaterSettles();
+      const o = await bg.api.sessionView();
+      if (o.view.W !== info.W || o.view.H !== info.H) throw new Error("it is not the size of the open map");
+      setCompare({ id, name: e.name, view: o.view });
+      setNote(null);
+      setPanel(null);
+    } catch (err) {
+      setNote(null);
+      setError(`${e.name} could not be compared: ${words(err)}`);
+    } finally {
+      bg.stop();
+    }
+  }
+
   /** A map of Your maps renamed: the open one as the title renames it (D443), another in Your maps. */
   async function renameMap(id: string, n: string): Promise<string | null> {
     if (id === entry.current?.id) return rename(n);
@@ -464,6 +523,7 @@ export function App() {
             await yourMaps.remove(m.id).catch(() => null);
           }
           if (here) switching.current = false;
+          setCompare((c) => (c && ids.includes(c.id) ? null : c));
           const left = await yourMaps.list().catch(() => maps.filter((m) => !ids.includes(m.id)));
           setMaps(left);
           if (!here) return;
@@ -835,6 +895,7 @@ export function App() {
     onDownloadMap: (id) => void downloadMap(id),
     onRenameMap: renameMap,
     onDeleteMaps: deleteMaps,
+    onCompareMap: (id) => void compareWith(id),
     name,
     onRename: rename,
   };
@@ -984,6 +1045,9 @@ export function App() {
         placesOpen={panel === "places"}
         onPlaces={(o) => setPanel(o ? "places" : null)}
         keepView={opened.keepView}
+        compare={compare}
+        onStopCompare={() => setCompare(null)}
+        onKeepStep={(k, branch) => void keepStep(k, branch)}
         notice={message}
       />
       {confirmDialog}

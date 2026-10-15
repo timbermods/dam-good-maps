@@ -6,6 +6,7 @@
 // The snapshot is taken only when the save runs (`take`), so a burst of edits costs one project
 // file. Saves of one map never overlap: a change during a write is saved after it.
 
+import { withParent } from "./keptVersions";
 import { withSize, withStoredName, type StoreResult, type YourMapEntry, type YourMapsStore } from "./yourMaps";
 
 export interface Snapshot {
@@ -88,7 +89,7 @@ export class YourMapsSaver {
           const s = await p.take();
           if ((this.epochs.get(id) ?? 0) !== epoch) return;
           if (s.entry.id !== id) throw new Error("snapshot belongs to another map");
-          r = await this.store.put(withSize(withStoredName(s.entry, s.project), s.project), s.project, s.entry.storageVersion ?? null);
+          r = await this.store.put(withParent(withSize(withStoredName(s.entry, s.project), s.project), s.project), s.project, s.entry.storageVersion ?? null);
           if (r.ok && r.storageVersion) {
             s.entry.storageVersion = r.storageVersion;
           }
