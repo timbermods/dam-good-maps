@@ -5,8 +5,8 @@
 // so a grove is not one flat colour.
 //
 // - Trees by species: pine (tiers of dark cones), birch (a white trunk with dark marks and a light
-//   crown), oak (a thick trunk and a broad crown), succulent (a fat brown pinecone-like trunk with small green pads on short stalks, and a young
-//   plant beside it). Dead
+//   crown), oak (a thick trunk and a broad crown), succulent (a fat brown pinecone-like trunk with pale sage lens-shaped pads fanning out round its
+//   crown, and a young plant beside it). Dead
 //   trees are bare: a pale grey-brown trunk and bare branches at the tree's true size, far lighter
 //   than the dark living crowns.
 // - Berry bushes: dark green, dotted with blue flowers.
@@ -77,7 +77,8 @@ class Model {
   /** The view the parts added now belong to (LOD_ALL, LOD_NEAR or LOD_FAR). */
   level = LOD_ALL;
 
-  /** Add a three.js geometry, transformed, in one colour (flat shaded). */
+  /** Add a three.js geometry, transformed, in one colour or with a colour for each vertex (a function of
+   *  the vertex's place in the geometry before it is moved; flat shaded). */
   add(g: BufferGeometry, color: Rgb | ((x: number, y: number, z: number) => Rgb), t: { x?: number; y?: number; z?: number; rx?: number; ry?: number; rz?: number; sx?: number; sy?: number; sz?: number; lift?: number } = {}): this {
     // a colour per vertex: `color` given the vertex's place in the geometry before it is moved
     let per: Rgb[] | null = null;
@@ -417,45 +418,55 @@ function beam(m: Model, a: readonly number[], b: readonly number[], r: number, c
   m.add(g, color, { x: c.x, y: c.y, z: c.z });
 }
 
+/** A pad: a lens of 12 triangles, a round rim of six vertices in the xz plane (radius 1) with an apex over and
+ *  under its middle (y = ±1); scale it to about 0.15 × 0.04 × 0.15. */
+function lens(): BufferGeometry {
+  const rim = (k: number): number[] => [Math.cos((k * Math.PI) / 3), 0, Math.sin((k * Math.PI) / 3)];
+  const out: number[] = [];
+  for (let k = 0; k < 6; k++) {
+    out.push(0, 1, 0, ...rim(k + 1), ...rim(k));
+    out.push(0, -1, 0, ...rim(k), ...rim(k + 1));
+  }
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(out, 3));
+  return g;
+}
+
+const SAGE: Rgb = [0.55, 0.7, 0.45];
+const BLUSH: Rgb = [0.86, 0.42, 0.38];
+
 /** The desert plant (the game's succulent): a tall egg of a trunk, widest a third of the way up, tapering to
- *  the crown, in rings of alternating browns like scales; eight plump jade-green ovals fanning up and out
- *  of its crown and sides, blushing pink-red at their tips; and a young plant beside it, three of the same
- *  pads straight from the ground. Dead: a grey-tan trunk and a few limp tan pads. At most 150 triangles. */
+ *  the crown, in four rings of two close browns like scales; six pale sage lens-shaped pads fanning out
+ *  round its crown, each blushing pink-red at its top rim vertex only; and a young plant beside it, two
+ *  of the same pads. Dead: a grey-tan trunk and three limp tan pads. At most 144 triangles. */
 function succulent(dead: boolean): Model {
-  const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.34, 0.2];
-  const dark: Rgb = dead ? [0.47, 0.4, 0.3] : [0.36, 0.23, 0.14];
+  const mid: Rgb = dead ? [0.55, 0.47, 0.36] : [0.5, 0.36, 0.22];
+  const dark: Rgb = dead ? [0.5, 0.43, 0.33] : [0.43, 0.3, 0.18];
   const cx = dead ? 0 : 0.1;
   const m = new Model();
-  // (the trunk: five rings, each a frustum, bottom radius, top radius)
-  const rings: [number, number][] = [[0.14, 0.2], [0.2, 0.25], [0.25, 0.22], [0.22, 0.16], [0.16, 0.09]];
-  rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.15, 6), k % 2 ? dark : mid, { x: cx, y: 0.075 + 0.15 * k, ry: 0.3 * k }));
-  // (a pad: a squashed ellipsoid standing from its base at (x, y, z), `tilt` from upright toward `turn`;
-  //  green, darker at the base, blushing at the tip)
-  const green: Rgb = dead ? [0.62, 0.54, 0.4] : [0.4, 0.63, 0.34];
-  const blush: Rgb = dead ? [0.55, 0.45, 0.34] : [0.86, 0.42, 0.38];
-  const tint = (x: number, y: number): Rgb => (y > 0.9 ? blush : y < -0.9 ? shade(green, 0.7) : Math.abs(x) > 0.5 ? shade(green, 1.08) : green);
-  const pad = (x: number, y: number, z: number, turn: number, tilt: number, size: number) => {
-    const half = 0.17 * size;
-    m.add(oct(1), (px, py) => tint(px, py), { sx: 0.12 * size, sy: half, sz: 0.08 * size, rz: -tilt, ry: turn, x: x + Math.sin(tilt) * Math.cos(turn) * half, y: y + Math.cos(tilt) * half, z: z - Math.sin(tilt) * Math.sin(turn) * half });
-  };
+  const rings: [number, number][] = [[0.13, 0.22], [0.22, 0.25], [0.25, 0.2], [0.2, 0.1]];
+  rings.forEach(([r0, r1], k) => m.add(cyl(r0, r1, 0.19, 6), k % 2 ? dark : mid, { x: cx, y: 0.095 + 0.19 * k, ry: 0.3 * k }));
+  const green: Rgb = dead ? [0.62, 0.54, 0.4] : SAGE;
+  // (a pad standing at (x, y, z) with its face tilted `tilt` from upright, outward along `turn`; its top rim vertex blushes)
+  const pad = (x: number, y: number, z: number, turn: number, tilt: number, size: number) =>
+    m.add(lens(), (px, py, pz) => (!dead && px < -0.9 ? BLUSH : py !== 0 ? shade(green, 1.06) : pz > 0.5 ? shade(green, 0.94) : green), { sx: 0.15 * size, sy: 0.04 * size, sz: 0.15 * size, rz: -tilt, ry: turn, x, y, z });
   if (dead) {
-    for (const [a, t] of [[0.4, 1.3], [2.6, 1.2], [4.6, 1.35]]) pad(cx + Math.cos(a) * 0.12, 0.7, -Math.sin(a) * 0.12, a, t, 0.9);
+    for (const [a, t] of [[0.4, 1.45], [2.6, 1.4], [4.6, 1.5]]) pad(cx + Math.cos(a) * 0.2, 0.72, -Math.sin(a) * 0.2, a, t, 0.9);
     return m;
   }
-  for (let k = 0; k < 7; k++) {
-    const a = k * 0.9 + 0.2;
-    pad(cx + Math.cos(a) * 0.08, 0.75, -Math.sin(a) * 0.08, a, 0.35 + 0.12 * (k % 3), 1);
+  for (let k = 0; k < 6; k++) {
+    const a = k * 1.05 + 0.2;
+    pad(cx + Math.cos(a) * 0.2, 0.8, -Math.sin(a) * 0.2, a, 0.9 + 0.1 * (k % 4), 1);
   }
-  pad(cx + 0.16, 0.42, 0, 0, 1.1, 0.7);
-  // the young plant: three pads straight from the ground
-  for (const [a, t] of [[0.5, 0.45], [2.6, 0.55], [4.7, 0.4]]) pad(-0.33 + Math.cos(a) * 0.03, 0, 0.1 - Math.sin(a) * 0.03, a, t, 0.7);
+  // the young plant: two pads straight from the ground
+  for (const [a, t] of [[0.5, 0.9], [3.1, 1.0]]) pad(-0.33 + Math.cos(a) * 0.08, 0.14, 0.1 - Math.sin(a) * 0.08, a, t, 0.8);
   return m;
 }
 
 /** The light look's succulent: a trunk and two pads. */
 function liteSucculent(): Model {
-  const m = new Model().add(cone(0.22, 0.7, 4), [0.5, 0.34, 0.2], { y: 0.35 });
-  for (const a of [0.5, 3.6]) m.add(cone(0.12, 0.05, 4), [0.42, 0.64, 0.34], { x: Math.cos(a) * 0.25, y: 0.62, z: -Math.sin(a) * 0.25, rz: -0.9 * Math.cos(a), rx: 0.9 * Math.sin(a) });
+  const m = new Model().add(cone(0.22, 0.7, 4), [0.5, 0.36, 0.22], { y: 0.35 });
+  for (const a of [0.5, 3.6]) m.add(lens(), SAGE, { sx: 0.15, sy: 0.04, sz: 0.15, rz: -1, ry: a, x: Math.cos(a) * 0.2, y: 0.62, z: -Math.sin(a) * 0.2 });
   return m;
 }
 

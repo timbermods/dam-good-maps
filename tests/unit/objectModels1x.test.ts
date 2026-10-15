@@ -9,8 +9,8 @@ import { buildEntities, mineCutout, modelKeyOf, modelOf, modelTriangles } from "
 import { entityView } from "../../src/render3d/model";
 
 const BUDGET: Record<string, number> = {
-  Succulent: 150,
-  "Succulent.dead": 100,
+  Succulent: 144,
+  "Succulent.dead": 90,
   WaterSeep: 400,
   BadwaterSeep: 400,
   Aquifer: 400,
