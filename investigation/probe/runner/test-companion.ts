@@ -80,7 +80,20 @@ async function main(): Promise<void> {
   process.env.FAKE_COMPANION = 'hang';
   const hung = await companionM.runCompanion('companion-hang', cvs, { startSeconds: 30, launchSeconds: 8, log: () => {} });
   check('companion: a game that never finishes is killed, and the next variant still launches', hung.length === 2 && hung.every((l) => l.outcome === 'timeout') && !safety.isGameRunning(), hung.map((l) => l.outcome).join(', '));
+  process.env.FAKE_COMPANION = 'throw';
+  let threw = '';
+  try {
+    await companionM.runCompanion('companion-throw', cvs, { startSeconds: 30, launchSeconds: 60, log: () => {} });
+  } catch (e) {
+    threw = (e as Error).message;
+  }
+  check('companion: when the runner itself fails mid-run the game is killed before it rethrows', threw !== '' && !safety.isGameRunning(), threw);
   delete process.env.FAKE_COMPANION;
+  const modDir = paths.companionInstallDir();
+  mkdirSync(modDir, { recursive: true });
+  check("companion: a folder without the runner's marker is the player's and is left alone", !companionM.removeCompanion() && existsSync(modDir));
+  writeFileSync(join(modDir, '.dgm-probe-installed'), 'x');
+  check("companion: the runner's own folder is removed, and then it counts as not installed", companionM.removeCompanion() && !existsSync(modDir) && !companionM.companionInstalled());
   const rep = companionM.writeCompanionReport('companion-good', cvs, good, false);
   check('companion: the report is written in the run\'s folder', rep.passed && existsSync(join(launch.resultsDir('companion-good'), 'companion.json')) && /PASSED/.test(rep.lines.join('\n')));
   if (savedLaunch) process.env.DGM_PROBE_LAUNCH = savedLaunch;

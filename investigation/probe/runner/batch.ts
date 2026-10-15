@@ -132,6 +132,11 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     writeFileSync(join(dir, 'restore.json'), JSON.stringify(r, null, 1));
     log(`restored: registry ${r.registryRestored ? `put back (${r.registryChanged.length} values had changed)` : 'unchanged'}; logs ${r.logsRestored.join(', ') || '-'}; player data ${r.playerDataRestored.join(', ') || 'unchanged'}; saves deleted ${r.savesDeleted.length}, saves changed ${r.savesChanged.length}; other new files and folders moved out ${r.docsMoved.length}; changed files put back ${r.docsRestored.join(', ') || 'none'}; changed and left (Steam's own, or too large to copy) ${r.docsChanged.join(', ') || 'none'}`);
   };
+  // DGM Probe, and the companion if the runner installed it: both leave the Mods folder after a run, however it ends
+  const removeRunMods = () => {
+    rmSync(modInstallDir(), { recursive: true, force: true });
+    if (companion && !removeCompanion()) log(`${companionInstallDir()} was not installed by the runner and is left alone`);
+  };
   const onSignal = () => {
     log('interrupted: stopping the game and restoring');
     try {
@@ -140,8 +145,13 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
       // already gone
     }
     setTimeout(() => {
-      doRestore();
-      process.exit(130);
+      try {
+        doRestore();
+      } finally {
+        // the finally below never runs on this path: the run's mods leave the Mods folder here
+        removeRunMods();
+        process.exit(130);
+      }
     }, 4000);
   };
   process.once('SIGINT', onSignal);
@@ -193,12 +203,9 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     doRestore();
     if (existsSync(p.job)) rmSync(p.job);
     // DGM Probe leaves the Mods folder after each run, so the player's own game never loads it
-    rmSync(modInstallDir(), { recursive: true, force: true });
+    removeRunMods();
     log('DGM Probe removed from the Mods folder');
-    if (companion) {
-      removeCompanion();
-      log(`the companion removed from the Mods folder (${companionInstallDir()})`);
-    }
+    if (companion) log(`the companion removed from the Mods folder (${companionInstallDir()})`);
     // nothing the run created may stay in Kyler's Timberborn folder
     const left = leftovers(snap);
     writeFileSync(join(dir, 'leftovers.json'), JSON.stringify(left, null, 1));

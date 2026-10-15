@@ -133,6 +133,19 @@ namespace DGMCompanion
 
         private string Describe()
         {
+            try
+            {
+                return DescribeNow();
+            }
+            catch (Exception e)
+            {
+                CompanionEnv.Warn("could not describe the entry: " + e.Message);
+                return Title;
+            }
+        }
+
+        private string DescribeNow()
+        {
             MapCandidate map = LatestMap.Find(CompanionEnv.MapsFolder(CompanionEnv.LoadSettings()));
             if (map == null)
             {

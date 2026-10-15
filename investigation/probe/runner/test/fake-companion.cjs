@@ -38,6 +38,11 @@ async function ask(what) {
   facts.mapsFolder = maps;
   // nothing in the folder is a Dam Good Maps map yet: no entry (it reads the folder only to say what it holds)
   facts.mapsBefore = fs.readdirSync(maps).join(', ');
+  if (wrong === 'throw') {
+    // the Maps folder is gone: the runner fails writing the maps into it, while this game is still running
+    fs.rmSync(maps, { recursive: true, force: true });
+    fs.writeFileSync(maps, 'x');
+  }
   const a1 = await ask('maps');
   const files = fs.readdirSync(maps);
   const newest = files.filter((f) => /^dgm-.*\.timber$/.test(f) && f !== 'dgm-broken.timber').map((f) => ({ f, t: fs.statSync(path.join(maps, f)).mtimeMs })).sort((a, b) => b.t - a.t)[0].f;

@@ -134,6 +134,7 @@ export function companionSummary(variants: CompanionVariant[], keepMods: boolean
   };
 }
 
+const INSTALLED_MARKER = '.dgm-probe-installed';
 const companionProject = () => join(REPO, 'mods', 'companion');
 
 /** Builds the companion against the local game and installs it into Documents\Timberborn\Mods for the run. */
@@ -143,20 +144,34 @@ export function installCompanion(): string {
   if (isGameRunning()) throw new Error('Timberborn is running: the companion is installed only while the game is closed.');
   const target = companionInstallDir();
   // (a copy of the player's own would be deleted with ours: never touch one)
-  if (existsSync(target) && !existsSync(join(target, '.dgm-probe-installed'))) throw new Error(`${target} is already there and was not put there by the probe: nothing was installed, nothing was launched.`);
+  if (existsSync(target) && !existsSync(join(target, INSTALLED_MARKER))) throw new Error(`${target} is already there and was not put there by the probe: nothing was installed, nothing was launched.`);
   execFileSync(process.execPath, [build], { stdio: 'inherit' });
   rmSync(target, { recursive: true, force: true });
-  cpSync(join(companionProject(), 'dist', 'DGMCompanion'), target, { recursive: true });
-  writeFileSync(join(target, '.dgm-probe-installed'), 'installed by the DGM Probe runner for one run; removed after it\n');
+  // (the marker goes in first: whatever a failed copy leaves behind is the runner's, and is removed again)
+  mkdirSync(target, { recursive: true });
+  writeFileSync(join(target, INSTALLED_MARKER), 'installed by the DGM Probe runner for one run; removed after it');
+  try {
+    cpSync(join(companionProject(), 'dist', 'DGMCompanion'), target, { recursive: true });
+  } catch (e) {
+    removeCompanion();
+    throw e;
+  }
   return target;
 }
 
+/** True when the companion is installed by the runner (its marker, and the built mod). */
 export function companionInstalled(): boolean {
-  return existsSync(join(companionInstallDir(), 'version-1.1', 'Scripts', 'DGMCompanion.dll'));
+  const dir = companionInstallDir();
+  return existsSync(join(dir, INSTALLED_MARKER)) && existsSync(join(dir, 'version-1.1', 'Scripts', 'DGMCompanion.dll'));
 }
 
-export function removeCompanion(): void {
-  rmSync(companionInstallDir(), { recursive: true, force: true });
+/** Removes the companion the runner installed; a folder without the runner's marker is the player's and stays (false). */
+export function removeCompanion(): boolean {
+  const dir = companionInstallDir();
+  if (!existsSync(dir)) return true;
+  if (!existsSync(join(dir, INSTALLED_MARKER))) return false;
+  rmSync(dir, { recursive: true, force: true });
+  return true;
 }
 
 /** Writes a file with the age it should have. */
@@ -255,6 +270,19 @@ export function companionLaunchArgs(dir: string): string[] {
 /** Launches the game once per variant and drives it until it has written its result (or the time is up). */
 export async function runCompanion(runId: string, variants: CompanionVariant[], o: CompanionWatch): Promise<CompanionLaunch[]> {
   const out: CompanionLaunch[] = [];
+  try {
+    await runVariants(runId, variants, o, out);
+  } finally {
+    // (whatever threw above, the game never stays running: the restore after this refuses to run while it does)
+    if (isGameRunning()) {
+      killGame(o.log);
+      if (!(await waitGone(30))) o.log('Timberborn is still running 30 s after it was killed');
+    }
+  }
+  return out;
+}
+
+async function runVariants(runId: string, variants: CompanionVariant[], o: CompanionWatch, out: CompanionLaunch[]): Promise<void> {
   for (const v of variants) {
     // (the game just killed or quitting may need a moment to be gone)
     if (!(await waitGone(30))) throw new Error('Timberborn is already running; the probe never launches a second copy.');
@@ -310,7 +338,6 @@ export async function runCompanion(runId: string, variants: CompanionVariant[], 
     out.push(entry);
     if (entry.outcome === 'no-start') break;
   }
-  return out;
 }
 
 export interface CompanionVerdict {
