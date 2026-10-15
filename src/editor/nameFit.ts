@@ -34,10 +34,16 @@ export function fitsHeaderTwoLines(name: string): boolean {
   return linesIn(name, room, (t) => Math.ceil(pen.measureText(t).width) + 1) <= 2;
 }
 
+/** A name may always be this many characters, whatever the room: wider fonts (Linux, macOS, larger UI fonts) leave the
+ *  header less room, and the shown title clamps to two lines with an ellipsis instead. */
+export const NAME_FLOOR = 30;
+
 /** Applies a typed edit to a name field, limiting only what makes the name longer: deleting, or cutting and typing
- *  something shorter, is always kept. An edit that lengthens the name past what `fits` is cut to the pasted or typed
- *  text that fits (the rest of the name stays whole); a key with no room does nothing. Returns the field's new value. */
-export function limitName(field: HTMLInputElement, was: string, fits: (name: string) => boolean): string {
+ *  something shorter, is always kept. An edit that lengthens the name past what `fits` (the measured room, an upper
+ *  guide where fonts allow) and past NAME_FLOOR characters is cut to the pasted or typed text that fits (the rest of
+ *  the name stays whole); a key with no room does nothing. Returns the field's new value. */
+export function limitName(field: HTMLInputElement, was: string, measured: (name: string) => boolean): string {
+  const fits = (name: string) => name.length <= NAME_FLOOR || measured(name);
   const v = field.value;
   if (v.length < was.length || fits(v)) return v;
   // what was inserted: between the text both share at the start and at the end

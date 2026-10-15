@@ -61,8 +61,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
   Esc cancels, and a blank name is refused in the core's words, said in the second line. A typed name stops at what
-  fits two lines (13px, where the header's room is narrowest, at 1280 wide), as Your maps' Rename does: a key past it
-  does nothing, a paste keeps what fits. On the right **History**
+  fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
+  characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
+  ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**

@@ -142,7 +142,7 @@ export function ChecksDot(p: ChecksState & { open: boolean; onToggle(open: boole
 /** The map's name, renamed in place (Kyler, 2026-10-03): a click edits it at exactly the same place, size and font,
  *  so nothing moves; Enter or leaving the field saves through the core (never an undo step, D443), Esc cancels; a
  *  blank name is refused in the core's own words. */
-function TitleName(p: { name: string; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
+function TitleName(p: { name: string; clipped: boolean; onRename(name: string): Promise<string | null>; onProblem(problem: string | null): void }) {
   const [text, setText] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const timer = useRef(0);
@@ -187,7 +187,7 @@ function TitleName(p: { name: string; onRename(name: string): Promise<string | n
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title="Rename" onClick={() => setText(p.name)}>
+        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => setText(p.name)}>
           {p.name}
         </button>
       </h1>
@@ -269,6 +269,8 @@ export function Header(p: HeaderProps) {
   const [about, setAbout] = useState(false);
   /** The core's refusal of a name, said in the title's second line. */
   const [problem, setProblem] = useState<string | null>(null);
+  /** The shown name is cut to its two lines (an ellipsis): its tooltip then says it whole. */
+  const [clipped, setClipped] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   // the map's info sits at the window's exact centre and never overlaps the groups at the header's sides:
@@ -316,6 +318,7 @@ export function Header(p: HeaderProps) {
         title.classList.toggle("two-lines", two);
         title.classList.toggle("small", two && linesAt(room) > 2);
         title.classList.toggle("no-facts", two || room < facts.scrollWidth);
+        if (!title.querySelector(".title-editing")) setClipped(name.scrollHeight > name.clientHeight + 1);
       }
     };
     fit.current = note;
@@ -372,7 +375,7 @@ export function Header(p: HeaderProps) {
         Your maps
       </button>
       <div class="editor-title">
-        <TitleName name={p.name} onRename={p.onRename} onProblem={setProblem} />
+        <TitleName name={p.name} clipped={clipped} onRename={p.onRename} onProblem={setProblem} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
           {problem || p.saveState || `${p.info.kind === "generated" && p.info.spec ? `Seed ${p.info.spec.seed} · ` : ""}${p.info.W}×${p.info.H}`}
         </span>

@@ -846,8 +846,9 @@ API, every pinned hash, and every role and accessible name the tests use.
 ## The header and top-right controls (polish audit, 2026-10-14)
 
 - **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
-  header's room is narrowest (1280 wide), the same 80-character ceiling; a key past it does nothing, a paste keeps what
-  fits. So no name is ever three lines, at any width.
+  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
+  with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
 - **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the
   view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
   mockups' "an indicator, not a control".

@@ -68,6 +68,17 @@
   text-overflow: clip;
 }
 
+/* the shown name never takes more than two lines: past them an ellipsis, and the full name in its tooltip (a name may
+   be longer than the room where the fonts are wide) */
+.editor-title.two-lines h1:not(.title-editing) .title-button {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* (two lines at full size; only when two full-size lines can't hold it, two lines in 13px: Kyler, 2026-10-06; at 1280
    every name Rename allows fits two lines in that) */
 .editor-title.two-lines h1 {

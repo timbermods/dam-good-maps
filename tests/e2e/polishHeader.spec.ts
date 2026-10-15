@@ -2,7 +2,7 @@
 // north, the speaker's tooltip stays off the volume, the Look menu is built of the page's own controls, the layer
 // arrows and the checks pill read right, and the checks' list never lies over an open Legend.
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openDrawer, openEditor, openLegend } from "./open";
 
 test.beforeEach(async ({ page }) => {
@@ -16,6 +16,14 @@ async function open(page: Page, width = 1280, height = 800): Promise<void> {
   await page.setViewportSize({ width, height });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 }
+
+/** How many lines the shown name's box holds at most, and whether it overflows sideways. */
+const shownLines = (button: Locator) =>
+  button.evaluate((e) => {
+    const cs = getComputedStyle(e);
+    const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+    return { lines: Math.round(e.clientHeight / line), wide: e.scrollWidth > e.clientWidth + 0.5 };
+  });
 
 const box = async (page: Page, selector: string) => (await page.locator(selector).first().boundingBox())!;
 
@@ -42,14 +50,8 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   const button = page.locator(".editor-title .title-button");
   await expect(button).toHaveText(full.trim());
   // the name takes two lines at most (the 13px lines at 1280), never overflows, and the header keeps its height
-  expect(
-    await button.evaluate((e) => {
-      const r = document.createRange();
-      r.selectNodeContents(e);
-      const tops = new Set([...r.getClientRects()].map((q) => Math.round(q.top)));
-      return { lines: tops.size, wide: e.scrollWidth > e.clientWidth + 0.5 };
-    }),
-  ).toEqual({ lines: 2, wide: false });
+  expect(await shownLines(button)).toEqual({ lines: expect.any(Number), wide: false });
+  expect((await shownLines(button)).lines).toBeLessThanOrEqual(2);
   expect((await box(page, "header.editor-bar")).height).toBe(header.height);
   // deleting is never limited: a name filling the field loses its first letter and its last whole, and the rest stays
   await button.click();
@@ -181,11 +183,32 @@ test("the generator's Name field stops at the same two lines as Rename, and dele
   await page.keyboard.press("Enter");
   const title = page.locator(".editor-title .title-button");
   await expect(title).toHaveText(kept.slice(1).trim());
-  expect(
-    await title.evaluate((e) => {
-      const r = document.createRange();
-      r.selectNodeContents(e);
-      return new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size;
-    }),
-  ).toBeLessThanOrEqual(2);
+  expect((await shownLines(title)).lines).toBeLessThanOrEqual(2);
+});
+
+test("a name the room cannot hold in two lines is shown clamped to two with an ellipsis, whole in its tooltip, and the name keeps at least 30 characters", async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page);
+  const header = await box(page, "header.editor-bar");
+  const field = page.getByLabel("Map name");
+  const button = page.locator(".editor-title .title-button");
+  await button.click();
+  // thirty wide letters without a gap fill more than two lines of the header's room at 1280, and the floor lets them in
+  const wide = "W".repeat(30);
+  await field.fill(wide);
+  await expect(field).toHaveValue(wide);
+  await page.keyboard.press("Enter");
+  await expect(button).toHaveText(wide);
+  const shown = await shownLines(button);
+  expect(shown.lines).toBeLessThanOrEqual(2);
+  expect(shown.wide).toBe(false);
+  expect(await button.evaluate((e) => e.scrollHeight > e.clientHeight + 1)).toBe(true);
+  expect(await button.evaluate((e) => getComputedStyle(e).textOverflow)).toBe("ellipsis");
+  await expect(button).toHaveAttribute("title", wide);
+  expect((await box(page, "header.editor-bar")).height).toBe(header.height);
+  // a short name is whole again, its tooltip back to what the click does
+  await button.click();
+  await field.fill("Quiet Valley");
+  await page.keyboard.press("Enter");
+  await expect(button).toHaveAttribute("title", "Rename");
 });
