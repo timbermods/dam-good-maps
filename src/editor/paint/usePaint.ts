@@ -346,7 +346,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           showWater(e.water, false, true);
           if (e.soil) {
             mirror.current.daySoil = e.soil;
-            showSoil(e.soil, e.withered);
+            showSoil(e.soil, e.withered, e.day);
           }
           ed.rehover();
         } else if (e.kind === "withered") {

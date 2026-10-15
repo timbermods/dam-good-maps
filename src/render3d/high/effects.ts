@@ -34,7 +34,10 @@ export type HighEffectKey =
   | "rings"
   | "roughWater"
   | "landmarks"
-  | "objectDetail";
+  | "objectDetail"
+  | "dryGround"
+  | "heat"
+  | "badtideSky";
 
 export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "water", label: "Water", from: "#38" },
@@ -61,6 +64,9 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "roughWater", label: "Rough water", from: "#67" },
   { key: "landmarks", label: "Landmarks", from: "#67" },
   { key: "objectDetail", label: "Fine detail", from: "#67" },
+  { key: "dryGround", label: "Dry ground and straw", from: "#67" },
+  { key: "heat", label: "Heat shimmer", from: "#67" },
+  { key: "badtideSky", label: "Badtide sky", from: "#67" },
 ];
 
 export type HighEffects = Record<HighEffectKey, boolean>;
@@ -78,8 +84,8 @@ export function effectsFrom(off: readonly string[]): HighEffects {
 
 /** What the lower-cost tier turns off (D250 (2)): the soft shadows (the baked ones stay), mist and
  *  splash rings, the wind, the trees' close-up models (their far silhouettes stay) and the
- *  landmarks' fine detail; and it draws at 85% of the pixels (`LOWER_PIXELS`). */
-export const LOWER_COST_DROPS: readonly HighEffectKey[] = ["shadows", "mist", "rings", "sway", "objectDetail"];
+ *  landmarks' fine detail and the drought's heat shimmer; and it draws at 85% of the pixels (`LOWER_PIXELS`). */
+export const LOWER_COST_DROPS: readonly HighEffectKey[] = ["shadows", "mist", "rings", "sway", "objectDetail", "heat"];
 export const LOWER_PIXELS = 0.85;
 
 /** The effects in force: the player's switches, less what the tier drops. */
