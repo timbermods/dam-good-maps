@@ -43,6 +43,16 @@ const EASE = 16;
 let columnOf = new Int32Array(0).fill(-1);
 let inLater = new Uint8Array(0);
 
+/** The earlier frame's column a later frame's column `k` of tile `i` blends from (−1: none): its own on a tile with
+ *  one in each (the land under it may have moved), else the one on the same floor (under caves a tile holds several,
+ *  and a cave's pool never takes the lake's on its roof). `next` lists the earlier frame's other columns of a tile. */
+function pairOf(a: WaterView, b: WaterView, k: number, i: number, next: Int32Array, single: boolean): number {
+  const j = columnOf[i];
+  if (j < 0 || (single && next[j] < 0)) return j;
+  for (let q = j; q >= 0; q = next[q]) if (Math.abs(a.floor[q] - b.floor[k]) < 0.5) return q;
+  return -1;
+}
+
 /** Water between two frames (t from 0 to 1): each tile's depth, contamination and outflows in between,
  *  its floor from the later frame. */
 export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
@@ -53,8 +63,14 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     columnOf = new Int32Array(most + 1).fill(-1);
     inLater = new Uint8Array(most + 1);
   }
-  // (a tile with several columns, under caves: its last one, as a map lookup would keep)
-  for (let k = 0; k < a.count; k++) columnOf[a.tile[k]] = k;
+  // (a tile with several columns, under caves: each paired with the one on its own floor, `pairOf`)
+  const next = new Int32Array(a.count).fill(-1);
+  for (let k = 0; k < a.count; k++) {
+    next[k] = columnOf[a.tile[k]];
+    columnOf[a.tile[k]] = k;
+  }
+  // (how many columns each tile has in the later frame: one, or several)
+  for (let k = 0; k < b.count; k++) inLater[b.tile[k]]++;
   const ca = a.outflow;
   const cb = b.outflow;
   const most2 = a.count + b.count;
@@ -63,11 +79,13 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
   const depth = new Float32Array(most2);
   const contamination = new Float32Array(most2);
   const outflow = cb ? new Float32Array(most2 * 4) : null;
+  // (the earlier frame's columns a later one blends from: the others fade out, a tile still wet or not)
+  const used = new Uint8Array(a.count);
   let n = 0;
   for (let k = 0; k < b.count; k++) {
     const i = b.tile[k];
-    inLater[i] = 1;
-    const j = columnOf[i];
+    const j = pairOf(a, b, k, i, next, inLater[i] === 1);
+    if (j >= 0) used[j] = 1;
     tile[n] = i;
     floor[n] = b.floor[k];
     depth[n] = (j < 0 ? 0 : a.depth[j]) * (1 - t) + b.depth[k] * t;
@@ -76,11 +94,10 @@ export function blendWater(a: WaterView, b: WaterView, t: number): WaterView {
     n++;
   }
   for (let k = 0; k < a.count; k++) {
-    const i = a.tile[k];
-    if (inLater[i]) continue;
+    if (used[k]) continue;
     const d = a.depth[k] * (1 - t);
     if (d <= 0.001) continue;
-    tile[n] = i;
+    tile[n] = a.tile[k];
     floor[n] = a.floor[k];
     depth[n] = d;
     contamination[n] = a.contamination[k];

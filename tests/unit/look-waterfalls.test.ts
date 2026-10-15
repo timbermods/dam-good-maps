@@ -12,7 +12,8 @@ import { DataTexture } from "three";
 import { arcLength, arcPoint, END, FALL_MIN, FALL_SHAPE, FALL_SPLASH, FALL_STRIDE, fallEnds, fallPoint, fallReach, fallSplash, fallTemplate, fallThickness, firstCorner, lipOutflow, tangent } from "../../src/render3d/falls";
 import { fallMaterial, sceneUniforms } from "../../src/render3d/materials";
 import { surfaceWater, waterFromDepth, type SurfaceWater, type WaterView } from "../../src/render3d/model";
-import { changedWaterChunks, FALL_IN_BITS, LIP_BITS, lowerByTile, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { changedWaterChunks, FALL_IN_BITS, LIP_BITS, meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 import { CLEAR_WATER, WATER, WATER_FALL, WATER_GLSL, type Rgb } from "../../src/render3d/waterPalette";
 import { DT } from "../../src/core/sim/water";
 
@@ -35,7 +36,7 @@ function scene(rows: number[][], wet: (x: number, y: number) => number, bad: (x:
 
 function meshAll(s: ReturnType<typeof scene>): WaterMeshData[] {
   const out: WaterMeshData[] = [];
-  for (let cy = 0; cy * 32 < s.H; cy++) for (let cx = 0; cx * 32 < s.W; cx++) out.push(meshWaterChunk(s.W, s.H, s.heights, s.sw, s.view, lowerByTile(s.sw, s.view), cx, cy));
+  for (let cy = 0; cy * 32 < s.H; cy++) for (let cx = 0; cx * 32 < s.W; cx++) out.push(meshWaterChunk(s.W, s.H, plainLayers(s.heights, s.sw), cx, cy));
   return out;
 }
 
@@ -278,7 +279,7 @@ describe("falls in the water mesh", () => {
     expect(at(b, 31).reach[1]).toBe(at(a, 31).reach[1]);
     const key = (f: ReturnType<typeof falls>[number]) => JSON.stringify([...f.raw]);
     const fresh = falls(b).map(key).sort();
-    const kept = meshAll(a).map((m, cx) => (changed.has(`${cx},0`) ? meshWaterChunk(W, H, b.heights, b.sw, b.view, null, cx, 0) : m));
+    const kept = meshAll(a).map((m, cx) => (changed.has(`${cx},0`) ? meshWaterChunk(W, H, plainLayers(b.heights, b.sw), cx, 0) : m));
     const remeshed: string[] = [];
     for (const m of kept) for (let k = 0; k < m.fallCount; k++) remeshed.push(key(decode(m.falls.subarray(k * FALL_STRIDE, (k + 1) * FALL_STRIDE))));
     expect(remeshed.sort()).toEqual(fresh);

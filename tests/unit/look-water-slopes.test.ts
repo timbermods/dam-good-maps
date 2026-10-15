@@ -12,7 +12,8 @@ import { buildEntities, SLOPE_ARROW_HEIGHT } from "../../src/render3d/entities3d
 import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 import { GROUND, RUIN, WATER_SURFACE, waterBody, waterOpacity } from "../../src/render3d/palette";
-import { blendedBadwater, lowerByTile, meshWaterChunk } from "../../src/render3d/waterMesh";
+import { blendedBadwater, meshWaterChunk } from "../../src/render3d/waterMesh";
+import { plainLayers } from "../../src/render3d/waterLayers";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 /** CIE L* of a display colour (sRGB). */
@@ -57,7 +58,7 @@ describe("water", () => {
     const view = waterFromDepth(heights, [0.6, 0.6, 0.6, 0.6], shares);
     const sw = surfaceWater(W, 1, view);
     const blended = blendedBadwater(W, 1, sw);
-    const m = meshWaterChunk(W, 1, heights, sw, view, lowerByTile(sw, view), 0, 0);
+    const m = meshWaterChunk(W, 1, plainLayers(heights, sw), 0, 0);
     // each top's corner has the mean of the blended shares of the tiles round it; the west edge
     // of the row the first tile's, the east edge the last's
     const at = (x: number) => (x <= 0 ? blended[0] : x >= W ? blended[W - 1] : (blended[x - 1] + blended[x]) / 2);
