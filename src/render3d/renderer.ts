@@ -65,7 +65,7 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
-import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits, zoomTargetToward } from "./framing";
+import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
@@ -150,6 +150,17 @@ export interface FrameStats {
 /** A wheel's turn: with Shift, browsers turn it sideways (deltaX). */
 export function wheelDelta(ev: WheelEvent): number {
   return ev.deltaY || ev.deltaX;
+}
+
+/** The mean and the highest of a map's heights. */
+function heightStats(heights: ArrayLike<number>): { mean: number; maxY: number } {
+  let sum = 0;
+  let maxY = 0;
+  for (let i = 0; i < heights.length; i++) {
+    sum += heights[i];
+    if (heights[i] > maxY) maxY = heights[i];
+  }
+  return { mean: sum / (heights.length || 1), maxY };
 }
 
 export interface PointerTool {
@@ -1105,6 +1116,7 @@ export class MapRenderer {
     const soil = v.soil ?? null;
     const tiles = tileData(W, H, heights, sky, soil, surface);
     this.map = { W, H, heights, source, water: v.water, surface, entities: v.entities, soil, sky, tiles };
+    this.heightStats = null;
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
     this.landBefore = heights.slice();
@@ -1534,6 +1546,7 @@ export class MapRenderer {
       rideLand(m.W, m.surface, this.drawnLand, heights, rect);
     }
     m.heights = heights;
+    this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
       m.source = { ...m.source, columns: columnMap(columns) };
@@ -1851,6 +1864,7 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return 0;
     m.heights = heights;
+    this.heightStats = null;
     m.source = { ...m.source, heights };
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
@@ -3169,7 +3183,8 @@ export class MapRenderer {
     const m = this.map;
     const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
     const from = this.view.distance;
-    const distance = Math.min(max, Math.max(min, from * factor));
+    // (a framing wider than the limit, the whole map in a wide window, is not snapped to it by the first turn)
+    const distance = Math.min(Math.max(max, from), Math.max(min, from * factor));
     if (distance === from) return;
     const hit = m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null;
     if (!m || !hit) {
@@ -3187,18 +3202,18 @@ export class MapRenderer {
   private zoomPoint(clientX: number, clientY: number): { point: [number, number, number]; maxY: number } | null {
     const m = this.map;
     if (!m) return null;
-    let sum = 0;
-    let maxY = 0;
-    for (let i = 0; i < m.heights.length; i++) {
-      sum += m.heights[i];
-      if (m.heights[i] > maxY) maxY = m.heights[i];
-    }
+    const { mean, maxY } = (this.heightStats ??= heightStats(m.heights));
     const seen = this.pickSeen(clientX, clientY);
     const hit = seen ? this.pickSurface(clientX, clientY, seen) : null;
     if (hit) return { point: hit.point, maxY };
-    const p = pickPlane(this.rayAt(clientX, clientY), sum / m.heights.length);
-    return p ? { point: p.point, maxY } : null;
+    // (a plane hit far past the map, just below the horizon, would throw the view across it: only on the map)
+    const p = pickPlane(this.rayAt(clientX, clientY), mean);
+    return p && onMapPlane(p.point, m.W, m.H) ? { point: p.point, maxY } : null;
   }
+
+  /** The heights' mean and highest, for the zoom's ground plane and bounds (null: summed again at the next wheel turn;
+   *  a new map or an edit to the terrain clears it). */
+  private heightStats: { mean: number; maxY: number } | null = null;
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */
   panPixels(dx: number, dy: number): void {

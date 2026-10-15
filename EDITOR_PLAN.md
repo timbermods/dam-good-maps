@@ -910,8 +910,9 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 ## 7. Controls
 
-Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer (the ground under it stays under it; + and - zoom about the screen's centre), Alt+scroll slices
-the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
+Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
+(the ground under it stays under it; over the sky or off the map, and for + and -, about the screen's centre),
+Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
 Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.

@@ -104,6 +104,15 @@ test("the wheel zooms toward the pointer: the ground under it stays under it, in
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
 
+  // the opening frame can be wider than the zoom's farthest limit: a first turn out never zooms in
+  const framed = (await view(page)).distance;
+  const open = (await page.locator("canvas").first().boundingBox())!;
+  await page.mouse.move(open.x + open.width * 0.6, open.y + open.height * 0.55);
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(80);
+  expect((await view(page)).distance).toBeGreaterThanOrEqual(framed);
+  await page.evaluate((d) => window.dgm3d!.renderer.setView({ distance: d }), framed);
+
   /** A dry tile about 250 pixels from the middle that the pointer really sees (nothing in front of it), with the canvas under its top. */
   const offCentreTile = () =>
     page.evaluate(() => {
@@ -175,5 +184,30 @@ test("the wheel zooms toward the pointer: the ground under it stays under it, in
   await page.mouse.wheel(0, 120);
   await page.waitForTimeout(80);
   expect((await view(page)).distance).toBeGreaterThan(d0);
+
+  // just below the horizon, past the map (the ground there is thousands of tiles away): the zoom is about the centre, so
+  // the target does not move (it would be thrown across the map about a point out there)
+  await page.evaluate(() => window.dgm3d!.renderer.setView({ pitch: 0.18, distance: 150, target: [48, 8, -48] }));
+  const row = await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const m = r.mapState()!;
+    const box = document.querySelector("canvas")!.getBoundingClientRect();
+    for (let y = box.top + 2; y < box.bottom; y += 1) {
+      const ray = r.rayAt(box.left + box.width / 2, y);
+      if (ray.direction[1] >= -1e-4) continue;
+      const t = (8 - ray.origin[1]) / ray.direction[1];
+      const z = ray.origin[2] + ray.direction[2] * t;
+      if (Math.abs(z) > m.H * 4) return y;
+    }
+    return null;
+  });
+  expect(row, "a row just below the horizon").not.toBeNull();
+  await page.mouse.move(box.x + box.width / 2, row!);
+  const t0 = (await view(page)).target;
+  const dh = (await view(page)).distance;
+  await page.mouse.wheel(0, -10);
+  await page.waitForTimeout(80);
+  expect((await view(page)).distance).toBeLessThan(dh);
+  expect((await view(page)).target).toEqual(t0);
   expect(errors).toEqual([]);
 });
