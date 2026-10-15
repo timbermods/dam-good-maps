@@ -7,15 +7,15 @@
   "items": { "$ref": "#/$defs/feature" },
   "$defs": {
     "point": {
-      "description": "A point in tile coordinates. It may lie up to one map side (256 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
+      "description": "A point in tile coordinates. It may lie up to one map side (512 tiles, the largest side) beyond each edge: Lake Basin's and Islands' terrace rings reach past the map, and outlines are never clamped (that would change the terrain).",
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": { "type": "number", "minimum": -256, "maximum": 512 }
+      "items": { "type": "number", "minimum": -512, "maximum": 1023 }
     },
     "runs": {
       "type": "array",
-      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+      "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 511 } }
     },
     "orientation": { "enum": ["Cw0", "Cw90", "Cw180", "Cw270"] },
     "edge": { "enum": ["west", "east", "south", "north"] },
@@ -97,8 +97,8 @@
             "sill": { "type": "integer", "minimum": 0, "maximum": 22 },
             "to": { "enum": ["edge", "river", "lake", "none"] },
             "target": { "type": "string" },
-            "path": { "type": "array", "maxItems": 131072, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
-            "levels": { "type": "array", "maxItems": 65536, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
+            "path": { "type": "array", "maxItems": 524288, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
+            "levels": { "type": "array", "maxItems": 262144, "items": { "type": "integer", "minimum": 0, "maximum": 22 } },
             "width": { "enum": [1, 3, 5] }
           }
         },
@@ -240,8 +240,8 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "x": { "type": "integer", "minimum": 0, "maximum": 255 },
-            "y": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "x": { "type": "integer", "minimum": 0, "maximum": 511 },
+            "y": { "type": "integer", "minimum": 0, "maximum": 511 },
             "orientation": { "$ref": "#/$defs/orientation" },
             "area": { "$ref": "#/$defs/runs" }
           }
@@ -262,7 +262,7 @@
       "additionalProperties": false,
       "required": ["position", "orientation", "benchRadius", "benchLevel", "player"],
       "properties": {
-        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "position": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0, "maximum": 511 } },
         "orientation": { "$ref": "#/$defs/orientation" },
         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
         "benchLevel": { "type": "integer", "minimum": 1, "maximum": 22 },

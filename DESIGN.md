@@ -245,7 +245,7 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
 `feature/page`** (its decisions below, "The build") (the handoff in
 docs/progress/page.md lists them in full): no scale-up at any size and the `?ui` parameter removed; the right column
 13px wider so every legend line fits; the Badwater caption one line, "Badwater: dark brown · Contaminated soil:
-light brown"; the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
+light brown" (since the polish pass: two swatch rows in the overlay's own colours, never colour names); the "Markers on:" heading one weight; the drawer's head an editable name field for the current map
 (kept in Your maps, used by Save to Timberborn and the .timber file; a new map starts with a default name); Your
 maps at the drawer's foot (name and size, newest first, the current map marked, a click opens it; no stars or
 thumbnails); the legend panel as tall as its content with equal padding top and foot, scrolling only when taller
@@ -339,7 +339,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
     Brush, Wand, Whole map); in cells 7–11, with no heading, "Drag on the map" then Shift and Alt as key caps
     ("Shift adds · Alt takes away"), centred across and down. No close button.
   - **Raise** and the other brushes: Size 1 · Level 3 · Mode 2 · Sources 2 · Brush 3 (Square, Straight lines).
-  - **Carve** and the other forces: Power 3 · Size 3 (with Auto) · What it leaves 3 · More 2.
+  - **Carve** and the other forces: Power 3 · Size 3 (with Auto), then the force's own settings.
   - **An object** (a source): Next source 3 (its strength).
   - **More** opens upward inside the panel: its settings take further rows of the same grid above the first, each
     group on whole cells; the bar never moves.
@@ -380,10 +380,15 @@ refinements and what the mockups left open:
   no keys written in the panel (Select's "Shift adds · Alt takes away" moved to its shapes' tooltips; a force at
   work's "Esc to skip · Ctrl+Z to undo" to Revert's). New: Smooth's and Naturalize's Strength, Quake's Side, Steps
   (Off, 2, 3, 4) for Flatten; the area brush waits on #227 to join Brush. Every force's Try another is one row tall
-  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; every tool's rows share their
-  edges (each gap between plates lines up with a gap in the other row, or a plate there spans it): Craterize and Erupt
-  on cells 3, 6 and 9, Rift and Deposit on 6 and 9, Quake on 3 and 9, Glaciate on 3, 6, 9
-  and 11, Carve on 3, 5, 7 and 9 (its ten settings two cells each, Power, Wander and Canyon depth wider); the brushes
+  at cells 12–13 of row 2, its Sources at 10–11 beside it, its Floor ending at cell 9; each gap between plates lines
+  up with a gap in the other row or a plate there spans it (Rift and Deposit share none and Quake only cell 9,
+  because of their wide Floor). **Power is always
+  cells 1–3 and Size cells 4–6 on row 1 of every force that has them, the same widths** (polish, 2026-10-14; D184: a
+  setting keeps its place across tools); each force's own settings follow: Craterize and Erupt Walls or Shape 7–9 and
+  Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
+  Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve Wander 7–9, What it leaves 10–11, Walls 12–13 (its rows share 3, 9 and 11), then
+  Canyon depth 1–3, River depth 4–5, Banks 6–7 and the Floor 8–9 on row 2. Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.
   The rest of this item describes the build before.
@@ -539,7 +544,10 @@ refinements and what the mockups left open:
   map when none is left). The browser's own menu doesn't open on the pictures. Your maps' two columns are now equal
   halves whatever the names (a long name widened its column, and a rename made it jump).
 - **Turn** (Kyler, 2026-10-03): an object that turns has its Turn in the object window, 0°, 90°, 180° and 270°, the
-  one R steps through.
+  one R steps through. Trees, bushes and thorns don't turn: their window holds Size and Density (and a tree's Age).
+- **The object window's controls are the bar's** (the polish pass): a number is the bar's slider (the `set-range` look)
+  with its value at the right of its name, on the name's line before the ×; a choice is segmented, the chosen side
+  selected (Water: Clean | Badwater; a relic's Size; a tree's Age); no native dropdown and no browser-blue slider.
 - **Every field shows its whole value:** Theme, Seed (with Keep) and Size each take a full row (a ten-digit seed, or a
   word up to 24 letters, fits), and the map's Name wraps onto more lines when it is long.
 - **Your maps under a solid scrollbar:** with Windows' solid scrollbar showing (15px), every picture stays clear of
@@ -621,7 +629,7 @@ D380 work.
 - **The legend's names (v8):** every line is a name on one line, nothing of what it does in the game: Moist ground ·
   Dry ground · Contaminated ground · Ground height · Water · Badwater · Mixed water · Walls · Dead trees · Trees and
   bushes · Start · Slope · Ruins · Mine site · Water source · Badwater source · Geothermal field · Relic · Thorns ·
-  Blockage · Other objects; under "Markers on:": Slope arrows · Level lines · Contamination edge · Mine site
+  Blockage · Other objects; under "Markers on:": Slope arrows · Wall levels · Contamination edge · Mine site
   outline. Each line's tooltip is "Show on the map"; the notes about far-off drawing and clicking are gone. The same
   names serve wherever the legend appears. **Two lines are wider than the column** at the panel's present paddings
   (the column is 164px at 1×, the text has 108px): "Contaminated ground" needs 121px and "Contamination edge" 112px;
@@ -804,6 +812,9 @@ API, every pinned hash, and every role and accessible name the tests use.
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.
+- **History's panel is Your maps' panel** (the polish pass): a heading row (the title and a ghost ×, the heading row's
+  height and place), its steps as full-width rows, the step the map is at *selected* (the shelf's look, not lit), steps undone
+  dimmed and struck through, no grey explanation line. Captures `docs/design/polish-panels-*`.
 - **History is a button** in the header, directly left of Undo: "History", pressed (the mint, nothing else changing)
   while its panel is open, no count (the panel's "To review" list stays); gone from File, whose tooltip is "Open and
   download maps, and more". Every control in the header's right group is one height, Save's, 40px on whole pixels,
@@ -829,3 +840,10 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+- **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
+  open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
+  generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when
+  there is none (`labelLayout.ts`). Markers' wall ledges are named **Wall levels** (the legend's line and Markers'
+  tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
+  toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
+  Drought or Badtide day's water.

@@ -7,7 +7,7 @@ import { ORIENTATION_NAMES, type EntityView } from "../../render3d/model";
 import type { TileHit } from "../../render3d";
 import type { WaterLayers } from "../../worker/session";
 import { entitiesByTile, startStatus, type TileContext } from "../features";
-import type { LayerKind } from "../panels";
+import { LAYER_COLORS, type LayerKind } from "../panels";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
 import { BAD, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
@@ -39,11 +39,11 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
   switch (kind) {
     case "badwater":
       return [
-        { tiles: pick(l.badwater, 2), color: [190, 140, 70, 120] },
-        { tiles: pick(l.badwater, 1), color: [120, 70, 30, 200] },
+        { tiles: pick(l.badwater, 2), color: LAYER_COLORS.soil },
+        { tiles: pick(l.badwater, 1), color: LAYER_COLORS.badwater },
       ];
     case "roofed":
-      return [{ tiles: Array.from(l.roofed), color: [170, 90, 220, 150] }];
+      return [{ tiles: Array.from(l.roofed), color: LAYER_COLORS.roofed }];
     default:
       return [];
   }

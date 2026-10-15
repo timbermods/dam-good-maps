@@ -178,10 +178,18 @@ export function difference(a: MapState, b: MapState): Diff {
   if (stable(a.water) !== stable(b.water)) {
     patch.water = { before: structuredClone(a.water), after: structuredClone(b.water) };
     keys.add("lakes");
-    for (const w of [a.water, b.water]) {
-      for (const r of w.retained) for (const i of r.tiles) writes.add(i);
-      for (const i of w.drained) writes.add(i);
-    }
+    // (only the lakes added, removed or changed, and the tiles drained or no longer drained: a lake or a
+    // drained tile the action left as it was is not something it wrote)
+    const lakes = (x: StoredWater, y: StoredWater) => {
+      const there = new Set(y.retained.map((r) => stable(r)));
+      for (const r of x.retained) if (!there.has(stable(r))) for (const i of r.tiles) writes.add(i);
+    };
+    lakes(a.water, b.water);
+    lakes(b.water, a.water);
+    const drainedA = new Set(a.water.drained);
+    const drainedB = new Set(b.water.drained);
+    for (const i of drainedA) if (!drainedB.has(i)) writes.add(i);
+    for (const i of drainedB) if (!drainedA.has(i)) writes.add(i);
   }
   return { patch, writes, keys };
 }
@@ -205,6 +213,17 @@ export function applyPatch(st: MapState, p: Patch, inverse = false): void {
   st.entities = merged(st.entities.map((e) => [e.id, e] as [string, EntitySpec]), p.objects, inverse).map(([, e]) => e);
   st.fallen = merged(st.fallen, p.fallen, inverse);
   if (p.water) st.water = structuredClone(inverse ? p.water.before : p.water.after);
+}
+
+/** The patch that takes `p` back: its before and after values swapped (stored values, never arithmetic). */
+export function invertPatch(p: Patch): Patch {
+  const flip = <T>(list: Change<T>[]): Change<T>[] => list.map(([id, a, b]) => [id, b === null ? null : structuredClone(b), a === null ? null : structuredClone(a)]);
+  return {
+    ground: p.ground.map(([i, hb, ha, lb, la]) => [i, ha, hb, la, lb] as GroundChange),
+    objects: flip(p.objects),
+    fallen: flip(p.fallen),
+    water: p.water ? { before: structuredClone(p.water.after), after: structuredClone(p.water.before) } : null,
+  };
 }
 
 export function cloneState(st: MapState): MapState {
