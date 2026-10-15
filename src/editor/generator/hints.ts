@@ -22,8 +22,8 @@ export interface SettingsProps {
 export const HINT: Record<string, string> = {
   seed: "The same seed and settings make the same map",
   size: "The map's size: the game's, or your own",
-  "size-x": "The map's width in tiles (48 to 256)",
-  "size-y": "The map's height in tiles (48 to 256)",
+  "size-x": "The map's width in tiles (4 to 512)",
+  "size-y": "The map's height in tiles (4 to 512)",
   relief: "How much the land rises and falls",
   verticality: "How steep and tall the cliffs and slopes are",
   highest: "The highest level the land may reach",

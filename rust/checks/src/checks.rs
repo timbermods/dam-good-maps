@@ -101,10 +101,10 @@ fn check_file(m: &Map, c: &mut Collector, external: bool) {
     c.add(vec![
         ("id", s("file.size")),
         ("class", s("load")),
-        ("ok", b(x >= 4.0 && x <= 256.0 && y >= 4.0 && y <= 256.0)),
+        ("ok", b(x >= 4.0 && x <= 512.0 && y >= 4.0 && y <= 512.0)),
         ("value", s(format!("{}x{}", num(x), num(y)))),
-        ("limit", s("4..256")),
-        ("message", s(if x >= 4.0 && x <= 256.0 && y >= 4.0 && y <= 256.0 { format!("{}×{} tiles", num(x), num(y)) } else { format!("{}×{} tiles, the game takes 4–256 a side", num(x), num(y)) })),
+        ("limit", s("4..512")),
+        ("message", s(if x >= 4.0 && x <= 512.0 && y >= 4.0 && y <= 512.0 { format!("{}×{} tiles", num(x), num(y)) } else { format!("{}×{} tiles, the game takes 4–512 a side", num(x), num(y)) })),
     ]);
     let layers = m.layers as f64;
     c.add(vec![("id", s("file.layers")), ("class", s("load")), ("ok", b(m.layers == 23)), ("value", n(layers)), ("limit", n(23.0)), ("message", s(if m.layers == 23 { "23 terrain layers".into() } else { format!("{} terrain layers, the game needs 23", num(layers)) }))]);

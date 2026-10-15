@@ -95,8 +95,14 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         break;
       case "forceResult":
         whole();
-        for (const id of [...op.params.removed, ...(op.params.moved ?? []).map((m) => m.id), ...(op.params.felled ?? []).map((f) => f.id), ...(op.params.cleared ?? []).map((c) => c.id)]) keys.add(`entity:${id}`);
-        for (const s of [...(op.params.source ? [op.params.source] : []), ...(op.params.sources ?? [])]) keys.add(`entity:${s.id}`);
+        // (the objects it removes, carries, fells or clears, and the sources it adds, each at the tiles it stood
+        // on before and stands on after: a generated tree gone from the map is in `derived` of the state before)
+        for (const id of [...op.params.removed, ...(op.params.moved ?? []).map((m) => m.id), ...(op.params.felled ?? []).map((f) => f.id), ...(op.params.cleared ?? []).map((c) => c.id)]) entity(id);
+        // Try another: the objects the force it replaces had removed, carried or felled come back (or go again)
+        // unless this one takes them too; the step's undo data holds the earlier force
+        const prior = (op as { undo?: { replaced?: { op: { params: typeof op.params } } } }).undo?.replaced?.op.params;
+        if (prior) for (const id of [...prior.removed, ...(prior.moved ?? []).map((m) => m.id), ...(prior.felled ?? []).map((f) => f.id), ...(prior.cleared ?? []).map((c) => c.id)]) entity(id);
+        for (const s of [...(op.params.source ? [op.params.source] : []), ...(op.params.sources ?? [])]) entity(s.id);
         if (op.params.replaces !== undefined) keys.add(`action:${op.params.replaces}`);
         if (op.params.lake) keys.add("lakes");
         break;

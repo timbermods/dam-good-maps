@@ -90,7 +90,7 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
 
   // a medium relic: on the start, red with the reason, and a click there places nothing
   await shelf.getByRole("button", { name: "Relic", exact: true }).click();
-  await page.getByRole("group", { name: "Relic options" }).getByRole("combobox", { name: "Size" }).selectOption("medium");
+  await page.getByRole("group", { name: "Relic options" }).getByRole("group", { name: "Size" }).getByRole("button", { name: "Medium" }).click();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const red = await fitAt(page, start[0], start[1], W);
   expect(red.problem).toMatch(/district center/);
