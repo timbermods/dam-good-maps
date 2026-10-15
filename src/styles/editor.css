@@ -134,8 +134,7 @@ button[aria-pressed="true"] {
 }
 
 .view3d-controls button,
-.readout,
-.working {
+.readout {
   background: var(--overlay);
   box-shadow: var(--shadow);
 }
@@ -155,9 +154,13 @@ button[aria-pressed="true"] {
   right: 10px;
   width: 44px;
   height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--overlay);
   box-shadow: var(--shadow);
+  /* a button: it turns the view to face north */
+  cursor: pointer;
 }
 
 .compass .needle {
@@ -288,23 +291,6 @@ button[aria-pressed="true"] {
   inset: 0;
   border: none;
   border-radius: 0;
-}
-
-.working {
-  position: absolute;
-  top: 100px;
-  left: 10px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  /* the map under it still takes clicks (the map's north edge often lies there) */
-  pointer-events: none;
-}
-
-.working {
-  left: auto;
-  right: 64px;
-  top: 16px;
 }
 
 .dialog header {
@@ -827,4 +813,59 @@ button[aria-pressed="true"] {
 /* the view bar leaves room for the corner's level control */
 .editor-view .view3d-controls {
   right: 230px;
+}
+
+/* every × that closes a hint, a note, History or an object's window: one 24px icon button, quiet at rest, lit on
+   hover and focus. (The page's and the object window's own × use the same look through their selectors.) */
+.icon-close,
+button.linkish.ow-close,
+.history-panel .ym-act.hist-close,
+.dock-notes > * > button[aria-label="Dismiss"] {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.icon-close:hover,
+.icon-close:focus-visible,
+button.linkish.ow-close:hover,
+.history-panel .ym-act.hist-close:hover,
+button.linkish.ow-close:focus-visible,
+.history-panel .ym-act.hist-close:focus-visible,
+.dock-notes > * > button[aria-label="Dismiss"]:hover,
+.dock-notes > * > button[aria-label="Dismiss"]:focus-visible {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  color: var(--ink);
+}
+
+/* in the hints' box the × lies 6px from the right edge, level with the first line */
+.map-note > .icon-close {
+  margin: -2px -4px -2px 0;
+}
+
+/* in a message the same: 6px in from the right edge, level with its first line */
+.tool-dock > .dock-notes > * > button[aria-label="Dismiss"] {
+  position: absolute;
+  top: 7px;
+  right: 5px;
+}
+
+/* an object's window: its name line is the × button's height, so the hover square shows whole */
+.object-window .cell-head.ow-head:has(> .ow-close) {
+  height: 24px;
+  line-height: 24px;
+  overflow: visible;
 }

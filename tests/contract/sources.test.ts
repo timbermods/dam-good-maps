@@ -152,7 +152,7 @@ describe("a source placed by hand in the editor (D184: sources go anywhere)", ()
     let at = -1;
     for (let i = 0; i < 96 * 96 && at < 0; i++) if (s.built.channel[i] && s.built.water[i] > 0.3 && Math.hypot((i % 96) - start.x, Math.floor(i / 96) - start.y) > 25) at = i;
     expect(at).toBeGreaterThanOrEqual(0);
-    const u = s.apply({ op: "placeEntity", params: { id: "0f5a3c2e-1b7d-4e8a-9c6f-2d4b8a1e3f70", template: "WaterSource", x: at % 96, y: Math.floor(at / 96), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place water source");
+    const u = s.apply({ op: "placeEntity", params: { id: "0f5a3c2e-1b7d-4e8a-9c6f-2d4b8a1e3f70", template: "WaterSource", x: at % 96, y: Math.floor(at / 96), orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }, "user", "Place a water source");
     expect(u.errors).toEqual([]);
     const v = s.validate("export").report;
     const c = v.checks.find((x) => x.id === "water.source_in_flow")!;

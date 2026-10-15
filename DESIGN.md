@@ -514,12 +514,16 @@ refinements and what the mockups left open:
 - **Dialogs** (Kyler, 2026-10-04): every one centred on the window, its buttons centred in it; a dialog of words (a
   map being made, a question such as "Delete <name>?", About) has its words centred too. The export dialog's lists of
   checks, Help and Keyboard shortcuts stay left-aligned, read as lists.
-- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right".
+- **The first-run hints** sit above the bar's settings and say "Carve below" and "on the right"; each line is one line at
+  every size ("Shape the land: click the map with Carve below, or drag a brush.").
 - **Messages sit above the bar** (Kyler, 2026-10-05): the editor's (a file saved, a save that failed) and the page's
   (Your maps couldn't keep the map, a version found) sit above the first steps' hints and the bar's settings, one gap
-  apart, never over the bar or another control. A message is exactly as wide as the hints box, 522px, sharing its left
+  apart, never over the bar or another control. A message is exactly as wide as the hints box (the width of its longest line, about 520px), sharing its left
   and right edges to the pixel at every size, and keeps that width with no hints showing, so nothing changes shape
-  when they close; its words are centred and wrap, its × 10px in from the right edge as the hints' is. A save that
+  when they close; its words are centred and wrap, its × 6px in from the right edge as the hints' is. **Every ×** that closes a hint, a note, History or an object's window is
+  one 24px icon button (6px radius, quiet at rest, lit on hover and focus; tooltip "Close", or its own words where recorded),
+  never an underlined link (`docs/design/polish-notes-*`). A refusal's note goes with the next press, key, tool pick or
+  view change; there is no "Working…" note (the checks pill says it). A save that
   another tab overtook says the store's words, text only: "Changed in another tab. Download the project to keep your
   edits." Captures: `docs/design/conflict-*` (1920×1080, 2560×1440, 1300×900), `message-alone-1920x1080`,
   `confirm-1920x1080`.
@@ -867,3 +871,22 @@ API, every pinned hash, and every role and accessible name the tests use.
   under its size, "<parent> · step N" (12px, muted, ellipsized, its tooltip "From <parent>, step N"); the tiles of a row share
   their height. Compare is a right-click item on a tile; its note sits with the other notes over the map ("Comparing with
   <name>" holds the flip, **Stop** ends it), and while the key is held a name chip sits under the header's top row, centred.
+
+## The header and top-right controls (polish audit, 2026-10-14)
+
+- **Rename stops at two lines** in the header as in Your maps: the name's limit is what fits two lines at 13px where the
+  header's room is narrowest (1280 wide), the same 80-character ceiling, and never below 30 characters (wider system
+  fonts leave less room); a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines
+  with an ellipsis, the full name in its tooltip, so the header never takes a third line, at any width or font.
+- **The compass is a button, Face north**: the round plate keeps its place and size; a click glides the
+  view round to north by the shorter way (the camera's own `glideTo`), its tooltip "Face north". This replaces the early
+  mockups' "an indicator, not a control".
+- **The speaker's tooltip sits to its left,** level with its middle, so the volume that opens under it is never covered
+  (`data-tip-side="left"`, the shared tooltip layer).
+- **The Look menu uses the page's own controls:** the three looks a segmented choice (the chosen cell filled as the
+  settings' choices are), High's parts checkbox rows of the Show column's 14px box, a name that wraps hanging under its
+  first letter. No browser radios or checkboxes.
+- **Tooltips:** the layer arrows are "Show one layer less" and "Show one layer more"; the checks pill's is "What to fix before
+  playing" (its words are already on it).
+- **The checks' list and the Legend:** the list closes an open Legend while it is shown (the Legend's box keeps its tick
+  and the panel returns when the list closes); the two never overlap. Captures `docs/design/polish-header-*`.

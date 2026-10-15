@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
 import { tip } from "../../ui/Tooltip";
 import { compareProblem, parentFull, parentLine } from "../../core/library/keptVersions";
+import { limitName } from "../nameFit";
 
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
   // the right-click menu, and the map whose name is being renamed in place
@@ -188,8 +189,6 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   );
 }
 
-/** A map's name in Your maps renamed in place, at the name's own size and font: Enter or clicking away renames it,
- *  Esc cancels; a name refused stays in the field with its reason as its tooltip. */
 /** Whether a name fits the two lines a tile keeps for it, as the tile shows it (in the open map's bold). */
 function fitsTwoLines(field: HTMLElement, name: string): boolean {
   const line = field.parentElement;
@@ -204,29 +203,8 @@ function fitsTwoLines(field: HTMLElement, name: string): boolean {
   return fits;
 }
 
-/** A name typed in Rename stops at what fits two lines (Kyler, 2026-10-05): a key past them does nothing, a paste
- *  keeps what fits. */
-function fitTwoLines(field: HTMLInputElement, was: string): string {
-  const v = field.value;
-  if (fitsTwoLines(field, v)) return v;
-  const at = field.selectionStart ?? v.length;
-  let kept = was;
-  if (v.length !== was.length + 1) {
-    let lo = 0;
-    let hi = v.length;
-    while (lo < hi) {
-      const m = (lo + hi + 1) >> 1;
-      if (fitsTwoLines(field, v.slice(0, m))) lo = m;
-      else hi = m - 1;
-    }
-    kept = v.slice(0, lo);
-  }
-  field.value = kept;
-  const caret = Math.min(kept.length, kept === was ? at - 1 : at);
-  field.setSelectionRange(caret, caret);
-  return kept;
-}
-
+/** A map's name in Your maps renamed in place, at the name's own size and font: Enter or clicking away renames it,
+ *  Esc cancels; a name refused stays in the field with its reason as its tooltip. */
 function TileName(p: { name: string; onDone(name: string | null, leaving: boolean): void; problem: string | null }) {
   const [text, setText] = useState(p.name);
   const input = useRef<HTMLInputElement>(null);
@@ -254,7 +232,7 @@ function TileName(p: { name: string; onDone(name: string | null, leaving: boolea
       autoComplete="off"
       aria-label="Map name"
       title={p.problem ?? "Rename"}
-      onInput={(e) => setText(fitTwoLines(e.target as HTMLInputElement, text))}
+      onInput={(e) => setText(limitName(e.target as HTMLInputElement, text, (n) => fitsTwoLines(e.target as HTMLInputElement, n)))}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();

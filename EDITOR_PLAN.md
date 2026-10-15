@@ -61,9 +61,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
-  Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right **History**
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. A typed name stops at what
+  fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
+  characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
+  ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its
-  words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
+  words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
+  playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
@@ -228,20 +232,26 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
-  **Reset view** and the compass, then under them the **level control** (▾ value ▴, at one fixed width), **Slow
-  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it): a three-column grid
+  **Reset view** and the compass (a button, **Face north**: the view glides round to north), then under them the
+  **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
+  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
+  volume stays in view): a three-column grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
   whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
-  by itself (D265).
+  by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
+  (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
+  (`src/render3d/framing.ts`).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
   first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
   the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
-  objects) and the cut surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's
+  objects) and the cut surfaces show as the tops of what remains: a hatched cap only where solid rock crosses the
+  cut, so on a map with caves or overhangs the cut opens into them (their floors, walls and the undersides below
+  the cut), lit as without the cut, and picking lands on what is drawn. The layer pick (Alt+click) slices to a tile's
   level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on
   the visible land, never on hidden terrain above the cursor. Esc never resets the slice.
 - **The water's state is the worker's real state** (D345, B14): every update the worker answers with carries
@@ -329,8 +339,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
-  takes all of it back at any moment, and nothing lands afterwards (D341). The row's hint line says **Esc to skip ·
-  Ctrl+Z to undo** (a painted Lift still drawn: **Esc to cancel**).
+  takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
+  **Ctrl+Z** undoes; a painted Lift still drawn: **Esc** cancels), none written in the panel.
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
@@ -517,6 +527,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
+  Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
 
 ### The brushes and precision tools
 
@@ -642,10 +653,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
   the area, so edited land meets locked land a level a tile, never a cliff. To the forces, locked land is
   unbreakable rock: Carve's river turns away from it, lava pools against it, a crater's rim stops at it; a force
-  refuses to start outside the area ("Outside the working area: Esc clears it"); a brush's Clear takes only the
+  refuses to start outside the area ("Outside the working area: clear it to work there"); a brush's Clear takes only the
   sources wholly inside. Water is never locked. Ctrl+drag with a brush out makes the selection, and on release the
   same brush keeps painting inside it. With a brush or force picked, the Select row shrinks to a chip ("Working
-  inside 40 × 40 · Esc to clear"). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
+  inside 40 × 40"; its tooltip says Esc clears it). Marking or clearing the area is not an edit; a stroke keeps its `area` (runs) so
   it replays exactly.
 
 (D180, D182, D183, D184, D202, D203, D206, D216, D219, D220, D226, D249, D254, D259, D322.)
@@ -764,7 +775,8 @@ High is the default where the computer draws it smoothly: it starts in High (or 
 GPU at about that window size), watches what each frame costs the GPU, steps down by itself to a lower-cost High
 (no soft shadows, mist, rings, wind or fine detail, far tree models, 85% of the pixels) and then to Standard when
 frames stay too slow, and never back up in a session. The **Look** menu (on the 3D view; in the editor's header)
-chooses **Automatic**, **High** or **Standard**, and switches High's four parts; every effect is switchable too
+chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's own), and switches High's four parts
+(checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
 (`setHighEffect`). A browser drawing in software keeps the light look, with no choice. The camera never moves by
 itself in either look (D265).
 
@@ -854,6 +866,12 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
   so it never takes permanent space. Claude steers the generator for character and uses the tools only for precise
   edits (D139, D187). The design is deferred (Part 2).
 - **First run:** three one-line hints (paint the land, place things, add water), then never again.
+- **Notes and messages:** a refusal's note (an error) goes with the player's next press, key, tool pick, layer or view
+  change; an edit's own note (info) stays until its × or the next kept edit; a save that failed ("Not saved: …") stays
+  until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no
+  "Working…" note: the checks pill says "Checking the map". Every × that closes a hint, a note, History or an object's
+  window is one 24px icon button with a hover state and a tooltip. The 3D view's screen-reader label reads
+  "Middle-drag to turn, right-drag to move, wheel to zoom".
 
 ## 9. The future
 
@@ -1042,6 +1060,11 @@ checks dot counts; every other row is information under Good to know, worded as 
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
   export; the warning is noted in the map description.
+- **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
+  Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
+  "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
+  place stays in the row's words as "X 105 · Y 7 · Z 11" (the validate README's rule), and a berry bush is a "berry bush"
+  there too.
 - **Edge walls warn on an edited map** (D323, item 12; D151 still holds for the generator and Real places):
   `terrain.edge_wall` is a warning on the quiet dot, never a block on a save, with the one-click fix **Lower the
   wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in

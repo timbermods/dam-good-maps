@@ -25,7 +25,7 @@ const line = [{ x: 30.6, y: 30.2 }, { x: 40.7, y: 41.9 }];
 const tiny: [number, number, number][] = [[30, 30, 30]];
 const whole: [number, number, number][] = Array.from({ length: 64 }, (_, y) => [y, 0, 63]);
 const LAYER = "That ground is above the layer showing: show it to change it";
-const AREA = "Outside the working area: Esc clears it";
+const AREA = "Outside the working area: clear it to work there";
 const PICK = "Pick a spot on the map";
 
 it.each([
