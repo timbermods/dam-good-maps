@@ -2927,7 +2927,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
       const records: IntentionResult[] = grown.missed.map((m) => ({ id: m.id, ok: false, note: m.why, outcome: "dropped" as const }));
       let plans = grown.forms.slice();
-      for (let tries = 0; plans.length && tries < 3; tries++) {
+      for (let tries = 0; plans.length && tries < 2; tries++) {
         const mask = new Uint32Array(N);
         for (let i = 0; i < N; i++) mask[i] = plainMask(h[i]);
         for (const p of plans) for (const i of p.tiles) mask[i] = grown.mask[i];
@@ -2975,7 +2975,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         }
         plans = plans.filter((p) => !failed.includes(p));
       }
-      for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after three builds`, outcome: "dropped" });
+      for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after two builds`, outcome: "dropped" });
       intentions = [...intentions, ...records];
     }
   }

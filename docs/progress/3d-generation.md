@@ -36,7 +36,7 @@ where it is best seen from (`at`, `from`). No arch above 128², and no spring ca
 
 **What keeps the map right.** Each form is carved against the support rule as it grows (`terrain/support.ts`
 `unsupportedVoxels`: kept only when nothing would fall), and no two touch. Then the map is built again with them and
-must still pass, or the forms near what failed are dropped and it is built again (at most three builds): every blocking
+must still pass, or the forms near what failed are dropped and it is built again (at most two builds): every blocking
 check, and no check (advisory ones included) failing that passed without them; nothing dropped by the rule pass; the
 water settled if it settled before; no ruler-straight channel; relief within the map's top; every intention that had
 emerged still emerging; the three outcomes' score no lower; and each form's own check on the built map (a cave's sources
@@ -76,13 +76,27 @@ it should be, the same draw the same terrain, none where the land offers none); 
 96² seed 3 at Verticality 80: spring caves and an arch, nothing dropped, the file's caves and stacked water, the project
 reopens to the same .timber; none at Verticality 0); the batches and the 84 maps below.
 
-**Numbers** (128², seeds 1–4 of every theme and Any; this machine shared with other sessions' runs, so times are high):
+**Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; this
+machine shared with other sessions' runs, so times are high; the batches ran with up to three builds, now two):
 
-| Verticality | maps with a form | spring caves | overhangs | arches | forms a map (median, max) | relief |
+| Verticality | final | spring caves | overhangs | arches | forms a map, median by theme | project round trip |
 |---|---|---|---|---|---|---|
-| 20 | NUMBERS | | | | | |
-| 50 | | | | | | |
-| 80 | | | | | | |
+| 20 | 70 of 70 | 14 | 5 | 0 | 0–1 (max 2) | 70 of 70 |
+| 50 | 70 of 70 | 56 | 12 | 16 | 0–2 (max 4) | 70 of 70 |
+| 80 | 70 of 70 | 74 | 22 | 44 | Canyon 5, Highlands 4, Any 3, Delta 2, River Valley 1, Lake Basin 1, Islands 0 (max 6) | 70 of 70 |
+
+- The rule pass dropped 0 blocks on every map; relief stayed within 16 below 70 (up to 19 at 80, tall maps).
+- Where they grow: spring caves wherever a river runs by a cliff (Canyon and Highlands most, Islands none: its rivers
+  run on low land); overhangs only where the start stands by a cliff; arches in gorges (Canyon, Highlands, Delta's
+  upland at 80). River Valley at 80 drops most of its caves: its terraced banks hold sites whose checks then fail.
+- The 84 maps (`tools/map-hashes.ts`, seeds 1–6, 96² and 128², every theme at its default Verticality), before the
+  version moved: 31 change, every one where a form was placed (22 with a spring cave, 11 an overhang, 8 an arch);
+  53 are identical. 8 change their surface (the arches, Canyon and Highlands, whose defaults are 40 and 45); 9 with an
+  overhang alone keep their land, water and objects (only the file's voxels and water layout and the checks change).
+  Lake Basin keeps all 12. Generator 0.10.0 then changes every .timber and project by its version string.
+- Time: at Verticality 80, 12 maps (Canyon, Highlands, River Valley, Any, seeds 1–3) took a median of 14.7 s against
+  dev's 7.9 s on the same loaded machine: a map with forms is built and checked once or twice more, each time with the
+  stacked engine's settle. Under 3 s at 128² is not met, by dev either on this machine.
 
 **Falls short, for the next parts:**
 - On a map with a form, Drought, Badtide and the drought line are refused as on an imported cave map ("Drought and Badtide
