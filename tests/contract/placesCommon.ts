@@ -104,10 +104,9 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  was a puddle the canonical settle's pre-fill left in a hollow no source's water reaches, water
  *  from nowhere that a Normal drought emptied; since D385 the settle takes such water away, so most
  *  of these starts now reach none (Near Dinaric Karst Plitvice and Near Mount Taranaki joined the
- *  list then). With the edges open (D151) the rivers run off the map instead of pooling behind the
- *  survey's sealed border, so more starts lost their water; those whose land offered a spot with
- *  water moved there (tools/real-places.ts). Real places 2 gives the places their water (D300) and
- *  empties the list. */
+ *  list then). With the edges open (D151) a start whose land offers a spot with water moved there,
+ *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
+ *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
   "near-alaknanda-and-bhagirathi", "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord",
   "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-crater-lake",

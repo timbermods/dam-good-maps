@@ -86,7 +86,7 @@ describe("the gallery shows every place, with a note on those whose start reache
     expect(noWater.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
     // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
     expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
-    expect(noWater.length).toBe(38);
+    expect(noWater.length).toBe(24);
     // no other fault gets a note
     for (const p of INDEX.places) if (!p.faults.includes("start.water")) expect(placeNote(p), p.id).toBeNull();
     expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();
