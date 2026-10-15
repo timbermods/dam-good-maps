@@ -18,7 +18,7 @@ function voxels(height: (x: number, y: number) => number, gone: number[] = []): 
 const voxel = (x: number, y: number, z: number) => z * N + y * W + x;
 const sample = (out: Float32Array, j: number) => {
   const o = j * WEAR_STRIDE;
-  return { x: out[o], y: out[o + 1], z: out[o + 2], dx: out[o + 3], dy: out[o + 4], dz: out[o + 5], floor: out[o + 6] };
+  return { x: out[o], y: out[o + 1], z: out[o + 2], dx: out[o + 3], dy: out[o + 4], dz: out[o + 5], floor: out[o + 6], roofed: out[o + 7] };
 };
 // a cliff: level 3 west of x = 10, level 12 from it
 const cliff = (x: number) => (x < 10 ? 3 : 12);
@@ -38,8 +38,9 @@ describe("where Erode's dust and stones start (wearSamples)", () => {
         expect(Math.abs(s.dy)).toBeLessThan(0.01);
         expect(s.dz).toBeGreaterThan(0);
         expect(Math.hypot(s.dx, s.dy, s.dz)).toBeCloseTo(1, 5);
-        // (on the cave's floor, level 3, the ground outside's)
+        // (on the cave's floor, level 3, the ground outside's; under the cliff's rock)
         expect(s.floor).toBe(3);
+        expect(s.roofed).toBe(1);
       }
     }
   });
@@ -63,6 +64,7 @@ describe("where Erode's dust and stones start (wearSamples)", () => {
     const s = sample(out, 0);
     expect(s.dz).toBeGreaterThan(0.99);
     expect(s.floor).toBe(4);
+    expect(s.roofed).toBe(0);
   });
 
   it("a voxel the columns still show enclosed (they lag the stage) opens toward where the gesture touched", () => {

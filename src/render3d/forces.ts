@@ -622,12 +622,13 @@ class Glacier {
 
 /** Erode's pools, sized once: its dust puffs, its stones, and the voxels a stage's dust and stones
  *  start from (at most). */
-const WEAR_DUST = 240;
+const WEAR_DUST = 320;
 const WEAR_STONES = 48;
 const WEAR_SAMPLES = 14;
 /** A dust puff's floats: its origin (x, y, z, world), its velocity, when it is born (ms), its life (s; 0:
- *  free), its size, its alpha, its share of the warm brown. */
-const DUST_F = 11;
+ *  free), its size, its alpha, how dim it starts (in the rock's shade, it brightens as it drifts out), its
+ *  colour. */
+const DUST_F = 14;
 /** A stone's floats: its origin (x, y, z), its speed across (x, z), up (y) as it breaks off, the height it
  *  rests at, when it lands, how high it bounces, when it is born (ms), its radius, its spin (x, y, z),
  *  its end (s; 0: free). */
@@ -639,6 +640,9 @@ const STONE_REST = 0.45;
 const STONE_FADE = 0.35;
 /** The dust's drag (it drifts out of the opening and slows), a second. */
 const DUST_DRAG = 1.8;
+
+/** Each level's wall stone (palette.ts `wallColor`), r, g, b a level: a stone takes its wall's. */
+const WALLS = Float32Array.from({ length: 32 * 3 }, (_, k) => wallColor(Math.floor(k / 3))[k % 3]);
 
 /** A repeatable 0–1 from k. */
 const hash = (k: number) => {
@@ -667,6 +671,8 @@ class Wear {
         uvD = uv; alphaD = dustAlpha; colorD = dustColor;
         vec4 p = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         p.xy += position.xy * instanceMatrix[0][0];
+        // (drawn a little toward the eye, so a puff by a wall is not cut square by it)
+        p.z += instanceMatrix[0][0] * 0.8;
         gl_Position = projectionMatrix * p;
       }`,
     fragmentShader: /* glsl */ `
@@ -770,23 +776,28 @@ class Wear {
       const dx = s[o + 3];
       const dy = s[o + 4];
       const dz = s[o + 5];
-      for (let k = 0; k < 2; k++) {
+      // (under a roof, its dust starts in the rock's shade and thinner, brightening as it drifts out)
+      const roofed = s[o + 7] > 0;
+      for (let k = 0; k < 3; k++) {
         const q = this.seq++;
-        const speed = 0.7 + 1.1 * hash(q);
+        // (out of the opening: from a little way along it, quickly at first, slowing as it spreads)
+        const speed = 1.3 + 1.7 * hash(q);
+        const out = 0.4 + 0.6 * hash(q + 0.23);
         const jx = (hash(q + 0.31) - 0.5) * 0.7;
         const jy = (hash(q + 0.57) - 0.5) * 0.7;
         this.puff(
           now,
-          x + dx * 0.4 + jx * 0.6,
-          level - 0.2 + hash(q + 0.83) * 0.5,
-          -(yRow + dy * 0.4 + jy * 0.6),
-          dx * speed + jx * 0.5,
+          x + dx * out + jx * 0.6,
+          level - 0.2 + dz * out + hash(q + 0.83) * 0.5,
+          -(yRow + dy * out + jy * 0.6),
+          dx * speed + jx * 0.6,
           dz * speed * 0.6 + 0.15,
-          -(dy * speed + jy * 0.5),
+          -(dy * speed + jy * 0.6),
           1.2 + 0.7 * hash(q + 0.13),
-          0.42 + 0.35 * hash(q + 0.71),
-          0.3 + 0.16 * hash(q + 0.93),
+          0.5 + 0.4 * hash(q + 0.71),
+          (0.34 + 0.18 * hash(q + 0.93)) * (roofed ? 0.7 : 1),
           hash(q + 0.41),
+          roofed ? 0.35 : 0.75,
         );
       }
       if (j % every === 0) this.stone(now, x, yRow, level, dx, dy, dz, s[o + 6]);
@@ -794,7 +805,7 @@ class Wear {
   }
 
   /** A dust puff from (x, y, z) moving (vx, vy, vz), born `delay` ms on. */
-  private puff(now: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size: number, alpha: number, warm: number, delay = 0): void {
+  private puff(now: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size: number, alpha: number, warm: number, dim = 1, delay = 0): void {
     const d = this.dustState;
     let k = -1;
     for (let t = 0; t < WEAR_DUST; t++) {
@@ -818,10 +829,9 @@ class Wear {
     d[o + 7] = life;
     d[o + 8] = size;
     d[o + 9] = alpha;
-    d[o + 10] = warm;
+    d[o + 10] = dim;
     const shade = 0.88 + 0.2 * hash(this.seq + 0.17);
-    for (let c = 0; c < 3; c++) this.dustColor[k * 3 + c] = (JUICE.wearDust[c] + (JUICE.wearDustWarm[c] - JUICE.wearDust[c]) * warm) * shade;
-    (this.dustGeometry.attributes.dustColor as InstancedBufferAttribute).needsUpdate = true;
+    for (let c = 0; c < 3; c++) d[o + 11 + c] = (JUICE.wearDust[c] + (JUICE.wearDustWarm[c] - JUICE.wearDust[c]) * warm) * shade;
     this.until = Math.max(this.until, now + delay + life * 1000);
   }
 
@@ -873,10 +883,10 @@ class Wear {
     st[o + 13] = (hash(q + 0.5) - 0.5) * 12;
     st[o + 14] = t2 + STONE_REST + STONE_FADE;
     // the stone of the wall it came from, some a shade browner
-    const wall = wallColor(Math.floor(level));
+    const w = Math.max(0, Math.min(31, Math.floor(level))) * 3;
     const brown = hash(q + 0.7) * 0.45;
     const shade = 0.85 + 0.3 * hash(q + 0.75);
-    for (let c = 0; c < 3; c++) this.stoneColor[k * 3 + c] = (wall[c] + (JUICE.rock[c] - wall[c]) * brown) * shade;
+    for (let c = 0; c < 3; c++) this.stoneColor[k * 3 + c] = (WALLS[w + c] + (JUICE.rock[c] - WALLS[w + c]) * brown) * shade;
     (this.stoneGeometry.attributes.stoneColor as InstancedBufferAttribute).needsUpdate = true;
     this.until = Math.max(this.until, now + st[o + 14] * 1000);
     // a little dust where it lands
@@ -884,7 +894,7 @@ class Wear {
     const lz = -oyRow + st[o + 4] * t1;
     for (let p = 0; p < 2; p++) {
       const a = hash(q + p * 0.37) * Math.PI * 2;
-      this.puff(now, lx, rest, lz, Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5, 0.9, 0.3, 0.26, 0.6, t1 * 1000);
+      this.puff(now, lx, rest, lz, Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5, 0.9, 0.3, 0.26, 0.6, 1, t1 * 1000);
     }
   }
 
@@ -930,13 +940,16 @@ class Wear {
       const u = t / life;
       const e = (1 - Math.exp(-DUST_DRAG * t)) / DUST_DRAG;
       // (drifting out of the opening, rising a little, then settling as it thins)
-      dm[m] = d[o + 8] * (0.7 + 1.5 * smooth(u));
+      dm[m] = d[o + 8] * (0.7 + 1.7 * smooth(u));
       dm[m + 12] = d[o] + d[o + 3] * e;
       dm[m + 13] = d[o + 1] + d[o + 4] * e + 0.12 * t - 0.12 * t * t;
       dm[m + 14] = d[o + 2] + d[o + 5] * e;
       this.dustAlpha[k] = d[o + 9] * smooth(t / 0.12) * (1 - smooth((u - 0.3) / 0.7));
+      const light = d[o + 10] + (1 - d[o + 10]) * smooth(t / 0.9);
+      for (let c = 0; c < 3; c++) this.dustColor[k * 3 + c] = d[o + 11 + c] * light;
     }
     this.dust.instanceMatrix.needsUpdate = true;
+    (this.dustGeometry.attributes.dustColor as InstancedBufferAttribute).needsUpdate = true;
     (this.dustGeometry.attributes.dustAlpha as InstancedBufferAttribute).needsUpdate = true;
     const st = this.stoneState;
     const g = this.dummy;

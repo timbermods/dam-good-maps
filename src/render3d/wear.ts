@@ -2,7 +2,8 @@
 // (tests/unit/wear.test.ts): the voxels that went in a stage (z·N + tile, core/forces/erode.ts `cue`) and
 // the map's columns as the renderer shows them give a few of those voxels, spread through the stage,
 // each with the way its rock opened (toward the air that was already there: out of a cave's mouth,
-// out from under an overhang, up from a scoured hollow) and the level a stone from it lands on.
+// out from under an overhang, up from a scoured hollow), the level a stone from it lands on, and
+// whether it is under a roof (its dust starts in the rock's shade).
 // The columns may show the stage's voxels gone or not yet (either reads the same), or lag behind
 // (the voxel then opens toward the gesture's focus). Nothing here allocates.
 
@@ -14,9 +15,9 @@ export interface Voxels {
 }
 
 /** Floats a sample takes in `wearSamples`' output: the voxel's centre (x, y, z: map axes, x along a row,
- *  y down the rows, z up, in tiles and levels), the way it opened (dx, dy, dz, a unit vector) and the
- *  level a stone from it lands on. */
-export const WEAR_STRIDE = 7;
+ *  y down the rows, z up, in tiles and levels), the way it opened (dx, dy, dz, a unit vector), the level a
+ *  stone from it lands on, and 1 under a roof (rock above it in its column, the stage's voxels gone), else 0. */
+export const WEAR_STRIDE = 8;
 
 /** How far out a stone from the voxel lands, in tiles along the way it opened (the renderer's stones
  *  keep to it, so each lands on the ground this found). */
@@ -59,9 +60,9 @@ const SIDES = [1, 0, -1, 0, 0, 1, 0, -1] as const;
 
 /** `count` of the voxels that `went`, spread evenly through it, into `out` (WEAR_STRIDE floats each):
  *  each one's centre, the way its rock opened (toward the air beside it and above it before the stage,
- *  a little upward always; enclosed, toward the gesture's `focus`, or up at it) and the level a stone
- *  from it lands on (the ground under where it falls out, STONE_REACH along the way it opened). Returns
- *  how many it wrote. */
+ *  a little upward always; enclosed, toward the gesture's `focus`, or up at it), the level a stone
+ *  from it lands on (the ground under where it falls out, STONE_REACH along the way it opened) and
+ *  whether it is under a roof. Returns how many it wrote. */
 export function wearSamples(went: ArrayLike<number>, v: Voxels, focus: { x: number; y: number }, count: number, out: Float32Array): number {
   const N = v.W * v.H;
   const n = Math.min(count, went.length, Math.floor(out.length / WEAR_STRIDE));
@@ -116,6 +117,7 @@ export function wearSamples(went: ArrayLike<number>, v: Voxels, focus: { x: numb
     out[o + 4] = dy;
     out[o + 5] = dz;
     out[o + 6] = floorBelow(went, v, lx, ly, z);
+    out[o + 7] = z < 30 && (v.mask(i) & ~wentAt(went, N, i)) >>> (z + 1) !== 0 ? 1 : 0;
   }
   return n;
 }
