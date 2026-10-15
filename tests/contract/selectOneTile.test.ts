@@ -34,8 +34,8 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
 
     const cells = tilesToRuns([t], W);
     const actions: [string, EditOp, number][] = [
-      ["Raise 1 tiles by 1", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 8],
-      ["Lower 1 tiles by 1", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 6],
+      ["Raise 1 tile", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 8],
+      ["Lower 1 tile", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 6],
       ["Cut 1 tiles down to level 4", { op: "sculpt", params: { mode: "flatten", cells, level: 4 } }, 4],
       ["Fill 1 tiles up to level 10", { op: "sculpt", params: { mode: "flatten", cells, level: 10 } }, 10],
     ];

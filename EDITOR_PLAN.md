@@ -61,9 +61,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   browser can't keep the map, that line says so); it never reaches either side: where the room is short the second
   line goes first, then the name ellipsizes. A click on the name renames it in place, at the same place, size and
   font: Enter or leaving saves through the core (`MapSession.setName`; never an operation or an undo step, D443),
-  Esc cancels, and a blank name is refused in the core's words, said in the second line. On the right **History**
+  Esc cancels, and a blank name is refused in the core's words, said in the second line. A typed name stops at what
+  fits two lines (13px, where the header's room is narrowest, at 1280 wide) where the fonts allow, never below 30
+  characters: a key past it does nothing, a paste keeps what fits. The shown name is clamped to two lines with an
+  ellipsis and the full name in its tooltip. On the right **History**
   (its panel open while pressed), Undo, Redo, the checks dot with its
-  words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone), **Save to Timberborn**
+  words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
+  playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, and **File** (Open…,
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
@@ -217,8 +221,10 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
-  **Reset view** and the compass, then under them the **level control** (▾ value ▴, at one fixed width), **Slow
-  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it): a three-column grid
+  **Reset view** and the compass (a button, **Face north**: the view glides round to north), then under them the
+  **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
+  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
+  volume stays in view): a three-column grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
   whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
@@ -232,7 +238,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
   first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
   the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
-  objects) and the cut surfaces show as the tops of what remains. The layer pick (Alt+click) slices to a tile's
+  objects) and the cut surfaces show as the tops of what remains: a hatched cap only where solid rock crosses the
+  cut, so on a map with caves or overhangs the cut opens into them (their floors, walls and the undersides below
+  the cut), lit as without the cut, and picking lands on what is drawn. The layer pick (Alt+click) slices to a tile's
   level, and again on the same level returns to ∞; Alt+scroll steps as the game does. Brushes and placement act on
   the visible land, never on hidden terrain above the cursor. Esc never resets the slice.
 - **The water's state is the worker's real state** (D345, B14): every update the worker answers with carries
@@ -756,7 +764,8 @@ High is the default where the computer draws it smoothly: it starts in High (or 
 GPU at about that window size), watches what each frame costs the GPU, steps down by itself to a lower-cost High
 (no soft shadows, mist, rings, wind or fine detail, far tree models, 85% of the pixels) and then to Standard when
 frames stay too slow, and never back up in a session. The **Look** menu (on the 3D view; in the editor's header)
-chooses **Automatic**, **High** or **Standard**, and switches High's four parts; every effect is switchable too
+chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's own), and switches High's four parts
+(checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
 (`setHighEffect`). A browser drawing in software keeps the light look, with no choice. The camera never moves by
 itself in either look (D265).
 
@@ -1040,6 +1049,11 @@ checks dot counts; every other row is information under Good to know, worded as 
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
   export; the warning is noted in the map description.
+- **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
+  Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
+  "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
+  place stays in the row's words as "X 105 · Y 7 · Z 11" (the validate README's rule), and a berry bush is a "berry bush"
+  there too.
 - **Edge walls warn on an edited map** (D323, item 12; D151 still holds for the generator and Real places):
   `terrain.edge_wall` is a warning on the quiet dot, never a block on a save, with the one-click fix **Lower the
   wall** (the outer tiles cut down to the land inside, one undo step; `lowerTheWall` in

@@ -3,6 +3,7 @@
 
 import type { PlannedObject, PaintKind } from "../gen/paint";
 import type { EditOp } from "./ops";
+import { plantLabel } from "./labels";
 
 /** The operations that place a plan. `newId` gives each object its Id (a random GUID, stored so replays give
  *  the same ones). */
@@ -21,22 +22,14 @@ export function paintOps(plan: readonly PlannedObject[], W: number, newId: () =>
   }));
 }
 
-const NAMES: Record<PaintKind, [string, string]> = {
-  trees: ["a tree", "trees"],
-  bushes: ["a blueberry bush", "blueberry bushes"],
-  succulents: ["a succulent", "succulents"],
-  woods: ["a tree", "trees"],
-  ruins: ["a ruin column", "ruin columns"],
+const NAMES: Record<"ruins" | "thorns", [string, string]> = {
+  ruins: ["a ruin", "ruins"],
   thorns: ["a thorn", "thorns"],
 };
 
-/** The history's words for a stroke: "Plant 18 pines", "Paint 31 ruin columns". */
+/** The history's words for a stroke: "Plant 18 pines", "Plant a berry bush", "Paint 31 ruins". */
 export function paintLabel(kind: PaintKind, template: string, n: number): string {
-  if (kind === "trees" || kind === "bushes" || kind === "succulents") {
-    const one = kind === "bushes" ? "blueberry bush" : template.toLowerCase();
-    const many = kind === "bushes" ? "blueberry bushes" : `${one}s`;
-    return n === 1 ? `Plant a ${one}` : `Plant ${n} ${many}`;
-  }
+  if (kind === "trees" || kind === "bushes" || kind === "succulents") return plantLabel(kind === "bushes" ? "BlueberryBush" : template, n);
   if (kind === "woods") return n === 1 ? "Plant a tree" : `Plant ${n} trees of mixed woods`;
   const [one, many] = NAMES[kind];
   return n === 1 ? `Place ${one}` : `Paint ${n} ${many}`;

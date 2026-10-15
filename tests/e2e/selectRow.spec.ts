@@ -56,24 +56,24 @@ test("the Select row: Whole map, Raise and Lower one level, Up and Down, a level
   await row.getByRole("button", { name: "Up 1" }).click();
   await idle(page);
   expect((await labels(page)).length).toBe(n0 + 1);
-  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles by 1");
+  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles");
   const h1 = await heights(page);
   for (const i of tiles) expect(h1[i], `tile ${i}`).toBeGreaterThanOrEqual(h0[i]);
   expect(tiles.some((i) => h1[i] === h0[i] + 1)).toBe(true);
   // Down lowers one level (the camera does not take the key while a selection is open), Up raises one
   await page.keyboard.press("ArrowDown");
   await idle(page);
-  expect((await labels(page)).at(-1)).toBe("Lower 49 tiles by 1");
+  expect((await labels(page)).at(-1)).toBe("Lower 49 tiles");
   await page.keyboard.press("ArrowUp");
   await idle(page);
-  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles by 1");
+  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles");
   // Z undoes and C redoes (the whole of it, as Ctrl+Z does)
   await page.keyboard.press("z");
   await idle(page);
-  expect((await labels(page)).at(-1)).toBe("Lower 49 tiles by 1");
+  expect((await labels(page)).at(-1)).toBe("Lower 49 tiles");
   await page.keyboard.press("c");
   await idle(page);
-  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles by 1");
+  expect((await labels(page)).at(-1)).toBe("Raise 49 tiles");
   for (let k = 0; k < 3; k++) {
     await page.keyboard.press("z");
     await idle(page);

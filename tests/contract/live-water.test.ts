@@ -190,7 +190,7 @@ describe("an old project's drawn landforms stand on the ground", () => {
     for (let i = 0; i < mask.length; i++) if (mask[i] && (!mask[i - 1] || !mask[i + 1] || !mask[i - W] || !mask[i + W])) base = Math.min(base, s.built.heights[i]);
     const feature: LandformFeature = { id: "0b8e9a64-5555-4c2d-9e1f-2a3b4c5d6e7f", kind: "landform", origin: "user", locked: false, params: { kind: "hill", edgeStyle: "gentle", outline, height: 16, base, onGround: true } };
     const before = s.built.heights.slice();
-    expect(s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Add hill").ok).toBe(true);
+    expect(s.applyAll([{ op: "addFeature", params: { feature } }], "user", "Add a hill").ok).toBe(true);
     let raised = 0;
     for (let i = 0; i < mask.length; i++) {
       if (!mask[i]) continue;
