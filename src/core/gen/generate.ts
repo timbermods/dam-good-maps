@@ -132,6 +132,9 @@ const PREPARED_MORE = 2;
 /** How hard a long map's start leans to where its theme wants it along the length (D357; added to a start
  *  intention's pull, which the start's score weighs at 0.8 beside a random 0.25). */
 const SHAPE_PULL = 1;
+/** The least share of a long Islands map its planned sea holds (D357); under it the sea has drained. Islands' maps
+ *  hold 47–66% (`tools/size-smoke.ts`). */
+const DRAINED_SEA = 0.2;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -1915,6 +1918,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         // reachable from the shore across water as the game allows; a land without one is drawn again
         // like one missing the promise. The size is Kyler's 150 tiles at 128², by area.)
         if (shown.theme === "islands" && g.seaLayout) {
+          // (D357: on a long map a sea the land doesn't hold is drawn again whatever the screens spent: its
+          // water drained to a lake at the mainland's end and the map passed with no sea and no island, 96×64
+          // seed 1)
+          if (!lastAttempt && mapShape(W, H).long) {
+            let wet = 0;
+            for (let i = 0; i < N; i++) if (est[i] > 0.05) wet++;
+            if (wet < DRAINED_SEA * N) return fail("a drained sea (planned)", null, false);
+          }
           const island = islandToExpandTo(hLand, est, W, H);
           info.planned.island = island;
           // (from 128² up: at 96² the sea has little room for islands and the shore little for a

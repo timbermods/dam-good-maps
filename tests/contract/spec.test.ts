@@ -83,11 +83,11 @@ describe("URL codec (PLAN §14.5)", () => {
   });
 
   it("the generator refuses a side under its theme's least with a one-line reason naming it, at once (D357)", () => {
-    expect(generatorSizeRefusal(40, 256, "canyon")).toBeNull();
-    expect(generatorSizeRefusal(39, 200, "canyon")).toBe("Canyon needs at least 40 tiles a side to generate");
+    expect(generatorSizeRefusal(48, 256, "canyon")).toBeNull();
+    expect(generatorSizeRefusal(47, 200, "canyon")).toBe("Canyon needs at least 48 tiles a side to generate");
     for (const theme of THEMES) expect(generatorSizeRefusal(GENERATOR_MIN_SIDE[theme], GENERATOR_MIN_SIDE[theme], theme)).toBeNull();
     const t0 = performance.now();
-    expect(() => generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 4, y: 4 } }))).toThrow("River Valley needs at least 40 tiles a side");
+    expect(() => generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 4, y: 4 } }))).toThrow("River Valley needs at least 48 tiles a side");
     expect(performance.now() - t0).toBeLessThan(1000);
   });
 

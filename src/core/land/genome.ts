@@ -895,7 +895,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     // (reaching in along the length further than a square map's, the chain beginning past it, and running on
     // as a shore along one long side, so the sea is no more of the map than on a square map's and the
     // mainland's rivers fill it: the end alone left a sea over Islands' water cap, D369, or, reaching further,
-    // too few rivers, and the maps that passed had drained it)
+    // too few rivers, and the maps that passed had drained it; the shore half as deep as the end, as deep it took
+    // most of a map a half again as long as wide)
     const endMain = form.long && g.theme === "islands";
     const s0 = endMain ? (form.alongX ? 1 : 0) + 2 * (drawnSide & 1) : drawnSide;
     main.push(s0);
@@ -907,7 +908,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     for (const s of main) {
       const m = 3 + Math.floor(2 * rng.float());
       for (let k = 0; k < m; k++) {
-        const deep = (layout === "edge" ? 0.22 + 0.18 * rng.float() : 0.13 + 0.2 * rng.float()) * (s === s0 ? endReach : 1);
+        const deep = (layout === "edge" ? 0.22 + 0.18 * rng.float() : 0.13 + 0.2 * rng.float()) * (s === s0 ? endReach : endMain ? 0.5 : 1);
         lobes.push([(s + (k + 0.5) / m + 0.12 * (rng.float() - 0.5) + 4) % 4, 0.38 / m + 0.04 + 0.06 * rng.float(), deep]);
       }
     }
@@ -1033,7 +1034,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         // (past the mainland's reach from its end, in the sea's half off its shore along the long side)
         const deepest = Math.max(0, ...lobes.filter((l) => Math.floor(l[0]) === main[0]).map((l) => l[2]));
         const off = main[1] === 0 || main[1] === 3 ? 1 : -1;
-        const a0 = Math.min(1.35 * side * deepest + 0.12 * side * deepest + 10, 0.5 * L);
+        // (at most a third of the length, so the chain keeps room for its islands: up to half, a map a half again as
+        // long as wide left the chain a third of its length, its islands pebbles, and its sea drained, 96×64 seed 1)
+        const a0 = Math.min(1.35 * side * deepest + 0.12 * side * deepest + 10, L / 3);
         const length = L - 0.08 * L - 6 - a0;
         const count = 1 + Math.round((2 + rng.float()) * portable.sqrt(form.ratio));
         const spacing = length / (count - 1);

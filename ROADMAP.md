@@ -992,12 +992,12 @@ reported. PLAN §20 D357 has the whole decision.
   river enters at its near end and its water's way keeps off the long sides to the far end; so River Valley, Canyon,
   Highlands, Delta and Any get a river down the length (Delta's fan in its last stretch, about as long as the map is
   wide); Lake Basin's lake runs down it; Islands is a chain of islands down it from a mainland at one end that runs on
-  as a shore along one side; the start leans to the middle (River Valley, Lake
+  as a shore half as deep along one side (a long Islands land whose sea drains is drawn again); the start leans to the middle (River Valley, Lake
   Basin, Highlands, Any) or an end (Canyon, Delta, Islands), a lean the land's own places for a start can outweigh. Square
-  and near-square maps are drawn as before: the standard sizes are byte-identical. The floor is 40 a side for every
-  theme but Islands, 64 (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`; at 32² six of seven themes find no start,
-  badwater source or mine site in all their rescue rounds; under 64 wide Islands' sea gets no river and drains), refused below it at once with "Canyon needs at least 40 tiles a side to
-  generate"; the size stays choosable from 4 for a map shaped by hand. A map that is not square no longer loses half its
+  and near-square maps are drawn as before: the standard sizes are byte-identical. The floor is 48 a side for every
+  theme but Islands, 64 (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`: at 40² the default settings make maps but the
+  panel's extremes don't, D471, and at 48² the every-setting sweep passes; under 64 wide Islands' sea gets no river and
+  drains), refused below it at once with "Canyon needs at least 48 tiles a side to generate"; the size stays choosable from 4 for a map shaped by hand. A map that is not square no longer loses half its
   land when its orientation turns it half round (`land/orient.ts`). The field's parts visit only the tiles they reach,
   byte-identical and quicker on large maps. Smoke: `tools/size-smoke.ts --thumbs`, laid out by `tools/size-sheet.py`
   (`docs/sheets/custom-sizes-2.png`). Out of scope: Islands' slowness on some odd sizes (its spring retries settle the
