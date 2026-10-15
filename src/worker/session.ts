@@ -9,7 +9,8 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView } from "../core/doc/document";
-import { MapSession, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import { MapSession, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
+import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
 import type { AppliedOp, EditOp, OpOrigin } from "../core/doc/ops";
 import { planStart } from "../core/doc/tools";
@@ -382,6 +383,13 @@ function markSent(s: MapSession): void {
 export function terrainNow(): { heights: Uint8Array; terrain: TerrainState } {
   const s = need();
   return { heights: s.built.heights.slice(), terrain: s.terrainState() };
+}
+
+/** What a Block operation would do on the map as it stands, with no build (the page's live preview of a click or a
+ *  drag): the blocks it adds and takes, the ground the support rule would drop, and the one line it is refused with
+ *  (core/doc/blockTool.ts). */
+export function blockFalls(params: BlocksParams): BlockFalls {
+  return need().blockFalls(params);
 }
 
 /** The whole map view (opening a map, or returning to it). */

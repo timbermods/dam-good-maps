@@ -118,17 +118,18 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   dragged as before; a click picks an object and a drag then moves it, while a drag from an object not picked
   marks an area. The middle button turns the view, the right button pans.
 
-- **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, a
-  hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
+- **The bar** at the bottom middle, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block
+  (D335, key 7), a hairline, then the forces in the order of D352's clusters (`FORCE_GROUPS` in `TopBar.tsx`; today Carve,
   Craterize, Erupt, Rift, Quake, Deposit, Glaciate, keys Shift+1 to Shift+7; a force not adopted yet takes its
-  place in the list): thirteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
-  map area has room; narrower, in whole pixels (62px at least), where it hasn't, so the bar stays clear of the
+  place in the list): fourteen cells of one width, icon above name, keys only in tooltips. A cell is 76px where the
+  map area has room; narrower, in whole pixels (56px at least), where it hasn't, so the bar stays clear of the
   minimap and the objects menu; the bar sits on whole pixels. **The held tool's settings sit directly above it**
   (Kyler's option B, 2026-10-03; `src/editor/settings.tsx`): one panel at the bar's exact width and one height,
-  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 13 cells,
+  120px, for every tool; two rows of 54px on one grid (Kyler, 2026-10-05: never a third), the bar's own 14 cells,
   every group spanning whole cells, so each edge in one row lines up with the other and with the bar (every gap
   between plates continues through the other row, or a plate there spans it; `layout.spec.ts`); every force's Try
-  another one row tall at cells 12–13 of row 2, its Sources at 10–11 beside it; no empty cells, a tool with fewer
+  another one row tall at cells 13–14 of row 2, its Sources at 11–12 beside it (the Block's cell, 7, came after Naturalize's:
+  a row laid out on thirteen cells keeps each group over its buttons, `settings.tsx` `fromThirteen`); no empty cells, a tool with fewer
   settings giving each more room. Every setting is always shown (no More). One look per kind of control, each a plate on its cells as the
   bar's buttons are: a number is a slider with its value at the right of its name; a choice is one segmented look (a
   toggle is Off and On); **Auto**, one small word in the same place on every control that has it, is lit while the
@@ -517,6 +518,36 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
   Its core is built: the `blocks` operation and the `blockFalls` query (`docs/progress/3d-creating.md`, "Delivers 2").
+  **The page** (`src/editor/block/`; "Delivers 3" there): **Block** on the tools row after Naturalize, key **7** (tooltip
+  "Add or remove blocks"). *Pointing:* hovering a face (the 3D pick's `blockAim`) asks the core what a click would do
+  (`blockFalls`, no build; one question at a time, the latest wins) and the renderer shows it as it shows the area
+  brush's blocks (`showBlocks`, forces play's final contract, D335): the blocks to add translucent, the blocks to take
+  red, ground that would fall solid red, and while any would fall the added and removed blocks muted grey (they will
+  not happen), with the reason in red beside the blocks, clear of them ("12 blocks of ground would fall: nothing would
+  hold them up"); the Block tool is registered with `voxel: true` so the pick is the seen surface, and under a layer cut
+  the aim is `blockAim(hit, cut, mode)` (the cut's cap is the block under it: Remove takes it, Add has nothing there); the preview
+  is asked again when the map changes, when Shift goes up or down, when a setting changes and when the camera moves
+  under a still pointer. *Acting:* a click adds a block onto the face (the cell beyond it, across the footprint in the
+  face's plane); **Shift** does the other of Add and Remove (the Action shows it while Shift is down); a drag paints in the
+  plane of the first face, every cell it crosses; an add **chains**: a cell goes in wherever it touches a block, one
+  already there or one added a moment before in the same stroke, so a drag out over air grows a span from the ground
+  across it (a bridge, an arch), in the order it was swept, and the support rule says how far it may reach; a Remove takes only the
+  blocks the viewer sees, those whose face toward the aimed side is open (read by the core from the ground before the
+  operation, under the layer cut), never what is buried inside a hill, so the preview and the operation agree; nothing is
+  applied until the press is let go, then it is one `blocks` operation, one undo
+  step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
+  drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. The page sends
+  the working area (Select's open selection as runs, `area`) and the view's layer cut (`cut`) with every operation and
+  makes no refusals of its own: the core refuses a cell outside the area ("(x, y) is outside the selection") and
+  leaves every block from the cut up alone (nothing from there is previewed or changed; a click that would change nothing
+  below the cut says "nothing below layer N would change"), each as the one line the preview's note shows before the
+  click. A click that would be taken but meets plants says so in the same note, in quiet words, not as a refusal:
+  "3 plants removed; 2 plants ride with the ground" (those its blocks fill in or take the ground from, and those that
+  rise or sink with it). The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
+  while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
+  (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
+  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
+  renderer's, to come.
 
 ### The brushes and precision tools
 
