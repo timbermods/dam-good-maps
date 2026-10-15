@@ -58,7 +58,7 @@ test("Crop makes the map the selected rectangle, as one undo step that Ctrl+Z ta
   await expect(words).toHaveText("32 × 24 tiles");
   await expect(crop).not.toHaveAttribute("aria-disabled", "true");
   await crop.hover();
-  await expect(words).toHaveText(/^Crop to 32 × 24/);
+  await expect(words).toHaveText(/^32 × 24/);
 
   // cropped: the map is the box, the selection is gone
   const steps = (await info(page)).history.filter((h) => h.applied).length;
@@ -67,7 +67,7 @@ test("Crop makes the map the selected rectangle, as one undo step that Ctrl+Z ta
   await idle(page);
   const after = await info(page);
   expect(after.history.filter((h) => h.applied).length).toBe(steps + 1);
-  expect(after.history.filter((h) => h.applied).at(-1)?.label).toBe("Crop to 32×24");
+  expect(after.history.filter((h) => h.applied).at(-1)?.label).toBe("32×24");
   await page.mouse.move(5, 5);
   await expect(words).toHaveText("Drag on the map to select");
   expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);

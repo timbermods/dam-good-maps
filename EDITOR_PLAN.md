@@ -144,7 +144,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
     core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
     "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
-    again, never clamped. Enabled, hovering says "Crop to 32 × 24", adding "; cuts 3 objects" when the edge
+    again, never clamped. Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
     cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
     another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
     the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map

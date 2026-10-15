@@ -1771,7 +1771,7 @@ export function cropPlanAt(r: CropParams): { reason: string | null; removedObjec
 export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number } {
   const t0 = performance.now();
   const s = need();
-  const res = s.apply({ op: "crop", params: r }, "user");
+  const res = s.apply({ op: "crop", params: r }, "user", `${r.w}×${r.h}`);
   return { ...changed(s, res.ok, res.errors, t0), removedObjects: res.removedObjects ?? 0 };
 }
 

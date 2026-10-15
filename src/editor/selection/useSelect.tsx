@@ -378,7 +378,7 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     if (why || !b || !cropPlan) return setWaterHint(why);
     const n = cropPlan.removed;
-    setWaterHint(`Crop to ${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
+    setWaterHint(`${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
   }
   /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
    *  that is pressed says its reason on the message line, in full. */
@@ -528,8 +528,8 @@ export function useSelect(ed: Ed): SelectSlice {
       ),
     });
     const groups: Group[] = [
-      { key: "shapes", row: 1, at: 1, span: 6, node: shapes },
-      { key: "size", row: 1, at: 7, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      { key: "shapes", row: 1, at: 1, span: 7, node: shapes },
+      { key: "size", row: 1, at: 8, span: 2, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
       // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
       {
         key: "crop",
