@@ -60,6 +60,7 @@ import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities
 import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
@@ -222,7 +223,7 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 }
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
-export const DEFAULT_YAW = -Math.PI / 6;
+export { DEFAULT_YAW };
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -2322,7 +2323,7 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2367,7 +2368,7 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const outline = drawnOutline(m.W, m.H, m.heights);
+    const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
     const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
@@ -2801,8 +2802,8 @@ export class MapRenderer {
 
   zoom(factor: number): void {
     const m = this.map;
-    const span = m ? Math.max(m.W, m.H) : 256;
-    this.setView({ distance: Math.min(span * 3, Math.max(6, this.view.distance * factor)) });
+    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
+    this.setView({ distance: Math.min(max, Math.max(min, this.view.distance * factor)) });
   }
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */
