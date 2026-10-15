@@ -63,8 +63,9 @@ import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, SKY_REACH, sk
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
-import { columnMap, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -72,6 +73,7 @@ import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
+import { isPlant } from "./high/forest";
 import { pageBaker, type Baker } from "./high/fields";
 import { WaterMotion } from "./motion";
 import { BoxUploads, RowUploads } from "./rowUploads";
@@ -228,7 +230,7 @@ export function drawnOutline(W: number, H: number, heights: Uint8Array): Float32
 }
 
 /** The game's default camera: turned 30° east of north, 70° down (Map look, D86). */
-export const DEFAULT_YAW = -Math.PI / 6;
+export { DEFAULT_YAW };
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -392,6 +394,12 @@ export class MapRenderer {
   /** The shadow tops of the whole map (redone round each change), and the objects' casters. */
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
+  /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
+   *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
+  private withered: Int32Array | null = null;
+  private drawnObjects: EntityView | null = null;
+  private witheredCount = 0;
+  private casterTimer = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -792,6 +800,7 @@ export class MapRenderer {
         if (m) {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
+          this.applyWithered();
         }
       }
     }
@@ -806,6 +815,7 @@ export class MapRenderer {
       this.ghost = null;
     }
     this.governor?.hold(performance.now());
+    this.applyWithered();
     this.requestRender();
     if (was !== tier) this.tellLook();
   }
@@ -1102,7 +1112,12 @@ export class MapRenderer {
   }
 
   private clearMap(): void {
+    // (a held day belonged to the map that goes: the new one withers nothing until it is shown a day of its own)
+    this.withered = null;
+    this.drawnObjects = null;
+    this.witheredCount = 0;
     this.droughtLayer?.clear();
+    clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
     this.skirt = null;
     for (const m of this.terrain.values()) this.dropMesh(m);
@@ -1275,7 +1290,7 @@ export class MapRenderer {
   private bakeShadows(onlyCasters = false): void {
     const m = this.map;
     if (!m || !this.lightTex) return;
-    const casters = objectCasters(m.W, m.H, m.entities);
+    const casters = objectCasters(m.W, m.H, this.drawnObjects ?? m.entities);
     const rect = onlyCasters && this.tops ? castersChanged(this.casters, casters, m.W, m.H) : undefined;
     this.casters = casters;
     if (rect === null) return;
@@ -1332,6 +1347,7 @@ export class MapRenderer {
     const m = this.map!;
     m.entities = e;
     this.high?.objectsBuilt(group, e);
+    this.applyWithered();
     // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
     const cut = mineCutout(e, m.W, m.H);
     const old = m.source.cutout ?? new Map<number, number>();
@@ -1598,6 +1614,48 @@ export class MapRenderer {
     this.bakeTiles();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
+   *  null to put them back: drawn withered in the High look (D250, D286 (4)); Standard and the map's own plants stay as
+   *  they are. Plants change state in place, so stepping from day to day costs a layout, not a rebuild. */
+  setWithered(tiles: Int32Array | null): void {
+    this.withered = tiles;
+    this.applyWithered();
+  }
+
+  /** How many plants are drawn withered by the held day now (the tests read it). */
+  get witheredPlants(): number {
+    return this.witheredCount;
+  }
+
+  private applyWithered(): void {
+    const m = this.map;
+    if (!m) return;
+    let flags = m.entities.flags;
+    let count = 0;
+    const tiles = this.withered;
+    if (tiles?.length && this.high && this.lookNow !== "standard" && this.lookNow !== "light") {
+      const dead = new Uint8Array(m.W * m.H);
+      for (const t of tiles) dead[t] = 1;
+      const e = m.entities;
+      flags = e.flags.slice();
+      for (let k = 0; k < e.count; k++) {
+        if (flags[k] & DEAD || e.x[k] < 0 || e.y[k] < 0 || e.x[k] >= m.W || e.y[k] >= m.H || !dead[e.y[k] * m.W + e.x[k]]) continue;
+        if (!isPlant(e.templates[e.template[k]])) continue;
+        flags[k] |= DEAD;
+        count++;
+      }
+    }
+    this.witheredCount = count;
+    const was = this.drawnObjects;
+    this.drawnObjects = count ? { ...m.entities, flags } : null;
+    const changed = this.high?.setPlantsDead(flags) ?? 0;
+    if (!changed && !was === !this.drawnObjects) return;
+    this.requestRender();
+    // (the dead cast a lighter shadow: baked once stepping has settled, never per day)
+    clearTimeout(this.casterTimer);
+    this.casterTimer = window.setTimeout(() => this.bakeShadows(true), 300);
   }
 
   updateEntities(e: EntityView): void {
@@ -2383,7 +2441,7 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: DEFAULT_YAW, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2428,7 +2486,7 @@ export class MapRenderer {
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const level = sum / m.heights.length;
-    const outline = drawnOutline(m.W, m.H, m.heights);
+    const outline = Float32Array.from([...drawnOutline(m.W, m.H, m.heights), ...objectOutline(m.W, m.H, m.entities)]);
     const v = new Vector3();
     /** The map as the camera sees it now: the box round its drawn outline, in CSS pixels. */
     const box = () => {
@@ -2899,8 +2957,8 @@ export class MapRenderer {
 
   zoom(factor: number): void {
     const m = this.map;
-    const span = m ? Math.max(m.W, m.H) : 256;
-    this.setView({ distance: Math.min(span * 3, Math.max(6, this.view.distance * factor)) });
+    const { min, max } = m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 };
+    this.setView({ distance: Math.min(max, Math.max(min, this.view.distance * factor)) });
   }
 
   /** Move the view as if the map were dragged by (dx, dy) pixels. */

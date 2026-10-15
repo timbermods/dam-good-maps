@@ -20,7 +20,7 @@ export interface GhostTile {
 /** More blocks than this are drawn as one column a tile (the same shape, without the seams). */
 const MAX_BLOCKS = 65536;
 
-type GhostKind = "raise" | "lower" | "fall";
+type GhostKind = "raise" | "lower" | "fall" | "muted";
 
 function ghostMaterial(kind: GhostKind): ShaderMaterial {
   return new ShaderMaterial({
@@ -52,8 +52,10 @@ function ghostMaterial(kind: GhostKind): ShaderMaterial {
           kind === "lower"
             ? "vec3 fill = vec3(0.92, 0.26, 0.2); vec3 line = vec3(1.0, 0.42, 0.34); float a = 0.36;"
             : kind === "fall"
-              ? "vec3 fill = vec3(1.0, 0.7, 0.12); vec3 line = vec3(1.0, 0.86, 0.38); float a = 0.4;"
-              : "vec3 fill = vec3(0.93, 0.96, 1.0); vec3 line = vec3(1.0); float a = 0.3;"
+              ? "vec3 fill = vec3(0.86, 0.06, 0.07); vec3 line = vec3(1.0, 0.36, 0.3); float a = 0.62;"
+              : kind === "muted"
+                ? "vec3 fill = vec3(0.6, 0.62, 0.66); vec3 line = vec3(0.86, 0.87, 0.9); float a = 0.2;"
+                : "vec3 fill = vec3(0.93, 0.96, 1.0); vec3 line = vec3(1.0); float a = 0.3;"
         }
         gl_FragColor = vec4(mix(fill, line, edge), mix(a, 0.9, edge));
       }`,
@@ -138,7 +140,9 @@ export type CellKind = "added" | "removed" | "falls";
 
 /** How big each kind's blocks are drawn: added a hair inside their cell, so the ground shows under them;
  *  removed a hair outside the ground's own faces, so they read as going; falls a little more, so a block
- *  in both lists still shows both. */
+ *  in both lists still shows both. Their colours (D335): falls solid red, the problem; while any fall, the
+ *  action is refused and added and removed are drawn muted grey, as they will not happen; otherwise added
+ *  translucent white and removed red, as the area brush's ghost. */
 const CELL_SCALE: Record<CellKind, number> = { added: 0.98, removed: 1.03, falls: 1.05 };
 const CELL_MATERIAL: Record<CellKind, GhostKind> = { added: "raise", removed: "lower", falls: "fall" };
 const KINDS: readonly CellKind[] = ["added", "removed", "falls"];
@@ -182,7 +186,10 @@ export class BlockCells {
   private readonly box = new BoxGeometry(1, 1, 1);
   private readonly materials = {} as Record<CellKind, ShaderMaterial>;
   private readonly kinds = {} as Record<CellKind, KindMesh>;
+  private readonly muted = ghostMaterial("muted");
   private cut: number | null = null;
+  /** Blocks would fall: the action is refused, so what it would add and remove is drawn muted. */
+  private refused = false;
 
   constructor(private readonly scene: Scene) {
     for (const k of KINDS) {
@@ -194,9 +201,25 @@ export class BlockCells {
   /** Show a preview (null puts it away) under a layer cut (null: none). Returns whether anything was rewritten. */
   set(p: BlockPreview | null, cut: number | null): boolean {
     this.cut = cut;
-    let changed = false;
-    for (const k of KINDS) changed = this.build(k, p ? p[k] : [], cut) || changed;
+    const refused = !!p && p.falls.length > 0;
+    let changed = refused !== this.refused;
+    this.refused = refused;
+    for (const k of KINDS) {
+      changed = this.build(k, p ? p[k] : [], cut) || changed;
+      this.restyle(k);
+    }
     return changed;
+  }
+
+  /** The material a kind is drawn with now. */
+  private restyle(kind: CellKind): void {
+    const mesh = this.kinds[kind].mesh;
+    if (mesh) mesh.material = this.refused && kind !== "falls" ? this.muted : this.materials[kind];
+  }
+
+  /** Whether the preview is drawn as refused (tests). */
+  get isRefused(): boolean {
+    return this.refused;
   }
 
   /** The layer cut moved: the preview as last given, under the new cut. */
@@ -258,6 +281,7 @@ export class BlockCells {
       }
       this.materials[k].dispose();
     }
+    this.muted.dispose();
     this.box.dispose();
   }
 }

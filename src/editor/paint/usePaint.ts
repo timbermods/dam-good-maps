@@ -346,9 +346,12 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
           showWater(e.water, false, true);
           if (e.soil) {
             mirror.current.daySoil = e.soil;
-            showSoil(e.soil);
+            showSoil(e.soil, e.withered);
           }
           ed.rehover();
+        } else if (e.kind === "withered") {
+          // the plants the held day has surely killed, worked out after the day was shown (the earlier days' soil)
+          if (e.hazard === weatherRef.current && e.day === ed.heldDay.current) ed.showWithered(e.tiles);
         } else setInstant(e.instant.items.filter((c) => c.here && c.class === "load"));
       }),
     );

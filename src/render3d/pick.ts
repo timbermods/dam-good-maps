@@ -58,11 +58,22 @@ const SIDE_FACE: Record<NonNullable<TileHit["side"]>, BlockFace> = { east: "+x",
 /** The block a pick hit is on, or null where there is none to point at: no hit (the sky, off the map), a hit that
  *  names no run (the water's surface), or the map's floor under air (the empty run at level 0: layer 0 is a block
  *  only where the ground holds one). The top face of a run belongs to its top block, the underside to its bottom
- *  block, a wall to the block at the height hit. */
-export function blockAim(hit: TileHit | null): BlockAim | null {
+ *  block, a wall to the block at the height hit.
+ *
+ *  Only right on a hit of the voxel pick (`pickSeen`: the tools registered with `voxel: true`, so the page wires the
+ *  Block tool that way); the editing pick (`pickEditing`) aims at the tile's top, not at what is seen.
+ *
+ *  Under a layer cut (`cut`, as `pickSeen` was cut), a top face at or above the cut (the cut's own cap, or a real top
+ *  exactly at it) is the block just under the cut, at layer `cut − 1`, which is seen: Remove takes it. Add gives null
+ *  there, since it would fill layer `cut`, which the cut hides. Walls, undersides and tops under the cut aim as
+ *  without a cut. */
+export function blockAim(hit: TileHit | null, cut: number | null = null, mode: "add" | "remove" = "add"): BlockAim | null {
   const run = hit?.run;
   if (!hit || !run || run.top <= run.bottom) return null;
-  if (hit.face === "top") return { at: [hit.x, hit.y, run.top - 1], side: "+z" };
+  if (hit.face === "top") {
+    if (cut === null || run.top < cut) return { at: [hit.x, hit.y, run.top - 1], side: "+z" };
+    return mode === "add" ? null : { at: [hit.x, hit.y, cut - 1], side: "+z" };
+  }
   if (hit.face === "bottom") return { at: [hit.x, hit.y, run.bottom], side: "-z" };
   if (!hit.side) return null;
   const layer = hit.layer ?? Math.floor(hit.point[1]);

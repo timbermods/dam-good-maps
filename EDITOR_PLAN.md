@@ -77,9 +77,19 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
-  within) and "On this map" (Mine sites, Ruin fields, Berry patches, **Trees**: every living tree as it is, edits
-  included; Rivers). Each setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in
-  its tooltip); the code is `src/editor/generator/`. Every map is made for Normal until the core drops difficulty
+  within) and "On this map" (Mine sites, Ruins, Berry bushes, **Trees**, Water sources: counted from the map's own
+  objects as they are now, edits included, so an opened file or a real place is counted as the generator's maps are;
+  dead trees and bushes aren't). The numbers carry their units ("200 logs", "30 bushes", "20 tiles", "100%"). Each
+  setting keeps its guard (PLAN §5) and has no line under it (the official maps' range is in its tooltip); the code is
+  `src/editor/generator/`. **An opened file has no generator settings** (a .timber, a project without a spec, a real
+  place): while one is open the panel reads "–" for the seed, the theme and every setting (the controls quiet, the Name
+  and the Size its own), `Generate` makes a map of the Any theme's defaults at that size, and the first setting touched
+  brings every setting back as the next map's (`App.tsx`'s `blank`). **The editor's frame before any map** (a share
+  link, a reload, a place opened first): the real header, bar and shelf held still with the land's first look in the
+  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`);
+  **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
 - **Your maps** (D234, D330): a map is kept in this browser from its first edit (an operation applied) or rename,
@@ -216,7 +226,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
-  by itself (D265).
+  by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
+  (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
+  (`src/render3d/framing.ts`).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
   shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
   first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
@@ -711,7 +723,7 @@ Make a valley, drop a source, and there's a river.
   shows the hazard's last day (the hazard's length for the map's difficulty: drought 9, badtide 8 on Normal) and
   holds it; clicking it again returns to the map's own water, the other button switches straight to it. The day box
   **◀ Day N ▶** (and ← →) steps from Day 0 to past the default length; a double-click takes a typed day. Each
-  hazard's days are kept until the map changes and worked out in the background once the water has settled. A held Badtide day draws the
+  hazard's days are kept until the map changes or its canonical water lands (a run is never from the preview's water) and worked out in the background once the water has settled. A day's soil is the game's soil on that day's water (`soilOnWater`, the map's own rules, Thorns included): Day 0 is the map's own soil. A held Badtide day draws the
   game's contamination veins on every tile its water poisons (the day's own soil, both looks; the ground goes dry where
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. **An Unstable Core's
@@ -742,8 +754,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   occlusion, a colour-preserving tone curve, distance haze, sky, rock strata and soil edges (#65); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section, continuous waterfall crowns, irregular landings with froth, mist and
-  splash rings, rough water below falls (#67). #67's visible seasons wait for the Drought and Badtide day-by-day
-  view (D286 (4)).
+  splash rings, rough water below falls (#67). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in High, the
+  plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
+  (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
+  dead (`core/sim/withering.ts`, given to the page with the held day). Day 0 and Standard show the map as it is.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
