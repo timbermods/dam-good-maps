@@ -20,9 +20,11 @@ The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026
 (tokens, motion, focus, press, text-wrap) and change no layout.
 
 - **Colour tokens:** one set on `:root`, each `light-dark(light, dark)`, with `color-scheme: light dark`; never a second block
-  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root. A value that isn't a
+  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root from a stylesheet (a class or an
+  attribute rule), never an inline style from script: the build compiles `light-dark()` into a variable fallback that inline
+  styles don't flip. A value that isn't a
   colour (a shadow's blur) can't use `light-dark()`; keep it in the one small `prefers-color-scheme` block beside the tokens.
-- **Motion:** take `--ease-out` and `--ease-in-out` and the `--dur-*` tokens; never `ease-in` on the interface, never
+- **Motion:** take `--ease-out` and the `--dur-*` tokens (add `--ease-in-out` and a longer duration when something first needs them); never `ease-in` on the interface, never
   `transition: all` (name the properties). Movement (transform, size) goes inside
   `@media (prefers-reduced-motion: no-preference)`; fades of opacity and colour stay outside it.
 - **Hover only where hover exists:** hover styles sit in `@media (hover: hover) and (pointer: fine)`. A reveal also shows on
@@ -45,8 +47,22 @@ The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026
 - **Line breaks:** `text-wrap: balance` on headings and short titles, `text-wrap: pretty` on paragraphs, notes and tooltips.
 - **Tap:** `-webkit-tap-highlight-color: transparent` and `touch-action: manipulation` on interactive elements (a control that
   takes the gesture itself sets `touch-action: none`); `font-synthesis: none`.
-- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, container queries,
-  `text-box` trim, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
+- **The bar is a container (2026-10-15):** `.tool-dock` is `container-type: inline-size`; its width is the room the minimap and the
+  shelf leave, in whole cells, and each cell is its share of that width (`cqi`, no `@property`). A tool added to the bar
+  changes `--tools` or `--forces` and the cells follow. Use `cqi` against a container where a size follows the room it is in.
+- **Hit areas:** a control under 32px gets an invisible `::after` (`inset: min(0px, calc((100% - 32px) / 2))`) on a desktop
+  pointer; a control that touches its neighbours reaches only up and down. None may reach another control or sit in a clip
+  (tests/e2e/layout.spec.ts). Dense lists (the sheet's lines, the legend's) are left alone.
+- **Optical centring:** a button's words are a span (`.label`, `.icon-word`, `.cb-word`, `.shelf-word`) with
+  `text-box: trim-both cap alphabetic`, single line only, the control's height held by flex or `min-height`.
+- **Big screens:** from 2200px wide (and 1200px tall) the bar's cells reach 88px, the header's controls 44px and the shelf's rows
+  34px, their words 1px larger; nothing else grows.
+- **Menus** grow from their button: `@starting-style` in, `data-closing` out (`useMenuPresence`), from 0.95 and transparent,
+  `display` following with `allow-discrete`; the scaling inside the reduced-motion guard, the fade outside it.
+- **The clipping net:** tests/e2e/layout.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
+  more than 1px) at 1280, 1366, 1600, 1920 and 2560, light and dark, across the main states.
+- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, `text-box` trim on the bar's
+  cells, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
 
 ## Three zones
 

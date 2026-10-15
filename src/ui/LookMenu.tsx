@@ -5,6 +5,7 @@
 // no choice to make). Built from the shared styles only; the design pass styles it (D176, D296).
 
 import { useEffect, useRef, useState } from "preact/hooks";
+import { useMenuPresence } from "./menuPresence";
 import type { MapRenderer } from "../render3d";
 import { HIGH_EFFECTS, type HighEffect } from "../render3d/high/effects";
 import type { LookChoice } from "../render3d/high/fallback";
@@ -39,6 +40,7 @@ export function lookWords(choice: LookChoice, look: Look): string {
 export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: string }) {
   const r = props.renderer;
   const [open, setOpen] = useState(false);
+  const menu = useMenuPresence(open);
   const [, setTick] = useState(0);
   const wrap = useRef<HTMLDivElement>(null);
   useEffect(() => (r ? r.listenLook(() => setTick((n) => n + 1)) : undefined), [r]);
@@ -71,8 +73,8 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
           </span>
         </span>
       </button>
-      {open ? (
-        <div class="menu look-menu" id="look-menu" role="group" aria-label="Look">
+      {menu.mounted ? (
+        <div class="menu look-menu" id="look-menu" role="group" aria-label="Look" data-closing={menu.closing ? "" : undefined}>
           {/* the page's own controls: a segmented choice (the chosen cell lit as the page's choices are) and checkbox
               rows as the Show column's, a wrapped word hanging under its own first letter */}
           <div class="set-seg" role="group" aria-label="Drawing">
