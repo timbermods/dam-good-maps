@@ -492,9 +492,10 @@ export class MapSession {
     return new MapSession(doc, r.built);
   }
 
-  /** Import any .timber map (PLAN §19.6). Throws ImportError for saves. */
-  static importMap(bytes: Uint8Array, fileName: string): MapSession {
-    return new MapSession(importDocument(bytes, fileName));
+  /** Import any .timber map (PLAN §19.6); `place`: a real place's (its id, `DocMeta.place`). Throws
+   *  ImportError for saves. */
+  static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
+    return new MapSession(importDocument(bytes, fileName, place));
   }
 
   // --------------------------------------------------------------------------------- reading
