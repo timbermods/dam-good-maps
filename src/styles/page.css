@@ -1288,10 +1288,11 @@
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each, icon above its name, the group's full height */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
+   the last two, its word being the longest */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1306,6 +1307,10 @@
   margin: 0;
   padding: 2px;
   border-radius: 6px;
+}
+
+.set-group > .segmented.shapes > button.whole-map {
+  grid-column: span 2;
 }
 
 .set-group > .segmented.shapes > button .icon-word {
