@@ -686,3 +686,19 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await expect.poll(async () => (await labels(page)).at(-1)).toMatch(/^Remove unfed water, \d+ pools?$/);
   expect(errors).toEqual([]);
 });
+
+test("picking an object never moves the list under the pointer: its window opens above, and the picked row stays where it was", async ({ page }) => {
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  for (const size of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+    await page.setViewportSize(size);
+    for (const name of ["Water seep", "Natural dam", "Succulent", "Relic", "Unstable core", "Reserve pile"]) {
+      const row = shelf.getByRole("button", { name, exact: true });
+      await row.scrollIntoViewIfNeeded();
+      const before = (await row.boundingBox())!.y;
+      await row.click();
+      await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before), { message: `${name} at ${size.width}` }).toBeLessThanOrEqual(1);
+      await page.keyboard.press("Escape");
+    }
+  }
+});

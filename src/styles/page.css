@@ -838,7 +838,7 @@
    them, its words at the names' inset (the row's 4px, the picture's 28px and the 8px gap) */
 .objects-menu .shelf-title {
   position: sticky;
-  top: 0;
+  top: -6px;
   z-index: 1;
   background: var(--panel);
   box-sizing: border-box;
@@ -1010,7 +1010,7 @@
 
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --cell: clamp(62px, round(down, calc((100vw - 428px) / 13), 1px), 76px);
+    --cell: clamp(62px, round(down, calc((100vw - 440px) / 13), 1px), 76px);
   }
 
   .tool-dock {
@@ -2533,6 +2533,8 @@
 }
 
 .good-menu {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
   right: 0;
   left: auto;
   width: 220px;
