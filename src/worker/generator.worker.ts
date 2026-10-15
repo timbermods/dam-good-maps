@@ -108,7 +108,8 @@ const api = {
     const place = decodePlaceFile(data);
     const r = placeTimber(place);
     // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
-    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`));
+    // (marked as the place, so its checks follow the place's rules: D245, D331)
+    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`, place.id));
   },
   sessionView: () => sendOpen(ed.sessionView()),
   terrainNow() {

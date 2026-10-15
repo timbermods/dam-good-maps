@@ -23,7 +23,7 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is far ahead of `main`: 
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It hands out
-  decision numbers (**next free: D487**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF.
+  decision numbers (**next free: D487**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
 - **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14) coordinates: it merges
   every "ready to merge" posted on #236, releases to `main`, settles cross-session questions, and sends Kyler only the
   design questions his decisions don't settle.
