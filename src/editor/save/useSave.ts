@@ -7,7 +7,7 @@ import { plain } from "../panels";
 import { NO_START, NO_START_REFUSAL } from "../../core/doc/checkItems";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
-import { withHeroPicture } from "./hero";
+import { heroPicture } from "./hero";
 
 const MOVE_IT = `Move the file to ${TIMBERBORN_MAPS_PATH}, then start a new game and pick the map.`;
 
@@ -60,7 +60,9 @@ export function useSave(ed: Ed): SaveSlice {
       // (tests only: a slow build, to show the folder was asked for first)
       if (window.dgmSaveDelayMs) await new Promise((done) => setTimeout(done, window.dgmSaveDelayMs));
       const onProgress = proxy((q: CheckProgress) => setSaving((s) => (s ? { ...s, progress: q } : s)));
-      const r = await enqueue(() => api.exportTimber(true, onProgress, { picture: true }));
+      // (the map's 3D picture as its thumbnail, D488: drawn while the checks run where it can be)
+      const hero = heroPicture(api);
+      const r = await enqueue(() => api.exportTimber(true, onProgress, { picture: true }, hero.onPicture));
       if (!r.ok) {
         setDotOpen(true);
         setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}` });
@@ -69,7 +71,7 @@ export function useSave(ed: Ed): SaveSlice {
       // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
       const fileName = r.fileName;
       // the map's 3D picture as its thumbnail (D488), or the core's top-down one
-      const bytes = await withHeroPicture(api, r.bytes, r.picture);
+      const bytes = await hero.finish(r);
       if (kind === "download") {
         saveFile(bytes, fileName);
         setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });

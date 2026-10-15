@@ -65,7 +65,7 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
   document.body.append(host);
   let r: MapRenderer | null = null;
   try {
-    r = new MapRenderer(canvas, { input: false });
+    r = new MapRenderer(canvas, { still: true });
     r.holdShowcase();
     r.setClock(CLOCK);
     r.setMap(view, false, true);

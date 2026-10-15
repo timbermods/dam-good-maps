@@ -1430,11 +1430,21 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 /** Export the open map. Refused while load problems block it, or while warnings are not
  *  confirmed; confirmed warnings are noted in the map's description. The water settles
  *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
- *  `picture`: with the file, the map exactly as it is written (its canonical water), when the file
- *  carries the core's top-down thumbnail, for the page's 3D picture of it (D488). */
-export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: CheckProgress) => void, opts: { picture?: boolean } = {}): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string; picture?: MapView }> {
+ *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
+ *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
+ *  already is the file's as it stands: it goes to `onPicture` at once, so the page draws it while the
+ *  checks run, and the answer says so (`pictureEarly`); else it comes with the file (`picture`). */
+export async function exportTimber(
+  confirmWarnings: boolean,
+  onProgress?: (p: CheckProgress) => void,
+  opts: { picture?: boolean } = {},
+  onPicture?: (view: MapView) => void,
+): Promise<{ ok: boolean; errors: string[]; bytes: Uint8Array; fileName: string; picture?: MapView; pictureEarly?: boolean }> {
   const s = need();
   const v0 = version;
+  // (the build the file is written from, if nothing changes it on the way: no settle, no replay, no edit)
+  const early = opts.picture && onPicture && !s.waterPending && !s.replayPending && s.drawsThumbnail() ? s.built : null;
+  if (early) onPicture!(wholeView(s));
   let bg = await backgroundCheck(onProgress);
   // a newer check of the same map (the page's own, started just after the map opened) takes this
   // one's place: check again, and give up only when the map itself changed
@@ -1445,7 +1455,8 @@ export async function exportTimber(confirmWarnings: boolean, onProgress?: (p: Ch
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
   // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
   const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
-  return { ok: true, errors: [], bytes, fileName, ...(opts.picture && thumbnailDrawn ? { picture: wholeView(s) } : {}) };
+  if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
+  return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }
 
 /** The project file (downloads use gzip level 9; autosave a faster level). */

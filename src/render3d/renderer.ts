@@ -71,7 +71,7 @@ import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighE
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, type HighMaterials } from "./high/highLook";
 import { pageBaker, type Baker } from "./high/fields";
-import { WaterMotion } from "./motion";
+import { stillFlowTexture, WaterMotion } from "./motion";
 import { RowUploads } from "./rowUploads";
 import { chunkGeometry, refillChunk, type ChunkArrays } from "./chunkGeometry";
 import { EntityGeometryCache } from "./entityGeometry";
@@ -311,6 +311,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** A still view (the constructor's `still`). */
+  private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
   /** The Flow view (off by default): the current's streaks over the water. */
@@ -387,9 +389,12 @@ export class MapRenderer {
   private tops: { hi: Float32Array; lo: Float32Array } | null = null;
   private casters: Float32Array | null | undefined = undefined;
 
-  /** `input: false`: a view nobody steers (the map's picture, `hero.ts`): no pointer or key reaches it. */
-  constructor(canvas: HTMLCanvasElement, opts: { input?: boolean } = {}) {
+  /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
+   *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
+   *  worker for them). */
+  constructor(canvas: HTMLCanvasElement, opts: { still?: boolean } = {}) {
     this.canvas = canvas;
+    this.still = !!opts.still;
     // a browser that draws in software gets the light look, without multisampling (D110)
     this.software = softwareRendering() && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
@@ -440,7 +445,7 @@ export class MapRenderer {
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
     this.fit();
-    if (opts.input !== false) this.bindInput();
+    if (!this.still) this.bindInput();
     if (!this.software) {
       this.gpuName = this.gpu().renderer;
       this.chosenEffects = effectsFrom(savedOff());
@@ -1026,13 +1031,13 @@ export class MapRenderer {
     const waterQuads = this.meshAllWater();
     const falls = this.fallCount();
     this.skirt = this.buildSkirt(W, H, lo);
-    if (!this.software) {
+    if (!this.software && !this.still) {
       this.waterMotion = new WaterMotion(W, H, this.baker, this.scene, u, () => this.requestRender());
       this.waterMotion.setHigh(this.lookNow !== "standard");
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    }
+    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);

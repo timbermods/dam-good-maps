@@ -12,7 +12,7 @@ import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
 import type { SavedView } from "../core/doc/document";
-import { viewBuffers, type WaterView } from "../render3d/model";
+import { viewBuffers, type MapView, type WaterView } from "../render3d/model";
 import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, type GenProgress } from "./api";
 import * as ed from "./session";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper } from "../core/sim/parallel";
@@ -236,8 +236,10 @@ const api = {
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);
   },
-  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void, opts?: { picture?: boolean }) {
-    const r = await ed.exportTimber(confirmWarnings, onProgress, opts);
+  async exportTimber(confirmWarnings: boolean, onProgress?: (p: ed.CheckProgress) => void, opts?: { picture?: boolean }, onPicture?: (view: MapView) => void) {
+    // (the page's answer is not waited for: it draws while the checks run)
+    const early = onPicture && ((v: MapView) => void Promise.resolve(onPicture(transfer(v, viewBuffers(v) as Transferable[]))).catch(() => undefined));
+    const r = await ed.exportTimber(confirmWarnings, onProgress, opts, early);
     return transfer(r, [r.bytes.buffer as Transferable, ...((r.picture ? viewBuffers(r.picture) : []) as Transferable[])]);
   },
   /** A .timber file with another map_thumbnail.jpg (the page's 3D picture, D488), or the reason it can't take it. */
