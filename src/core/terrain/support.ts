@@ -144,7 +144,40 @@ export function newFalls(before: SupportTerrain, after: SupportTerrain, topsBefo
   return out;
 }
 
-/** An edit's refusal when it would make ground fall (D280 (3)), in one plain line. */
-export function fallsReason(n: number): string {
-  return n === 1 ? "1 block of ground would fall: nothing would hold it up" : `${n} blocks of ground would fall: nothing would hold them up`;
+/** The tiles that hold up a roof (a cave's, an overhang's, floating ground): every tile of one plain
+ *  run that stands beside a column of `columns` (the map's tiles that are not one plain run) and
+ *  reaches a layer where that column has ground above its own run from z = 0. Support starts only
+ *  there (`unsupportedVoxels`: from a run from z = 0 beside it, then sideways and up through the
+ *  roof's own voxels), so with these tiles and the columns themselves left as they are, no change
+ *  elsewhere takes any roof's support away. Ascending; empty on a heightfield. */
+export function roofHolders(t: SupportTerrain, columns: Iterable<number>): number[] {
+  const { W, H, mask } = t;
+  const ALL = (1 << LAYERS) - 1;
+  const run = (i: number) => {
+    const m = mask[i] & ALL;
+    return m & ~(m + 1);
+  };
+  const cols = new Set(columns);
+  const out = new Set<number>();
+  for (const i of cols) {
+    const upper = (mask[i] & ALL) & ~run(i);
+    if (!upper) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) if (j >= 0 && !cols.has(j) && run(j) & upper) out.add(j);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
+/** Where a cell (z·N + tile) is, as the page names a place: "X 32 · Y 19" (the 3D view's readout). */
+export function placeOf(cell: number, W: number, H: number): string {
+  const i = cell % (W * H);
+  return `X ${i % W} · Y ${Math.floor(i / W)}`;
+}
+
+/** An edit's refusal when it would make ground fall (D280 (3)), in one plain line; `at`, the place
+ *  of the first block (`placeOf`), for an edit whose result shows nothing falling first (a force). */
+export function fallsReason(n: number, at?: string): string {
+  const where = at ? ` at ${at}` : "";
+  return n === 1 ? `1 block of ground would fall${where}: nothing would hold it up` : `${n} blocks of ground would fall${where}: nothing would hold them up`;
 }

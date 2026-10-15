@@ -27,6 +27,7 @@ import type { Verb } from "./op";
 import { clickFault, strokeLength, TAP, type QuakeSettings } from "./quake";
 import { nextSeed } from "./random";
 import { trimRock } from "./rock";
+import { fallsReason, placeOf, roofHolders } from "../terrain/support";
 import { CraterRun, EruptRun, QuakeRun, type Finalize, type StagedRun } from "./runs";
 
 /** A force to start (D194, D202, D203, D206): which, its settings (the seed is the series', Try
@@ -202,11 +203,17 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   // (a point is a tile: a fraction or NaN is no spot on the map, never a reason about something else)
   const inMap = (p: [number, number]) => Number.isInteger(p[0]) && Number.isInteger(p[1]) && p[0] >= 0 && p[1] >= 0 && p[0] < W && p[1] < H;
   const at = (p: [number, number]) => p[1] * W + p[0];
-  // the ground no force touches here: above the layer showing, and an imported map's caves
+  // the ground no force touches here: above the layer showing, and an imported map's caves with the
+  // ground that holds up their roofs (D487: the force runs round them, and nothing it leaves falls)
   const keep = new Uint8Array(N);
   if (cut !== null) for (let i = 0; i < N; i++) if (base.heights[i] > cut) keep[i] = 1;
   // (Erode is the force that works under roofs, D281: it reads the map's voxels, caves and all)
-  if (req.verb !== "erode") for (const i of input.caves) keep[i] = 1;
+  const caves = req.verb !== "erode" ? new Uint8Array(N) : null;
+  if (caves) {
+    const list = [...input.caves];
+    for (const i of list) caves[i] = keep[i] = 1;
+    if (list.length) for (const i of holdersOf(base, list)) keep[i] = 1;
+  }
   // the working area (D254, D259): the land outside it is locked, unbreakable rock to the force
   const inside = req.area ? areaDepth(req.area, W, H) : null;
   if (inside) for (let i = 0; i < N; i++) if (!inside[i]) keep[i] = 1;
@@ -235,13 +242,24 @@ export function planForce(input: ForcePlanInput): ForcePlan {
     if (!above.length || !keep.includes(1)) return why;
     return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: clear it to work there" : hidden;
   };
-  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
-  if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
-  if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: clear it to work there");
-  if (points.some((p) => keep[at(p)])) return refuse(req.verb === "carve" ? (cut !== null ? "That ground is above the layer showing: show it to carve there" : "A carve leaves caves and overhangs as they are") : hidden);
   // a drawn line's points are the map's too (a fault, a rift, a fan's reach, a fissure)
   const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "erupt" ? req.path : undefined;
+  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
+  if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (line?.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return refuse("Pick a spot on the map");
+  if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: clear it to work there");
+  const held = points.find((p) => keep[at(p)]);
+  if (held) {
+    // (a cave's tile or the ground holding up its roof: the refusal says where, D487)
+    if (cut !== null && base.heights[at(held)] > cut) return refuse(req.verb === "carve" ? "That ground is above the layer showing: show it to carve there" : hidden);
+    return refuse(caveRefusal(req.verb, !!caves?.[at(held)], held));
+  }
+  // (a drawn line pressed on a cave: the gesture's own point is one a force leaves as it is)
+  const press = line?.[0] ?? (req.verb === "quake" ? req.path[0] : undefined);
+  if (press && caves && Number.isFinite(press.x) && Number.isFinite(press.y)) {
+    const p: [number, number] = [Math.round(press.x), Math.round(press.y)];
+    if (inMap(p) && caves[at(p)] && !(inside && !inside[at(p)]) && !(cut !== null && base.heights[at(p)] > cut)) return refuse(caveRefusal(req.verb, true, p));
+  }
   let carve: CarveRun | null = null;
   let staged: StagedRun | null = null;
   let map = base;
@@ -355,6 +373,58 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   // (the sources it clears are on the ground its operation keeps changed, the working area feathered: D474)
   if (staged) staged.ease = inside;
   return { ok: true, request: req, carve, staged, before: map };
+}
+
+/** The ground that holds up the roofs of `caves` (the map's tiles that are not one plain run): from
+ *  the map's voxels (terrain/support.ts `roofHolders`), or, without them, every tile beside one. */
+function holdersOf(base: FullForceMap, caves: readonly number[]): number[] {
+  const { W, H } = base;
+  if (base.masks) return roofHolders({ W, H, mask: base.masks }, caves);
+  const set = new Set(caves);
+  const out: number[] = [];
+  for (const i of caves) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1]) if (j >= 0 && !set.has(j)) out.push(j);
+  }
+  return out;
+}
+
+/** A force's refusal for a point on a cave or overhang (`onCave`) or on the ground holding one up,
+ *  naming the place as the page does ("X 32 · Y 19"). */
+function caveRefusal(verb: Verb, onCave: boolean, p: [number, number]): string {
+  const at = `X ${p[0]} · Y ${p[1]}`;
+  if (!onCave) return `That ground holds up a cave or overhang at ${at}: a force leaves it as it is`;
+  return `${verb === "carve" ? "A carve" : "A force"} leaves caves and overhangs as they are: there is one at ${at}`;
+}
+
+/** A planned force worked out to its end before it plays, on a map with caves or overhangs (D487):
+ *  the refusal, naming the place, when its result would still leave ground the game drops (an object
+ *  that held a roof gone, say), so no force is shown and then taken back; null when nothing falls.
+ *  The roofs' ground is kept from the start (`planForce`), so this is the rare case. A carve is
+ *  worked out by its playback (`play`, carve/play.ts `CarvePlay`), a staged run by its planning step
+ *  (what its first frame does anyway); a painted Lift is asked when it is let go. `falls`: the
+ *  session's (`MapSession.forceFalls`). */
+export function fallsBeforePlay(
+  plan: { carve: CarveRun | null; staged: StagedRun | null; request: ForceRequest },
+  play: { plan(): boolean } | null,
+  W: number,
+  H: number,
+  falls: (heights: Uint8Array, masks: Uint32Array | null) => number[],
+): string | null {
+  let after: { heights: Uint8Array; masks?: Uint32Array } | null = null;
+  if (plan.carve) {
+    if (!play) return null;
+    play.plan();
+    after = plan.carve.map;
+  } else if (plan.staged) {
+    if (plan.staged instanceof QuakeRun && plan.staged.painting) return null;
+    if (!plan.staged.planned) plan.staged.step();
+    after = plan.staged.final();
+  }
+  if (!after) return null;
+  const cells = falls(after.heights, plan.request.verb === "erode" ? (after.masks ?? null) : null);
+  return cells.length ? fallsReason(cells.length, placeOf(cells[0], W, H)) : null;
 }
 
 /** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail

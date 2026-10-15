@@ -30,7 +30,7 @@ import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
-import { fallsReason, newFalls, stackableTops, unsupportedVoxels } from "../terrain/support";
+import { fallsReason, newFalls, placeOf, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
 import { clusterSaturation } from "../sim/moisture";
@@ -738,18 +738,35 @@ export class MapSession {
    *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
-  private fallsAhead(op: EditOp): number {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return 0;
-    if (!this.layered(this.cur)) return 0;
+  private fallsAhead(op: EditOp): number[] {
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return [];
+    if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
-    if (sameBytes(heights, this.cur.heights)) return 0;
+    if (sameBytes(heights, this.cur.heights)) return [];
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return [];
+    return this.forceFalls(heights);
+  }
+
+  /** The blocks of ground the map would lose with its surface at `heights` (and, for Erode's result,
+   *  its voxels `masks`), the objects as they stand, that it does not lose now: by cell (z·N + tile),
+   *  ascending. A force asks it of its planned result before it plays, so it is never shown and then
+   *  taken back (D487; forces/start.ts `fallsBeforePlay`). Empty on a heightfield. */
+  forceFalls(heights: ArrayLike<number>, masks?: Uint32Array | null): number[] {
+    if (!this.layered(this.cur)) return [];
+    const { x: W, y: H } = this.size;
     const tops = this.topsOf(this.cur.entities);
     const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
-    const masks = masksOf(this.cur.cache.terrain);
-    return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
+    const after = masks ? new ColumnTerrain(W, H, masks) : terrainUnder(base, heights, masksOf(this.cur.cache.terrain), W, H);
+    return newFalls(this.terrainOf(this.cur), after, tops, tops);
+  }
+
+  /** The refusal for ground that would fall: a force's names the place of the first block, as nothing
+   *  on its showing marks it (a stroke's and a block's are drawn red first). */
+  private fallsRefusal(ops: readonly EditOp[], falls: readonly number[]): string {
+    const { x: W, y: H } = this.size;
+    return fallsReason(falls.length, ops.some((o) => o.op === "forceResult") ? placeOf(falls[0], W, H) : undefined);
   }
 
   /** The Block tool's query (D335, docs/progress/3d-creating.md): what an operation would do to the
@@ -1135,11 +1152,11 @@ export class MapSession {
     const applied = this.applyChecked(op, origin, label);
     // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
     const ahead = this.fallsAhead(op);
-    if (ahead) {
+    if (ahead.length) {
       invertOp(this.st, applied);
       this.log.pop();
       this.seqNext = seq;
-      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal([op], ahead)], applied: [], dirty: null };
     }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
@@ -1150,7 +1167,7 @@ export class MapSession {
     const falls = this.fallsSince(before);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
-      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal([op], falls)], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
@@ -1214,7 +1231,7 @@ export class MapSession {
     const falls = this.fallsSince(before);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
-      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal(ops, falls)], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }

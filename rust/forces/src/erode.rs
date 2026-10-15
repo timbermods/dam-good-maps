@@ -285,9 +285,13 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     }
     // the ground every object stands on (a ledge's under a cave's roof too), three levels down
     let mut held_up = vec![0u32; n];
+    // (an object of more than one tile: its ground is never scoured, so it never stands half on air, D368 (10))
+    let mut whole = vec![false; n];
     for e in &before.entities {
         let ez = max(0.0, e.z) as usize;
+        let rigid = e.sx * e.sy > 1.0 && !plant(&e.template) && e.template.as_ref() != "StartingLocation";
         for j in before.footprint(e, 0) {
+            whole[j] |= rigid;
             if emitter(&e.template) {
                 fixed[j] = true;
                 edge[j] = true;
@@ -635,7 +639,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         for &i in &tiles {
             let d = dist[i];
             let ragged = r * (0.7 + 0.45 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 2.7, 0x7a));
-            if fixed[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
+            if fixed[i] || whole[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
                 continue;
             }
             // (water and the ground that holds it stay: no wet tile scoured, none below the water beside)
