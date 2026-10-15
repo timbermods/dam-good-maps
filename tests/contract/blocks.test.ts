@@ -102,7 +102,6 @@ describe("the Block tool on a map with a cave and a ledge", () => {
       expect(s.nextSeq).toBe(seq);
       expect(blockFalls(s, p).reason).toBe(u.errors[0]);
     };
-    refused(add("+z", [[0, 0, 7]], 3), "(-1, -1) is outside the map");
     refused(add("+x", [[W - 1, 5, 1]]), "(40, 5) is outside the map");
     // the top layer: raise a column to the ceiling, then build on it
     expect(s.apply({ op: "brush", params: area("raise", 22, 5, 5, 5, 5) }).errors).toEqual([]);
@@ -124,7 +123,7 @@ describe("the Block tool on a map with a cave and a ledge", () => {
 
   it("refuses ground an object stands on or in", () => {
     const s = caveSession();
-    expect(s.apply({ op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "Pine", x: 8, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
+    expect(s.apply({ op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555555", template: "Blockage", x: 8, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
     const tree = s.built.entities.find((e) => e.id === "11111111-2222-4333-8444-555555555555")!;
     expect(tree.z).toBe(8);
     const steps = s.history().length;
@@ -171,22 +170,74 @@ describe("the Block tool on a map with a cave and a ledge", () => {
     expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
   });
 
-  it("a drag puts blocks only where there is a face to put them against", () => {
+  it("a drag over air chains: each block that touches the ground or one added earlier grows a span", () => {
     const s = caveSession();
-    // (29, 20) is the cliff's top, (30, 20) the lowland beside it: air at layer 7, so no face there
-    const q = blockFalls(s, add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7]]));
+    // (29, 20) is the cliff's top, (30, 20) the lowland beside it: air at layer 7
+    const span = add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7], [32, 20, 7]]);
+    const q = blockFalls(s, span);
     expect(q.errors).toEqual([]);
-    expect(q.added).toEqual([[29, 20, 8]]);
-    expect(s.apply(op(add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7]]))).errors).toEqual([]);
-    expect(s.built.heights[at(29, 20)]).toBe(9);
-    expect(s.built.heights[at(30, 20)]).toBe(2);
-    // and a footprint that overhangs the edge of the ground puts none past it
-    const edge = blockFalls(s, add("+z", [[29, 20, 7]], 3));
-    expect(edge.errors).toEqual([]);
-    expect(edge.added.every(([x]) => x <= 29)).toBe(true);
-    expect(edge.added.length).toBe(3 * 2 - 1);
+    expect(q.added).toEqual([[29, 20, 8], [30, 20, 8], [31, 20, 8], [32, 20, 8]]);
+    expect(q.falls).toEqual([]);
+    expect(s.apply(op(span)).errors).toEqual([]);
+    expect(s.built.heights[at(32, 20)]).toBe(9);
+    expect(s.terrain.runs(at(32, 20))).toEqual([0, 2, 8, 9]);
+    // in sweep order: a position reached before the span gets to it has nothing to touch yet
+    const skipped = blockFalls(caveSession(), add("+z", [[29, 20, 7], [31, 20, 7], [30, 20, 7]]));
+    expect(skipped.errors).toEqual([]);
+    expect(skipped.added).toEqual([[29, 20, 8], [30, 20, 8]]);
+    // the support rule still limits it: the fifth block of a span is four tiles out
+    const long = add("+z", [[29, 20, 7], [30, 20, 7], [31, 20, 7], [32, 20, 7], [33, 20, 7]]);
+    const q5 = blockFalls(caveSession(), long);
+    expect(q5.falls).toEqual([[33, 20, 8]]);
+    const fresh = caveSession();
+    expect(fresh.apply(op(long)).errors).toEqual(["1 block of ground would fall: nothing would hold it up"]);
     // the operation keeps the blocks it changed
-    expect(s.logOps.at(-1)!.op === "blocks" && (s.logOps.at(-1)!.params as BlocksParams).cells).toEqual([at(29, 20), 1 << 8]);
+    expect(s.logOps.at(-1)!.op === "blocks" && (s.logOps.at(-1)!.params as BlocksParams).cells).toEqual([at(29, 20), 1 << 8, at(30, 20), 1 << 8, at(31, 20), 1 << 8, at(32, 20), 1 << 8]);
+  });
+
+  it("a footprint over the edge of the map is clipped, not refused", () => {
+    const s = caveSession();
+    const q = blockFalls(s, add("+z", [[0, 0, 7]], 3));
+    expect(q.errors).toEqual([]);
+    expect(q.added).toEqual([[0, 0, 8], [1, 0, 8], [0, 1, 8], [1, 1, 8]]);
+    expect(s.apply(op(add("+z", [[0, 0, 7]], 3))).errors).toEqual([]);
+    expect(s.built.heights[at(1, 1)]).toBe(9);
+    // (in the direction of the face the map still ends)
+    expect(s.apply(op(add("+x", [[W - 1, 5, 1]], 3))).errors).toEqual(["(40, 4) is outside the map"]);
+  });
+
+  it("Select's working area: a cell outside it refuses the operation, with the same line from the query", () => {
+    const s = caveSession();
+    const area: [number, number, number][] = [[10, 8, 12], [11, 8, 12], [12, 8, 12], [13, 8, 12], [14, 8, 12]];
+    const inside = { ...remove("+z", [[10, 12, 7]], 3), area };
+    expect(blockFalls(s, inside).errors).toEqual([]);
+    expect(s.apply(op(inside)).errors).toEqual([]);
+    expect(s.built.heights[at(10, 12)]).toBe(7);
+    expect(s.built.heights[at(7, 12)]).toBe(8);
+    const over = { ...remove("+z", [[8, 12, 7]], 3), area };
+    const before = s.terrain.mask.slice();
+    const u = s.apply(op(over));
+    expect(u.errors).toEqual(["(7, 11) is outside the selection"]);
+    expect(blockFalls(s, over).reason).toBe(u.errors[0]);
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(before));
+    // an add's cell beyond the face is checked too
+    expect(blockFalls(s, { ...add("+x", [[12, 12, 7]]), area }).reason).toBe("(13, 12) is outside the selection");
+  });
+
+  it("the view's cut: nothing from the cut up is touched, and nothing below it to change is refused", () => {
+    const s = caveSession();
+    // the roof is layers 6 and 7 over the cave's air; a size 3 cut across the wall at y = 17
+    const wall = remove("+y", [[17, 17, 6]], 3);
+    expect(blockFalls(s, wall).removed.map(([, , z]) => z).sort()).toEqual([6, 6, 6, 7, 7, 7]);
+    const cut7 = { ...wall, cut: 7 };
+    const q = blockFalls(s, cut7);
+    expect(q.removed.map(([, , z]) => z)).toEqual([6, 6, 6]);
+    expect(s.apply(op(cut7)).errors).toEqual([]);
+    expect(s.terrain.runs(at(17, 17))).toEqual([0, 3, 7, 8]);
+    // cut at the roof's underside: only air below it
+    const flush = { ...remove("+y", [[17, 17, 6]], 3), cut: 6 };
+    expect(blockFalls(caveSession(), flush).reason).toBe("nothing below layer 6 would change");
+    expect(caveSession().apply(op(flush)).errors).toEqual(["nothing below layer 6 would change"]);
   });
 
   it("a hollow whose roof spans too far is refused, a narrower one is not", () => {
@@ -346,6 +397,57 @@ describe("the Block tool on a generated map after strokes", () => {
   });
 });
 
+describe("plants in the footprint ride, or go and are counted (D368 (10))", () => {
+  const PINE = "11111111-2222-4333-8444-555555555555";
+  const placed = () => {
+    const s = caveSession();
+    expect(s.apply({ op: "placeEntity", params: { id: PINE, template: "Pine", x: 8, y: 30, orientation: "Cw0" } }).errors).toEqual([]);
+    return s;
+  };
+  const pine = (s: MapSession) => s.built.entities.find((e) => e.id === PINE);
+
+  it("a plant on the top rises and sinks with it, and the click is never refused for it", () => {
+    const s = placed();
+    expect(pine(s)!.z).toBe(8);
+    const up = add("+z", [[8, 30, 7]], 3);
+    const q = blockFalls(s, up);
+    expect(q.reason).toBeNull();
+    expect(q.plantsRiding).toBe(1);
+    expect(q.plantsRemoved).toBe(0);
+    expect(s.apply(op(up)).errors).toEqual([]);
+    expect(pine(s)!.z).toBe(9);
+    expect(s.apply(op(remove("+z", [[8, 30, 8]], 3))).errors).toEqual([]);
+    expect(pine(s)!.z).toBe(8);
+    expect(s.apply(op(remove("+z", [[8, 30, 7]]))).errors).toEqual([]);
+    expect(pine(s)!.z).toBe(7);
+  });
+
+  it("a plant a block fills in, off the top, goes with it, and undo, redo and a reopened project agree", () => {
+    const s = placed();
+    // three layers up beside it, so a block against that wall lands in the tree's second block
+    for (const z of [7, 8, 9]) expect(s.apply(op(add("+z", [[7, 30, z]]))).errors).toEqual([]);
+    expect(s.built.heights[at(7, 30)]).toBe(11);
+    const fill = add("+x", [[7, 30, 9]]);
+    const q = blockFalls(s, fill);
+    expect(q.reason).toBeNull();
+    expect(q.plantsRemoved).toBe(1);
+    expect(q.plantsRiding).toBe(0);
+    expect(s.apply(op(fill)).errors).toEqual([]);
+    expect(pine(s)).toBeUndefined();
+    expect((s.logOps.at(-1)!.params as BlocksParams).plants).toEqual([PINE]);
+    const gone = s.terrain.mask.slice();
+    expect(s.undo()).toBe(true);
+    expect(pine(s)!.z).toBe(8);
+    expect(s.redo()).toBe(true);
+    expect(pine(s)).toBeUndefined();
+    expect(Array.from(s.terrain.mask)).toEqual(Array.from(gone));
+    s.settleCanonical();
+    const again = MapSession.open(decodeProject(s.project()), { rebuild: true });
+    expect(again.built.entities.find((e) => e.id === PINE)).toBeUndefined();
+    expect(Array.from(again.terrain.mask)).toEqual(Array.from(gone));
+  });
+});
+
 describe("the Block tool's steps undo, replay and save exactly", () => {
   it("random blocks and strokes: nothing falls, an incremental build equals a full one, undo and redo give each state's exact runs, the project replays onto the same runs", () => {
     const s = caveSession();
@@ -497,8 +599,11 @@ describe("the Block tool on a generated map", () => {
     // an object in the way is refused, wherever the block would stand
     const tree = s.built.entities.find((e) => e.template === "Pine" || e.template === "Birch" || e.template === "Oak");
     if (tree) {
-      const u = s.apply(op(add("+z", [[tree.x, tree.y, s.built.heights[tree.y * Wg + tree.x] - 1]])));
-      expect(u.errors[0]).toMatch(/^an object stands at/);
+      const top = s.built.heights[tree.y * Wg + tree.x];
+      const u = s.apply(op(add("+z", [[tree.x, tree.y, top - 1]])));
+      expect(u.errors).toEqual([]);
+      expect(s.built.entities.find((e) => e.id === tree.id)?.z).toBe(top + 1);
+      expect(s.undo()).toBe(true);
     }
     // undo takes the hole, then the build-up, back to the heightfield
     expect(s.undo()).toBe(true);
