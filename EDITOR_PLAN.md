@@ -150,11 +150,24 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
     row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
-    ends with **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
+    ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
+    **Fill water** (the hollow under the selection's lowest ground filled with standing water up to the Level;
     hovering says "9 tiles, lasts about 12 days" and marks the hollow, or in a few words why not: "Raise the Level to
     fill", "It would spill off the map", D394) and **Remove unfed water** (the pools no
     source feeds, within the selection; hovering says "12 pools, 3,400 tiles of water" and marks them, D387), each one undo
-    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell.
+    step, both the core's (`planFill`, `unfedWater`); Deselect takes one cell. **Crop**, the last cell of the second row (Apply takes one cell), sends the core's `crop` operation with
+    the selection's bounding rectangle (any shape of selection; `useSelect.tsx`, the worker's `cropPlanAt` and `cropTo`).
+    Greyed (`aria-disabled`, so the hover still speaks) with nothing selected ("Select an area to crop") and whenever the
+    core refuses (`planCrop`: under 4 a side, the whole map, a start the edge would cut): hovering or focusing it says
+    "Can't crop this" and puts the core's one-line reason, word for word, on the message line; pressing it says the reason
+    again, never clamped. Enabled, hovering says "32 × 24", adding "; cuts 3 objects" when the edge
+    cuts any (the row's words take the three cells beside the shapes, and no words are ever cut off). The map is then
+    another size, so the page opens the session's map again (`onResized`, `App.tsx` `resized`): the old editor shuts and sends
+    the worker nothing more, what it had queued reaches the worker first, and the new editor opens from the worker's map
+    after it, so History and Undo agree with the worker even with Ctrl+Z held across a crop. The view is carried over
+    (`ResizeCarry`: History open, top-down or 3D, the water overlay, See-through, the minimap) with the camera framed to the
+    new size; the selection is gone, a held Drought or Badtide is stopped through the worker, and its Your maps row takes the
+    new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
     joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
@@ -233,8 +246,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     plants one of its mix; its picture is a pine, a birch and an oak drawn side by side). The settings go into the placement
     as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
     place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
-    is the underground ruins. Still to come: the core's **Show after it goes off** view, and **Crop map to selection**,
-    which the core does not have yet (D340). The list scrolls inside itself when the window is short, keeping the
+    is the underground ruins. Still to come: the core's **Show after it goes off** view. The list scrolls inside itself when the window is short, keeping the
     picked row in view;
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
