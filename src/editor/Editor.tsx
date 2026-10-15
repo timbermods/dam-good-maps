@@ -38,6 +38,7 @@ import { useFrameInsets } from "./view/insets";
 import { useSelect } from "./selection/useSelect";
 import { useViewSync } from "./view/useViewSync";
 import { useStart } from "./start/useStart";
+import { useBlockTool } from "./block/useBlockTool";
 import { useKeyboard } from "./keyboard/useKeyboard";
 import { useTestHook } from "./testHook/useTestHook";
 import { useSave } from "./save/useSave";
@@ -108,6 +109,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useSelect(ed));
   Object.assign(ed, useViewSync(ed));
   Object.assign(ed, useStart(ed));
+  Object.assign(ed, useBlockTool(ed));
   useKeyboard(ed, props);
   Object.assign(ed, useTestHook(ed));
   Object.assign(ed, useSave(ed));

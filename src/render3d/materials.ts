@@ -401,6 +401,9 @@ export interface ShaderHooks {
   /** Where grass meets earth, and where contamination ends (expressions). */
   moist?: string;
   bad?: string;
+  /** At the start of groundColor, before the pattern warp (g): to keep the tile's own coordinates and, where the Weather
+   *  view's heat shimmer is on, to move g by less than half a pixel. */
+  groundStart?: string;
   /** After the ground's colour, before contamination is layered over it (c, g). */
   groundVariation?: string;
   /** Before groundColor returns (c: its colour with contamination; glow). */
@@ -816,7 +819,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
         #endif
-        // (the patterns are read through a broad warp, so their repeat never shows from afar)
+${hook(h, "groundStart")}        // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
         vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
         g += patternWarp * 3.2;

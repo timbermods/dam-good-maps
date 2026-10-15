@@ -10,7 +10,7 @@ export function topBar(ed: Ed, props: EditorProps) {
   const {
     brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
     setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef,
-    message, setMessage
+    message, setMessage, block, blockSettings, blockFlip, setBlockSettings
   } = ed;
   const notes =
     message || props.notice ? (
@@ -51,14 +51,18 @@ export function topBar(ed: Ed, props: EditorProps) {
         />
       }
       settings={brush}
+      block={block}
+      blockSettings={blockSettings}
+      blockFlip={blockFlip}
+      onBlockSettings={setBlockSettings}
       sizeMax={sizeMax(info.W, info.H)}
       onPick={pickTop}
       onSettings={setBrush}
       loading={!ready}
       selectRow={selectRow()}
       selectChip={selectChip()}
-      selecting={!!selecting && !brushTool && !tool && !shelf}
-      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current ? closeSelect() : openSelect())}
+      selecting={!!selecting && !brushTool && !tool && !shelf && !block}
+      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current && !ed.blockRef.current ? closeSelect() : openSelect())}
     />
   );
 }

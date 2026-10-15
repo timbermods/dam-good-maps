@@ -82,15 +82,41 @@ block operation. Names below are in `src/core/doc/blockTool.ts` (the API) and `s
 refusals).
 
 **The operation `blocks`** (`ops.schema.json`; in the log like a stroke, one undo step per click or drag):
-`{ op: "blocks", params: { mode: "add" | "remove", side: "+x" | "-x" | "+y" | "-y" | "+z" | "-z", at: [x, y, layer][], size: 1–8, shape?: "square" | "round" } }`.
+`{ op: "blocks", params: { mode: "add" | "remove", side: "+x" | "-x" | "+y" | "-y" | "+z" | "-z", at: [x, y, layer][], size: 1–8, shape?: "square" | "round", area?: [y, x0, x1][], cut?: layer } }`.
 - `at[0]` is the block whose `side` face is pointed at (a click names only it); a drag adds the positions it swept, all in
   that face's plane (same layer for +z/-z, same x for ±x, same y for ±y). Layers count from 0 (bottom); the surface of a
   tile is its first free layer, so the top of a level-8 tile is layer 7.
 - **Add** puts a block in the cell beyond each swept face (`at + normal`), **remove** takes the swept blocks themselves; each
   across the footprint in the plane: a square of `size` blocks, or the disc of that diameter (`shape: "round"`); offsets
-  run from −⌊(size−1)/2⌋ for `size` blocks. A cell that already holds a block (add) or none (remove) is skipped, and so is
-  an add's cell with no block to put it against (each swept position and footprint cell checks its own face; a drag over a
-  gap never leaves a floating block). Only an operation that would change nothing at all is refused.
+  run from −⌊(size−1)/2⌋ for `size` blocks. A footprint over the edge of the map or the layers is clipped, as a brush is
+  (the cell beyond the face still has to be on the map). A cell that already holds a block (add) or none (remove) is
+  skipped.
+- **Exposure (a remove):** a remove takes a swept block only if the cell beyond its `side` face is air (or off the map or
+  the layers) or at or above `cut`, so a drag across a hill takes the surface a viewer sees and nothing buried, and a
+  cut opens what it hides. It is always applied (no `cut` means no cut), read from the ground before the operation: a
+  block taken earlier in the sweep opens nothing for the next. To dig into a wall, aim at its open face; to go deeper,
+  click again (or hold Shift on the page). If every swept block is buried the operation is refused,
+  `there is no block there to remove`.
+- **Chaining (an add):** a block goes into a cell only where it touches a block, one of the terrain or one this operation
+  added earlier, so a drag over air grows a span from the ground across it. Within one swept position the footprint
+  fills until no more cells touch (the order of its cells decides nothing: a size 3 click gives the same 3 × 3 at an
+  east- or a west-facing edge); across positions it is sweep order, so a position reached before the span gets to it
+  adds nothing; the support rule still limits the span
+  (a block more than 3 sideways from support falls and the operation is refused with its line).
+- **`area`** is Select's working area as runs, taken as the brushes take it: a cell (the one beyond the face for an add)
+  outside it refuses the operation, `(x, y) is outside the selection`. **`cut`** is the view's cut level (the level
+  control's value; layers from it up are hidden, 0 to 22: the page sends none for no cut, and 22 hides nothing, layer 22
+  being empty): the operation touches nothing in layer `cut` or above, those
+  layers count as open air for a remove's exposure, and is refused,
+  `nothing below layer N would change`, when nothing below it would. The page sends the cut only when one is set.
+- **Plants** (trees, bushes, succulents, ruin columns) never refuse a click (D368 (10)). A plant stays on the top of the
+  run of blocks it stands on. Only a change to the top of that run moves it: the run grows over its base, or loses its
+  top blocks, and it rides to the new top (`plantsRiding`). A block added into its cells takes it away
+  (`plantsRemoved`; the session lists the ids in `params.plants` and the build deletes them quietly with the step, undo
+  brings them back). A block added above it, its cells left free, leaves it where it is, under the block, though the
+  tile's surface is now higher: the session records each plant it puts on another layer than the tile's top in
+  `params.stands` ([id, layer]) and the build puts it there. Anything else standing there (a slope, a source, a building)
+  still refuses, below.
 - The session fills in `params.cells` (the blocks changed, pairs [tile, layers]) when it takes the operation; the build and
   every replay apply those literally. A caller never sends it. An operation moves no tile but its own: the integrity pass
   never tidies the tiles beside a dug one.
@@ -98,18 +124,20 @@ refusals).
   (21)` (layer 22 stays empty) or `below the lowest layer (0)`; `(x, y) has no block in layer z to point at` (`at[0]` must be
   solid); `an object stands at (x, y) in layer z` (an add into an object's cell, or a remove of one); `an object stands on
   the block at (x, y) in layer z` (a remove of the block an object stands on); `there is no room for a block there` / `there
-  is no block there to remove` (it would change nothing); and the support rule's `N blocks of ground would fall: nothing would
+  is no block there to remove` (it would change nothing); `(x, y) is outside the selection`; `nothing below layer N would
+  change`; and the support rule's `N blocks of ground would fall: nothing would
   hold them up` (`1 block of ground would fall: nothing would hold it up`), counted as the game's rule (#396's `newFalls`)
   would, before and after, on the whole map.
 
 **The query** `blockFalls(session, op)` (also `session.blockFalls(params)`), plain data, no build, cheap:
-`{ reason: string | null, errors: string[], added: [x, y, layer][], removed: [x, y, layer][], falls: [x, y, layer][] }`.
+`{ reason: string | null, errors: string[], added: [x, y, layer][], removed: [x, y, layer][], falls: [x, y, layer][], plantsRemoved: number, plantsRiding: number }`.
 `added` and `removed` are exactly the blocks the click changes (the ghost), `falls` the blocks of ground that would drop
 (red), `reason` the one line `apply` would refuse with (the same string), `null` when it would be taken. `errors` is the
 refusal when the operation cannot be taken at all (then the three lists are empty). `apply` runs the same check before it
 logs anything, so the count in the refusal is the length of `falls`. The slope, like any object, holds its block: removing
 the block it stands on is refused with the object line. **The page should call `blockFalls` when the pointer's block
-changes, not on every move**: it costs 13–28 ms at 256² on a loaded machine.
+changes, not on every move**: it costs about 7 ms at 256² on a loaded machine once the first call has worked out the
+build's objects (about 30 ms), which are kept per build.
 
 **What the session gives the page after a block edit.** `session.terrain`, `columns` (every tile that is not one plain run,
 for the mesher), `plainAt`, `roofedTiles`, `terrainState()` (`columns`, `floor`, `masks` for `StrokePreview.falls()`) and
@@ -140,3 +168,31 @@ footprint, every refusal, a ledge cut from its cliff refused with the count `blo
 step changes, random blocks and strokes (nothing falls, an incremental build equals a full one, undo and redo give each state's
 exact runs, the project replays onto the same runs and saves byte for byte), and the same on a generated map (build up, hollow,
 export). The 84 generated maps' hashes (`tools/map-hashes.ts`) are unchanged.
+
+## Delivers 3 (the Block tool's page): built 2026-10-15
+
+On `feature/block-tool-page` (stacked on `feature/block-tool-core`, with `render3d`'s `blockAim` and `showBlocks` from
+`feature/block-tool-render` taken in): the tool the player uses. **Block**, key 7, on the tools row (the bar is 14 cells now,
+`settings.tsx` `fromThirteen`); hover a face and see what a click would add, take or drop (`blockFalls` through the worker,
+no build); click adds, Shift removes, a drag paints the plane of its first face (an add chains over air, a cell going in where it touches a block or one added just before: a bridge or an arch is one drag), one `blocks`
+operation and one undo step on release; Size 1–8 (F, { }), Shape, Action. EDITOR_PLAN "The block tool" says how it behaves;
+`tests/e2e/blockTool.spec.ts` (add, remove, drag, undo, Esc, the fall preview and its note, a cave map) and
+`tests/unit/blockTool.test.ts` check it; captures `docs/design/block-tool-*.jpg`. The worker sends `ViewUpdate.columns` whenever
+the session's columns changed (a hollow under the surface included), not only when a roof's top moved. Not done: the blocks'
+own pop-in and crumble (renderer), the Block sounds of D335 (the brushes' thud and dust stand in), Shift-hold digging.
+
+**Review fixes (2026-10-15).** The tool is registered with `voxel: true` and aims with `blockAim(hit, cut, mode)`; falls are
+drawn solid red and, while any fall, the added and removed ghosts are muted grey (forces play's `showBlocks`, D335); the
+page's legend and notes name no amber for them. The refusal note has its own state (`blockNote`), apart from the size flash.
+Select's row is laid out on the 14 cells (not stretched by `fromThirteen`): the modes on cells 1 to 7 with Whole map across
+6 and 7, the resting words on 8 to 12; Naturalize has room at 1280.
+
+**Adopting the core's follow-ups (#453, 2026-10-15).** The page's own core change (an `exposed` field) is gone; the core's
+final `blocks` operation is used as it is. The page sends `area` (the open selection's runs) and `cut` (the view's layer
+cut) with every operation and makes no refusals of its own (`blockRefusal` is gone): the core's lines ("(x, y) is outside
+the selection", "nothing below layer N would change") show in the preview before the click, and the blocks from the cut up
+are left alone and not drawn. A Remove takes only what is open to the aimed side, read by the core. Drags chain over air as
+the core allows, and the preview draws the whole span from `blockFalls`. Plants show in the preview's note: "N plants
+removed", "N plants ride with the ground" (`plantsWords`, quiet, not an error). Tests: `tests/unit/blockTool.test.ts`,
+`tests/contract/blocks.test.ts`, `tests/e2e/blockTool.spec.ts` (a drag up a pillar's wall chains, a block over a plant, the area's
+and the cut's lines).
