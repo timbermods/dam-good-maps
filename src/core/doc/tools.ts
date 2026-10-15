@@ -225,7 +225,7 @@ export function planStart(s: MapSession, x: number, y: number, orientation: Orie
   const f = s.features.find((g) => g.kind === "start");
   // (the one fit rule the shelf's preview shares, startFit.ts: never on another object's footprint, in a river, under water or at the edge)
   const own = s.built.entities.find((g) => g.template === "StartingLocation");
-  const why = startProblem(s.built, x, y, orientation ?? (f && f.kind === "start" ? f.params.orientation : (own?.orientation ?? "Cw0")), false, f ? f.id : (own?.owner ?? null), null, startGroundOf(s.built, [], f ? f.id : (own?.owner ?? null)));
+  const why = startProblem(s.built, x, y, orientation ?? (f && f.kind === "start" ? f.params.orientation : (own?.orientation ?? "Cw0")), false, f ? f.id : null, null, startGroundOf(s.built, [], f ? f.id : null));
   if (why) return fail(`the start can't stand there: ${why}`);
   if (f && f.kind === "start") {
     const at = startMiddle(s)!;

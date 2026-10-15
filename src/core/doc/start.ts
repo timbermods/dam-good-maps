@@ -94,7 +94,7 @@ function nearestSpot(s: MapSession, fromX: number, fromY: number, level: boolean
   if (!feat && !ent) return null;
   const o: Orientation = feat ? feat.params.orientation : ent!.orientation;
   const pieces = pieceTiles(s);
-  const ground = startGroundOf(b, s.features, feat ? feat.id : ent!.owner);
+  const ground = startGroundOf(b, s.features, feat ? feat.id : null);
   for (let r = 1; r <= 24; r++) {
     const ring: [number, number][] = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) ring.push([fromX + dx, fromY + dy]);
@@ -113,7 +113,7 @@ function nearestSpot(s: MapSession, fromX: number, fromY: number, level: boolean
         if ((level || allowed) && !benchFits(b, x, y, o, rr, level ? benchLevel : null, allowed)) continue;
         return [...startClears(s, x, y, o), { op: "updateFeature", params: { id: feat.id, patch: { params: { position: [x, y], benchLevel, bank: null } } } }];
       }
-      if (startProblem(b, x, y, o, true, ent!.owner, pieces, ground, strict)) continue;
+      if (startProblem(b, x, y, o, true, null, pieces, ground, strict)) continue;
       if (allowed && !benchFits(b, x, y, o, 0, null, allowed)) continue;
       const [cx, cy] = cornerFor(x, y, o);
       return [{ op: "moveEntity", params: { id: ent!.id, x: cx, y: cy } }];
@@ -176,7 +176,7 @@ export function startBrokenBy(s: MapSession, changed: ReadonlySet<number>): bool
   const tiles = [door[1] * W + door[0]];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push((y + dy) * W + x + dx);
   if (!tiles.some((i) => changed.has(i))) return false;
-  const why = startProblem(b, x, y, o, true, feat ? feat.id : ent!.owner, pieceTiles(s));
+  const why = startProblem(b, x, y, o, true, feat ? feat.id : null, pieceTiles(s));
   return why !== null && why !== "under water";
 }
 
