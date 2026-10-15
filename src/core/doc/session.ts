@@ -58,7 +58,8 @@ import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { entityProblem } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView } from "./document";
+import { versionName } from "../library/keptVersions";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
@@ -315,6 +316,12 @@ export class MapSession {
     return !this.pending && this.floor > 0 && this.undoStack.length <= this.floor ? UNDO_STOPPED : null;
   }
 
+  /** Whether only the step the history stands at can be kept as a version: the replay differed, so the map as saved is the
+   *  earliest state and no other step can be built (D455). */
+  get keepOnlyHere(): boolean {
+    return !this.pending && this.floor > 0;
+  }
+
   /** The stored map as decoded, for the checks worker's comparison; null once compared. */
   get storedState(): StoredState | null {
     return this.pending?.state ?? null;
@@ -534,6 +541,49 @@ export class MapSession {
   /** The label of the history's step whose first operation is `seq` (for `spliceStep`'s `insert`). */
   stepLabel(seq: number): string | undefined {
     return this.undoStack.find((s) => s.ops[0].seq === seq)?.label;
+  }
+
+  /** The map as it stood after History step `k` (the index `history()` lists; −1: before the first step, or at the save
+   *  point of a map whose earlier steps cannot be undone), steps undone since included, as a project file of its own:
+   *  the same land, the History's first steps replayed on it (the operations with their step grouping, so the copy opens
+   *  with its History up to that step, D456), named "<map name> — <step label>", with where it came from in its meta.
+   *  The project carries the stored map, so it reopens byte for byte (D455), when the session has that step's settled
+   *  build (the one it stands at, or a kept one near it: no rebuild). Otherwise it is rebuilt here (`rebuild`, the default,
+   *  a full build: seconds at 256²), or, with `rebuild: false`, the project comes without the stored map and `built` is null
+   *  (the caller builds it elsewhere: it opens by replaying, as a project with no stored map does). A step other than where
+   *  the history stands waits on the replay comparison of a map opened from its stored map, and once that replay differed
+   *  there is none to give (D455). Null when there is no such step. */
+  versionProject(k: number, from: { id?: string } = {}, level = 6, opts: { rebuild?: boolean } = {}): { bytes: Uint8Array; name: string; parent: VersionParent; built: BuildResult | null; stored: boolean } | null {
+    const steps = [...this.undoStack, ...this.redoStack.slice().reverse()];
+    const upto = this.reach + k + 1;
+    if (k < -1 || upto > steps.length) return null;
+    const here = upto === this.undoStack.length;
+    if (!here) {
+      if (this.pending && !this.checkReplay()) return null;
+      if (!this.pending && this.floor > 0) return null;
+    }
+    const label = upto === 0 ? (this.gen.spec ? "The generated map" : "Opened the map") : upto === this.reach ? "The map as saved" : (steps[upto - 1].label ?? labelOf(steps[upto - 1].ops[0]));
+    const parent: VersionParent = { ...(from.id ? { id: from.id } : {}), name: this.gen.meta.name, label, steps: upto };
+    const name = versionName(this.gen.meta.name, label);
+    const doc = this.document;
+    const cut = clone(steps.slice(0, upto).flatMap((e) => e.ops)) as AppliedOp[];
+    const { state } = replay(baseFeaturesOf(doc), cut);
+    const meta = { ...doc.meta, name, parent };
+    delete meta.views;
+    const version: MapDocument = { ...doc, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut, meta };
+    const kept = here ? this.cur : this.snaps.get(upto);
+    if (kept && kept.settle.preview !== true && kept.settle.stale !== true) {
+      let stored: StoredState | null = null;
+      try {
+        stored = storeBuilt(kept, cut.length, this.seqNext);
+      } catch {
+        // a map the stored format cannot carry: kept without it, and reopened by rebuilding
+      }
+      return { bytes: encodeProject(stored ? { ...version, stored } : version, level), name, parent, built: kept, stored: !!stored };
+    }
+    if (opts.rebuild === false) return { bytes: encodeProject(version, level), name, parent, built: null, stored: false };
+    const s = new MapSession(version, undefined, { rebuild: true });
+    return { bytes: s.project(level), name, parent, built: s.built, stored: true };
   }
 
   /** Open a document (from `decodeProject`, `toDocument` or `importDocument`). A document with a
