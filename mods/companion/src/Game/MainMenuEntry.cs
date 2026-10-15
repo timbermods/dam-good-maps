@@ -67,6 +67,11 @@ namespace DGMCompanion
             }
         }
 
+        // The menu's own New game button, and whether our entry is in the menu (the in-game test looks at these).
+        public Button NewGameButton() => _mainMenuPanel.GetPanel().Q<Button>("NewGameButton");
+
+        public bool HasEntry() => _mainMenuPanel.GetPanel().Q<Button>(ButtonName) != null;
+
         // Looks at the Maps folder again and shows or hides the entry (the in-game test uses it; the menu itself
         // looks once, each time it opens).
         public void Rebuild()

@@ -223,6 +223,12 @@ export interface CompanionLaunch {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Waits until the game's process is really gone (up to `seconds`); true when it is. */
+async function waitGone(seconds: number): Promise<boolean> {
+  for (let k = 0; k < seconds && isGameRunning(); k++) await sleep(1000);
+  return !isGameRunning();
+}
+
 export interface CompanionWatch {
   /** Seconds from the launch to the game appearing. */
   startSeconds: number;
@@ -240,7 +246,8 @@ export function companionLaunchArgs(dir: string): string[] {
 export async function runCompanion(runId: string, variants: CompanionVariant[], o: CompanionWatch): Promise<CompanionLaunch[]> {
   const out: CompanionLaunch[] = [];
   for (const v of variants) {
-    if (isGameRunning()) throw new Error('Timberborn is already running; the probe never launches a second copy.');
+    // (the game just killed or quitting may need a moment to be gone)
+    if (!(await waitGone(30))) throw new Error('Timberborn is already running; the probe never launches a second copy.');
     const dir = setup(runId, v);
     const [cmd, ...args] = process.env.DGM_PROBE_LAUNCH ? [...(JSON.parse(process.env.DGM_PROBE_LAUNCH) as string[]), ...companionLaunchArgs(dir)] : [steamExe(), '-applaunch', STEAM_APP_ID, ...companionLaunchArgs(dir)];
     o.log(`companion launch (${v.id}): ${args.join(' ')}`);
@@ -257,7 +264,7 @@ export async function runCompanion(runId: string, variants: CompanionVariant[], 
       if (existsSync(join(dir, 'result.json'))) {
         entry.outcome = 'finished';
         // the test quits the game itself; give it a moment
-        for (let k = 0; k < 30 && isGameRunning(); k++) await sleep(1000);
+        await waitGone(30);
         break;
       }
       const since = (Date.now() - started) / 1000;
@@ -278,7 +285,7 @@ export async function runCompanion(runId: string, variants: CompanionVariant[], 
     }
     if (isGameRunning()) {
       killGame(o.log);
-      await sleep(3000);
+      if (!(await waitGone(30))) o.log('Timberborn is still running 30 s after it was killed');
     }
     entry.endedAt = new Date().toISOString();
     const unityLog = join(unityLogDir(), 'Player.log');

@@ -77,6 +77,9 @@ async function main(): Promise<void> {
   check('companion: a reload that did not use the -2 file fails', !vReload.passed && vReload.problems.some((p) => /expected dgm-river-valley-1-2\.timber/.test(p)), vReload.problems.join('; '));
   const vCheck = await verdictOf('check');
   check("companion: a failure the game's own test recorded is reported", !vCheck.passed && vCheck.problems.includes('the game asks for the settlement name (game2)'), vCheck.problems.join('; '));
+  process.env.FAKE_COMPANION = 'hang';
+  const hung = await companionM.runCompanion('companion-hang', cvs, { startSeconds: 30, launchSeconds: 8, log: () => {} });
+  check('companion: a game that never finishes is killed, and the next variant still launches', hung.length === 2 && hung.every((l) => l.outcome === 'timeout') && !safety.isGameRunning(), hung.map((l) => l.outcome).join(', '));
   delete process.env.FAKE_COMPANION;
   const rep = companionM.writeCompanionReport('companion-good', cvs, good, false);
   check('companion: the report is written in the run\'s folder', rep.passed && existsSync(join(launch.resultsDir('companion-good'), 'companion.json')) && /PASSED/.test(rep.lines.join('\n')));

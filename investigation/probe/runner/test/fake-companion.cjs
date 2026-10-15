@@ -33,6 +33,7 @@ async function ask(what) {
 
 (async () => {
   await sleep(300);
+  if (wrong === 'hang') for (;;) await sleep(1000); // never writes a result: the runner must kill it and go on
   facts.userMapsDirectory = path.join(process.env.DGM_PROBE_DOCUMENTS, 'Timberborn', 'Maps');
   facts.mapsFolder = maps;
   // nothing in the folder is a Dam Good Maps map yet: no entry (it reads the folder only to say what it holds)

@@ -152,7 +152,7 @@ async function launch(plan: Plan, prepared: Prepared[], reference: string, build
     }
     let launches: { otherMods?: string[] }[];
     if (companion) {
-      const done = await runCompanion(plan.runId, companion, { startSeconds: 120, launchSeconds: 600, log });
+      const done = await runCompanion(plan.runId, companion, { startSeconds: 120, launchSeconds: 420, log });
       writeFileSync(join(dir, 'companion-launches.json'), JSON.stringify(done, null, 1));
       launches = done;
     } else {

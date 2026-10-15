@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Timberborn.ApplicationLifetime;
+using Timberborn.Intro;
 using Timberborn.MapRepositorySystem;
 using Timberborn.SingletonSystem;
 using UnityEngine;
@@ -24,7 +25,54 @@ namespace DGMCompanion
     public static class TestLog
     {
         private static readonly object Gate = new object();
-        public static string Phase = "menu";
+        // The test never hangs: it ends, with what it has recorded, when it takes too long altogether or too long in one phase.
+        public const float TotalSeconds = 300f;
+        public const float PhaseSeconds = 150f;
+
+        private static string _phase = "menu";
+        private static float _phaseAt = -1f;
+        private static float _beganAt = -1f;
+
+        public static string Phase
+        {
+            get => _phase;
+            set
+            {
+                _phase = value;
+                _phaseAt = Time.realtimeSinceStartup;
+            }
+        }
+
+        // True once result.json is written: nothing more is checked.
+        public static bool Done { get; private set; }
+
+        public static void Begin()
+        {
+            if (_beganAt < 0)
+            {
+                _beganAt = Time.realtimeSinceStartup;
+                _phaseAt = _beganAt;
+            }
+        }
+
+        public static void Watchdog()
+        {
+            if (Done)
+            {
+                return;
+            }
+            float now = Time.realtimeSinceStartup;
+            if (_beganAt >= 0 && now - _beganAt > TotalSeconds)
+            {
+                Failures.Add("the test took over " + TotalSeconds + " s (phase " + _phase + ")");
+                Finish();
+            }
+            else if (_phaseAt >= 0 && now - _phaseAt > PhaseSeconds)
+            {
+                Failures.Add("phase " + _phase + " took over " + PhaseSeconds + " s");
+                Finish();
+            }
+        }
         public static readonly List<string> Failures = new List<string>();
         public static readonly Dictionary<string, string> Facts = new Dictionary<string, string>();
 
@@ -54,6 +102,11 @@ namespace DGMCompanion
 
         public static void Finish()
         {
+            if (Done)
+            {
+                return;
+            }
+            Done = true;
             List<string> facts = new List<string>();
             foreach (KeyValuePair<string, string> f in Facts)
             {
@@ -74,9 +127,18 @@ namespace DGMCompanion
 
         public static void Guard(Action step)
         {
+            if (Done)
+            {
+                return;
+            }
             try
             {
                 step();
+                // A failed check ends the test at once, with what was recorded.
+                if (Failures.Count > 0)
+                {
+                    Finish();
+                }
             }
             catch (Exception e)
             {
@@ -91,7 +153,7 @@ namespace DGMCompanion
     // half-written file is never read).
     public static class Handshake
     {
-        public const float WaitSeconds = 180f;
+        public const float WaitSeconds = 60f;
 
         private static int _seq;
         private static float _askedAt;
@@ -116,6 +178,10 @@ namespace DGMCompanion
         // long wait the test fails and quits.
         public static bool Ready()
         {
+            if (TestLog.Done)
+            {
+                return false;
+            }
             if (Waiting == 0)
             {
                 return true;
@@ -147,7 +213,7 @@ namespace DGMCompanion
         public static List<VisualElement> Roots()
         {
             List<VisualElement> roots = new List<VisualElement>();
-            foreach (UIDocument document in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+            foreach (UIDocument document in UnityEngine.Object.FindObjectsByType<UIDocument>())
             {
                 if (document != null && document.rootVisualElement != null)
                 {
@@ -198,68 +264,118 @@ namespace DGMCompanion
         }
     }
 
-    // In the main menu: with no Dam Good Maps map the entry is absent; once the runner has put the maps in,
-    // it appears, and a click on it starts a game.
+    // In the main menu: once it is on screen, with no Dam Good Maps map the entry is absent; once the runner has
+    // put the maps in, it appears, and a click on it starts a game.
     public class MenuTest : IPostLoadableSingleton, IUpdatableSingleton
     {
+        private const float MenuSeconds = 90f;
+        private const float LayoutSeconds = 10f;
+
+        private readonly IntroBox _introBox;
         private float _startedAt = -1f;
         private float _nextAt;
+        private float _waitFrom;
         private int _step;
+        private bool _introSkipped;
+
+        public MenuTest(IntroBox introBox)
+        {
+            _introBox = introBox;
+        }
 
         public void PostLoad()
         {
             Application.runInBackground = true;
+            TestLog.Begin();
             _startedAt = Time.realtimeSinceStartup;
-            _nextAt = _startedAt + 4f;
+            _nextAt = _startedAt + 1f;
+            _waitFrom = _startedAt;
             TestLog.Line("main menu loaded, phase " + TestLog.Phase);
         }
 
         public void UpdateSingleton()
         {
-            if (_startedAt < 0 || TestLog.Phase != "menu" || Time.realtimeSinceStartup < _nextAt || !Handshake.Ready())
+            if (_startedAt < 0)
+            {
+                return;
+            }
+            TestLog.Watchdog();
+            if (TestLog.Done || TestLog.Phase != "menu" || Time.realtimeSinceStartup < _nextAt || !Handshake.Ready())
             {
                 return;
             }
             TestLog.Guard(Step);
         }
 
+        // The menu is on screen when the intro is over and the New game button has a size.
+        private bool MenuShown()
+        {
+            if (_introBox.GetPanel() != null)
+            {
+                return false;
+            }
+            Button anchor = MainMenuEntry.Current?.NewGameButton();
+            return anchor != null && anchor.panel != null && anchor.resolvedStyle.display != DisplayStyle.None && anchor.worldBound.width > 1f && anchor.worldBound.height > 1f;
+        }
+
         private void Step()
         {
-            _nextAt = Time.realtimeSinceStartup + 1.5f;
+            float now = Time.realtimeSinceStartup;
+            _nextAt = now + 0.5f;
             switch (_step)
             {
                 case 0:
-                    // Nothing in the Maps folder is a Dam Good Maps map (a look-alike and an unreadable dgm- file only).
-                    TestLog.Fact("userMapsDirectory", MapRepository.UserMapsDirectory);
-                    TestLog.Fact("mapsFolder", CompanionEnv.MapsFolder(CompanionEnv.LoadSettings()));
-                    TestLog.Check(MainMenuEntry.ShownButton == null && UiProbe.FindButton(MainMenuEntry.ButtonName) == null, "with no Dam Good Maps map in the Maps folder the menu has no entry");
-                    Handshake.Ask("maps");
+                    if (!MenuShown())
+                    {
+                        // The game starts with its intro video; a player skips it, so the test does too, once.
+                        if (!_introSkipped && now - _startedAt > 6f && _introBox.GetPanel() != null)
+                        {
+                            _introSkipped = true;
+                            TestLog.Line("skipping the intro");
+                            _introBox.OnUICancelled();
+                        }
+                        if (now - _startedAt > MenuSeconds)
+                        {
+                            TestLog.Check(false, "the main menu was not on screen " + MenuSeconds + " s after it loaded");
+                        }
+                        return;
+                    }
+                    TestLog.Line("the main menu is on screen " + (now - _startedAt).ToString("0.0") + " s after it loaded");
                     _step = 1;
                     break;
                 case 1:
-                    // The runner has put the maps in; the entry looks again, as it does when the menu opens.
-                    TestLog.Fact("expectedMap", Handshake.Answer("newest"));
-                    MainMenuEntry.Current?.Rebuild();
+                    // Nothing in the Maps folder is a Dam Good Maps map (a look-alike and an unreadable dgm- file only).
+                    TestLog.Fact("userMapsDirectory", MapRepository.UserMapsDirectory);
+                    TestLog.Fact("mapsFolder", CompanionEnv.MapsFolder(CompanionEnv.LoadSettings()));
+                    TestLog.Check(MainMenuEntry.ShownButton == null && !MainMenuEntry.Current.HasEntry(), "with no Dam Good Maps map in the Maps folder the menu has no entry");
+                    Handshake.Ask("maps");
                     _step = 2;
                     break;
                 case 2:
+                    // The runner has put the maps in; the entry looks again, as it does when the menu opens.
+                    TestLog.Fact("expectedMap", Handshake.Answer("newest"));
+                    MainMenuEntry.Current.Rebuild();
+                    _waitFrom = now;
+                    _step = 3;
+                    break;
+                case 3:
+                    Button shown = MainMenuEntry.ShownButton;
+                    bool laidOut = shown != null && shown.panel != null && shown.worldBound.width > 1f;
+                    if (!laidOut && now - _waitFrom < LayoutSeconds)
+                    {
+                        return;
+                    }
                     DumpMenu();
                     TestLog.Fact("menuCaption", MainMenuEntry.ShownCaption);
                     TestLog.Fact("options", MainMenuEntry.Options);
-                    Button shown = MainMenuEntry.ShownButton;
-                    TestLog.Check(shown != null && shown.panel != null && UiProbe.FindButton(MainMenuEntry.ButtonName) == shown, "with Dam Good Maps maps present the menu has the entry");
+                    TestLog.Check(laidOut && MainMenuEntry.Current.HasEntry(), "with Dam Good Maps maps present the menu has the entry on screen");
                     TestLog.Check(shown?.text == MainMenuEntry.Title, "the entry says " + MainMenuEntry.Title);
                     TestLog.Check(MainMenuEntry.ShownCaption != null && MainMenuEntry.ShownCaption.StartsWith(Handshake.Answer("newest") ?? "?"), "the entry names the newest Dam Good Maps map: " + MainMenuEntry.ShownCaption);
                     ScreenCapture.CaptureScreenshot(Path.Combine(CompanionEnv.TestDir, "menu.png"));
-                    _step = 3;
+                    _step = 4;
                     break;
                 default:
                     Button button = MainMenuEntry.ShownButton;
-                    if (button == null)
-                    {
-                        TestLog.Finish();
-                        return;
-                    }
                     TestLog.Phase = "game1";
                     using (ClickEvent click = ClickEvent.GetPooled())
                     {
@@ -269,7 +385,7 @@ namespace DGMCompanion
                     TestLog.Fact("startedMap", MainMenuEntry.StartedMap);
                     TestLog.Fact("startedFaction", MainMenuEntry.StartedFaction);
                     TestLog.Fact("startedMode", MainMenuEntry.StartedMode);
-                    TestLog.Check(MainMenuEntry.StartedMap != null, "the click started a game");
+                    TestLog.Check(!string.IsNullOrEmpty(MainMenuEntry.StartedMap), "the click started a game");
                     break;
             }
         }
@@ -286,7 +402,7 @@ namespace DGMCompanion
             for (int i = 0; i < parent.childCount; i++)
             {
                 VisualElement c = parent[i];
-                b.AppendLine($"  [{i}] {c.GetType().Name} name={c.name} classes=[{string.Join(" ", c.GetClasses())}] text={(c as TextElement)?.text} display={c.resolvedStyle.display} size={c.resolvedStyle.width}x{c.resolvedStyle.height} margin={c.resolvedStyle.marginTop}/{c.resolvedStyle.marginBottom}");
+                b.AppendLine($"  [{i}] {c.GetType().Name} name={c.name} classes=[{string.Join(" ", c.GetClasses())}] text={(c as TextElement)?.text} display={c.resolvedStyle.display} size={c.worldBound.width}x{c.worldBound.height} margin={c.resolvedStyle.marginTop}/{c.resolvedStyle.marginBottom}");
             }
             File.WriteAllText(Path.Combine(CompanionEnv.TestDir, "menu-tree.txt"), b.ToString());
         }
@@ -306,6 +422,7 @@ namespace DGMCompanion
             Application.runInBackground = true;
             // A game window that is not in front still gets the test's key presses.
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            TestLog.Begin();
             _startedAt = Time.realtimeSinceStartup;
             _nextAt = _startedAt + 8f;
             _phase = TestLog.Phase;
@@ -315,6 +432,11 @@ namespace DGMCompanion
         public void UpdateSingleton()
         {
             if (_startedAt < 0)
+            {
+                return;
+            }
+            TestLog.Watchdog();
+            if (TestLog.Done)
             {
                 return;
             }
