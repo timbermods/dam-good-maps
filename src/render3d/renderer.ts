@@ -409,7 +409,7 @@ export class MapRenderer {
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
   /** A force's ring as last shown (tests). */
-  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
+  forceRingState: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -1947,6 +1947,25 @@ export class MapRenderer {
     this.onMapChange?.();
   }
 
+  /** The Heights colours span the map's lowest and highest level as it stands now (the legend's Low and High say the
+   *  same). Set when a map opens, and again a moment after the land changes. Returns the lowest and highest level. */
+  fitHeightRange(): readonly [number, number] | null {
+    const m = this.map;
+    if (!m) return null;
+    let lo = 255;
+    let hi = 0;
+    for (const h of m.heights) {
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+    const v = this.terrainMat.uniforms.heightRange.value as Vector2;
+    if (v.x !== lo || v.y !== hi) {
+      v.set(lo, hi);
+      this.requestRender();
+    }
+    return [lo, hi];
+  }
+
   /** Heights changed inside `rect` only (a brush painting): remesh the chunks there, and the sky
    *  and tile data round it; the sun's shadows wait for `refreshShadows` (they reach far). The
    *  cheap path, fit for every frame: about a millisecond for a large brush at 256². */
@@ -1960,6 +1979,8 @@ export class MapRenderer {
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
     this.requestRender();
+    // (the legend reads the land again once the strokes stop)
+    this.onMapChange?.();
     return dirtyChunks(m.W, m.H, rect).length;
   }
 
@@ -2558,7 +2579,7 @@ export class MapRenderer {
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
    *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
    *  hides it. */
-  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null): void {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;

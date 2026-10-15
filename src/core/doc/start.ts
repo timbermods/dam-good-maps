@@ -7,6 +7,8 @@ import * as portable from "../math/portable";
 import type { BuildResult } from "../features/build";
 import { inBench } from "../features/raster/terrain";
 import { BUILDERS } from "../features/setpieces";
+import { entityTiles } from "../features/edits";
+import { makesRoomForStart, startFitProblem } from "./startFit";
 import { startEntranceTile, startMiddleTile, type Orientation } from "../format/footprints";
 import type { StartFeature } from "../features/schema";
 import type { EditOp } from "./ops";
@@ -17,28 +19,23 @@ import type { ForceResultParams } from "../forces/op";
  *  the tile at its door dry and on the map, clear of rivers, pieces and objects. `flat` also asks
  *  for level ground (an imported map, which has no bench to level it). Returns why not, or null. */
 export function startProblem(b: BuildResult, x: number, y: number, o: Orientation, flat: boolean, ignoreOwner: string | null, pieces: Uint8Array | null = null): string | null {
-  const { W, H } = b;
+  const { W } = b;
   const corner = cornerFor(x, y, o);
-  const [ex, ey] = startEntranceTile(corner[0], corner[1], o);
-  const tiles: [number, number][] = [[ex, ey]];
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([x + dx, y + dy]);
+  const door = startEntranceTile(corner[0], corner[1], o);
   const level = b.heights[y * W + x];
-  const objects = new Set<number>();
+  // (every other object's whole footprint, not only its anchor: what the checks read)
+  const objects = new Uint8Array(W * b.H);
   for (const e of b.entities) {
-    if (e.owner === ignoreOwner || e.template === "StartingLocation") continue;
-    if (/^(Pine|Birch|Oak|Succulent|BlueberryBush|RuinColumnH\d)$/.test(e.template) && !e.raw) continue; // resources make room for the start
-    objects.add(e.y * W + e.x);
+    if (e.owner === ignoreOwner || makesRoomForStart(e.template, !!e.raw)) continue;
+    for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < b.H) objects[ty * W + tx] = 1;
   }
-  for (const [tx, ty] of tiles) {
-    if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2) return "too close to the map edge";
-    const i = ty * W + tx;
-    if (b.channel[i]) return "in a river";
-    if (b.water[i] > 0.05) return "under water";
-    if (flat && b.heights[i] !== level) return "not on level ground";
-    if (objects.has(i)) return "on an object";
-    if (pieces?.[i]) return "on a set piece";
-  }
-  return null;
+  return startFitProblem(
+    { W, H: b.H, river: (i) => !!b.channel[i], depth: (i) => b.water[i], taken: (i) => !!objects[i] },
+    x,
+    y,
+    door,
+    { flat: flat ? (i) => b.heights[i] === level : undefined, extra: pieces ? (i) => (pieces[i] ? "on a set piece" : null) : undefined },
+  );
 }
 
 /** Tiles the set pieces of a document hold (their bodies and channels). */
