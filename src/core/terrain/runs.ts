@@ -37,6 +37,12 @@ export function surfaceOfMask(m: number): number {
   return m === 0 ? 0 : 32 - Math.clz32(m);
 }
 
+/** The top of a tile's run from z = 0 (0 when its bottom voxel is air): where the game lets a water
+ *  source, a mine site or a geothermal field stand (GAME_RULES §3.4), a cave's floor under a roof. */
+export function bottomRunTop(m: number): number {
+  return surfaceOfMask(m & ~(m + 1));
+}
+
 /** Where a tile's top run starts (the layer above the highest air below its top), for a mask that
  *  is not one plain run from z = 0; 0 for one that is. */
 export function topRunFloor(m: number): number {
