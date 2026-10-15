@@ -152,7 +152,7 @@ export const FORCE_GROUPS: readonly (readonly string[])[] = [
 
 const FORCE_LIST: readonly Force[] = [
   // (the keys, Kyler 2026-10-06: Shift and the number of its place in the bar, matched on the key's code)
-  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river" },
+  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river or canyon" },
   { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "Strike a crater" },
   { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "Build a volcano" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "Lift or slide the land along a fault" },
@@ -201,7 +201,7 @@ export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
 export const SELECT_TIP = tip("Mark an area to change", "1");
 /** The Block tool, on the tools row after the brushes (D335; key 7). */
-export const BLOCK_TIP = tip("Add or remove blocks", "7");
+export const BLOCK_TIP = tip("Add or remove blocks on any face", "7");
 
 export interface TopBarProps {
   /** The brush out, or null. */

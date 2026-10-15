@@ -844,8 +844,9 @@ export class MapSession {
   }
 
   /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):
-   *  an unedited import's own water while it keeps it (`showsStoredWater`; a map with caves or overhangs'
-   *  carries its columns, `stack`), else the build's. The same object until the map's water changes. */
+   *  an unedited import's own water while it keeps it (`showsStoredWater`), else the build's; per tile
+   *  from above, and on a map with caves or overhangs every column of it (`stack`). The same object
+   *  until the map's water changes. */
   waterShown(): CanonicalWater {
     return this.showsStoredWater ? this.baseStuff().layer.water! : this.cur.settle;
   }

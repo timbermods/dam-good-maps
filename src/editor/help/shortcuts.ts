@@ -25,7 +25,7 @@ export const SHORTCUTS_KEY = "?";
 /** What each force does, as the panel says it after the force's name ("Erupt: a volcano"): its own short noun phrase, not the
  *  tooltip's. A force with no phrase shows its name alone. */
 const FORCE_WHAT: Record<string, string> = {
-  Carve: "a river",
+  Carve: "a river or canyon",
   Craterize: "a crater",
   Erupt: "a volcano",
   Rift: "a crack that drops the land",
@@ -46,7 +46,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Select", keys: ["1"] },
         ...BRUSHES.map((b) => ({ what: b.name, keys: [b.key] })),
-        { what: "Block: add or remove blocks", keys: ["7"] },
+        { what: "Block: add or remove blocks on any face", keys: ["7"] },
         ...SHOWN_FORCES.map((f) => ({ what: forceWhat(f.name), keys: [f.key ?? ""] })).filter((r) => r.keys[0]),
         { what: "Put the tool down", keys: ["X", "Esc"] },
       ],
@@ -67,6 +67,9 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     {
       title: "With the mouse",
       rows: [
+        { what: "Turn the view", keys: ["Middle-drag"] },
+        { what: "Move the view", keys: ["Right-drag"] },
+        { what: "Zoom", keys: ["Scroll"] },
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
         { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
