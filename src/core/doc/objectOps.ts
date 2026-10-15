@@ -14,6 +14,7 @@ import { fluidObject, reserve, unstableCore, waterSource } from "../format/entit
 import { plainOf, type JsonObject, type JsonValue } from "../format/json";
 import { footprintTiles, type Orientation } from "../format/footprints";
 import type { EditOp } from "./ops";
+import { itemName } from "./labels";
 
 /** The options an object carries; what an object has none of is left out. */
 export interface ObjectOptions {
@@ -231,7 +232,7 @@ export function delayWords(t: Timed): string {
 
 /** A sentence for a change of options (the history's label): what the player set. */
 export function describeChange(template: string, before: ObjectOptions, after: ObjectOptions): string {
-  const name = template.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+  const name = itemName(template).replace(/^./, (c) => c.toUpperCase());
   if (after.strength !== undefined && after.strength !== before.strength) return `${name}: ${after.strength < 0 ? `sink ${-after.strength}` : after.strength} water/s`;
   if (after.timed && (after.timed.enabled !== before.timed?.enabled || after.timed.cycles !== before.timed?.cycles || after.timed.days !== before.timed?.days)) return `${name}: ${after.timed.enabled ? delayWords(after.timed) : "starts at once"}`;
   if (after.radius !== undefined && after.radius !== before.radius) return `${name}: radius ${after.radius}`;

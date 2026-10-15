@@ -36,6 +36,7 @@ export function useTestHook(ed: Ed): TestHookSlice {
       sound: () => juice.current?.status() ?? null,
       sourceGlow: () => glowCorners.current.slice(),
       selection: () => selection.current.tiles(),
+      block: () => ed.blockState(),
       // (the water's pace, for tests that wait on it: the page has no Speed control, Kyler, 2026-10-04)
       waterSpeed: (speed) => ed.player.current?.setSpeed(speed),
       // (the water has played into place: what the header's dot reads as no longer "Settling…")

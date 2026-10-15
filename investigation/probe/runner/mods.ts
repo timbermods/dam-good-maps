@@ -11,6 +11,9 @@ import { GAME_DIR, REGISTRY_KEY, timberbornDocs } from './paths';
 export const PROBE_MOD_ID = 'kyler.dgmprobe';
 export const PROBE_MOD_FOLDER = 'DGMProbe';
 
+export const COMPANION_MOD_ID = 'timbermods.dgmcompanion';
+export const COMPANION_MOD_FOLDER = 'DGMCompanion';
+
 export interface InstalledMod {
   source: 'Local' | 'Steam Workshop';
   folder: string;
@@ -63,16 +66,30 @@ export function installedMods(): InstalledMod[] {
 
 export const enabledKey = (m: InstalledMod) => `ModEnabled.${m.source}.${m.folder}.${m.id}`;
 
-/** Only DGM Probe on, every other installed mod off. Returns what it set. */
-export function probeOnly(): { on: string[]; off: string[] } {
+/** Only the named local mods on, every other installed mod off. Returns what it set. */
+export function onlyMods(wanted: { folder: string; id: string }[]): { on: string[]; off: string[] } {
   const on: string[] = [];
   const off: string[] = [];
   for (const m of installedMods()) {
-    const isProbe = m.source === 'Local' && m.folder === PROBE_MOD_FOLDER && m.id === PROBE_MOD_ID;
+    const isWanted = m.source === 'Local' && wanted.some((w) => w.folder === m.folder && w.id === m.id);
     const name = prefsValueName(enabledKey(m));
-    execFileSync('reg.exe', ['add', REGISTRY_KEY, '/v', name, '/t', 'REG_DWORD', '/d', isProbe ? '1' : '0', '/f'], { stdio: 'ignore' });
-    (isProbe ? on : off).push(`${m.source}/${m.folder} (${m.id})`);
+    execFileSync('reg.exe', ['add', REGISTRY_KEY, '/v', name, '/t', 'REG_DWORD', '/d', isWanted ? '1' : '0', '/f'], { stdio: 'ignore' });
+    (isWanted ? on : off).push(`${m.source}/${m.folder} (${m.id})`);
   }
-  if (!on.length) throw new Error('DGM Probe is not installed: run the build-mod step first.');
+  const missing = wanted.filter((w) => !on.some((o) => o.startsWith(`Local/${w.folder} (`)));
+  if (missing.length) throw new Error(`${missing.map((w) => w.folder).join(', ')} not installed: run the build step first.`);
   return { on, off };
+}
+
+/** Only DGM Probe on, every other installed mod off. Returns what it set. */
+export function probeOnly(): { on: string[]; off: string[] } {
+  return onlyMods([{ folder: PROBE_MOD_FOLDER, id: PROBE_MOD_ID }]);
+}
+
+/** DGM Probe and the companion on (a companion run), every other installed mod off. */
+export function probeAndCompanionOnly(): { on: string[]; off: string[] } {
+  return onlyMods([
+    { folder: PROBE_MOD_FOLDER, id: PROBE_MOD_ID },
+    { folder: COMPANION_MOD_FOLDER, id: COMPANION_MOD_ID },
+  ]);
 }

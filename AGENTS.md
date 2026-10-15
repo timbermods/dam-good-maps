@@ -32,7 +32,8 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 - `hold`: never merge. `needs-kyler` holds only design-direction questions (one issue each: the question, 2–4 options, a
   recommended default that work proceeds on) and the things only Kyler's account can do. Each session labels its own PRs.
 - An owning session judges its PR; a different session merges it (D484): post "ready to merge" on #236 with your verdict
-  and captures on the PR; the planning session checks them and green CI, then merges. The planning session's own PRs
+  and captures on the PR; the planning session checks them and the PR's quick checks (typecheck, quick suite, build),
+  then merges. The browser specs and the suites run on dev after the merge; whoever's merge broke them fixes it at once. The planning session's own PRs
   are merged by the milestone session after a fresh sub-agent's review.
 - Sessions talk on the pinned Coordination issue (#236), not through Kyler. Design questions go there to the planning
   session first.

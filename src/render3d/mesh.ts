@@ -19,8 +19,9 @@
 // object's cutout; the site's model draws the pit's walls and floor in the hole. Nothing else
 // changes: the voxels, every wall and every other top stay, so the hole is only where the pit is.
 //
-// The light under roofs reads the same columns (caveLight.ts). Not here yet (docs/progress/3d-view.md):
-// soil and the Map look per run top, and the level-slice cutaway's caps; today the shaders colour
+// The light under roofs reads the same columns (caveLight.ts); under a layer cut the shaders fold these
+// meshes onto the cut and open it over air (cutaway.ts), so the mesh never depends on the level shown.
+// Not here yet (docs/progress/3d-view.md): soil and the Map look per run top; today the shaders colour
 // each face by its tile.
 //
 // World space: X = x, Y = height, Z = −y (north is −Z). Faces wind counter-clockwise seen from

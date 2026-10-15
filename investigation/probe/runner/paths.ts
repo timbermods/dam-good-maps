@@ -85,6 +85,11 @@ export const probePaths = () => {
 export function modInstallDir(): string {
   return join(timberbornDocs(), 'Mods', 'DGMProbe');
 }
+/** The companion mod (mods/companion, D163) sits beside DGM Probe in a companion run only: installed just before the
+ *  launch and removed right after it, like DGM Probe. */
+export function companionInstallDir(): string {
+  return join(timberbornDocs(), 'Mods', 'DGMCompanion');
+}
 /** Unity writes Player.log here and moves the previous one to Player-prev.log at each launch. */
 export function unityLogDir(): string {
   if (process.env.DGM_PROBE_UNITY_LOGS) return process.env.DGM_PROBE_UNITY_LOGS;

@@ -6,6 +6,7 @@
 // (drainage, geology, route choice and nearest safe start can read distant tiles): their touch is the
 // whole map until the core's reads are audited and instrumented; no guessed radius.
 
+import { blockBounds, blockTileBits } from "../terrain/blocks";
 import type { EditOp } from "../doc/ops";
 import { brushBounds, markBrushTiles } from "../features/raster/brush";
 import { entityTiles } from "../forces/force";
@@ -81,6 +82,16 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
       case "deleteEntities":
         for (const id of op.params.entities) entity(id);
         break;
+      case "blocks": {
+        // (the tiles whose blocks it adds or takes, and the ring the integrity pass may tidy)
+        const here = new Mask(N);
+        const b = blockBounds(op.params, W, H);
+        for (const i of blockTileBits(op.params, W, H).keys()) here.add(i);
+        intent.union(here);
+        touch.union(here);
+        if (b) rect(touch, b.x0 - 1, b.y0 - 1, b.x1 + 1, b.y1 + 1);
+        break;
+      }
       case "paintObjects": {
         const here = new Mask(N);
         runs(here, op.params.area);
@@ -105,6 +116,9 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         for (const s of [...(op.params.source ? [op.params.source] : []), ...(op.params.sources ?? [])]) entity(s.id);
         if (op.params.replaces !== undefined) keys.add(`action:${op.params.replaces}`);
         if (op.params.lake) keys.add("lakes");
+        break;
+      case "crop":
+        whole();
         break;
       case "removeUnfedWater":
       case "fillHollow":

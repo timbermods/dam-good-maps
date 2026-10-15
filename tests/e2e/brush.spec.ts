@@ -1,5 +1,5 @@
 // Live editing: the terrain brushes in the page. The ground changes under the cursor while the
-// button is down; the stroke becomes one step of the history ("Raise, 38 tiles") whose map, built
+// button is down; the stroke becomes one step of the history ("Raise 38 tiles") whose map, built
 // by the worker, is the one painted, byte for byte; undo and redo show at once; Esc cancels a
 // stroke with no trace; Shift inverts; Ctrl+click takes the land's level as the target (D322); [ ]
 // size, and Shift+wheel the strength of Smooth and Naturalize (D196; the height brushes' target,
@@ -63,7 +63,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   await expect(hints).toContainText("Place things");
   await settled(page);
   let i = await info(page);
-  expect(i.history.at(-1)!.label).toMatch(/^Raise, \d+ tiles?$/);
+  expect(i.history.at(-1)!.label).toMatch(/^Raise \d+ tiles?$/);
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
   // the worker's map is the one painted, byte for byte
   const painted = await heights(page);
@@ -83,7 +83,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   // Shift inverts: raise lowers
   await stroke(page, [at[0], at[1] + 6], [at[0] + 6, at[1] + 6], { shift: true });
   await settled(page);
-  expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower, /);
+  expect((await info(page)).history.at(-1)!.label).toMatch(/^Lower /);
 
   // Esc cancels a stroke in progress: no trace on the map or in the history
   const steps = (await info(page)).history.length;

@@ -401,6 +401,9 @@ export interface ShaderHooks {
   /** Where grass meets earth, and where contamination ends (expressions). */
   moist?: string;
   bad?: string;
+  /** At the start of groundColor, before the pattern warp (g): to keep the tile's own coordinates and, where the Weather
+   *  view's heat shimmer is on, to move g by less than half a pixel. */
+  groundStart?: string;
   /** After the ground's colour, before contamination is layered over it (c, g). */
   groundVariation?: string;
   /** Before groundColor returns (c: its colour with contamination; glow). */
@@ -601,7 +604,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     coolingAge: { value: 0 },
   };
   return new ShaderMaterial({
-    defines: { LITE: lite ? 1 : 0 },
+    // CUTAWAY (the renderer's `setCutaway`): 1 on a map with terrain above terrain, where the layer cut opens
+    // what it folds over air (cutaway.ts); 0 elsewhere, the same program as before it
+    defines: { LITE: lite ? 1 : 0, CUTAWAY: 0 },
     uniforms: { ...scene, ...own } as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
       uniform float slice;
@@ -814,7 +819,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
           return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
         #endif
-        // (the patterns are read through a broad warp, so their repeat never shows from afar)
+${hook(h, "groundStart")}        // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
         vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
         g += patternWarp * 3.2;
@@ -875,6 +880,12 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         vec2 tile = floor(g);
         vec4 d0 = tileAt(tile);
         float h0 = heightOf(d0);
+        #if CUTAWAY
+          // the cutaway (D207, cutaway.ts cutFace): what the cut folded onto it over air (a roof's top and
+          // underside above a cave) is not there, so the cave shows through the cut; its light stays the unsliced
+          // terrain's (the volume is not sliced). (Dropped at the end, after every derivative the pixels round it take.)
+          bool cutGone = slice < 90.0 && abs(n.y) > 0.5 && abs(vWorld.y - slice) < 0.001 && slice >= 1.0 && roofedAir(vec3(tile, slice - 1.0));
+        #endif
         float detail = 1.0 - smoothstep(0.04, 0.16, fwidth(g.x));
         float glow = 0.0;
         vec3 c;
@@ -1081,8 +1092,13 @@ ${hook(h, "wall")}          float py = fwidth(y);
           }
         }
         if (n.y > 0.5) {
-          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch
-          if (slice < 90.0 && h0 > slice + 0.5) {
+          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch (with terrain
+          // above terrain, only the cap where solid rock crosses the cut, not a cave's floor below it)
+          if (slice < 90.0 && h0 > slice + 0.5
+          #if CUTAWAY
+            && abs(vWorld.y - slice) < 0.001 && !roofedAir(vec3(tile, slice))
+          #endif
+          ) {
             float hs = step(0.5, fract((g.x + g.y) * 3.0));
             c = mix(c, vec3(0.5, 0.47, 0.43), 0.6) * (0.86 + 0.14 * hs);
           }
@@ -1124,6 +1140,9 @@ ${hook(h, "wall")}          float py = fwidth(y);
           c = mix(c, vec3(0.52, 0.49, 0.45), ash * 0.24 * max(0.0, n.y));
         }
         gl_FragColor = vec4(finish(c, vWorld), 1.0);
+        #if CUTAWAY
+          if (cutGone) discard;
+        #endif
       }
     `,
   });

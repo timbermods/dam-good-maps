@@ -174,7 +174,7 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
       const id = `11111111-2222-4333-8444-00000000000${flow}`;
       // (a river as the retired river tool drew it, kept in an old project: its head a spring)
       const river = { id, kind: "river", origin: "user", locked: false, params: { path: [[16, 32], [40, 32], [S - 1, 32]], width: 9, bedDepth: 1, bedProfile: { start: 7, steps: [] }, flow, style: "straight", entry: { spring: [16, 32] }, exit: { edge: "east" }, badwater: false, banks: true } } as RiverFeature;
-      expect(ed.apply({ op: "addFeature", params: { feature: river } }, "user", "Add river").errors).toEqual([]);
+      expect(ed.apply({ op: "addFeature", params: { feature: river } }, "user", "Add a river").errors).toEqual([]);
       const before = entities();
       const springs = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === id);
       expect(springs(before).length, "the river's head has a spring").toBeGreaterThan(0);

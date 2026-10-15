@@ -8,13 +8,13 @@
 import type { ComponentChildren } from "preact";
 import { tip } from "../ui/Tooltip";
 
-/** The bar's cells: six tools, the hairline, seven forces. */
-export const BAR_CELLS = 13;
-const TOOLS_CELLS = 6;
+/** The bar's cells: seven tools (Select, the five brushes, Block), the hairline, seven forces. */
+export const BAR_CELLS = 14;
+const TOOLS_CELLS = 7;
 /** A cell's grid column: the hairline takes a column of its own after the tools. */
 const column = (cell: number) => (cell <= TOOLS_CELLS ? cell : cell + 1);
 
-/** A group on the grid: `span` whole cells from `at` (1–13) on `row` (1 or 2; `rows: 2` takes both). */
+/** A group on the grid: `span` whole cells from `at` (1–14) on `row` (1 or 2; `rows: 2` takes both). */
 export interface Group {
   key: string;
   row: 1 | 2;
@@ -26,11 +26,22 @@ export interface Group {
   centre?: boolean;
 }
 
-/** The settings of the tool in hand: its groups on the two rows of the bar's cells. */
-export function SettingsGrid(p: { label: string; groups: readonly Group[] }) {
+/** A row laid out before the Block tool's cell was added to the bar (its cells 1–13), on the bar's 14: the new cell comes
+ *  after Naturalize's (cell 7), so a group ending at Naturalize's takes it and every cell after it moves one on. Each
+ *  force's settings stay over the buttons they were over. */
+export function fromThirteen(g: Group): Group {
+  const from = g.at >= 7 ? g.at + 1 : g.at;
+  const end = g.at + g.span - 1;
+  const to = end >= 6 ? end + 1 : end;
+  return { ...g, at: from, span: to - from + 1 };
+}
+
+/** The settings of the tool in hand: its groups on the two rows of the bar's cells. `fresh`: the groups are laid out on
+ *  the bar's 14 cells already (the Block tool's); the others were laid out on 13. */
+export function SettingsGrid(p: { label: string; groups: readonly Group[]; fresh?: boolean }) {
   return (
     <div class="settings-grid" role="group" aria-label={p.label}>
-      {p.groups.map((g) => (
+      {(p.fresh ? p.groups : p.groups.map(fromThirteen)).map((g) => (
         <div
           key={g.key}
           class={`set-group${g.centre ? " centre" : ""}`}

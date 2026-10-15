@@ -141,7 +141,7 @@ async function onTheCells(page: Page, state: string) {
       groups: [...document.querySelectorAll(".tool-settings .set-group")].map((g) => ({ name: g.querySelector(".set-label")?.textContent || g.textContent!.slice(0, 20), l: box(g).left, r: box(g).right, t: box(g).top, b: box(g).bottom })),
     };
   });
-  expect(r.lefts.length, "the bar's thirteen cells").toBe(13);
+  expect(r.lefts.length, "the bar's fourteen cells").toBe(14);
   if (!r.settings) return;
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
@@ -190,12 +190,12 @@ async function onTheCells(page: Page, state: string) {
         expect(ok, `${g.name}'s right edge lines up with the row at ${b} (${state})`).toBe(true);
       }
     }
-  // no empty cells: each row's groups cover its thirteen cells (a group on several rows counts in each)
-  const width = r.rights[12] - r.lefts[0];
+  // no empty cells: each row's groups cover its fourteen cells (a group on several rows counts in each)
+  const width = r.rights[13] - r.lefts[0];
   const tops = [...new Set(r.groups.map((g) => Math.round(g.t)))].sort((a, b) => a - b);
   for (const top of tops.slice(0, 2)) {
     const row = r.groups.filter((g) => Math.round(g.t) <= top && g.b > top + 1);
-    const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[5] && g.r > r.lefts[6]) ? 0 : r.lefts[6] - r.rights[5] - 2);
+    const covered = row.reduce((a, g) => a + (g.r - g.l), 0) + 2 * (row.length - 1) + (row.some((g) => g.l < r.rights[6] && g.r > r.lefts[7]) ? 0 : r.lefts[7] - r.rights[6] - 2);
     same(covered, width, `the row at ${top} has no empty cells (${state})`, 1);
   }
 }
@@ -326,7 +326,7 @@ for (const [w, h] of SIZES) {
     // every tool's settings on the bar's cells, one height (Select's in hand at first)
     placed.clear();
     await onTheCells(page, "Select");
-    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
+    for (const [key, what] of [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smooth"], ["6", "Naturalize"], ["7", "Block"], ["Shift+Digit1", "Carve"], ["Shift+Digit2", "Craterize"], ["Shift+Digit3", "Erupt"], ["Shift+Digit5", "Quake"], ["Shift+Digit7", "Glaciate"], ["Shift+Digit4", "Rift"], ["Shift+Digit6", "Deposit"]] as const) {
       await page.keyboard.press(key);
       await onTheCells(page, what);
       await page.keyboard.press("Escape");
@@ -420,18 +420,21 @@ for (const [w, h] of [[1400, 900], [1300, 900], [1366, 768], [1280, 800]] as [nu
       }
       if (panel) await header.getByRole("button", { name: panel, exact: true }).click();
     }
-    // the map's name in full (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, never "…",
-    // clear of both groups, the bar's other pieces where they were
+    // the map's name (Kyler, 2026-10-05, A+B): the longest generated one and one at Rename's limit, kept to at least
+    // 30 characters whatever the fonts (what fits two lines of the header's room where they allow), shown in at most
+    // two lines, clear of both groups, the bar's other pieces where they were
     const actions = await header.locator(".editor-actions").boundingBox();
-    for (const name of ["Twin Channel Island Chain", "Where the Long Winding River Meets"]) {
+    for (const typed of ["Twin Channel Island Chain", "Where the Long Winding River Meets Again And Again"]) {
       await header.locator(".editor-title .title-button").click();
       await page.keyboard.press("Control+A");
-      await page.keyboard.type(name);
+      await page.keyboard.type(typed);
+      const name = (await header.getByLabel("Map name").inputValue()).trim();
+      expect(name.length, `${typed}: at least the floor is kept`).toBeGreaterThanOrEqual(Math.min(typed.length, 30));
       await page.keyboard.press("Enter");
       await expect(header.locator(".editor-title .title-button")).toHaveText(name);
       await settle(page, w, h);
       const button = header.locator(".editor-title .title-button");
-      // (no "…", at most two lines of its line height)
+      // (at most two lines of its line height, never wider than its box)
       expect(
         await button.evaluate((e) => {
           const cs = getComputedStyle(e);

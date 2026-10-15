@@ -55,7 +55,7 @@ import {
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
-import { BlockGhost, type GhostTile } from "./blockGhost";
+import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
@@ -65,6 +65,7 @@ import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { DEFAULT_YAW, objectOutline, openingYaw, zoomLimits } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
+import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
@@ -402,6 +403,8 @@ export class MapRenderer {
   private drawnObjects: EntityView | null = null;
   private witheredCount = 0;
   private casterTimer = 0;
+  /** The hazard held and the map's own soil (the Weather view's seasons: dry ground, heat, the badtide's sky), or null. */
+  private season: { hazard: "drought" | "badtide"; own: SoilView } | null = null;
 
   /** `still`: a view nobody steers and nothing moves in (the map's picture, `hero.ts`): no pointer or key
    *  reaches it, and its water is drawn still, without the moving water's flow and foam (no wait on the bake
@@ -528,8 +531,22 @@ export class MapRenderer {
     if (this.uniforms.slice.value === v) return;
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
+    this.blockCells?.setCut(level === null ? null : v);
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
+  }
+
+  /** Whether the terrain's shaders open the layer cut over air (cutaway.ts): only on a map with terrain above
+   *  terrain, so every other map draws with the same program as before. */
+  private cutaway = false;
+
+  private setCutaway(on: boolean): void {
+    this.cutaway = on;
+    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+      if (!mat || (mat.defines.CUTAWAY === 1) === on) continue;
+      mat.defines.CUTAWAY = on ? 1 : 0;
+      mat.needsUpdate = true;
+    }
   }
 
   /** One layer up (1) or down (-1), as the game steps them (D207, `LevelVisibilityService`): down
@@ -786,6 +803,7 @@ export class MapRenderer {
           },
         });
         this.high.shareTerrainUniforms(this.std.terrain);
+        this.setCutaway(this.cutaway);
       } catch (e) {
         console.warn("The High look could not start; drawing the Standard look.", e);
         this.high?.dispose();
@@ -816,6 +834,7 @@ export class MapRenderer {
           high.setMap(m.W, m.H, m.heights, m.surface, m.entities);
           if (this.objects) high.objectsBuilt(this.objects, m.entities);
           this.applyWithered();
+          this.applySeason();
         }
       }
     }
@@ -1043,6 +1062,7 @@ export class MapRenderer {
       u.caveTop.value = this.cave.highest;
     }
     else u.caveSize.value.set(0, 0, 0);
+    this.setCutaway(cutawayOn(source));
     u.overlay.value = this.overlay;
     u.marks.value = this.marks;
     u.contamEdges.value = this.edges;
@@ -1131,6 +1151,7 @@ export class MapRenderer {
     this.withered = null;
     this.drawnObjects = null;
     this.witheredCount = 0;
+    this.season = null;
     this.droughtLayer?.clear();
     clearTimeout(this.casterTimer);
     if (this.skirt) this.dropMesh(this.skirt);
@@ -1627,8 +1648,29 @@ export class MapRenderer {
     if (!m) return;
     m.soil = soil;
     this.bakeTiles();
+    this.applySeason();
     this.requestRender();
     this.onMapChange?.();
+  }
+
+  /** A drought or a badtide is held (null: none), with the map's own soil: the High look draws its dry ground and straw, heat
+   *  shimmer and sky from the day's soil and water (`high/seasons.ts`); Standard stays as it is. */
+  setSeason(hazard: "drought" | "badtide" | null, own: SoilView | null): void {
+    this.season = hazard && own ? { hazard, own } : null;
+    this.applySeason();
+  }
+
+  /** What the seasons draw now, or all zero (Standard, or no day held): the tests read it. */
+  get seasonLook(): { dry: number; heat: number; sickly: number } {
+    return this.high?.seasonNow ?? { dry: 0, heat: 0, sickly: 0 };
+  }
+
+  private applySeason(): void {
+    const m = this.map;
+    const s = this.season;
+    if (!this.high) return;
+    if (!m || !s || !m.soil || m.soil.moisture.length !== s.own.moisture.length) return this.high.setSeason(null, null);
+    this.high.setSeason(s.hazard, { W: m.W, H: m.H, own: s.own, day: m.soil, depth: m.surface.depth, contamination: m.surface.contamination });
   }
 
   /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
@@ -2207,6 +2249,7 @@ export class MapRenderer {
   private cursorStale = false;
 
   private blockGhost: BlockGhost | null = null;
+  private blockCells: BlockCells | null = null;
   private droughtLayer: DroughtLineLayer | null = null;
 
   /** The drought line (the Weather view, D133): the faint waterline of the drought's last day and the dry tint over beds
@@ -2240,6 +2283,20 @@ export class MapRenderer {
     if (tiles?.length && m) (this.blockGhost ??= new BlockGhost(this.scene)).set(tiles, m.W);
     else this.blockGhost?.clear();
     this.requestRender();
+  }
+
+  /** The Block tool's preview (D488): the blocks a click would add (translucent), take away (red) and let fall
+   *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
+  showBlocks(preview: BlockPreview | null): void {
+    const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    if (!any && !this.blockCells) return;
+    this.blockCells ??= new BlockCells(this.scene);
+    if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
+  }
+
+  /** The blocks of the Block tool's preview drawn now, by kind (tests). */
+  get blocksDrawn(): { added: number; removed: number; falls: number } {
+    return this.blockCells?.drawn ?? { added: 0, removed: 0, falls: 0 };
   }
 
   /** Show the brush under the cursor (null hides it). */
@@ -3103,6 +3160,7 @@ export class MapRenderer {
     this.ring?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
+    this.blockCells?.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

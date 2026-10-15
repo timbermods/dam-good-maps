@@ -401,6 +401,10 @@ guesses, with an original model in both looks, a label in Markers, exact save an
   rivers flow off it, a river's head gets M9b's edge lip, edge walls and a missing start show in the checks dot, and objects
   cut by the edge are removed. Recorded as an operation, so share links rebuild it; the name and "how it plays" line are
   re-read. D340 has the rule and its tests.
+  - **The core operation is built** (`crop`, `src/core/doc/crop.ts`; `tests/contract/crop.test.ts`): the rectangle's
+    contents exactly (runs, water, soil, objects, sources), objects cut by the edge removed and counted, one-line
+    refusals, one undo step, recorded, byte-exact on reopen, the edge lip at the new edges. Left for the page and the
+    next pass: the checks dot's edge walls and the re-read name and "how it plays" line (EDITOR_PLAN.md, Select).
 
 ---
 
@@ -601,8 +605,10 @@ runs with undersides every exposed face once. Part 2, light in 3D in both looks 
 whose air is under a roof takes that air's sky and sun from Erode's light volume, relit round each edit; everywhere
 else the baked light stands, so maps without caves draw exactly as before. Part 5, 3D picking (`render3d/pick.ts`): a
 ray through the column masks lands on the first face along it, and equals the heightfield picker on maps without caves
-(`pickTerrain.test.ts`); Select reads the run hit. Next: the masks from the worker, soil per run top, water per column,
-the level-slice cutaway.
+(`pickTerrain.test.ts`); Select reads the run hit. Part 6, the level-slice cutaway (`render3d/cutaway.ts`): under a
+layer cut the clipped columns are drawn, a cap only where rock crosses the cut, so the cut opens into caves and under
+overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Next:
+the masks from the worker, soil per run top, water per column.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -633,7 +639,9 @@ After the view (D280 (3)).
    other forces' investigations, until Kyler has tried it.
 2. **A block tool**, for precision: point at a block's face and click to add a block against it,
    drag to paint a layer outward from that face; remove blocks to hollow a cave; sized like the
-   brushes; shows at once any block the game's support rule would drop.
+   brushes; shows at once any block the game's support rule would drop. (Core built: the `blocks`
+   operation, the support check and the `blockFalls` query, in
+   [docs/progress/3d-creating.md](docs/progress/3d-creating.md); the interface is the page's.)
 3. **The brushes, forces and every recorded stroke move onto runs** (moved here from step 1, D280
    (1); built, core only: each brush shapes a tile's top run, a roof keeping its lowest layer, and an edit
    that would make ground fall is refused; the forces stay on heightfield ground; the rule per brush and
@@ -759,8 +767,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
    (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
-   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. Dry ground, straw,
-   heat shimmer and the badtide's sky follow (#67's stage 4).
+   (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
+   effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
+   where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
+   shimmer over it, the ground's own pattern moved by under half a pixel (no post pass, D334; still for reduced motion and
+   dropped by the lower-cost tier); on a held badtide day, the sky pulled slightly sickly. Contamination stays the veins in
+   every look (D334).
 
    **Built: the Unstable Core's moment (D339).** While a hazard is held, a quiet line under the water row says where each
    core goes off against that cycle's hazard (a core goes off `days` days into its cycle, a hazard starts after the cycle's
@@ -1062,10 +1074,10 @@ it as a WebM video to share. The history is already a list of operations that re
 (D158), so this reads it; it adds nothing to the editor's screen until used. Blocking, when built:
 the replay matches the map exactly at its end; the page never freezes while recording.
 
-**Later, proposed: a companion mod for one-click play** (Kyler, 2026-09-25; D163). A small mod
-that lists newly saved Dam Good Maps maps in the game's main menu and starts one in one click,
-building on what the DGM Probe mod already does to open a map. For Kyler's approval before it's
-built.
+**A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
+player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,
+with its name), one click starts it with the last faction and difficulty, and in game a key reloads the map after the app
+saves it again. Its logic is tested headless; its in-game check (`mods/companion/TESTING.md`) is still to run.
 
 **After M12: a Dam Good Maps MCP server** (Kyler, 2026-09-25; D141). M12's tools (generate, steer
 with intentions, the forces, edit, validate, export) packaged as an MCP server, so Claude
