@@ -478,8 +478,10 @@ refinements and what the mockups left open:
   edge).
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
-  scrollbar's room kept on both sides), each place's top-down picture, its whole name without the gallery's "Near"
-  ("Crater Lake"; two lines kept) and its size;
+  scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
+  ("Near Crater Lake"; two lines kept; the polish audit found "Crater Lake" here and "Near Crater Lake" on the map, in its
+  file and on the gallery page, and D136's plain titles never reached the data, so the panel follows the data until
+  the places are rebuilt) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
@@ -534,7 +536,13 @@ refinements and what the mockups left open:
   (`docs/design/close-question-1920x1080`). Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
-  clicked or started meanwhile. Cancel ends the generator's worker and opens the map that was open again in a new one,
+  clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Near Crater Lake…", with
+  Cancel); before any map exists (a share link, a reload) the dialog stands over the editor's own frame, the header, bar
+  and shelf held still (the header with its Look button in place, so nothing moves when the map arrives) and the land's
+  first look in the map's place, never a blank page with one line (polish audit, `docs/design/polish-generator-*`).
+  Nothing is dimmed there and the dialog sits under the land, not across it. If that first map fails (six seeds in a row,
+  or the worker), the dialog turns into the failure's words with one button, **Make a new map** (a random seed); the
+  message is never left dimmed under the dialog, and any message stands above it. Cancel ends the generator's worker and opens the map that was open again in a new one,
   from its project saved just before (its edits, history and view as they were; "Opening your map…" meanwhile). A
   failed map turns the dialog into its words and Close. Generate's button no longer says what is happening.
 - **This source** in the object window is one line, a control's height: "1.45 water/s", or in a row "1.45 of 5.79
@@ -577,7 +585,7 @@ refinements and what the mockups left open:
   Every Generate names the new map for its theme ("River Valley"; "Dam Good Map" for Any) and replaces the open map
   without asking; the open map is in Your maps already. The only question left is when this browser can't keep
   Your maps and the map has edits.
-- **File** holds exactly Open…, Download project, Download .timber, Clear everything and About, then after a hairline
+- **File** holds exactly Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything and About, then after a hairline
   Keyboard shortcuts, Help and Report a problem (M13; the shortcuts and Help are dialogs like About, left-aligned as
   lists, the shortcuts in three balanced columns with their keys as key caps) (Another like this is in
   the Map Generator, History a button of its own: Kyler, 2026-10-06). There is no Copy link: the address is always the open map's share link, so the browser's own address is the link.
@@ -610,7 +618,7 @@ D380 work.
   saving in the browser fails, that line says so instead). The info never overlaps either side group: the header
   measures how far each group reaches; a name too long for the centre moves between the groups, then takes two lines
   (Kyler's A+B, 2026-10-05, under "Kyler's answers"), never "…". On the right **History**, Undo, Redo, the checks dot with its words, Save to
-  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Clear everything,
+  Timberborn (the only lit control), Look, and **File** (Open…, Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything,
   About). No brand mark or name anywhere (Kyler, 2026-10-02 18:18). The info clears both groups from
   1,219px wide ("River Valley", "Ready to play") and 1,395px with the checks' longest words; "Dam Good Map" with a
   ten-digit seed from 1,263px and 1,439px. Narrower windows are not yet designed (the proposal is in
@@ -844,6 +852,12 @@ API, every pinned hash, and every role and accessible name the tests use.
 - **A name typed in Rename stops at what fits two lines** in Your maps: a key past them does nothing, a paste keeps
   what fits.
 - **No undo after a Generate:** only Cancel, while one runs (Codex's F2, #310, not adopted).
+- **The generator's panel after the polish audit** (`docs/design/polish-generator-*`): an opened file's panel reads "–"
+  for the settings it doesn't have (seed, theme, every slider and choice, the species shares; the sliders at a third of
+  their strength) and shows the file's own size; "On this map" counts the map's objects (Mine sites, Ruins, Berry bushes,
+  Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
+  "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
+  field is in hand.
 - **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
   open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the
   generator's panels); one that would is moved to the nearest free spot, merged into the nearest of its kind when

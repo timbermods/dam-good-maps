@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://timbermods.github.io/dam-good-maps/schema/collab-session-v1.json",
+  "title": "Dam Good Maps collaboration session v1",
+  "description": "The messages two players' sessions exchange besides the ordered log's own (collab.schema.json): joining (hello, welcome, ready), claims ordered through the host, desync reports, leaving and presence. Each definition is one message; wire.ts picks one by its \"kind\" and refuses anything else with one line. The map's project bytes travel as the binary message that follows a welcome. Version 1; a hello or welcome with another version is refused as incompatible.",
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+    "name": { "description": "A player's display name, set by the player.", "type": "string", "pattern": "^[^\\u0000-\\u001f]{1,40}$" },
+    "role": { "enum": ["host", "guest"] },
+    "hello": {
+      "description": "The guest to the host, as soon as the connection is up (a joiner or a rejoiner alike).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "v", "name"],
+      "properties": { "kind": { "const": "hello" }, "v": { "type": "integer", "minimum": 1, "maximum": 1000 }, "name": { "$ref": "#/$defs/name" } }
+    },
+    "welcome": {
+      "description": "The host to the guest, answering a hello or a resync: the session, both names, the map's snapshot header (its project bytes are the next message) and the claims as they stand.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "v", "sessionId", "hostName", "guestName", "snapshot", "claims"],
+      "properties": {
+        "kind": { "const": "welcome" },
+        "v": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "sessionId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "hostName": { "$ref": "#/$defs/name" },
+        "guestName": { "$ref": "#/$defs/name" },
+        "snapshot": { "type": "object" },
+        "claims": { "type": "object" },
+        "answered": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["counter", "seq"],
+            "properties": { "counter": { "type": "integer", "minimum": 1, "maximum": 4294967295 }, "seq": { "$ref": "#/$defs/count" }, "reason": { "type": "string", "maxLength": 300 } }
+          }
+        }
+      }
+    },
+    "ready": {
+      "description": "The guest to the host: the snapshot is adopted and this copy matches the host's at that moment.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "seq", "hash"],
+      "properties": { "kind": { "const": "ready" }, "seq": { "$ref": "#/$defs/count" }, "hash": { "$ref": "#/$defs/hash" } }
+    },
+    "claim": {
+      "description": "The guest to the host: a claims command (claims.schema.json), ordered by the host with the log.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "command"],
+      "properties": { "kind": { "const": "claim" }, "id": { "type": "integer", "minimum": 1, "maximum": 4294967295 }, "command": { "type": "object" } }
+    },
+    "claims": {
+      "description": "The host to everyone: a claims command that stood, in its place among the entries. `by` gave it; `revision` is the claims' revision after it (a peer that differs is out of step).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "by", "command", "revision"],
+      "properties": { "kind": { "const": "claims" }, "by": { "$ref": "#/$defs/role" }, "id": { "type": "integer", "minimum": 1 }, "command": { "type": "object" }, "revision": { "$ref": "#/$defs/count" } }
+    },
+    "claimReject": {
+      "description": "The host to the guest: a claims command that was refused, with one plain reason.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "reason"],
+      "properties": { "kind": { "const": "claim-reject" }, "id": { "type": "integer", "minimum": 0 }, "reason": { "type": "string", "maxLength": 300 } }
+    },
+    "desync": {
+      "description": "Either side: this copy of the map differs from the host's (the replica found it); the other side is told so both pages can say so.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reason", "seq"],
+      "properties": { "kind": { "const": "desync" }, "reason": { "type": "string", "maxLength": 300 }, "seq": { "$ref": "#/$defs/count" } }
+    },
+    "resync": {
+      "description": "The guest to the host: send the map again (after a desync).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": { "kind": { "const": "resync" } }
+    },
+    "bye": {
+      "description": "Either side: leaving on purpose, so the other's page says so at once.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": { "kind": { "const": "bye" } }
+    },
+    "presence": {
+      "description": "Where a player is and what they are doing, on the unordered channel at up to 15 per second (the latest wins), and a stroke's start and end also on the ordered one. Cursor and stroke points are quarter-tile integers (null hides the cursor); the stroke is an id, a part number and a bounded run of points since the last packet; view is the camera (target, distance, yaw, pitch). Name and colour are the session's, never sent here. Nothing in it edits the map.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "n"],
+      "properties": {
+        "kind": { "const": "presence" },
+        "n": { "$ref": "#/$defs/count" },
+        "cursor": { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": -64, "maximum": 20000 } },
+        "tool": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9 _.+-]{1,40}$" },
+        "view": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["x", "y", "z", "dist", "yaw", "pitch"],
+          "properties": {
+            "x": { "type": "number", "minimum": -100000, "maximum": 100000 },
+            "y": { "type": "number", "minimum": -100000, "maximum": 100000 },
+            "z": { "type": "number", "minimum": -100000, "maximum": 100000 },
+            "dist": { "type": "number", "minimum": 0, "maximum": 100000 },
+            "yaw": { "type": "number", "minimum": -1000, "maximum": 1000 },
+            "pitch": { "type": "number", "minimum": -1000, "maximum": 1000 }
+          }
+        },
+        "stroke": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["id", "part", "pts"],
+          "properties": {
+            "id": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
+            "part": { "$ref": "#/$defs/count" },
+            "pts": { "type": "array", "maxItems": 144, "items": { "type": "integer", "minimum": -64, "maximum": 20000 } },
+            "end": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
