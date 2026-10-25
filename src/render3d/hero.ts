@@ -26,6 +26,9 @@ const CLOCK = 6;
 /** The longest wait for the High look's occlusion (from the page's bake worker) before the frame is drawn anyway:
  *  a save never waits long on its picture. (The water is drawn still: nothing waits on the moving water.) */
 const SETTLE_MS = 3000;
+/** The longest the picture waits for the programs of the branches its map asks for (compiled in the background, the
+ *  page's thread free meanwhile) before it is drawn anyway, with a warning. */
+const PROGRAMS_MS = 20_000;
 
 /** The picture's turn (the renderer's yaw): the game's new-game camera, the start's orientation
  *  angle + 35° clockwise from north; the default view's without a start. */
@@ -176,7 +179,12 @@ async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, qual
   r.setClock(CLOCK);
   r.setMap(view, false, true);
   frameHero(r, view, pw, ph);
-  // (its programs compiled first, off the page's thread where the browser can: a picture never freezes on them, D453)
+  // (its programs compiled first, off the page's thread where the browser can: a picture never freezes on them, D453;
+  // and the branches its map asks for, a cave's, switched on before it is drawn: the picture waits for them, never
+  // drawn in a wrong look unsaid)
+  const p0 = performance.now();
+  while (!r.programsSettled && performance.now() - p0 < PROGRAMS_MS) await new Promise((done) => setTimeout(done, 30));
+  if (!r.programsSettled) console.warn(`The map's picture is drawn before its programs compiled (${PROGRAMS_MS / 1000} s): its caves may not show as they will.`);
   await r.compileAhead();
   const t0 = performance.now();
   while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {

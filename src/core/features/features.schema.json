@@ -227,6 +227,18 @@
           "additionalProperties": false,
           "required": ["tallness"],
           "properties": { "tallness": { "type": "number", "minimum": -1, "maximum": 1 } }
+        },
+        "storeys": {
+          "description": "Each column's storeys in the area's tile order, where a story shapes them.",
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 8 }
+        },
+        "story": {
+          "description": "The story the field tells (a ruined dam across a narrows, a drowned village), with its line in a player's words; such a field may stand in water.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "say"],
+          "properties": { "kind": { "enum": ["dam", "village"] }, "say": { "type": "string" } }
         }
       }
     },
@@ -268,7 +280,8 @@
         "benchRadius": { "type": "integer", "minimum": 2, "maximum": 12 },
         "benchLevel": { "type": "integer", "minimum": 1, "maximum": 22 },
         "bank": { "$ref": "#/$defs/point" },
-        "player": { "type": "integer", "minimum": 0, "maximum": 3 }
+        "player": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge), below the ground's top at its middle: its 3x3 wholly under the roof, no bench; omitted, the top with its bench (D491).", "type": "integer", "minimum": 0, "maximum": 22 }
       }
     }
   }
