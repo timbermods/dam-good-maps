@@ -2461,6 +2461,242 @@
   height: 20px;
 }
 
+/* ---- Showcase mode (D488 (2)): Showcase… in the empty place at the foot of On this map's list, under Reset settings
+   (the panel no taller); its sheet over the two columns, which stay where they are beneath it */
+.sheet-col + .sheet-col {
+  position: relative;
+}
+
+.sheet-col > .showcase-open {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 150px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-cols {
+  position: relative;
+}
+
+.sheet-cols.covered > .sheet-col {
+  visibility: hidden;
+}
+
+.showcase {
+  position: absolute;
+  inset: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--panel);
+}
+
+.showcase-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--line);
+}
+
+.showcase-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.showcase-head h3 svg {
+  color: var(--muted);
+}
+
+.showcase-head > .sheet-act,
+.showcase-run > .sheet-act {
+  width: 150px;
+  height: var(--line);
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.showcase-lede,
+.showcase-status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.showcase-status {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the time allowed, then the search's one button, at the stack's width and right edge */
+.showcase-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  column-gap: 10px;
+  align-items: center;
+  --lab: 80px;
+}
+
+/* the time gone, as a hairline filling (no number a player can't use) */
+.showcase-bar {
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  overflow: clip;
+  background: var(--rule);
+}
+
+.showcase-bar i {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .showcase-bar.on i {
+    transition: transform 1s linear;
+  }
+}
+
+/* three cards in fixed places, best first: the map's picture, then its name, beats and what it shows */
+.sc-cards {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 10px;
+  height: 134px;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  transition: opacity var(--dur-fade) var(--ease-out);
+}
+
+/* a card arrives with a fade (never a move) */
+@starting-style {
+  .sc-card:not(.empty) {
+    opacity: 0;
+  }
+}
+
+.sc-card.on-show {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.sc-card.empty {
+  border-style: dashed;
+}
+
+.sc-pic {
+  display: block;
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--code);
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 24px;
+}
+
+.sc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sc-score {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-open {
+  flex: none;
+  width: 72px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.sc-beats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 8px;
+}
+
+.sc-beats li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.sc-beats li svg {
+  flex: none;
+}
+
+.sc-beats li.met {
+  color: var(--ink);
+}
+
+.sc-beats li.met svg {
+  color: var(--accent);
+}
+
+.sc-says {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+  text-wrap: pretty;
+}
+
 /* ---- Your maps: in the generator's place, four to a row; more maps than it holds scroll inside it */
 .maps-panel {
   /* the generator's own box, so switching between the two never changes the panel's shape */

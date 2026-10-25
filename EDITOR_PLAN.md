@@ -77,7 +77,21 @@ place of its bottom rule.
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
-  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. **Showcase…** (D488 (2)) sits in
+  the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet
+  over the two columns of settings (they stay where they are under it; **Settings** or Esc closes it). The sheet
+  holds **Search for** (2, 5 or 15 minutes, 5 the first time, then what was last chosen in this browser), one button
+  (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
+  the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
+  maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
+  each map's top-down picture (Your maps' thumbnail), its name, how many of the arc's six beats it has ("4 of 6
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its two strongest beats, and
+  **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
+  only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
+  uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
+  (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
+  out of view, a note says so with **Show them**. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
+  `src/ui/useShowcase.ts`.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
@@ -1004,6 +1018,8 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
 (the versions, checkpoint 2).
 
 **As built today:**
+- **Showcase mode** (D488 (2); §3) searches for minutes, only when asked, without a dialog: the editor stays in hand
+  while it runs, and its three picks open only on **Open**.
 - **While a map is made** (Generate, Surprise me, Another like this) a dialog over the editor says what the generator
   is doing, in one line, with **Cancel**: nothing else can be clicked or started. Cancel ends the work (the
   generator's worker) and the open map comes back exactly as it was, from its project saved just before.
