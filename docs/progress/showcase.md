@@ -15,8 +15,9 @@ with an arc and offers the best three; a probe batch then plays the winner to cy
    best three so far with their previews), the three offered with their notes, opening one (its `response.project`).
 3. **The opening shot and landmarks steered into view (`feature/opening-shot`):** the core's frame of the game's
    first camera replaces this step's interim `openingFrame` in the vista and landmark beats.
-4. **Ruins with meaning (`feature/ruins-meaning`):** a ruined dam across the natural narrows, a drowned village, a
-   plugged tunnel to buried water, each with its own `say`; the mystery and project beats take them in.
+4. **Ruins with meaning (`feature/ruins-meaning`):** a ruined dam across the natural narrows and a drowned village,
+   each with its own `say` (`params.story` on the ruin field; `gen/ruinStories.ts` `ruinStories`); the project beat
+   takes the dam, the mystery the village. A plugged tunnel to buried water waits for caves in generation.
 5. **The probe plays the winner** to cycle 10 on both factions (D218, D483), and its results go into STATUS.
 
 ## The beats (step 1's measures)
@@ -34,11 +35,12 @@ Each is `{ met, strength 0–1, say }`, one small function, so a better measure 
 - **A valley behind a gate:** the intentions' hidden valley, farmland past a gorge or a district behind debris, or
   level farmland reached the long way round (1.8 times its distance on foot, 15–70 tiles off).
 - **A late-game project:** a natural narrows a dam of 4–14 tiles closes over 1,000 blocks of water (at 128²;
-  the checks' dam sites within 60 tiles), a plug holding back a lake, or a high lake.
+  the checks' dam sites within 60 tiles), a ruined dam across the narrows (0.8, `ruinStories`), a plug holding back a
+  lake, or a high lake.
 - **A landmark in the colony's view:** a standing form 8 levels or more over its ring (`analysis/vertical.ts`
   `standingForms`), within 50 tiles of the start, its ground or its top in the opening frame.
-- **A mystery:** a relic on a pinnacle, a cave (terrain above terrain), a plugged lake, a district behind debris, or
-  a field of ruins on heights no beaver walks to (some mystery, not enough alone: it is on most rugged maps).
+- **A mystery:** a relic on a pinnacle, a cave (terrain above terrain), a plugged lake, a drowned village (0.7,
+  `ruinStories`), a district behind debris, or a field of ruins on heights no beaver walks to (some mystery, not enough alone: it is on most rugged maps).
 
 A feature two beats could claim counts in one: a plug holding back a lake in the project when the project has nothing
 else, else in the mystery; a district behind debris in the valley when the valley has nothing else, else in the

@@ -735,7 +735,7 @@ where the land's own processes make them. The builder's limits still fix what a 
   holding (pieces of 10+, each column reached from its own level, the start's ruin distance + 4). Their storeys are
   their own (`params.storeys`), their scrap comes out of the map's budget (at most half of it), and each carries its
   line in a player's words (`params.story.say`, read back by `ruinStories` for the Showcase's mystery and late-game
-  project beats). A plugged tunnel to buried water waits for objects in caves (D491).
+  project beats). A plugged tunnel to buried water waits for caves in generation (D488 (1)); objects may stand in them (D491).
 
 ### 9.10 Achievable ranges by map size
 

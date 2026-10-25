@@ -49,8 +49,9 @@ describe("Showcase mode (D488 (2))", () => {
     // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
     expect(c.valley.met).toBe(true);
     expect(c.valley.say).toMatch(/^A second district site 39 tiles out/);
-    // the debris counts once: in the valley, which has nothing else, not again as a mystery
-    expect(c.mystery.met).toBe(false);
+    // the debris counts once: in the valley, which has nothing else, not again as a mystery; the mystery
+    // is the drowned village in the lake's shallows (ruins placed with meaning, generator 0.8.10)
+    expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 57 tiles south-west of the start/);
     expect(c.drought.say).toMatch(/^Water 8 tiles' walk from the start holds through the first drought/);
     expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
     // the best three, best first: the second sibling, the asked map, the first sibling
