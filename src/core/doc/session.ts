@@ -44,7 +44,7 @@ import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
+import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation, Placement } from "../format/footprints";
@@ -228,7 +228,7 @@ export class MapSession {
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
-  private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedOutflowsCache: { key: BaseMap; out: Float32Array | null } | null = null;
   private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -1026,10 +1026,11 @@ export class MapSession {
     return this.storedWaterCache.water;
   }
 
-  /** The outflows the base file stores (its surface water's), for the 3D view's moving water. */
-  storedOutflows(): Float64Array | null {
+  /** The outflows the base file stores of every column `storedWater` lists (four an entry, each column its own), for
+   *  the 3D view's moving water and falls. */
+  storedColumnOutflows(): Float32Array | null {
     const b = this.baseStuff();
-    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedColumnOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
     return this.storedOutflowsCache.out;
   }
 

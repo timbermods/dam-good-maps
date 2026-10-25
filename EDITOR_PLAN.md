@@ -1453,13 +1453,16 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     the tiles that really changed and what they touch are drawn again (`terrainChanges.ts`: their chunks, the sky
     and tile data along each changed row's reach, the shadows over their bounds), the same as redoing the
     rectangles.
-  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column) to every water
-    view it sends, handed over with its other arrays (an imported map's stored outflows); the renderer works out
+  - The moving water (D353): the water worker adds the settle's own outflows (four a wet column, each column its
+    own: an imported map's stored per column, the stacked settle's per column on a map with caves) to every water
+    view it sends, handed over with its other arrays; the renderer works out
     the current from them (`render3d/current.ts`: net across each face, over the depth), never from the
     surface's slope, and a fall's lip pours the outflow over its side, the map's edge included (`falls.ts`). The renderer's bake worker (`bake.worker.ts`) turns it into the flow
     texture both looks' water reads and the moving water's shapes (`motionShapes.ts`: the lanes, wakes and seams as
     ready-made arrays), a quarter of a second after the water changes and at least once a second while it keeps
-    changing; `motion.ts` hands them to the GPU. Only drawn: nothing in it reaches the water or a map.
+    changing; `motion.ts` hands them to the GPU. Water below its tile's surface water (a cave's under a wet roof)
+    takes its own column's current and rough water from a volume by level the bake makes on such maps
+    (`caveCurrent.ts`). Only drawn: nothing in it reaches the water or a map.
   - The renderer warms while the first map loads (D367, part 1; `render3d/prepared.ts`): the page starts
     `prepareRenderer()` as a map's loading begins, which draws a small map with each kind of thing a map draws
     in the look that will be drawn, compiles its programs (`compileAsync`) and waits for the GPU; the 3D view takes

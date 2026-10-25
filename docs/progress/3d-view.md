@@ -149,9 +149,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
   `LAYER_REACH` (4 tiles: a fall's lips, their pools and the badwater blend round them; checked against a reach of 12,
   the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
-  `plainLayers(heights, sw)` is the one layer of a map without caves. A cave column's outflows are not in the view
-  (its outflows are each tile's open column's), so its falls estimate their flow from its depth, as a fall without
-  outflows always has (`falls.ts`), once a column on what it sees beside it.
+  `plainLayers(heights, sw)` is the one layer of a map without caves. Every column's falls pour its own outflow
+  (part 4b); a view without outflows estimates them from the depth, as a fall without outflows always has (`falls.ts`).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
   beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
   heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
@@ -171,7 +170,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   in, the sun the open air's at a mouth fading to the volume's going in. High's water under a roof takes its own
   column's badwater share, not the share of the water seen from above there.
 - **No contract change:** the worker's water view (`src/worker/session.ts`) is as it was; the renderer works out each
-  column's ceiling from the columns it already has.
+  column's ceiling from the columns it already has. (Part 4b makes its outflows each column's own.)
 - **Equivalence:** `tests/unit/waterLayers.test.ts` keeps the mesher as it was (`tests/fixtures/heightfieldWaterMesher.ts`)
   and meshes seven generated maps (all six themes and Any, 96², 128² and 256², falls included) both ways, and through
   the per-column path forced (every tile given as a column of one plain run): positions, depth and badwater, foam
@@ -195,10 +194,56 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
   river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
   tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).
-- **Falls short:** moving water's current and High's rough water read a texture per tile (the water seen from above),
-  so a cave's water under a wet roof flows as the roof's does; a cave column's falls estimate their flow. The cut still
-  drops what stands above it, water included. `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
+- **Falls short:** the cut still drops what stands above it, water included. (Water under a wet roof flowing as its
+  roof's, and a cave column's falls estimating their flow: built, part 4b.) `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
   hand-made cave with a pool and a puddle on its roof in CI.
+
+## Part 4b: water under water flows by its own column (built, `feature/3d-view-cave-current`)
+
+- **The outflows, each column its own** (the worker's view, `WaterView.outflow`, the same field, four a column): an
+  unedited import's are the file's per column (`ColumnOutflows` at each column's own slot: `storedColumnOutflows` in
+  `world.ts`, `MapSession.storedColumnOutflows`), no longer each tile's surface water's copied to every column under it;
+  an edited map with caves now has them at all (dev sent none, so its water was still): the stacked settle's
+  (`StackSettle.flows`, `stackWater.ts` `columnFlows`: the engine's momentum per pair of columns, summed by its way, the
+  quantity the heightfield's `WaterSim.out` is), gathered from each strip's own rows on the multi-core settle
+  (`stackParallel.ts`; on one thread and on four the same bytes, every fixture of `tools/rust/stack-identity.ts`, which
+  now compares them), and carried by `settledAgain` on the tiles an edit left (`stackSettleAgain*.test.ts` compare them
+  with a settle from cold). A view has every column's own outflows or none (a weather day under caves: the stacked
+  engine's water in flight has none). On a map without terrain above terrain nothing changes: one column a tile, the
+  same values. The estimate `waterLayers` made for a cave column's outflows is gone; its falls pour its own.
+- **The current under water** (`src/render3d/caveCurrent.ts`): where a column stands below its tile's surface water,
+  the bake worker deals the water into its layers (`waterLayers`), works out each such layer's current from its own
+  columns' outflows (`currentOf`, each face against the column it meets at its level) and its rough water from its own
+  surface (`roughWater`, over the tiles within 8 of those columns), and writes them into a volume by level (RGBA a cell,
+  only the levels such columns stand in: RG the current as the flow texture packs it, B the rough water, A 255 in their
+  cells; each tile's surface water fills its cells too with the flow texture's own values, so a river reads one current
+  across the line where its roof turns dry). The water shader (both looks, `materials.ts` `ownFlowAt`, under `CAVES`)
+  reads the cell it stands in (`texelFetch`), and where A says so takes the volume's current, filtered across tiles at
+  its level, for the moving surface and High's light and rough water (`shaders.ts`); everywhere else the flow texture,
+  as before. `motion.ts` keeps the texture (`caveFlowTex`, `caveFlowLevels`), rewritten in place; renderer.ts only
+  hands it the water per column at a bake.
+- **Equivalence:** a map with no column below its tile's surface water builds no volume (`caveCurrent` null), and the
+  shader's new lines are all under `CAVES`, so a map without terrain above terrain compiles the same program; the
+  water's outflows there are the same numbers. `tests/unit/waterLayers.test.ts` (generated maps meshed through the
+  heightfield mesher and the per-column path, byte for byte; the official maps, local) and the outflow tests
+  (`current.test.ts`, `outflows.test.ts`, `fallOutflow.test.ts`) pass unchanged.
+- **On caves** (`tests/contract/caveCurrent.test.ts`): a tunnel flowing east under a trench on the hill's top flowing
+  west. As an import with its water stored: every column's outflows are its own; the bake's flow texture moves the
+  trench west, the volume moves the tunnel east at its own level; the tunnel's fall at its step pours its column's 0.4,
+  not an estimate. Edited (sources at each head, the stacked settle): the view's outflows are the settle's per column,
+  the tunnel's east, the trench's west, and the current as drawn follows.
+- **Official maps** (local, measured once): Hollows has 14 tiles of water under water (its river under the badwater on
+  its roof at 66,124): dev moved all 14 with the roof's current, 13 of them against the river's own; Pressure has 8
+  (5 moving, now by their own); Pillars and Nomads none (no volume). Real Chrome on the RTX 2070 SUPER, both looks, no
+  shader error. The bake's extra work where there is water under water: dealing the layers once more, in the bake
+  worker (Hollows about 16 ms in Node, Pressure 25–160 ms on a loaded machine); none elsewhere. Memory: 4 bytes a cell
+  over the levels such water stands in (one level on Hollows and Pressure: 0.1 and 0.3 MB).
+- **Captures:** `docs/sheets/3d-view-cave-current.jpg` (Hollows cut at 5 over the river in its cave, dev against this
+  branch, Standard and High, 1920×1080 dark; the arrows an overlay of the current each tile's surface moves by).
+- **Falls short:** the foam threads, wakes and seams and the Flow view's streaks are the surface water's only (motion
+  shapes): water under water has none. A weather day under caves has no outflows (its water is still, as before). The
+  export still writes a map with caves' outflows as "0" (3D Foundations, `3d-foundations.md`: the game rebuilds the flow from
+  rest); the settle now has them per column, should a later stage write them.
 
 ## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
 
@@ -480,7 +525,7 @@ Each reads the same column masks the mesher reads. The seams:
    the cut, lit from the unsliced terrain (D207).
 7. **Kyler's notes at approval (built, items 7 and 8 and part 4 above):** the stone on ceilings and at corners,
    cave interiors tuned on real maps, objects, slopes and falls inside caves, water under roofs in the cave's light and
-   falls between a cave's own levels. Moving water's current under a roof is still the tile's (part 4, "Falls short").
+   falls between a cave's own levels. Water under water flows by its own column (part 4b).
 8. **Standard's open ground before a cave (built, items 7 and 8 above):** the baked shadow is cast from the voxels on
    maps with terrain above terrain.
 
