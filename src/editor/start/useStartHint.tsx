@@ -10,6 +10,7 @@ import type { StartCheckApi } from "../startCheck.worker";
 import { startSpots } from "../startHint";
 import type { BrushParams } from "../../core/features/raster/brush";
 import type { Ed } from "../ed";
+import { startRoofed } from "../shelf/aim";
 
 export interface StartHintSlice {
   setStartHint: Dispatch<StateUpdater<{ x: number; y: number; z: number; strong: boolean } | null>>;
@@ -68,7 +69,8 @@ export function useStartHint(ed: Ed): StartHintSlice {
     for (const sp of spots) {
       const [cx, cy] = cornerFor(sp.x, sp.y, s.orientation);
       const door = startEntranceTile(cx, cy, s.orientation);
-      if (startProblemAt(c, sp.x, sp.y, door, null, s.owner)) continue;
+      // (on a cave or an overhang the core keeps the start off, D491: no hint there)
+      if (startProblemAt(c, sp.x, sp.y, door, null, s.owner) || startRoofed(ed.columnsRef.current, W, info.H, sp.x, sp.y)) continue;
       hintMs.current = Math.round(performance.now() - t0);
       const z = m.heights[sp.y * W + sp.x];
       setStartHint({ x: sp.x, y: sp.y, z, strong: false });
@@ -107,6 +109,8 @@ export function useStartHint(ed: Ed): StartHintSlice {
         style={{ left: `${at.x}px`, top: `${at.y}px` }}
         onClick={() => {
           setStartHint(null);
+          // (the ground may have changed since: on a cave or an overhang the start stays where it is, D491)
+          if (startRoofed(ed.columnsRef.current, info.W, info.H, h.x, h.y)) return;
           void run(() => api.moveStartTo(h.x, h.y));
         }}
       >

@@ -5,7 +5,7 @@
 // checks list and the indicators carry them now.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, openEditor, openSection } from "./open";
+import { centreOn, openEditor, openSection, topDown } from "./open";
 
 type Check = { id: string; ok: boolean; value?: number | string; limit?: number | string; where?: { tiles?: [number, number][] } };
 // the species words, then the saplings' wood, shown apart as growing
@@ -47,7 +47,7 @@ test("the start requirements follow the settings, and the editor's start follows
 
   // the editor: the indicators name the three requirements with the map's numbers (the drawer closed again)
   await page.locator("header.editor-bar").getByRole("button", { name: "Map Generator", exact: true }).click();
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // the start dragged on the map, a tile over and back: the indicators read the start's own place,
   // which the validator passed
   const start = (await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] };

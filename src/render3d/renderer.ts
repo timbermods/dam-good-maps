@@ -1,7 +1,7 @@
 // The one 3D renderer (PLAN §3, EDITOR_PLAN §8), used by the generator's 3D preview and by the
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
-// instanced objects. It has an orbit camera and a top-down view (north up), picks tiles against
+// instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
 // the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
 // instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
 //
@@ -53,6 +53,7 @@ import {
   ColorManagement,
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
+import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import type { Voxels } from "./wear";
@@ -66,7 +67,7 @@ import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomStep } from "./framing";
+import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { OverlayRuns } from "./overlayRuns";
@@ -292,7 +293,7 @@ export class MapRenderer {
   readonly canvas: HTMLCanvasElement;
   private gl: WebGLRenderer;
   private scene = new Scene();
-  private persp = new PerspectiveCamera(40, 1, 0.5, 4000);
+  private persp = new PerspectiveCamera(PERSP_FOV_DEG, 1, 0.5, 4000);
   private ortho = new OrthographicCamera(-1, 1, 1, -1, 0.1, 4000);
   private raycaster = new Raycaster();
   private view: ViewState = { mode: "orbit", yaw: 0, pitch: 0.9, distance: 200, target: [0, 0, 0] };
@@ -391,7 +392,9 @@ export class MapRenderer {
   private recording = false;
   tool: PointerTool | null = null;
   onView: ((v: ViewState) => void) | null = null;
-  onHover: ((hit: TileHit | null) => void) | null = null;
+  /** The pointer moved: the editing pick, and on a tile with a cave or an overhang the ground seen (the voxel pick: a
+   *  cave's floor through its mouth), which the hover readout names. */
+  onHover: ((hit: TileHit | null, seen?: TileHit | null) => void) | null = null;
   /** A left click (a press and release without dragging) on the map. */
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
@@ -557,6 +560,7 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
   }
@@ -1649,6 +1653,7 @@ export class MapRenderer {
     this.objectGround = heights.slice();
     this.drawnLand = heights.slice();
     this.settleObjects();
+    this.hollowStale = true;
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2036,6 +2041,8 @@ export class MapRenderer {
     m.heights = heights;
     this.heightStats = null;
     m.source = { ...m.source, heights };
+    // (the hollow under the cursor follows the roof's new top)
+    this.hollowStale = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2613,6 +2620,8 @@ export class MapRenderer {
    *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
   showBlocks(preview: BlockPreview | null): void {
     const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
+    this.blockReach = any ? blockReach([...preview.added, ...preview.removed]) : null;
+    this.hollowStale = true;
     if (!any && !this.blockCells) return;
     this.blockCells ??= new BlockCells(this.scene);
     if (this.blockCells.set(any ? preview : null, this.slice)) this.requestRender();
@@ -2635,7 +2644,47 @@ export class MapRenderer {
     }
     // (laid on the ground once a frame, however many times the pointer moved: renderNow)
     this.cursorStale = true;
+    this.hollowStale = true;
     this.requestRender();
+  }
+
+  private hollow: HollowMarks | null = null;
+  /** The cursor, its reach or the ground under it changed since the hollow under it was drawn. */
+  private hollowStale = false;
+  /** The Block tool's reach: round the blocks its preview shows. */
+  private blockReach: HollowReach | null = null;
+
+  /** The hollow under the cursor (hollow.ts; D488): on a map with terrain above terrain, the air under the roof within
+   *  the cursor's reach (the brush's, else a force's or the shelf's ring, else the Block tool's blocks), drawn on the
+   *  roof's top. A map without any column that is not plain stops at the first test. */
+  private layHollow(): void {
+    this.hollowStale = false;
+    const m = this.map;
+    if (!m || (m.source.columns.size === 0 && !this.hollow)) return;
+    const b = this.brushCursorState;
+    const f = this.forceRingState;
+    const reach: HollowReach | null = m.source.columns.size === 0 ? null
+      : b ? { x: b.x, y: b.y, radius: b.radius, square: b.square, aim: b.run ? this.aim : null }
+      : f ? { x: f.x, y: f.y, radius: f.marker ? 1.5 : Math.max(1, f.r) }
+      : this.blockReach;
+    const src = m.source;
+    const keep = cutKeep(this.slice);
+    const masks = src.masks;
+    const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
+    const maskAt = (i: number) => columnMask(src, i) & keep;
+    const tiles = reach ? hollowFootprint(m.W, m.H, listed, maskAt, reach) : null;
+    if (!tiles?.length && !this.hollow) return;
+    (this.hollow ??= new HollowMarks(this.scene)).set(tiles, reach, (x, y) => {
+      if (x < 0 || y < 0 || x >= m.W || y >= m.H) return false;
+      const i = y * m.W + x;
+      return listed(i) && roofOf(maskAt(i)) !== null;
+    });
+    this.requestRender();
+  }
+
+  /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
+  get hollowDrawn(): { tiles: number; edges: number } {
+    return this.hollow?.drawn ?? { tiles: 0, edges: 0 };
   }
 
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
@@ -2645,6 +2694,11 @@ export class MapRenderer {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
+    // (the hollow under the ring follows it, on a map with terrain above terrain)
+    if (m.source.columns.size || this.hollow) {
+      this.hollowStale = true;
+      this.requestRender();
+    }
     if (!this.ring) {
       if (!s) return;
       this.ring = new ForceRing(this.scene);
@@ -2790,10 +2844,33 @@ export class MapRenderer {
   }
 
   setMode(mode: ViewMode): void {
-    this.setView({ mode });
-    // (a view switched to frames the whole map, centred: D345, B1)
+    // (a map opened top-down has north up)
+    this.setView(mode === "top" ? { mode, yaw: 0 } : { mode });
+    // (a map opened in a mode is framed whole, centred: D345, B1; the Top-down toggle keeps the view instead: switchMode, D492)
     this.frameMap();
     this.requestRender();
+  }
+
+  /** Switch between the angled and the top-down view keeping what is at the centre of the canvas and the zoom there
+   *  (D492: the toggle is the player's own move, so the map doesn't jump). Only the tilt changes: the turn and the
+   *  pitch stay (the top-down view is turned as the angled one was, the compass turns it north in either). The point
+   *  kept is the ground the centre pixel sees, which a pan leaves off the target when the land is higher or lower
+   *  than it. At once, as a mode always switches. */
+  switchMode(mode: ViewMode): void {
+    if (mode === this.view.mode) return;
+    cancelAnimationFrame(this.glideFrameTo);
+    let v = this.view;
+    const box = this.canvas.getBoundingClientRect();
+    const seen = this.map ? this.zoomPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
+    if (seen) {
+      // (the camera stays where it is, as drawn: nearer than the view's distance where rock holds it in; the target
+      //  slides along its line of sight to the point seen)
+      const cam = orbitEye(v.target, v.yaw, v.pitch, this.reach().reach);
+      const p = seen.point;
+      const along = v.mode === "orbit" ? Math.hypot(cam[0] - p[0], cam[1] - p[1], cam[2] - p[2]) : v.distance;
+      v = { ...v, target: [p[0], p[1], p[2]], distance: along };
+    }
+    this.setView(viewAfterModeSwitch(v, mode, this.map ? zoomLimits(this.map.W, this.map.H) : { min: 6, max: 768 }));
   }
 
   private glideFrameTo = 0;
@@ -2833,7 +2910,9 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    // (a top-down view is framed north up)
+    const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
+    this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2845,7 +2924,7 @@ export class MapRenderer {
   private insets: FrameInsets = { top: 0, left: 0, bottom: 0, right: 0 };
 
   /** The page's controls over the canvas's edges (CSS pixels, each 0 or more; the ones left out keep
-   *  theirs): the next framing (Reset view, a view switched, a new map) fits the map in what is left.
+   *  theirs): the next framing (Reset view, a new map, a map opened in a mode) fits the map in what is left.
    *  The camera never moves for it by itself (D265: a panel opening or closing leaves the view as it
    *  is). A reason when refused, nothing changed; else null. */
   setFrameInsets(i: Partial<FrameInsets>): string | null {
@@ -2939,13 +3018,14 @@ export class MapRenderer {
     const h = this.canvas.clientHeight || 1;
     const aspect = w / h;
     if (v.mode === "top") {
-      const half = v.distance * 0.42;
+      const half = v.distance * ORTHO_HALF_PER_DISTANCE;
       this.ortho.left = -half * aspect;
       this.ortho.right = half * aspect;
       this.ortho.top = half;
       this.ortho.bottom = -half;
       this.ortho.position.set(tx, 200, tz);
-      this.ortho.up.set(0, 0, -1);
+      // (the screen's up is the way the view faces along the ground: north at yaw 0)
+      this.ortho.up.set(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
       this.ortho.lookAt(tx, 0, tz);
       this.ortho.updateProjectionMatrix();
       // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
@@ -2986,6 +3066,7 @@ export class MapRenderer {
       this.cursorStale = false;
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
+    if (this.hollowStale) this.layHollow();
     // a stroke's water still to draw: a few milliseconds of it a frame (updateWaterSoon)
     if (this.waterQueue.size || this.waterReady) {
       this.drainWater(WATER_MESH_BUDGET_MS);
@@ -3275,10 +3356,11 @@ export class MapRenderer {
       // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
       const m = this.map;
       const seen = this.pickSeen(ev.clientX, ev.clientY);
-      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seen && m?.source.columns.has(seen.y * m.W + seen.x) ? (seen.level ?? -1) : -1);
+      const seenCave = seen && m?.source.columns.has(seen.y * m.W + seen.x) ? seen : null;
+      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seenCave ? (seen!.level ?? -1) : -1);
       const t = this.tool;
       t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
-      this.onHover?.(hit);
+      this.onHover?.(hit, seenCave);
     });
     const end = (e: Event) => {
       const ev = e as PointerEvent;
@@ -3383,7 +3465,7 @@ export class MapRenderer {
       const now = performance.now();
       const h = this.held;
       // (cameraGlide.ts: eased in and out, a screen's height in about 1.4 s, Shift 2.5 times that)
-      const s = glideStep(this.glide, wanted(h, this.view.mode === "orbit"), (now - this.glideAt) / 1000);
+      const s = glideStep(this.glide, wanted(h, true), (now - this.glideAt) / 1000);
       this.glideAt = now;
       this.glide = s.glide;
       if (s.moving) {
@@ -3438,7 +3520,7 @@ export class MapRenderer {
     const v = this.view;
     const h = this.canvas.clientHeight || 1;
     const perPixel = v.mode === "top" ? (v.distance * 0.84) / h : (v.distance * 0.75) / h;
-    const yaw = v.mode === "top" ? 0 : v.yaw;
+    const yaw = v.yaw;
     // screen right and screen up, on the ground
     const rx = Math.cos(yaw);
     const rz = -Math.sin(yaw);
@@ -3567,6 +3649,7 @@ export class MapRenderer {
     this.mesherOwn?.dispose();
     this.cursor?.dispose();
     this.ring?.dispose();
+    this.hollow?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
