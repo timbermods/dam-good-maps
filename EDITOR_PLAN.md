@@ -1303,6 +1303,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   the generation placed stand, and the water and moisture under them never take one away or bring one back; a tree
   or a bush is marked dead or alive from the ground under it, dead where it is dry, flooded or contaminated, as the
   game's editor does (D404). A Flatten that floods a grove and a Lift that drains it leave the same trees. A
+  generated map's storied ruins (a ruined dam across the narrows, a drowned village; PLAN §9.7, D488 (2)) are ruin
+  fields like any other in the editor, keeping their columns' storeys and their line (`params.story`). A
   generated spring's row of sources is kept as the generation placed it (`BuildInput.generatedSprings`, from the
   stored map): the same sources, count and ids, whatever an edit does round it (a Quake carrying the start off
   ground the row could have grown onto adds no source); each stands on the ground as it is now (D447, D314). What
