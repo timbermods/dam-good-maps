@@ -52,13 +52,52 @@ export function canDrawHero(): boolean {
   }
 }
 
-/** The map's picture as a 960×540 JPEG, or null where it can't be drawn (no GPU, no WebGL 2). Throws
- *  when drawing fails; the caller keeps the core's thumbnail then. */
-export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Array | null> {
+/** What `heroPicture` draws: the picture's size in pixels (the default is the .timber thumbnail's, 960×540,
+ *  which the saved file keeps byte for byte) and the JPEG's quality. Other sizes are for the page's own
+ *  pictures (a card in Showcase mode): the same framing at any size, best at the thumbnail's 16:9. */
+export interface HeroOptions {
+  width?: number;
+  height?: number;
+  /** JPEG quality, 0–1 (default 0.9). */
+  quality?: number;
+}
+
+/** The smallest and largest side of a picture (pixels). */
+const MIN_SIDE = 16;
+const MAX_SIDE = 4096;
+
+function side(v: number | undefined, dflt: number, what: string): number {
+  if (v === undefined) return dflt;
+  if (!Number.isFinite(v) || Math.round(v) < MIN_SIDE || Math.round(v) > MAX_SIDE) throw new RangeError(`the picture's ${what} must be ${MIN_SIDE}–${MAX_SIDE} pixels, not ${v}`);
+  return Math.round(v);
+}
+
+/** Pictures are drawn one at a time (a page asking for three draws them in turn): each uses a WebGL context
+ *  of its own for a moment, and browsers keep only a few at once. */
+let queue: Promise<unknown> = Promise.resolve();
+
+/** The map's picture as a JPEG (960×540 unless `opts` gives a size), or null where it can't be drawn (no
+ *  GPU, no WebGL 2). Throws when drawing fails; the caller keeps the core's thumbnail then. */
+export async function heroPicture(view: MapView, opts: HeroOptions = {}): Promise<Uint8Array | null> {
+  const w = side(opts.width, HERO_W, "width");
+  const h = side(opts.height, HERO_H, "height");
+  const run = queue.then(() => draw(view, w, h, opts.quality ?? 0.9));
+  queue = run.catch(() => undefined);
+  return await run;
+}
+
+/** The same picture as an object URL for an `<img>` (or null where it can't be drawn). The caller frees it
+ *  with `URL.revokeObjectURL` when the picture goes. */
+export async function heroPictureUrl(view: MapView, opts: HeroOptions = {}): Promise<string | null> {
+  const jpeg = await heroPicture(view, opts);
+  return jpeg ? URL.createObjectURL(new Blob([jpeg as BlobPart], { type: "image/jpeg" })) : null;
+}
+
+async function draw(view: MapView, pw: number, ph: number, quality: number): Promise<Uint8Array | null> {
   if (!canDrawHero()) return null;
   const host = document.createElement("div");
   // off screen at the picture's size (CSS pixels; the renderer draws at up to twice them, scaled down below)
-  host.style.cssText = `position:fixed;left:-${HERO_W * 4}px;top:0;width:${HERO_W}px;height:${HERO_H}px;pointer-events:none;opacity:0`;
+  host.style.cssText = `position:fixed;left:-${pw * 4}px;top:0;width:${pw}px;height:${ph}px;pointer-events:none;opacity:0`;
   host.setAttribute("aria-hidden", "true");
   const canvas = document.createElement("canvas");
   canvas.style.cssText = "display:block;width:100%;height:100%";
@@ -76,7 +115,7 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
     r.holdShowcase();
     r.setClock(CLOCK);
     r.setMap(view, false, true);
-    frameHero(r, view);
+    frameHero(r, view, pw, ph);
     const t0 = performance.now();
     while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {
       r.renderNow();
@@ -85,12 +124,12 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
     r.renderNow();
     // (in the same task as the frame: the canvas keeps no copy of it after)
     const out = document.createElement("canvas");
-    out.width = HERO_W;
-    out.height = HERO_H;
+    out.width = pw;
+    out.height = ph;
     const g = out.getContext("2d");
     if (!g) throw new Error("no 2D canvas to encode the picture");
     g.imageSmoothingQuality = "high";
-    g.drawImage(r.canvas, 0, 0, HERO_W, HERO_H);
+    g.drawImage(r.canvas, 0, 0, pw, ph);
     const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/jpeg", quality));
     if (!blob) throw new Error("the browser could not encode the picture");
     return new Uint8Array(await blob.arrayBuffer());
@@ -102,7 +141,7 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
 
 /** Point the camera as the game's thumbnails do: turned as the new game opens, looking down at
  *  HERO_PITCH, the map's width filling the frame and its far edge under a band of sky. */
-function frameHero(r: MapRenderer, view: MapView): void {
+function frameHero(r: MapRenderer, view: MapView, w: number, h: number): void {
   const { W, H, heights } = view;
   let sum = 0;
   for (let i = 0; i < heights.length; i++) sum += heights[i];
@@ -113,13 +152,13 @@ function frameHero(r: MapRenderer, view: MapView): void {
   const rect = r.canvas.getBoundingClientRect();
   for (let pass = 0; pass < 8; pass++) {
     let b = box();
-    const s = (b.x1 - b.x0) / (FILL * HERO_W);
+    const s = (b.x1 - b.x0) / (FILL * w);
     const v = r.getView();
     if (Number.isFinite(s) && s > 0) r.setView({ distance: Math.min(v.distance * s, Math.max(W, H) * 6) });
     b = box();
     // the box's middle across, and its top SKY down from the frame's: the ground under where it is moved to where it goes
-    const at = r.pickAtLevel(rect.left + (b.x0 + b.x1) / 2, rect.top + b.y0 + HERO_H / 2, level);
-    const to = r.pickAtLevel(rect.left + HERO_W / 2, rect.top + SKY * HERO_H + HERO_H / 2, level);
+    const at = r.pickAtLevel(rect.left + (b.x0 + b.x1) / 2, rect.top + b.y0 + h / 2, level);
+    const to = r.pickAtLevel(rect.left + w / 2, rect.top + SKY * h + h / 2, level);
     if (!at || !to) break;
     const t = r.getView().target;
     r.setView({ target: [t[0] + at.point[0] - to.point[0], t[1], t[2] + at.point[2] - to.point[2]] });
