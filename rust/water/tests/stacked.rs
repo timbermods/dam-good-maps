@@ -357,3 +357,27 @@ fn a_settle_goes_on_from_the_water_as_written() {
     let mut flat = Engine::new(columns::model(4, 4, &[7; 16], &[]).unwrap(), true).unwrap();
     assert!(flat.settle_from_state(1.0).is_err());
 }
+#[test]
+fn a_big_sealed_lake_never_excuses_water_still_filling_beside_it() {
+    // a full cave lake (48 of water) and, on the rock beside it, a pond a source still fills: ten columns rising
+    // 0.0004 between two checks, each under the 0.005 that counts as moved, the pond's water 0.4% more
+    let mut m = dry_cave();
+    cave_lake(&mut m, 3.0);
+    let retained = m.retained.clone();
+    let mut e = Engine::new(m, true).unwrap();
+    e.prefill().unwrap();
+    let Flow::Stacked(s) = &mut e.flow else { panic!() };
+    let sealed = water::stack_prefill::sealed_columns(s, &retained);
+    let pond: Vec<usize> = (1..=5).flat_map(|y| [9, 10].map(|x| y * 12 + x)).collect();
+    for &c in &pond {
+        s.d[c] = 0.1;
+    }
+    let (prev_d, prev_o) = (s.d.clone(), s.o.clone());
+    // nothing changed but the lake (here not even it): steady
+    assert!(water::stack_prefill::steady_apart_from_sealed(s, &prev_d, &prev_o, &sealed, 0.005, 0.005));
+    for &c in &pond {
+        s.d[c] = 0.1004;
+    }
+    // the pond's change is weighed against the pond's water (0.4%), not the lake's and the pond's (0.008%): not steady
+    assert!(!water::stack_prefill::steady_apart_from_sealed(s, &prev_d, &prev_o, &sealed, 0.005, 0.005));
+}

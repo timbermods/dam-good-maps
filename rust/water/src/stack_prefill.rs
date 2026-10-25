@@ -247,7 +247,7 @@ pub fn sealed_columns(s: &Stack, retained: &[Retained]) -> Vec<usize> {
     v.dedup();
     v
 }
-pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], vol: f64, sealed: &[usize], tol: f64, share: f64) -> bool {
+pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], sealed: &[usize], tol: f64, share: f64) -> bool {
     let size = s.d.len();
     let mut feeds = vec![false; size];
     for em in &s.emitters {
@@ -313,7 +313,9 @@ pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], vol: 
             moved += 1;
         }
     }
-    (rest - prev).abs() / max(vol, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
+    // (the rest's change against the rest's own water, as the heightfield's rule (settle.rs): a lake holding much more
+    // water than the rivers would otherwise let them still fill while the check passes)
+    (rest - prev).abs() / max(rest, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
 }
 pub struct SettleRun {
     pub every: u64,
@@ -472,7 +474,7 @@ impl SettleRun {
         } else {
             if !self.sealed.is_empty()
                 && self.steady.is_none()
-                && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, vol, &self.sealed, 0.005, 0.005)
+                && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, &self.sealed, 0.005, 0.005)
             {
                 self.steady = Some(s.ticks);
                 if self.until_steady {
