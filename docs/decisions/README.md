@@ -140,7 +140,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The editor and its tools](editor.md)
 
 - D492: Toggling top-down keeps the zoom and the spot being looked at
-- D487: The brushes on caves and overhangs: the top run only, nothing left that would fall
+- D487: The brushes on caves and overhangs: the top run only, nothing left that would fall (amended: the forces leave the roof-holding ground)
 - D459: Naturalize sound
 - D158: Live editing
 - D182: The brush kit

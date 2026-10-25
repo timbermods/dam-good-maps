@@ -1,6 +1,6 @@
 // Built directly in Rust (D438/D444). Behaviour/look reference: Deposit round 2, approved #114/D364.
 use super::*;
-use super::rift::{noise, result, ride};
+use super::rift::{keep_footprints, noise, result, ride};
 
 pub(super) struct DepositRecords {
     pub arrival: Vec<f32>, pub channel: Vec<u8>, pub stages: Vec<u8>,
@@ -302,6 +302,7 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     stats[3]=stats[2]-stats[1];debug_assert!(brought||stats[3]==0.0);
     // (nothing laid: the player's Keep or working area holds the whole outline, or the map has no room there)
     if deposited==0{map.error=if (0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
+    keep_footprints(before,&mut map);
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};

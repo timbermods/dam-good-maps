@@ -25,6 +25,9 @@ const HEAVY = [
 
 export default defineConfig({
   test: {
+    // Off CI, three workers at most (DGM_TEST_WORKERS overrides): several sessions' agents share the machine,
+    // and a worker per core in each checkout used up its memory (2026-10-24). CI keeps vitest's default.
+    maxWorkers: process.env.CI ? undefined : Number(process.env.DGM_TEST_WORKERS ?? 3),
     projects: [
       {
         extends: true,

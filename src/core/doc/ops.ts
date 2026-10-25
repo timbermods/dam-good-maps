@@ -18,7 +18,7 @@ import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
-import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
@@ -50,7 +50,7 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground holding objects set under a roof (D491): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
   /** A force of nature (Carve, Craterize, Erupt, Quake, Glaciate: D194, D202, D203, D206, D220, D246),
@@ -60,7 +60,8 @@ export interface OpParams {
   placeEntity: PlaceEntityParams;
   /** `quiet`: only a force's own edit sets it (an object it carried that is gone, or whose new ground
    *  is taken, is left out); an operation in the log never does. */
-  moveEntity: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean };
+  /** `z`: the level it lands on under a roof (D491), as `placeEntity`'s; omitted, the ground's top. */
+  moveEntity: { id: string; x: number; y: number; z?: number; orientation?: Orientation; quiet?: boolean };
   /** `quiet`: ids already gone are fine. Only a force's own edit sets it (its ground places the
    *  resources again); an operation in the log never does. */
   deleteEntities: { entities: string[]; quiet?: boolean };
@@ -459,13 +460,16 @@ export interface OpContext {
   otherStarts?: number;
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
-  placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  placement?: (p: { template?: string; id?: string; x: number; y: number; z?: number; orientation?: Orientation; flipped?: boolean }) => string | null;
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
   water?: { model: WaterModel; depth: ArrayLike<number> };
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
+   *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
+  masks?: ArrayLike<number> | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -590,6 +594,17 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
   }
 }
 
+/** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
+function levelProblems(f: Feature, ctx: OpContext): string[] {
+  if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  const pl = f.params.placement;
+  const name = OBJECT_NAMES[f.params.kind].toLowerCase();
+  if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
+  return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
 /** Why an operation cannot be applied now (empty when it can). */
 /** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
 export function schemaProblems(op: EditOp): string[] {
@@ -614,7 +629,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const missing = dependenciesOf(f).filter((d) => !featureById(d));
       if (missing.length) return [`it builds on ${missing.join(", ")}, which does not exist`];
       if (op.params.index !== undefined && op.params.index > state.features.length) return [`index ${op.params.index} is past the end of the feature list`];
-      return featureGeometryProblems(f, W, H);
+      const geometry = featureGeometryProblems(f, W, H);
+      return geometry.length ? geometry : levelProblems(f, ctx);
     }
     case "updateFeature": {
       const f = featureById(op.params.id);
@@ -626,7 +642,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (missing.length) return [`it would build on ${missing.join(", ")}, which does not exist`];
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
-      return featureGeometryProblems(after, W, H);
+      const geometry = featureGeometryProblems(after, W, H);
+      return geometry.length ? geometry : levelProblems(after, ctx);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];
@@ -706,13 +723,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if (options.length) return options;
       }
       // an object the game would delete on load is refused
-      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
+      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation, flipped: p.flipped });
       return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
-      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
+      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation });
       return why ? [why] : [];
     }
     case "deleteEntities": {

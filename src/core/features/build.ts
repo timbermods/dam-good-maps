@@ -1344,7 +1344,16 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    (a plant the Block tool left on the top of its run, under a block built over it, stands there, not on the
   //    surface: each operation's `stands`, the latest first to last, where the ground still holds it)
   const stood = new Map<string, number>();
-  for (const sc of input.sculpts ?? []) if (isBlocks(sc.params) && sc.params.stands) for (const [id, z] of sc.params.stands) stood.set(id, z);
+  // (an object moved after the operation stands where its move put it)
+  const movedAt = new Map<string, number>();
+  for (const ed of input.entityEdits ?? []) if (ed.op === "moveEntity") movedAt.set(ed.params.id, Math.max(movedAt.get(ed.params.id) ?? -Infinity, ed.seq));
+  for (const sc of input.sculpts ?? []) {
+    if (!isBlocks(sc.params) || !sc.params.stands) continue;
+    for (const [id, z] of sc.params.stands) {
+      if ((movedAt.get(id) ?? -Infinity) > (sc.seq ?? Infinity)) stood.delete(id);
+      else stood.set(id, z);
+    }
+  }
   if (stood.size) {
     const dug = masksOf(terrain);
     finalEntities = finalEntities.map((e) => {

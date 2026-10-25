@@ -219,7 +219,24 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     in shallow water. The rule lives in the core (`core/features/footprintLevel.ts` `platformLevel`,
     `core/doc/placing.ts` `levelFootprint`, `levelProblem`); the ghost shows the level the worker names. Other
     objects' tiles, caves and water are left as they are; water and badwater sources stay cut-only (D290). It
-    refuses only at the map's edge, in a cave and on another object's tiles, with one plain reason. A generated
+    refuses only at the map's edge and on another object's tiles, with one plain reason.
+  - **Objects stand in caves where the game allows them** (D491): a map object, a source, a seep, an aquifer, a
+    ruin, a mine site, a tree or a bush may stand on a cave's floor, on the ground under a ledge or on a roof's
+    top. Under a roof nothing is levelled: the game's own rule decides, block by block (`core/features/objects.ts`
+    `standProblem`, the checks' `entities.placement` and `plants.clearance`): the cells it occupies are air (its
+    height in room: a pine needs 3 levels), solid ground under every block that needs it, and the water objects,
+    geothermal fields and mine sites on ground that goes down to the map's bottom (a cave's floor, never a ledge or
+    a roof's top). A refusal is one plain line ("not enough room under the roof here: the ruin needs 5"). The
+    placement names its level (`placeEntity` and `moveEntity` `z`, a run's top below the tile's surface); the
+    object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
+    the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach. An object
+    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground) is held:
+    strokes, sculpts and forces keep the tiles that would bury it or leave it floating within a floor and ceiling
+    (`objects.ts` `objectHolds`; the stroke preview shows the same) and shape the rest as normal, never refused for
+    it (D270). Only a stroke with nothing left to shape, or, as a last guard, an edit that would still lose such an
+    object (Erode, which works under roofs), is refused with one line. A feature edit clears an object at a level
+    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
@@ -681,7 +698,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   line, "12 blocks of ground would fall: nothing would hold them up", and the page's stroke can show that ground
   while it is painted (`StrokePreview.falls`). The same refusal covers every edit on such a map: a force's result, a
   removed object that held ground. The forces stay on heightfield ground: on a map with caves they leave the caves'
-  tiles as they are, as before. On a map without caves nothing changes, byte for byte.
+  tiles, and the ground that holds up their roofs (the ground beside them, `terrain/support.ts` `roofHolders`, and an
+  object whose top holds one with its tiles, `objectRoofHolders`), as they are (D487), so a force runs round a cave and
+  nothing it leaves falls (Erode works under roofs and holds them itself). A force's point
+  on a cave or on that ground is refused at once, naming the place ("A force leaves caves and overhangs as they are:
+  there is one at X 17 · Y 17"), and on such a map a force is worked out before it plays, with the objects it leaves: one that would still leave
+  ground falling is refused then, naming the place ("2 blocks of ground would fall at X 32 · Y 19: …"; `forces/start.ts`
+  `fallsBeforePlay`), never shown and then taken back. On a map without caves nothing changes, byte for byte.
 - **Ground, Water and Both** (D322, item 2): every brush's mode. **Ground** changes only dry tiles and never lowers
   a tile beside water below that water's surface; **Water** changes only the wet tiles (those drawn as water); **Both**
   (default) changes everything. Which tiles are wet is fixed when a stroke starts, from the map's own water (never a

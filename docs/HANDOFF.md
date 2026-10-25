@@ -190,6 +190,7 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   `batch -- --group <name>` writes its maps first (`Tall maps` and `Sizes` have one; `Parity` on `feature/parity`; `Terrain
   3D` needs one when it merges; if its run is refused, leave the batch for Kyler).
   `batch -- --companion` checks the companion mod in the game (`mods/companion`, `investigation/probe/README.md` "Companion mode"): `--dry-run` prints the plan, then the same command with `--reference` and the code, like any batch.
+  `batch -- winner.timber --factions folktails,ironteeth --cycles 10 --keep-mods` plays a map to cycle 10 on both factions (D488 (2), Showcase mode's winner): 185 game days of the hardest weather Normal's rules allow, the same every run, with a table per map and faction in `summary.md`, a row per cycle (the start's water a pump reaches, the map's water and soil against the model, the farmland and food by the start, the real time); about 68 minutes for a 128² map on both factions, 148 at 256² (`investigation/probe/README.md`, "Run it"). Needs DGM Probe 0.3.2 for the time per cycle.
   Results go to `C:\dgm-probe\`, never Documents. The runner restores his settings, logs and player data, moves what the
   games created out of `Documents\Timberborn`, and stops with exit code 6 if anything new is left (`leftovers.json`).
 - **Merging** (D341, amended by D489 and D490): a change merges into `dev` once a fresh reviewer agent that
