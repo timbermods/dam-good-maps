@@ -1306,8 +1306,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
     (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
-    weather is the heightfield's, bit for bit. Fill and Remove unfed water are refused there with one plain
-    line each until each has its rule for water in caves (`sim/stackWater.ts` `cavesOf` decides which maps).
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water work there on every water column
+    (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
     run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
@@ -1334,6 +1334,27 @@ checks dot counts; every other row is information under Good to know, worded as 
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
     stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
     edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
+    **On a map with caves or overhangs** both ask every water column, on the stacked engine's own geometry
+    (`sim/stackFed.ts`; `sim/stackWater.ts` `stackGraph`: its columns, the edges between overlapping columns of
+    neighbouring tiles, the map's edge, the direction limiters, the columns a running emitter gives water into).
+    Fed water is reached along those edges by the same rule (`fedColumns`), so a cave pool no source feeds is
+    unfed, a spring cave's pool or a siphon under pressure fed. A removal names tiles as on a heightfield and takes
+    the unfed water of every column of them, never a fed river over a cave pool: a pool with a tile in the
+    selection goes whole, and so does every unfed pool on a tile it shares (a pool on a roof over a cave pool), so
+    nothing is taken by halves; once the stacked settle has passed, that water is taken and the water settles on
+    from it (`canonicalStackRun`, at most `STACK_DRAIN_DAYS`). A Fill is measured from one water column at (x, y)
+    (`planFill`'s `floor`, stored as the operation's `floor`: a cave's floor under its roof; by default the
+    tile's highest column whose ground is below the level): every column joined to it whose ground is below the
+    level stands at that level, a column whose roof is lower full, under the pressure of the water above it, as
+    the game holds it; refused when the water would leave the map, or when no column of the hollow is open up to
+    the level ("the hollow is closed above at level 6: fill it to 6 or lower"). Its lake has one entry a column,
+    ascending by tile and then floor, each naming its column by its floor (the engine's `retained_column`: the
+    tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
+    sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
+    the water the game loads stays as it is: the lake only evaporates, nothing spills
+    (`tests/contract/caveWaterEdits.test.ts`). An imported map's own unfed water is kept on every column, a pool
+    in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
+    water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,
@@ -1366,7 +1387,9 @@ checks dot counts; every other row is information under Good to know, worded as 
     or a held Drought or Badtide day it starts from the map's own water. It is only shown: the kept map's water is settled
     anew. Moving water (a stroke's, a force's, the water's journey after an edit)
     is drawn again only where it moved visibly since it was drawn, a whole moment at a time: a few workers mesh those chunks on one water
-    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; a force's water and
+    (`updateWaterSoon`, `waterMesher.ts`) and the page draws them together, never a mix of moments; water put in place
+    (the journey's last frame, an edit's answer) is meshed there too, every chunk it changed drawn exactly a frame or two
+    on, and where the page is cross-origin isolated the workers read one copy of the water on shared memory; a force's water and
     the journey are shown averaged over their last dozen ticks, so a thin sheet's waves never strobe at the many times
     the game's pace they play at (on its own thread where no worker starts), and High's occlusion round the brush's changes is redone a millisecond or
     two a frame, so painting and turning the view keep the display's rate. On release, the stroke's operation carries that water on into

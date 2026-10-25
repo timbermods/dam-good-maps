@@ -239,6 +239,25 @@ impl Engine {
         });
         Ok(())
     }
+    /// The canonical settle on from the water as it stands (written, not pre-filled), on stacked water: the
+    /// water settling on once a removal took the unfed water it drained (src/core/sim/stackWater.ts).
+    pub fn settle_from_state(&mut self, max_days: f64) -> Result<(), Refusal> {
+        if !max_days.is_finite() || !(0.0..=1000.0).contains(&max_days) {
+            return Err("Water settle arguments are invalid.");
+        }
+        let Flow::Stacked(s) = &mut self.flow else {
+            return Err("Water settles on from its state on stacked water only.");
+        };
+        s.sync_state()?;
+        s.read_params()?;
+        self.result = None;
+        self.settle = Some(Settle::Stacked(stack_prefill::SettleRun::new(
+            s,
+            max_days,
+            stack_prefill::sealed_columns(s, &self.model.retained),
+        )));
+        Ok(())
+    }
     pub fn advance(&mut self, ticks: u64) -> Result<Option<SettleResult>, Refusal> {
         self.validate()?;
         self.advance_valid(ticks)
