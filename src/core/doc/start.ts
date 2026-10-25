@@ -24,7 +24,7 @@ export interface StartGround {
 
 export function startGroundOf(b: BuildResult, features: readonly Feature[], ignoreOwner: string | null): StartGround {
   const taken = takenTiles(b.W, b.H, function* () { for (const e of b.entities) yield { template: e.template, owner: e.owner, raw: e.raw, tiles: () => entityTiles(e) }; }(), ignoreOwner);
-  return { taken, extras: startFitExtras(features, b.W, b.H) };
+  return { taken, extras: startFitExtras(features, b.W, b.H, new Set(b.entities.map((e) => e.owner))) };
 }
 
 /** Whether the start's district center can stand with its middle at (x, y) facing `o`: its 3×3 and

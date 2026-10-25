@@ -3,7 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { cornerFor } from "../../core/doc/tools";
-import { startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
+import { standingOwners, startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
 import { footprintTiles, startEntranceTile, type Orientation } from "../../core/format/footprints";
 import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { SessionUpdate, ToolRequest } from "../../worker/session";
@@ -113,7 +113,7 @@ export function useShelf(ed: Ed): ShelfSlice {
   /** The generation's objects that keep a distance from the start, made once per map version, not per pointer move (core/doc/startFit.ts). */
   const fitExtras = useRef<{ version: number; extras: StartFitExtra[] } | null>(null);
   function startExtras(): StartFitExtra[] {
-    if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H) };
+    if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H, standingOwners(ctx().entities)) };
     return fitExtras.current.extras;
   }
   /** The level the pointer aimed at on that tile (D491: a cave's floor; undefined, the tile's top). */

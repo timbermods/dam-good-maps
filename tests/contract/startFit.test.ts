@@ -7,7 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
-import { makesRoomForStart, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
+import type { Feature } from "../../src/core/features/schema";
+import { makesRoomForStart, startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
 import { moveEdit, planStart } from "../../src/core/doc/tools";
 import { objectTiles } from "../../src/core/features/objects";
 import type { MapObjectFeature, StartFeature } from "../../src/core/features/schema";
@@ -68,6 +69,12 @@ describe("startFitWarnings", () => {
     expect(startFitWarnings(extras, W, W, 254, 100)[0]).toMatch(/^Geothermal field 1\d\d tiles from the start, wanted 30–120$/);
     // a smaller map scales the scaled bands (side ÷ 128)
     expect(startFitWarnings([{ kind: "geothermal", tiles: [[10, 30]] }], 64, 64, 20, 30)).toEqual(["Geothermal field 9 tiles from the start, wanted 15–60"]);
+  });
+  it("measures only the objects that still stand: a generated feature whose objects were removed is not asked", () => {
+    const f = { id: "g1", kind: "mapObject", origin: "generated", params: { kind: "relicSmall", placement: { x: 100, y: 100, orientation: "Cw0" } } } as unknown as Feature;
+    expect(startFitExtras([f], 256, 256).length).toBe(1);
+    expect(startFitExtras([f], 256, 256, new Set(["g1"])).length).toBe(1);
+    expect(startFitExtras([f], 256, 256, new Set(["other"]))).toEqual([]);
   });
 });
 

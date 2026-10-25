@@ -85,10 +85,19 @@ export interface StartFitExtra {
 }
 
 /** The generation's objects that keep a distance from the start, from a document's features: what the check
- *  `extras.placement` measures (an object the player placed is not asked). */
-export function startFitExtras(features: readonly Feature[], W: number, H: number): StartFitExtra[] {
+ *  `extras.placement` measures (an object the player placed is not asked). `standing`: the owners of the objects that
+ *  stand on the map now; a feature whose objects were removed (Clear everything, a delete) or left off a lock is no
+ *  longer measured, as the check measures the objects themselves. */
+export function startFitExtras(features: readonly Feature[], W: number, H: number, standing?: ReadonlySet<string>): StartFitExtra[] {
   const out: StartFitExtra[] = [];
-  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  for (const f of features) if (f.kind === "mapObject" && f.origin === "generated" && f.params.kind in EXTRA_BANDS && (!standing || standing.has(f.id))) out.push({ kind: f.params.kind, tiles: objectTiles(f, W, H) });
+  return out;
+}
+
+/** The owners of the objects standing in a map's entity list (the build's `entities` or the page's columns). */
+export function standingOwners(e: { count: number; owner: ArrayLike<number>; owners: readonly string[] }): Set<string> {
+  const out = new Set<string>();
+  for (let k = 0; k < e.count; k++) out.add(e.owners[e.owner[k]]);
   return out;
 }
 
