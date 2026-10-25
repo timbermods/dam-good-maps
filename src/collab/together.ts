@@ -121,8 +121,8 @@ export function cleanName(name: string): string {
 
 const other = (r: Role): Role => (r === "host" ? "guest" : "host");
 
-/** How long a cursor stays after its last packet (ms). */
-export const CURSOR_FADE_MS = 1500;
+/** How long Leave waits for the session's worker before letting go of it (ms): a worker that was replaced never answers. */
+const LEAVE_WAIT_MS = 8000;
 
 export class Together {
   private client: ClientLike | null = null;
@@ -174,10 +174,10 @@ export class Together {
     for (const fn of [...this.listeners]) fn();
   }
 
-  /** The other player's cursor (null: none, or it has faded). */
-  presence(now = Date.now()): Presence | null {
-    const p = this.presenceNow;
-    return p && now - p.at <= CURSOR_FADE_MS ? p : null;
+  /** The other player's cursor (null: none yet, it left the map, or the session paused or ended). A pointer that holds still
+   *  sends nothing, so a cursor never fades by the clock: it goes when its owner's pointer leaves the map or the session ends. */
+  presence(): Presence | null {
+    return this.presenceNow;
   }
 
   onPresence(fn: () => void): () => void {
@@ -206,6 +206,7 @@ export class Together {
 
   private connection(): ClientLike {
     if (this.client) return this.client;
+    // (one client for each session, on the worker that holds the map now: Cancel of a map being made replaces the worker)
     const c = this.deps.client?.() ?? new CollabClient(this.deps.worker(), { baseUrl: collabBaseUrl(), ...this.deps.options });
     this.client = c;
     this.wire(c);
@@ -218,7 +219,8 @@ export class Together {
   }
 
   private wire(c: ClientLike): void {
-    const on = <K extends keyof ClientEvents>(e: K, fn: (v: ClientEvents[K]) => void) => c.on(e, fn);
+    // (a client of a session that has ended says nothing more)
+    const on = <K extends keyof ClientEvents>(e: K, fn: (v: ClientEvents[K]) => void) => c.on(e, (v) => (this.client === c ? fn(v) : undefined));
     on("code", ({ code }) => this.set({ code, working: null, phase: this.s.phase === "paused" ? "paused" : "inviting", problem: null }));
     on("joined", (e) => this.joined(e.name, false));
     on("resumed", (e) => this.joined(e.name, true));
@@ -236,9 +238,12 @@ export class Together {
       this.binding = null;
       this.deps.open(e.open);
     });
-    on("keep", (k) => {
-      // (a session nobody joined is not kept)
-      if (this.joinedEver) this.deps.keep(k);
+    // (a session nobody joined is not kept; the keep of a Leave that finishes after the panel reset still counts)
+    let joinedHere = false;
+    c.on("joined", () => (joinedHere = true));
+    c.on("resumed", () => (joinedHere = true));
+    c.on("keep", (k) => {
+      if (this.client === c ? this.joinedEver : joinedHere) this.deps.keep(k);
     });
     on("presence", (e) => {
       const keep = this.presenceNow;
@@ -359,7 +364,9 @@ export class Together {
     const c = this.client;
     if (c) {
       try {
-        await c.leave();
+        // (a worker that was replaced never answers: Leave does not wait for it for long. One that is only busy finishes
+        // the leave after this, and the session is kept all the same)
+        await Promise.race([c.leave(), new Promise((resolve) => setTimeout(resolve, LEAVE_WAIT_MS))]);
       } catch {
         // (already gone)
       }
@@ -380,6 +387,8 @@ export class Together {
   }
 
   private reset(): void {
+    // (the next session makes its own client, on the worker that is open then)
+    this.client = null;
     this.joinedEver = false;
     this.presenceNow = null;
     this.theirView = null;

@@ -10,7 +10,7 @@ import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { BRUSH_NAMES } from "../brushes";
 import { FORCES } from "../TopBar";
-import { CURSOR_FADE_MS, type Note, type Together, type TogetherState } from "../../collab/together";
+import { type Note, type Together, type TogetherState } from "../../collab/together";
 
 export interface CollabSlice {
   /** The page's session object, when the page has one. */
@@ -46,19 +46,15 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
   useEffect(() => {
     if (!together) return;
     let frame = 0;
-    let fade = 0;
     const off = together.subscribe(() => setTick((n) => n + 1));
     const offPresence = together.onPresence(() => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => setTick((n) => n + 1));
-      clearTimeout(fade);
-      fade = window.setTimeout(() => setTick((n) => n + 1), CURSOR_FADE_MS + 30);
     });
     return () => {
       off();
       offPresence();
       cancelAnimationFrame(frame);
-      clearTimeout(fade);
     };
   }, [together]);
 

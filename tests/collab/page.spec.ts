@@ -178,7 +178,10 @@ test("edits from both sides appear on both maps; the other's cursor with name an
   }).toPass({ timeout: 30_000 });
   await expect(host.page.locator(".collab-cursor")).toContainText("Raise");
   await expect(host.page.locator(".collab-cursor")).toHaveClass(/who-guest/);
-  // (it goes a moment after the last packet)
+  // (a pointer that holds still sends nothing, and its cursor stays)
+  await host.page.waitForTimeout(3_000);
+  await expect(host.page.locator(".collab-cursor")).toHaveCount(1);
+  // (it goes when the pointer leaves the map)
   await guest.page.mouse.move(5, 5);
   await expect(host.page.locator(".collab-cursor")).toHaveCount(0, { timeout: 10_000 });
 

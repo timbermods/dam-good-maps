@@ -415,6 +415,8 @@ export function App() {
     nameRef.current = e.name;
     // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
     if (!keepView) setNextName(null);
+    // (a version found for the map that was open is no version of this one)
+    if (!keepView) stopBackground();
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
@@ -804,7 +806,10 @@ export function App() {
     sharedGen.current = maker;
     if (shared) together.announce("a new map");
     try {
-      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) return null;
+      if (over && entry.current && tries === 0 && !(await holdBack(id, "generating another"))) {
+        if (shared) together.cancelAnnounce();
+        return null;
+      }
       setProgress({ attempt: 0, stage: "land", land: null });
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
@@ -851,17 +856,18 @@ export function App() {
       made++;
       performance.mark("dgm:generated");
       // the map is the editor's from the start: there is no step between making it and shaping it
-      let fresh = await replacing(() => (shared ? generator.openProject(r.project) : generator.refine()), shared);
-      // (the name typed in the generator's panel names this map, not the one it replaces)
+      // (the name typed in the generator's panel names this map, not the one it replaces; it is set before a shared
+      // session's guest is sent the map, so both players get the final name)
       const typed = nextNameRef.current?.trim();
       let named = false;
-      if (typed) {
+      const fresh = await replacing(async () => {
+        const opened = await (shared ? generator.openProject(r.project) : generator.refine());
+        if (!typed) return opened;
         const { result, info } = await generator.setName(typed);
-        if (result.ok) {
-          fresh = { ...fresh, info };
-          named = true;
-        }
-      }
+        if (!result.ok) return opened;
+        named = true;
+        return { ...opened, info };
+      }, shared);
       enterEditor(fresh, { kind: "generated" });
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
@@ -1038,20 +1044,38 @@ export function App() {
       setMaking("making");
     } else setOpening(name ? `Opening ${name}…` : "Opening the map…");
     const say = (w: string) => (over ? setMakingWords(w) : setOpening(w));
+    // in a shared session the host builds the place in a worker of its own, as Generate does, so Cancel never ends the
+    // session's worker; the guest is told first (§9)
+    const shared = over && together.isHost;
+    const maker = shared ? createBackground() : null;
+    sharedGen.current = maker;
+    if (shared) together.announce("a new map");
     try {
-      if (over && entry.current && !(await holdBack(run_, "opening a real place"))) return;
+      if (over && entry.current && !(await holdBack(run_, "opening a real place"))) {
+        if (shared) together.cancelAnnounce();
+        return;
+      }
       const found = (await fetchIndex()).places.find((p) => p.id === id);
       if (!found) throw new Error(`there is no real place called "${id}"`);
       say(`Opening ${found.name}…`);
       const bytes = await fetchPlace(id);
       if (run_ !== runId.current) return;
-      const data = await replacing(async () => generator.openPlace(bytes));
+      let load = async () => generator.openPlace(bytes);
+      if (maker) {
+        await maker.api.openPlace(bytes);
+        const built = await maker.api.project();
+        if (run_ !== runId.current) return;
+        maker.stop();
+        load = () => generator.openProject(built.bytes);
+      }
+      const data = await replacing(load, shared);
       if (run_ !== runId.current) return;
       enterEditor(data, { kind: "place" }, id);
       back.current = null;
       setMaking(null);
     } catch (e) {
       if (run_ !== runId.current) return;
+      if (shared) together.cancelAnnounce();
       const problem = `The real place could not be opened: ${words(e)}`;
       if (over) setMaking({ failed: problem });
       else {
@@ -1061,6 +1085,8 @@ export function App() {
         await run(init.spec, 0, true);
       }
     } finally {
+      maker?.stop();
+      if (sharedGen.current === maker) sharedGen.current = null;
       if (run_ === runId.current) {
         discardAllowed.current = false;
         setOpening(null);

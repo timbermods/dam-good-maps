@@ -12,12 +12,12 @@ changed. One small change in `src/core/doc/session.ts`: `takeBack` now also rest
 comment says it leaves everything "exactly as it was" (the claims seam takes a refused step back and the peers must keep
 the same numbers), and `applyAll`'s refusal path resets it (a group whose later operation fails burned numbers no replica sees).
 
-**Built: undo with two players** (piece 3; brief ï¿½5): `undo` and `redo` entries naming the author's own action, the host's and
+**Built: undo with two players** (piece 3; brief §5): `undo` and `redo` entries naming the author's own action, the host's and
 every peer's identical decision from the records, blocked and named where an active later action is built on the same ground,
 freed when it is undone, stored values restored (never a replay onto changed land), the water re-settling in the background with
 a seam for the water notes. `tests/contract/collabUndo.test.ts` and the nightly `collabUndoSoak.heavy.test.ts`. Left: the claims
 check on an undo's footprint (the seam is there), the water note (#406), the page's Undo and Redo keys on `undoPlan` and
-`redoPlan`, display names and feature places in the lines, a measure at 256ï¿½ with the busy windows.
+`redoPlan`, display names and feature places in the lines, a measure at 256² with the busy windows.
 
 **Built: the session layer** (piece 5; brief Â§2â€“Â§9): `core/collab/peer.ts` `CollabPeer` (the host or the guest beside the map; claims ordered through the host with the log;
 undo and redo; the water notes worked out on each peer for its own area; presence; the pause, rejoin with a new code and the whole-map change), `wire.ts` with
@@ -131,7 +131,7 @@ Firefox as the second peer runs only in CI here (Playwrightâ€™s Firefox does not
   that holds most of the writes ("at the north lake", "by the start"), else a compass word. Only a feature's own ground counts
   (a lake inside its outline, a river near its path), so a far-off edit is never "at the river"; landforms are not named.
 - **Speed depends on the milestone's step-splice.** An undo rebuilds from the whole log (`MapSession.followLog`: the log is
-  copied and the build is incremental from the previous map). Fast at 48ï¿½; at 256ï¿½ with a long log it needs the core step-splice
+  copied and the build is incremental from the previous map). Fast at 48²; at 256² with a long log it needs the core step-splice
   the milestone is building for single-player and collab undo alike, and a measure with the busy windows (piece 6).
 - **Try another** (a force that replaces another) is not an entry kind, so undoing one that restored the replaced force is not
   covered.
