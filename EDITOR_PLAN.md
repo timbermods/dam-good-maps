@@ -84,15 +84,17 @@ place of its bottom rule.
   (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
   the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
   maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
-  each map's top-down picture (Your maps' thumbnail), its name, how many of the arc's six beats it has ("4 of 6
-  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its two strongest beats, and
+  each map's picture in a 16:9 place (200×112: the top-down thumbnail, Your maps', until the search has ended, then the
+  map's hero picture, `render3d/hero.ts` `heroPictureUrl` at 400×225, drawn one at a time, the thumbnail kept where it
+  can't be drawn), its name, how many of the arc's six beats it has ("4 of 6
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines), and
   **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
   only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
   uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
   (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
   out of view, a note says so with **Show them**. A worker that fails (its file gone after a deploy, a crash) is
-  dropped: one line says "The search stopped: its worker ended. Start search tries again.", and the next search starts a
-  fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
+  dropped: one line says why (a worker that never ran, its file gone after a deploy: "The search stopped: its worker
+  could not run. Reload the page to search again."), and the next search starts a fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
   already shows never takes a second card. The focus stays in the sheet through Stop and Open (the greyed buttons are
   `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
   `src/ui/useShowcase.ts`.
@@ -238,7 +240,7 @@ place of its bottom rule.
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
     about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
-    fit, "Move the start here" for the start where it does, "Place here" for the rest. Click to place, R to
+    fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
     places it there (the start moves the map's one start); a drag that doesn't place always ends placement. The
@@ -335,11 +337,11 @@ place of its bottom rule.
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a three-column grid
-  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
-  whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
+  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
+  whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
-  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
+  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
   by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
   (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
@@ -805,7 +807,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
-  (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
+  (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
+  the tiles, and over a cave column the core refuses them, so hovering one tints nothing and shows the core's reason.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
   until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
   cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
@@ -1014,7 +1017,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   selection, else the ground's top level (D288, D323); Ctrl+A selects the whole map. In Select, **Ctrl+click** on
   the land only takes its level (D361) and **Shift+scroll** dials the Level number (D345, B8), whether or not a
   selection is open.
-- While a force runs, Space pauses it, Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
+- While a force runs, Space pauses it (a pause that comes as its last steps arrive holds it on its final land, still
+  at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
   still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
   **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.

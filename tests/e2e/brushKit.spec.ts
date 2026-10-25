@@ -10,7 +10,7 @@
 // size and its actions.
 
 import { expect, test, type Page } from "@playwright/test";
-import { choose, openEditor, setLevel, settingValue } from "./open";
+import { choose, openEditor, setLevel, settingValue, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -74,7 +74,7 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
   // stays)
   await openEditor(page, "s=34&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
