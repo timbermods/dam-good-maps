@@ -45,6 +45,16 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   await expect(cards).toHaveCount(INDEX.count);
   await expect(page.getByRole("status").filter({ hasText: /maps$/ })).toHaveText(`${INDEX.count} maps`);
 
+  // every card's three buttons lie inside it: a card clips what passes its edge, so on a font wider than the author's
+  // (CI's Linux) Refine was cut off and could not be clicked
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll(".gallery .place")].filter((card) => {
+      const box = card.getBoundingClientRect();
+      return [...card.querySelectorAll(".place-actions > *")].some((b) => b.getBoundingClientRect().right > box.right - 1);
+    }).length,
+  );
+  expect(clipped).toBe(0);
+
   // the credits ATTRIBUTION.md asks for
   const credits = page.locator("#credits");
   await expect(credits.getByRole("heading", { name: "Elevation data" })).toBeVisible();
