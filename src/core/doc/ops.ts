@@ -622,10 +622,20 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
 }
 
 /** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
- *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
-function levelProblems(f: Feature, ctx: OpContext): string[] {
-  if (f.kind === "start") return startLevelProblems(f, ctx);
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). `before`: the
+ *  feature an update patches. Only a placement or a move checks the ground: an update that keeps where it stands (a lock,
+ *  a rename, its options) is never refused for ground that changed under it since, a tunnel dug below it later. */
+function levelProblems(f: Feature, ctx: OpContext, before?: Feature): string[] {
+  if (f.kind === "start") {
+    if (before?.kind !== "start") return startLevelProblems(f, ctx, false);
+    const [a, b] = [before.params, f.params];
+    if (a.position[0] !== b.position[0] || a.position[1] !== b.position[1] || a.z !== b.z) return startLevelProblems(f, ctx, false);
+    // (turned in place: without a level its bench, the same 5×5 whichever way it faces, shapes the ground it shaped
+    // before; under a roof its 3×3 stays where it stood and only its new door is checked)
+    return a.orientation === b.orientation || b.z === undefined ? [] : startLevelProblems(f, ctx, true);
+  }
   if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  if (before?.kind === "mapObject" && JSON.stringify(before.params.placement) === JSON.stringify(f.params.placement)) return [];
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
@@ -635,8 +645,9 @@ function levelProblems(f: Feature, ctx: OpContext): string[] {
 
 /** Why a start feature can't stand where it is, in one line (D491): with a level (`z`), the game's rule wholly under the
  *  roof (startFit.ts `startRoofProblem`); without one, open ground, never a cave or an overhang, where its bench would
- *  shape a roof (`START_OPEN_GROUND`). The generation's plants and ruin columns make room for it. */
-function startLevelProblems(f: StartFeature, ctx: OpContext): string[] {
+ *  shape a roof (`START_OPEN_GROUND`). The generation's plants and ruin columns make room for it. `doorOnly`: turned in
+ *  place under a roof, only its new door is checked. */
+function startLevelProblems(f: StartFeature, ctx: OpContext, doorOnly: boolean): string[] {
   const { W, H } = ctx;
   const [x, y] = f.params.position;
   const z = f.params.z;
@@ -650,7 +661,7 @@ function startLevelProblems(f: StartFeature, ctx: OpContext): string[] {
         return t && !makesRoomForStart(t, false) ? t : null;
       }
     : undefined;
-  const why = startRoofProblem(g, x, y, f.params.orientation, z, taken);
+  const why = startRoofProblem(g, x, y, f.params.orientation, z, taken, doorOnly);
   return why ? [`the start can't stand at level ${z} there: ${why}`] : [];
 }
 
@@ -692,7 +703,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
       const geometry = featureGeometryProblems(after, W, H);
-      return geometry.length ? geometry : levelProblems(after, ctx);
+      return geometry.length ? geometry : levelProblems(after, ctx, f);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];

@@ -43,6 +43,10 @@ pub struct Entity {
     pub growth: Option<f64>,
     /// Bit k: the entity has component `tables::COMP_NAMES[k]` (validate/checks.ts REQUIRED's components).
     pub comps: u32,
+    /// A living plant on a map with caves or overhangs (D491): the moisture, contamination and water depth of the run
+    /// top it stands on, under a roof or on top (the host's sim/soil.ts `runGround`, from the stacked water). None on a
+    /// heightfield, where the tile's soil decides.
+    pub run_soil: Option<[f64; 3]>,
 }
 
 pub struct Emitter {
@@ -303,7 +307,7 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
         let cut_logs = if r.bool()? { Some(r.f64()?) } else { None };
         let growth = if r.bool()? { Some(r.f64()?) } else { None };
         let comps = r.u32()?;
-        entities.push(Entity { id, template, placed, x, y, z, orientation, flipped, strength, delayed, dead, dead_truthy, cut_logs, growth, comps });
+        entities.push(Entity { id, template, placed, x, y, z, orientation, flipped, strength, delayed, dead, dead_truthy, cut_logs, growth, comps, run_soil: None });
     }
     let n = w * h;
     let play = if load_only {
@@ -395,6 +399,14 @@ pub fn read(inputs: &[&[u8]]) -> Result<Map, Bad> {
         } else {
             None
         };
+        for _ in 0..r.u32()? {
+            let k = r.u32()? as usize;
+            let soil = [r.f64()?, r.f64()?, r.f64()?];
+            match entities.get_mut(k) {
+                Some(e) => e.run_soil = Some(soil),
+                None => return Err("meta: plant index".into()),
+            }
+        }
         let floor = f64_array(inputs[FLOOR], n, "floor")?;
         let dam = if inputs[DAM].is_empty() { None } else { Some(f64_array(inputs[DAM], n, "dam")?) };
         let depth = f64_array(inputs[DEPTH], n, "depth")?;
