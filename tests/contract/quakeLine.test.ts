@@ -53,8 +53,10 @@ describe("the margin and the travel", () => {
     expect(quakeExtent(100, 100, "lift")).toBe(130);
   });
 
-  it("a short line slides ground no further than its own length (at least 2 tiles); a long line the full 2 to 20", () => {
+  it("a short line slides ground no further than its own length in whole tiles (at least 2); a long line the full 2 to 20", () => {
     expect([slideTravel(0, 8), slideTravel(60, 8), slideTravel(100, 8)]).toEqual([2, 8, 8]);
+    // (whole tiles: a slanted line's length is rounded down, as the block moves only whole tiles)
+    expect([slideTravel(100, 8.06), slideTravel(100, 16.03)]).toEqual([8, 16]);
     expect(slideTravel(100, 0.25)).toBe(2);
     expect([slideTravel(0, 120), slideTravel(100, 120)]).toEqual([2, 20]);
   });

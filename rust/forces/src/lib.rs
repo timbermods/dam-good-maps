@@ -9540,8 +9540,8 @@ impl Fault {
             reach,
             margin,
             lift,
-            // a short line slides ground no further than its own length (at least 2 tiles): the quake's line is its length
-            slide: min(slide, max(length, 2.0)),
+            // a short line slides ground no further than its own length in whole tiles (at least 2): the quake's line is its length
+            slide: min(slide, max(length.floor(), 2.0)),
             heading,
             directions,
         }

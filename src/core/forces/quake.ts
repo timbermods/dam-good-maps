@@ -54,9 +54,9 @@ export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
  *  at Power 0, 8 at 100. A short line never reaches the 40 tiles the old shaking did. The same number is in rust/forces
  *  (`Fault::margin`). */
 export const quakeMargin = (power: number) => 2 + Math.round(power * 0.06);
-/** How far a Slide carries its ground (tiles): `slideTiles`, but a short line carries it no further than its own length
- *  (at least 2 tiles), so the quake stays near its line. The same in rust/forces (`Fault::new`). */
-export const slideTravel = (power: number, lineLength: number) => Math.min(slideTiles(power), Math.max(lineLength, 2));
+/** How far a Slide carries its ground (whole tiles): `slideTiles`, but a short line carries it no further than its own
+ *  length, rounded down (at least 2 tiles), so the quake stays near its line. The same in rust/forces (`Fault::new`). */
+export const slideTravel = (power: number, lineLength: number) => Math.min(slideTiles(power), Math.max(Math.floor(lineLength), 2));
 /** The most a quake of a line this long (tiles) reaches from it at a Power: the changed ground's distance from the drawn
  *  line, a Slide's land landing its travel further along it. A Slide's block is the line's 1.3 times its length or the
  *  margin around it, and its edge fades over half a margin. */
