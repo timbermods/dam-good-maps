@@ -243,7 +243,8 @@
             "x": { "type": "integer", "minimum": 0, "maximum": 511 },
             "y": { "type": "integer", "minimum": 0, "maximum": 511 },
             "orientation": { "$ref": "#/$defs/orientation" },
-            "area": { "$ref": "#/$defs/runs" }
+            "area": { "$ref": "#/$defs/runs" },
+            "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge); omitted, the top (D491).", "type": "integer", "minimum": 0, "maximum": 22 }
           }
         },
         "core": {

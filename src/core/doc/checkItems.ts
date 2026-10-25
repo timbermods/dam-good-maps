@@ -6,7 +6,8 @@
 
 import { blocks, failing, type CheckClass, type CheckResult, type FixOp } from "../validate/report";
 import type { Validation } from "../validate/checks";
-import { entityProblem } from "./placing";
+import type { EditOp } from "./ops";
+import { entityProblem, levelFootprint } from "./placing";
 import { moveStartNear, startMiddle } from "./start";
 import type { MapSession } from "./session";
 
@@ -67,6 +68,9 @@ export function checkItem(s: MapSession, c: CheckResult): CheckItem {
     fix = fix.filter((op) => op.op !== "placeEntity" || !entityProblem(s, op.params));
     fix = fix.length ? [{ ...fix[0], label }, ...fix.slice(1)] : undefined;
   }
+  // an object the game would delete for the ground under it (a force or a stroke left it half on air
+  // or in rock) is set on level ground and kept, where the shelf could level it (D328); only the rest go
+  if (c.id === "entities.placement" && fix?.length === 1 && fix[0].op === "deleteEntities") fix = levelledFix(s, fix[0].params.entities) ?? fix;
   if (!fix && START_FIXABLE.has(c.id)) {
     const at = startMiddle(s);
     const ops = at ? moveStartNear(s, at[0], at[1]) : null;
@@ -116,6 +120,26 @@ export function rowWords(id: string, message: string): string {
     return `Walls hold back water on the ${and(edges.map((e) => e.side))} edges (${and(shares.map((v) => `${v}%`))})`;
   }
   return message;
+}
+
+/** The placement check's fix keeping what it can (`checkItem`): the ground under each object levelled
+ *  as the shelf levels a footprint (placing.ts `levelFootprint`), where that is all that is wrong with
+ *  it, and the rest removed, as one step. Null when no object can be kept. */
+function levelledFix(s: MapSession, ids: readonly string[]): FixOp[] | null {
+  const byId = new Map(s.built.entities.map((e) => [e.id, e]));
+  const ops: EditOp[] = [];
+  const rest: string[] = [];
+  for (const id of ids) {
+    const e = byId.get(id);
+    const p = e ? { template: e.template, x: e.x, y: e.y, orientation: e.orientation, flipped: !!e.flipped } : null;
+    const level = p && entityProblem(s, p, id, { level: true }) === null ? levelFootprint(s, p, new Set([id])) : [];
+    if (level.length) ops.push(...level);
+    else rest.push(id);
+  }
+  if (!ops.length) return null;
+  if (rest.length) ops.push({ op: "deleteEntities", params: { entities: rest } });
+  const label = rest.length ? "Level the ground under the objects, remove the rest" : "Level the ground under the objects";
+  return ops.map((op, k) => ({ ...op, label: k === 0 ? label : "" }) as FixOp);
 }
 
 /** The berry rows side by side where a group holds both (the drought row right after the food row). */

@@ -2,7 +2,7 @@
 // player's Maps folder), and each game's moments, samples, actions and poses.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type CheckDef, D0, type GameDef, lookPoses, standardPoses } from './catalog';
+import { type CheckDef, D0, describeSchedule, type GameDef, lookPoses, standardPoses } from './catalog';
 import type { PlanSummary } from './consent';
 import { readIngameLog } from './ingamelog';
 import type { Job, JobMap, Moment, Pose } from './job';
@@ -58,7 +58,8 @@ export function prepare(games: GameDef[], runId: string): Prepared[] {
     };
     for (const d of game.snapshotsAt ?? []) add({ id: `day+${d}`, day: D0 + d, snapshot: true, shots: [] });
     if (game.daily) for (let k = 1; k < game.days; k++) add({ id: `day+${k}`, day: D0 + k, snapshot: true, shots: [] });
-    for (const w of weatherMoments(game)) add({ id: w.id, day: w.day, snapshot: true, shots: w.id.endsWith('-day1') ? [] : shotsNow });
+    // (a long play photographs only each hazard's end, its driest or worst moment: each pause slows the game for a while)
+    for (const w of weatherMoments(game)) add({ id: w.id, day: w.day, snapshot: true, shots: w.id.endsWith('-day1') || (game.longPlay && !w.id.endsWith('-end')) ? [] : shotsNow });
     for (const a of game.actions?.(info) ?? []) {
       add({ id: `before-${a.kind}`, day: a.day - 0.01, snapshot: true, shots: [...shotsNow, ...poses.filter((p) => p.id === 'plug').map((p) => p.id)] });
     }
@@ -93,13 +94,20 @@ export function perfSeconds(map: Pick<JobMap, 'perf'>): number {
   return (map.perf?.phases ?? []).reduce((n, p) => n + p.seconds, 0);
 }
 
+/** Real seconds a game day takes in a long play, by size: measured at the probe's speed, screenshots and records
+ *  included (runs 20261002-1610-batch and audit-20261015: 128² 8.1–12.6 s a day, 256² 14.6–19.8 s). The shorter
+ *  games keep the older, roomier rate below. */
+export function longPlayDaySeconds(area: number): number {
+  return 10 * Math.max(0.5, area) ** 0.6;
+}
+
 /** Rough real time: loading, game days at the speed a map of this size runs, screenshots and frame-time phases. */
 export function estimateMinutes(p: Prepared[]): number {
   let s = 0;
   for (const x of p) {
     const area = (x.info.W * x.info.H) / (128 * 128);
     const shots = x.map.moments.reduce((n, m) => n + m.shots.length, 0);
-    s += 45 + x.game.days * 20 * Math.max(0.5, area) + shots * 1.5 + perfSeconds(x.map);
+    s += 45 + x.game.days * (x.game.longPlay ? longPlayDaySeconds(area) : 20 * Math.max(0.5, area)) + shots * 1.5 + perfSeconds(x.map);
   }
   return Math.ceil(s / 60) + 2;
 }
@@ -110,7 +118,7 @@ export function summary(p: Prepared[], kind: 'smoke' | 'batch', keepMods = false
     keepMods,
     ...(written?.length ? { written } : {}),
     estimateMinutes: estimateMinutes(p),
-    maps: p.map((x) => ({ id: x.game.id, title: x.game.title, checks: x.checks.filter((c) => c.how !== 'none').map((c) => c.id), days: x.game.days })),
+    maps: p.map((x) => ({ id: x.game.id, title: x.game.title, checks: x.checks.filter((c) => c.how !== 'none').map((c) => c.id), days: x.game.days, ...(x.game.longPlay ? { weather: describeSchedule(x.game.cycles) } : {}) })),
   };
 }
 

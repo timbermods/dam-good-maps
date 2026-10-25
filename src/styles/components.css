@@ -12,7 +12,7 @@
   padding: 4px;
   border-radius: 8px;
   background: var(--overlay);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-2);
 }
 
 /* a bar's own words (what it is doing now) */
@@ -260,7 +260,7 @@
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--edge-lit), var(--shadow-3);
 }
 
 .checks-list {
