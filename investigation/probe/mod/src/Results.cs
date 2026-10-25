@@ -184,6 +184,8 @@ namespace DGMProbe
         public string MomentId;
         public double Day;
         public int Tick;
+        // Real seconds from starting the map to this record (0.3.2: a long play's time per cycle).
+        public double RealSeconds;
         public string Weather;
         public int Width;
         public int Height;
