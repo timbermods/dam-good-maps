@@ -1392,6 +1392,14 @@ checks dot counts; every other row is information under Good to know, worded as 
     one; the player's view is never touched. A map whose water is settled already is drawn while the checks run. Without a GPU or
     WebGL 2, or if drawing fails, the file keeps the top-down thumbnail and saves anyway; an unedited import keeps its
     own picture.
+    The same picture serves the page's own pictures (Showcase mode's cards): `heroPicture(view, { width, height,
+    quality? })` gives the JPEG at that size (the default stays the thumbnail's 960×540 at 0.9, byte for byte; the
+    framing is the same at any size, best at 16:9) and `heroPictureUrl` the same as an object URL for an `<img>`, to be
+    freed with `URL.revokeObjectURL`. Pictures are drawn one at a time. Sized pictures share one kept off-screen renderer
+    (one WebGL context): the first compiles the High look's programs off the page's thread where the browser can
+    (`prepareFirstFrame`), the next compile nothing, and it is freed 10 s after the last picture; a picture with no size
+    (the saved file's) is drawn on a renderer of its own, as before. Three 400×225 pictures hold the page's thread about
+    110 ms in all (two tasks of about 55 ms; before, three tasks of about 230 ms) and never touch the player's view.
 
 ## Claude integration (M12)
 
