@@ -115,9 +115,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
-  **Keep this version** and **Branch from here**. Keep asks for the name (a small dialog, the field prefilled and selected with
-  "<map name> — <step label>", so Enter keeps it as it is; Esc or Cancel keeps nothing) and saves the map as it stood at that step
-  (undone steps included) into Your maps under it; the History panel opens with the step the map is at in view; Branch does the same and opens the copy, its History through that step. A version
+  **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
+  Your maps as "<map name> — <step label>" in one click, never asking (numbered "(2)", "(3)" when Your maps already holds the name, as saved files are; Rename is in Your maps); the History panel opens with the step the map is at in view; Branch does the same, named the same way, and opens the copy, its History through that step. A version
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
@@ -191,7 +190,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top): picked in the list, a source's Next source and
+  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,

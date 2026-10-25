@@ -14,9 +14,9 @@ import { createBackground, createGeneratorWorker, readFile, saveFile, storage } 
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
-import { KeepName } from "./KeepName";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
+import { numberedName } from "./versionName";
 import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
@@ -228,8 +228,6 @@ export function App() {
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  /** Keep this version asking for its name: the name it would get, and the answer (the name kept, or null for none). */
-  const [naming, setNaming] = useState<{ name: string; done(name: string | null): void } | null>(null);
   /** Another version of the open map to flip to (Your maps' Compare with the open map): read once, settled. */
   const [compare, setCompare] = useState<{ id: string; name: string; view: MapView } | null>(null);
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
@@ -517,10 +515,8 @@ export function App() {
       await pendingEdits.current?.();
       const v = await generator.keepVersion(k, kept.current ? open.id : undefined);
       if (!v) throw new Error("that step is no longer in the history");
-      // (Keep this version asks for the name, prefilled with the one it would get; Branch from here keeps it and opens the copy)
-      const name = branch ? v.name : await new Promise<string | null>((done) => setNaming({ name: v.name, done }));
-      setNaming(null);
-      if (name === null) return;
+      // (a version's name is given, never asked: when Your maps already holds it, it is numbered, as saved files are)
+      const name = numberedName(v.name, (await yourMaps.list().catch(() => maps)).map((m) => m.name));
       let bytes = v.bytes;
       let picture = v.picture;
       if (!v.stored || !picture) {
@@ -1224,15 +1220,7 @@ export function App() {
       </>
     );
   }
-  const keepNameDialog = naming ? (
-    <KeepName
-      name={naming.name}
-      onDone={(n) => {
-        setNaming(null);
-        naming.done(n);
-      }}
-    />
-  ) : null;
+
 
   return (
     <>
@@ -1264,7 +1252,6 @@ export function App() {
         notice={message}
       />
       {confirmDialog}
-      {keepNameDialog}
       {makingDialog}
     </>
   );

@@ -7,7 +7,7 @@
 // there. The drag is the page's own pointer drag, never the browser's (which carries a file with an
 // image and offered to open it).
 
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
 
@@ -60,12 +60,22 @@ export function Shelf(p: ShelfProps) {
     return () => cancelAnimationFrame(id);
   }, [p.picked]);
 
-  // the object put away, its window gone: the list goes back to its top, with Start and the sources in sight (while the
-  // window was up the list was scrolled to keep the picked row under the pointer)
+  // the object put away, its window gone: put away by a click on its row, the list goes back to where it was before the window
+  // opened (the row stays under the pointer); put away any other way (Esc), to its top, with Start and the sources in sight
+  // (while the window was up the list was scrolled to keep the picked row under the pointer)
   const had = useRef(false);
+  const home = useRef(0);
+  const clicked = useRef(false);
+  useEffect(() => {
+    // (a key, Esc above all, puts the object away without the pointer)
+    const key = () => (clicked.current = false);
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, []);
   useLayoutEffect(() => {
     const menu = grid.current?.closest<HTMLElement>(".objects-menu");
-    if (menu && had.current && !p.picked) menu.scrollTop = 0;
+    if (menu && had.current && !p.picked) menu.scrollTop = clicked.current ? home.current : 0;
+    if (!p.picked) clicked.current = false;
     had.current = !!p.picked;
   }, [p.picked]);
 
@@ -103,7 +113,15 @@ export function Shelf(p: ShelfProps) {
   }
 
   return (
-    <nav class="shelf objects-menu" aria-label="Place">
+    <nav
+      class="shelf objects-menu"
+      aria-label="Place"
+      onScroll={(e) => {
+        // (the player's own scroll, while no window is open)
+        if (!latest.current.picked) home.current = (e.currentTarget as HTMLElement).scrollTop;
+      }}
+      onPointerDown={() => (clicked.current = true)}
+    >
       {/* its title (Kyler, 2026-10-06): one row of the items' height, the names' inset */}
       <h2 class="shelf-title">Items</h2>
       <div class="shelf-grid" role="toolbar" aria-label="Objects" ref={grid}>

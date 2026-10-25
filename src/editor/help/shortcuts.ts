@@ -82,7 +82,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       title: "View",
       rows: [
         // (the mouse's camera moves sit with the keys that do the same, so the sheet fits a 720px window)
-        { what: "Move the view", keys: ["WASD", "\u2191\u2193\u2190\u2192", "Right-drag"] },
+        { what: "Move the view", keys: ["WASD", "\u2191\u2009\u2193\u2009\u2190\u2009\u2192", "Right-drag"] },
         { what: "Turn the view", keys: ["Q", "E", "Middle-drag"] },
         { what: "Move faster", keys: ["Shift"] },
         { what: "Zoom", keys: ["+", "-", "Scroll"] },

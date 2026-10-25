@@ -1500,11 +1500,6 @@
   white-space: nowrap;
 }
 
-/* Whole map spans two cells: its word has twice the room, so it keeps the full size where the one-cell words shrink */
-.set-group > .segmented.shapes > button.whole-map .icon-word {
-  font-size: min(13px, calc(var(--cell) * 0.4));
-}
-
 /* a menu in the settings opens upward, over the map */
 .tool-settings .menu-wrap {
   position: relative;
@@ -1877,8 +1872,8 @@
 }
 
 .seed-variation {
-  padding: 0 6px 0 4px;
-  font-size: 13px;
+  padding: 0 4px 0 3px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--muted);
@@ -2071,23 +2066,6 @@
   color: var(--ink);
   font: inherit;
   font-size: 13px;
-}
-
-/* Keep this version's name: one field the dialog's width */
-.dialog.keep-name {
-  width: min(460px, 100%);
-}
-
-.dialog.keep-name .keep-name-field {
-  display: block;
-  width: 100%;
-  height: 32px;
-  margin-top: 10px;
-  font-size: 0.95rem;
-}
-
-.dialog.keep-name .error {
-  margin: 6px 0 0;
 }
 
 /* a toggle beside a field: its word centred in it */

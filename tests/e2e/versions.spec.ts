@@ -34,8 +34,7 @@ test("Keep this version and Branch from here, the parent in Your maps, and Compa
   const first = panel.locator(".hist-item").nth(1);
   await first.hover();
   await first.getByRole("button", { name: "Keep this version" }).click();
-  await keepAs(page);
-  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible({ timeout: 60_000 });
   expect((await info(page)).history.length).toBe(2);
   expect(await drawn(page)).toBe(landTwo);
 
@@ -78,7 +77,8 @@ test("Keep this version and Branch from here, the parent in Your maps, and Compa
   const row = panel.locator(".hist-item").nth(1);
   await row.hover();
   await row.getByRole("button", { name: "Branch from here" }).click();
-  await expect.poll(async () => (await info(page)).name).toBe(`${name} — Raise a tile`);
+  // (Your maps already holds that name from the Keep above: the copy's is numbered)
+  await expect.poll(async () => (await info(page)).name, { timeout: 30_000 }).toBe(`${name} — Raise a tile (2)`);
   await idle(page);
   expect((await info(page)).history.map((h) => h.label)).toEqual(["Raise a tile"]);
   expect(await drawn(page)).toBe(landOne);
@@ -115,8 +115,7 @@ test("an undo while the other version is held ends the flip: the open map comes 
   const first = panel.locator(".hist-item").nth(1);
   await first.hover();
   await first.getByRole("button", { name: "Keep this version" }).click();
-  await keepAs(page);
-  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible({ timeout: 60_000 });
   await history(page).click();
   const yours = await openYourMaps(page);
   await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ button: "right" });
@@ -139,14 +138,6 @@ test("an undo while the other version is held ends the flip: the open map comes 
 });
 
 /** An open map with one step kept in Your maps and compared with (the note is up). */
-/** Keep this version asks for the name, prefilled with the one it would get: Enter keeps it as it is, or `typed` replaces it. */
-async function keepAs(page: Page, typed?: string) {
-  const field = page.getByRole("dialog", { name: "Name this version" }).getByRole("textbox", { name: "Version name" });
-  await expect(field).toBeFocused();
-  if (typed !== undefined) await field.fill(typed);
-  await page.keyboard.press("Enter");
-}
-
 async function comparing(page: Page): Promise<string> {
   const name = (await info(page)).name;
   await edit(page, [[40, 40, 44]], "Raise a tile");
@@ -155,8 +146,7 @@ async function comparing(page: Page): Promise<string> {
   const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
   await first.hover();
   await first.getByRole("button", { name: "Keep this version" }).click();
-  await keepAs(page);
-  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible({ timeout: 60_000 });
   await history(page).click();
   const yours = await openYourMaps(page);
   await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ button: "right" });
@@ -207,7 +197,8 @@ test("holding B right after an edit holds the flip while the water settles, and 
   expect(await drawn(page)).toBe(open);
 });
 
-test("Keep this version asks for its name: typed names are kept, Esc keeps nothing", async ({ page }) => {
+test("Keep this version numbers a name Your maps already holds, as saved files are, in one click", async ({ page }) => {
+  test.setTimeout(300_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   const name = (await info(page)).name;
@@ -217,23 +208,12 @@ test("Keep this version asks for its name: typed names are kept, Esc keeps nothi
   const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
   await first.hover();
   const keep = first.getByRole("button", { name: "Keep this version" });
-  const dialog = page.getByRole("dialog", { name: "Name this version" });
-  // the field holds the name it would get, and Esc keeps nothing
-  await keep.click();
-  await expect(dialog.getByRole("textbox", { name: "Version name" })).toHaveValue(`${name} — Raise a tile`);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("status").filter({ hasText: "Kept as" })).toHaveCount(0);
-  // a name typed is the name kept; a blank one is refused where it stands
-  await first.hover();
-  await keep.click();
-  await dialog.getByRole("textbox", { name: "Version name" }).fill("   ");
-  await page.keyboard.press("Enter");
-  await expect(dialog.getByRole("alert")).toHaveText("A map needs a name");
-  await keepAs(page, "The first lift");
-  // (a step with no settled build is built in a worker of its own first: a slow machine takes its time)
-  await expect(page.getByRole("status").filter({ hasText: "Kept as The first lift" })).toBeVisible({ timeout: 60_000 });
+  // (one click each, never a question; a step with no settled build is built in a worker of its own first, so a slow machine takes its time)
+  for (const n of ["", " (2)", " (3)"]) {
+    await keep.click();
+    await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile${n}` })).toBeVisible({ timeout: 60_000 });
+  }
   await history(page).click();
   const yours = await openYourMaps(page);
-  await expect(yours.locator("li", { hasText: "The first lift" })).toHaveCount(1);
+  for (const n of ["", " (2)", " (3)"]) await expect(yours.locator("li", { hasText: `${name} — Raise a tile${n}` })).toHaveCount(n ? 1 : 3);
 });
