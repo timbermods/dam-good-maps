@@ -22,13 +22,12 @@ test("Keyboard shortcuts lists the keys, ? opens it, Esc and Close close it, and
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("dt", { hasText: "Carve: a river or canyon" }).locator("xpath=following-sibling::dd").getByText("Shift+1", { exact: true })).toBeVisible();
-  // the mouse's camera moves are on the sheet
-  const mouse = dialog.locator("dt", { hasText: /^(Turn the view|Move the view|Zoom|Zoom toward the pointer)$/ });
-  for (const [what, key] of [["Turn the view", "Middle-drag"], ["Move the view", "Right-drag"], ["Zoom toward the pointer", "Scroll"]]) {
+  // the mouse's camera moves sit with the keys that do the same (the sheet fits a 720px window)
+  for (const [what, key] of [["Turn the view", "Middle-drag"], ["Move the view", "Right-drag"], ["Zoom", "Scroll"]]) {
     await expect(dialog.locator("dt", { hasText: new RegExp(`^${what}$`) }).locator("xpath=following-sibling::dd[1]").getByText(key, { exact: true })).toBeVisible();
   }
-  expect(await mouse.count()).toBe(6);
-  await expect(dialog.locator("dt", { hasText: "Mark an area that brushes and forces stay inside" }).locator("xpath=following-sibling::dd")).toHaveText("Ctrl+drag");
+  expect(await dialog.locator("dt", { hasText: /^(Turn the view|Move the view|Zoom)$/ }).count()).toBe(3);
+  await expect(dialog.locator("dt", { hasText: "Mark an area to work inside" }).locator("xpath=following-sibling::dd")).toHaveText("Ctrl+drag");
   await expect(dialog.locator("dt", { hasText: /^Raise$/ }).locator("xpath=following-sibling::dd")).toHaveText("2");
   // (a key pressed while it shows picks no tool)
   await page.keyboard.press("2");

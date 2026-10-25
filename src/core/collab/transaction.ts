@@ -36,7 +36,7 @@ export interface TransactionRecord {
   writes: Mask;
   /** Tiles touched: written, read or reached (the whole map for a force, a feature operation or a water operation). */
   touch: Mask;
-  /** Identity keys: "entity:<id>", "lakes", "feature-order", "action:<seq>". */
+  /** Identity keys: "entity:<id>", "lakes", "feature-order", "description", "action:<seq>". */
   keys: string[];
   /** Where it was, in words ("in the north-east"), or "" when it reached the whole map (undo.ts names it in a refusal). */
   where: string;

@@ -103,6 +103,7 @@
     },
     { "pattern": "\\b(hill|plateau|ridge|canyon|valley|island|terraces?|mesa|valley floor): reaches level\\b", "retired": "D182", "instead": "the brushes: hills and valleys come from painting", "example": "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles" },
     { "pattern": "\\bits edge (climbs|sinks) 1 level every\\b", "retired": "D182", "instead": "the brushes, whose edge slopes a level a tile", "example": "its edge sinks 1 level every 3 tiles from level 9" },
+    { "pattern": "\\bsink [0-9.]+ (?:bad)?water/s\\b", "retired": "planning on #236, 2026-10-25", "instead": "\"drains 2 water/s\": one word with the panel and the game's Badtide drain", "example": "Water source: sink 2 water/s" },
     { "pattern": ">on this map<", "retired": "D184", "instead": "the land itself: the generator's features are its plan, never a list of objects", "example": "<h2>On this map</h2>" },
     { "pattern": ">\\s*best dam site\\s*<", "retired": "D287", "instead": "none: the map card and the map name no dam site", "example": "<dt>Best dam site</dt>" },
     { "pattern": "\\bshow dam sites\\b", "retired": "D287", "instead": "none: dam sites are never drawn", "example": "Show dam sites" },
@@ -124,6 +125,7 @@
     { "pattern": "\\bthe preview is approximate there\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest.\"", "example": "Water under them keeps the map's own: the preview is approximate there." },
     { "pattern": "\\bcaves or overhangs, which the tools leave as they are\\b", "retired": "D487, the Block tool and Erode", "instead": "\"Caves or overhangs: the brushes shape only their tops\"", "example": "Caves or overhangs, which the tools leave as they are" },
     { "pattern": "\\bthe tools leave them as they are\\.", "retired": "D487, the Block tool and Erode", "instead": "\"This map has caves or overhangs. Brushes shape only their tops; the Block tool and Erode can change the rest.\"", "example": "This map has caves or overhangs. The tools leave them as they are." },
+    { "pattern": "\\b\\d+×\\d+,? designed for (?:easy|normal|hard)\\b", "retired": "D449", "instead": "the description says what the map is and shows, in a player's words: \"A 96×96 River Valley map.\"; the player shapes their own difficulty", "example": "A map, 96×96, designed for normal." },
     { "pattern": "\\b(?:drought and badtide aren.t|the drought line isn.t) worked out for maps with caves\\b", "retired": "#391", "instead": "Drought, Badtide and the drought line run on maps with caves, on the stacked-column engine", "example": "Drought and Badtide aren't worked out for maps with caves yet" }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/RULES.md", "docs/STATUS.md", "docs/README.md", "README.md"],

@@ -10,7 +10,8 @@
 import FORBIDDEN from "../data/forbiddenNames.json" with { type: "json" };
 import type { Signature } from "../analysis/signature";
 import type { IntentionId } from "../land/intentions";
-import { INTENTION_TEXT } from "../land/intentions";
+import { INTENTION_TEXT, KYLERS } from "../land/intentions";
+import { FORM_TEXT, type FormId } from "../land/forms3d";
 import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
 import { PROMISES } from "./outcomes";
@@ -21,7 +22,7 @@ import * as portable from "../math/portable";
  *  carrying the land's noun (`{land}`) so that a title seldom repeats across themes; across seeds
  *  1–30 of every theme at 128² no name appears more than twice (investigation/theme-critique: 102
  *  distinct names over 210 maps, "Standing Stone" nine times). */
-const TITLES: Record<IntentionId, string[]> = {
+const TITLES: Record<IntentionId | FormId, string[]> = {
   "under-cliff": ["Cliff Shelter {land}", "Under the Bluff", "Bluff Hollow {land}", "Crag Foot {land}", "Sheltered Ledge {land}", "Bluff Foot {land}", "Cliff Foot {land}", "Under the Crag {land}", "Shelter {land}", "Lee {land}", "Crag Shelter {land}", "Bluff Lee {land}", "Cliff Lee {land}", "Bluff Shelter {land}", "Under the Cliff {land}"],
   landmark: ["Lone Spire {land}", "Old Watchstone {land}", "Needle {land}", "Standing Stone {land}", "Sentinel {land}", "Pillar {land}", "Spire {land}", "Lone Rock {land}", "Watchstone {land}", "High Needle {land}", "Stone Finger {land}", "Beacon Rock {land}", "Tall Stone {land}", "Lone Tower {land}", "Grey Spire {land}", "One Stone {land}"],
   "farmland-past-gorge": ["Beyond the Gorge {land}", "Far Fields {land}", "Gorge Crossing {land}", "Fields Past the Chasm", "Across the Cut {land}", "Past the Gorge {land}", "Far Side {land}", "Fields Beyond {land}"],
@@ -44,6 +45,10 @@ const TITLES: Record<IntentionId, string[]> = {
   "relic-pinnacle": ["Relic Spire {land}", "Relic Pillar {land}", "Summit Relic {land}", "Relic Perch {land}", "Crowned Rock {land}", "Relic {land}", "High Relic {land}", "Pinnacle Relic {land}", "Crown {land}", "Old Perch {land}", "Relic Rock {land}", "Relic Needle {land}", "Relic Crag {land}", "Relic Height {land}", "Crowned {land}"],
   "plug-lake": ["The Plug", "Stopper Lake {land}", "Held Water {land}", "Bottled Lake {land}", "Pent Lake {land}", "Plug {land}", "Dammed Hollow {land}", "Stopper {land}"],
   "district-behind": ["Beyond the Rubble", "Cleared Way", "Second Shelf {land}", "The Blocked Ramp", "Neighbor Terrace", "Rubble {land}", "Second Place {land}", "Blocked Way {land}"],
+  // the 3D forms (D488)
+  "spring-cave": ["Spring Cave {land}", "Hidden Spring {land}", "Cave Spring {land}", "Grotto {land}", "Wellspring {land}", "Spring Grotto {land}", "Hollow Spring {land}", "Secret Spring {land}"],
+  "start-overhang": ["Overhang {land}", "Under the Ledge {land}", "Rock Shelter {land}", "Sheltering Rock {land}", "Overhang Camp {land}", "Hanging Rock {land}", "Shelter Rock {land}", "Ledge Camp {land}"],
+  "gorge-arch": ["Stone Arch {land}", "Natural Bridge {land}", "Arch Gorge {land}", "Bridge Rock {land}", "The Arch", "Span {land}", "Arch Crossing {land}", "Rock Bridge {land}"],
 };
 
 /** When a map has no standout (the best candidate after the cap): its land. */
@@ -133,7 +138,7 @@ export interface MapWords {
   description: string;
 }
 
-export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts; say?: string }): MapWords {
+export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | FormId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts; say?: string }): MapWords {
   const land = landNoun(o.theme, o.signature, o.seaLayout);
   const pool = o.standout ? TITLES[o.standout] : FALLBACK;
   // (the seed walks the pool, offset by the theme and the standout: thirty seeds in a row of one
@@ -148,6 +153,20 @@ export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionI
   // (never a seed or an invented word: the land alone)
   if (!name) name = `The ${land}`;
   // (the standout in the map's own numbers where its check gave them, else in general words)
-  const sentence = o.standout ? (o.say ?? INTENTION_TEXT[o.standout]) : "";
+  const sentence = o.standout ? (o.say ?? textOf(o.standout)) : "";
   return { name, description: [sentence, playHint(o.facts)].filter(Boolean).join(" ") };
+}
+
+/** What the map shows, for its description: the lines of the intentions that emerged on it, the standout's
+ *  first (in the map's own numbers where its check gave them, else in general words), at most two. */
+export function mapSays(intentions: readonly { id: IntentionId | FormId; ok: boolean; say?: string }[]): string[] {
+  const emerged = intentions.filter((x) => x.ok);
+  const first = emerged.find((x) => KYLERS.has(x.id as IntentionId)) ?? emerged[0];
+  if (!first) return [];
+  return [first, ...emerged.filter((x) => x !== first)].slice(0, 2).map((x) => x.say ?? textOf(x.id));
+}
+
+/** An intention's or a 3D form's outcome in general words (D138 (1)). */
+function textOf(id: string): string {
+  return id in FORM_TEXT ? FORM_TEXT[id as FormId] : INTENTION_TEXT[id as IntentionId];
 }

@@ -78,6 +78,10 @@ pub struct Stack {
     /// the sources), where the run can have read or written. Read only; it changes no result. A settle's
     /// reach (stackWater.ts `StackSettle.reach`): an edit far from it leaves that settle as it was.
     pub wet_ever: Vec<u8>,
+    /// 1 on every column a settle's end stored as a basin levelled to rest (`keep_sealed`, stack_prefill.rs), not
+    /// as the run left it: the run's flows' momentum there is not that water's. Read only; it changes no result
+    /// (stackWater.ts zeroes the drawn `flows` there).
+    pub levelled: Vec<u8>,
 }
 /// Finite and not below 0 (NaN is neither).
 fn finite_amount(v: f64) -> bool {
@@ -241,6 +245,7 @@ impl Stack {
             near: Vec::new(),
             ring: Vec::new(),
             wet_ever: vec![0; size],
+            levelled: vec![0; size],
         };
         let mut limited = vec![false; n];
         for &key in stack.cols.height_limit.keys() {
@@ -257,6 +262,10 @@ impl Stack {
         stack
     }
     /// Per edge, 1 when the flow rules let water take it (`dir_allowed`: the direction limiters), else 0.
+    /// Whether the flow rules let water take edge `e` (`dir_allowed`).
+    pub(crate) fn edge_allowed(&self, e: usize) -> bool {
+        self.edge_rule[e] & 1 != 0
+    }
     pub fn edges_allowed(&self) -> Vec<u8> {
         self.edge_rule.iter().map(|r| r & 1).collect()
     }
@@ -443,6 +452,7 @@ impl Stack {
         self.o.copy_from_slice(&s.overflow);
         self.c.copy_from_slice(&s.contamination);
         self.wet_ever.fill(0);
+        self.levelled.fill(0);
         self.sync_state()
     }
     pub fn read_params(&mut self) -> Result<(), Refusal> {

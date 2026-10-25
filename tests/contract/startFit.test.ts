@@ -181,3 +181,17 @@ describe("the fit rule and the checks agree on a generated map", () => {
     }
   });
 });
+
+describe("an imported map", () => {
+  it("refuses the start over another object, though every imported object is owned by 'import'", () => {
+    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
+    const imp = MapSession.importMap(writeTimber(r.file), "valley.timber");
+    expect(imp.features.some((f) => f.kind === "start")).toBe(false);
+    const own = imp.built.entities.find((e) => e.template === "StartingLocation")!;
+    expect(own.owner).toBe("import");
+    const refused = imp.built.entities
+      .filter((e) => e.template !== "StartingLocation" && e.x > 4 && e.y > 4 && e.x < 123 && e.y < 123)
+      .filter((e) => (planStart(imp, e.x, e.y, undefined, () => "x") as { errors?: string[] }).errors?.[0]?.endsWith("on an object"));
+    expect(refused.length).toBeGreaterThan(0);
+  });
+});

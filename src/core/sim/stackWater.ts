@@ -67,6 +67,7 @@ export const STACK_FIELD = {
   reach: 23,
   emitting: 24,
   allowed: 25,
+  levelled: 26,
 } as const;
 
 /** The engine's operations: `build` (a: 0 the game's rules, 1 the port's; b: 1 the stacked rules even on
@@ -84,7 +85,7 @@ export const STACK_OP = { build: 0, run: 1, prefill: 2, settleBegin: 3, advance:
  *  ticks. */
 export const STACK_INFO = { ticks: 0, stacked: 1, settle: 2, steadyTicks: 3, maxTicks: 4 } as const;
 
-const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array, Uint8Array, Uint8Array] as const;
+const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array, Uint8Array, Uint8Array, Uint8Array] as const;
 
 export type StackView = Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array;
 
@@ -408,6 +409,11 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         if (reach) threads?.reach(reach);
         // (each column's outflows: the strips' own rows' when they ran the last ticks, else this engine's)
         const flows = threads ? threads.flows() : columnFlows(m, stacked);
+        // (a basin the end stored levelled at rest has none of the run's momentum: still water shows no current)
+        if (stacked) {
+          const levelled = m.view(STACK_FIELD.levelled) as Uint8Array;
+          for (let c = 0; c < levelled.length; c++) if (levelled[c]) flows.fill(0, c * 4, c * 4 + 4);
+        }
         threads?.free();
         threads = null;
         if (drainNext) {
@@ -818,6 +824,14 @@ export function storedStack(cols: WaterColumns, stored: { tile: ArrayLike<number
   return { ...out, W, H, L };
 }
 
+/** The water a map shows per tile as its checks read it: on terrain above terrain each tile's highest
+ *  wet column, seen through its roofs (`seenThroughRoofs`: a cave's pool, a river under an arch);
+ *  else the settle's own per tile. */
+export function seenWater(b: { water: Float64Array; contamination: Float64Array; settle?: { stack?: StackSettle } }): { depth: Float64Array; contamination: Float64Array } {
+  const s = b.settle?.stack;
+  return s?.stacked ? seenThroughRoofs(s) : { depth: b.water, contamination: b.contamination };
+}
+
 /** The water standing on the map's ground, per tile: a tile's one column, or the column whose floor is the tile's
  *  height (`heights`, the terrain's surface), else none. What a reading on the ground compares day by day (the drought line): the same
  *  column on both sides, never the water under a NaturalOverhang on one and the water on its top on the other. */
@@ -854,6 +868,23 @@ export function seenThroughRoofs(s: StackSettle): { depth: Float64Array; contami
       break;
     }
   return { depth, contamination };
+}
+
+/** The ground under the water `seenThroughRoofs` shows: each tile's highest wet column's floor (a
+ *  cave's pool, a river under an arch), else `surface` (the tile's top). With it the checks that read
+ *  the water from above (a source in another's flow, the drought, the start's water) read that water
+ *  standing on its own floor, not on the roof over it. */
+export function seenFloor(s: StackSettle, surface: ArrayLike<number>): Float64Array {
+  const N = s.W * s.H;
+  const out = Float64Array.from(surface);
+  for (let i = 0; i < N; i++)
+    for (let q = s.count[i] - 1; q >= 0; q--) {
+      const c = q * N + i;
+      if (!(s.depth[c] > 0)) continue;
+      out[i] = s.floor[c];
+      break;
+    }
+  return out;
 }
 
 function emptyStack(cols: WaterColumns): StackSettle {
