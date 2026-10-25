@@ -102,7 +102,8 @@ feeds the river.").
 **Checked:** `tests/unit/forms3d.test.ts` (each form on hand-made land: its place, nothing falls, the surface kept where
 it should be, the same draw the same terrain, none where the land offers none); `tests/contract/forms3d.test.ts` (Canyon
 96² seed 3 at Verticality 80: spring caves and an arch, nothing dropped, the file's caves and stacked water, the project
-reopens to the same .timber; none at Verticality 0); the batches and the 84 maps below.
+reopens to the same .timber, a relic placed beside the cave's spring on its floor, a source the game would not keep left
+out with its reason; none at Verticality 0); the batches and the 84 maps below.
 
 **Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; rerun
 2026-10-25 on the worn shapes, the cave springs through the game's rule and dev with #490 and #498; this machine shared
@@ -127,20 +128,31 @@ with many other sessions' runs, three lanes at once, so times are high):
   placed (22 with a spring cave, 11 an overhang, 8 an arch, on Canyon and Highlands, whose defaults are 40 and 45), and
   their caves turned off Fill and Remove unfed water in the editor (and Drought, before #404), which is why the gate is
   there.
+- **At each theme's default Verticality** (since the gate came off, generator 0.10.3; `npm run batch` and
+  `tools/batch.ts --theme <t> --seeds 1-10`, 128², 2026-10-25 before #527's ruins merged): every map final (River
+  Valley 100 of 100, the others 10 of 10 each), every project round trip identical, 0 blocks dropped, relief within 16.
+  Maps with a form kept, and the forms kept (caves / overhangs / arches): River Valley (20) 16 / 28 / 0 of 100 maps;
+  Canyon (40) 6 of 10 maps, 5 / 0 / 2; Highlands (45) 9 of 10, 7 / 0 / 4; Any (25) 7 of 10, 5 / 2 / 0; Delta (10) 2 /
+  0 / 0; Lake Basin (10) and Islands (20) none (their drawn forms found no place or were dropped). Median time a map
+  10–31 s by theme on this loaded machine.
 - Time: at Verticality 80, 12 maps (Canyon, Highlands, River Valley, Any, seeds 1–3) took a median of 14.7 s against
   dev's 7.9 s on the same loaded machine: a map with forms is built and checked once or twice more, each time with the
   stacked engine's settle. Under 3 s at 128² is not met, by dev either on this machine.
 
-**Captures:** the contact sheet (`docs/sheets/3d-generation-1.png`, D144) shows the default maps, unchanged; the forms
+**Captures:** the default maps with their forms, seeds 1–30 of every theme at 128²: `docs/sheets/3d-forms-default.png`
+(D144); the close renders of the default maps' forms (Any 5 and 6's overhangs, Canyon 1's and Highlands 2's caves and
+arches, close, from above and straight down): `docs/sheets/3d-forms-default-close.jpg`. Part 1's sheet
+(`docs/sheets/3d-generation-1.png`) shows the default maps as they were before the gate came off; the forms
 themselves, in the editor's 3D view from where each is best seen, are `docs/sheets/3d-generation-1-forms.jpg` (Canyon 2
 at Verticality 50, Highlands 2 and Canyon 3 at 80; `tools/capture-forms3d.ts --maps theme:seed:vt,… [--views
 close,high,top] [--only …]`). The worn shapes against the boxes they replaced (Highlands 2 at 80: its cave's mouth, its
 big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg`.
 
 **Falls short, for the next parts:**
-- No forms at the default Verticality yet. The gate was there because Fill and Remove unfed water were refused on maps
-  with caves; #498 (merged 2026-10-25) gives them their rules, so the gate can now go, in its own PR: it changes the
-  default maps (31 of the 84 when measured, every one where a form was placed) and needs their re-pin (D148).
+- A stroke, a placement's levelling or a force over a form whose rock would then fall is refused whole, as on any map
+  with caves (D280 (3); a force leaves a cave or an overhang as it is): on the default maps that now has them, a wide
+  stroke across one is refused rather than shaped round it. Holding a form's rock as a stroke holds the ground under an
+  object (D491) would let it through; the hover's footprint check does not foresee the falls either.
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.
