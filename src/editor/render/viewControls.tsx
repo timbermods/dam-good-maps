@@ -85,9 +85,11 @@ export function hoverHandler(ed: Ed) {
     startHere, selection, objectUnder, objectTiles, setHoverObject, hoverStart
   } = ed;
 
-  return (hit: TileHit | null) => {
-    ed.lastHover.current = hit ? { x: hit.x, y: hit.y, level: hit.level } : null;
-    setHover(hit ? tileWords(describeTileFacts(pageTileFacts(), hit.x, hit.y, hit.level)) : null);
+  return (hit: TileHit | null, seen?: TileHit | null) => {
+    // (on a tile with a cave or an overhang the readout names the ground seen, a cave's floor, not the roof)
+    const read = seen ?? hit;
+    ed.lastHover.current = read ? { x: read.x, y: read.y, level: seen?.level } : null;
+    setHover(read ? tileWords(describeTileFacts(pageTileFacts(), read.x, read.y, seen?.level)) : null);
     hoverSources(hit);
     // the source the pointer targets, whatever tool is picked (D249)
     const t = hit ? targetAt(hit.x, hit.y) : null;

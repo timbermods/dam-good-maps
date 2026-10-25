@@ -130,8 +130,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     expect(tileWords(describeTile(facts, 1, 1, 13))).toBe("Height 13, dry soil");
     expect(tileWords(describeTile(facts, 1, 1, 3))).toBe("Height 3, moist soil");
     expect(tileWords(describeTile(facts, 1, 1, 1))).toBe("Water 0.5 deep, bed level 1");
-    // a level the map says nothing of is named, with no soil claimed
-    expect(tileWords(describeTile(facts, 1, 1, 7))).toBe("Height 7");
+    // a level the map says nothing of (a layer cut, a tile without caves) leaves the tile's top as it was
+    expect(tileWords(describeTile(facts, 1, 1, 7))).toBe("Height 13, dry soil");
+    expect(tileWords(describeTile({ ...facts, runTop: undefined }, 1, 1, 3))).toBe("Height 13, dry soil");
     expect(describeTile(facts, 1, 1, 3)!.ground).toMatchObject({ height: 3, soil: "moist", water: null });
     // runs are counted from the bottom, the empty one under air first
     expect(runIndexAt([1, 1, 0, 0, 1, 1, 0], 2)).toBe(0);

@@ -127,8 +127,8 @@ export function describeObject(o: TileObject): DescribedObject {
 /** The ground of tile i: its height, its water, and its soil once dry. Pointing at a run top below the tile's top
  *  (`level`, a cave's floor under its roof) it is that run's: the level, its water and its soil, never the roof's. */
 function groundOf(f: TileFacts, i: number, level?: number): TileGround {
-  if (level !== undefined && level < f.height(i)) {
-    const r = f.runTop?.(i, level) ?? null;
+  const r = level !== undefined && level < f.height(i) ? (f.runTop?.(i, level) ?? null) : null;
+  if (level !== undefined && r) {
     const rw = r?.water ?? null;
     const percent = rw ? Math.round(rw.contamination * 100) : 0;
     return {
