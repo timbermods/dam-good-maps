@@ -538,4 +538,8 @@ fn the_ground_a_levelled_lake_reaches_is_in_the_settles_reach() {
     let c = 5 * 64 + 55;
     assert!(s.d[c] > 0.0);
     assert_eq!(s.wet_ever[c], 1);
+    // and every column of it is marked levelled (its flows' momentum is not that water's), the dry ground not
+    assert_eq!(s.levelled[c], 1);
+    assert_eq!(s.levelled[5 * 64 + 63], 0);
+    assert!((0..s.d.len()).all(|k| s.d[k] == 0.0 || s.levelled[k] == 1));
 }

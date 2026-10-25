@@ -1367,7 +1367,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     only the rest runs on, lowest first, so a lake behind a dug rim stays at the cut's floor when the hollow
     beyond takes the rest, and stands as one level with it when that hollow fills (`rust/water/src/stack_level.rs`;
     a rest that would reach a source, the edge, other water or an obstacle leaves the basin as the settle left it;
-    the ground the rest could reach is part of the settle's reach, so an edit there settles in full). An imported map's own unfed water is kept on every column, a pool
+    the ground the rest could reach is part of the settle's reach, so an edit there settles in full; the drawn current, `StackSettle.flows`, is zero on the columns stored levelled, `Stack::levelled`, since the run's leftover momentum is not that water's). An imported map's own unfed water is kept on every column, a pool
     in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
     water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source

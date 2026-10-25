@@ -444,6 +444,8 @@ impl SettleRun {
         // what each is stored as: (column, depth, pressure, badwater share), later entries over earlier
         let mut writes: Vec<(usize, f64, f64, f64)> = Vec::new();
         let mut claimed = vec![false; size];
+        // the columns stored levelled (not as the run left them or at their exact start): `Stack::levelled`
+        let mut levelled: Vec<usize> = Vec::new();
         let mut queue = Vec::new();
         let mut reach: Vec<usize> = Vec::new();
         let mut k = 0u32;
@@ -587,8 +589,10 @@ impl SettleRun {
             for &c in basin.iter().chain(&ours) {
                 writes.push((c, 0.0, 0.0, 0.0));
                 claimed[c] = true;
+                levelled.push(c);
             }
             for &(c, d, o) in &rest {
+                levelled.push(c);
                 let q = if start.depth[c] > 0.0 { start.contamination[c] } else { share };
                 writes.push((c, d, o, if q > 1.0 { 1.0 } else { q }));
                 claimed[c] = true;
@@ -596,6 +600,10 @@ impl SettleRun {
         }
         for c in reach {
             s.wet_ever[c] = 1;
+        }
+        s.levelled.fill(0);
+        for c in levelled {
+            s.levelled[c] = 1;
         }
         if writes.is_empty() {
             return;
@@ -605,8 +613,9 @@ impl SettleRun {
             s.o[c] = o;
             s.c[c] = q;
         }
-        // (the flows' momentum stays as the run left it, as on a basin given back its start: the multi-core settle
-        // gathers it from the strips, which never see this, stackWater.ts `flows`)
+        // (the flows' momentum stays as the run left it, on a basin given back its start too: the multi-core settle
+        // gathers it from the strips, which never see this. On the columns stored levelled it is not that water's,
+        // and stackWater.ts zeroes the drawn `flows` there, from `levelled`, on any number of threads)
         // (the water written is well formed; its wet lists follow it)
         let _ = s.sync_state();
     }
