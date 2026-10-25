@@ -13,7 +13,8 @@ import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "..
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
-const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
+// (each step's label, less the sources a force's Sources: Clear took, D474: contract/forceClearSources checks that part)
+const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label.replace(/, (a source|\d+ sources) cleared/, ""));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);

@@ -12,7 +12,8 @@ import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "..
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
-const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
+// (each step's label, less the sources a force's Sources: Clear took, D474: contract/forceClearSources checks that part)
+const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label.replace(/, (a source|\d+ sources) cleared/, ""));
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
 const worker = (page: Page) => page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights));
 const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
