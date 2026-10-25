@@ -230,14 +230,30 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   ledge under an overhang; dev against this branch; Standard and High; 1920×1080 dark and 1280×800 light; real
   Chrome on the RTX 2070 SUPER): dev's hover highlight and drag land on the wall or roof in front, this branch's (Select) on the floor. The editing
   tools' cursors are not in the sheet: they stay where dev's are.
-  The selection's tint still covers the whole tile (roof, walls and floor), since the overlay is per tile.
+  The selection's tint then still covered the whole tile (roof, walls and floor), since the overlay is per tile; it
+  is now drawn on the run it names (below).
 - **The Select tool in 3D:** a selection is still a set of tiles (`Selection`, a mask). What a run adds:
   Ctrl+click takes the level of the ground hit (a cave's floor, not the roof's height) as the Level number, and the
   Wand takes the ground joined to the click at that level, a run's top under an overhang too (`levelTiles`, the
   view's `hasTop`). The Alt+click layer pick cuts at the level hit. A run is not named in the selection or the
   operations yet; the brushes and Select's actions still work on the heightfield's top until step 3 (D280 (3)) moves
-  them onto runs. Proposed when they do: the selection keeps its tile mask and gains an optional level per tile
-  (`Selection.levels`), set from the hit's `level`.
+  them onto runs.
+- **A selection is drawn on the ground it names** (`fix/selection-at-level`): the Wand on land keeps the tile mask
+  (the operations' input, unchanged) and names the level it took in each tile (`Selection.levels`, level + 1 a tile;
+  null for every other selection: Rectangle, Circle, Freehand, Brush, the Wand on water, Whole map). Added tiles take
+  their own level or none; tiles taken out lose theirs. The page hands the levels to the renderer
+  (`setOverlayRuns(levels, LOCKED)`), which finds in each column with terrain above terrain the run holding that
+  level (`overlayRuns.ts` `runHolding`: the run topped at it, or one a layer cut at it caps; its bottom and the
+  underside above it) and writes them to a per-tile texture. The terrain shader (`overlayOnRun`, compiled only under
+  `CUTAWAY`) draws the tile's overlay on that run's top and walls, and the water's (only under `CAVES`) on the water
+  over it; the rest of the column (the roof over a cave, its walls and underside) takes the land outside's dimming.
+  A plain column, and every plain map, draws exactly as before (same program). The columns changing (an edit) finds
+  the runs again. Test: `tests/unit/overlayRuns.test.ts`. Captures: `docs/sheets/selection-at-level.jpg` (Hollows,
+  a Wand click on the cave floor at (46, 139), level 3, 149 tiles; from the mouth, from above and under a cut at 5;
+  Standard and High; 1920×1080 dark and 1280×800 light; real Chrome; dev against this branch): dev's yellow strips
+  up the cliff and round the roof's top are gone, the outline lies on the floor. Known limits until step 3: Up 1,
+  Down 1, Flatten, Cut down, Fill up and Delete act on the selected tiles' tops (the roof over a cave floor), not on
+  the floor drawn; other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
