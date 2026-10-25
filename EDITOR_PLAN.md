@@ -121,7 +121,9 @@ place of its bottom rule.
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
   **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
-  open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  open map back as it was. **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
+  the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
+  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
@@ -463,7 +465,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   riding one running; the others' water flows on from the final land). Under Clear, Carve and Glaciate take what
   they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
   (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
-  them back. Where the row shows the choice is the page's.
+  them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
+  above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
+  core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -534,7 +538,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `where.path`, kept by Try another; a carve drawn uphill is shown the way it was drawn, D344 A5). **Power** (creek to
   catastrophe), **Size** (width; depth follows Power and the width). Wander and walls come from the land and the seed,
   with natural variation (bends wider and deeper on the outside); a cut-off bend becomes an oxbow lake sealed by
-  sediment. Behind More: **Canyon depth**, **River depth** (D321, item 17: how deep its water may be, 1 up to the
+  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "at most N", since the Floor and the land's height stop the cut
+  sooner), **River depth** (D321, item 17: how deep its water may be, 1 up to the
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
@@ -635,9 +640,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
   at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
   result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
-  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1,
-  the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
-  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
+  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1
+  with "The land decides the form" across the rest of it, the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
+  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it; every edge on the bar's cells); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
   Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
   holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
   (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the

@@ -1642,14 +1642,14 @@
   z-index: 21;
 }
 
-/* the land's square: half the window's height. Centred, it and the card under it (16px, then 85px) may reach the bar; where
+/* the land's square: half the window's height. Centred, it and the card under it (16px, then 106px) may reach the bar; where
    they would come within 60px of it (a window about 800px tall or less), both lift together by the difference, so they
    sit centred between the header and the bar (the bar and shelf take the last 72px) */
 :root {
   --land: min(512px, 50vh);
   /* the header's height: its min-height (a 1px rule below the padding included), 73px from 2200px wide up */
   --head: 67px;
-  --land-lift: max(0px, calc(50vh + var(--head) / 2 + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
+  --land-lift: max(0px, calc(50vh + var(--head) / 2 + var(--land) / 2 + 122px - (100vh - 72px - 60px)));
 }
 
 /* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
@@ -1676,6 +1676,14 @@
 
 .making-dialog[role="alertdialog"] p {
   white-space: normal;
+}
+
+/* the count under the words (the attempt and the time so far): quiet, its line kept even while empty */
+.making-dialog p.making-count {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 /* ---- waiting states (Kyler, 2026-10-15): a little water in the card, contour rings on the empty land, a dashed tile in
