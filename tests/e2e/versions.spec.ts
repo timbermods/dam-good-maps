@@ -248,7 +248,7 @@ test("B with no version chosen says how to choose one, and Your maps' Compare pi
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   const name = (await info(page)).name;
-  const hint = page.getByRole("status").filter({ hasText: "select a version in Your maps and press Compare" });
+  const hint = page.getByRole("status").filter({ hasText: "Ctrl+click a version in Your maps, then press Compare" });
 
   // B held with nothing chosen: a note on how to choose a version, not silence
   await page.keyboard.down("b");
