@@ -18,7 +18,7 @@ import { FOOTPRINTS, ORIENTATIONS, type Orientation } from "../format/footprints
 import { hasDefaults, type PlaceEntityParams } from "../features/edits";
 import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
-import { BUILT_OBJECTS, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
+import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
@@ -34,7 +34,8 @@ import { blockEffect, blockProblems, type BlockGround, type BlocksParams } from 
 import type { ColumnTerrain } from "../terrain/runs";
 import { fedTiles } from "../sim/fed";
 import { fillProblem } from "../sim/fill";
-import { CAVE_REFUSALS, cavesOf } from "../sim/stackWater";
+import { fedColumns, stackFillProblem } from "../sim/stackFed";
+import { cavesOf, stackGraph, type StackSettle } from "../sim/stackWater";
 import { cropRectProblem, type CropParams } from "./crop";
 import type { RetainedWater, WaterModel } from "../sim/water";
 import opsSchema from "./ops.schema.json" with { type: "json" };
@@ -50,7 +51,7 @@ export interface OpParams {
   updateFeature: { id: string; patch: { params?: Record<string, unknown>; locked?: boolean } };
   deleteFeature: { id: string };
   reorderFeature: { id: string; index: number };
-  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean };
+  sculpt: { mode: SculptMode; cells: Runs; amount?: number; level?: number; step?: number; /** The integrity pass leaves what this changed as it is (a single tile's pit stays a pit: Delete's ground, D323 item 1). */ exact?: boolean; /** The ground holding objects set under a roof (D491): [tile, low, high]; the session adds it. */ hold?: [number, number, number][] };
   /** A terrain brush stroke (live editing): the brush and its dabs (features/raster/brush.ts). */
   brush: BrushParams;
   /** A force of nature (Carve, Craterize, Erupt, Quake, Glaciate: D194, D202, D203, D206, D220, D246),
@@ -60,7 +61,8 @@ export interface OpParams {
   placeEntity: PlaceEntityParams;
   /** `quiet`: only a force's own edit sets it (an object it carried that is gone, or whose new ground
    *  is taken, is left out); an operation in the log never does. */
-  moveEntity: { id: string; x: number; y: number; orientation?: Orientation; quiet?: boolean };
+  /** `z`: the level it lands on under a roof (D491), as `placeEntity`'s; omitted, the ground's top. */
+  moveEntity: { id: string; x: number; y: number; z?: number; orientation?: Orientation; quiet?: boolean };
   /** `quiet`: ids already gone are fine. Only a force's own edit sets it (its ground places the
    *  resources again); an operation in the log never does. */
   deleteEntities: { entities: string[]; quiet?: boolean };
@@ -91,7 +93,8 @@ export type { CropParams };
 
 export interface RemoveUnfedWaterParams {
   /** The tiles of the unfed bodies of water taken (y·W + x), ascending: once the water settles, the
-   *  water no source feeds on them is taken away (sim/water.ts WaterModel `drained`). */
+   *  water no source feeds on them is taken away (sim/water.ts WaterModel `drained`); on a map with
+   *  caves, the unfed water of every column of them. */
   tiles: number[];
   /** Where it was asked: the selection's tiles as runs [y, x0, x1]; absent, the whole map. A body of
    *  water with a tile inside goes whole. */
@@ -105,8 +108,12 @@ export interface FillHollowParams {
   at: [number, number];
   /** The water's surface. */
   level: number;
+  /** On a map with caves or overhangs: the floor of the water column at `at` the hollow is measured from
+   *  (a cave's floor under its roof, or the ground on top). Absent on a heightfield. */
+  floor?: number;
   /** The hollow's water (its tiles ascending, their floors, depths to the level, clean), as a carve
-   *  stores its oxbow lake's: every settle starts the hollow from it. */
+   *  stores its oxbow lake's: every settle starts the hollow from it. On a map with caves, one entry a
+   *  water column: a tile whose cave and top are both in the hollow has two, ascending by floor. */
   lake: RetainedWater;
 }
 
@@ -459,13 +466,16 @@ export interface OpContext {
   otherStarts?: number;
   /** Why the game would not keep an entity placed (or moved, by id) there, or null: the loader's
    *  rules on the current map (placing.ts `entityProblem`). */
-  placement?: (p: { template?: string; id?: string; x: number; y: number; orientation?: Orientation; flipped?: boolean }) => string | null;
+  placement?: (p: { template?: string; id?: string; x: number; y: number; z?: number; orientation?: Orientation; flipped?: boolean }) => string | null;
   /** The map's water model and its settled water now: Remove unfed water and Fill are checked
    *  against them (a removal takes no fed water; a fill's hollow is still the one it measured). */
-  water?: { model: WaterModel; depth: ArrayLike<number> };
+  water?: { model: WaterModel; depth: ArrayLike<number>; stack?: Pick<StackSettle, "depth" | "overflow"> };
   /** The map's surface now: a sculpt that would raise ground past the ceiling is refused, never
    *  clamped (D342 (4)). */
   heights?: ArrayLike<number>;
+  /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
+   *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
+  masks?: ArrayLike<number> | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -590,6 +600,17 @@ function featureGeometryProblems(f: Feature, W: number, H: number): string[] {
   }
 }
 
+/** Why a map object feature that names its level (`placement.z`, under a roof) can't stand there, in one
+ *  line: the game's rule on the map's ground and wholly under the roof (D491, objects.ts `fitProblems`). */
+function levelProblems(f: Feature, ctx: OpContext): string[] {
+  if (f.kind !== "mapObject" || f.params.placement.z === undefined) return [];
+  const pl = f.params.placement;
+  const name = OBJECT_NAMES[f.params.kind].toLowerCase();
+  if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
+  return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
+}
+
 /** Why an operation cannot be applied now (empty when it can). */
 /** Why an operation does not fit its schema (empty when it does): the first line of `validateOp`. */
 export function schemaProblems(op: EditOp): string[] {
@@ -614,7 +635,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       const missing = dependenciesOf(f).filter((d) => !featureById(d));
       if (missing.length) return [`it builds on ${missing.join(", ")}, which does not exist`];
       if (op.params.index !== undefined && op.params.index > state.features.length) return [`index ${op.params.index} is past the end of the feature list`];
-      return featureGeometryProblems(f, W, H);
+      const geometry = featureGeometryProblems(f, W, H);
+      return geometry.length ? geometry : levelProblems(f, ctx);
     }
     case "updateFeature": {
       const f = featureById(op.params.id);
@@ -626,7 +648,8 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (missing.length) return [`it would build on ${missing.join(", ")}, which does not exist`];
       if (after.kind === "mapObject" && f.kind === "mapObject" && after.params.kind !== f.params.kind) return ["a map object keeps its kind: delete it and add another"];
       if (after.kind === "setPiece" && f.kind === "setPiece" && after.params.kind !== f.params.kind) return ["a set piece keeps its kind: delete it and add another"];
-      return featureGeometryProblems(after, W, H);
+      const geometry = featureGeometryProblems(after, W, H);
+      return geometry.length ? geometry : levelProblems(after, ctx);
     }
     case "deleteFeature": {
       if (!featureById(op.params.id)) return [`feature ${op.params.id} does not exist`];
@@ -706,13 +729,13 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if (options.length) return options;
       }
       // an object the game would delete on load is refused
-      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, orientation: p.orientation, flipped: p.flipped });
+      const why = ctx.placement?.({ template: p.template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation, flipped: p.flipped });
       return why ? [why] : [];
     }
     case "moveEntity": {
       if (!ctx.entityIds.has(op.params.id)) return [`entity ${op.params.id} does not exist`];
       if (!inMap(op.params.x, op.params.y)) return [`(${op.params.x}, ${op.params.y}) is outside the map`];
-      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, orientation: op.params.orientation });
+      const why = ctx.placement?.({ id: op.params.id, x: op.params.x, y: op.params.y, ...(op.params.z !== undefined ? { z: op.params.z } : {}), orientation: op.params.orientation });
       return why ? [why] : [];
     }
     case "deleteEntities": {
@@ -753,8 +776,6 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return objects ? [objects] : [];
     }
     case "removeUnfedWater": {
-      // (which water a removal takes on a tile with water at several levels is not decided, D280)
-      if (ctx.water && cavesOf(ctx.water.model)) return [CAVE_REFUSALS.removeUnfed];
       const p = op.params;
       const errors = ascendingTiles(p.tiles, W, H, "the water's tiles");
       if (errors.length) return errors;
@@ -762,7 +783,29 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         const e = runsProblems(p.area, W, H, "the selection");
         if (e.length) return e;
       }
-      if (ctx.water) {
+      if (ctx.water && cavesOf(ctx.water.model) && ctx.water.stack) {
+        // on a map with caves, every column of each tile: a tile whose water is all fed is refused; a cave
+        // pool under a fed river is the removal's, the river is not
+        const g = stackGraph(ctx.water.model);
+        const { depth: d, overflow } = ctx.water.stack;
+        const fed = fedColumns(g, d, overflow);
+        let fedOnly = 0;
+        let unfed = 0;
+        for (const i of p.tiles) {
+          let wet = false;
+          let free = false;
+          for (let q = 0; q < g.count[i]; q++) {
+            const c = q * g.N + i;
+            if (!(d[c] > 0)) continue;
+            wet = true;
+            if (!fed[c]) free = true;
+          }
+          if (free) unfed++;
+          else if (wet) fedOnly++;
+        }
+        if (fedOnly) return [`${fedOnly === 1 ? "one of those tiles holds" : `${fedOnly} of those tiles hold`} only water a source feeds: look again at what it would remove`];
+        if (!unfed) return ["no unfed water stands there"];
+      } else if (ctx.water) {
         const fed = fedTiles(ctx.water.model, ctx.water.depth);
         const d = ctx.water.depth;
         let fedCount = 0;
@@ -778,27 +821,49 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       return [];
     }
     case "fillHollow": {
-      if (ctx.water && cavesOf(ctx.water.model)) return [CAVE_REFUSALS.fill];
       const p = op.params;
       const [x, y] = p.at;
       if (!inMap(x, y)) return [`(${x}, ${y}) is off the map`];
       const l = p.lake;
       if (l.floor.length !== l.tiles.length || l.depth.length !== l.tiles.length || l.contamination.length !== l.tiles.length) return ["the fill's tiles, floors, depths and contamination must match one for one"];
-      const errors = ascendingTiles(l.tiles, W, H, "the fill's tiles");
+      // (on a map with caves a tile has an entry for each of its water columns the hollow fills)
+      const caves = !!(ctx.water ? cavesOf(ctx.water.model) : ctx.lockedColumns?.size);
+      const errors = caves ? ascendingColumns(l.tiles, l.floor, W, H, "the fill's tiles") : ascendingTiles(l.tiles, W, H, "the fill's tiles");
       if (errors.length) return errors;
       if (!l.tiles.includes(y * W + x)) return [`the fill's tiles must hold (${x}, ${y}), where it was asked`];
       for (let k = 0; k < l.tiles.length; k++) {
         if (!(l.depth[k] > 0) || Math.abs(l.floor[k] + l.depth[k] - p.level) > 1e-9) return ["the fill's water must stand at its level on every tile"];
         if (l.contamination[k] !== 0) return ["a fill is clean water"];
       }
-      if (ctx.lockedColumns?.size) for (const i of l.tiles) if (ctx.lockedColumns.has(i)) return [`(${i % W}, ${Math.floor(i / W)}) has a cave or overhang, which a fill leaves as it is`];
+      if (p.floor !== undefined && !(Number.isInteger(p.floor) && p.floor >= 0)) return ["the fill's floor must be a level of the ground"];
       if (ctx.water) {
-        const why = fillProblem(ctx.water.model, p.at, p.level, l);
-        if (why) return [why];
+        const m = ctx.water.model;
+        // on a map with caves or overhangs, the hollow on every water column (sim/stackFed.ts); on a heightfield,
+        // the ground's one column a tile
+        if (cavesOf(m)) {
+          const why = stackFillProblem(stackGraph(m), p.at, p.level, l, p.floor);
+          if (why) return [why];
+        } else {
+          if (p.floor !== undefined && p.floor !== m.floor[y * W + x]) return [`there is no ground at level ${p.floor} at (${x}, ${y})`];
+          const why = fillProblem(m, p.at, p.level, l);
+          if (why) return [why];
+        }
       }
       return [];
     }
   }
+}
+
+/** Water columns on a W×H map by tile and floor, ascending by tile and then floor, each once (a tile has
+ *  several only where it has a cave or an overhang). */
+function ascendingColumns(tiles: readonly number[], floors: readonly number[], W: number, H: number, what: string): string[] {
+  if (!tiles.length) return [`${what} are none`];
+  for (let k = 0; k < tiles.length; k++) {
+    const i = tiles[k];
+    if (!Number.isInteger(i) || i < 0 || i >= W * H) return [`${what}: ${i} is not a tile of the ${W}×${H} map`];
+    if (k > 0 && (i < tiles[k - 1] || (i === tiles[k - 1] && !(floors[k] > floors[k - 1])))) return [`${what} must be ascending, each once`];
+  }
+  return [];
 }
 
 /** Tile indices on a W×H map, ascending, each once. */

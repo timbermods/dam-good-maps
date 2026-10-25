@@ -90,6 +90,25 @@ function draw(canvas: HTMLCanvasElement, l: { W: number; H: number; heights: Uin
   ctx.putImageData(img, 0, 0);
 }
 
+/** One island's contour rings, the lowest (in the water's colour) first: they draw themselves one after another while the
+ *  land's square waits for its picture (.first-look-empty in page.css). */
+const CONTOURS = [
+  "M96.6 50C97 58.1 93.1 68.9 87.5 75C81.9 81.2 71.6 84.6 63 86.9C54.5 89.2 44 91.2 36.3 88.7C28.7 86.3 22.3 78.4 17.1 72C11.9 65.5 6.1 58 5.2 50C4.2 42 6.4 31 11.5 24.3C16.6 17.6 27.4 11 35.8 9.8C44.2 8.5 53.5 14.1 61.7 16.8C70 19.6 79.4 20.9 85.3 26.4C91.1 32 96.3 41.9 96.6 50Z",
+  "M87 49C87 55.7 83.6 64.2 79 69.2C74.4 74.2 66.2 76.9 59.3 78.8C52.4 80.7 43.8 82.7 37.6 80.7C31.4 78.7 26.3 72.3 21.9 67C17.4 61.7 11.6 55.5 10.9 49C10.2 42.5 13.1 33.4 17.5 28.1C21.9 22.8 30.8 18.2 37.6 17.2C44.4 16.2 51.4 20.2 58.3 22.1C65.2 24.1 74.1 24.4 78.9 28.9C83.7 33.4 87 42.3 87 49Z",
+  "M77.7 48.4C77.5 53.7 74.8 60 71.3 63.8C67.7 67.7 61.6 69.9 56.3 71.4C51 73 44.4 74.5 39.5 73C34.6 71.6 30.6 66.6 27.1 62.5C23.5 58.4 18.4 53.4 17.9 48.4C17.5 43.4 20.6 36.3 24.2 32.4C27.9 28.4 34.5 25.4 39.8 24.6C45 23.7 50.2 26 55.7 27.3C61.1 28.5 68.8 28.6 72.5 32.2C76.2 35.7 77.9 43.1 77.7 48.4Z",
+  "M67.8 48C67.5 51.6 65.7 55.6 63.3 58.2C61 60.9 57.1 62.6 53.5 63.7C50 64.7 45.5 65.7 42.1 64.7C38.7 63.7 35.9 60.6 33.4 57.8C30.9 55 27.3 51.4 27.1 48C26.9 44.6 29.5 40 32.1 37.4C34.6 34.8 39 33.1 42.5 32.4C46 31.7 49.5 32.5 53.2 33.2C57 33.9 62.5 34.2 65 36.7C67.4 39.1 68.1 44.4 67.8 48Z",
+  "M58.2 47.7C58 49.6 57.1 51.6 55.9 53C54.7 54.4 52.8 55.4 50.9 56C49.1 56.6 46.7 57 44.9 56.5C43.1 56 41.4 54.4 40.1 53C38.8 51.5 37 49.5 37 47.7C36.9 45.9 38.5 43.6 39.8 42.2C41.2 40.9 43.3 40.2 45.2 39.7C47 39.3 48.9 39.2 50.9 39.6C52.9 39.9 55.8 40.3 57.1 41.6C58.3 43 58.4 45.8 58.2 47.7Z"
+];
+
+/** A small stretch of moving water for the "map being made" card (.making-water in page.css); it only moves while mounted. */
+export function MakingWater() {
+  return (
+    <div class="making-water" aria-hidden="true">
+      <span />
+    </div>
+  );
+}
+
 /** `quiet`: the land alone, its words said elsewhere (the progress dialog over the editor's frame). */
 export function FirstLook({ progress, quiet = false }: { progress: Progress | null; quiet?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -102,7 +121,13 @@ export function FirstLook({ progress, quiet = false }: { progress: Progress | nu
       {shown ? (
         <canvas ref={ref} class="first-look-map" aria-label={progress?.candidate ? "Your map, its water settled" : "The land so far, before its water is settled"} />
       ) : quiet ? (
-        <div class="first-look-map first-look-empty" aria-hidden="true" />
+        <div class="first-look-map first-look-empty" aria-hidden="true">
+          <svg class="contours" viewBox="0 0 100 100">
+            {CONTOURS.map((d) => (
+              <path key={d} d={d} pathLength={1} />
+            ))}
+          </svg>
+        </div>
       ) : null}
       {quiet ? null : (
         <p role="status" class="first-look-stage">

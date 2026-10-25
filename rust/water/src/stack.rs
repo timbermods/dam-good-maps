@@ -256,6 +256,10 @@ impl Stack {
         stack.edge_rule = rule;
         stack
     }
+    /// Per edge, 1 when the flow rules let water take it (`dir_allowed`: the direction limiters), else 0.
+    pub fn edges_allowed(&self) -> Vec<u8> {
+        self.edge_rule.iter().map(|r| r & 1).collect()
+    }
     pub fn validate_state(&self) -> Result<(), Refusal> {
         let size = self.cols.n * self.cols.levels;
         if self.d.len() != size

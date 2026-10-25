@@ -199,11 +199,21 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
         state.contamination[c] = if d > 0.0 && q[c] > 0.0 { bad[c] / q[c] } else { 0.0 };
     }
     for r in retained {
-        let i = r.tile as usize;
-        let c = (s.cols.count[i] as usize - 1) * s.cols.n + i;
+        let c = retained_column(s, r);
         let f = s.cols.floor[c] as f64;
         if f == r.floor {
-            state.depth[c] = r.depth;
+            // (a lake standing above its column's roof fills it, under the pressure of the water over the roof,
+            // as the walk's water above does; in the open, a lake is its depth)
+            let ce = s.cols.ceil[c] as f64;
+            let mut d = r.depth;
+            state.overflow[c] = 0.0;
+            if d > ce - f {
+                let o = (r.floor + r.depth - ce) / PRESSURE;
+                let max_o = (OPEN as f64 - ce) / PRESSURE;
+                state.overflow[c] = if o > max_o { max_o } else { o };
+                d = ce - f;
+            }
+            state.depth[c] = d;
             state.contamination[c] = r.contamination;
         } else {
             let mut d = r.floor + r.depth - f;
@@ -217,19 +227,27 @@ pub fn prefill(s: &Stack, retained: &[Retained]) -> State {
     }
     state
 }
+/// The column a stored lake's entry stands in: its tile's column whose floor is the entry's (a lake in a cave,
+/// under a roof), else the tile's top column (the water from above, as the lake was stored on ground that has
+/// changed since).
+pub fn retained_column(s: &Stack, r: &Retained) -> usize {
+    let n = s.cols.n;
+    let i = r.tile as usize;
+    let count = s.cols.count[i] as usize;
+    for q in 0..count {
+        if s.cols.floor[q * n + i] as f64 == r.floor {
+            return q * n + i;
+        }
+    }
+    (count - 1) * n + i
+}
 pub fn sealed_columns(s: &Stack, retained: &[Retained]) -> Vec<usize> {
-    let mut v: Vec<usize> = retained
-        .iter()
-        .map(|r| {
-            let i = r.tile as usize;
-            (s.cols.count[i] as usize - 1) * s.cols.n + i
-        })
-        .collect();
+    let mut v: Vec<usize> = retained.iter().map(|r| retained_column(s, r)).collect();
     v.sort_unstable();
     v.dedup();
     v
 }
-pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], vol: f64, sealed: &[usize], tol: f64, share: f64) -> bool {
+pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], sealed: &[usize], tol: f64, share: f64) -> bool {
     let size = s.d.len();
     let mut feeds = vec![false; size];
     for em in &s.emitters {
@@ -295,7 +313,9 @@ pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], vol: 
             moved += 1;
         }
     }
-    (rest - prev).abs() / max(vol, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
+    // (the rest's change against the rest's own water, as the heightfield's rule (settle.rs): a lake holding much more
+    // water than the rivers would otherwise let them still fill while the check passes)
+    (rest - prev).abs() / max(rest, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
 }
 pub struct SettleRun {
     pub every: u64,
@@ -308,7 +328,10 @@ pub struct SettleRun {
     since: u64,
     sealed: Vec<usize>,
     steady: Option<u64>,
+    /// Stop at the first check where only the sealed basins still change (D222, D413): set when there are any.
     pub until_steady: bool,
+    /// The water as the settle began, with sealed basins: a basin that only dried is stored as it began.
+    start: Option<State>,
 }
 impl SettleRun {
     pub fn new(s: &Stack, max_days: f64, sealed: Vec<usize>) -> Self {
@@ -330,9 +353,14 @@ impl SettleRun {
             prev_vol: s.volume(),
             k: 0,
             since: 0,
+            until_steady: !sealed.is_empty(),
+            start: (!sealed.is_empty()).then(|| State {
+                depth: s.d.clone(),
+                overflow: s.o.clone(),
+                contamination: s.c.clone(),
+            }),
             sealed,
             steady: None,
-            until_steady: false,
         }
     }
     pub fn advance(&mut self, s: &mut Stack, ticks: u64) -> Option<SettleResult> {
@@ -350,15 +378,87 @@ impl SettleRun {
         self.since
     }
     /// `s` has run `n` more ticks (at most to the next check): the check, when one is due.
-    pub fn after(&mut self, s: &Stack, n: u64) -> Option<SettleResult> {
+    pub fn after(&mut self, s: &mut Stack, n: u64) -> Option<SettleResult> {
         if self.result.is_none() {
             self.since += n;
             if self.since >= self.every {
                 self.since = 0;
                 self.check(s);
+                if self.result.is_some() {
+                    self.keep_sealed(s);
+                }
             }
         }
         self.result
+    }
+    /// A sealed basin only evaporating is stored as it began (D413, as the heightfield's settle stores it,
+    /// src/core/sim/prefill.ts `keepSealed`): the wet columns joined to a stored lake that no running source
+    /// feeds and that do not reach the map's edge, when none of them gained water since the settle began
+    /// (none flowed in, none moved to ground the lake did not hold), go back to the water they began with, so
+    /// a Fill is written at exactly its level. A basin whose water moved stays as the settle left it, at rest.
+    fn keep_sealed(&self, s: &mut Stack) {
+        let Some(start) = &self.start else { return };
+        let size = s.d.len();
+        let mut feeds = vec![false; size];
+        for em in &s.emitters {
+            if em.strength > 0.0 {
+                for &c in &em.cols {
+                    feeds[c as usize] = true;
+                }
+            }
+        }
+        let wet = |c: usize| s.d[c] > 0.0 || start.depth[c] > 0.0;
+        let mut seen = vec![false; size];
+        let mut keep = Vec::new();
+        let mut queue = Vec::new();
+        for &seed in &self.sealed {
+            if seen[seed] || !wet(seed) {
+                continue;
+            }
+            seen[seed] = true;
+            queue.clear();
+            queue.push(seed);
+            let mut rests = true;
+            let mut head = 0;
+            while head < queue.len() {
+                let c = queue[head];
+                head += 1;
+                let i = c % s.cols.n;
+                let x = i % s.cols.w;
+                let y = i / s.cols.w;
+                if feeds[c] || x == 0 || y == 0 || x == s.cols.w - 1 || y == s.cols.h - 1 {
+                    rests = false;
+                }
+                if s.d[c] > start.depth[c] + 0.005 || s.o[c] > start.overflow[c] + 0.005 / PRESSURE {
+                    rests = false;
+                }
+                for e in s.start[c] as usize..s.start[c + 1] as usize {
+                    let t = s.target[e];
+                    if t < 0 {
+                        continue;
+                    }
+                    let t = t as usize;
+                    if seen[t] || !wet(t) {
+                        continue;
+                    }
+                    seen[t] = true;
+                    queue.push(t);
+                }
+            }
+            if rests {
+                keep.extend_from_slice(&queue);
+            }
+        }
+        if keep.is_empty() {
+            return;
+        }
+        for &c in &keep {
+            s.d[c] = start.depth[c];
+            s.o[c] = start.overflow[c];
+            s.c[c] = start.contamination[c];
+        }
+        // (the water it began with was well formed; its wet lists follow it)
+        let _ = s.sync_state();
     }
     fn check(&mut self, s: &Stack) {
         let vol = s.volume();
@@ -374,7 +474,7 @@ impl SettleRun {
         } else {
             if !self.sealed.is_empty()
                 && self.steady.is_none()
-                && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, vol, &self.sealed, 0.005, 0.005)
+                && steady_apart_from_sealed(s, &self.prev_d, &self.prev_o, &self.sealed, 0.005, 0.005)
             {
                 self.steady = Some(s.ticks);
                 if self.until_steady {

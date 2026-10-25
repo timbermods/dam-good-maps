@@ -31,6 +31,10 @@ export interface TerrainState {
   /** The lowest each tile's surface may go (one above a roof's underside, terrain/runs.ts
    *  `topFloors`; 0 elsewhere); absent on a heightfield. */
   floor?: Uint8Array | null;
+  /** The ground holding objects set under a roof (D491, objects.ts `objectHolds`): [tile, low, high].
+   *  A stroke keeps each tile within them (the session adds it to the operation), and `protect` holds
+   *  these tiles, as the build's integrity pass leaves them. Absent where there is none. */
+  hold?: [number, number, number][] | null;
   /** The terrain's masks of the `columns` tiles as they stand (bit z: voxel z solid), in their order,
    *  and the cells holding the tops of objects that hold ground (support.ts `stackableTops`): what
    *  `StrokePreview.falls` reads. Absent on a heightfield. */
@@ -116,7 +120,7 @@ export class StrokePreview {
     const depth = fresh && state.water ? state.water : undefined;
     const shown = this.start;
     // (a roof's top no lower than one above its underside, as build step 6 shapes it, D280 (3))
-    this.stroke = new BrushStroke(settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
+    this.stroke = new BrushStroke(state.hold?.length && !settings.hold ? { ...settings, hold: state.hold } : settings, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
       ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),

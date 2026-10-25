@@ -27,6 +27,7 @@
 // World space: X = x, Y = height, Z = −y (north is −Z). Faces wind counter-clockwise seen from
 // outside. Pure TypeScript, so it runs in Node tests and could run in a worker.
 
+import { reshapeTop } from "../core/terrain/runs";
 import { LAYERS } from "./model";
 
 export const CHUNK = 32;
@@ -38,6 +39,10 @@ export interface TerrainSource {
   heights: Uint8Array;
   /** Tile index → 23 voxels (1 = solid), for columns that are not one solid run from z = 0. */
   columns: ReadonlyMap<number, Uint8Array>;
+  /** The same columns' masks over the whole map (model.ts `columnMasks`: a listed tile's mask, 0 on a plain
+   *  tile), what `columnMask` looks a column up in; absent on a map without terrain above terrain (every
+   *  column is its height) and on a source made by hand (worked out from `columns` at each look). */
+  masks?: Uint32Array;
   /** Tile index → a level whose top face is not drawn: a mine site's or a seep's pit, whose model draws the
    *  pit's walls and floor instead (as the game hides the terrain's top under an object's cutout).
    *  Only the top at exactly that level is left out; the voxels and every wall stay. */
@@ -129,8 +134,18 @@ type Side = 0 | 1 | 2 | 3; // east, west, north, south
 const DX = [1, -1, 0, 0];
 const DY = [0, 0, 1, -1];
 
-/** The column at tile `i` as a mask: bit z set when voxel z is solid. */
+/** The column at tile `i` as a mask: bit z set when voxel z is solid. A lookup: a plain tile's from its height, a
+ *  listed one's from `masks` with its top run ending at the tile's height (terrain/runs.ts `reshapeTop`, the
+ *  build's own rule), so the page's stroke, which changes the heights in place, reshapes a roof's top run as the
+ *  worker's columns will have it; on columns as sent, whose tops are their heights, it is the mask as sent. */
 export function columnMask(src: TerrainSource, i: number): number {
+  const ms = src.masks;
+  if (ms) {
+    const m = ms[i];
+    if (m !== 0) return reshapeTop(m, src.heights[i]);
+    const h = src.heights[i];
+    return h >= 31 ? 0x7fffffff : (1 << h) - 1;
+  }
   const c = src.columns.size > 0 ? src.columns.get(i) : undefined;
   if (!c) {
     const h = src.heights[i];

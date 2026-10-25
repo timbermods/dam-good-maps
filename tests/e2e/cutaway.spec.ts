@@ -1,8 +1,9 @@
 // The branches for terrain above terrain (3D view, parts 6, 3 and 4, items 7 and 8; D207): the level-slice cutaway,
 // the soil per run top, and objects, falls and water lit by the air under a roof are compiled only on a map with
 // terrain above terrain, which no other spec opens. A 12² map with a roofed block, its cave's floor with its own soil,
-// a tree and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High with no shader
-// error and with the terrain on screen; the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
+// a tree, a slope, a ruin and a pool on it and a puddle on its roof, cut through its cave, draws in Standard and in High
+// with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
+// too); the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
 // does, so the High look's programs are checked there too.)
 
 import { expect, test } from "@playwright/test";
@@ -55,8 +56,9 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         depth: Float32Array.from([...pool.map(() => 0.8), 0.3]),
         contamination: Float32Array.from([...pool.map((i) => (i % W === 4 ? 1 : 0)), 0]),
       };
-      // (a pine on the cave's floor, under the roof: the objects' branch)
-      const entities = { count: 1, templates: ["Pine"], owners: [], template: new Uint16Array(1), x: new Int16Array([5]), y: new Int16Array([5]), z: new Int16Array([2]), orientation: new Uint8Array(1), flags: new Uint8Array(1), owner: new Uint16Array(1), variant: new Uint8Array(1), strength: new Float32Array(1), ids: ["pine"] };
+      // (a pine, a slope and a ruin on the cave's floor, under the roof: the objects' branch, and the slope's and the
+      // ruin's soil, the floor's own)
+      const entities = { count: 3, templates: ["Pine", "Slope", "RuinColumnH2"], owners: [], template: Uint16Array.from([0, 1, 2]), x: Int16Array.from([5, 4, 6]), y: Int16Array.from([5, 5, 5]), z: Int16Array.from([2, 2, 2]), orientation: new Uint8Array(3), flags: new Uint8Array(3), owner: new Uint16Array(3), variant: new Uint8Array(3), strength: new Float32Array(3), ids: ["pine", "slope", "ruin"] };
       // (the soil per run top: the cave's floor at level 2 moist, its west row contaminated, under a dry roof)
       const runs = { tile: Int32Array.from(tiles), level: new Uint8Array(tiles.length).fill(2), moisture: new Uint8Array(tiles.length).fill(200), contamination: Uint8Array.from(tiles, (i) => (i % W === 4 ? 255 : 0)) };
       const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W), runs };
@@ -71,7 +73,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         std: { terrain: Mat; object: Mat; fall: Mat; water: Mat };
         water: Map<string, object>;
         layers: { layers: unknown[] } | null;
-        high: { roofedMaterials(): Mat[]; materials: { fall: Mat } } | null;
+        high: { roofedMaterials(): Mat[]; runSoilMaterials(): Mat[]; materials: { fall: Mat } } | null;
+        objects: Obj & { children: { name: string }[] };
         scene: Obj;
         persp: object;
         gl: { info: { programs: { name: string; diagnostics?: { runnable: boolean } }[] | null }; getContext(): WebGL2RenderingContext; render(s: Obj, c: object): void };
@@ -118,7 +121,9 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
         r.renderNow();
         lite = { LITE: t.defines.LITE, broken: (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name) };
       }
-      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, roofed, waterLayers, waterChunks: internals.water.size, slice: r.slice, ground: ground / seen, broken, lite };
+      const slopeSoil = (internals.high?.runSoilMaterials() ?? []).every((m) => m.defines.RUN_SOIL === 1);
+      const ivy = internals.objects.children.some((o) => /^scaffold\..*\.ivy$/.test(o.name));
+      const result = { look: r.look, cutaway: internals.std.terrain.defines.CUTAWAY, runSoil: internals.std.terrain.defines.RUN_SOIL, slopeSoil, ivy, roofed, waterLayers, waterChunks: internals.water.size, slice: r.slice, ground: ground / seen, broken, lite };
       r.dispose();
       host.remove();
       return result;
@@ -126,6 +131,8 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
     expect(out.look, look).toBe(look);
     expect(out.cutaway, look).toBe(1);
     expect(out.runSoil, `${look}: the soil per run top's branch`).toBe(1);
+    expect(out.slopeSoil, `${look}: High's slopes on the soil per run top's branch too`).toBe(true);
+    expect(out.ivy, `${look}: the ruin on the moist floor under a dry roof is overgrown`).toBe(true);
     expect(out.roofed, `${look}: the roofed objects', falls' and water's branch`).toBe(true);
     expect(out.waterLayers, `${look}: the cave's pool and the roof's puddle in layers of their own`).toBe(2);
     expect(out.waterChunks, `${look}: the water drawn`).toBe(1);
