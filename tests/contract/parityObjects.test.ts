@@ -414,7 +414,7 @@ describe("Markers' labels are a plain question (D338, D342)", () => {
     expect(notes.get(pile)).toMatch(/^Reserve pile · 100 /);
     expect(notes.get(drain)).toMatch(/^Badtide drain · 1 badwater\/s · only in a badtide/);
     expect(notes.has(plain)).toBe(false);
-    expect(notes.get(sink)).toMatch(/sink 1 water\/s/);
+    expect(notes.get(sink)).toMatch(/drains 1 water\/s/);
   });
 });
 
