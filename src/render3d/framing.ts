@@ -51,6 +51,18 @@ export function zoomTargetToward(
   return [Math.min(bounds.W, Math.max(0, at(0))), Math.min(bounds.maxY, Math.max(0, at(1))), Math.min(0, Math.max(-bounds.H, at(2)))];
 }
 
+/** The nearest a zoom in brings the camera's eye to the ground under the pointer, in tiles: twice the clearance it keeps
+ *  from rock (cameraClamp.ts), so the zoom stops short of the surface and never pushes the eye into it. */
+export const ZOOM_NEAREST = 1.6;
+
+/** The distance a zoom in about a point goes to (`to`, from `from`), stopping short of that point: the eye, `gap` from
+ *  it now, comes no nearer to it than `nearest` (the eye scales toward it by the distance's ratio, as
+ *  `zoomTargetToward` moves the target). A zoom out, or one already that near, keeps `to` and `from`. Pure. */
+export function zoomStopShort(from: number, to: number, gap: number, nearest = ZOOM_NEAREST): number {
+  if (!(to < from) || !(gap > 0)) return to;
+  return Math.max(to, from * Math.min(1, nearest / gap));
+}
+
 /** Whether a point of the ground plane is on the map (with a margin of a few tiles): a pointer that misses the terrain
  *  zooms about the plane only there. Just below the horizon the plane is thousands of tiles away, and a zoom about it
  *  would throw the view across the map. `point` is a scene point (z south). */

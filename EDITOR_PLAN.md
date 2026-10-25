@@ -917,7 +917,10 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 ## 7. Controls
 
 Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
-(the ground under it stays under it; over the sky or off the map, and for + and -, about the screen's centre),
+(the ground under it stays under it, and a zoom in stops short of it, so a zoom into a cave's mouth ends in its air;
+over the sky or off the map, and for + and -, about the screen's centre). The camera never goes into the rock: where
+its place would be in solid ground, it is drawn in toward what it looks at, to the nearest place in the air, and close
+to a point under a roof (in a cave, under an arch) it stays in that point's air (`render3d/cameraClamp.ts`),
 Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
