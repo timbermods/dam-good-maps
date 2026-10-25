@@ -15,7 +15,7 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { PRESSURE } from "../../src/core/sim/stackFed";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { settledAgain, StackRun, stackGraph, type StackSettle } from "../../src/core/sim/stackWater";
-import { CAVE, CAVE_H, CAVE_W, caveFile, caveSession, caveVoxels, dig } from "./caveMap";
+import { CAVE, CAVE_H, CAVE_W, caveFile, caveSession, caveVoxels, dig, levelPatch } from "./caveMap";
 import { exportProblems } from "./caveChecks";
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
@@ -209,33 +209,12 @@ describe("Fill water and Remove unfed water on a cave import", () => {
 describe("Fill water and Remove unfed water on a generated map with a Block dig", () => {
   const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
 
-  /** A dry, level 3 × 3 patch of ground and its ring, nothing on or near it, well above the water and away from the
-   *  edge: a pit is dug there, two deep, with a hollow under the ground beside it. */
-  function patch(s: MapSession): { x: number; y: number; h: number } {
-    const b = s.built;
-    const W = b.W;
-    const near = new Set<number>();
-    for (const e of b.entities) for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) near.add((e.y + dy) * W + e.x + dx);
-    for (let y = 8; y < b.H - 8; y++)
-      for (let x = 8; x < W - 8; x++) {
-        const h = b.heights[y * W + x];
-        let ok = h >= 6;
-        for (let dy = -2; dy <= 2 && ok; dy++)
-          for (let dx = -2; dx <= 4 && ok; dx++) {
-            const i = (y + dy) * W + x + dx;
-            if (b.heights[i] !== h || b.water[i] > 0 || b.channel[i] || near.has(i)) ok = false;
-          }
-        if (ok) return { x, y, h };
-      }
-    throw new Error("no patch");
-  }
-
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
     const s = MapSession.fromGenerated(r, r.file);
     s.settleCanonical();
     const W = s.built.W;
     const M = W * s.built.H;
-    const { x, y, h } = patch(s);
+    const { x, y, h } = levelPatch(s);
     // the pit: 3 × 3, two deep; then the block east of its middle, at the pit's floor, dug from the pit (a roof stays over it)
     expect(s.apply({ op: "blocks", params: { mode: "remove", side: "+z", at: [[x, y, h - 1]], size: 3 } }).errors).toEqual([]);
     expect(s.apply({ op: "blocks", params: { mode: "remove", side: "+z", at: [[x, y, h - 2]], size: 3 } }).errors).toEqual([]);
