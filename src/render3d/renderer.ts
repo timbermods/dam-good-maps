@@ -2739,6 +2739,13 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** Whether the selection's overlay names a run of tile `i` under its top, so the top is drawn as locked land
+   *  (overlayRuns.ts): the page's working area leaves such a tile out for the brushes, which work the top. */
+  overlayBelowTop(i: number): boolean {
+    const m = this.map;
+    return !!m && !!this.runsOverlay && this.runsOverlay.namesBelowTop(m.source, i, m.heights[i]);
+  }
+
   /** Point to tiles on the map (the legend: "these are the dam sites"), until cleared with null.
    *  Drawn over the page's overlay: a light tint, their edge brighter. */
   setHighlight(tiles: ArrayLike<number> | null): void {

@@ -695,9 +695,11 @@
   height: 13px;
 }
 
-/* an object's line: the objects menu's picture of it */
+/* an object's line: the objects menu's picture of it, a pixel in from the row's top and bottom so the pale wells of two lines
+   (dark) never touch, as the shelf's pictures sit in their rows */
 .legend-panel.in-column img.swatch.pic {
-  height: var(--legend-row);
+  height: calc(var(--legend-row) - 2px);
+  margin: 1px 0;
   object-fit: contain;
   border-radius: 3px;
   background: var(--pic-well);
@@ -1645,14 +1647,16 @@
    sit centred between the header and the bar (the bar and shelf take the last 72px) */
 :root {
   --land: min(512px, 50vh);
-  --land-lift: max(0px, calc(50vh + 33px + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
+  /* the header's height: its min-height (a 1px rule below the padding included), 73px from 2200px wide up */
+  --head: 67px;
+  --land-lift: max(0px, calc(50vh + var(--head) / 2 + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
 }
 
 /* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
 .loading-frame + .making-backdrop {
   background: none;
   place-items: start center;
-  padding-top: calc(50vh + 33px + var(--land) / 2 + 16px - var(--land-lift));
+  padding-top: calc(50vh + var(--head) / 2 + var(--land) / 2 + 16px - var(--land-lift));
 }
 
 .making-dialog {
@@ -1803,9 +1807,11 @@
   to { transform: scaleY(0.66); }
 }
 
-/* the rings hold, then the whole drawing fades (78%-92% of the cycle) and starts again */
+/* the rings hold, then the whole drawing fades (78%-92% of the cycle) and starts again; it starts at 0 and is up by 1.5%, so
+   the rings still full from the last cycle never show for the frame before their offsets are hidden again */
 @keyframes contour-fade {
-  0%, 78% { opacity: 1; }
+  0% { opacity: 0; }
+  1.5%, 78% { opacity: 1; }
   92%, 100% { opacity: 0; }
 }
 
@@ -3451,8 +3457,13 @@ body:has(.checks-list) .show-key {
   }
 
   /* the header: every control 44px (Undo and Redo 44px squares), the words 1px larger */
+  /* (73px: with the 1px rule below and 8px of padding either side, the 44px controls centre on whole pixels, at y 14) */
+  :root {
+    --head: 73px;
+  }
+
   .editor-bar {
-    min-height: 72px;
+    min-height: var(--head);
     font-size: 16px;
   }
 

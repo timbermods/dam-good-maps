@@ -299,7 +299,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   up the cliff and round the roof's top are gone, the outline lies on the floor. Until step 3, Up 1,
   Down 1, Flatten, Cut down, Fill up and Delete → Ground are refused on a cave column with one line
   (`src/core/doc/ops.ts`: "has a cave or overhang: shape its top with a brush"), so nothing acts on the roof while
-  the floor is drawn selected; Up 1's hover preview still paints the floor (the page's follow-up). Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
+  the floor is drawn selected; hovering those actions tints nothing and says the core's reason, and the roof over a floor selected by level is outside the brushes' working area (`renderer.overlayBelowTop`), as it is drawn. Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,

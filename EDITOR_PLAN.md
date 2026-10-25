@@ -788,7 +788,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
-  (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
+  (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
+  the tiles, and over a cave column the core refuses them, so hovering one tints nothing and shows the core's reason.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
   until they work on runs (step 3); hover and Select show the run seen.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
