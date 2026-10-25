@@ -1101,9 +1101,16 @@
   pointer-events: none;
 }
 
+/* (the map area is the container the bar's width is read from, not the window: a scrollbar or a side panel can't make the bar overflow) */
+@supports (width: 1cqi) {
+  .editor-map-area {
+    container-type: inline-size;
+  }
+}
+
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100vw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
+    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100cqw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
   }
 
   .tool-dock {
@@ -1493,6 +1500,11 @@
   white-space: nowrap;
 }
 
+/* Whole map spans two cells: its word has twice the room, so it keeps the full size where the one-cell words shrink */
+.set-group > .segmented.shapes > button.whole-map .icon-word {
+  font-size: min(13px, calc(var(--cell) * 0.4));
+}
+
 /* a menu in the settings opens upward, over the map */
 .tool-settings .menu-wrap {
   position: relative;
@@ -1860,6 +1872,18 @@
   grid-template-columns: 30px 92px 54px;
 }
 
+.sheet-top .set.plate.line.seed.with-variation {
+  grid-template-columns: 30px 92px max-content 54px;
+}
+
+.seed-variation {
+  padding: 0 6px 0 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
 .sheet-top .seed .set-toggle {
   padding: 0;
 }
@@ -2049,6 +2073,23 @@
   font-size: 13px;
 }
 
+/* Keep this version's name: one field the dialog's width */
+.dialog.keep-name {
+  width: min(460px, 100%);
+}
+
+.dialog.keep-name .keep-name-field {
+  display: block;
+  width: 100%;
+  height: 32px;
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+.dialog.keep-name .error {
+  margin: 6px 0 0;
+}
+
 /* a toggle beside a field: its word centred in it */
 .set-toggle {
   display: inline-flex;
@@ -2188,6 +2229,13 @@
   box-shadow: 0 0 0 2px var(--panel);
   cursor: ew-resize;
   touch-action: none;
+}
+
+/* (the handle is 4px to look at and 16px wide to take: a press a few pixels off still has it) */
+.mix-edge::before {
+  content: "";
+  position: absolute;
+  inset: -3px -6px;
 }
 
 .mix-words {
@@ -2699,7 +2747,7 @@
 }
 
 .shortcut-groups > section {
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .shortcut-groups h3 {

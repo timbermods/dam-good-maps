@@ -60,6 +60,15 @@ export function Shelf(p: ShelfProps) {
     return () => cancelAnimationFrame(id);
   }, [p.picked]);
 
+  // the object put away, its window gone: the list goes back to its top, with Start and the sources in sight (while the
+  // window was up the list was scrolled to keep the picked row under the pointer)
+  const had = useRef(false);
+  useLayoutEffect(() => {
+    const menu = grid.current?.closest<HTMLElement>(".objects-menu");
+    if (menu && had.current && !p.picked) menu.scrollTop = 0;
+    had.current = !!p.picked;
+  }, [p.picked]);
+
   function down(e: PointerEvent, it: ShelfItem) {
     swallow.current = false;
     rowTop.current = { id: it.id, top: (e.currentTarget as HTMLElement).getBoundingClientRect().top };

@@ -14,6 +14,7 @@ import { createBackground, createGeneratorWorker, readFile, saveFile, storage } 
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
+import { KeepName } from "./KeepName";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
 import { surfaceWater, type MapView } from "../render3d/model";
@@ -227,6 +228,8 @@ export function App() {
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  /** Keep this version asking for its name: the name it would get, and the answer (the name kept, or null for none). */
+  const [naming, setNaming] = useState<{ name: string; done(name: string | null): void } | null>(null);
   /** Another version of the open map to flip to (Your maps' Compare with the open map): read once, settled. */
   const [compare, setCompare] = useState<{ id: string; name: string; view: MapView } | null>(null);
   const [EditorMod, setEditorMod] = useState<ComponentType<EditorProps> | null>(null);
@@ -514,11 +517,15 @@ export function App() {
       await pendingEdits.current?.();
       const v = await generator.keepVersion(k, kept.current ? open.id : undefined);
       if (!v) throw new Error("that step is no longer in the history");
+      // (Keep this version asks for the name, prefilled with the one it would get; Branch from here keeps it and opens the copy)
+      const name = branch ? v.name : await new Promise<string | null>((done) => setNaming({ name: v.name, done }));
+      setNaming(null);
+      if (name === null) return;
       let bytes = v.bytes;
       let picture = v.picture;
       if (!v.stored || !picture) {
         // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits)
-        setNote(`Keeping ${v.name}…`);
+        setNote(`Keeping ${name}…`);
         const bg = createBackground();
         try {
           await bg.api.openVersion(bytes);
@@ -531,14 +538,14 @@ export function App() {
         }
       }
       const now = new Date().toISOString();
-      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+      const e: YourMapEntry = { id: newId(), name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
       const r = await yourMaps.put(e, bytes, null);
       const problem = storeProblem(r);
       if (problem) return setError(problem);
       const list = await yourMaps.list().catch(() => [e, ...maps]);
       setMaps(list);
       if (branch) guard(() => void openMap(e.id, list), "Branching");
-      else setNote(`Kept as ${v.name}`);
+      else setNote(`Kept as ${name}`);
     } catch (err) {
       setError(`That version was not kept: ${words(err)}`);
     }
@@ -1154,7 +1161,8 @@ export function App() {
     </p>
   ) : version ? (
     <p class="error floating quiet" role="status">
-      {version.note}
+      {/* (the note has no full stop of its own; the space keeps the words and the button apart where the dock lays them out as text) */}
+      {version.note}.{" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
         Open it
       </button>
@@ -1216,6 +1224,15 @@ export function App() {
       </>
     );
   }
+  const keepNameDialog = naming ? (
+    <KeepName
+      name={naming.name}
+      onDone={(n) => {
+        setNaming(null);
+        naming.done(n);
+      }}
+    />
+  ) : null;
 
   return (
     <>
@@ -1247,6 +1264,7 @@ export function App() {
         notice={message}
       />
       {confirmDialog}
+      {keepNameDialog}
       {makingDialog}
     </>
   );

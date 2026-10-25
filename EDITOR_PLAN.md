@@ -72,14 +72,16 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
-  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line.
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its
+  seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part
+  of its address.
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
   map (the field shows the open map's name; what is typed in it names the map **Generate** makes next, and the open
   map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
   bar of four shares), **Difficulty** (Starting wood, Max walk to water, Starting berries, Start area, No ruins
@@ -113,8 +115,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
-  **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
-  Your maps as "<map name> — <step label>"; Branch does the same and opens the copy, its History through that step. A version
+  **Keep this version** and **Branch from here**. Keep asks for the name (a small dialog, the field prefilled and selected with
+  "<map name> — <step label>", so Enter keeps it as it is; Esc or Cancel keeps nothing) and saves the map as it stood at that step
+  (undone steps included) into Your maps under it; the History panel opens with the step the map is at in view; Branch does the same and opens the copy, its History through that step. A version
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
@@ -188,7 +191,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
+  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
@@ -953,7 +956,8 @@ After its file entries and a hairline, the File menu ends with three, in this or
 them, ROADMAP "The 20-second tour"):
 
 - **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
-  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps. The list is data
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps; the mouse's camera moves
+  (turn, move, zoom) sit in View with the keys that do the same, so the sheet fits a 720px window without scrolling. The list is data
   (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
   `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
   `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
