@@ -16,7 +16,6 @@ import { footprintTiles } from "../../src/core/format/footprints";
 import { writeTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { writeTimber } from "../../src/core/format/timber";
 
 const W = 20;
 const ground = (over: Partial<StartFitGround> = {}): StartFitGround => ({ W, H: W, river: () => false, depth: () => 0, taken: () => false, ...over });
