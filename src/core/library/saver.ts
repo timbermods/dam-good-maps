@@ -52,11 +52,17 @@ export class YourMapsSaver {
     this.pending.set(id, { take, timer: this.setTimer(() => void this.flush(id), this.delay) });
   }
 
-  /** Save now what is waiting (one map, or all). Nobody needs to await it. */
+  /** Save now what is waiting (one map, or all). Nobody needs to await it, but a caller that does (the page, before it
+   *  replaces the open map) can rely on it: it returns only when nothing is waiting and no write is running, however
+   *  that came about. A save a timer claimed while this waited on an earlier write is such a one: it is queued behind
+   *  that write, in `writing` and no longer in `pending`, and its snapshot of the outgoing map would otherwise be taken
+   *  after the page had opened the next. */
   async flush(id?: string): Promise<void> {
-    const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
-    await Promise.all(ids.map((k) => this.run(k)));
-    if (id === undefined ? this.pending.size > 0 : this.pending.has(id)) await this.flush(id);
+    for (;;) {
+      const ids = id === undefined ? [...new Set([...this.pending.keys(), ...this.writing.keys()])] : [id];
+      await Promise.all(ids.map((k) => this.run(k)));
+      if (id === undefined ? this.pending.size === 0 && this.writing.size === 0 : !this.pending.has(id) && !this.writing.has(id)) return;
+    }
   }
 
   /** Cancel every queued save of a deleted map and wait for a write already in storage. */

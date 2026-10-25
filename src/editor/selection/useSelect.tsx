@@ -361,7 +361,14 @@ export function useSelect(ed: Ed): SelectSlice {
   const cropWhy = (): string | null => (!selection.current.count ? "Select an area to crop" : cropPlan ? cropPlan.reason : "Checking the selection");
   /** The core's reason shown on the message line while Crop is hovered (the row's words are too short for it). */
   const cropShown = useRef<string | null>(null);
+  /** Crop is hovered or focused. The core's answer comes a moment after each selection, so it can arrive after the
+   *  pointer did: it then says its reason (or what the crop makes) the moment it comes. */
+  const cropHot = useRef(false);
+  useEffect(() => {
+    if (cropHot.current) previewCrop();
+  }, [cropPlan]);
   function endCropHint() {
+    cropHot.current = false;
     const t = cropShown.current;
     cropShown.current = null;
     if (t) setMessage((m) => (m && m.text === t ? null : m));
@@ -369,6 +376,7 @@ export function useSelect(ed: Ed): SelectSlice {
   }
   /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
   function previewCrop() {
+    cropHot.current = true;
     hintJob.current++;
     const b = selection.current.bounds();
     const why = cropWhy();
