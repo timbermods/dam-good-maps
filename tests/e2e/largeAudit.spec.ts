@@ -71,6 +71,26 @@ test("a force that removed sources says how many, with Undo; with Ride it says n
   expect((await labels(page)).length).toBe(n0);
   expect((await sourcesOnMap(page)).length).toBe(sources.length);
 
+  // the note goes the moment another step lands, so its Undo only ever takes back the force: a stroke painted after it
+  await fault(page, spot, 12);
+  await expect(note).toContainText("Cleared");
+  await page.keyboard.press("2");
+  const free = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y + 20), spot);
+  await page.mouse.move(free.x, free.y);
+  await page.mouse.down();
+  await page.mouse.move(free.x + 12, free.y + 4, { steps: 6 });
+  await page.mouse.up();
+  await idle(page);
+  await expect(note).toHaveCount(0);
+  expect((await labels(page)).length).toBe(n0 + 2);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  expect((await labels(page)).length).toBe(n0);
+  expect((await sourcesOnMap(page)).length).toBe(sources.length);
+  await page.keyboard.press("Shift+Digit5");
+
   // Ride keeps them riding the ground: nothing was removed, nothing to say
   await row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Ride" }).click();
   await fault(page, spot, 12);

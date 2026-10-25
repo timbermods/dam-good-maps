@@ -123,7 +123,7 @@ export function keptForceParams(input: KeptForceInput): { ok: true; params: Forc
 }
 
 /** How many water and badwater sources and seeps a kept force took with Sources set to Clear (D474): the ones Clear took
- *  and the ones Carve or Glaciate took as they reached them or a slide buried (`removed`), counted against the objects the
+ *  and the ones the force took itself (`removed`: Carve and Glaciate as they reach them, a Quake slide with the ground it moves), counted against the objects the
  *  force started from; none with Ride. The editor says it after a force. */
 export function sourcesRemovedBy(p: ForceResultParams, before: { entities: readonly EntitySpec[] }): number {
   if (!clears(p.settings.sources)) return 0;

@@ -454,7 +454,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   they reach themselves, as their head or ice arrives; the other forces' sources are cleared by the core
   (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
   them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
-  above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."); the count is the
+  above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
   core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
