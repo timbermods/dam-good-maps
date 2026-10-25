@@ -50,6 +50,8 @@ test("Rename stops at two lines, as Your maps' does: a paste keeps what fits, a 
   await page.keyboard.type("W");
   await expect(field).toHaveValue(full);
   await page.keyboard.press("Enter");
+  // (the field is gone: the name is shown, not its hidden copy inside the open field)
+  await expect(field).toHaveCount(0);
   const button = page.locator(".editor-title .title-button");
   await expect(button).toHaveText(full.trim());
   // the name takes two lines at most (the 13px lines at 1280), never overflows, and the header keeps its height
