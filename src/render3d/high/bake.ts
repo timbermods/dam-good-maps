@@ -3,7 +3,8 @@
 // water's flow, contamination and rough water (#38, #67) with the moving water's shapes (D353,
 // motionShapes.ts). fields.ts and motion.ts turn them into textures and meshes.
 
-import type { SurfaceWater } from "../model";
+import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
+import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf } from "../current";
 import { motionShapes, type MotionShapes } from "../motionShapes";
 import { roughWater, surfaceContamination, type RoughCounts } from "./flow";
@@ -141,13 +142,23 @@ export function bakeFlow(W: number, H: number, heights: Uint8Array, sw: SurfaceW
   return { flow, rough, counts: r.counts };
 }
 
+/** On a map with water per column (waterLayers.ts): the view (each column's own outflows) and the map's columns, with
+ *  their version; the job's surface water then carries its `top`. */
+export interface LayeredWater {
+  view: WaterView;
+  columns: MapView["columns"] & { key: number };
+}
+
+/** The map's columns as last sent, while their version holds (their gaps are kept with them, waterLayers.ts). */
+let columnsKept: { key: number; map: Map<number, Uint8Array> } | null = null;
+
 /** A job for the worker, and its answer. */
 export type BakeJob =
   | { id: number; kind: "ambient"; W: number; H: number; heights: Uint8Array; canopies: Canopies }
-  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null };
+  | { id: number; kind: "flow"; W: number; H: number; heights: Uint8Array; sw: SurfaceWater; out: Float32Array | null; layered?: LayeredWater };
 export type BakeResult =
   | { id: number; kind: "ambient"; data: Uint8Array; cover: Float32Array; ms: number }
-  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; ms: number };
+  | { id: number; kind: "flow"; flow: Uint8Array; rough: Uint8Array; counts: RoughCounts; shapes: MotionShapes; cave: CaveCurrent | null; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
 export type BakeReply = BakeResult | { id: number; kind: "error"; error: string };
 
@@ -161,5 +172,12 @@ export function runBake(job: BakeJob): BakeResult {
   const current = job.out ? currentOf(job.W, job.H, job.out, job.sw.depth) : new Float32Array(job.W * job.H * 2);
   const { flow, rough, counts } = bakeFlow(job.W, job.H, job.heights, job.sw, current);
   const shapes = motionShapes(job.W, job.H, job.sw, current);
-  return { id: job.id, kind: "flow", flow, rough, counts, shapes, ms: performance.now() - t0 };
+  // the current of water below its tile's surface water, each column its own (caveCurrent.ts)
+  let cave: CaveCurrent | null = null;
+  const l = job.layered;
+  if (l) {
+    if (columnsKept?.key !== l.columns.key) columnsKept = { key: l.columns.key, map: columnMap(l.columns) };
+    cave = caveCurrent(job.W, job.H, job.heights, columnsKept.map, l.view, job.sw, flow, rough, bakeFlow);
+  }
+  return { id: job.id, kind: "flow", flow, rough, counts, shapes, cave, ms: performance.now() - t0 };
 }
