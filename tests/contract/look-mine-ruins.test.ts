@@ -18,9 +18,12 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.8.10 makes it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
- *  landmark first; D148); `68451be7…` before it, as generator 0.8.9 made it (the story keeps a main water that is
- *  mostly badwater, D480's extension: no map's land or water changed, only the version, D148); `f50af4e8…` before it, as generator 0.8.8 made it (Canyon and Highlands height,
+ *  0.10.2 makes it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
+ *  landmark first; D148); `d0c32f0d…` before it, as generator 0.10.0 made it (3D in generation, part 1, D488: this map
+ *  looks for a spring cave and its land offers none, so its land and water are unchanged, only the version, D148);
+ *  `68451be7…` before it, as generator 0.8.9 made it (the story
+ *  keeps a main water that is mostly badwater, D480's extension: no map's land or water changed, only the version,
+ *  D148); `f50af4e8…` before it, as generator 0.8.8 made it (Canyon and Highlands height,
  *  #261: this River Valley map's land and water unchanged, only the version the file carries); `0c4fe442…` before it, as generator 0.8.7 made it (Islands round 6, #235: land and
  *  water unchanged, only the version); `fa4b9cb1…` before it, as generator 0.8.6 made it (the water story's reach counts the main
  *  water, D480: no map's land or water changed, only the version); `498f0630…` before it, as generator 0.8.5 made it (River Valley round 2, #244:
@@ -46,8 +49,10 @@ import * as ed from "../../src/worker/session";
  *  `4e304804…` from M9a's first slice; `b358b4f8…` from
  *  resources like the official maps, #43, generator 0.6.2 (0.6.3's badwater branch was merged into
  *  M9a before its release); `e4f2f72c…` from the start and edge
- *  rules, #44, and `5118b6a6…` from M8 until then). */
-const LIVE_SHA = "f5293e0f53dd71d9abcc33bdce118999a48ff4b75ba7fc017c5d724661ddde33";
+ *  rules, #44, and `5118b6a6…` from M8 until then); `68451be7…` before the description was rewritten in a player's words
+ *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
+ *  map). */
+const LIVE_SHA = "efb789adc0b31a38a191e0b888d73e776044bcd7f7e33bd5b08c7c35250962be";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

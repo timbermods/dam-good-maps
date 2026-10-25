@@ -572,13 +572,6 @@ export interface CheckResult {
   say?: string;
 }
 
-/** "a" or "an" before a number said aloud (an 8, an 11, an 18, an 80, an 800, an 11,000). */
-function an(n: number): string {
-  const t = String(Math.round(n));
-  if (t.startsWith("8")) return "an";
-  return (t.length === 2 || t.length === 5) && (t.startsWith("11") || t.startsWith("18")) ? "an" : "a";
-}
-
 const levels = (n: number) => `${Math.round(n)} level${Math.round(n) === 1 ? "" : "s"}`;
 
 /** A course resampled every tile of arc, inside the map. */
@@ -950,7 +943,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (gorge && sizes[k] >= 1.5 * Math.max(200, own) && (best < 0 || sizes[k] > sizes[best])) best = k;
       }
-      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland, ${sizes[best]} tiles of it, lies past the gorge; ${own} by the start.` } : {}) };
+      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland lies past the gorge, ${sizes[best] >= 2 * own ? "more than twice what the start has" : "more than the start has"}.` } : {}) };
     }
     case "falls-shield": {
       const near = c.falls.filter((f) => eu(f.i) <= 20 && f.drop >= 1.5);
@@ -1037,7 +1030,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           bestSize = Math.max(bestSize, q.length);
         }
       }
-      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles", ...(found ? { say: `${an(bestSize) === "an" ? "An" : "A"} ${bestSize}-tile valley up the cliffs, reached only by stairs, holds riches.` } : {}) };
+      return { ok: found > 0, note: found ? `${found} upland${found > 1 ? "s" : ""} cut off by cliffs, reached only by stairs, with riches (largest ${bestSize} tiles)` : "no upland cut off by cliffs with riches within 60 tiles", ...(found ? { say: "A hidden valley up the cliffs, reached only by stairs, holds riches." } : {}) };
     }
     case "high-lake": {
       const b = bodies(c);
@@ -1383,7 +1376,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
             }
           }
         }
-        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms`, say: `The river splits round ${an(q.length)} ${q.length}-tile island and joins again below it.` };
+        if (!edge && q.length >= (150 * N) / 16384 && ring > 0 && ringLake < 0.5 * ring) return { ok: true, note: `a ${q.length}-tile island between the river's two arms`, say: "The river splits round a big island and joins again below it." };
       }
       return { ok: false, note: "no island of 150+ tiles in a river" };
     }
@@ -1552,7 +1545,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let clean = false;
       for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
       const want = (400 * N) / 16384;
-      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: `Badwater runs through ${land} tiles of moist low land near the start: tame it and the land is yours.` } : {}) };
+      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: "Badwater runs through moist low land near the start: tame it and the land is yours." } : {}) };
     }
     case "relic-pinnacle": {
       // a medium or large relic within 60 tiles on dry land no one walks to from the start
@@ -1584,7 +1577,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
           let held = 0;
           for (const i of L.tiles) held += Math.max(0, L.surf - Math.max(h[i], base));
           const clear = z >= L.surf || portable.sqrt((o.x - sx) * (o.x - sx) + (o.y - sy) * (o.y - sy)) > 25;
-          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: `A plug holds back ${an(L.tiles.length)} ${L.tiles.length}-tile lake: open it when you are ready.` };
+          if (held >= (500 * N) / 16384 && clear) return { ok: true, note: `a plug holds back a ${L.tiles.length}-tile lake, about ${Math.round(held)} tiles of water`, say: "A plug holds back a lake: open it when you are ready." };
         }
       }
       return { ok: false, note: "no plug holding back a lake" };
@@ -1606,7 +1599,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         regions.set(lab[i], r);
       }
       for (const r of regions.values())
-        if (r.n >= want && r.near >= 35 && r.near <= 70) return { ok: true, note: `${r.n} tiles of level land ${Math.round(r.near)} tiles out, behind debris`, say: `A second district site ${Math.round(r.near)} tiles out, ${r.n} tiles of level land, waits behind debris: clear it early and the land is yours.` };
+        if (r.n >= want && r.near >= 35 && r.near <= 70) return { ok: true, note: `${r.n} tiles of level land ${Math.round(r.near)} tiles out, behind debris`, say: `A wide, level second district site ${Math.round(r.near)} tiles out waits behind debris: clear it early and the land is yours.` };
       return { ok: false, note: "no site close to the start behind debris" };
     }
     case "long-view": {

@@ -6,7 +6,8 @@ import { startEntranceTile } from "../../core/format/footprints";
 import type { Point } from "../../core/features/schema";
 import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { PointerTool, TileHit } from "../../render3d";
-import { checkStartAt, sameStartCheck, startStatus, type StartCheck } from "../features";
+import { checkStartAt, sameStartCheck, startDragStatus, type StartCheck, type StartDrag } from "../features";
+import { startFitExtras, startFitWarnings, type StartFitExtra } from "../../core/doc/startFit";
 import { GHOST_OK } from "../tools";
 import { quietWord } from "../shelfItems";
 import type { Ed } from "../ed";
@@ -29,7 +30,9 @@ export function useStart(ed: Ed): StartSlice {
   // ------------------------------------------------------------------------------ the start
 
   /** The start's footprint check at a move of (dx, dy) tiles. */
-  function startPreview(dx: number, dy: number): { x: number; y: number; check: StartCheck } | null {
+  /** The objects that keep a distance from the start, made once per map version (core/doc/startFit.ts). */
+  const fitExtras = useRef<{ version: number; extras: StartFitExtra[] } | null>(null);
+  function startPreview(dx: number, dy: number): StartDrag | null {
     const s = startHere;
     if (!s) return null;
     const x = s.x + dx;
@@ -46,7 +49,14 @@ export function useStart(ed: Ed): StartSlice {
       const bank = moved ? undefined : f.params.bank;
       bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
     }
-    return { x, y, check: checkStartAt(ctx(), x, y, door, bench, s.owner, needs) };
+    const check = checkStartAt(ctx(), x, y, door, bench, s.owner, needs);
+    // (it fits but the checks would flag the spot: amber with the first warning, as the shelf's preview shows it)
+    let warning: string | null = null;
+    if (!check.problem) {
+      if (fitExtras.current?.version !== info.version) fitExtras.current = { version: info.version, extras: startFitExtras(info.features, info.W, info.H) };
+      warning = startFitWarnings(fitExtras.current.extras, info.W, info.H, x, y)[0] ?? null;
+    }
+    return { x, y, check, warning };
   }
 
   /** The start's reach (D184): its three requirements where it stands, shown while the pointer is on
@@ -137,7 +147,7 @@ export function useStart(ed: Ed): StartSlice {
         if (p) {
           const [cx, cy] = cornerFor(p.x, p.y, s.orientation);
           const ghost = { template: "StartingLocation", x: cx, y: cy, z: level ?? mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation) };
-          renderer.current?.setGhost({ ...ghost, ok: GHOST_OK[startStatus(p.check)] });
+          renderer.current?.setGhost({ ...ghost, ok: GHOST_OK[startDragStatus(p)] });
           // (on a cave or an overhang, the core's one line: the start stays on open ground, D491)
           const at: [number, number] = [...d];
           const aimedAt = level;

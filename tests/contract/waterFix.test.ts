@@ -15,7 +15,7 @@ const failing = (s: MapSession) =>
     .map((c) => c.id);
 
 describe("the automatic water fix (D330)", () => {
-  // (seed 6 since the opening shot, 0.8.10, D493, D148: seed 5's start moved west, where no spring the
+  // (seed 6 since the opening shot, 0.10.2, D493, D148: seed 5's start moved west, where no spring the
   // rule tries brings its water back)
   const r = generate(decodeSpecFragment("s=6&t=riverValley&z=96")!.spec);
 

@@ -397,15 +397,17 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   );
 }
 
-export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
+/** `slide`: how far the last Slide really carried its ground at that Power (a short line caps it), once there was one. */
+export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings> & { slide?: { power: number; travel: number } | null }) {
   const u = p.ui;
+  const travel = p.slide && p.slide.power === u.power ? p.slide.travel : slideTiles(u.power);
   const set = (patch: Partial<QuakeUi>) => p.onUi({ ...u, ...patch });
   const scarp = u.scarp ?? p.drawn?.scarp ?? "sheer";
   return (
     <SettingsGrid
       label="Quake options"
       groups={[
-        { key: "power", row: 1, at: 1, span: 3, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${slideTiles(u.power)} tiles` : "How high the land lifts") },
+        { key: "power", row: 1, at: 1, span: 3, node: power("quake", u.power, (v) => set({ power: v }), u.mode === "slide" ? `How far it slides: ${travel} tiles` : "How high the land lifts") },
         {
           key: "mode",
           row: 1,

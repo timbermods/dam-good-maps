@@ -20,6 +20,7 @@ import { checkChannel } from "../features/route";
 import { checkSetPiece } from "../features/setpieces";
 import { BUILT_OBJECTS, fitProblems, isLine, OBJECT_NAMES, objectTiles } from "../features/objects";
 import { optionProblems } from "./objectOps";
+import { descriptionProblem } from "./description";
 import { paintParamProblems, type PaintParams } from "./paintParams";
 import { plainOf, type JsonValue } from "../format/json";
 import { mergeGame } from "../features/edits";
@@ -87,6 +88,10 @@ export interface OpParams {
    *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
    *  an object, and when the result would leave ground the game drops. */
   blocks: BlocksParams;
+  /** The map's description, written by its player (doc/description.ts): the text the game shows with the
+   *  map. Empty text takes it away and the generated one is used again. It changes nothing on the map, so
+   *  it builds nothing. */
+  setDescription: { text: string };
 }
 
 export type { CropParams };
@@ -128,6 +133,8 @@ export interface UndoData {
   before?: Feature;
   /** Where the feature was (delete, reorder) or went (add). */
   index?: number;
+  /** The description written before a `setDescription` (null: none). */
+  description?: string | null;
 }
 
 interface Applied {
@@ -167,10 +174,12 @@ export interface DocState {
   /** Remove unfed water and Fill, in log order (the build makes the water model's stored water of
    *  them and the forces' oxbow lakes, by `seq`). */
   waterEdits: WaterOp[];
+  /** The description its player wrote (`setDescription`), or null: the generated one stands. */
+  description: string | null;
 }
 
 export function emptyState(features: readonly Feature[]): DocState {
-  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [] };
+  return { features: clone(features as Feature[]), sculpts: [], slopeEdits: [], entityEdits: [], waterEdits: [], description: null };
 }
 
 // ----------------------------------------------------------------------------------- dependencies
@@ -339,6 +348,10 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "crop":
       // (the session starts the cropped map's next generation; the state of this one is left as it is)
       return;
+    case "setDescription":
+      op.undo = { description: state.description };
+      state.description = op.params.text === "" ? null : op.params.text;
+      return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
   }
@@ -425,6 +438,9 @@ export function invertOp(state: DocState, op: AppliedOp): void {
       removeFromList(state.waterEdits, op.seq);
       return;
     case "crop":
+      return;
+    case "setDescription":
+      state.description = op.undo!.description ?? null;
       return;
     default:
       throw new Error(`${(op as { op: string }).op} is not a log operation`);
@@ -764,6 +780,10 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
         if (missing.length) return [`${template} needs the components ${missing.join(", ")}`];
       }
       return optionProblems(template, components);
+    }
+    case "setDescription": {
+      const why = descriptionProblem(op.params.text, state.description);
+      return why ? [why] : [];
     }
     case "pinSlope":
       return inMap(op.params.x, op.params.y) ? [] : [`(${op.params.x}, ${op.params.y}) is outside the map`];

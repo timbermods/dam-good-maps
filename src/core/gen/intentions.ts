@@ -8,17 +8,24 @@ import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
 import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
 import type { Hydro } from "../land/hydro";
+import type { FormId } from "../land/forms3d";
 import { distanceFrom, N4 } from "../math/grid";
 import { droughtStorage } from "../sim/drought";
+import { seenWater } from "../sim/stackWater";
 import type { Rng } from "../math/rng";
 
 export interface IntentionResult {
-  id: IntentionId;
+  /** One of the set (land/intentions.ts), or a 3D form (land/forms3d.ts, D488). */
+  id: IntentionId | FormId;
   ok: boolean;
   note: string;
   /** What the map shows, in a player's words, when it emerged (the how-it-plays line uses the
    *  standout's). */
   say?: string;
+  /** Where a 3D form stands (its heart, [x, y]) and a tile it is best seen from (D488): for the page's
+   *  camera and the captures. */
+  at?: [number, number];
+  from?: [number, number];
   /** "emerged" at the first check, "re-steered" after one re-steer, or "dropped"; "found" for one
    *  the map was not steered toward but shows of its own accord (M9b). */
   outcome: "emerged" | "re-steered" | "dropped" | "found";
@@ -123,6 +130,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
 export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hydro["arms"] }): FinalCtx {
   const { W, H } = b;
   const start = b.start ?? { x: 0, y: 0, z: 0 };
+  const seen = seenWater(b);
   const objs = b.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation }));
   const joins: number[] = [];
   for (const r of hy.rivers) {
@@ -136,8 +144,10 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hy
     W,
     H,
     h: b.heights,
-    D: b.water,
-    C: b.contamination,
+    // (on terrain above terrain, the water seen through the roofs: a cave's stream, a river under an
+    // arch, D488)
+    D: seen.depth,
+    C: seen.contamination,
     moist: b.moisture,
     start: { x: start.x, y: start.y, z: start.z, orientation: b.entities.find((e) => e.template === "StartingLocation")?.orientation ?? "Cw0" },
     walk: reachWalk(b.heights, W, H, objs, start),
