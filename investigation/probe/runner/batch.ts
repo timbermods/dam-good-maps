@@ -1,6 +1,7 @@
 // One command runs everything:
 //   npm --prefix investigation/probe run batch -- [maps.timber ...] [--smoke] [--only id,id] [--group name]
 //       [--confirmed-launch CODE] [--run-id ID] [--speed 99] [--no-wait]
+//       [--factions folktails,ironteeth] [--badtide | --cycles N]   (how the maps on the command line are played)
 //   npm --prefix investigation/probe run batch -- --companion [--companion-variants named,custom,fresh|all] [--keep-mods]
 //       (checks the companion mod in the game: runner/companion.ts; one launch per variant)
 //   npm --prefix investigation/probe run batch -- --compare-only RUN_ID
@@ -22,6 +23,7 @@ import { buildMod } from './build-mod';
 import { type CompanionLaunch, companionInstalled, companionSummary, installCompanion, removeCompanion, runCompanion, variantsFrom, writeCompanionReport } from './companion';
 import { catalog, type GameDef, gameIdsFor, type GivenOptions } from './catalog';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
+import { cycleTable } from './cycles';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
 import type { MapResult } from './job';
 import { makeJob, prepare, type Prepared, summary } from './jobs';
@@ -47,7 +49,7 @@ interface Plan {
   runId: string;
   kind: 'smoke' | 'batch';
   extraMaps: string[];
-  /** How the command-line maps are played (`--factions`, `--badtide`). */
+  /** How the command-line maps are played (`--factions`, `--badtide`, `--cycles`). */
   given?: GivenOptions;
   gameIds: string[];
   speed: number;
@@ -72,7 +74,8 @@ function newRunId(kind: string): string {
   return `${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})(\d{4})/, '$1-$2')}-${kind}`;
 }
 
-/** `--factions folktails,ironteeth` and `--badtide` for the maps given on the command line; none given, none changed. */
+/** `--factions folktails,ironteeth`, `--badtide` and `--cycles N` for the maps given on the command line; none given,
+ *  none changed. */
 function givenFromArgs(): GivenOptions | undefined {
   const names = opt('factions');
   const factions = names === undefined ? undefined : names.split(',').map((f) => {
@@ -81,12 +84,16 @@ function givenFromArgs(): GivenOptions | undefined {
     if (id === 'ironteeth') return 'IronTeeth' as const;
     throw new Error(`Unknown faction "${f}": use folktails, ironteeth or both, comma-separated.`);
   });
-  if (!factions?.length && !flag('badtide')) return undefined;
-  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}) };
+  const cyclesArg = opt('cycles');
+  const cycles = cyclesArg === undefined ? undefined : Number(cyclesArg);
+  if (cycles !== undefined && !(Number.isInteger(cycles) && cycles >= 1 && cycles <= 30)) throw new Error(`--cycles needs a whole number of cycles from 1 to 30, not "${cyclesArg ?? ''}"`);
+  if (cycles !== undefined && flag('badtide')) throw new Error('--cycles plays its own weather (badtides included): leave out --badtide');
+  if (!factions?.length && !flag('badtide') && cycles === undefined) return undefined;
+  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}), ...(cycles !== undefined ? { cycles } : {}) };
 }
 
 function planFromArgs(): Plan {
-  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions']);
+  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions', '--cycles']);
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
   const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
   const given = givenFromArgs();
@@ -100,7 +107,10 @@ function planFromArgs(): Plan {
   // a group made outside the repository gets its maps written first, by its own writer: never a stale map planned
   const written = writeGroups(groupsToWrite(valueOf('only'), valueOf('group')), log);
   const all = catalog(extraMaps, given);
+  if (given?.cycles && !extraMaps.length) throw new Error('--cycles plays the maps named on the command line: name at least one .timber. Nothing was planned.');
   let ids = gameIdsFor(all, valueOf('only'), valueOf('group'));
+  // a long play plays only its maps unless --only or --group names more: never the whole catalog beside it
+  if (given?.cycles && !ids.length) ids = all.filter((g) => g.longPlay).map((g) => g.id);
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
   return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, ...(given ? { given } : {}), speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
@@ -277,23 +287,36 @@ export function compareRun(plan: Plan, compareTo?: string): { verdicts: GameVerd
   const launchesFile = join(dir, 'launches.json');
   const otherMods = existsSync(launchesFile) ? [...new Set((JSON.parse(readFileSync(launchesFile, 'utf8')) as LaunchLog[]).flatMap((l) => l.otherMods ?? []))] : [];
   const verdicts: GameVerdicts[] = [];
-  const models: Record<string, { cpuSeconds: number; momentum?: string; error?: string }> = {};
+  const models: Record<string, { cpuSeconds: number; momentum?: string; error?: string; sharedWith?: string }> = {};
+  // A long play's model reads no samples, only the whole map at its moments: both factions play the same file and
+  // weather, so the model runs once for them (185 days of it is minutes of CPU).
+  const longModels = new Map<string, { game: string; model: ModelRun }>();
   for (const p of prepared) {
     const L = loaded.get(p.game.id)!;
     let model: ModelRun | null = null, modelError: string | null = null;
     if (p.game.model && L.result?.status === 'done') {
       try {
-        const sampleDays = L.samples().map((s) => s.day);
+        const bytes = new Uint8Array(readFileSync(p.map.mapFile));
         const mapDays = p.map.moments.filter((m) => m.snapshot).map((m) => m.day);
-        model = runModel(new Uint8Array(readFileSync(p.map.mapFile)), `${p.game.id}.timber`, p.game.cycles, p.map.endDay, p.map.tiles, sampleDays, mapDays);
-        models[p.game.id] = { cpuSeconds: model.cpuSeconds, momentum: model.momentum };
+        const key = p.game.longPlay ? JSON.stringify([p.info.sha256, p.game.cycles, p.map.endDay, mapDays]) : '';
+        const shared = key ? longModels.get(key) : undefined;
+        if (shared) {
+          model = shared.model;
+          models[p.game.id] = { cpuSeconds: 0, momentum: model.momentum, sharedWith: shared.game };
+        } else {
+          const sampleDays = p.game.longPlay ? [] : L.samples().map((s) => s.day);
+          model = runModel(bytes, `${p.game.id}.timber`, p.game.cycles, p.map.endDay, p.map.tiles, sampleDays, mapDays);
+          models[p.game.id] = { cpuSeconds: model.cpuSeconds, momentum: model.momentum };
+          if (key) longModels.set(key, { game: p.game.id, model });
+        }
       } catch (e) {
         modelError = (e as Error).message;
         models[p.game.id] = { cpuSeconds: 0, error: modelError };
       }
     }
-    const checks = evaluate({ L, others: loaded, model, modelError, otherMods: plan.keepMods ? [] : otherMods, installedMods: plan.keepMods ? otherMods : [] }, p.checks);
-    verdicts.push({ game: p.game.id, title: p.game.title, group: p.game.group, status: L.result?.status ?? 'no result', checks });
+    const cycles = p.game.longPlay && L.result ? cycleTable(L, model, modelError ?? (p.game.model && L.result.status !== 'done' ? `the map did not finish (${L.result.status})` : null)) : undefined;
+    const checks = evaluate({ L, others: loaded, model, modelError, otherMods: plan.keepMods ? [] : otherMods, installedMods: plan.keepMods ? otherMods : [], ...(cycles ? { cycles } : {}) }, p.checks);
+    verdicts.push({ game: p.game.id, title: p.game.title, group: p.game.group, status: L.result?.status ?? 'no result', checks, ...(cycles ? { cycles } : {}) });
     log(`${p.game.id}: ${checks.map((c) => `${c.id} ${c.verdict}`).join(', ')}`);
   }
   const title = compareTo ? `${plan.runId}, judged again as ${compareTo}` : plan.runId;

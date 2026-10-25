@@ -63,9 +63,15 @@ export function outflowGrid(W: number, H: number, sw: SurfaceWater): Float32Arra
   const o = sw.outflow;
   if (!o) return null;
   const out = new Float32Array(W * H * 4);
+  const top = sw.top;
   for (let i = 0; i < W * H; i++) {
-    const k = sw.top[i];
-    if (k >= 0) out.set(o.subarray(k * 4, k * 4 + 4), i * 4);
+    const k = top[i];
+    if (k < 0) continue;
+    // (the four by hand: a view of them for each wet tile cost the page a millisecond or more a bake)
+    out[i * 4] = o[k * 4];
+    out[i * 4 + 1] = o[k * 4 + 1];
+    out[i * 4 + 2] = o[k * 4 + 2];
+    out[i * 4 + 3] = o[k * 4 + 3];
   }
   return out;
 }

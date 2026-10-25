@@ -500,6 +500,11 @@ for (const scheme of ["light", "dark"] as const) {
   for (const [w, h] of NET_SIZES) {
     test(`no visible text is clipped at ${w}×${h}, ${scheme}: at rest, a tool, a force, Select's rows, the menus, the shelf and the panels`, async ({ page }) => {
       test.setTimeout(300_000);
+      // (the net covers what a GPU shows, the Look menu among it: a browser that draws in software, as CI's does, has no
+      // Look button, so the page is told it has a GPU; the Standard look stays held by the config's storage)
+      await page.addInitScript(() => {
+        (window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true };
+      });
       await page.emulateMedia({ colorScheme: scheme });
       await page.setViewportSize({ width: w, height: h });
       await openEditor(page);
@@ -545,6 +550,15 @@ for (const scheme of ["light", "dark"] as const) {
       for (const panel of ["Map Generator", "Your maps", "History"]) {
         await header.getByRole("button", { name: panel, exact: true }).click();
         await look(panel);
+        if (panel === "Map Generator") {
+          // Showcase mode's sheet over the settings (D488 (2)), Esc closing it
+          const gen = page.locator('aside[aria-label="Map Generator"]');
+          await gen.getByRole("button", { name: "Showcase…" }).click();
+          await expect(gen.getByRole("region", { name: "Showcase" })).toBeVisible();
+          await look("the Showcase sheet");
+          await page.keyboard.press("Escape");
+          await expect(gen.getByRole("region", { name: "Showcase" })).toBeHidden();
+        }
         await header.getByRole("button", { name: panel, exact: true }).click();
       }
       expect(bad, "text wider than its box").toEqual([]);

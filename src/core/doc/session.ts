@@ -25,12 +25,13 @@ import type { TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
-import { byDabRule, limitRuns, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
+import { objectHolds, standProblem, type StandGround } from "../features/objects";
+import { brushBounds, byDabRule, limitRuns, markBrushTiles, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN } from "../features/raster/terrain";
 import { ColumnTerrain, isPlainMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
-import { fallsReason, newFalls, stackableTops, unsupportedVoxels } from "../terrain/support";
+import { fallsReason, newFalls, placeOf, stackableTops, unsupportedVoxels } from "../terrain/support";
 import { LAYERS } from "../format/world";
 import { storedWetMask } from "../analysis/mechanics";
 import { clusterSaturation } from "../sim/moisture";
@@ -38,15 +39,15 @@ import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
 import { stackedSoil } from "../sim/soil";
-import { storedStack } from "../sim/stackWater";
+import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
 import { parse, type JsonObject } from "../format/json";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
+import { stackedSimulationSingletons, storedColumnOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
-import type { Orientation } from "../format/footprints";
+import type { Orientation, Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
@@ -58,12 +59,12 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
-import { entityProblem } from "./placing";
+import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
 import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
-import { placeLabel, withArticle } from "./labels";
+import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import {
   applyOp,
@@ -227,7 +228,7 @@ export class MapSession {
   private resourcesCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, Set<number>> | null; tiles: Map<string, Set<number>> | null } | null = null;
   private springsCache: { key: BaseMap; features: readonly Feature[]; all: Map<string, KeptSource[]> | null; rows: Map<string, KeptSource[]> | null } | null = null;
   private storedWaterCache: { key: BaseMap; water: ReturnType<typeof storedWater> } | null = null;
-  private storedOutflowsCache: { key: BaseMap; out: Float64Array | null } | null = null;
+  private storedOutflowsCache: { key: BaseMap; out: Float32Array | null } | null = null;
   private storedSoilCache: { key: BaseMap; soil: ReturnType<typeof storedSoilRuns> } | null = null;
   /** Things the player should know about how the document was opened. */
   readonly notices: string[] = [];
@@ -698,6 +699,13 @@ export class MapSession {
     return (this.mode !== "live" && this.baseStuff().terrain.columns.size > 0) || layeredMasks(masksOf(b.cache.terrain));
   }
 
+  /** The ground as it stands, voxel by voxel, for the placement rule under a roof (D491, features/objects.ts
+   *  `standProblem`): shared, never to be changed. */
+  standGround(): StandGround {
+    const t = this.terrainOf(this.cur);
+    return { W: t.W, H: t.H, mask: t.mask };
+  }
+
   /** Whether a tile is one plain run from the bottom: no cave or overhang, so objects may stand there and
    *  the forces shape it (the brushes shape every tile's top run, D487).
    *  Every tile of a generated map until the Block tool digs one. */
@@ -736,22 +744,120 @@ export class MapSession {
     return newFalls(this.terrainOf(before), this.terrainOf(now), tops0, tops1);
   }
 
+  /** The ground holding objects set under a roof on the map as it stands (D491, objects.ts
+   *  `objectHolds`): [tile, low, high]; empty on a heightfield and where no object reaches out of its
+   *  roof. The same for a build. */
+  holds(): [number, number, number][] {
+    const c = this.holdsCache;
+    if (c && c.key === this.cur) return c.holds;
+    const holds = this.layered(this.cur) ? objectHolds(this.cur.entities, { ...this.standGround(), heights: this.cur.heights }) : [];
+    this.holdsCache = { key: this.cur, holds };
+    return holds;
+  }
+  private holdsCache: { key: BuildResult; holds: [number, number, number][] } | null = null;
+
+  /** A stroke or a sculpt with the ground that holds objects set under a roof (D491): it keeps those
+   *  tiles within their floor and ceiling and shapes the rest as normal, never refused for them (D270).
+   *  Only the held tiles in its reach, and one tile round it (the integrity pass reads each tile's
+   *  neighbours), go in the operation: the build keeps those, and only those, from the integrity pass,
+   *  so a stroke never moves held ground elsewhere on the map, and the page's preview, which keeps every
+   *  held tile, agrees inside the only ground the stroke changes. */
+  private withHold(op: EditOp): EditOp {
+    if ((op.op !== "brush" && op.op !== "sculpt") || op.params.hold) return op;
+    const all = this.holds();
+    if (!all.length) return op;
+    const { x: W, y: H } = this.size;
+    let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
+    if (op.op === "brush") box = brushBounds(op.params, W, H);
+    else
+      for (const [y, a, b] of op.params.cells)
+        box = box ? { x0: Math.min(box.x0, a), y0: Math.min(box.y0, y), x1: Math.max(box.x1, b), y1: Math.max(box.y1, y) } : { x0: a, y0: y, x1: b, y1: y };
+    if (!box) return op;
+    const hold = all.filter(([i]) => {
+      const x = i % W;
+      const y = Math.floor(i / W);
+      return x >= box.x0 - 1 && x <= box.x1 + 1 && y >= box.y0 - 1 && y <= box.y1 + 1;
+    });
+    if (!hold.length) return op;
+    return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
+  }
+
+  /** Why a held stroke or sculpt is refused (D491): only when holding leaves it nothing to shape, every
+   *  tile it covers being ground that holds an object under a roof; null otherwise. */
+  private heldOnly(op: EditOp, before: BuildResult): string | null {
+    if ((op.op !== "brush" && op.op !== "sculpt") || !op.params.hold?.length) return null;
+    if (!sameBytes(before.heights, this.cur.heights)) return null;
+    const { x: W, y: H } = this.size;
+    const held = new Set(op.params.hold.map(([i]) => i));
+    const tiles: number[] = [];
+    if (op.op === "brush") {
+      const m = new Uint8Array(W * H);
+      markBrushTiles(op.params, W, H, m);
+      for (let i = 0; i < m.length; i++) if (m[i]) tiles.push(i);
+    } else for (const [y, a, b] of op.params.cells) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) tiles.push(y * W + x);
+    if (!tiles.length || !tiles.every((i) => held.has(i))) return null;
+    return "nothing to shape here: this ground holds an object under a roof, which the edit leaves as it is";
+  }
+
+  /** The first object the map as it stands would lose that it kept as `before`, in one line, or null
+   *  (D491): an object on a tile with a cave or an overhang that the game's rule held on `before`'s ground
+   *  and no longer holds (inside the ground or floating: the game removes it on load). Nothing on open
+   *  ground (its objects ride it), and nothing on a heightfield. A last guard: the strokes and sculpts hold
+   *  that ground, the forces run round it, and Erode keeps the ground under every object (D270). */
+  private lostSince(before: BuildResult): string | null {
+    const now = this.cur;
+    if (!this.layered(before) && !this.layered(now)) return null;
+    const { x: W, y: H } = this.size;
+    const t0 = this.terrainOf(before);
+    const g0 = { W, H, mask: t0.mask };
+    const g1 = this.standGround();
+    const was = new Map(before.entities.map((e) => [e.id, e]));
+    for (const e of now.entities) {
+      const b = was.get(e.id);
+      if (!b) continue;
+      const tiles = entityTiles(e).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x);
+      if (tiles.every((i) => isPlainMask(g0.mask[i]) && isPlainMask(g1.mask[i]))) continue;
+      if (standProblem(b.template, b, g0) || !standProblem(e.template, e, g1)) continue;
+      return `it would leave ${withArticle(itemName(e.template))} at (${e.x}, ${e.y}) inside the ground or floating, and the game would remove it`;
+    }
+    return null;
+  }
+
   /** How many blocks of ground an operation just put in the log would make fall, worked out from the
    *  build's terrain steps alone (`previewTerrain`), with the objects as they stand: 0 when it makes
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
-  private fallsAhead(op: EditOp): number {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return 0;
-    if (!this.layered(this.cur)) return 0;
+  private fallsAhead(op: EditOp): number[] {
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return [];
+    if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
-    if (sameBytes(heights, this.cur.heights)) return 0;
+    if (sameBytes(heights, this.cur.heights)) return [];
     // (a stroke that tilts a piece riding it is given again with the piece level: the build's check)
-    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return 0;
+    if (op.op === "brush" && !this.riding && tiltedPieces(ridingPieces(this.cur.entities, W, H), this.cur.heights, heights, W).length) return [];
+    return this.forceFalls(heights);
+  }
+
+  /** The blocks of ground the map would lose with its surface at `heights` (and, for Erode's result,
+   *  its voxels `masks`) and its objects `entities` (left out, as they stand), that it does not lose
+   *  now: by cell (z·N + tile), ascending. A force asks it of its planned result before it plays, so
+   *  it is never shown and then taken back (D487; forces/start.ts `fallsBeforePlay`): an object it took
+   *  that held a roof holds it no more. Empty on a heightfield. */
+  forceFalls(heights: ArrayLike<number>, masks?: Uint32Array | null, entities?: readonly Placement[]): number[] {
+    if (!this.layered(this.cur)) return [];
+    const { x: W, y: H } = this.size;
     const tops = this.topsOf(this.cur.entities);
+    const after = entities ? stackableTops(W, H, entities) : tops;
     const base = this.mode === "live" ? null : this.baseStuff().terrain.terrain;
-    const masks = masksOf(this.cur.cache.terrain);
-    return newFalls(this.terrainOf(this.cur), terrainUnder(base, heights, masks, W, H), tops, tops).length;
+    const ground = masks ? new ColumnTerrain(W, H, masks) : terrainUnder(base, heights, masksOf(this.cur.cache.terrain), W, H);
+    return newFalls(this.terrainOf(this.cur), ground, tops, after);
+  }
+
+  /** The refusal for ground that would fall: a force's names the place of the first block, as nothing
+   *  on its showing marks it (a stroke's and a block's are drawn red first). */
+  private fallsRefusal(ops: readonly EditOp[], falls: readonly number[]): string {
+    const { x: W, y: H } = this.size;
+    return fallsReason(falls.length, ops.some((o) => o.op === "forceResult") ? placeOf(falls[0], W, H) : undefined);
   }
 
   /** The Block tool's query (D335, docs/progress/3d-creating.md): what an operation would do to the
@@ -838,11 +944,13 @@ export class MapSession {
   }
 
   /** The map's water model and the water it shows now, one depth per tile (an unedited import's own
-   *  water while it keeps it, `showsStoredWater`; else the build's): what Remove unfed water and
-   *  Fill measure and are checked against (doc/water.ts). */
-  waterNow(): { model: WaterModel; depth: Float64Array } {
+   *  water while it keeps it, `showsStoredWater`; else the build's), and on a map with caves or
+   *  overhangs every column of it (`stack`): what Remove unfed water and Fill measure and are checked
+   *  against (doc/waterEdits.ts). */
+  waterNow(): { model: WaterModel; depth: Float64Array; stack?: StackSettle } {
     const own = this.showsStoredWater ? this.baseStuff().layer.water : undefined;
-    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water };
+    const stack = (own ?? this.cur.settle).stack;
+    return { model: this.cur.waterModel, depth: own?.depth ?? this.cur.water, ...(stack ? { stack } : {}) };
   }
 
   /** The water the map shows now, which a Drought or a Badtide starts from (sim/weather.ts `HazardRun`):
@@ -894,16 +1002,25 @@ export class MapSession {
       field: field ? field.heights.slice() : null,
       top: Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN),
       pre: t.pre7.slice(),
-      protect: t.protect.slice(),
+      // (the ground holding objects under a roof is left by the integrity pass, as the build leaves it, D491)
+      protect: this.heldProtect(t.protect),
       channel: t.channel.slice(),
       base: base ? base.heights.slice() : null,
       locked: locked ? locked.slice() : null,
       columns: Int32Array.from([...this.columns.keys()].sort((a, b) => a - b)),
       ...(this.columns.size ? this.roofState() : {}),
+      ...(this.holds().length ? { hold: this.holds().map((h) => [...h] as [number, number, number]) } : {}),
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
     };
+  }
+
+  /** The build's protected tiles with the ground holding objects under a roof (D491). */
+  private heldProtect(protect: Uint8Array): Uint8Array {
+    const out = protect.slice();
+    for (const [i] of this.holds()) if (i >= 0 && i < out.length) out[i] = 1;
+    return out;
   }
 
   /** On a map with caves or overhangs, what the page's strokes need of them (D280 (3)): the lowest
@@ -927,10 +1044,11 @@ export class MapSession {
     return this.storedWaterCache.water;
   }
 
-  /** The outflows the base file stores (its surface water's), for the 3D view's moving water. */
-  storedOutflows(): Float64Array | null {
+  /** The outflows the base file stores of every column `storedWater` lists (four an entry, each column its own), for
+   *  the 3D view's moving water and falls. */
+  storedColumnOutflows(): Float32Array | null {
     const b = this.baseStuff();
-    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
+    if (this.storedOutflowsCache?.key !== this.gen.base) this.storedOutflowsCache = { key: this.gen.base, out: storedColumnOutflows(b.file.world.singletons, this.gen.base.sizeX, this.gen.base.sizeY) };
     return this.storedOutflowsCache.out;
   }
 
@@ -1108,13 +1226,18 @@ export class MapSession {
       otherStarts,
       water: this.waterNow(),
       heights: this.cur.heights,
+      masks: this.standGround().mask,
+      objectCells: (owner) => {
+        const skip = resourceOwners(this);
+        return objectCells(this.cur.entities, this.size.x, this.size.y, (e) => e.owner === owner || skip.has(e.owner));
+      },
       startObjects,
       cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {
         const e = p.id ? this.cur.entities.find((g) => g.id === p.id) : undefined;
         const template = p.template ?? e?.template;
         if (!template) return null;
-        return entityProblem(this, { template, x: p.x, y: p.y, orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
+        return entityProblem(this, { template, x: p.x, y: p.y, ...(p.z !== undefined ? { z: p.z } : {}), orientation: p.orientation ?? e?.orientation ?? "Cw0", flipped: p.flipped ?? e?.flipped ?? false }, p.id ?? null);
       },
     });
     return errors;
@@ -1122,6 +1245,7 @@ export class MapSession {
 
   /** Apply one operation. */
   apply(op: EditOp, origin: OpOrigin = "user", label?: string): ApplyResult {
+    op = this.withHold(op);
     const errors = this.check(op);
     if (errors.length) return { ok: false, errors, applied: [], dirty: null };
     if (op.op === "paintObjects") return applyPaintObjects(this, op.params, origin, label);
@@ -1137,11 +1261,11 @@ export class MapSession {
     const applied = this.applyChecked(op, origin, label);
     // (a reshaping that would make ground fall is refused on its terrain alone, before a whole build)
     const ahead = this.fallsAhead(op);
-    if (ahead) {
+    if (ahead.length) {
       invertOp(this.st, applied);
       this.log.pop();
       this.seqNext = seq;
-      return { ok: false, errors: [fallsReason(ahead)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal([op], ahead)], applied: [], dirty: null };
     }
     this.pushHistory({ kind: "ops", ops: [applied] });
     this.cur = this.rebuilt();
@@ -1152,7 +1276,14 @@ export class MapSession {
     const falls = this.fallsSince(before);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
-      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal([op], falls)], applied: [], dirty: null };
+    }
+    // a stroke held whole by the ground under objects in a cliff or a cave (D491), and, as a last guard,
+    // an object under a roof or on one that the game would then remove
+    const lost = this.heldOnly(op, before) ?? this.lostSince(before);
+    if (lost) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [lost], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: [applied], dirty: this.cur.dirty };
   }
@@ -1173,7 +1304,12 @@ export class MapSession {
     const step = this.stepSince(mark);
     if (!step || !this.takeBack(step)) return null;
     this.seqNext = seq;
-    return ops.map((o) => (o.op === "brush" ? { ...o, params: { ...o.params, rigid: [...(o.params.rigid ?? []), ...rects] } } : o));
+    // (its hold is worked out again with the pieces in its reach)
+    return ops.map((o) => {
+      if (o.op !== "brush") return o;
+      const { hold: _hold, ...params } = o.params;
+      return { ...o, params: { ...params, rigid: [...(o.params.rigid ?? []), ...rects] } };
+    });
   }
 
   private riding = false;
@@ -1194,7 +1330,8 @@ export class MapSession {
     const mark = this.mark();
     const seq = this.seqNext;
     const done: AppliedOp[] = [];
-    for (const op of ops) {
+    for (const given of ops) {
+      const op = this.withHold(given);
       const errors = op.op === "paintObjects" ? ["a placement stroke cannot be part of a group of edits"] : op.op === "crop" ? ["a crop cannot be part of a group of edits"] : this.check(op);
       if (errors.length) {
         for (const a of done.reverse()) {
@@ -1216,7 +1353,12 @@ export class MapSession {
     const falls = this.fallsSince(before);
     if (falls.length) {
       this.refuseStep(mark, seq, before);
-      return { ok: false, errors: [fallsReason(falls.length)], applied: [], dirty: null };
+      return { ok: false, errors: [this.fallsRefusal(ops, falls)], applied: [], dirty: null };
+    }
+    const lost = this.lostSince(before);
+    if (lost) {
+      this.refuseStep(mark, seq, before);
+      return { ok: false, errors: [lost], applied: [], dirty: null };
     }
     return { ok: true, errors: [], applied: done, dirty: this.cur.dirty };
   }
@@ -1294,7 +1436,7 @@ export class MapSession {
       if (ids.has(op.params.id)) return fail("two objects in the placement have the same id");
       ids.add(op.params.id);
       const p = op.params;
-      const e = placedEntity(p, this.cur.heights[p.y * W + p.x]);
+      const e = placedEntity(p, p.z ?? this.cur.heights[p.y * W + p.x]);
       for (const [x, y] of entityTiles(e)) {
         const i = y * W + x;
         if (taken.has(i)) return fail("another object stands in the placement's footprint");

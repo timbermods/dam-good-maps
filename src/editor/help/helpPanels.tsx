@@ -111,7 +111,7 @@ function Help(p: { onClose(): void }) {
         <h3>Make a map</h3>
         <ol>
           <li>
-            Open <strong>Map Generator</strong>, pick a theme and a size, then press <strong>Generate</strong>. Or open <strong>Real places</strong> and pick a map made from real land.
+            Open <strong>Map Generator</strong>, pick a theme and a size, then press <strong>Generate</strong>. For a map with a story, press <strong>Showcase…</strong> at the panel's foot: it searches for a few minutes and offers the best three. Or open <strong>Real places</strong> and pick a map made from real land.
           </li>
           <li>
             Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then click the map.

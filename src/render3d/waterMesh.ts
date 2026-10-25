@@ -345,11 +345,7 @@ export const MOVED_WATER = { level: 0.005, share: 0.01 };
  *  share; wet or dry), with the chunks within six tiles (the badwater's blend reaches three, a top's
  *  corners, curtains and falls three more). */
 export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }): Set<string> {
-  const out = new Set<string>();
-  const nx = Math.ceil(W / CHUNK);
-  const ny = Math.ceil(H / CHUNK);
-  const dirty = new Uint8Array(nx * ny);
-  const R = 6;
+  const marks = chunkMarks(W, H);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -358,14 +354,86 @@ export function waterMovedChunks(W: number, H: number, drawn: DrawnWater, sw: Su
       const wa = sa === sa;
       if (!wa && !(sb === sb)) continue;
       if (wa === (sb === sb) && Math.abs(sa - sb) <= tol.level && Math.abs(drawn.depth[i] - sw.depth[i]) <= tol.level && Math.abs(drawn.contamination[i] - sw.contamination[i]) <= tol.share) continue;
+      marks.mark(x, y);
+    }
+  return marks.keys();
+}
+
+/** How far round a tile whose water moved the chunks are drawn again (`waterMovedChunks`). */
+const MOVED_REACH = 6;
+
+/** The chunks within MOVED_REACH of the tiles marked (`mark`), as "cx,cy" keys (`keys`). The tiles of a row in the
+ *  same part of a chunk (within reach of its west edge, of its east edge, or of neither) mark the same chunks, so
+ *  each part is marked once a row: water moving over thousands of tiles costs a comparison a tile. */
+function chunkMarks(W: number, H: number): { mark(x: number, y: number): void; keys(): Set<string> } {
+  const R = MOVED_REACH;
+  const nx = Math.ceil(W / CHUNK);
+  const ny = Math.ceil(H / CHUNK);
+  const dirty = new Uint8Array(nx * ny);
+  let row = -1;
+  let part = -1;
+  return {
+    mark(x: number, y: number): void {
+      const lx = x % CHUNK;
+      const p = (x - lx) * 3 + (lx < R ? 0 : lx >= CHUNK - R ? 2 : 1);
+      if (y === row && p === part) return;
+      row = y;
+      part = p;
       const cx0 = Math.floor(Math.max(0, x - R) / CHUNK);
       const cx1 = Math.floor(Math.min(W - 1, x + R) / CHUNK);
       const cy0 = Math.floor(Math.max(0, y - R) / CHUNK);
       const cy1 = Math.floor(Math.min(H - 1, y + R) / CHUNK);
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) dirty[cy * nx + cx] = 1;
+    },
+    keys(): Set<string> {
+      const out = new Set<string>();
+      for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
+      return out;
+    },
+  };
+}
+
+/** Whether chunk (cx, cy) is among `waterMovedChunks`' answer: its drawn water, or a tile's within six of it, differs
+ *  from `sw` by more than `tol`. Reads only the tiles round the chunk, and stops at the first that moved (the page's
+ *  thread asks it of the chunks waiting to be drawn, never of the whole map). */
+export function waterMovedChunk(W: number, H: number, drawn: DrawnWater, sw: SurfaceWater, tol: { level: number; share: number }, cx: number, cy: number): boolean {
+  const R = MOVED_REACH;
+  const x0 = Math.max(0, cx * CHUNK - R);
+  const x1 = Math.min(W - 1, (cx + 1) * CHUNK - 1 + R);
+  const y0 = Math.max(0, cy * CHUNK - R);
+  const y1 = Math.min(H - 1, (cy + 1) * CHUNK - 1 + R);
+  for (let y = y0; y <= y1; y++)
+    for (let i = y * W + x0, end = y * W + x1; i <= end; i++) {
+      const sa = drawn.surface[i];
+      const sb = sw.surface[i];
+      const wa = sa === sa;
+      if (!wa && !(sb === sb)) continue;
+      if (wa === (sb === sb) && Math.abs(sa - sb) <= tol.level && Math.abs(drawn.depth[i] - sw.depth[i]) <= tol.level && Math.abs(drawn.contamination[i] - sw.contamination[i]) <= tol.share) continue;
+      return true;
     }
-  for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) if (dirty[cy * nx + cx]) out.add(`${cx},${cy}`);
-  return out;
+  return false;
+}
+
+/** The chunks water put in place draws again (renderer.updateWater): every chunk within six tiles of a tile whose
+ *  water differs at all from what is drawn there (`waterMovedChunks` with no tolerance) or from the water before it,
+ *  `before` (`changedWaterChunks`, quick: no blend is made). One pass over the map for both. */
+export function exactWaterChunks(W: number, H: number, drawn: DrawnWater, before: SurfaceWater, after: SurfaceWater): Set<string> {
+  const marks = chunkMarks(W, H);
+  const { surface: sb, depth: db, contamination: cb } = after;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const s = sb[i];
+      const wet = s === s;
+      const sd = drawn.surface[i];
+      const s0 = before.surface[i];
+      // (dry before, drawn dry and dry now: nothing)
+      if (!wet && !(sd === sd) && !(s0 === s0)) continue;
+      const fromDrawn = wet !== (sd === sd) || (wet && (sd !== s || drawn.depth[i] !== db[i] || drawn.contamination[i] !== cb[i]));
+      const fromBefore = wet !== (s0 === s0) || (wet && (s0 !== s || before.depth[i] !== db[i] || before.contamination[i] !== cb[i]));
+      if (fromDrawn || fromBefore) marks.mark(x, y);
+    }
+  return marks.keys();
 }
 
 /** Chunks whose water differs between two surface-water states: a tile's surface, depth or

@@ -1195,7 +1195,9 @@ must respect:
 - `mapObject` (mineSite, relic small / medium / large, geothermal, thornBelt, weir, plug, bridge, unstableCore): the
   footprint, OccupyAllBelow and first-column rules (§11.2), with one placement rule for the generator, the tools and
   the preview (D69): level ground for single objects, dry and off rivers (weirs and plugs go across them), free of other
-  objects, caves and the start. The bridge waits (§5.7).
+  objects and the start. Under a roof (a cave's floor, the ground under a ledge, a roof's top: the placement's `z`) the
+  game's own rule decides instead, block by block (D491, `features/objects.ts` `standProblem`, the same rule as
+  `entities.placement`). The bridge waits (§5.7).
 - `carve` kinds (D118: tunnel, arch, skyBridge, cave, ledgePath, overhang, undergroundRiver): built only by their
   builders, which keep the support rule by construction (the build's rule pass drops 0 voxels); floors are run tops.
 - `start` (position, orientation, bench radius, player 0–3, default 0, reserved for Timber Together, D5): a flat 3×3
