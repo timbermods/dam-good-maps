@@ -1,5 +1,6 @@
 // Showcase mode's messages (D488 (2); core/gen/showcase.ts): the page and the showcase's own worker
-// (showcase.worker.ts) talk only in these. Types only, so the page imports them without the core.
+// (showcase.worker.ts) talk only in these. Types and the beats' names only, so the page imports them
+// without the core.
 //
 // The page sends `start` (a spec and the time allowed); the worker answers with a `candidate` message
 // after each map it makes (how many so far, the map's preview and arc, the best three so far) and one
@@ -7,10 +8,13 @@
 // same `GenerateResponse` a generation gives, its project file among it). `stop` ends the search after
 // the map being made (a `done` with what it found); terminating the worker ends it at once.
 
-import type { Arc, BeatId } from "../core/gen/showcase";
+import type { Arc, BeatId } from "../core/gen/showcaseBeats";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { GenerateResponse } from "./api";
 
+// (the beats' ids in order and their labels, from a module with no imports: the page never loads the
+// generator for them)
+export { BEATS, BEAT_NAMES, type Beat } from "../core/gen/showcaseBeats";
 export type { Arc, BeatId };
 
 export type ShowcaseRequest =
