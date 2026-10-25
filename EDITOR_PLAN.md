@@ -792,7 +792,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
-  until they work on runs (step 3); hover and Select show the run seen.
+  until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
+  cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
+  blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
+  the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
+  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at

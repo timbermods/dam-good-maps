@@ -353,12 +353,17 @@ export function App() {
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
+    // (the picture in a task of its own, never stacked on the edit or the water that just went in)
+    await new Promise((go) => setTimeout(go));
     const pic = picture.current?.();
     const thumbnail = (pic && thumbnailUrl(pic)) ?? of.thumbnail;
     const p = await generator.project(6);
-    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail };
+    // (its name and size from the worker and the page, so the save never unzips the project to read them)
+    const info = infoRef.current;
+    const size = of.size ?? (info ? { w: info.W, h: info.H } : undefined);
+    const e = { ...of, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes };
+    return { entry: e, project: p.bytes, name: p.name };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. */
