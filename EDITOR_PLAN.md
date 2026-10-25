@@ -77,7 +77,7 @@ place of its bottom rule.
   Download project, Download .timber, Choose Maps folder… (Chrome and Edge), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
-  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. **Showcase…** (D488 (2)) sits in
+  under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
   the empty place at the foot of "On this map", under Reset settings (the panel no taller): it opens Showcase mode's sheet
   over the two columns of settings (they stay where they are under it; **Settings** or Esc closes it). The sheet
   holds **Search for** (2, 5 or 15 minutes, 5 the first time, then what was last chosen in this browser), one button
@@ -98,13 +98,14 @@ place of its bottom rule.
   already shows never takes a second card. The focus stays in the sheet through Stop and Open (the greyed buttons are
   `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
   `src/ui/useShowcase.ts`.
+
 - **The map generator's panel** (Kyler's pick, 2026-10-04; 640px over the map at the left: opening it never resizes
   the map or moves the camera): every setting at once, nothing scrolling, each on one line in the bar's control
   language (a slider with its value, or a segmented choice; no dropdowns). A title block: the **Name** for the next
   map (the field shows the open map's name; what is typed in it names the map **Generate** makes next, and the open
   map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
   settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
-  Custom, its width and height typed, each 4 to 512; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
+  Custom, its width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
   own editor can't open the map, D357; nothing moves and it never refuses; Generate on a side under the theme's least (48, Islands 64)
   says so in one line, "Canyon needs at least 48 tiles a side to generate", as a note over the map (no dialog dims it,
   and a map that fails its checks says "No valid map" the same way), and the open map stays). Then two columns: Terrain, Water and Hazards; Resources (the species mix one
@@ -146,7 +147,7 @@ place of its bottom rule.
   the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
 - **Versions** (fearless iteration; D336, D455, D456, D342): in **History**, a row pointed at, focused or current shows
   **Keep this version** and **Branch from here**. Keep saves the map as it stood at that step (undone steps included) into
-  Your maps as "<map name> — <step label>"; Branch does the same and opens the copy, its History through that step. A version
+  Your maps as "<map name> — <step label>" in one click, never asking (numbered "(2)", "(3)" when Your maps already holds the name, as saved files are; Rename is in Your maps); the History panel opens with the step the map is at in view; Branch does the same, named the same way, and opens the copy, its History through that step. A version
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
@@ -222,7 +223,7 @@ place of its bottom rule.
   bush**; Ruin, Mine site, Relic, Slope, Thorns, Blockage and Geothermal field; Unstable core and the Reserve pile,
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
-  what it has; the list never moves; no row above the bar then): picked in the list, a source's Next source and
+  what it has; the list never moves; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
   Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
   also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
@@ -540,7 +541,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `where.path`, kept by Try another; a carve drawn uphill is shown the way it was drawn, D344 A5). **Power** (creek to
   catastrophe), **Size** (width; depth follows Power and the width). Wander and walls come from the land and the seed,
   with natural variation (bends wider and deeper on the outside); a cut-off bend becomes an oxbow lake sealed by
-  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "at most N", since the Floor and the land's height stop the cut
+  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "max N", since the Floor and the land's height stop the cut
   sooner), **River depth** (D321, item 17: how deep its water may be, 1 up to the
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
@@ -1047,7 +1048,8 @@ After its file entries and a hairline, the File menu ends with three, in this or
 them, ROADMAP "The 20-second tour"):
 
 - **Keyboard shortcuts** (tooltip key: ?). A dialog over the editor like About, in three balanced columns of groups (Tools; Brushes,
-  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps. The list is data
+  forces and items; With the mouse; View; Editing), each line what the key does and its keys as key caps; the mouse's camera moves
+  (turn, move, zoom) sit in View with the keys that do the same, so the sheet fits a 720px window without scrolling. The list is data
   (`src/editor/help/shortcuts.ts`, `shortcutGroups()`): the tools' keys are read from `BRUSHES` and the shown
   `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
   `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
@@ -1376,7 +1378,13 @@ checks dot counts; every other row is information under Good to know, worded as 
     tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
     sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
     the water the game loads stays as it is: the lake only evaporates, nothing spills
-    (`tests/contract/caveWaterEdits.test.ts`). An imported map's own unfed water is kept on every column, a pool
+    (`tests/contract/caveWaterEdits.test.ts`). A sealed basin whose water moved, or whose start would not stand
+    (an edit dug its rim or widened its hollow), is stored where the water it began with comes to rest, as the heightfield's settle levels it
+    (`keepSealed`), by the game's rules through air gaps, roofs and pressure: each hollow fills to its spill and
+    only the rest runs on, lowest first, so a lake behind a dug rim stays at the cut's floor when the hollow
+    beyond takes the rest, and stands as one level with it when that hollow fills (`rust/water/src/stack_level.rs`;
+    a rest that would reach a source, the edge, other water or an obstacle leaves the basin as the settle left it;
+    the ground the rest could reach is part of the settle's reach, so an edit there settles in full; the drawn current, `StackSettle.flows`, is zero on the columns stored levelled, `Stack::levelled`, since the run's leftover momentum is not that water's). An imported map's own unfed water is kept on every column, a pool
     in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
     water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source

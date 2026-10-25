@@ -67,6 +67,7 @@ export const STACK_FIELD = {
   reach: 23,
   emitting: 24,
   allowed: 25,
+  levelled: 26,
 } as const;
 
 /** The engine's operations: `build` (a: 0 the game's rules, 1 the port's; b: 1 the stacked rules even on
@@ -84,7 +85,7 @@ export const STACK_OP = { build: 0, run: 1, prefill: 2, settleBegin: 3, advance:
  *  ticks. */
 export const STACK_INFO = { ticks: 0, stacked: 1, settle: 2, steadyTicks: 3, maxTicks: 4 } as const;
 
-const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array, Uint8Array, Uint8Array] as const;
+const TYPES = [Uint32Array, Float64Array, Float64Array, Uint8Array, Int16Array, Int16Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Uint32Array, Int32Array, Uint8Array, Int32Array, Float64Array, Uint8Array, Uint8Array, Int16Array, Int16Array, Uint8Array, Float64Array, Float64Array, Uint8Array, Uint8Array, Uint8Array, Uint8Array] as const;
 
 export type StackView = Uint8Array | Int16Array | Uint32Array | Int32Array | Float64Array;
 
@@ -408,6 +409,11 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         if (reach) threads?.reach(reach);
         // (each column's outflows: the strips' own rows' when they ran the last ticks, else this engine's)
         const flows = threads ? threads.flows() : columnFlows(m, stacked);
+        // (a basin the end stored levelled at rest has none of the run's momentum: still water shows no current)
+        if (stacked) {
+          const levelled = m.view(STACK_FIELD.levelled) as Uint8Array;
+          for (let c = 0; c < levelled.length; c++) if (levelled[c]) flows.fill(0, c * 4, c * 4 + 4);
+        }
         threads?.free();
         threads = null;
         if (drainNext) {
