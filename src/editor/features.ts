@@ -575,6 +575,20 @@ export function startStatus(check: Pick<StartCheck, "problem" | "meets">): Start
   return check.problem ? "blocked" : check.meets ? "ok" : "warn";
 }
 
+/** The start being dragged: where it would stand, its footprint check, and the first thing the checks would flag there (D361). */
+export interface StartDrag {
+  x: number;
+  y: number;
+  check: StartCheck;
+  warning?: string | null;
+}
+
+/** Its colour: amber too where it fits but the checks would flag the spot. */
+export const startDragStatus = (d: StartDrag): StartStatus => {
+  const s = startStatus(d.check);
+  return s === "ok" && d.warning ? "warn" : s;
+};
+
 /** Whether two checks of one start say the same (so a placed start's colour and panel change only
  *  when something about it changed, not each time the water moves on and it is asked again). */
 export function sameStartCheck(a: StartCheck, b: StartCheck): boolean {

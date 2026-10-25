@@ -187,6 +187,9 @@ export class ForceDriver {
    *  shows, with one click to pin it. Kept past the run's end (unlike `status`), so the row can show
    *  it once the force is kept or dropped. */
   lastSettings: Partial<Record<Verb, AnyForceSettings>> = {};
+  /** How far the last Slide carried its ground (whole tiles, the engine's own `slideTravel`: a short line caps it), so a Slide's
+   *  row can say so. Set by Slide runs only; a Lift never sets it. */
+  lastSlide: { power: number; travel: number } | null = null;
   /** The last force's times. */
   timing: ForceTiming | null = null;
   private t0 = 0;
@@ -247,6 +250,7 @@ export class ForceDriver {
     this.status.verb = r.frame.verb;
     this.status.seed = r.settings?.seed ?? 0;
     if (r.settings) this.lastSettings[r.frame.verb] = r.settings;
+    if (r.frame.cue.quake?.slide) this.lastSlide = { power: r.frame.cue.power, travel: r.frame.cue.quake.travel };
     this.show(r.frame);
     if (painting) {
       void this.pump(token);

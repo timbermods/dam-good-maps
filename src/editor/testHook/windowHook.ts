@@ -23,7 +23,7 @@ declare global {
       instant(): CheckItem[];
       /** The footprint under the pointer (an object from the shelf): its tiles, and why the game would
        *  refuse it there. */
-      fit(): { tiles: number[]; problem: string | null } | null;
+      fit(): { tiles: number[]; problem: string | null; status?: string } | null;
       /** The start's check while it moves (its footprint and the three start requirements). */
       startCheck(): StartCheck | null;
       /** An edit through the editor, as a stroke or a click would make it (tests). */
