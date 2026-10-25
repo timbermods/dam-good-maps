@@ -58,6 +58,9 @@ export interface Part {
   /** An island sea only: the seed its coast's noise draws from (`rimKeep`), so the genome places
    *  islands against the coast the field will draw (round 6). */
   coast?: number;
+  /** An open sea on a long map only (D357, the shapes audit of 2026-10-24): its basin is drawn inside the map, so
+   *  its own coast wanders there (`inBasin`), not the lip's down every side. */
+  inside?: boolean;
   /** An island sea only: Islands' lip, a tile or two at the map's edge (round 6); else round 5's, 6–10
    *  tiles (`rimKeep`). */
   thinLip?: boolean;
@@ -155,6 +158,28 @@ export function rimKeep(s: number, x: number, y: number, W: number, H: number, l
   // maps a quarter, whose lower lands an eighth left under sheets of water)
   return k - (thin ? 0.125 : 0.25) * lift;
 }
+
+/** Whether (x, y) lies inside a sea basin drawn inside a long map (`Part.inside`), its ellipse without the coast's
+ *  noise, shrunk by `k` (1: the ellipse itself) and by `margin` tiles: the genome reads the sea there as the field
+ *  will draw it, on average. True for a sea not drawn inside. */
+export function inBasin(p: Part | undefined, x: number, y: number, W: number, H: number, k = 1, margin = 0): boolean {
+  if (!p?.inside) return true;
+  const [ux, uy] = unit(p.turn);
+  const dx = x - p.at[0] * (W - 1);
+  const dy = y - p.at[1] * (H - 1);
+  const a = Math.max(1, k * p.size * portable.sqrt(p.extra) - margin);
+  const b = Math.max(1, (k * p.size) / portable.sqrt(p.extra) - margin);
+  const u = (dx * ux + dy * uy) / a;
+  const v = (-dx * uy + dy * ux) / b;
+  return u * u + v * v < 1;
+}
+
+/** A long map's sea basin (D357, the shapes audit of 2026-10-24): its half-length and half-width as shares of the
+ *  map's. Drawn one and a half sides across and stretched by the map's length, it overran the map, and the lip
+ *  framed the sea down both long sides and across the far end; drawn this size, its noise (0.55–1.45 of its
+ *  radius) carries the coast from the lip to a good way inside, in bays and headlands. */
+const LONG_SEA_ALONG = 0.95;
+const LONG_SEA_ACROSS = 1;
 
 /** The six themes the generator knows, without "Any". */
 export type Leaning = Exclude<ThemeId, "any">;
@@ -702,9 +727,11 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // the orientation of a map that is not square keeps its sides, so it stays along it)
   // (a slope toward a bowl gathers the water in the map's middle, half its length: a long map's falls along it;
   // a sea's map and Lake Basin keep their bowl, drawn later)
+  // (the shapes audit of 2026-10-24: Any keeps a bowl it drew, its lakes gathering there, and its seas, as on a
+  // square map; made linear too, nearly every long Any map was one river down its length)
   if (mapShape(W, H).long) {
     g.flowDir = alongLongAxis(g.flowDir, W, H);
-    g.tiltKind = "linear";
+    if (theme !== "any") g.tiltKind = "linear";
   }
   g.terrace.step = (() => {
     const s = stepsFor(p.terrace.step, vt);
@@ -741,7 +768,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   const seaPart = sea ? g.parts[seaFrom] : undefined;
   if (seaPart?.lobes && seaPart.coast !== undefined) {
     const { coast, lobes, thinLip } = seaPart;
-    g.parts = g.parts.filter((q, k) => (k >= seaFrom && k < seaTo) || q.kind === "knolls" || rimKeep(coast, q.at[0] * (W - 1), q.at[1] * (H - 1), W, H, lobes, thinLip) < 0.5);
+    g.parts = g.parts.filter((q, k) => (k >= seaFrom && k < seaTo) || q.kind === "knolls" || rimKeep(coast, q.at[0] * (W - 1), q.at[1] * (H - 1), W, H, lobes, thinLip) < 0.5 || !inBasin(seaPart, q.at[0] * (W - 1), q.at[1] * (H - 1), W, H));
   }
   return g;
 }
@@ -801,7 +828,9 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   // area as the promise's island does (30 tiles × the area): the same map, larger. The straits between
   // them stay in tiles, the game's reach (D429: 8 tiles of water), not a share of the map.)
   // (inside a ring of land the sea is smaller, and its islands with it, or they reach the ring)
-  const isleK = (side / 128) * (g.seaRing ? 0.75 : 1);
+  // (D357, the shapes audit: on a long map by its area, as the promise's island is: by its short side, a strip's
+  // islands were pebbles of a few tiles)
+  const isleK = ((form.long ? portable.sqrt(W * H) : side) / 128) * (g.seaRing ? 0.75 : 1);
   let seaDepth = 9;
   // (round 5, D427: on an open map the sea is most of the map and runs to the map's edges on two or
   // three sides, held there by a lip of land a few tiles wide (edges are sinks, D350), and the mainland
@@ -820,8 +849,24 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
   const thin = g.theme === "islands";
   // (D357: on a long map the sea's basin runs its length, as long as the map is long, as wide as it is)
   const axisTurn = form.alongX ? 0 : 0.25;
+  // (the shapes audit: an open sea on a long map is drawn inside it, in the map's middle, its coast its own; known
+  // here so the mainland and the islands are placed against it)
+  const inside = form.long && !g.seaRing;
+  const basin: Part | undefined = inside
+    ? (() => {
+        const a = 0.5 * LONG_SEA_ALONG * (Math.max(W, H) - 1) * shrink;
+        const b = 0.5 * LONG_SEA_ACROSS * (side - 1) * shrink;
+        return { kind: "basin", at: [0.5, 0.5], size: portable.sqrt(a * b), height: 0, turn: axisTurn, extra: a / b, soft: 0, shape: "sea", coast, thinLip: thin, inside: true };
+      })()
+    : undefined;
+  // (the sea as the field will draw it, on average: past the lip and the mainland, and in the basin on a long map)
+  const seaAt = (x: number, y: number) => rimKeep(coast, x, y, W, H, lobes, thin) >= 0.5 && inBasin(basin, x, y, W, H);
   const sea = (at: [number, number], R: number, depth: number, turn: number, aspect: number) => {
     seaDepth = depth;
+    if (basin) {
+      g.parts.push({ ...basin, height: -depth });
+      return;
+    }
     if (form.long) {
       R *= portable.sqrt(form.ratio);
       aspect *= form.ratio;
@@ -923,7 +968,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     const openSea = () => {
       let n = 0;
       for (let gy = 0; gy < G; gy++)
-        for (let gx = 0; gx < G; gx++) if (rimKeep(coast, ((gx + 0.5) / G) * (W - 1), ((gy + 0.5) / G) * (H - 1), W, H, lobes, thin) >= 0.5) n++;
+        for (let gx = 0; gx < G; gx++) if (seaAt(((gx + 0.5) / G) * (W - 1), ((gy + 0.5) / G) * (H - 1))) n++;
       return n / (G * G);
     };
     // (all together, in proportion, so they keep their different reaches; each grown to a cap of its own
@@ -949,7 +994,8 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
     // (6 tiles past its reach: its warp carries its coast up to 5 further, and the lobes' lifted ground
     // joined it to the shore by high ground the strait pass can't cut)
     const m = r + 6 * tight;
-    return y - rimAt(fx) >= m && H - 1 - y - rimAt(2 + (1 - fx)) >= m && x - rimAt(3 + (1 - fy)) >= m && W - 1 - x - rimAt(1 + fy) >= m;
+    // (and on a long map within its basin, at nine tenths of it, where its coast's noise mostly leaves the sea)
+    return y - rimAt(fx) >= m && H - 1 - y - rimAt(2 + (1 - fx)) >= m && x - rimAt(3 + (1 - fy)) >= m && W - 1 - x - rimAt(1 + fy) >= m && inBasin(basin, x, y, W, H, 0.9, m);
   };
   // (somewhere in the sea for an island of `size`: drawn till it has room and a strait from the rest)
   const somewhere = (size: number, aspect: number, x0: number, x1: number, y0: number, y1: number): [number, number] | null => {
@@ -1038,7 +1084,10 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         // long as wide left the chain a third of its length, its islands pebbles, and its sea drained, 96×64 seed 1)
         const a0 = Math.min(1.35 * side * deepest + 0.12 * side * deepest + 10, L / 3);
         const length = L - 0.08 * L - 6 - a0;
-        const count = 1 + Math.round((2 + rng.float()) * portable.sqrt(form.ratio));
+        // (the shapes audit: three to five, larger, so one is big enough to settle, with fewer, smaller ones scattered
+        // round them, no wider than a fifth of the map each; one more with every side and a half of length, and the
+        // scatter with it, put 7–13 near-alike pebbles in rows)
+        const count = 3 + Math.floor((0.3 + rng.float()) * 0.7 * portable.sqrt(form.ratio));
         const spacing = length / (count - 1);
         const waves = 0.6 + 0.8 * rng.float();
         const phase = rng.float();
@@ -1049,11 +1098,11 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
           const across = (0.5 + 0.12 * off) * (side - 1) + sway * sinDet(TWO_PI * (waves * t + phase));
           const mid = 1 - Math.abs(t - 0.5) * 0.9;
           const asp = 1 + 1.2 * rng.float();
-          const size = Math.min(0.26 * side * portable.sqrt(asp), ((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid) * (0.7 + 0.3 * rng.float())) / isleK;
+          const size = Math.min((inside ? 0.2 : 0.26) * side * portable.sqrt(asp), ((spacing - strait()) / (2.2 * portable.sqrt(asp))) * (0.65 + 0.35 * mid) * (0.7 + 0.3 * rng.float())) / isleK;
           const [x, y] = form.alongX ? [along, across] : [across, along];
           put(x, y, size, 3 + 5 * mid + 2 * rng.float(), depth, asp, axisTurn + 0.12 * (rng.float() - 0.5));
         }
-        scatter(Math.round((1 + 2 * rng.float()) * portable.sqrt(form.ratio)), 7, 7, depth);
+        scatter(1 + Math.floor(2 * rng.float()), 10, 8, depth);
         break;
       }
       // a line of islands along an arc across the map, the largest in its middle, long along the arc,
@@ -1235,7 +1284,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
           const x = ((gx + 0.5) / G) * (W - 1);
           const y = ((gy + 0.5) / G) * (H - 1);
           // (the land along the edges: the lip, and the mainland's lobes, as the field draws them)
-          if (rimKeep(coast, x, y, W, H, lobes, thin) < 0.5) continue;
+          if (!seaAt(x, y)) continue;
           const inIsle = isles.some((q) => {
             const [ux, uy] = unit(q.turn);
             const dx = x - q.at[0] * (W - 1);
@@ -1285,7 +1334,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         const at = (d: number): [number, number] => (s === 0 ? [f * (W - 1), d] : s === 1 ? [W - 1 - d, f * (H - 1)] : s === 2 ? [(1 - f) * (W - 1), H - 1 - d] : [d, (1 - f) * (H - 1)]);
         // (the coast: where the sea begins, walking in from the edge)
         let dc = 0;
-        while (dc < side / 2 && rimKeep(coast, ...at(dc), W, H, lobes, thin) < 0.5) dc++;
+        while (dc < side / 2 && !seaAt(...at(dc))) dc++;
         if (dc >= side / 2) continue;
         const [x, y] = at(dc + b + off);
         // (its outline, `off` less a tile out from its coast, all sea)
@@ -1295,7 +1344,7 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
           const [cx, cy] = unit(q / 24);
           const px = x + ux * cx * (a + off - 1) - uy * cy * (b + off - 1);
           const py = y + uy * cx * (a + off - 1) + ux * cy * (b + off - 1);
-          if (px < 0 || py < 0 || px > W - 1 || py > H - 1 || rimKeep(coast, px, py, W, H, lobes, thin) < 0.5) land++;
+          if (px < 0 || py < 0 || px > W - 1 || py > H - 1 || !seaAt(px, py)) land++;
         }
         const rr = reachOf(size, asp);
         const gap = Math.min(...placed.map(([px, py, pr]) => portable.hypot(px - x, py - y) - pr - rr), Infinity);

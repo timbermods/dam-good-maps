@@ -133,8 +133,11 @@ const PREPARED_MORE = 2;
  *  intention's pull, which the start's score weighs at 0.8 beside a random 0.25). */
 const SHAPE_PULL = 1;
 /** The least share of a long Islands map its planned sea holds (D357); under it the sea has drained. Islands' maps
- *  hold 47–66% (`tools/size-smoke.ts`). */
+ *  hold 47–66% (`tools/size-smoke.ts`). The settled sea is read too (the shapes audit of 2026-10-24: planned
+ *  well, two 80×250 seas drained to 28% and 5% as they settled): under this, or under `SETTLED_SEA` of the water
+ *  planned, the land is drawn again, so a long Islands map's land is shown once its sea has settled. */
 const DRAINED_SEA = 0.2;
+const SETTLED_SEA = 0.7;
 /** Lands drawn again before one is shown that don't use up the attempts (up to this many): a small
  *  or rugged map draws many lands before one has room for its start and its mine sites (D363), and
  *  the land it shows keeps the attempts it needs. A land draw costs no settle. */
@@ -303,6 +306,9 @@ interface Attempt {
   /** On a shown land, a failure no new plan on it can mend (its rivers' water alone does not
    *  settle): the attempts stop there (D348: the land is never replaced). */
   stuck?: boolean;
+  /** On a land not yet shown, a failure that asks for a new land (a long Islands map's sea that drained when it
+   *  settled, `DRAINED_SEA`). */
+  redraw?: boolean;
 }
 
 /** What the land stage planned, copied afresh for each attempt on it. */
@@ -542,7 +548,7 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       // Until the actual start reaches its mine pair, this land is still hidden.
       // Its exhausted starts or an unrepairable water plan may therefore draw another land.
       // Once onLand fired, the original D348 retry rules apply unchanged.
-      if (!committed.shown && (a.stuck || a.result.info.stage === "no start")) {
+      if (!committed.shown && (a.stuck || a.redraw || a.result.info.stage === "no start")) {
         committed = null;
         land = null;
         if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
@@ -589,6 +595,13 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
     noStart = committed?.shown && a.result.info.stage === "no start" ? 1 : 0;
     const r = attemptDone(a, attempt);
     if (r) return r;
+    // (a land not yet shown whose settled sea drained: another land, DRAINED_SEA)
+    if (a.redraw && committed && !committed.shown) {
+      committed = null;
+      land = null;
+      if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
+      continue;
+    }
     if (a.stuck) break;
     // (a land drawn again before it was shown leaves the attempts to the land that will be)
     if (!a.stage && opts.maxAttempts === undefined && free < FREE_DRAWS) {
@@ -1512,6 +1525,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const W = spec.size.x;
   const H = spec.size.y;
   const N = W * H;
+  // (a long Islands map's sea is proved settled before its land is shown, DRAINED_SEA)
+  const seaProved = specIn.theme === "islands" && !!g.seaLayout && mapShape(W, H).long;
   const seed = spec.seed;
   const rule = spec.settings.start.rules.waterWithin;
   // (a rescue round's easing, D471)
@@ -2136,7 +2151,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
       // land is shown (#153) holds at 128² and under, where the target is time to the settled map
       // and every land it redrew was found; a default the session chose, docs/progress/m9b.md)
-      if (N > SHOW_PROVED_MOST) {
+      // (a long Islands map's land waits for its sea to settle, DRAINED_SEA)
+      if (N > SHOW_PROVED_MOST && !seaProved) {
         landStage.shown = true;
         firstLook = Math.round(performance.now() - t0);
         landStage.firstLook = firstLook;
@@ -2412,6 +2428,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (badHit) return { ...fail("water.source_in_flow", b1, false), stuck: true };
     b1 = build([...rivers, ...bad.features], "resources");
     if (!b1.settle.settled) return unsettled(b1);
+  }
+  // (D357, the shapes audit: a long Islands map's sea as it settled, on a land not yet shown: one that drained is
+  // drawn again, DRAINED_SEA)
+  if (seaProved && landStage && !landStage.shown && !lastAttempt) {
+    let wet = 0;
+    for (let i = 0; i < N; i++) if (b1.water[i] > WET) wet++;
+    if (wet < DRAINED_SEA * N || wet < SETTLED_SEA * (landStage.preWet ?? 0) * N) return { ...fail("a drained sea (settled)", b1, false), redraw: true };
   }
   // ---- the start on the settled water, clear of the hollows and, where it can be, beyond the
   //      badwater distance from their water and soil (start.badwater: a target the settler aims for)
