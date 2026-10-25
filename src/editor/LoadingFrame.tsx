@@ -41,7 +41,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         canRedo={false}
         onUndo={nothing}
         onRedo={nothing}
-        dot={<ChecksDot check={null} instant={[]} busy progress={null} flowing={null} open={false} onToggle={nothing} actions={NO_ACTIONS} />}
+        dot={<ChecksDot check={null} instant={[]} busy progress={null} flowing={false} open={false} onToggle={nothing} actions={NO_ACTIONS} />}
         canFolder={canSaveToTimberborn()}
         saving={null}
         onSave={nothing}
