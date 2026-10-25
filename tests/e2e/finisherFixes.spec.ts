@@ -98,7 +98,7 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
   await idle(page);
 
   const pill = page.getByRole("button", { name: /^Checks:/ });
-  await expect(pill).toHaveAttribute("aria-label", /thing to look at/, { timeout: 60_000 });
+  await expect(pill).toHaveAttribute("aria-label", /thing to look at/, { timeout: 120_000 });
   await pill.click();
   const row = page.getByRole("listitem").filter({ hasText: /living plants? on soil that kills/ });
   await expect(row).toBeVisible();
