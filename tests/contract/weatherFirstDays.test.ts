@@ -1,10 +1,12 @@
-// The drought's first dry day per tile (D133: hovering water in the Drought view says "Dry on day 6" or "Lasts the
-// drought"): the worker sends it with every drought day, read from the days its run keeps (no settle of its own), and it
-// names, for each tile, the first day the Drought view's own water leaves it: the day's water as the page is sent it,
-// "dry" as the view and the drought line read it (no depth over `WATER_BODY`). A badtide's days carry none.
+// Each tile's first dry day in a drought and first bad day in a badtide (D133: hovering water in the Drought view says
+// "Dry on day 6" or "Lasts the drought", in the Badtide view when it turns bad): the worker sends them with every day of
+// the hazard, read from the days its run keeps (no settle of its own). For each tile they name the first day the view's
+// own water leaves it, or turns bad: the day's water as the page is sent it, "dry" as the view and the drought line read
+// it (no depth over `WATER_BODY`), "bad" as the hover reads badwater (`badWater`). Each hazard carries only its own.
 
-import { afterEach, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { WATER_BODY } from "../../src/core/analysis/walk";
+import { badWater } from "../../src/core/sim/firstDays";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import type { Hazard } from "../../src/core/sim/weather";
 import type { WaterView } from "../../src/render3d/model";
@@ -59,17 +61,42 @@ function expected(days: WaterView[]): Int16Array {
   return out;
 }
 
+/** The first bad day of each tile from the days' water, Day 0 to the last one given (0: never, or bad on Day 0). */
+function expectedBad(days: WaterView[]): Int16Array {
+  const out = new Int16Array(W * W);
+  const bad = (w: WaterView) => {
+    const b = new Uint8Array(W * W);
+    for (let k = 0; k < w.count; k++) if (badWater(w.depth[k], w.contamination[k])) b[w.tile[k]] = 1;
+    return b;
+  };
+  const clean = bad(days[0]).map((v) => 1 - v);
+  for (let d = 1; d < days.length; d++) {
+    const b = bad(days[d]);
+    for (let i = 0; i < out.length; i++)
+      if (clean[i] && b[i]) {
+        clean[i] = 0;
+        out[i] = d;
+      }
+  }
+  return out;
+}
+
+// (a lake basin: water going on several days and water that lasts the drought; in a badtide its water turns bad on
+// days 1 to 3, the lake last)
+beforeAll(async () => {
+  await runGenerate(makeSpec({ seed: 4, theme: "lakeBasin", size: { x: W, y: W } }));
+  ed.setAutoWater(false);
+  ed.refine();
+});
+
 afterEach(() => {
   ed.listen(null);
   ed.stopWeather();
-  ed.closeSession();
 });
 
+afterAll(() => ed.closeSession());
+
 it("a drought's days say when each tile's water goes, read from the days the view shows", async () => {
-  // (a river that leaves pools as it drains: water going on several days, and water that lasts)
-  await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
-  ed.setAutoWater(false);
-  ed.refine();
   const last = await hold("drought", null);
   const days = last.days;
   expect(last.firstDry, "the last day carries the first dry days").toBeInstanceOf(Int16Array);
@@ -104,4 +131,33 @@ it("a drought's days say when each tile's water goes, read from the days the vie
   const bad = await hold("badtide", 0);
   expect(bad.firstDry).toBeUndefined();
   expect(bad.firstDryThrough).toBeUndefined();
+  expect(last.firstBad).toBeUndefined();
+  expect(last.firstBadThrough).toBeUndefined();
+}, 300_000);
+
+it("a badtide's days say when each tile's water turns bad, read from the days the view shows", async () => {
+  const last = await hold("badtide", null);
+  const days = last.days;
+  expect(last.firstBad, "the last day carries the first bad days").toBeInstanceOf(Int16Array);
+  expect(last.firstBad!.length).toBe(W * W);
+  expect(last.firstBadThrough).toBe(days);
+  expect(last.firstDry).toBeUndefined();
+  const shown: WaterView[] = [];
+  for (let d = 0; d <= days; d++) {
+    const e = await hold("badtide", d);
+    expect(e.firstBadThrough, `day ${d}`).toBe(days);
+    expect(Array.from(e.firstBad!), `day ${d}'s first bad days`).toEqual(Array.from(last.firstBad!));
+    shown.push(e.water!);
+  }
+  expect(Array.from(last.firstBad!)).toEqual(Array.from(expectedBad(shown)));
+  // (the badwater spreads: tiles turn bad on more than one day, the map's own badwater on Day 0 is never "turned")
+  const turned = new Set<number>();
+  for (let i = 0; i < W * W; i++) if (last.firstBad![i]) turned.add(last.firstBad![i]);
+  expect(turned.size, "days on which water turns bad").toBeGreaterThan(1);
+  const day0 = shown[0];
+  for (let k = 0; k < day0.count; k++) if (badWater(day0.depth[k], day0.contamination[k])) expect(last.firstBad![day0.tile[k]]).toBe(0);
+  // a day past the default length extends it, no earlier day moving
+  const more = await hold("badtide", days + 1);
+  expect(more.firstBadThrough).toBe(days + 1);
+  expect(Array.from(more.firstBad!)).toEqual(Array.from(expectedBad([...shown, more.water!])));
 }, 300_000);
