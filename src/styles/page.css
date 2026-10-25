@@ -2584,7 +2584,7 @@
 }
 
 
-/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 ▶, its label two digits wide ("Day 99…") so the
+/* the weather day stepper after Badtide (Kyler, 2026-10-04): ◀ Day 7 of 9 ▶, its label two digits wide ("Day 99 of 30") so the
    row never changes shape; greyed, "Day –", with neither Drought nor Badtide on */
 .editor-view .water-bar > .day-stepper {
   gap: 0;
@@ -2606,7 +2606,7 @@
 }
 
 .day-stepper .day-label {
-  width: 62px;
+  width: 88px;
   text-align: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -2754,6 +2754,11 @@
 
 .day-stepper .day-words {
   position: relative;
+}
+
+/* the hazard's length beside the day, quiet ("Day 3 of 9") */
+.day-stepper .day-of {
+  color: var(--muted);
 }
 
 /* a typed day (Kyler, 2026-10-04): the field fills the day box exactly, its words where the box's were */
