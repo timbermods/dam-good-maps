@@ -176,6 +176,8 @@ async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, qual
   r.setClock(CLOCK);
   r.setMap(view, false, true);
   frameHero(r, view, pw, ph);
+  // (its programs compiled first, off the page's thread where the browser can: a picture never freezes on them, D453)
+  await r.compileAhead();
   const t0 = performance.now();
   while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {
     r.renderNow();
