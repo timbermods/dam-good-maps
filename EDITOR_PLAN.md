@@ -799,11 +799,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (two writers meet on the key `description`). It changes nothing on the map, so nothing is built. One-line refusals,
   never cut short: over 600 characters (the game takes any length; the limit is ours, so it reads well in the game's
   panel and the page's field), only spaces, a control character other than a line break, or what it already is. The
-  exported .timber holds the player's text whole (a tall map's note follows it, D172; a real place's credits follow it
-  always); a map whose player wrote none has the generated one: "A 128×128 River Valley map." then the lines of the
+  exported .timber holds the player's text whole, then what must follow it whatever is written, one paragraph each: the
+  No badwater note (D200, D213) or the No water sources note (D330), the tall note (D172) and a real place's credits; a map whose player wrote none has the generated one: "A 128×128 River Valley map." then the lines of the
   standout intentions that emerged on it (at most two, the generator's `say` lines), then its badwater line, then
-  "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, credits}`
-  (`SessionInfo.description`, `descriptionWritten`, `descriptionCredits`). This is not the name (D443): a rename stays
+  "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, kept}`
+  (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
   off the history.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,

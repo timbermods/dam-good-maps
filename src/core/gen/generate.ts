@@ -2983,8 +2983,8 @@ export function validateBuilt(spec: MapSpec, features: readonly Feature[], built
 
 /** Rebuild a saved generation's map: the same pure path the generator's download takes (PLAN
  *  §19.7), from its field and features, so the bytes are identical. */
-export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
+export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedField | null = null, says: readonly string[] = []): { built: BuildResult; bytes: Uint8Array; report: ValidationReport } {
   const built = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features, ...(field ? { field } : {}) });
-  const file = toTimberFile(spec, built);
+  const file = toTimberFile(spec, built, says.length ? { says } : {});
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
 }

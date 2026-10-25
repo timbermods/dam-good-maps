@@ -17,7 +17,7 @@
 //   state, never an approximate replay. An undo that would cross the save point before the
 //   comparison is in does the comparison first, right there.
 
-import { isTall, surfaceOf, withTallNote } from "../format/world";
+import { isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
@@ -49,7 +49,7 @@ import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation, Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { builtWater, description as generatedText, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { builtWater, description as generatedText, fileName as timberFileName, NO_SOURCES_NOTE, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { placeCredits } from "./description";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
@@ -173,7 +173,9 @@ export interface HistoryItem {
 export interface MapDescription {
   text: string;
   written: boolean;
-  credits: string | null;
+  /** What follows the text in the file whatever is written, one paragraph each: the no-badwater or no-sources note,
+   *  the tall note and a real place's credits. Shown, not edited. */
+  kept: string | null;
 }
 
 export interface ApplyResult {
@@ -1859,9 +1861,19 @@ export class MapSession {
     const file = this.exportFileBase(built, opts);
     const written = this.st.description;
     if (written === null || !file.metadata) return file;
-    // the description its player wrote, whole, with a real place's credits after it (they travel with the map)
+    // the description its player wrote, whole, with what must follow it (`keptParts`)
+    const parts = [written, ...this.keptParts(built).filter((p) => !written.includes(p))];
+    return { ...file, metadata: { ...file.metadata, MapDescription: parts.join("\n\n") } };
+  }
+
+  /** What every description of the map carries after the player's words, whatever they write: that it has no
+   *  badwater (D200, D213) or no water sources (D330), that its land rises above 16 (D172), and a real place's
+   *  credits (the data providers' required notices). Each is a paragraph. */
+  private keptParts(built: BuildResult): string[] {
+    const spec = this.effectiveSpec(built);
+    const notes = spec ? (spec.settings.water.sources === "none" ? [NO_SOURCES_NOTE] : spec.settings.hazards.badwater === "off" ? [NO_BADWATER_NOTE] : []) : this.badwaterRemoved(built) ? [NO_BADWATER_NOTE] : [];
     const credits = this.mode === "live" ? null : placeCredits(this.baseText());
-    return tallNoted({ ...file, metadata: { ...file.metadata, MapDescription: credits ? `${written}\n\n${credits}` : written } }, built.heights);
+    return [...notes, ...(isTall(built.heights) ? [TALL_NOTE] : []), ...(credits ? [credits] : [])];
   }
 
   /** The description the map was opened with: its file's. */
@@ -1872,15 +1884,24 @@ export class MapSession {
 
   /** The map's description, for the page (the operation `setDescription` writes it). `text` is what its player
    *  wrote, or else the generated one (a generated map's, from its theme, size and what it shows; an opened
-   *  file's own); `written` says which. `credits` is what a real place's description must keep after it,
-   *  shown but not edited (null for any other map). */
+   *  file's own, without what follows it); `written` says which. `kept` is what follows the text in the file
+   *  whatever is written (`keptParts`), shown but not edited (null when nothing does). */
   description(built: BuildResult = this.cur): MapDescription {
-    const credits = this.mode === "live" ? null : placeCredits(this.baseText());
+    const parts = this.keptParts(built);
+    const kept = parts.length ? parts.join("\n\n") : null;
     const written = this.st.description;
-    if (written !== null) return { text: written, written: true, credits };
-    if (this.mode === "live") return { text: generatedText(this.effectiveSpec(built)!, built, this.gen.meta.says), written: false, credits };
-    const base = this.baseText();
-    return { text: this.notedText(credits ? base.slice(0, base.length - credits.length).trimEnd() : base, built), written: false, credits };
+    if (written !== null) return { text: written, written: true, kept };
+    let text: string;
+    if (this.mode === "live") text = generatedText(this.effectiveSpec(built)!, built, this.gen.meta.says);
+    else {
+      const base = this.baseText();
+      const credits = placeCredits(base);
+      text = this.notedText(credits ? base.slice(0, base.length - credits.length).trimEnd() : base, built);
+    }
+    // (the generated words say those notes already: the field shows the words alone, and `kept` the notes)
+    text = withTallNote(text, false);
+    for (const p of parts) text = text.replace(p, "");
+    return { text: text.replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim(), written: false, kept };
   }
 
   /** An opened file's description with the notes the map earns: that it has no badwater (D213), and that its land
