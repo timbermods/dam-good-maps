@@ -26,6 +26,7 @@
 
 import { WATER } from "../palette";
 import { BADWATER as B, HIGH_WATER_GLSL } from "../waterPalette";
+import { RUN_LEVELS } from "../runSoil";
 
 /** How much of its colour dry earth keeps under High's grade, the rest a slightly cool grey (D346: the game's
  *  earth, greyer and cooler from above). */
@@ -361,6 +362,10 @@ ${HIGH_WATER_GLSL}
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
     streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
     vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+    #ifdef CAVES
+      // (water below its tile's surface water: its own column's current, materials.ts ownFlowAt)
+      if (waterOwnFlow.a > 0.5) velocity = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+    #endif
     float speed = smoothstep(0.02, 1.2, length(velocity));
     vec2 drift = velocity * 0.65 + vec2(0.018, -0.012) * (1.0 - speed);
     float phase = fract(t / 12.0), second = fract(t / 12.0 + 0.5);
@@ -386,6 +391,9 @@ ${HIGH_WATER_GLSL}
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
     float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
+    #ifdef CAVES
+      if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
+    #endif
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
@@ -461,6 +469,12 @@ export function waterHooks(): ShaderHooks {
             if (hlRiver > 0.5) {
               float strength = texture2D(hlRough, g / hlFlowSize).r;
               vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+              #ifdef CAVES
+                if (waterOwnFlow.a > 0.5) {
+                  strength = waterOwnFlow.b;
+                  vel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+                }
+              #endif
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
@@ -593,11 +607,27 @@ export function landmarkHooks(): ShaderHooks {
   };
 }
 
-/** Slopes (#67 stage 3): the ramp in natural materials, soil, stone and grass where moist. */
+/** Slopes (#67 stage 3): the ramp in natural materials, soil, stone and grass where moist. A slope on a run top below
+ *  its tile's top (a cave's floor, a ledge under an overhang) takes that run's soil from the run texture, as
+ *  runSoil.ts `objectSoilAt` gives it (only on a map with them, the renderer's `RUN_SOIL`; every other map draws
+ *  slopes with the same program as before). */
 export function slopeHooks(): ShaderHooks {
+  const landmark = landmarkHooks();
   return {
-    ...landmarkHooks(),
-    decl: landmarkHooks().decl + /* glsl */ `
+    ...landmark,
+    objectVertexDecl: landmark.objectVertexDecl + /* glsl */ `
+      #ifdef RUN_SOIL
+      varying vec3 hlFoot;
+      #endif`,
+    objectVertex: landmark.objectVertex + /* glsl */ `        #ifdef RUN_SOIL
+        hlFoot = m[3].xyz;
+        #endif
+`,
+    decl: landmark.decl + /* glsl */ `
+  #ifdef RUN_SOIL
+  uniform highp sampler3D runTex;
+  varying vec3 hlFoot;
+  #endif
   vec3 hlSlopeColour(vec3 n) {
     vec2 g = vec2(vWorld.x, -vWorld.z);
     float grain = vnoise(g * 5.7), earthPatch = vnoise(g * 0.8 + 13.1);
@@ -605,6 +635,14 @@ export function slopeHooks(): ShaderHooks {
     if (n.y > 0.5) {
       color = mix(vec3(0.39, 0.38, 0.37), vec3(0.47, 0.43, 0.36), earthPatch) * (0.90 + 0.16 * grain);
       float packed = floor(texture2D(tileTex, (floor(g) + 0.5) / mapSize).g * 255.0 + 0.5);
+      #ifdef RUN_SOIL
+        // standing on a run top below its tile's top: that run's soil (its tile and level the slope's own)
+        vec3 foot = vec3(floor(hlFoot.x), floor(-hlFoot.z), floor(hlFoot.y + 0.5));
+        if (all(greaterThanEqual(foot, vec3(0.0))) && all(lessThan(foot, vec3(mapSize, ${g(RUN_LEVELS)})))) {
+          vec2 run = floor(texelFetch(runTex, ivec3(foot), 0).rg * 255.0 + 0.5);
+          if (run.y > 0.5) packed = run.x;
+        }
+      #endif
       float moist = step(1.0, floor(packed / 16.0));
       float grass = smoothstep(0.66, 0.96, hlLocal.z + 0.5 + (grain - 0.5) * 0.15) * moist;
       color = mix(color, mix(vec3(0.5, 0.655, 0.32), vec3(0.48, 0.635, 0.3), earthPatch) * (0.87 + 0.14 * grain), grass);

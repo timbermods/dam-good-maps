@@ -42,6 +42,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { useShowcase } from "./useShowcase";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
 let gen = createGeneratorWorker();
@@ -1010,6 +1011,30 @@ export function App() {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
 
+  /** Showcase mode (D488 (2)): its search runs in a worker of its own; a pick opens as a version found in the
+   *  background does (`openVersion`, the normal open path). */
+  const showcase = useShowcase({
+    spec,
+    takeSpec: () => {
+      // (an opened file has no seed of its own: one is rolled, shown in the box, as Generate does)
+      if (!blank) return spec;
+      const seed = randomSeed();
+      setBlank(false);
+      setSeedText(String(seed));
+      setSeedPinned(false);
+      return { ...spec, seed };
+    },
+    panelOpen: panel === "generator",
+    showPanel: () => setPanel("generator"),
+    openPick: (p) =>
+      guard(
+        () =>
+          void openVersion(p.response).catch((e) => setError(words(e))),
+        "Opening a showcase map",
+      ),
+    shownSpec: session?.kind === "generated" ? (session.spec ?? null) : null,
+  });
+
   // ---------------------------------------------------------------------------------- render
 
   const drawer: GeneratorModel = {
@@ -1059,6 +1084,7 @@ export function App() {
     name,
     nextName,
     onNextName: setNextName,
+    showcase: showcase.model,
   };
 
   // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project
@@ -1156,10 +1182,22 @@ export function App() {
   ) : version ? (
     <p class="error floating quiet" role="status">
       {version.note}
+      {" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
         Open it
       </button>
       <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={() => setVersion(null)}>
+        ×
+      </button>
+    </p>
+  ) : showcase.notice ? (
+    <p class="error floating quiet" role="status">
+      {showcase.notice.text}
+      {" "}
+      <button type="button" class="linkish" title="Show the maps the search found" onClick={showcase.notice.show}>
+        Show them
+      </button>
+      <button type="button" class="linkish" aria-label="Dismiss" title="Dismiss this message" onClick={showcase.notice.dismiss}>
         ×
       </button>
     </p>

@@ -1,7 +1,6 @@
 // An imported map with caves or overhangs (3D Foundations, stage 6; D120, D280): once it is edited,
 // its water is the stacked-column engine's on every column, its soil is per run top, and its file is
-// written the way the game saves such a map. Unedited, it exports its own file byte for byte. What
-// has no rule for water in caves yet is refused with one plain line. The map is T3 of the probe's
+// written the way the game saves such a map. Unedited, it exports its own file byte for byte. The map is T3 of the probe's
 // test maps (tools/terrain3d-maps.ts), which the game has played.
 
 import { describe, expect, it } from "vitest";
@@ -15,7 +14,7 @@ import type { JsonObject } from "../../src/core/format/json";
 import { toMapObject } from "../../src/core/features/build";
 import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { WATER_BODY } from "../../src/core/analysis/walk";
-import { CAVE_REFUSALS, cavesOf, surfaceWater } from "../../src/core/sim/stackWater";
+import { cavesOf, surfaceWater } from "../../src/core/sim/stackWater";
 import { TICKS_PER_DAY } from "../../src/core/sim/water";
 import { HazardRun, hazardSoil } from "../../src/core/sim/weather";
 import { build, t3CaveWater } from "../../tools/terrain3d-maps";
@@ -101,18 +100,15 @@ describe("an imported map with caves or overhangs", () => {
     expect(same(s.exportTimber().bytes, direct.exportTimber().bytes)).toBe(true);
   });
 
-  it("refuses Fill and Remove unfed water with one plain line each", () => {
+  it("its water is fed on every column, so Remove unfed water finds none; Fill and Remove unfed water refuse with one plain line (tests/contract/caveWaterEdits.test.ts has them working)", () => {
+    // (the spring cave, the sealed cave, the siphon under pressure and the underground river all have their sources)
     const s = MapSession.importMap(T3, "T3.timber");
     const i = 30 * s.size.x + 5;
     expect(cavesOf(s.built.waterModel)).toBe(true);
-    expect(s.apply({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [i], floor: [8], depth: [1], contamination: [0] } } }).errors).toEqual([CAVE_REFUSALS.fill]);
-    expect(s.apply({ op: "removeUnfedWater", params: { tiles: [i], pools: 1 } }).errors).toEqual([CAVE_REFUSALS.removeUnfed]);
-    expect(planFill(s, 5, 30, 9).reason).toBe(CAVE_REFUSALS.fill);
-    expect(unfedWater(s)).toMatchObject({ pools: 0, op: null, reason: CAVE_REFUSALS.removeUnfed });
-    expect(CAVE_REFUSALS).toEqual({
-      fill: "Fill isn't worked out for maps with caves yet",
-      removeUnfed: "Removing unfed water isn't worked out for maps with caves yet",
-    });
+    expect(unfedWater(s)).toMatchObject({ pools: 0, op: null });
+    expect(planFill(s, 5, 30, 9).reason).toBe("at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it");
+    expect(s.apply({ op: "fillHollow", params: { at: [5, 30], level: 9, lake: { tiles: [i], floor: [8], depth: [1], contamination: [0] } } }).errors).toEqual(["at level 9 the water would spill off the map at (0, 30): the hollow doesn't hold it"]);
+    expect(s.apply({ op: "removeUnfedWater", params: { tiles: [i], pools: 1 } }).errors).toEqual(["no unfed water stands there"]);
   });
 
   it("runs Drought and Badtide on every column, from the water it shows, unedited or edited (#391)", () => {

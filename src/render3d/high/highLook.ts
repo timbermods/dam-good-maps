@@ -439,6 +439,12 @@ export class HighLook {
     return [this.materials.object, this.materials.fall, this.materials.water, this.vegetation, this.landmark, this.slope];
   }
 
+  /** The materials that read the run tops' own soil on a map with run tops below a tile's top (the renderer's
+   *  `RUN_SOIL`): the terrain's floors and the slopes standing on them. */
+  runSoilMaterials(): ShaderMaterial[] {
+    return [this.materials.terrain, this.slope];
+  }
+
   private allMaterials(): ShaderMaterial[] {
     return [...Object.values(this.materials), this.vegetation, this.landmark, this.slope];
   }

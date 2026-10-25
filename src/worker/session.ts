@@ -263,13 +263,26 @@ function entityInputs(list: readonly EntitySpec[]) {
   return out;
 }
 
-/** The water the view shows, with its outflows (the moving water and the falls, current.ts): the live
- *  water's own, else the settle's, else the stored file's. */
+/** The water the view shows, with its outflows (the moving water and the falls, current.ts), each column its own: the
+ *  live water's, else the settle's, else the stored file's (every column's, a cave's water its own). A view has its
+ *  columns' own outflows or none (a weather day under caves: the stacked engine's water in flight has none). */
 function waterOf(s: MapSession, live?: LiveWater & { out: ArrayLike<number> | null }, ground: Uint8Array = s.built.heights): WaterView {
-  const view = columnsWaterOf(s, live, ground);
   // (a build without the outflows, for measuring their own cost: tools/smooth)
-  if (import.meta.env?.VITE_DGM_CURRENT === "off") return view;
-  const out = live ? live.out : s.showsStoredWater ? s.storedOutflows() : s.built.settle.out;
+  const flows = import.meta.env?.VITE_DGM_CURRENT !== "off";
+  const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
+  if (s.showsStoredWater && !live?.weather) {
+    const w = s.storedWater();
+    const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
+    const view: WaterView = { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
+    const out = flows ? s.storedColumnOutflows() : null;
+    if (out && out.length === 4 * view.count) view.outflow = Float32Array.from(out, (v) => (v === v && v > 0 ? v : 0));
+    return view;
+  }
+  const out = !flows ? null : live ? live.out : s.built.settle.out;
+  // an edited map with caves or overhangs: its water on every column, simulated like the rest (D120)
+  const stack = live?.stack !== undefined ? live.stack : s.built.settle.stack;
+  if (stack) return waterFromStack(stack, b.heights, b.water, b.contamination, out, flows ? stack.flows : undefined);
+  const view = waterFromDepth(b.heights, b.water, b.contamination);
   const outflow = outflowsOf(view, s.size.x, s.size.y, out);
   if (outflow) view.outflow = outflow;
   return view;
@@ -286,27 +299,22 @@ interface LiveWater {
   weather?: boolean;
 }
 
-function columnsWaterOf(s: MapSession, live?: LiveWater, ground: Uint8Array = s.built.heights): WaterView {
-  const b = live ? { ...s.built, heights: ground, water: live.depth, contamination: live.contamination } : s.built;
-  if (s.showsStoredWater && !live?.weather) {
-    const w = s.storedWater();
-    const floor = Float32Array.from(w.floor, (f, k) => (f < 0 ? b.heights[w.tile[k]] : f));
-    return { count: w.tile.length, tile: w.tile.slice(), floor, depth: w.depth.slice(), contamination: w.contamination.slice() };
-  }
-  // an edited map with caves or overhangs: its water on every column, simulated like the rest (D120)
-  const stack = live?.stack !== undefined ? live.stack : s.built.settle.stack;
-  return stack ? waterFromStack(stack, b.heights, b.water, b.contamination) : waterFromDepth(b.heights, b.water, b.contamination);
-}
-
 /** The water of a map with caves or overhangs as a view: every wet column of `stack`, each tile's
  *  top column holding the water seen from above (`depth`, `contamination`: the settle's own, or water
- *  in flight). A tile with one column stands on its ground, as a heightfield's does. */
-function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>): WaterView {
+ *  in flight). A tile with one column stands on its ground, as a heightfield's does. Its outflows, each
+ *  column its own: a top column's from `out` (four a tile, the water in flight's) or `flows` (four a column
+ *  id, the settle's, stackWater.ts `columnFlows`), a column under it from `flows`; none where some column
+ *  has neither. */
+function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>, out?: ArrayLike<number> | null, flows?: Float32Array): WaterView {
   const N = heights.length;
   const tile: number[] = [];
   const floor: number[] = [];
   const d: number[] = [];
   const c: number[] = [];
+  const o: number[] = [];
+  const perTile = out && out.length === 4 * N ? out : null;
+  const perColumn = flows && flows.length >= 4 * stack.L * N ? flows : null;
+  let known = !!(perTile || perColumn);
   for (let i = 0; i < N; i++) {
     const n = stack.count[i];
     for (let q = 0; q < n; q++) {
@@ -318,9 +326,20 @@ function waterFromStack(stack: StackSettle, heights: Uint8Array, depth: ArrayLik
       floor.push(n === 1 ? heights[i] : stack.floor[id]);
       d.push(dv);
       c.push((top ? contamination[i] : stack.contamination[id]) ?? 0);
+      if (!known) continue;
+      const from = top && perTile ? perTile : perColumn;
+      const at = top && perTile ? i * 4 : id * 4;
+      if (!from) known = false;
+      else
+        for (let k = 0; k < 4; k++) {
+          const v = from[at + k];
+          o.push(v === v && v > 0 ? v : 0);
+        }
     }
   }
-  return { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(d), contamination: Float32Array.from(c) };
+  const view: WaterView = { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(d), contamination: Float32Array.from(c) };
+  if (known) view.outflow = Float32Array.from(o);
+  return view;
 }
 /** A column holds water the view shows (render3d/model.ts `waterFromDepth` draws from the same depth). */
 const STACK_WET = 0.001;
@@ -1593,7 +1612,7 @@ function importModel(s: MapSession, opened = false): WaterModel {
   if (kept?.length) m.retained = kept;
   // and the unfed water Remove unfed water took stays gone (D387 (2))
   const drained = opened ? undefined : s.built.waterModel.drained;
-  if (drained?.length && !m.stacked) m.drained = drained;
+  if (drained?.length) m.drained = drained;
   return m;
 }
 
@@ -1907,18 +1926,20 @@ export function cropTo(r: CropParams): SessionUpdate & { removedObjects: number 
   return { ...changed(s, res.ok, res.errors, t0), removedObjects: res.removedObjects ?? 0 };
 }
 
-/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles, its water and roughly how many days it lasts, or the
- *  plain reason it holds no water at that level (core/doc/waterEdits.ts `planFill`, D387 (3), D394). */
-export function fillPlanAt(x: number, y: number, level: number): { reason: string | null; tiles: number[]; volume: number; days: number } {
-  const p = planFill(need(), x, y, level);
-  return { reason: p.reason, tiles: p.op ? [...p.op.params.lake.tiles] : [], volume: p.volume, days: p.days };
+/** What a Fill to `level` at tile (x, y) would make: the hollow's tiles (each once, however many of its columns it fills on a
+ *  map with caves), its water and roughly how many days it lasts, or the plain reason it holds no water at that level
+ *  (core/doc/waterEdits.ts `planFill`, D387 (3), D394). `floor`: on a map with caves, the water column at (x, y) to measure
+ *  from (a cave's floor); by default the tile's highest one below the level. */
+export function fillPlanAt(x: number, y: number, level: number, floor?: number | null): { reason: string | null; tiles: number[]; volume: number; days: number } {
+  const p = planFill(need(), x, y, level, floor);
+  return { reason: p.reason, tiles: p.op ? [...new Set(p.op.params.lake.tiles)] : [], volume: p.volume, days: p.days };
 }
 
 /** Fill the hollow round (x, y) with standing water to `level`, no source: one undo step. */
-export function fillAt(x: number, y: number, level: number): SessionUpdate {
+export function fillAt(x: number, y: number, level: number, floor?: number | null): SessionUpdate {
   const t0 = performance.now();
   const s = need();
-  const p = planFill(s, x, y, level);
+  const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
   return changed(s, r.ok, r.errors, t0);
