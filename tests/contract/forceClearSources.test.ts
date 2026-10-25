@@ -225,6 +225,8 @@ describe("forces clear sources (D474)", () => {
     }
     expect(ed.forceStop().errors).toEqual([]);
     expect(cleared.map((c) => c.id)).toContain(src.id);
+    // (the History says what went with it, as a brush's Clear sources does)
+    expect(ed.sessionInfo().history.filter((h) => h.applied).at(-1)!.label).toBe(cleared.length === 1 ? "Rift, a source cleared" : `Rift, ${cleared.length} sources cleared`);
     const kept = open();
     const op = [...kept.logOps].reverse().find((o) => o.op === "forceResult") as unknown as { params: ForceResultParams };
     expect(op.params.settings.sources).toBe("clear");
