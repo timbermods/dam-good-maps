@@ -126,12 +126,13 @@ export function startFitWarnings(extras: readonly StartFitExtra[], W: number, H:
 export const START_OPEN_GROUND = "the start needs open ground: there is a cave or overhang there";
 
 /** Whether the start's 3×3 or the tile at its door, with its middle at (x, y) facing `o`, has a cave or an overhang
- *  (a column that is not one plain run from the bottom). */
-export function startOverRoof(g: StandGround, x: number, y: number, o: Orientation): boolean {
+ *  (a column that is not one plain run from the bottom). `doorOnly`: the door's tile alone (a start turned in place
+ *  keeps its 3×3 on the ground it stood on). */
+export function startOverRoof(g: StandGround, x: number, y: number, o: Orientation, doorOnly = false): boolean {
   const [cx, cy] = coordinatesForMinCorner(3, 3, x - 1, y - 1, o);
   const door = startEntranceTile(cx, cy, o);
   const tiles: [number, number][] = [door];
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([x + dx, y + dy]);
+  if (!doorOnly) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push([x + dx, y + dy]);
   for (const [tx, ty] of tiles) {
     if (tx < 0 || ty < 0 || tx >= g.W || ty >= g.H) continue;
     const m = g.mask[ty * g.W + tx];
@@ -151,19 +152,22 @@ export interface StartRoofGround extends StandGround {
  *  (`StartingBuildingPlacementValidator` reads only the entrance; `StartingBuildingSpawner` builds the district center at
  *  the StartingLocation's own placement; investigation/terrain3d/GAME_RULES.md §5). The editor asks one thing more, as of
  *  every object with a level: its 3×3 stands wholly under the roof, so no brush or force reaches its ground (D491).
- *  Nothing is levelled there and it has no bench. `taken(x, y, z)` names another object holding a cell, if any. */
-export function startRoofProblem(g: StartRoofGround, x: number, y: number, o: Orientation, z: number, taken?: (x: number, y: number, z: number) => string | null): string | null {
+ *  Nothing is levelled there and it has no bench. `taken(x, y, z)` names another object holding a cell, if any.
+ *  `doorOnly`: turned in place, its 3×3 keeps the ground it stood on and only its new door is checked. */
+export function startRoofProblem(g: StartRoofGround, x: number, y: number, o: Orientation, z: number, taken?: (x: number, y: number, z: number) => string | null, doorOnly = false): string | null {
   const { W, H, heights, mask } = g;
   const [cx, cy] = coordinatesForMinCorner(3, 3, x - 1, y - 1, o);
   const door = startEntranceTile(cx, cy, o);
   const foot: [number, number][] = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) foot.push([x + dx, y + dy]);
   for (const [tx, ty] of [...foot, door]) if (tx < 1 || ty < 1 || tx > W - 2 || ty > H - 2) return "too close to the map edge";
-  const top = heights[y * W + x];
-  if (z >= top) return `level ${z} is not under a roof here: the ground's top is ${top}, where the start stands without a level`;
-  if (openPart(foot, z, g)) return "part of the start would stand in the open: under a roof it stands wholly under it";
-  const why = standProblem("StartingLocation", { x: cx, y: cy, z, orientation: o }, g, taken);
-  if (why) return why;
+  if (!doorOnly) {
+    const top = heights[y * W + x];
+    if (z >= top) return `level ${z} is not under a roof here: the ground's top is ${top}, where the start stands without a level`;
+    if (openPart(foot, z, g)) return "part of the start would stand in the open: under a roof it stands wholly under it";
+    const why = standProblem("StartingLocation", { x: cx, y: cy, z, orientation: o }, g, taken);
+    if (why) return why;
+  }
   const solid = (i: number, l: number) => l < 0 || (l < 23 && ((mask[i] >>> l) & 1) === 1);
   const d = door[1] * W + door[0];
   if (solid(d, z)) return "its door would open onto rock";

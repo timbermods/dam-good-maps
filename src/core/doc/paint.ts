@@ -12,6 +12,7 @@ import type { EditOp, OpOrigin } from "./ops";
 import { paintLabel, paintOps } from "./paintOps";
 import type { PaintLevel, PaintParams } from "./paintParams";
 import { objectCells, waterDepth } from "./placing";
+import { dyingTiles } from "./plantSoil";
 
 /** The templates a plant kind counts as already there: painting over them fills the gaps up to the density. */
 const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["BlueberryBush"], succulents: ["Succulent"], woods: ["Pine", "Birch", "Oak"] };
@@ -19,13 +20,14 @@ const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["Blueberry
 /** Where an object may stand on the map as it is: on the map, dry, nothing there. A stroke paints the ground's top,
  *  a roof's top too, where the game keeps what stands on it (D491). Under a roof (`levels`: the tiles a stroke paints
  *  at a level below their top, a cave's floor or the ground under a ledge) a tile is free where it has ground at that
- *  level and no object holds that cell; its height is then that level. */
+ *  level and no object holds that cell; its height is then that level. On a map with caves or overhangs a tile's
+ *  water is the water on the run top it paints at (`wetAt`), never a cave's seen through its roof. */
 export function paintGround(s: MapSession, levels: ReadonlyMap<number, number> = new Map()): PaintGround {
   const { x: W, y: H } = s.size;
   const b = s.built;
   const free = new Uint8Array(W * H).fill(1);
-  const depth = waterDepth(s);
-  for (let i = 0; i < W * H; i++) if (depth[i] > 0.05 && !levels.has(i)) free[i] = 0;
+  const wet = wetAt(s);
+  for (let i = 0; i < W * H; i++) if (!levels.has(i) && wet(i, b.heights[i])) free[i] = 0;
   for (const e of b.entities) for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H && !levels.has(y * W + x)) free[y * W + x] = 0;
   if (!levels.size) return { W, H, heights: b.heights, free };
   const heights = Uint8Array.from(b.heights);
@@ -35,9 +37,18 @@ export function paintGround(s: MapSession, levels: ReadonlyMap<number, number> =
   for (const [i, z] of levels) {
     heights[i] = z;
     const x = i % W;
-    if (solid(i, z) || !solid(i, z - 1) || cells(x, (i - x) / W, z)) free[i] = 0;
+    if (solid(i, z) || !solid(i, z - 1) || cells(x, (i - x) / W, z) || wet(i, z)) free[i] = 0;
   }
   return { W, H, heights, free };
+}
+
+/** Whether level `z` of tile `i` has water enough on it that nothing is planted there (over 0.05, the planting rule's):
+ *  on a map with caves or overhangs the water on that run top (`MapSession.runGrounds`), else the tile's. */
+function wetAt(s: MapSession): (i: number, z: number) => boolean {
+  const runs = s.runGrounds();
+  if (runs) return (i, z) => (runs(i, z)?.depth ?? 0) > 0.05;
+  const depth = waterDepth(s);
+  return (i) => depth[i] > 0.05;
 }
 
 /** The level each tile of a stroke paints at under a roof, from one level the page's pick found (D491: the floor it
@@ -67,6 +78,32 @@ function levelMap(s: MapSession, p: PaintParams): Map<number, number> {
   const out = new Map<number, number>();
   for (const l of p.levels ?? []) for (const i of runsToTiles(l.area, W)) if (l.z !== s.built.heights[i]) out.set(i, l.z);
   return out;
+}
+
+/** The plant a stroke of `p.kind` is judged by for its soil (trees, bushes and succulents die on different ground; mixed
+ *  woods' trees all live on the same), or null for ruins and thorns. */
+function soilTemplate(p: PaintParams): string | null {
+  if (p.kind === "trees") return p.template ?? null;
+  if (p.kind === "woods") return "Pine";
+  if (p.kind === "bushes") return "BlueberryBush";
+  if (p.kind === "succulents") return "Succulent";
+  return null;
+}
+
+/** The tiles of a stroke where its plants would die (D235's warning, "dry ground: these will die"; the stroke still
+ *  paints), by the rule `plants.survive` applies (plantSoil.ts `dyingTiles`): on a map with caves or overhangs the run
+ *  top each tile paints at, under a roof (`p.levels`) or on top, as the check reads each plant there (D491); else the
+ *  build's moisture, contamination and water. Empty for ruins and thorns. */
+export function paintDying(s: MapSession, p: PaintParams): number[] {
+  const template = soilTemplate(p);
+  if (!template) return [];
+  const { x: W, y: H } = s.size;
+  const region = runsToTiles(p.area, W).filter((i) => i >= 0 && i < W * H);
+  const levels = levelMap(s, p);
+  const b = s.built;
+  const runs = s.runGrounds();
+  const at = runs ? new Map(region.map((i) => [i, levels.get(i) ?? b.heights[i]])) : levels;
+  return dyingTiles(template, region, { moisture: b.moisture, contamination: b.soilContamination, depth: waterDepth(s), runs }, at);
 }
 
 export type PaintPlan = { ok: true; plan: PlannedObject[]; ops: EditOp[]; label: string } | { ok: false; errors: string[] };

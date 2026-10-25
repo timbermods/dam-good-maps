@@ -17,7 +17,10 @@
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
 // export profile and every check of the generate profile but the known faults (the conversion's, which
 // every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
-// Everything it writes is the same bytes on every run.
+// Objects only, never the land (D245, D331): a start moves to the best spot its land offers, a start
+// that lost its water gets a spring, a start short of berries gets bushes, and plants on soil that
+// kills them move to moist ground close by or go (#523, tools/lib/placePlants.ts), the start's wood and
+// berries first. Everything it writes is the same bytes on every run.
 //
 // The product never imports from investigation/ (tests/unit/boundaries.test.ts); this tool reads the
 // library's data files at run time, as tools may.
@@ -44,6 +47,9 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
+import { keepNearest, settlePlants, startOaks } from "./lib/placePlants";
+import { LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
+import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
 import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
@@ -76,6 +82,13 @@ const SPRING_TRIES: [number, number][] = [
   [20, 6],
   [26, 12],
 ];
+/** How far a plant on soil that kills it may move to ground where it lives (tiles, either way): the
+ *  forest shifts to the moist ground beside where it stood, not across the map. */
+const PLANT_REACH = 4;
+/** The logs an oak gives, and the walk from the start the oaks that give back the start's lost logs
+ *  stand within (the `start.wood` fix's: 2 inside the 20 tiles the check counts). */
+const OAK_LOGS = LOGS_PER_TREE_SPECIES.Oak;
+const OAK_WALK = 18;
 
 /** Each family's name on the page and how it plays: the survey's "play value" for the family
  *  (investigation/landscapes/FAMILIES.md), in plain words. A family label names the region the
@@ -403,6 +416,68 @@ for (const item of items) {
       }
     }
   }
+  // Living plants on soil that kills them (#523: the survey's trees and bushes stood on ground its
+  // sealed pools kept moist, which the open edges drained) move to the nearest free tile close by
+  // where they live, by `plants.survive`'s own rule, or go (tools/lib/placePlants.ts; objects only,
+  // the land and water stay). The start's needs come first: its berries never fall, and the logs it
+  // loses (the wood checks count a dying tree's logs: a dead tree keeps them) come back as oaks on the
+  // moist ground nearest it, as the `start.wood` fix plants them; where there is too little of that,
+  // the dying trees nearest the start stay, and the log says so.
+  const survive = strict.report.checks.find((c) => c.id === "plants.survive");
+  let plants = "";
+  if (survive && counts(survive) && strict.analysis) {
+    const value = (s: typeof strict, id: string) => Number(s.report.checks.find((c) => c.id === id)?.value ?? 0);
+    const limit = (id: string) => Number(strict.report.checks.find((c) => c.id === id)?.limit ?? 0);
+    const bar = { wood: Math.min(value(strict, "start.wood"), limit("start.wood")), floor: Math.min(value(strict, "start.wood_floor"), limit("start.wood_floor")), food: value(strict, "start.food") };
+    const short = (s: typeof strict) => Math.max(bar.wood - value(s, "start.wood"), bar.floor - value(s, "start.wood_floor"));
+    const g = { moisture: strict.analysis.moisture, contamination: strict.analysis.soilContamination, depth: built.settle.depth };
+    const near = strict.analysis.startDistance;
+    const settled = settlePlants(place, g, near, PLANT_REACH);
+    let next = settled.place;
+    let r = buildChecked(next);
+    let oaks = 0;
+    let kept = 0;
+    let moves = settled.moves;
+    const moved = (to: boolean) => moves.filter((m) => m.to >= 0 === to).length;
+    if (short(r.strict) > 0) {
+      const walk = startWalkField(built.heights, place.W, place.H, placeEntities(next, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
+      // (the walk here is the tool's estimate of the check's: each step is built and checked again)
+      for (let round = 0; round < 4 && short(r.strict) > 0; round++) {
+        const o = startOaks(next, g, near, walk, Math.ceil(short(r.strict) / OAK_LOGS), OAK_WALK);
+        if (!o.planted) break;
+        next = o.place;
+        oaks += o.planted;
+        r = buildChecked(next);
+      }
+      for (let round = 0; round < 6 && short(r.strict) > 0; round++) {
+        const k = keepNearest(next, moves, walk, LOG_FLOOR_WALK, short(r.strict), LOGS_PER_TREE_SPECIES);
+        if (!k.kept) break;
+        next = k.place;
+        moves = k.moves;
+        kept += k.kept;
+        r = buildChecked(next);
+      }
+    }
+    if (!r.built.settle.depth.every((d, i) => d === built.settle.depth[i])) throw new Error(`${place.name}: moving plants changed the water`);
+    const left = r.strict.report.checks.find((c) => c.id === "plants.survive");
+    const meets = short(r.strict) <= 0 && value(r.strict, "start.food") >= bar.food && !r.strictFails.some((id) => !strictFails.includes(id));
+    plants = meets
+      ? `  plants on dry soil ${survive.value} → ${left && counts(left) ? left.value : 0}: ${moved(true)} moved, ${moved(false)} gone` +
+        (oaks ? `, ${oaks} oaks planted by the start` : "") +
+        (kept ? `, ${kept} dying trees kept for the start's wood` : "")
+      : `  plants on dry soil kept (${survive.value}): moving them costs the start (` +
+        [
+          ...r.strictFails.filter((id) => !strictFails.includes(id)),
+          ...(value(r.strict, "start.wood") < bar.wood ? [`wood ${value(r.strict, "start.wood")} of ${bar.wood}`] : []),
+          ...(value(r.strict, "start.wood_floor") < bar.floor ? [`floor ${value(r.strict, "start.wood_floor")} of ${bar.floor}`] : []),
+          ...(value(r.strict, "start.food") < bar.food ? [`berries ${value(r.strict, "start.food")} of ${bar.food}`] : []),
+        ].join(", ") +
+        ")";
+    if (meets) {
+      place = next;
+      ({ built, v, strict, blocking, strictFails } = r);
+    }
+  }
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
   // the conversion's known faults (every place has them, D200) and the places' own recorded
@@ -420,7 +495,8 @@ for (const item of items) {
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}` : "") +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
-      (planted ? `  ${planted} berry bushes planted by the start` : ""),
+      (planted ? `  ${planted} berry bushes planted by the start` : "") +
+      plants,
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);

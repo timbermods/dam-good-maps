@@ -180,6 +180,7 @@ mod tests {
             cut_logs: None,
             growth: None,
             comps: 1,
+            run_soil: None,
         }
     }
     fn source(strength: f64, delayed: bool, template: &str) -> Entity {
