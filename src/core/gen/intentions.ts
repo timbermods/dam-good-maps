@@ -3,6 +3,7 @@
 // the finished map, with one re-steer for the start's intentions and a drop, never a forced build,
 // for the rest. Ported from the design version 2 prototype (investigation/generative/v2/generate.ts).
 
+import { prepareOpening } from "../analysis/opening";
 import { fallsOf, reachWalk } from "../analysis/vertical";
 import type { BuildResult } from "../features/build";
 import { ACTIVE, checkIntention, START_SIDE, startPreference, type FinalCtx, type IntentionId, type SettlerView } from "../land/intentions";
@@ -35,7 +36,8 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
     if (x >= 0 && y >= 0 && x < W && y < H) joinT[y * W + x] = 1;
   }
   const fallT = new Uint8Array(N);
-  for (const f of fallsOf(h, D, W, H, 1.5)) fallT[f.i] = 1;
+  const falls = fallsOf(h, D, W, H, 1.5);
+  for (const f of falls) fallT[f.i] = 1;
   const sorted = Array.from(h).sort((a, b) => a - b);
   // farmland patches and gorges
   const farm = new Uint8Array(N);
@@ -113,7 +115,7 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
       if (h[i] <= surf + 1.5) blocks.lowBad[k]++;
     }
   }
-  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks };
+  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks, opening: prepareOpening(h, W, H, D, falls) };
   return { ...view, prefer: (id, x, y, L, walk) => startPreference(id, view, x, y, L, walk) };
 }
 
@@ -137,7 +139,7 @@ export function finalCtx(b: BuildResult, hy: Pick<Hydro, "rivers"> & { arms?: Hy
     D: b.water,
     C: b.contamination,
     moist: b.moisture,
-    start: { x: start.x, y: start.y, z: start.z },
+    start: { x: start.x, y: start.y, z: start.z, orientation: b.entities.find((e) => e.template === "StartingLocation")?.orientation ?? "Cw0" },
     walk: reachWalk(b.heights, W, H, objs, start),
     ...(objs.some((o) => o.template === "Blockage") ? { walkCleared: reachWalk(b.heights, W, H, objs.filter((o) => o.template !== "Blockage"), start) } : {}),
     kept9: droughtStorage(b.waterModel, b.water, 9),
