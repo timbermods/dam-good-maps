@@ -64,7 +64,9 @@ was, byte for byte.
 imported map's (D487): the features never reshape them, the brushes shape their top runs only, the forces leave them, and
 the water is the stacked engine's on every column (`features/build.ts`: the stacked model wherever the terrain is not a
 heightfield, the field's caves or the Block tool's, which closes #435's gap for generated maps). A spring's sources stand
-on the top of the run from z = 0, a cave's floor (GAME_RULES §3.4; `terrain/runs.ts` `bottomRunTop`). The file writes the
+on the top of the run from z = 0, a cave's floor (GAME_RULES §3.4; `terrain/runs.ts` `bottomRunTop`), each held to the game's own rule as an object placed in a cave is
+(D491, `features/objects.ts` `standProblem`), its cells free of the map's objects; an object placed at a level is refused
+in a source's cells ("a water source stands there"). The file writes the
 caves' voxels and the stacked water and soil (`gen/pack.ts` `stackedWorld`, as an exported cave import does). The session
 opens such a map as a generated map with caves: `columns`, `plainAt`, the support refusals and the Block tool read the
 field's terrain.

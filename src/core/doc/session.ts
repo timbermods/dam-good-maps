@@ -47,7 +47,7 @@ import { writeTimber, type TimberFile } from "../format/timber";
 import { stackedSimulationSingletons, storedOutflows, storedSoilRuns, storedSoilTops, storedWater } from "../format/world";
 import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
-import type { Orientation, Placement } from "../format/footprints";
+import { FOOTPRINTS, type Orientation, type Placement, worldBlocks } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
 import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
@@ -1213,6 +1213,15 @@ export class MapSession {
       water: this.waterNow(),
       heights: this.cur.heights,
       masks: this.standGround().mask,
+      objectAt: (cells, owner) => {
+        const want = new Set(cells.map((c) => `${c.x},${c.y},${c.z}`));
+        for (const e of this.cur.entities) {
+          const fp = FOOTPRINTS[e.template];
+          if (e.owner === owner || !fp) continue;
+          for (const c of worldBlocks(fp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation ?? "Cw0", flipped: !!e.flipped })) if (want.has(`${c.x},${c.y},${c.z}`)) return e.template;
+        }
+        return null;
+      },
       startObjects,
       cropObjects: (r) => (cropObjects(this.cur.entities, r).cutStart ? START_CUT : null),
       placement: (p) => {

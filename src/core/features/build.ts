@@ -15,7 +15,7 @@
 // moisture and each resource feature are reused when their inputs are unchanged. The property
 // tests check that it equals a full build.
 
-import { coordinatesForMinCorner, footprintTiles, ORIENTATIONS, rotate, slopeHighSide, type Orientation } from "../format/footprints";
+import { coordinatesForMinCorner, FOOTPRINTS, footprintTiles, type Orientation, ORIENTATIONS, rotate, slopeHighSide, worldBlocks } from "../format/footprints";
 import { blockObject, startingLocation, waterSource, slope, type EntitySpec } from "../format/entities";
 import type { MapSpec } from "../spec/mapspec";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
@@ -59,7 +59,7 @@ import {
   type SculptEdit,
 } from "./raster/terrain";
 import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
-import { objectTiles, rasterizeObjects } from "./objects";
+import { objectTiles, rasterizeObjects, standProblem } from "./objects";
 import { markBrushTiles, type BrushParams } from "./raster/brush";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
@@ -795,6 +795,38 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   //    head (its course's first step the flow) or round the lake's spring tile
   // (each row keeps its ids as it moves with the land: water/sourceGroups.ts `groupIds`, #172)
   const springs = new Map<string, { sources: GroupedSource[]; ids: string[] }>();
+  // on a map with caves, a spring's source stands only where the game keeps it (D491, objects.ts
+  // `standProblem`, the rule the editor's placing reads): on its floor at the bottom of the map, its
+  // cells free of the map's objects (a placed object's, a kept one's) and of the sources placed before
+  // it. One the game would not keep is left out of its row, never moved onto another's cells
+  let held: Map<number, string> | null = null;
+  const holds = (template: string, x: number, y: number, z: number, orientation: Orientation, flipped = false) => {
+    for (const c of worldBlocks(FOOTPRINTS[template], { template, x, y, z, orientation, flipped }))
+      if (c.x >= 0 && c.y >= 0 && c.x < W && c.y < H && c.z >= 0) held!.set(c.z * N + c.y * W + c.x, template);
+  };
+  const standing = (src: { x: number; y: number; z: number }): boolean => {
+    if (!runsGround) return true;
+    if (!held) {
+      held = new Map();
+      const others = [...features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && live(f)).flatMap((f) => rasterizeObjects(f, W, H, heights, input.locked?.mask ?? null)), ...(input.locked?.entities ?? [])];
+      for (const e of others) if (FOOTPRINTS[e.template]) holds(e.template, e.x, e.y, e.z, e.orientation ?? "Cw0", !!e.flipped);
+    }
+    const taken = (x: number, y: number, z: number) => held!.get(z * N + y * W + x) ?? null;
+    return standProblem("WaterSource", { x: src.x, y: src.y, z: src.z, orientation: "Cw0" }, { W, H, mask: runsGround.mask }, taken) === null;
+  };
+  // (the sources kept of a row, their strength shared again over those, each then holding its cells)
+  const standingRow = (strength: number, row: { sources: GroupedSource[]; ids: string[] }) => {
+    const keep = row.sources.map((src) => standing(src));
+    if (keep.every(Boolean)) {
+      if (held) for (const src of row.sources) holds("WaterSource", src.x, src.y, src.z, "Cw0");
+      return row;
+    }
+    const sources = row.sources.filter((_, k) => keep[k]);
+    const share = rowStrengths(strength, sources.length);
+    const out = { sources: sources.map((src, k) => ({ ...src, strength: share[k] })), ids: row.ids.filter((_, k) => keep[k]) };
+    for (const src of out.sources) holds("WaterSource", src.x, src.y, src.z, "Cw0");
+    return out;
+  };
   for (const f of features) {
     if (!live(f)) continue;
     let at: number | null = null;
@@ -819,7 +851,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const kept = input.generatedSprings?.get(f.id);
     if (kept?.length) {
       const share = rowStrengths(strength, kept.length);
-      springs.set(f.id, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: floorAt(i), strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
+      const row = standingRow(strength, { sources: kept.map(({ tile: i }, k) => ({ x: i % W, y: Math.floor(i / W), z: floorAt(i), strength: share[k], tiles: [i] })), ids: kept.map((s) => s.id) });
+      if (row.sources.length) springs.set(f.id, row);
       for (const { tile } of kept) reserved[tile] = 1;
       continue;
     }
@@ -831,7 +864,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     const rowGround = input.field?.contains.has(f.id) ? (input.field.caves ? runFloorsOf(input.field.caves) : input.field.heights) : runsGround ? runFloorsOf(runsGround) : heights;
     const g = placeSourceGroup(req, { W, H, heights: rowGround, occupied: reserved });
     if (!g.sources.length) continue;
-    springs.set(f.id, { sources: g.sources, ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
+    const row = standingRow(strength, { sources: g.sources.map((src) => ({ ...src, z: floorAt(src.y * W + src.x) })), ids: groupIds(entityId(f.id, "WaterSource", at), req, g) });
+    if (row.sources.length) springs.set(f.id, row);
     for (const i of groupTiles(g)) reserved[i] = 1;
   }
   //    map objects (mine sites, relics, thorn belts, weirs, plugs, ...) take their tiles now, so the

@@ -1214,7 +1214,9 @@ must respect:
   the preview (D69): level ground for single objects, dry and off rivers (weirs and plugs go across them), free of other
   objects and the start. Under a roof (a cave's floor, the ground under a ledge, a roof's top: the placement's `z`) the
   game's own rule decides instead, block by block (D491, `features/objects.ts` `standProblem`, the same rule as
-  `entities.placement`). The bridge waits (§5.7).
+  `entities.placement`), and never in the cells another object holds (`doc/ops.ts` `levelProblems`: "a water source
+  stands there"). On a map with caves a spring's sources go through the same rule, its cells free of the map's objects
+  (`features/build.ts`: one the game would not keep is left out of its row). The bridge waits (§5.7).
 - `carve` kinds (D118: tunnel, arch, skyBridge, cave, ledgePath, overhang, undergroundRiver): built only by their
   builders, which keep the support rule by construction (the build's rule pass drops 0 voxels); floors are run tops.
 - `start` (position, orientation, bench radius, player 0–3, default 0, reserved for Timber Together, D5): a flat 3×3
