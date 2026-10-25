@@ -54,6 +54,11 @@ the editor at once, in one window; **Map Generator** opens the generator's setti
 left, **Real places** opens the gallery's places, and **Your maps** the maps kept in this browser, in the same place.
 Their look, sizes and exact places are [DESIGN.md](DESIGN.md)'s ("Layout 2 mockups (2026-10-03): the design to
 build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the sizes it is designed for.
+**Depth (Kyler, 2026-10-15):** the plates over the map stand off the land on shadows, not rules or translucency (they stay
+solid, as "solid chrome", 2026-10-02): three elevations, each three stacked shadows in a warm walnut ink (`--shadow-1`: a
+single control; `--shadow-2`: the bar, its settings, the shelf and its object window, the panels, the legend;
+`--shadow-3`: menus, the checks list, dialogs; `src/styles/app.css`). The header casts a soft shadow onto the map in
+place of its bottom rule.
 
 - **The header:** **Map Generator** alone at the left edge (a small folded-map icon and its name, tinted in the mint),
   lit while the panel is open. The map's
@@ -92,13 +97,17 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   and the Size its own), `Generate` makes a map of the Any theme's defaults at that size, and the first setting touched
   brings every setting back as the next map's (`App.tsx`'s `blank`). **The editor's frame before any map** (a share
   link, a reload, a place opened first): the real header, bar and shelf held still with the land's first look in the
-  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`);
+  map's place, the progress dialog over it (no Cancel: there is no map to go back to; `src/editor/LoadingFrame.tsx`). **While a map
+  is made** the dialog holds a small stretch of moving water in the view's water colour, and the land's empty square draws
+  an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
+  and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
   **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
   open map back as it was. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if edited, is in Your maps.
-- **Your maps** (D234, D330): a map is kept in this browser from its first edit (an operation applied) or rename,
+- **Your maps** (D234, D330; with nothing kept it shows one dashed tile where the first map will land, and "No maps kept yet"
+  beside it): a map is kept in this browser from its first edit (an operation applied) or rename,
   whatever its kind, and stays kept even if every edit is undone; camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory). Kept maps are saved quietly
   after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
@@ -1257,8 +1266,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top
     (`sim/weather.ts` `HazardRun`, `sim/stackWater.ts` `StackRun`; #391). On a map with no caves the stacked
-    weather is the heightfield's, bit for bit. Fill and Remove unfed water are refused there with one plain
-    line each until each has its rule for water in caves (`sim/stackWater.ts` `cavesOf` decides which maps).
+    weather is the heightfield's, bit for bit. Fill and Remove unfed water work there on every water column
+    (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
     run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
@@ -1285,6 +1294,27 @@ checks dot counts; every other row is information under Good to know, worded as 
     takes the lakes before it; a later Fill keeps its water). A Fill is written at exactly its level: the settle
     stops once only sealed basins evaporate and stores them as they started (D413), so `days` count from it. If an
     edit later widens its hollow below its level, its water is stored levelled into the wider hollow.
+    **On a map with caves or overhangs** both ask every water column, on the stacked engine's own geometry
+    (`sim/stackFed.ts`; `sim/stackWater.ts` `stackGraph`: its columns, the edges between overlapping columns of
+    neighbouring tiles, the map's edge, the direction limiters, the columns a running emitter gives water into).
+    Fed water is reached along those edges by the same rule (`fedColumns`), so a cave pool no source feeds is
+    unfed, a spring cave's pool or a siphon under pressure fed. A removal names tiles as on a heightfield and takes
+    the unfed water of every column of them, never a fed river over a cave pool: a pool with a tile in the
+    selection goes whole, and so does every unfed pool on a tile it shares (a pool on a roof over a cave pool), so
+    nothing is taken by halves; once the stacked settle has passed, that water is taken and the water settles on
+    from it (`canonicalStackRun`, at most `STACK_DRAIN_DAYS`). A Fill is measured from one water column at (x, y)
+    (`planFill`'s `floor`, stored as the operation's `floor`: a cave's floor under its roof; by default the
+    tile's highest column whose ground is below the level): every column joined to it whose ground is below the
+    level stands at that level, a column whose roof is lower full, under the pressure of the water above it, as
+    the game holds it; refused when the water would leave the map, or when no column of the hollow is open up to
+    the level ("the hollow is closed above at level 6: fill it to 6 or lower"). Its lake has one entry a column,
+    ascending by tile and then floor, each naming its column by its floor (the engine's `retained_column`: the
+    tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
+    sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
+    the water the game loads stays as it is: the lake only evaporates, nothing spills
+    (`tests/contract/caveWaterEdits.test.ts`). An imported map's own unfed water is kept on every column, a pool
+    in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
+    water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source
     removed, weakened or moved; a stroke, force or Select action that changes where water can flow), the tiles
     whose water lost its feed on the new ground take the canonical start in the warm start (`unfedTiles`,

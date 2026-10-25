@@ -40,7 +40,7 @@ import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { FirstLook, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 
 /** The generator and the open map's worker; Cancel ends it and the open map comes back in a new one. */
@@ -1099,6 +1099,7 @@ export function App() {
         <p id="making-words" role="status">
           {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
         </p>
+        {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
             <button type="button" class="ghost" title="Back to the map" onClick={() => setMaking(null)} autoFocus>
@@ -1201,6 +1202,7 @@ export function App() {
               <p id="making-words" role="status">
                 {stuck ? error : words}
               </p>
+              {stuck ? null : <MakingWater />}
               {stuck ? (
                 <footer>
                   <button type="button" class="primary" title="Make a map with another seed" onClick={again}>

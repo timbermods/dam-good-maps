@@ -105,7 +105,7 @@ export interface PlayFacts {
 const COMPASS = ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"];
 
 /** The compass direction from a to b (north is +y). */
-function compass(ax: number, ay: number, bx: number, by: number): string {
+export function compass(ax: number, ay: number, bx: number, by: number): string {
   const dx = bx - ax;
   const dy = by - ay;
   // the octant by comparing the two components (no trigonometry)
