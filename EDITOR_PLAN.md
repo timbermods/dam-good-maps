@@ -923,8 +923,9 @@ weaker hardware rather than stutter. (The full list is in the archive.)
 
 ## 7. Controls
 
-Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms, Alt+scroll slices
-the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
+Like the game: WASD and the arrow keys move (Shift moves faster), Q and E rotate, scroll zooms toward the pointer
+(the ground under it stays under it; over the sky or off the map, and for + and -, about the screen's centre),
+Alt+scroll slices the visible layers from the top down, Alt+click jumps to a tile's layer (again on the same level returns to ∞), and
 T toggles clear water. The tools go by their place in the bar (Kyler, 2026-10-06), matched on the key's code so any
 keyboard layout works: 1 Select, 2 to 6 Raise, Lower, Flatten, Smooth and Naturalize; Shift+1 to Shift+8 Carve,
 Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on or off. The shelf's items have no keys.
@@ -1002,7 +1003,7 @@ setting; an edited map stays in Your maps, one click away (D234). Decided and no
   until dismissed or the map is saved. No key is written in a visible word (keys live in tooltips). There is no
   "Working…" note: the checks pill says "Checking the map". Every × that closes a hint, a note, History or an object's
   window is one 24px icon button with a hover state and a tooltip. The 3D view's screen-reader label reads
-  "Middle-drag to turn, right-drag to move, wheel to zoom".
+  "Middle-drag to turn, right-drag to move, wheel to zoom toward the pointer".
 
 ## 9. The future
 
@@ -1238,7 +1239,10 @@ checks dot counts; every other row is information under Good to know, worded as 
     stacked-column engine (`sim/stackWater.ts`): unedited, it keeps its file's own water; after an edit the
     last water stays on show while the canonical settle runs in the background, in slices, on several threads
     where the page has them (`sim/stackParallel.ts`, the same bytes as one), the dot saying "Settling…", and the
-    water shows when it is done (no live water on such a map). The file gets the settle
+    water shows when it is done (no live water on such a map). An edit that leaves the water provably as it
+    was settles at once (D453): the changed tiles lie more than five tiles from every column the last settle
+    ever wet and from every source, with the same objects and the same pre-fill elsewhere, so the last settle
+    is the new one, the same bytes (`settledAgain`); Erode and Export then wait for nothing. The file gets the settle
     on every column and the soil on every run top. Drought, Badtide and the drought line run there too, on the
     same engine from the water the map shows (its file's own while unedited): the sources stop or turn bad by
     the game's rules, every column drains and evaporates, and each day's soil is worked out per run top

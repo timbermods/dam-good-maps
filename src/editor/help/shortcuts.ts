@@ -69,11 +69,12 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
       rows: [
         { what: "Turn the view", keys: ["Middle-drag"] },
         { what: "Move the view", keys: ["Right-drag"] },
-        { what: "Zoom", keys: ["Scroll"] },
+        { what: "Zoom toward the pointer", keys: ["Scroll"] },
         { what: "Set the strength, power or density", keys: ["F+scroll"] },
         { what: "Set the level", keys: ["Shift+scroll", "Ctrl+click"] },
         { what: "Swap Raise and Lower, or add and remove blocks", keys: ["Shift"] },
         { what: "Set a source's strength", keys: ["Ctrl+scroll"] },
+        { what: "Mark an area that brushes and forces stay inside", keys: ["Ctrl+drag"] },
         { what: "Add to the selection", keys: ["Shift+drag"] },
         { what: "Take from the selection", keys: ["Alt+drag"] },
         { what: "Hide the levels above a layer", keys: ["Alt+scroll"] },
