@@ -98,6 +98,12 @@ const log = (s: string) => {
   console.log(s);
 };
 
+/** The 3D forms a map kept, for its line (information: which seeds to look at). */
+const formsOf = (r: ReturnType<typeof generate>): string => {
+  const got = r.intentions.filter((x) => x.ok && FORMS.includes(x.id as FormId)).map((x) => x.id);
+  return got.length ? `  [${got.join(", ")}]` : "";
+};
+
 for (const seed of seeds) {
   const t0 = performance.now();
   const d = decodeSpecFragment(`s=${seed}&t=${theme}&z=${size}&d=${difficulty[0]}${extra ? "&" + extra : ""}`)!;
@@ -186,7 +192,7 @@ for (const seed of seeds) {
     if (reopen) reopenFailures.push(`seed ${seed}: ${reopen}`);
   }
   const status = r.report.passed ? (r.attempts === 1 ? "pass" : `pass after ${r.attempts}`) : `FAIL after ${r.attempts}`;
-  log(`seed ${seed}: ${status}, ${Math.round(ms)} ms${r.failures.length ? `  (${r.failures.map((f) => f.failed.join(",")).join(" | ")})` : ""}${reopen ? `  PROJECT: ${reopen}` : ""}`);
+  log(`seed ${seed}: ${status}, ${Math.round(ms)} ms${r.failures.length ? `  (${r.failures.map((f) => f.failed.join(",")).join(" | ")})` : ""}${reopen ? `  PROJECT: ${reopen}` : ""}${formsOf(r)}`);
 }
 
 const n = seeds.length;
