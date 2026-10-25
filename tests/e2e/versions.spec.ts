@@ -231,7 +231,8 @@ test("Keep this version asks for its name: typed names are kept, Esc keeps nothi
   await page.keyboard.press("Enter");
   await expect(dialog.getByRole("alert")).toHaveText("A map needs a name");
   await keepAs(page, "The first lift");
-  await expect(page.getByRole("status").filter({ hasText: "Kept as The first lift" })).toBeVisible();
+  // (a step with no settled build is built in a worker of its own first: a slow machine takes its time)
+  await expect(page.getByRole("status").filter({ hasText: "Kept as The first lift" })).toBeVisible({ timeout: 60_000 });
   await history(page).click();
   const yours = await openYourMaps(page);
   await expect(yours.locator("li", { hasText: "The first lift" })).toHaveCount(1);

@@ -699,6 +699,8 @@ test("picking an object never moves the list under the pointer: its window opens
       await row.click();
       await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before), { message: `${name} at ${size.width}` }).toBeLessThanOrEqual(1);
       await page.keyboard.press("Escape");
+      // the object put away, the list is back at its top, with Start in sight
+      await expect.poll(() => shelf.evaluate((el) => el.scrollTop), { message: `${name} put away at ${size.width}` }).toBe(0);
     }
   }
 });
