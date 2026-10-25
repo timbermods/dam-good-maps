@@ -26,6 +26,8 @@
      slack), 1 where it is not (src/ui/fontFit.ts) */
   --wide-font: 1;
   --wide-font-full: 1;
+  /* the smallest a label is scaled down to: the page's smallest text (Auto's 11px); a label already smaller is left as it is */
+  --text-floor: 11px;
   /* Depth: three elevations, each three stacked shadows in a warm walnut ink, never grey. 1: a single control over the
      map (every place that says --shadow). 2: a plate (the bar, its settings, the shelf and its object window, the
      panels, the legend). 3: what opens over everything (menus, the checks list, dialogs). The header's falls on the

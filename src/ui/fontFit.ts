@@ -8,13 +8,24 @@
 /** The words that sit tightest in their boxes. */
 const SAMPLE = "Naturalize Remove unfed water Cut down Fill water Drag on the map to select Seed Reserve warehouse Wander";
 /** What SAMPLE measures at 100px in Segoe UI. */
-const SEGOE_UI_WIDTH = 4918.9;
+export const SEGOE_UI_WIDTH = 4918.9;
 /** The share of the extra width the labels give back: the cells hold some slack (Remove unfed water needs 55% of Verdana's
  *  extra), but Wander beside its longest value needs nearly all of it. */
 const GIVE_BACK = 0.75;
 /** The shelf's rows have no slack (Reserve warehouse fills its row in Segoe UI): all of the extra width, and a little over
  *  for a font whose words run wider than the sample's. */
 const SHELF_MARGIN = 1.02;
+
+/** The scales for a font whose SAMPLE measures `width` at 100px: --wide-font (the labels with some slack) and --wide-font-full
+ *  (the shelf's). Segoe UI measures its own width and gets 1, exactly, so nothing changes there; any wider font is scaled,
+ *  Arial's width (Liberation Sans on Linux, 1.7% wider) included, which a band around Segoe UI's width left clipping the
+ *  shelf. The CSS never takes a label below --text-floor. */
+export function fitScales(width: number): { wide: number; full: number } {
+  const wider = width / SEGOE_UI_WIDTH - 1;
+  // (a hair of tolerance for the measure itself, not for the font)
+  if (!(wider > 0.001)) return { wide: 1, full: 1 };
+  return { wide: 1 + wider * GIVE_BACK, full: (1 + wider) * SHELF_MARGIN };
+}
 
 export function fitFonts(): void {
   try {
@@ -23,12 +34,10 @@ export function fitFonts(): void {
       const ctx = document.createElement("canvas").getContext("2d");
       if (!ctx) return;
       ctx.font = `100px ${family}`;
-      const wider = ctx.measureText(SAMPLE).width / SEGOE_UI_WIDTH - 1;
-      // (within 2% of Segoe UI is Segoe UI)
-      const wide = wider > 0.02;
+      const { wide, full } = fitScales(ctx.measureText(SAMPLE).width);
       const root = document.documentElement.style;
-      root.setProperty("--wide-font", (wide ? 1 + wider * GIVE_BACK : 1).toFixed(3));
-      root.setProperty("--wide-font-full", (wide ? (1 + wider) * SHELF_MARGIN : 1).toFixed(3));
+      root.setProperty("--wide-font", wide.toFixed(3));
+      root.setProperty("--wide-font-full", full.toFixed(3));
     };
     // (the stylesheet decides the family: measured once it has applied)
     if (getComputedStyle(document.body).fontSize === "15px") measure();

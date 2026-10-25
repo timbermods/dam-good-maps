@@ -13,7 +13,7 @@ import type { EditorProps } from "../Editor";
 export const COMPARE_KEY = "B";
 
 /** What the key says when no version is chosen to compare with. */
-export const COMPARE_NONE = "To compare, select a version in Your maps and press Compare.";
+export const COMPARE_NONE = "To compare, Ctrl+click a version in Your maps, then press Compare.";
 
 export interface CompareSlice {
   /** The other version is on show now. */

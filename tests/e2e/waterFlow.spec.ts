@@ -128,6 +128,8 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await expect(day).toHaveText(`Day ${last}`);
   await bar.getByRole("button", { name: "Day on" }).click();
   await expect(day).toHaveText(`Day ${last + 1}`);
+  // (past the hazard's length the words say so: never "Day 10 of 9")
+  await expect(bar.locator(".day-length")).toHaveText(`past ${last}`);
   // (the box keeps its place and size while the day is worked out: it stays inside its stepper)
   const working = await day.boundingBox();
   await expect(day).not.toHaveClass(/counting/, { timeout: 60_000 });
