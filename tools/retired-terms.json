@@ -103,6 +103,7 @@
     },
     { "pattern": "\\b(hill|plateau|ridge|canyon|valley|island|terraces?|mesa|valley floor): reaches level\\b", "retired": "D182", "instead": "the brushes: hills and valleys come from painting", "example": "Hill: reaches level 13 here, not 15: its edge climbs 1 level every 3 tiles" },
     { "pattern": "\\bits edge (climbs|sinks) 1 level every\\b", "retired": "D182", "instead": "the brushes, whose edge slopes a level a tile", "example": "its edge sinks 1 level every 3 tiles from level 9" },
+    { "pattern": "\\bsink [0-9.]+ (?:bad)?water/s\\b", "retired": "planning on #236, 2026-10-25", "instead": "\"drains 2 water/s\": one word with the panel and the game's Badtide drain", "example": "Water source: sink 2 water/s" },
     { "pattern": ">on this map<", "retired": "D184", "instead": "the land itself: the generator's features are its plan, never a list of objects", "example": "<h2>On this map</h2>" },
     { "pattern": ">\\s*best dam site\\s*<", "retired": "D287", "instead": "none: the map card and the map name no dam site", "example": "<dt>Best dam site</dt>" },
     { "pattern": "\\bshow dam sites\\b", "retired": "D287", "instead": "none: dam sites are never drawn", "example": "Show dam sites" },
