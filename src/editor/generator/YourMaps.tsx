@@ -3,7 +3,7 @@
 // row, its name and size under it, newest first, the open map marked; a click opens one; a right-click gives Download
 // .timber file, Rename (in place) and Delete (asked once). More maps than the panel holds scroll inside it.
 // Several maps are selected as on a desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the
-// last one clicked, neither opening a map; Rename and Delete on the heading row act on the selection, and the Delete
+// last one clicked, neither opening a map; Compare, Rename and Delete on the heading row act on the selection, and the Delete
 // key deletes it (or the map under the pointer) while the pointer is over the panel or a tile has the focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";

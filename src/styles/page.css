@@ -2606,13 +2606,13 @@
 }
 
 .day-stepper .day-label {
-  width: 88px;
+  width: 56px;
   text-align: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.water-bar:has(.day-step:disabled + .day-label + .day-step:disabled) .day-label {
+.water-bar:has(.day-step:disabled + .day-label + .day-length + .day-step:disabled) .day-label {
   opacity: 0.45;
 }
 
@@ -2756,9 +2756,19 @@
   position: relative;
 }
 
-/* the hazard's length beside the day, quiet ("Day 3 of 9") */
-.day-stepper .day-of {
+/* the hazard's length beside the day, quiet ("Day 3 of 9"); "of 30" wide, so the row never changes shape */
+.day-stepper .day-length {
+  width: 36px;
+  padding-left: 3px;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* (the day's words sit against the length) */
+.day-stepper .day-label {
+  justify-content: safe flex-end;
+  padding-right: 2px;
 }
 
 /* a typed day (Kyler, 2026-10-04): the field fills the day box exactly, its words where the box's were */

@@ -13,7 +13,7 @@ import type { EditorProps } from "../Editor";
 export const COMPARE_KEY = "B";
 
 /** What the key says when no version is chosen to compare with. */
-export const COMPARE_NONE = "Nothing to compare with yet. In Your maps, select a version and press Compare.";
+export const COMPARE_NONE = "To compare, select a version in Your maps and press Compare.";
 
 export interface CompareSlice {
   /** The other version is on show now. */
@@ -52,6 +52,8 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
         window.clearTimeout(timer);
       };
     }
+    // (a version chosen: the note on how to choose one has done its work)
+    ed.setMessage((m) => (m && m.text === COMPARE_NONE ? null : m));
     flipEnd.current = () => show.current(false);
     show.current = (on) => {
       if (comparing.current === on) return;

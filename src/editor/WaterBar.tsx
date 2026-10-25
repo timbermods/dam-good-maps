@@ -122,12 +122,12 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
               onBlur={commit}
             />
           ) : (
-            <span class="day-words">
-              {!weather || shown === null ? "Day –" : `Day ${shown}`}
-              {/* the hazard's length, quiet beside the day ("Day 3 of 9"): a drought that lasts nine days */}
-              <span class="day-of">{weather && length ? ` of ${length}` : ""}</span>
-            </span>
+            <span class="day-words">{!weather || shown === null ? "Day –" : `Day ${shown}`}</span>
           )}
+        </span>
+        {/* the hazard's length, quiet beside the day ("Day 3 of 9": a drought that lasts nine days); its room kept while none is on */}
+        <span class="day-length" aria-hidden={!weather || !length}>
+          {weather && length ? `of ${length}` : ""}
         </span>
         <button type="button" class="day-step" aria-label="Day on" disabled={!weather} {...tip("A day on", "→")} onClick={() => onStep(1)}>
           ▶

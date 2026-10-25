@@ -109,12 +109,20 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   // (with no hazard shown, a double-click does nothing)
   await day.dblclick();
   await expect(bar.getByRole("textbox", { name: "Day" })).toHaveCount(0);
+  // (the buttons toggle, and their tooltips say so; the title waits in data-tip-held while a tooltip shows)
+  const words = (name: string) => bar.getByRole("button", { name }).evaluate((el) => el.getAttribute("title") ?? el.getAttribute("data-tip-held"));
+  expect(await words("Drought")).toBe("Show a drought's last day: the sources stop");
+  expect(await words("Badtide")).toBe("Show a badtide's last day: clean sources turn bad");
+  await expect(bar.locator(".day-length")).toHaveText("");
   await bar.getByRole("button", { name: "Drought" }).click();
   // (the box reads the day at once; its quiet fill runs until the day shows)
   await expect(day).toHaveText(/^Day \d+$/);
   await expect(day).not.toHaveClass(/counting/, { timeout: 120_000 });
   const last = Number((await day.textContent())!.replace(/\D/g, ""));
   expect(last).toBeGreaterThan(1);
+  // (the hazard's length is said beside the day, and the button now puts the map's own water back)
+  await expect(bar.locator(".day-length")).toHaveText(`of ${last}`);
+  expect(await words("Drought")).toBe("Back to the map's own water");
   expect(await wet(page)).toBeLessThan(settled / 2);
   await page.waitForTimeout(1500);
   await expect(day).toHaveText(`Day ${last}`);
