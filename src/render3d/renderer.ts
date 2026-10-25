@@ -783,7 +783,7 @@ export class MapRenderer {
     this.lookWaiting = tier;
     if (!this.lookWarming) {
       this.lookWarming = true;
-      void this.programs.warm(list).then(() => {
+      void this.programs.now(list).then(() => {
         this.lookWarming = false;
         const t = this.lookWaiting;
         if (t && !this.disposed) this.applyLook(t);
