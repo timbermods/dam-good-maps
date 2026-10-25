@@ -1,7 +1,7 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D493; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D495; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
@@ -128,6 +128,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Water](water.md)
 
+- D494: Remove unfed water on caves works on columns
 - D472: No drought or badtide on the map card
 - D457: Imported map's water kept
 - D27: The canonical settle
