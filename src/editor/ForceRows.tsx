@@ -459,7 +459,7 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 1, span: 3, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another quake, same land") },
       ]}
@@ -565,7 +565,7 @@ export function RiftRow(p: RowProps<RiftUi, RiftSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 1, span: 3, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another rift, same land") },
       ]}
@@ -605,7 +605,7 @@ export function DepositRow(p: RowProps<DepositUi, DepositSettings>) {
             />
           ),
         },
-        { key: "floor", row: 2, at: 1, span: 3, node: <FloorSetting /> },
+        { key: "floor", row: 2, at: 1, span: 9, node: <FloorSetting /> },
         { key: "sources", row: 2, at: 10, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
         { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another fan, same land") },
       ]}
@@ -624,8 +624,10 @@ export function ErodeRow(p: RowProps<ErodeUi, ErodeSettings>) {
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("erode", u.power, (v) => set({ power: v }), "How deep the rock wears") },
         { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide it wears", sz, String(sz), ERODE_SIZE_MIN, ERODE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
-        // (no choice of its own, and no Sources: it never wears a source's tile; so the Floor runs on over Sources' place and
-        // Try another stays where every force has it, the end of the second row)
+        // (no choice of its own, and no Sources: it never wears a source's tile; so a line of words says what decides the
+        // form, filling the first row's end, and the Floor runs on over Sources' place; Try another stays where every force
+        // has it, the end of the second row, and both rows stay full on the bar's cells)
+        { key: "form", row: 1, at: 7, span: 7, centre: true, node: <Words>The land decides the form</Words> },
         { key: "floor", row: 2, at: 1, span: 11, node: <FloorSetting /> },
         { key: "again", row: 2, at: 12, span: 2, node: again(p, "Another erosion, same land") },
       ]}
