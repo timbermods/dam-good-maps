@@ -1632,16 +1632,19 @@
   z-index: 21;
 }
 
-/* the land's square: half the window's height, and no taller than leaves the card under it clear of the bar */
+/* the land's square: half the window's height. Centred, it and the card under it (16px, then 85px) may reach the bar; where
+   they would come within 60px of it (a window about 800px tall or less), both lift together by the difference, so they
+   sit centred between the header and the bar (the bar and shelf take the last 72px) */
 :root {
-  --land: min(512px, 50vh, calc(100vh - 430px));
+  --land: min(512px, 50vh);
+  --land-lift: max(0px, calc(50vh + 33px + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
 }
 
 /* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
 .loading-frame + .making-backdrop {
   background: none;
   place-items: start center;
-  padding-top: calc(50vh + 33px + calc(var(--land) / 2) + 16px);
+  padding-top: calc(50vh + 33px + var(--land) / 2 + 16px - var(--land-lift));
 }
 
 .making-dialog {
@@ -1738,13 +1741,13 @@
   stroke: currentColor;
   stroke-width: 0.45;
   stroke-linejoin: round;
-  stroke-dasharray: 1;
+  /* (a gap longer than the ring and an offset just past it: a ring not yet started leaves no speck at its start) */
+  stroke-dasharray: 1 2;
 }
 
 .first-look-empty .contours path:first-child {
   stroke: var(--water-ui);
   stroke-width: 0.6;
-  opacity: 0.55;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1762,7 +1765,7 @@
   }
 
   .first-look-empty .contours path {
-    stroke-dashoffset: 1;
+    stroke-dashoffset: 1.01;
     animation: 6s linear infinite;
   }
 
@@ -1800,27 +1803,27 @@
 
 /* ring n starts 0.5 s (8.33%) after the one below it and takes 1.8 s (30%) */
 @keyframes contour-draw-1 {
-  0% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   30%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-2 {
-  0%, 8.33% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 8.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   38.33%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-3 {
-  0%, 16.67% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 16.67% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   46.67%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-4 {
-  0%, 25% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 25% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   55%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-5 {
-  0%, 33.33% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 33.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   63.33%, 100% { stroke-dashoffset: 0; }
 }
 
@@ -2463,6 +2466,242 @@
   flex: none;
   width: 20px;
   height: 20px;
+}
+
+/* ---- Showcase mode (D488 (2)): Showcase… in the empty place at the foot of On this map's list, under Reset settings
+   (the panel no taller); its sheet over the two columns, which stay where they are beneath it */
+.sheet-col + .sheet-col {
+  position: relative;
+}
+
+.sheet-col > .showcase-open {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 150px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-cols {
+  position: relative;
+}
+
+.sheet-cols.covered > .sheet-col {
+  visibility: hidden;
+}
+
+.showcase {
+  position: absolute;
+  inset: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--panel);
+}
+
+.showcase-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--line);
+}
+
+.showcase-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.showcase-head h3 svg {
+  color: var(--muted);
+}
+
+.showcase-head > .sheet-act,
+.showcase-run > .sheet-act {
+  width: 150px;
+  height: var(--line);
+  padding: 0 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.showcase-lede,
+.showcase-status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.showcase-status {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the time allowed, then the search's one button, at the stack's width and right edge */
+.showcase-run {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  column-gap: 10px;
+  align-items: center;
+  --lab: 80px;
+}
+
+/* the time gone, as a hairline filling (no number a player can't use) */
+.showcase-bar {
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  overflow: clip;
+  background: var(--rule);
+}
+
+.showcase-bar i {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .showcase-bar.on i {
+    transition: transform 1s linear;
+  }
+}
+
+/* three cards in fixed places, best first: the map's picture, then its name, beats and what it shows */
+.sc-cards {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sc-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 10px;
+  height: 134px;
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  transition: opacity var(--dur-fade) var(--ease-out);
+}
+
+/* a card arrives with a fade (never a move) */
+@starting-style {
+  .sc-card:not(.empty) {
+    opacity: 0;
+  }
+}
+
+.sc-card.on-show {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.sc-card.empty {
+  border-style: dashed;
+}
+
+.sc-pic {
+  display: block;
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--code);
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 24px;
+}
+
+.sc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sc-score {
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-open {
+  flex: none;
+  width: 72px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.sc-beats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 8px;
+}
+
+.sc-beats li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.sc-beats li svg {
+  flex: none;
+}
+
+.sc-beats li.met {
+  color: var(--ink);
+}
+
+.sc-beats li.met svg {
+  color: var(--accent);
+}
+
+.sc-says {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+  text-wrap: pretty;
 }
 
 /* ---- Your maps: in the generator's place, four to a row; more maps than it holds scroll inside it */
@@ -3325,6 +3564,11 @@ body:has(.checks-list) .show-key {
 
 .loading-frame .first-look {
   min-height: 0;
+}
+
+/* (the card under it is lifted by the same, in its padding above) */
+.loading-frame:has(+ .making-backdrop:not(.stuck)) .first-look {
+  translate: 0 calc(-1 * var(--land-lift));
 }
 
 /* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is

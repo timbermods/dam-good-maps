@@ -298,11 +298,13 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;remaining-=cut;
         if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}
     }
-    for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
-    stats[3]=stats[2]-stats[1];debug_assert!(brought||stats[3]==0.0);
     // (nothing laid: the player's Keep or working area holds the whole outline, or the map has no room there)
     if deposited==0{map.error=if (0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
-    keep_footprints(before,&mut map);
+    let kept=keep_footprints(before,&mut map);
+    // what it changed, counted on the ground as it is left: an object's footprint kept as it was takes back
+    // what it took or laid there, so only then may the balance be off (conserved otherwise, D356)
+    for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
+    stats[3]=stats[2]-stats[1];debug_assert!(brought||kept||stats[3]==0.0);
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};

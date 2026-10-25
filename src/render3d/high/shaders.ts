@@ -362,6 +362,10 @@ ${HIGH_WATER_GLSL}
     vec3 badCrest = mix(vec3(0.035, 0.023, 0.018) + vec3(0.008, 0.006, 0.004) * low, vec3(0.009, 0.007, 0.004) + vec3(0.0008, 0.0006, 0.0004) * low, smoothstep(0.25, 1.0, contamination));
     streakColour = body + mix(streakColour - cleanBody, badCrest, contamination);
     vec2 velocity = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+    #ifdef CAVES
+      // (water below its tile's surface water: its own column's current, materials.ts ownFlowAt)
+      if (waterOwnFlow.a > 0.5) velocity = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+    #endif
     float speed = smoothstep(0.02, 1.2, length(velocity));
     vec2 drift = velocity * 0.65 + vec2(0.018, -0.012) * (1.0 - speed);
     float phase = fract(t / 12.0), second = fract(t / 12.0 + 0.5);
@@ -387,6 +391,9 @@ ${HIGH_WATER_GLSL}
     float ribbons = mix(smoothstep(0.49, 0.72, vnoise(flowA * vec2(1.7, 0.7))), smoothstep(0.49, 0.72, vnoise(flowB * vec2(1.7, 0.7))), blend);
     float broad = mix(vnoise(p * 0.51), vnoise(p2 * 0.51), blend);
     float rough = texture2D(hlRough, g / hlFlowSize).r * hlRiver;
+    #ifdef CAVES
+      if (waterOwnFlow.a > 0.5) rough = waterOwnFlow.b * hlRiver;
+    #endif
     float highlights = (network * (0.18 + broad * 0.72) + ribbons * (0.16 + rough * 0.43)) * (0.35 + broad * 0.80);
     float rollA = vnoise(p * 0.70) * 0.50 + vnoise((p + direction * 1.7) * 0.70) * 0.30 + vnoise(p * 1.3 + 47.0) * 0.20;
     float rollB = vnoise(p2 * 0.70) * 0.50 + vnoise((p2 + direction * 1.7) * 0.70) * 0.30 + vnoise(p2 * 1.3 + 47.0) * 0.20;
@@ -462,6 +469,12 @@ export function waterHooks(): ShaderHooks {
             if (hlRiver > 0.5) {
               float strength = texture2D(hlRough, g / hlFlowSize).r;
               vec2 vel = (texture2D(hlFlow, g / hlFlowSize).rg * 255.0 - 128.0) / 63.5;
+              #ifdef CAVES
+                if (waterOwnFlow.a > 0.5) {
+                  strength = waterOwnFlow.b;
+                  vel = (waterOwnFlow.rg * 255.0 - 128.0) / 63.5;
+                }
+              #endif
               if (strength > 0.005) hlFoam = max(hlFoam, strength * 0.68 * smoothstep(0.40, 0.78, detailNoise(g * 1.71 - vel * hlT * 0.23)));
             }
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
