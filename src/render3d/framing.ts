@@ -87,12 +87,9 @@ export function distanceForMode(distance: number, to: "orbit" | "top"): number {
 }
 
 /** The view after switching mode, keeping the point at the centre and the zoom (D492): only the tilt changes, the target,
- *  the turn and the pitch stay (the top-down view draws north up whatever the turn, and gives it back going to the
- *  angled one) and the distance is converted so the ground scale at the centre stays. At the zoom's limits the
- *  distance is held to them, except that a distance already past a limit is not snapped to it. */
-export function viewAfterModeSwitch<V extends { mode: "orbit" | "top"; distance: number }>(view: V, mode: "orbit" | "top", limits: { min: number; max: number }): V {
+ *  the turn and the pitch stay and the distance is converted so the ground scale at the centre stays. Not held to the
+ *  zoom's limits (the wheel is), so there and back gives the view back exactly. */
+export function viewAfterModeSwitch<V extends { mode: "orbit" | "top"; distance: number }>(view: V, mode: "orbit" | "top"): V {
   if (view.mode === mode) return view;
-  const d = distanceForMode(view.distance, mode);
-  const distance = Math.min(Math.max(limits.max, view.distance), Math.max(limits.min, d));
-  return { ...view, mode, distance };
+  return { ...view, mode, distance: distanceForMode(view.distance, mode) };
 }

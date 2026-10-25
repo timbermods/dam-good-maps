@@ -272,8 +272,8 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a three-column grid
-  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
-  whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
+  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
+  whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
   (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode

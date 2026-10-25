@@ -1,7 +1,7 @@
 // The one 3D renderer (PLAN §3, EDITOR_PLAN §8), used by the generator's 3D preview and by the
 // editor. It draws a map view: terrain in 32×32 chunks (only dirty chunks are remeshed after an
 // edit; one mesher for terrain as runs, caves and overhangs included), translucent water surfaces, and
-// instanced objects. It has an orbit camera and a top-down view (north up), picks tiles against
+// instanced objects. It has an orbit camera and a top-down view (north up until turned), picks tiles against
 // the heightfield, and renders when something changed, and while water moves. Waterfalls (D201) are
 // instances of one small template per chunk (falls.ts), listed when the chunk's water is meshed.
 //
@@ -2738,21 +2738,34 @@ export class MapRenderer {
   }
 
   setMode(mode: ViewMode): void {
-    this.setView({ mode });
+    // (a map opened top-down has north up)
+    this.setView(mode === "top" ? { mode, yaw: 0 } : { mode });
     // (a map opened in a mode is framed whole, centred: D345, B1; the Top-down toggle keeps the view instead: switchMode, D492)
     this.frameMap();
     this.requestRender();
   }
 
-  /** Switch between the angled and the top-down view keeping the point at the centre and the zoom (D492: the toggle is
-   *  the player's own move, so the map doesn't jump). Only the tilt changes; the turn is kept (the top-down view draws
-   *  north up and gives the turn back). At once, as a mode always switches. */
+  /** Switch between the angled and the top-down view keeping what is at the centre of the canvas and the zoom there
+   *  (D492: the toggle is the player's own move, so the map doesn't jump). Only the tilt changes: the turn and the
+   *  pitch stay (the top-down view is turned as the angled one was, the compass turns it north in either). The point
+   *  kept is the ground the centre pixel sees, which a pan leaves off the target when the land is higher or lower
+   *  than it. At once, as a mode always switches. */
   switchMode(mode: ViewMode): void {
+    if (mode === this.view.mode) return;
     cancelAnimationFrame(this.glideFrameTo);
-    const m = this.map;
-    const next = viewAfterModeSwitch(this.view, mode, m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 });
-    if (next === this.view) return;
-    this.setView(next);
+    let v = this.view;
+    const box = this.canvas.getBoundingClientRect();
+    const seen = this.map ? this.zoomPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
+    if (seen) {
+      // (the camera stays where it is: the target slides along its line of sight to the point seen)
+      const [tx, ty, tz] = v.target;
+      const cp = Math.cos(v.pitch);
+      const cam = [tx + Math.sin(v.yaw) * cp * v.distance, ty + Math.sin(v.pitch) * v.distance, tz + Math.cos(v.yaw) * cp * v.distance];
+      const p = seen.point;
+      const along = v.mode === "orbit" ? Math.hypot(cam[0] - p[0], cam[1] - p[1], cam[2] - p[2]) : v.distance;
+      v = { ...v, target: [p[0], p[1], p[2]], distance: along };
+    }
+    this.setView(viewAfterModeSwitch(v, mode));
   }
 
   private glideFrameTo = 0;
@@ -2792,7 +2805,9 @@ export class MapRenderer {
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
     const span = Math.max(m.W, m.H);
-    this.view = { ...this.view, yaw: openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10)), pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
+    // (a top-down view is framed north up)
+    const yaw = this.view.mode === "top" ? 0 : openingYaw(m.W, m.H, (this.canvas.clientWidth || 16) / (this.canvas.clientHeight || 10));
+    this.view = { ...this.view, yaw, pitch: DEFAULT_PITCH, distance: span * 1.6, target: [m.W / 2, mean, -m.H / 2] };
     this.frameMap();
     this.requestRender();
   }
@@ -2904,7 +2919,8 @@ export class MapRenderer {
       this.ortho.top = half;
       this.ortho.bottom = -half;
       this.ortho.position.set(tx, 200, tz);
-      this.ortho.up.set(0, 0, -1);
+      // (the screen's up is the way the view faces along the ground: north at yaw 0)
+      this.ortho.up.set(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
       this.ortho.lookAt(tx, 0, tz);
       this.ortho.updateProjectionMatrix();
       // (now, not at the next frame's render: `project` and `rayAt` read the camera as the view is now)
@@ -3367,7 +3383,7 @@ export class MapRenderer {
     const v = this.view;
     const h = this.canvas.clientHeight || 1;
     const perPixel = v.mode === "top" ? (v.distance * 0.84) / h : (v.distance * 0.75) / h;
-    const yaw = v.mode === "top" ? 0 : v.yaw;
+    const yaw = v.yaw;
     // screen right and screen up, on the ground
     const rx = Math.cos(yaw);
     const rz = -Math.sin(yaw);
