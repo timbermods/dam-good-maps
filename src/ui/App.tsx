@@ -258,6 +258,12 @@ export function App() {
   /** The host's new map is going into the session's worker and the guest is being sent it: from there it cannot be taken back
    *  (a Cancel then would leave the host's editor, its worker and the guest on three different maps), so Cancel waits it out. */
   const committing = useRef(false);
+  /** The same, for the dialog: its Cancel is off and its words say the map is opening for as long as it is true. */
+  const [sealed, setSealed] = useState(false);
+  const commit = (on: boolean) => {
+    committing.current = on;
+    setSealed(on);
+  };
   committingNow = () => committing.current;
   /** The open map's land and water as the editor shows it, for Your maps' picture. */
   const picture = useRef<(() => MapPicture | null) | null>(null);
@@ -879,7 +885,7 @@ export function App() {
       // session's guest is sent the map, so both players get the final name)
       const typed = nextNameRef.current?.trim();
       let named = false;
-      if (shared) committing.current = true;
+      if (shared) commit(true);
       const fresh = await replacing(async () => {
         const opened = await (shared ? generator.openProject(r.project) : generator.refine());
         if (!typed) return opened;
@@ -910,7 +916,7 @@ export function App() {
       return null;
     } finally {
       maker?.stop();
-      if (maker) committing.current = false;
+      if (maker) commit(false);
       if (sharedGen.current === maker) sharedGen.current = null;
       if (id === runId.current) {
         discardAllowed.current = false;
@@ -1092,7 +1098,7 @@ export function App() {
         if (run_ !== runId.current) return;
         maker.stop();
         load = () => generator.openProject(built.bytes);
-        committing.current = true;
+        commit(true);
       }
       const data = await replacing(load, shared);
       if (run_ !== runId.current && !shared) return;
@@ -1112,7 +1118,7 @@ export function App() {
       }
     } finally {
       maker?.stop();
-      if (maker) committing.current = false;
+      if (maker) commit(false);
       if (sharedGen.current === maker) sharedGen.current = null;
       if (run_ === runId.current) {
         discardAllowed.current = false;
@@ -1239,21 +1245,21 @@ export function App() {
     if (making !== "making" && making !== "back") return;
     const hold = (e: KeyboardEvent) => {
       e.stopPropagation();
-      if (e.key === "Escape" && making === "making") {
+      if (e.key === "Escape" && making === "making" && !sealed) {
         e.preventDefault();
         void cancelMaking();
       } else if (e.key !== "Tab") e.preventDefault();
     };
     window.addEventListener("keydown", hold, true);
     return () => window.removeEventListener("keydown", hold, true);
-  }, [making]);
+  }, [making, sealed]);
   const makingDialog = making ? (
     <div class="dialog-backdrop making-backdrop">
       <div class="dialog making-dialog" role={typeof making === "object" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="making-words">
         <p id="making-words" role="status">
-          {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
+          {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : sealed ? "Opening the map…" : (makingWords ?? stageText(progress))}
         </p>
-        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords ? progress : null} />}
+        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords && !sealed ? progress : null} />}
         {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
@@ -1261,7 +1267,7 @@ export function App() {
               Close
             </button>
           ) : (
-            <button type="button" class="ghost" disabled={making === "back"} {...tip("Stop making the map", "Esc")} onClick={() => void cancelMaking()} autoFocus>
+            <button type="button" class="ghost" disabled={making === "back" || sealed} {...(sealed ? tip("The map is opening") : tip("Stop making the map", "Esc"))} onClick={() => void cancelMaking()} autoFocus>
               Cancel
             </button>
           )}

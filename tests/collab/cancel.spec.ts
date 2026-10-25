@@ -187,7 +187,7 @@ test("the host opens a real place and cancels: the session stays whole and both 
   await sameLand();
 });
 
-test("Cancel pressed while the session's worker opens the built place is waited out: the host's editor, its worker and the guest keep one map", async () => {
+test("Cancel is off while the session's worker opens the built place, and Esc does nothing: the host's editor, its worker and the guest keep one map", async () => {
   const [h, g] = [host!.page, guest!.page];
   const before = (await info(h)).name;
   // (the gallery may be open still from the step before: the header's button toggles it)
@@ -204,11 +204,16 @@ test("Cancel pressed while the session's worker opens the built place is waited 
     while (busy) await Promise.all([1, 2, 3].map(() => h.evaluate(async () => void (await window.dgmEditor!.worker.project(9)))));
   })();
   await h.waitForFunction(() => window.dgm!.committing!(), null, { timeout: 240_000 });
-  await dialog(h).getByRole("button", { name: "Cancel" }).click();
+  // in that step Cancel is off and says so, and the words say the map is opening (D351); Esc does nothing
+  const cancel = dialog(h).getByRole("button", { name: "Cancel" });
+  await expect(cancel).toBeDisabled();
+  await expect(cancel).toHaveAttribute("title", "The map is opening");
+  await expect(dialog(h).getByRole("status")).toHaveText("Opening the map…");
+  await h.keyboard.press("Escape");
   busy = false;
   await flood;
   await expect(dialog(h)).toHaveCount(0, { timeout: 240_000 });
-  // one map on both sides: the place, opened (Cancel in that step does nothing)
+  // one map on both sides: the place, opened
   await expect.poll(async () => (await info(h)).name, { timeout: 120_000 }).not.toBe(before);
   await expect.poll(async () => (await info(g)).name, { timeout: 120_000 }).toBe((await info(h)).name);
   await sameLand();
