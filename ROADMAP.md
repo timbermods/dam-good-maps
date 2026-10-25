@@ -774,9 +774,11 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    **Built (the hover's data):** each held drought day's `weather` event carries `firstDry` (an `Int16Array` per tile: 0
    for water that lasts every day worked out so far, or no water on Day 0; else the first day it holds none) and
    `firstDryThrough` (the last day it covers, at least the day sent), for "Dry on day 6" and "Lasts the drought" (D133).
-   `core/sim/droughtLine.ts` `DryDays` reads it from the days the run keeps, one pass per day, "dry" as the view and the
-   line read it (no depth over `WATER_BODY`, seen from above on caves); `tests/contract/droughtFirstDry.test.ts`. The
-   page's hover line is the page session's.
+   Each held badtide day carries `firstBad` and `firstBadThrough` the same way: 0 for no badwater on any day so far, or
+   badwater already on Day 0; else the first day the tile holds badwater (water with contamination at 0.05 or more,
+   where the hover's "badwater" begins). `core/sim/firstDays.ts` `DryDays` and `BadDays` read them from the days the run
+   keeps, one pass per day, "dry" as the view and the line read it (no depth over `WATER_BODY`), both seen from above on
+   caves; `tests/contract/weatherFirstDays.test.ts`. The page's hover lines are the page session's.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
