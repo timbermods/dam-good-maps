@@ -209,10 +209,13 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   if (cut !== null) for (let i = 0; i < N; i++) if (base.heights[i] > cut) keep[i] = 1;
   // (Erode is the force that works under roofs, D281: it reads the map's voxels, caves and all)
   const caves = req.verb !== "erode" ? new Uint8Array(N) : null;
+  // (and the ground holding objects set under a roof, a drain in a cliff: the force runs round it, D491)
+  const holds = caves && input.state.hold?.length ? new Uint8Array(N) : null;
   if (caves) {
     const list = [...input.caves];
     for (const i of list) caves[i] = keep[i] = 1;
     if (list.length) for (const i of holdersOf(base, list)) keep[i] = 1;
+    if (holds) for (const [i] of input.state.hold!) if (i >= 0 && i < N) holds[i] = keep[i] = 1;
   }
   // the working area (D254, D259): the land outside it is locked, unbreakable rock to the force
   const inside = req.area ? areaDepth(req.area, W, H) : null;
@@ -252,6 +255,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
   if (held) {
     // (a cave's tile or the ground holding up its roof: the refusal says where, D487)
     if (cut !== null && base.heights[at(held)] > cut) return refuse(req.verb === "carve" ? "That ground is above the layer showing: show it to carve there" : hidden);
+    if (holds?.[at(held)] && !caves?.[at(held)]) return refuse(`That ground keeps an object in place at X ${held[0]} · Y ${held[1]}: a force leaves it as it is`);
     return refuse(caveRefusal(req.verb, !!caves?.[at(held)], held));
   }
   // (a drawn line pressed on a cave: the gesture's own point is one a force leaves as it is)

@@ -367,18 +367,23 @@ function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
   return false;
 }
 
+/** The columns that are not one plain run, as they stand: each one's voxels and its mask (`ColumnTerrain`'s, the
+ *  renderer's lookup); empty on a heightfield. */
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
+  const mask = s.terrain.mask;
   const tiles = new Int32Array(cols.size);
   const voxels = new Uint8Array(cols.size * LAYERS);
+  const masks = new Uint32Array(cols.size);
   let k = 0;
   for (const [i, c] of [...cols.entries()].sort((a, b) => a[0] - b[0])) {
     tiles[k] = i;
     voxels.set(c.subarray(0, LAYERS), k * LAYERS);
+    masks[k] = mask[i];
     k++;
   }
-  return { tiles, voxels };
+  return { tiles, voxels, masks };
 }
 
 /** The objects the page has (to send only what changed). */
@@ -2444,7 +2449,7 @@ function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
         for (let z = 0; z < LAYERS; z++) if ((m >>> z) & 1) voxels[k * LAYERS + z] = 1;
         f.shownMasks![i] = m;
       });
-      out.columns = { tiles: Int32Array.from(tiles), voxels };
+      out.columns = { tiles: Int32Array.from(tiles), voxels, masks: Uint32Array.from(tiles, (i) => masks[i]) };
     }
   }
   const rect = changedRect(W, H, f.shown, map.heights);

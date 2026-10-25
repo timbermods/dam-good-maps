@@ -68,7 +68,7 @@ import { RunSoil, runSoilOn } from "./runSoil";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
-import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -1112,8 +1112,8 @@ export class MapRenderer {
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
-    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
-    this.columnsSent = { ...v.columns, key: ++this.columnsKey };
+    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
+    this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
@@ -1630,8 +1630,8 @@ export class MapRenderer {
     this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
-      m.source = { ...m.source, columns: columnMap(columns) };
-      this.columnsSent = { ...columns, key: ++this.columnsKey };
+      m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
+      this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
