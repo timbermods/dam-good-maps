@@ -343,6 +343,11 @@ export function useSelect(ed: Ed): SelectSlice {
     setWaterHint(null);
     setSelectPreview(null);
   }
+  // (a button that greys while the pointer is on it never sees the pointer leave: the selection closing or changing
+  // takes its words with it, so the size shows again)
+  useEffect(() => {
+    if (waterHint !== null) endWaterHint();
+  }, [selectionTick]);
   // ------------------------------------------------------------------------------ Crop (D340)
 
   /** What the core says about cropping the map to the selection's bounding rectangle: its one-line reason it cannot, or
@@ -387,7 +392,9 @@ export function useSelect(ed: Ed): SelectSlice {
   function cropMap() {
     const b = selection.current.bounds();
     const why = cropWhy();
-    if (why || !b) return setMessage({ kind: "error", text: why ?? "Select an area to crop" });
+    // (nothing selected: the row beside Crop already says so, so no second note says it again)
+    if (!b) return setWaterHint(why ?? "Select an area to crop");
+    if (why) return setMessage({ kind: "error", text: why });
     endCropHint();
     // (a crop of a big map takes about a second: past 300 ms the message line says so, until the new map opens)
     const slow = window.setTimeout(() => setMessage({ kind: "info", text: "Cropping…" }), 300);
@@ -409,6 +416,7 @@ export function useSelect(ed: Ed): SelectSlice {
   /** Remove unfed water within the selection (D387): the pools no source feeds; fed water stays. */
   function removeUnfed() {
     endWaterHint();
+    if (!selection.current.count) return;
     void run(() => api.removeUnfedWater(selection.current.tiles()));
   }
 
@@ -558,7 +566,7 @@ export function useSelect(ed: Ed): SelectSlice {
             <button
               type="button"
               class="set-button"
-              disabled={!z}
+              aria-disabled={z ? undefined : "true"}
               {...tip("Fill the hollow with water up to the Level")}
               onMouseEnter={() => previewFill(level)}
               onFocus={() => previewFill(level)}
@@ -578,7 +586,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button tight" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
+            <button type="button" class="set-button tight" aria-disabled={z ? undefined : "true"} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
               Remove unfed water
             </button>
           </div>

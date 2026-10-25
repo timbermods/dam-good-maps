@@ -6,11 +6,26 @@
 // words, and Open once the search has ended. Opening a pick is the page's normal open path; nothing moves the camera
 // (D265). The search runs in its own worker and goes on while the sheet or the panel is closed.
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { tip } from "../../ui/Tooltip";
 import { ChoiceSetting } from "../settings";
-import { BEAT_LABELS, BEAT_ORDER, beatSays, beatsMet, clock, SHOWCASE_CARDS, SHOWCASE_MINUTES, showcaseCards, showcaseWords, type ShowcaseModel } from "./showcaseModel";
-import type { ShowcasePickView, ShowcaseView } from "../../worker/showcaseApi";
+import { beatSays, beatsMet, clock, SHOWCASE_CARDS, SHOWCASE_MINUTES, showcaseCards, showcaseWords, type ShowcaseModel } from "./showcaseModel";
+import { BEAT_NAMES, BEATS, type ShowcasePickView, type ShowcaseView } from "../../worker/showcaseApi";
+
+/** The clock (performance.now), once a second while a search runs: kept here, in what shows the time, so the page
+ *  itself doesn't draw again each second. */
+function useNow(running: boolean): number {
+  const [now, setNow] = useState(() => performance.now());
+  useEffect(() => {
+    if (!running) return;
+    setNow(performance.now());
+    const t = setInterval(() => setNow(performance.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  return now;
+}
+
+const isRunning = (m: ShowcaseModel) => m.state.status === "searching" || m.state.status === "stopping";
 
 /** The sheet's picture: a framed view with a spark over it, drawn as the groups' pictures are (a 1.8 stroke). */
 const SHOWCASE_ICON = (
@@ -23,7 +38,8 @@ const SHOWCASE_ICON = (
 /** The button at the panel's foot that opens the sheet; while a search runs it says the time left. */
 export function ShowcaseButton({ m, refEl }: { m: ShowcaseModel; refEl?: { current: HTMLButtonElement | null } }) {
   const st = m.state;
-  const left = st.budgetMs - (m.now - st.startedAt);
+  const now = useNow(isRunning(m));
+  const left = st.budgetMs - (now - st.startedAt);
   const words = st.status === "searching" ? (left > 0 ? `Showcase · ${clock(left)}` : "Showcase · finishing") : st.status === "stopping" ? "Showcase · stopping" : "Showcase…";
   return (
     <button ref={refEl} type="button" class="ghost sheet-act showcase-open" {...tip("Search a few minutes for a map with a story")} onClick={() => m.onOpen(true)}>
@@ -48,27 +64,27 @@ function Card({ m, view, pick, at }: { m: ShowcaseModel; view: ShowcaseView; pic
         <div class="sc-top">
           <b class="sc-name">{name}</b>
           <span class="sc-score">
-            {met} of {BEAT_ORDER.length} beats
+            {met} of {BEATS.length} beats
           </span>
           <button
             type="button"
             class="ghost sc-open"
-            disabled={!can}
+            aria-disabled={!can}
             {...tip(onShow ? "This map is open" : pick ? "Open this map in the editor" : "Opens once the search ends")}
-            onClick={() => pick && m.onOpenPick(pick)}
+            onClick={() => can && m.onOpenPick(pick!)}
           >
             Open
           </button>
         </div>
         <ul class="sc-beats" aria-label="The arc's beats">
-          {BEAT_ORDER.map((id) => {
+          {BEATS.map((id) => {
             const b = view.arc?.[id];
             return (
               <li key={id} class={b?.met ? "met" : undefined}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   {b?.met ? <path d="M2.5 6.2l2.4 2.4 4.6-5" /> : <circle cx="6" cy="6" r="3.2" />}
                 </svg>
-                <span>{BEAT_LABELS[id]}</span>
+                <span>{BEAT_NAMES[id]}</span>
                 <span class="visually-hidden">{b?.met ? ": has it" : ": not this map"}</span>
               </li>
             );
@@ -90,7 +106,8 @@ export function ShowcaseSheet({ m }: { m: ShowcaseModel }) {
     action.current?.focus({ preventScroll: true });
   }, []);
   const cards = showcaseCards(st);
-  const share = st.status === "searching" && st.budgetMs > 0 ? Math.min(1, (m.now - st.startedAt) / st.budgetMs) : st.status === "stopping" || st.status === "done" ? 1 : 0;
+  const now = useNow(running);
+  const share = st.status === "searching" && st.budgetMs > 0 ? Math.min(1, (now - st.startedAt) / st.budgetMs) : st.status === "stopping" || st.status === "done" ? 1 : 0;
   const what = st.status === "searching" ? "Stop" : st.status === "stopping" ? "Stopping…" : m.continues ? "Search more" : "Start search";
   const whatTip = st.status === "searching" ? "Stop after the map being made" : st.status === "stopping" ? "Finishing the map being made" : m.continues ? "Search more maps from these settings" : "Search maps from these settings";
   return (
@@ -123,12 +140,12 @@ export function ShowcaseSheet({ m }: { m: ShowcaseModel }) {
           options={SHOWCASE_MINUTES.map((n) => [n, `${n} min`, `Search for ${n} minutes`, running ? "not while a search runs" : false] as const)}
           onChange={m.onMinutes}
         />
-        <button ref={action} type="button" class="ghost sheet-act" disabled={st.status === "stopping"} {...tip(whatTip)} onClick={() => (st.status === "searching" ? m.onStop() : m.onStart())}>
+        <button ref={action} type="button" class="ghost sheet-act" aria-disabled={st.status === "stopping"} {...tip(whatTip)} onClick={() => (st.status === "searching" ? m.onStop() : st.status !== "stopping" && m.onStart())}>
           {what}
         </button>
       </div>
       <p class="showcase-status" role="status">
-        {showcaseWords(st, m.now)}
+        {showcaseWords(st, now)}
       </p>
       <div class={`showcase-bar${running ? " on" : ""}`} aria-hidden="true">
         <i style={{ transform: `scaleX(${share})` }} />

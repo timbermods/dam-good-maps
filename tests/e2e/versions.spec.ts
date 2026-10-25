@@ -242,3 +242,38 @@ test("two versions kept or branched within moments of each other get different n
   expect(new Set(versions).size).toBe(versions.length);
   expect(versions).toHaveLength(3);
 });
+
+test("B with no version chosen says how to choose one, and Your maps' Compare picks it", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const name = (await info(page)).name;
+  const hint = page.getByRole("status").filter({ hasText: "select a version in Your maps and press Compare" });
+
+  // B held with nothing chosen: a note on how to choose a version, not silence
+  await page.keyboard.down("b");
+  await expect(hint).toBeVisible();
+  await page.keyboard.up("b");
+
+  // a kept version; Compare is on Your maps' heading row, greyed until one other version is selected
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  await history(page).click();
+  const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await first.hover();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${name} — Raise a tile` })).toBeVisible();
+  await history(page).click();
+  const yours = await openYourMaps(page);
+  const compare = yours.getByRole("button", { name: "Compare", exact: true });
+  await expect(compare).toBeDisabled();
+  await yours.locator("li", { hasText: `${name} — Raise a tile` }).click({ modifiers: ["Control"] });
+  await expect(compare).toBeEnabled();
+  await compare.click();
+  await expect(page.locator(".compare-note")).toContainText(`Comparing with ${name} — Raise a tile`);
+  // (the how-to note has done its work)
+  await expect(hint).toHaveCount(0);
+  await page.keyboard.down("b");
+  await expect(page.locator(".compare-veil")).toHaveCount(1);
+  await page.keyboard.up("b");
+});

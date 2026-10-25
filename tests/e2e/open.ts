@@ -127,3 +127,10 @@ export async function setLevel(scope: Locator, v: number | "free" | "follow"): P
   const s = scope.getByRole("slider", { name: "Level", exact: true });
   await s.fill(v === "free" ? (await s.getAttribute("max"))! : String(v));
 }
+
+/** Look straight down for a spec's setup: the Top-down toggle keeps the view's turn and zoom (D492), so Reset view follows it, which
+ *  frames the whole map north up in the top-down view, as the toggle itself did before. A spec of the toggle clicks the button itself. */
+export async function topDown(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Top-down", exact: true }).click();
+  await page.getByRole("button", { name: "Reset view", exact: true }).click();
+}
