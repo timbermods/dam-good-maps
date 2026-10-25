@@ -35,6 +35,20 @@ describe("the store", () => {
     expect(await s.project("nope")).toBe(null);
   });
 
+  it("keeps a kept version's edited-since mark with its entry, and a rename or a copy leaves it", async () => {
+    const s = openYourMaps(new IDBFactory());
+    const parent = { name: "River", label: "Raise a tile", steps: 5 };
+    await s.put(entry("v", 1, { parent, editedSince: true }), bytes(1));
+    await s.put(entry("w", 2, { parent }), bytes(2));
+    await s.rename("v", "River A");
+    await s.copy("v", { id: "c", name: "River A (copy)", at: at(5) });
+    const list = new Map((await s.list()).map((e) => [e.id, e]));
+    expect(list.get("v")).toMatchObject({ name: "River A", parent, editedSince: true });
+    expect(list.get("c")?.editedSince).toBe(true);
+    // a version never edited has no mark
+    expect(list.get("w")?.editedSince).toBeUndefined();
+  });
+
   it("never drops a map on its own", async () => {
     const s = openYourMaps(new IDBFactory());
     for (let k = 1; k <= 40; k++) await s.put(entry(`m${k}`, k), bytes(k));

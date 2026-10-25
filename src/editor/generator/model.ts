@@ -13,6 +13,8 @@ export interface YourMapRow {
   thumbnail: string | null;
   /** A kept version: the map it came from and the History step it was taken at. */
   parent?: VersionParent;
+  /** The kept version was edited after it was kept. */
+  editedSince?: boolean;
 }
 
 /** What the page gives the generator and Your maps. */

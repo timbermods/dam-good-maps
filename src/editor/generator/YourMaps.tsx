@@ -154,8 +154,8 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                   ) : null}
                   {/* a kept version: where it came from, small and quiet, a line of its own */}
                   {e.parent ? (
-                    <span class="ym-from" {...tip(parentFull(e.parent))}>
-                      {parentLine(e.parent)}
+                    <span class="ym-from" {...tip(parentFull(e.parent, e.editedSince))}>
+                      {parentLine(e.parent, e.editedSince)}
                     </span>
                   ) : null}
                 </span>

@@ -21,14 +21,15 @@ export function versionName(map: string, label: string): string {
   return room >= 2 ? `${map.slice(0, room - 1).trimEnd()}…${tail}` : `${map}${tail}`.slice(0, NAME_MAX);
 }
 
-/** The quiet line under a kept version in Your maps: where it came from and the step it holds. */
-export function parentLine(p: VersionParent): string {
-  return `${p.name} · step ${p.steps}`;
+/** The quiet line under a kept version in Your maps: where it came from and the step it holds; once the version has been
+ *  edited since it was kept, that comes first (the line is cut at its end, and the name is the long part). */
+export function parentLine(p: VersionParent, editedSince = false): string {
+  return editedSince ? `Edited since step ${p.steps} · ${p.name}` : `${p.name} · step ${p.steps}`;
 }
 
 /** The same in words, for the line's tooltip (a tooltip is a short phrase: the map's name is shortened to fit). */
-export function parentFull(p: VersionParent): string {
-  const tail = p.steps > 0 ? `, step ${p.steps}` : ", as it began";
+export function parentFull(p: VersionParent, editedSince = false): string {
+  const tail = (p.steps > 0 ? `, step ${p.steps}` : ", as it began") + (editedSince ? ", edited since" : "");
   const room = TIP_MAX - "From ".length - tail.length;
   const name = p.name.length <= room ? p.name : `${p.name.slice(0, Math.max(1, room - 1)).trimEnd()}…`;
   return `From ${name}${tail}`;

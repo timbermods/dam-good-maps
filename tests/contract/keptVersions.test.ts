@@ -78,6 +78,11 @@ describe("a version of a map at a step of its History", () => {
     expect(parentLine(v.parent)).toBe(`${s.meta.name} · step 2`);
     expect(parentFull(v.parent)).toBe(`From ${s.meta.name}, step 2`);
     expect(parentFull({ ...v.parent, name: "A".repeat(90) }).length).toBeLessThanOrEqual(60);
+    // edited since it was kept: the line says so first (it is cut at its end), the tooltip last, both within their limits
+    expect(parentLine(v.parent, true)).toBe(`Edited since step 2 · ${s.meta.name}`);
+    expect(parentFull(v.parent, true)).toBe(`From ${s.meta.name}, step 2, edited since`);
+    expect(parentFull({ ...v.parent, name: "A".repeat(90) }, true).length).toBeLessThanOrEqual(60);
+    expect(parentFull({ ...v.parent, name: "A".repeat(90) }, true)).toMatch(/, step 2, edited since$/);
     const begin = s.versionProject(-1)!;
     expect(begin.name).toBe(`${s.meta.name} — The generated map`);
     expect(begin.parent.steps).toBe(0);

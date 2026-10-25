@@ -24,6 +24,10 @@ export interface LabelIn {
    *  their place, never merge into another, and say their own number. */
   feeding: boolean;
   target: boolean;
+  /** A note of its own words instead of a strength (a seep, an aquifer, a core, a reserve: the core's `markerNotes`), which
+   *  never merges with another; `warn` draws it as a warning (an aquifer that gives no water without a drill). */
+  text?: string;
+  warn?: boolean;
   /** What this label did last frame (its `dx`, `dy` and `into`), kept while it is still clear. */
   prev?: { dx: number; dy: number; into: number | null } | null;
 }
@@ -42,6 +46,7 @@ export interface LabelOut {
   strength: number;
   bad: boolean;
   words: string;
+  warn?: boolean;
   /** The labels merged into this one (their ids), if any. */
   merged: number[];
   /** The label this one's words went into, if any (it is not drawn). */
@@ -132,7 +137,7 @@ interface Item extends LabelIn {
 }
 
 /** Whether two labels may speak as one: the same kind of water, neither the pointer's own, both feeding or neither. */
-const mergeable = (a: Item, b: Item) => !a.target && !b.target && a.bad === b.bad && a.feeding === b.feeding;
+const mergeable = (a: Item, b: Item) => !a.target && !b.target && a.text === undefined && b.text === undefined && a.bad === b.bad && a.feeding === b.feeding;
 const apart = (a: Item, b: Item) => Math.hypot(a.ax - b.ax, a.ay - b.ay);
 
 function absorb(keep: Item, victim: Item, byId: Map<number, Item>) {
@@ -156,14 +161,14 @@ export function layoutLabels(labels: readonly LabelIn[], env: LayoutEnv): LabelO
   const first = new Map(labels.map((l) => [l.id, l]));
   for (const l of labels) {
     const keep = l.prev?.into != null ? first.get(l.prev.into) : undefined;
-    if (keep && keep.id !== l.id && !l.target && !keep.target && l.bad === keep.bad && l.feeding === keep.feeding && Math.hypot(l.ax - keep.ax, l.ay - keep.ay) <= NEARBY) carried.set(l.id, keep.id);
+    if (keep && keep.id !== l.id && !l.target && !keep.target && l.text === undefined && keep.text === undefined && l.bad === keep.bad && l.feeding === keep.feeding && Math.hypot(l.ax - keep.ax, l.ay - keep.ay) <= NEARBY) carried.set(l.id, keep.id);
   }
   for (;;) {
     const out = lay(labels, env, carried);
     // (a merge is let go once the label's own spot is clear by a little more than a label needs, so it does not flicker)
     let letGo = false;
     // (the label it went into counts at its own width, not the merged one, which is what it would go back to)
-    const alone = (l: LabelIn) => env.width(labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
+    const alone = (l: LabelIn) => env.width(l.text ?? labelWords(l.count, l.strength, l.bad), l.target || l.feeding);
     for (const [id, into] of carried) {
       const l = first.get(id)!;
       const w = alone(l);
@@ -233,10 +238,10 @@ function place(items: Item[], env: LayoutEnv): { out: LabelOut[]; crowded: numbe
   for (const i of order) {
     const it = items[i];
     const strong = it.target || it.feeding;
-    const words = labelWords(it.count, it.strength, it.bad, it.members.length > 0);
+    const words = it.text ?? labelWords(it.count, it.strength, it.bad, it.members.length > 0);
     const w = env.width(words, strong);
     const natural: Rect = { x: it.ax - w / 2, y: it.ay - h * LIFT, w, h };
-    const base: LabelOut = { id: it.id, ax: it.ax, ay: it.ay, dx: 0, dy: 0, x: it.ax, y: it.ay, count: it.count, strength: it.strength, bad: it.bad, words, merged: it.members, into: null, hidden: false, box: natural };
+    const base: LabelOut = { id: it.id, ax: it.ax, ay: it.ay, dx: 0, dy: 0, x: it.ax, y: it.ay, count: it.count, strength: it.strength, bad: it.bad, words, ...(it.warn ? { warn: true } : {}), merged: it.members, into: null, hidden: false, box: natural };
     // a source outside the view has no label; a plain one behind a panel has none either (the pointer's and the
     // feeding ones are moved clear of it instead)
     if (!inside(view, it.ax, it.ay) || (!strong && obstacles.some((o) => inside(o, it.ax, it.ay)))) {

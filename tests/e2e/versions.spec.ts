@@ -195,3 +195,63 @@ test("holding B right after an edit holds the flip while the water settles, and 
   await page.waitForTimeout(300);
   expect(await drawn(page)).toBe(open);
 });
+
+test("editing a kept version says so once, and its card in Your maps says it was edited since", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const name = (await info(page)).name;
+  const keptName = `${name} — Raise a tile`;
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  await history(page).click();
+  const first = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await first.hover();
+  await first.getByRole("button", { name: "Keep this version" }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Kept as ${keptName}` })).toBeVisible();
+  await history(page).click();
+
+  // its card, as kept: no mention of an edit
+  const yours = await openYourMaps(page);
+  const card = yours.locator("li", { hasText: keptName });
+  await expect(card.locator(".ym-from")).toHaveText(`${name} · step 1`);
+
+  // opened: nothing yet; the first edit says the kept version itself is changing
+  await card.click();
+  await expect.poll(async () => (await info(page)).name).toBe(keptName);
+  await idle(page);
+  const told = page.getByRole("status").filter({ hasText: "Editing your kept version" });
+  await expect(told).toHaveCount(0);
+  await edit(page, [[60, 60, 64]], "Raise a wall");
+  await expect(told).toBeVisible();
+
+  // once: a second edit brings it back only if it was put away, and then not
+  await told.getByRole("button", { name: "Dismiss" }).click();
+  await expect(told).toHaveCount(0);
+  await edit(page, [[20, 20, 36]], "Raise a ridge");
+  await idle(page);
+  await expect(told).toHaveCount(0);
+
+  // the card says it was edited since, once the save has landed
+  const again = await openYourMaps(page);
+  await expect(again.locator("li", { hasText: keptName }).locator(".ym-from")).toHaveText(`Edited since step 1 · ${name}`, { timeout: 30_000 });
+  await expect(again.locator("li", { hasText: keptName }).locator(".ym-from")).toHaveAttribute("title", `From ${name}, step 1, edited since`);
+});
+
+test("Branch from here opens its copy for editing without the kept version's warning", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const name = (await info(page)).name;
+  await edit(page, [[40, 40, 44]], "Raise a tile");
+  await idle(page);
+  await history(page).click();
+  const row = page.getByRole("complementary", { name: "History" }).locator(".hist-item").nth(1);
+  await row.hover();
+  await row.getByRole("button", { name: "Branch from here" }).click();
+  await expect.poll(async () => (await info(page)).name).toBe(`${name} — Raise a tile`);
+  await idle(page);
+  await edit(page, [[60, 60, 64]], "Raise a wall");
+  await idle(page);
+  await expect(page.getByRole("status").filter({ hasText: "Editing your kept version" })).toHaveCount(0);
+});

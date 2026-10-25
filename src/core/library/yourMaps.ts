@@ -30,6 +30,9 @@ export interface YourMapEntry {
   size?: { w: number; h: number };
   /** A kept version (src/core/library/keptVersions.ts): the map it came from and the History step it was taken at. */
   parent?: VersionParent;
+  /** A kept version that has been edited since it was kept (set at the first applied operation after it was opened): its
+   *  card in Your maps says so, since the kept copy itself changed. */
+  editedSince?: boolean;
 }
 
 /** A project file's map size, read from its base header without rebuilding the map; null if unreadable. */

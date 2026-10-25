@@ -2,12 +2,17 @@
 // over them (drawn by `SourceLabels`: nudged apart, kept off the panels, merged when crowded).
 
 import type { JSX } from "preact";
-import { useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { FLUIDS } from "../../core/data/parity";
+import type { MarkerNote } from "../../core/doc/objectOps";
 import type { TileHit } from "../../render3d";
 import { feedingGroups, sourceGroups, sourceStrengths, sourceStrengthWords, type SourceGroup } from "../features";
 import type { Ed } from "../ed";
 import { SourceLabels } from "./SourceLabels";
 import type { LabelIn } from "./labelLayout";
+
+/** A note's label id: past every source group's (an index of the groups). */
+const NOTE_ID = 100000;
 
 export interface MarkersSlice {
   groupsRef: { current: SourceGroup[] };
@@ -20,7 +25,7 @@ export interface MarkersSlice {
 
 export function useMarkers(ed: Ed): MarkersSlice {
   const {
-    info, mirror, renderer, ready, shelf, markersOn, setNearSources, nearSources, setFeeding, feeding, viewTick,
+    api, info, mirror, renderer, ready, shelf, markersOn, setNearSources, nearSources, setFeeding, feeding, viewTick,
     infoRef, targeted, strengthTick, strengthOfEntity
   } = ed;
 
@@ -72,12 +77,28 @@ export function useMarkers(ed: Ed): MarkersSlice {
   const pointedWords = targeted !== null ? (() => { const s = sourceStrengths(groups, strengthOfEntity, targeted); return s ? sourceStrengthWords(s) : null; })() : null;
   const targetGroup = targeted === null ? -1 : groups.findIndex((g) => g.members.includes(targeted));
   const shownGroups = shelf?.source || markersOn ? groups.map((_, k) => k) : [...new Set([...nearSources, ...feeding, ...(targetGroup >= 0 ? [targetGroup] : [])])];
+  // the water objects, cores and reserves have labels of their own words (the core's `markerNotes`, D337): worked out
+  // by the worker, from the objects as the map holds them, whenever the objects change while every marker shows
+  const showAll = !!(shelf?.source || markersOn);
+  const [notes, setNotes] = useState<MarkerNote[]>([]);
+  useEffect(() => {
+    if (!showAll || !ready) return;
+    let live = true;
+    api
+      .markerNotes()
+      .then((n) => live && setNotes(n))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [showAll, ready, info.version, mirror.current.entities, strengthTick]);
+  const shownNotes = showAll ? notes : [];
   const markerRef = useRef(false);
-  markerRef.current = shownGroups.length > 0;
+  markerRef.current = shownGroups.length > 0 || shownNotes.length > 0;
 
   function sourceMarkers() {
     const r = renderer.current;
-    if (!r || !shownGroups.length) return null;
+    if (!r || (!shownGroups.length && !shownNotes.length)) return null;
     void viewTick;
     const items: LabelIn[] = [];
     for (const k of shownGroups) {
@@ -89,6 +110,11 @@ export function useMarkers(ed: Ed): MarkersSlice {
       const target = k === targetGroup;
       items.push({ id: k, ax: p.x, ay: p.y, count: g.members.length, strength: g.strength, bad: g.bad, feeding: feed, target });
     }
+    shownNotes.forEach((n, k) => {
+      const p = r.project(n.at[0], n.z + 0.6, -n.at[1]);
+      if (!p.visible) return;
+      items.push({ id: NOTE_ID + k, ax: p.x, ay: p.y, count: 1, strength: 0, bad: false, feeding: false, target: false, text: n.text, ...(FLUIDS[n.template]?.needsDrill ? { warn: true } : {}) });
+    });
     return items.length ? <SourceLabels items={items} /> : null;
   }
 

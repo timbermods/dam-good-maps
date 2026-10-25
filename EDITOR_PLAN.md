@@ -127,7 +127,11 @@ place of its bottom rule.
   is an ordinary project on the same land with the History's first steps replayed on it (`MapSession.versionProject`, the
   stored map built so it reopens byte for byte, D455); no new file format, and the map it came from is untouched. Its meta
   says where it came from (`meta.parent`: map, step label, step count), so Your maps shows "<map> · step N" small under the
-  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Compare**: Your maps' right-click
+  size (`core/library/keptVersions.ts`, `tests/contract/keptVersions.test.ts`). **Editing a kept version** changes that
+  version (it is an ordinary project; Branch from here is the copy to try an idea on): the first edit after it is opened
+  says so once, over the map ("Editing your kept version. Undo puts it back; History's Branch from here keeps a copy."; not
+  for the branch just made), and its card then reads "Edited since step N · <map>" (`editedSince` on its Your maps entry).
+  **Compare**: Your maps' right-click
   **Compare with the open map** (the same size only; greyed with the reason for another size) reads the other map once, settled, in a worker of its own; a note
   "Comparing with <name>" with **Stop** shows over the map, and holding **B** (or the note's button) flips the land, objects and
   water to the other map at the same camera, a name chip over the map while it is on show; anything that redraws the open map (an edit, an undo, a force, a peer) puts it back and ends the flip, the minimap follows the flip, and letting go puts the open map back; Compare shows the surface only on an import with caves or overhangs
@@ -281,8 +285,8 @@ place of its bottom rule.
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
-  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources
-  and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
+  height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
+  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
   and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
   **Legend** stands alone at the top right, just left of Top-down. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
@@ -357,7 +361,9 @@ place of its bottom rule.
   the click (`chooseSaveFolder`), then the map is built with its progress on the button, then written (`saveIntoFolder`): the
   picker needs the click's user activation, which lapses in seconds, long before a big map is built.
 - **Checks:** a quiet dot, green or amber, with its words. Clicking it lists the problems, each with Fix and Show,
-  highlighted on the map. Never a pop-up.
+  highlighted on the map. Never a pop-up. **Show** takes the camera to the problem as before and marks every tile the check
+  names with the page's highlight (the legend's: a blue tint, brighter at the edge) until Esc, a press on the map, another
+  Show or a few seconds (`editor/view/useViewSync.ts`).
 - **No notices strip** (Kyler, 2026-10-03, amending D213): nothing under the map changes the page's size. The quiet
   dot's list says "No badwater" (Good to know, uncounted) once the last badwater spring goes, and lists an opened
   file's import flags with their fixes (counted).
@@ -829,7 +835,9 @@ Make a valley, drop a source, and there's a river.
   its water recede live. A source is drawn as the game draws one (D324): a stone basin with water welling up, a
   badwater source a darker stone basin with badwater boiling up, at its true 3×3 size. A source is always findable,
   even underwater (a subtle upwelling shows through the water); with a source picked or hovering near one, a clear
-  marker with its strength; Markers shows every source (D196). **Sources are easy to hit** (D249): with any tool
+  marker with its strength; Markers shows every source (D196), and the seeps, aquifers, drains, cores and reserves with the
+  core's `markerNotes` (D337: "Aquifer · 1 water/s · no water until a powered drill stands on it" drawn as a warning; the
+  worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels, never merged). **Sources are easy to hit** (D249): with any tool
   picked, the pointer over water or bare ground within about two tiles of a source targets it (a direct hit on
   another object wins; the nearest source wins); Delete or Backspace removes it, one undo step. **A badwater source
   cuts its own spring pool** (D290, generalised to every object by D328): it is 3 × 3 and needs level ground, so

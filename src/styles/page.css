@@ -973,10 +973,20 @@
   min-width: 0;
 }
 
+/* a setting's name and its value share a line; where they don't fit (a seep that "drains 2.5 water/s") the value goes
+   under the name, at the right, so neither is cut off */
 .ow-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  column-gap: 8px;
+}
+
+.object-window .cell-head.ow-head {
+  height: auto;
+  min-height: 16px;
+  overflow: visible;
 }
 
 .cell-body.ow-body {
@@ -984,15 +994,14 @@
 }
 
 .ow-name {
-  min-width: 0;
-  overflow: clip;
-  text-overflow: ellipsis;
+  flex: none;
 }
 
 /* a number's value at the right of its name, as the bar's settings say it */
 .ow-value {
   flex: none;
   margin-left: auto;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--ink);
