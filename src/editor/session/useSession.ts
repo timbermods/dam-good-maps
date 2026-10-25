@@ -38,6 +38,9 @@ export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
+  /** One thing the note offers to do (an info note: Undo, after a force cleared sources). It is for the step the history stood
+   *  at (`step`, the steps applied) and goes the moment another step lands, so it only ever takes back that step. */
+  action?: { label: string; tip: string; step: number; run: () => void };
 }
 
 export interface SessionSlice {
@@ -258,6 +261,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [startDrag, setStartDrag] = useState<{ x: number; y: number; check: StartCheck } | null>(null);
   const [busy, setBusy] = useState(0);
   const [message, setMessage] = useState<EditorNote | null>(null);
+  // a note that offers to take a step back goes when the history moves on (a stroke, another force, an undo or a redo)
+  const stepsApplied = info.history.filter((h) => h.applied).length;
+  useEffect(() => setMessage((m) => (m?.action && m.action.step !== stepsApplied ? null : m)), [stepsApplied]);
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */

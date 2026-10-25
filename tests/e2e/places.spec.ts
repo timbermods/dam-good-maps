@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu, openYourMaps, waitForEditor } from "./open";
+import { openEditor, openFileMenu, openYourMaps, waitForEditor, topDown } from "./open";
 import { namedFile } from "../../src/core/gen/pack";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
@@ -147,7 +147,7 @@ test("a real place replaces the open map without asking, and the replaced map st
   // a map in the editor, autosaved
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   const name = await page.evaluate(() => window.dgmEditor!.info().name);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.getByRole("button", { name: "Lower brush (3)" }).click();
   const a = await page.evaluate(() => window.dgmEditor!.tileToClient(20, 20));
   const b = await page.evaluate(() => window.dgmEditor!.tileToClient(26, 20));

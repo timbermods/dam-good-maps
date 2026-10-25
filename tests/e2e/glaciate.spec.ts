@@ -7,7 +7,7 @@
 // varies it and undo brings the first back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setWaterSpeed } from "./open";
+import { openEditor, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -22,7 +22,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 /** High, dry ground the map (not a bar over it) takes the clicks at, with room round it. */
