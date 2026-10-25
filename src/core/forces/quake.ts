@@ -4,8 +4,8 @@
 // each part of it lies (a straight fault's one heading; a curved one's, bending with it) while the
 // other bank stays (where level ground slides along level ground and nothing would show, the ground
 // splits along the fault instead, a level up and down, D356), and
-// a river that crossed the fault is joined again along it. Power sets the throw and the shaking's
-// reach; Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
+// a river that crossed the fault is joined again along it. Power sets the throw and how far past the drawn line
+// it reaches (quakeMargin); Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it
 // never minds the start (the editor carries it to level ground when its own breaks, D257), and it
 // never adds water: the water there moves with the land.
@@ -49,8 +49,21 @@ export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
 export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
-/** How far the shaking reaches from the fault (tiles) at a Power (the editor's ring, D312). */
-export const quakeReach = (power: number) => 14 + power * 0.5;
+/** How far a quake reaches past its drawn line (tiles) at a Power: the ground a Lift changes lies within twice this of the
+ *  line, its ends included (D344 A6: the quake's line is its length), or within 1.3 times a longer line's length: 2 tiles
+ *  at Power 0, 8 at 100. A short line never reaches the 40 tiles the old shaking did. The same number is in rust/forces
+ *  (`Fault::margin`). */
+export const quakeMargin = (power: number) => 2 + Math.round(power * 0.06);
+/** How far a Slide carries its ground (whole tiles): `slideTiles`, but a short line carries it no further than its own
+ *  length, rounded down (at least 2 tiles), so the quake stays near its line. The same in rust/forces (`Fault::new`). */
+export const slideTravel = (power: number, lineLength: number) => Math.min(slideTiles(power), Math.max(Math.floor(lineLength), 2));
+/** The most a quake of a line this long (tiles) reaches from it at a Power: the changed ground's distance from the drawn
+ *  line, a Slide's land landing its travel further along it. A Slide's block is the line's 1.3 times its length or the
+ *  margin around it, and its edge fades over half a margin. */
+export const quakeExtent = (power: number, lineLength: number, mode: "lift" | "slide") => {
+  const margin = quakeMargin(power);
+  return mode === "slide" ? Math.max(margin, lineLength * 1.3) + margin * 0.5 + slideTravel(power, lineLength) : Math.max(margin * 2, lineLength * 1.3);
+};
 
 /** Throws why a quake can't start (its settings, settings.ts; its fault on the land). */
 export function validateQuake(s: QuakeSettings, m: { W: number; H: number }, i: QuakeIntent): void {
@@ -70,7 +83,7 @@ export interface FaultSegment {
 }
 
 /** The fault as it cracked: the stroke resampled with seeded roughness (`points`, `segments`), its length,
- *  how far the shaking reaches from it (tiles), the lift and the slide, the block's one heading (the
+ *  the scale of its timing and tilt (tiles), the lift and the slide, the block's one heading (the
  *  stroke's first point to its last), and the drawn line's own direction along it (D327), every tile
  *  of its length. */
 export interface FaultShape {

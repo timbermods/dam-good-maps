@@ -36,6 +36,17 @@ export interface TileFacts {
   soil(i: number): "moist" | "dry" | "contaminated" | null;
   /** The objects whose footprint covers the tile. */
   objects(i: number): TileObject[];
+  /** The ground of the run top at `level` below tile i's top (a cave's floor, a ledge under an overhang, the map's
+   *  floor under air): its soil and the water standing on it. Null where the map has none to say (a tile without
+   *  caves, a level that is no run top, soil not worked out). Only asked when the pointer is on a level below the
+   *  tile's top (`describeTile`'s `level`). */
+  runTop?(i: number, level: number): RunTopFacts | null;
+}
+
+/** What `TileFacts.runTop` says of one run top below its tile's top. */
+export interface RunTopFacts {
+  soil: "moist" | "dry" | "contaminated" | null;
+  water: { depth: number; contamination: number } | null;
 }
 
 export interface TileGround {
@@ -113,8 +124,19 @@ export function describeObject(o: TileObject): DescribedObject {
   return { template, name, fact, text: fact ? `${name}, ${fact}` : name };
 }
 
-/** The ground of tile i: its height, its water, and its soil once dry. */
-function groundOf(f: TileFacts, i: number): TileGround {
+/** The ground of tile i: its height, its water, and its soil once dry. Pointing at a run top below the tile's top
+ *  (`level`, a cave's floor under its roof) it is that run's: the level, its water and its soil, never the roof's. */
+function groundOf(f: TileFacts, i: number, level?: number): TileGround {
+  const r = level !== undefined && level < f.height(i) ? (f.runTop?.(i, level) ?? null) : null;
+  if (level !== undefined && r) {
+    const rw = r?.water ?? null;
+    const percent = rw ? Math.round(rw.contamination * 100) : 0;
+    return {
+      height: level,
+      water: rw ? { depth: rw.depth, badwater: rw.contamination >= 0.95, percentBad: rw.contamination > 0.05 && rw.contamination < 0.95 ? percent : 0 } : null,
+      soil: rw ? null : (r?.soil ?? null),
+    };
+  }
   const w = f.water(i);
   const percent = w ? Math.round(w.contamination * 100) : 0;
   return {
@@ -124,11 +146,13 @@ function groundOf(f: TileFacts, i: number): TileGround {
   };
 }
 
-/** What is on tile (x, y): its ground and each object standing on it. */
-export function describeTile(f: TileFacts, x: number, y: number): TileDescription | null {
+/** What is on tile (x, y): its ground and each object standing on it. `level` is the level of the ground the pointer
+ *  is on (the voxel pick's `TileHit.level`, the top of the run hit): on a tile with a cave it names the cave's floor
+ *  rather than the roof, with that run's soil and water. Left out, or the tile's top, it is the ground seen from above. */
+export function describeTile(f: TileFacts, x: number, y: number, level?: number): TileDescription | null {
   if (x < 0 || y < 0 || x >= f.W || y >= f.H) return null;
   const i = y * f.W + x;
-  return { x, y, ground: groundOf(f, i), objects: f.objects(i).map(describeObject) };
+  return { x, y, ground: groundOf(f, i, level), objects: f.objects(i).map(describeObject) };
 }
 
 // ------------------------------------------------------------------- the water-changed signal
@@ -194,6 +218,24 @@ export function objectOf(e: EntitySpec): TileObject {
   return out;
 }
 
+/** Which run of a tile's voxel column (`v`, 1 solid) has its top at `level`, runs counted from the bottom as the file
+ *  stores them (run 0 is the empty one under a column whose bottom voxel is air, its top level 0); -1 where none has.
+ *  The last run is the tile's top. */
+export function runIndexAt(v: ArrayLike<number>, level: number): number {
+  let k = 0;
+  if (!v[0]) {
+    if (level === 0) return 0;
+    k = 1;
+  }
+  for (let z = 0; z < v.length; z++) {
+    if (v[z] && (z + 1 >= v.length || !v[z + 1])) {
+      if (z + 1 === level) return k;
+      k++;
+    }
+  }
+  return -1;
+}
+
 /** A session's map as facts: the ground and the settled water it has now. */
 export function tileFactsOf(s: MapSession): TileFacts {
   const { x: W, y: H } = s.size;
@@ -219,6 +261,28 @@ export function tileFactsOf(s: MapSession): TileFacts {
     water: (i) => (water[i] > 0.001 ? { depth: water[i], contamination: b.contamination[i] ?? 0 } : null),
     soil: (i) => (b.soilContamination[i] > 0 ? "contaminated" : b.moisture[i] > 0 ? "moist" : "dry"),
     objects: (i) => at.get(i) ?? [],
+    runTop: (i, level) => {
+      const v = s.columns.get(i);
+      const k = v ? runIndexAt(v, level) : -1;
+      if (k < 0) return null;
+      const soil = s.showsStoredWater ? s.storedSoilRuns() : s.settledSoilRuns();
+      let kind: RunTopFacts["soil"] = null;
+      if (soil) {
+        const at = (a: { slots: number; values: ArrayLike<number> }) => (k < a.slots ? a.values[k * W * H + i] : 0);
+        kind = at(soil.contamination) > 0 ? "contaminated" : at(soil.moisture) > 0 ? "moist" : "dry";
+      }
+      // (the water standing on the run: the settle's column whose floor is the run top's level)
+      let water: RunTopFacts["water"] = null;
+      const st = s.showsStoredWater ? null : b.settle.stack;
+      if (st) {
+        const N = W * H;
+        for (let q = 0; q < st.count[i]; q++) {
+          const id = q * N + i;
+          if (st.floor[id] === level && st.depth[id] > 0.001) water = { depth: st.depth[id], contamination: st.contamination[id] ?? 0 };
+        }
+      }
+      return { soil: kind, water };
+    },
   };
 }
 
@@ -230,9 +294,9 @@ function storedDepth(s: MapSession): ArrayLike<number> {
   return out;
 }
 
-/** What is on tile (x, y) of a session's map. */
-export function describeTileOf(s: MapSession, x: number, y: number): TileDescription | null {
-  return describeTile(tileFactsOf(s), x, y);
+/** What is on tile (x, y) of a session's map (at `level`, the ground the pointer is on: see `describeTile`). */
+export function describeTileOf(s: MapSession, x: number, y: number, level?: number): TileDescription | null {
+  return describeTile(tileFactsOf(s), x, y, level);
 }
 
 // ------------------------------------------------------------------- the entities on a tile

@@ -3,7 +3,7 @@
 // start here", and after a click it is refused rather than left to the checks as "Start overlapping another object".
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -43,7 +43,7 @@ async function openGround(page: Page, r: number): Promise<[number, number][]> {
 
 test("the start's preview is red over any part of a geothermal field and says so, and is green beside it", async ({ page }) => {
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
   const [x, y] = (await openGround(page, 4))[0];
