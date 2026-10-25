@@ -74,7 +74,7 @@ describe("water", () => {
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
     const shader = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t())).fragmentShader;
     expect(shader).toContain("float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);");
-    expect(shader).toContain("return max(mix(WATER_FILM_BAD, body, waterFilm(depth)), grazing * ");
+    expect(shader).toContain("return max(mix(min(WATER_FILM_BAD, body), body, waterFilm(depth)), grazing * ");
   });
 
   it("draws the ground under a film in the water's hue (D154): teal, crimson, mixed water through the warm midpoint, never purple or mauve-grey", () => {

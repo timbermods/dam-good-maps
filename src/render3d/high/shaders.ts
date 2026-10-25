@@ -263,6 +263,7 @@ export function terrainHooks(): ShaderHooks {
     // without its water is groundColor's own groundDry, never a second groundColor here: in this branch, which
     // pixels next to each other may or may not take, its derivatives and its patterns' mipmaps would read
     // undefined values, and the bed's veins changed from one frame to the next)
+    filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
     groundTop: /* glsl */ `
           if (hlWater > 0.5 && d0.a > 0.002 && soil.w > 0.0 && clev > 0.0) {
             float polluted = texture2D(hlFlow, g / hlFlowSize).b * soil.w;
@@ -490,7 +491,7 @@ export function waterHooks(): ShaderHooks {
             hlFoam = clamp(hlFoam * (1.0 - hlBad * 0.55), 0.0, 1.0) * 0.30;
             c = mix(hlSurface.rgb, mix(vec3(0.35, 0.61, 0.69), vec3(0.71, 0.34, 0.30), hlBad) * (0.85 + 0.15 * lit), hlFoam);
             // (its light keeps more of the body's opacity: the film's sheen)
-            float hlFilmAlpha = mix(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, waterMurk(hlBad)), hlSurface.a, hlFilm);
+            float hlFilmAlpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, waterMurk(hlBad)), hlSurface.a), hlSurface.a, hlFilm);
             hlFilmAlpha = mix(hlFilmAlpha, hlSurface.a, hlSheen * (1.0 - hlFilm) * 0.6);
             alpha = mix(hlFilmAlpha, 0.97, hlFoam);
           } else {

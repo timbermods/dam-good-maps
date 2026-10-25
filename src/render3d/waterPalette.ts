@@ -251,7 +251,8 @@ export const WATER_FALL = {
  *    its own detail (its lightness, and `keep` of its own hue under clean water, none under
  *    badwater) in the water's hue, clean water's shallow teal, badwater's crimson or the blend
  *    between them by the badwater share (`WATER_BLEND`, so mixed water passes the mixing zone and the
- *    warm brown, never purple or mauve-grey), `gain` of the ground's lightness (clean, bad); the bed's
+ *    warm brown, never purple or mauve-grey; the ground's own hue goes as soon as any of it is bad),
+ *    `gain` of the ground's lightness (clean, bad); the bed's
  *    own colour comes in along the same curve. So the hue is the water's at any depth. */
 export const WATER_FILM = {
   to: 0.25,
@@ -260,6 +261,12 @@ export const WATER_FILM = {
   foam: 0.3,
   keep: 0.4,
   gain: [0.8, 0.45] as readonly [number, number],
+  /** The crimson the ground takes under a badwater film: `WATER.bad` a touch cooler, as the ground's
+   *  light is warmer than the water's, so the film lands on the body's own crimson hue. */
+  badTint: [0.38, 0.14, 0.16] as Rgb,
+  /** The same in the High look, cooler again for its warmer sun and grade (judged from captures beside
+   *  its badwater's body). */
+  highBadTint: [0.36, 0.1, 0.19] as Rgb,
 } as const;
 
 /** How far water `depth` levels deep has built from a film to its body: 0 with no depth, 1 at
@@ -273,13 +280,13 @@ const DISPLAY_LUMA: Rgb = [0.2126, 0.7152, 0.0722];
 
 /** The ground (a display colour) seen through a film of water with this badwater share (0-1), as the
  *  terrain shader draws it under thin water (`WATER_FILM`): its own detail in the water's hue. */
-export function waterFilmGround(ground: Rgb, share: number): Rgb {
+export function waterFilmGround(ground: Rgb, share: number, bad: Rgb = WATER_FILM.badTint): Rgb {
   const F = WATER_FILM;
   const m = waterBlend(share).opacity;
-  const tint = blendWater(WATER.shallow, WATER.bad, share);
+  const tint = blendWater(WATER.shallow, bad, share);
   const tl = Math.max(1e-5, DISPLAY_LUMA[0] * tint[0] + DISPLAY_LUMA[1] * tint[1] + DISPLAY_LUMA[2] * tint[2]);
   const gl = DISPLAY_LUMA[0] * ground[0] + DISPLAY_LUMA[1] * ground[1] + DISPLAY_LUMA[2] * ground[2];
-  const keep = F.keep * (1 - m);
+  const keep = F.keep * (1 - m) ** 4;
   const gain = F.gain[0] + (F.gain[1] - F.gain[0]) * m;
   return [0, 1, 2].map((k) => Math.max(0, Math.min(1, (gl + (ground[k] - gl) * keep) * (tint[k] / tl) * gain))) as unknown as Rgb;
 }
@@ -427,7 +434,9 @@ export function badwaterOpacity(depth: number, fromBank = 1, facing = 1): number
   const grazing = 1 - smooth(0.18, 0.5, facing);
   const body = B.opacity[0] + (B.opacity[1] - B.opacity[0]) * smooth(B.opacityFrom, B.opacityTo, d) - B.edge * edge;
   // a film of badwater is a thin crimson tint, building to its murky body by WATER_FILM.to deep
-  return Math.max(WATER_FILM.bad + (body - WATER_FILM.bad) * waterFilm(depth), grazing * B.grazing);
+  // (never above its body's own opacity: its shallow edges stay as see-through as #38 has them)
+  const film = Math.min(WATER_FILM.bad, body);
+  return Math.max(film + (body - film) * waterFilm(depth), grazing * B.grazing);
 }
 
 /** The water's opacity `depth` levels deep and `fromBank` tiles from a bank, with a badwater share
@@ -546,7 +555,7 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
     float edge = (1.0 - smoothstep(${f(BADWATER.edgeDepth[0])}, ${f(BADWATER.edgeDepth[1])}, d)) * (1.0 - smoothstep(${f(BADWATER.edgeShore[0])}, ${f(BADWATER.edgeShore[1])}, shore));
     float body = mix(${f(BADWATER.opacity[0])}, ${f(BADWATER.opacity[1])}, smoothstep(${f(BADWATER.opacityFrom)}, ${f(BADWATER.opacityTo)}, d)) - ${f(BADWATER.edge)} * edge;
     // a film of badwater is a thin crimson tint, building to its murky body (WATER_FILM)
-    return max(mix(WATER_FILM_BAD, body, waterFilm(depth)), grazing * ${f(BADWATER.grazing)});
+    return max(mix(min(WATER_FILM_BAD, body), body, waterFilm(depth)), grazing * ${f(BADWATER.grazing)});
   }
   /** The blend's opacity and surface curves at a badwater share. */
   float waterMurk(float s) {
@@ -585,12 +594,14 @@ ${WATER_FILM_GLSL}  #define WATER_SHALLOW ${glColor(WATER.shallow)}
   }
   /** The ground seen through a film of water with this badwater share, as through a coloured filter
    *  (waterPalette.ts waterFilmGround): its own detail in the water's hue. */
-  vec3 waterFilmGround(vec3 ground, float s) {
+  #define WATER_FILM_BAD_TINT ${glColor(WATER_FILM.badTint)}
+  #define WATER_FILM_HIGH_BAD_TINT ${glColor(WATER_FILM.highBadTint)}
+  vec3 waterFilmGround(vec3 ground, float s, vec3 bad) {
     float m = waterMurk(s);
-    vec3 tint = waterBlend(WATER_SHALLOW, BADWATER_BODY, s);
+    vec3 tint = waterBlend(WATER_SHALLOW, bad, s);
     vec3 dl = vec3(${DISPLAY_LUMA.map(f).join(", ")});
     float gl = dot(ground, dl);
-    vec3 base = mix(vec3(gl), ground, ${f(WATER_FILM.keep)} * (1.0 - m));
+    vec3 base = mix(vec3(gl), ground, ${f(WATER_FILM.keep)} * pow(1.0 - m, 4.0));
     return clamp(base * tint / max(dot(tint, dl), 0.00001) * mix(${f(WATER_FILM.gain[0])}, ${f(WATER_FILM.gain[1])}, m), 0.0, 1.0);
   }
 `;

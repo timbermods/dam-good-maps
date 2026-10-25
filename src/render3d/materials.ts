@@ -506,6 +506,8 @@ export interface ShaderHooks {
   groundEnd?: string;
   /** After the ground's colour at a top (ground, soil, glow, d0, g). */
   groundTop?: string;
+  /** The crimson the ground takes under a badwater film (a vec3; waterPalette.ts WATER_FILM). */
+  filmBad?: string;
   /** In a wall, before its level lines (wc, n, along, y, k, shade). */
   wall?: string;
   /** How strong the wall's level lines are (an expression; Standard: `markers`). */
@@ -1184,7 +1186,11 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
           // own detail in the water's hue, teal, crimson or between them by the water's badwater share
           float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
-          if (filmOver > 0.0) ground = mix(ground, waterFilmGround(ground, texture2D(flowTex, g / mapSize).b), filmOver);
+          // (and the light of the bed's veins, where a look draws them under polluted water, is half seen through it)
+          if (filmOver > 0.0) {
+            ground = mix(ground, waterFilmGround(ground, texture2D(flowTex, g / mapSize).b, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
+            glow *= 1.0 - 0.5 * filmOver;
+          }
           groundBed = 1.0;
           // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
           float fresh = freshRock(tile, h0);
