@@ -43,5 +43,7 @@ Each is `{ met, strength 0–1, say }`, one small function, so a better measure 
 
 ## Numbers
 
-Per candidate, on the dedicated machine with other builders running: Canyon 128² about 48 s; see the PR for the
-samples. A budget of a few minutes makes a handful of candidates at 128² and fewer at 256².
+Per candidate on the dedicated machine, with other builders running (PR #504): about 11 s at 128² (River Valley)
+and 48 s at 128² under heavy load (Canyon); about 127 s at 256² (Highlands). So a few minutes makes 10–20 candidates
+at 128² and 2–4 at 256². In the samples the first-drought choice is the rarest beat, and the vista and the landmark
+are the commonest on rugged themes.
