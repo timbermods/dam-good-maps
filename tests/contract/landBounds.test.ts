@@ -1,8 +1,8 @@
-// The land stage's bounds (#236, the 256² audit): a land kept from the land stage but not yet shown is
-// drawn again once two attempts in a row on it fail the same way; a shown land is never drawn again
-// within its round (D348), and three in a row end the round as spent attempts do (D471's rescue rounds
-// take over). Each stage's progress says why the last attempt failed, in a player's words, for the
-// making dialog.
+// The shown land's bounds (#236, the 256² audit): above 128² a land is shown at the land stage, before
+// its start is proved, and three attempts in a row on it that fail the same way end the round as spent
+// attempts do (D471's rescue rounds take over); it is never drawn again within its round (D348), and
+// a land not yet shown is the only one ever dropped mid-round. Each stage's progress says why the last
+// attempt failed, in a player's words, for the making dialog.
 import { describe, expect, it } from "vitest";
 import { failurePhrase } from "../../src/core/gen/failWords";
 import { generate, type GenProgressStage } from "../../src/core/gen/generate";
@@ -37,43 +37,36 @@ function traced(spec: MapSpec): { steps: Step[]; progress: GenProgressStage[]; f
   return { steps, progress, failures: r.failures.map((f) => f.failed), passed: r.report.passed };
 }
 
-/** Runs of attempts in a row on one land of one kind that failed for the same reason. */
-function runs(steps: Step[], kind: Step["land"]): { length: number; next: Step | undefined }[] {
-  const out: { length: number; next: Step | undefined }[] = [];
-  for (let k = 0; k < steps.length; ) {
-    let n = 1;
-    while (k + n < steps.length && steps[k + n].land === kind && steps[k].land === kind && steps[k + n].round === steps[k].round && steps[k + n].landNo === steps[k].landNo && steps[k + n].why === steps[k].why) n++;
-    if (steps[k].land === kind && steps[k].why !== "passed") out.push({ length: n, next: steps[k + n] });
-    k += n;
-  }
-  return out;
-}
-
 const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: number): MapSpec => {
   const s = makeSpec({ seed, theme, size: { x: size, y: size } });
   if (badwaterDistance !== undefined) s.settings.hazards.badwaterDistance = badwaterDistance;
   return s;
 };
 
-describe("the land stage's bounds (#236)", () => {
-  it("a land not yet shown that fails the same way twice in a row is drawn again; a shown land is never drawn again in its round, and three in a row end it", () => {
-    const { steps, passed } = traced(spec(HIDDEN.theme, HIDDEN.size, HIDDEN.seed));
+describe("the shown land's bounds (#236)", () => {
+  it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
+    // (Highlands 136², badwater distance 60, seed 4: its first shown land's start is within 60 tiles of
+    // its badwater on every attempt; dev spent the round's attempts on it)
+    const { steps, passed } = traced(spec("highlands", 136, 4, 60));
     expect(passed).toBe(true);
-    // (not yet shown: never a third attempt on it after two that failed the same way)
-    const hidden = runs(steps, "kept");
-    for (const r of hidden) expect(r.length, JSON.stringify(steps)).toBeLessThanOrEqual(2);
-    expect(hidden.some((r) => r.length === 2 && r.next && r.next.land !== "kept"), "the spec draws a kept land again").toBe(true);
-    // (shown: the next attempt in its round is on it, never on a land drawn after it)
-    for (let k = 1; k < steps.length; k++)
-      if (steps[k - 1].land === "shown" && steps[k].round === steps[k - 1].round) {
-        expect(steps[k].landNo, JSON.stringify(steps)).toBe(steps[k - 1].landNo);
-        expect(steps[k].land).toBe("shown");
+    const at = JSON.stringify(steps);
+    let ended = 0;
+    for (let k = 1; k < steps.length; k++) {
+      const [a, b] = [steps[k - 1], steps[k]];
+      // (shown: the next attempt in its round is on it, never on a land drawn after it)
+      if (a.land === "shown" && b.round === a.round) {
+        expect(b.landNo, at).toBe(a.landNo);
+        expect(b.land, at).toBe("shown");
       }
-    for (const r of runs(steps, "shown")) expect(r.length).toBeLessThanOrEqual(3);
+      // (never a fourth attempt in a row on it failing the same way)
+      if (k >= 3 && steps.slice(k - 3, k + 1).every((s) => s.land === "shown" && s.round === b.round && s.landNo === b.landNo && s.why === b.why && s.why !== "passed")) expect.fail(`four "${b.why}" in a row on a shown land: ${at}`);
+      if (k >= 3 && b.round === a.round + 1 && steps.slice(k - 3, k).every((s) => s.land === "shown" && s.round === a.round && s.landNo === a.landNo && s.why === a.why)) ended++;
+    }
+    expect(ended, `a round ended by the bound: ${at}`).toBeGreaterThan(0);
   }, 600000);
 
   it("each stage's progress says how many attempts failed before it and why the last did, in a short plain phrase", () => {
-    const { progress, failures } = traced(spec(HIDDEN.theme, HIDDEN.size, HIDDEN.seed));
+    const { progress, failures } = traced(spec("riverValley", 64, 1));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);
@@ -81,12 +74,9 @@ describe("the land stage's bounds (#236)", () => {
       const tried = p.tried!;
       if (tried === 0) continue;
       expect(p.failed).toBe(failurePhrase(failures[tried - 1]));
-      // (a phrase, never a check's id or a generator's own words)
+      // (a phrase, never a check's id or the generator's own shorthand)
       expect(p.failed).toMatch(/^[a-z][a-z' ]+[a-z]$/);
     }
     expect(progress.at(-1)!.tried).toBe(failures.length);
   }, 600000);
 });
-
-/** A small map whose land kept from the land stage fails the same way twice before it is shown. */
-const HIDDEN = { theme: "riverValley" as ThemeId, size: 64, seed: 1 };

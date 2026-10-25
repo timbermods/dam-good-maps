@@ -144,15 +144,14 @@ export const FREE_DRAWS = 16;
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
 const SETTLE_BUDGET = 5;
-/** The land stage's bounds (#236, the 256² audit: a Highlands 256² at badwater distance 60 spent 24
- *  attempts, four minutes, on one land whose start could never stand that far from its badwater).
- *  A land kept from the land stage but not yet shown is drawn again once two attempts in a row on it
- *  fail for the same reason (its start's water moving, say), as one whose start finds no place is at
- *  once; a shown land is kept while it can still be the map (D348), but three in a row end its round
- *  as spent attempts do, and the next round draws fresh land, easing (D471's one exception to D348).
- *  Either is bounded, too, by the settles it costs a round. A caller that caps the attempts keeps the
- *  old way. */
-const HIDDEN_SAME = 2;
+/** The shown land's bounds above SHOW_PROVED_MOST (#236, the 256² audit: a Highlands 256² at badwater
+ *  distance 60 spent 24 attempts, about four minutes, on a land shown at the land stage whose start
+ *  never stood that far from its badwater, before the rescue round's fresh land made the map in 3).
+ *  There a land is shown before its start is proved, so three attempts in a row on it that fail for
+ *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next draws fresh
+ *  land, easing (D471's one exception to D348). At 128² and under the shown land was proved, and it
+ *  keeps its attempts (bounding it there replaced lands that passed two attempts later). A caller
+ *  that caps the attempts keeps the old way. */
 const SHOWN_SAME = 3;
 const LAND_SETTLES = 10;
 /** The first Normal drought's days for the drought-aware start (investigation/cycles: 2 in the
@@ -554,12 +553,12 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
   }
   // (shown-land attempts in a row whose start found no place: the same settled water each time)
   let noStart = 0;
-  // (attempts in a row on the kept land that failed for the same reason, and the land's settles
-  // when this round began on it: the land stage's bounds)
+  // (attempts in a row on the shown land that failed for the same reason, and the land's settles
+  // when this round began on it: the shown land's bounds, above SHOW_PROVED_MOST)
   let same = 0;
   let sameAs = "";
   let keptAt = land?.settles ?? 0;
-  const bounded = opts.maxAttempts === undefined && round < rescueRounds(W, H);
+  const bounded = opts.maxAttempts === undefined && round < rescueRounds(W, H) && W * H > SHOW_PROVED_MOST;
   // (lands drawn again before one is shown because their planned water misses an outcome)
   const screened = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
@@ -578,21 +577,19 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       const why = failedIds(a.result)[0] ?? "";
       same = why === sameAs ? same + 1 : 1;
       sameAs = why;
-      const spent = bounded && land.settles - keptAt >= LAND_SETTLES;
       // Until the actual start reaches its mine pair, this land is still hidden.
-      // Its exhausted starts or an unrepairable water plan may therefore draw another land, and so may
-      // the same failure twice in a row, or the settles it may cost spent (the land stage's bounds).
-      // Once onLand fired, the original D348 retry rules apply, bounded.
-      if (!committed.shown && (a.stuck || a.result.info.stage === "no start" || (bounded && same >= HIDDEN_SAME) || spent)) {
+      // Its exhausted starts or an unrepairable water plan may therefore draw another land.
+      // Once onLand fired, the original D348 retry rules apply, bounded above SHOW_PROVED_MOST.
+      if (!committed.shown && (a.stuck || a.result.info.stage === "no start")) {
         committed = null;
         land = null;
         if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
         continue;
       }
-      // (a shown land failing the same way three times in a row, or its settles spent, ends the round
-      // as one whose attempts are spent does: the next draws fresh land, easing, D471's one exception
-      // to D348)
-      if (committed.shown && !a.stuck && ((bounded && same >= SHOWN_SAME) || spent)) break;
+      // (a land shown before its start was proved failing the same way three times in a row, or its
+      // settles spent, ends the round as one whose attempts are spent does: the next draws fresh land,
+      // easing, D471's one exception to D348)
+      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) break;
       if (a.stuck) break;
       continue;
     }
