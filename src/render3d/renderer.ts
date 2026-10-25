@@ -68,6 +68,7 @@ import { RunSoil, runSoilOn } from "./runSoil";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
+import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
@@ -306,6 +307,8 @@ export class MapRenderer {
   private objectGround: Uint8Array | null = null;
   private objectsMoved = false;
   private overlay: DataTexture | null = null;
+  /** The overlay on one run per tile (overlayRuns.ts), made when a selection first names one. */
+  private runsOverlay: OverlayRuns | null = null;
   private marks: DataTexture | null = null;
   /** Where the contamination outline runs (**Markers**): `contaminationEdges` of the tile data. */
   private edges: DataTexture | null = null;
@@ -1259,6 +1262,7 @@ export class MapRenderer {
       this.objects = null;
     }
     this.overlay?.dispose();
+    this.runsOverlay?.dispose();
     this.marks?.dispose();
     this.edges?.dispose();
     this.sites?.dispose();
@@ -1637,6 +1641,7 @@ export class MapRenderer {
       m.source = { ...m.source, columns: columnMap(columns), masks: columnMasks(m.W * m.H, columns) };
       this.columnsSent = { tiles: columns.tiles, voxels: columns.voxels, key: ++this.columnsKey };
       this.syncCaves();
+      this.runsOverlay?.refresh(m.source);
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
     this.objectGround = heights.slice();
@@ -2716,6 +2721,17 @@ export class MapRenderer {
     for (let i = 0; i < marks.length && !any; i += 4) any = marks[i] | marks[i + 1];
     this.uniforms.hatching.value = any ? 1 : 0;
     this.marks.needsUpdate = true;
+    this.requestRender();
+  }
+
+  /** The ground the overlay is on, per tile (overlayRuns.ts): `levels` (level + 1 a tile, 0 none; null: none) the
+   *  level a selection was taken at on a run (the Wand on a cave's floor). In a column with terrain above terrain the
+   *  overlay is drawn on that run, and `rest` (RGBA bytes, the land outside the selection) on the rest of the column;
+   *  elsewhere the overlay covers the whole column, as before. Set before `commitOverlay`. */
+  setOverlayRuns(levels: Uint8Array | null, rest: readonly [number, number, number, number]): void {
+    if (!levels && !this.runsOverlay) return;
+    this.uniforms.overlayRest.value.set(rest[0] / 255, rest[1] / 255, rest[2] / 255, rest[3] / 255);
+    (this.runsOverlay ??= new OverlayRuns(this.uniforms.overlayRuns)).set(this.map?.source ?? null, levels);
     this.requestRender();
   }
 
