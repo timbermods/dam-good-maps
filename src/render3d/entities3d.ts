@@ -1481,9 +1481,16 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (!n) continue;
     const old = drawn.get(key);
     if (old && old.material === material && sameBatch(old, b, v, reuse!.entities)) {
+      // (renumbered, and standing where the map has them now: ground a stroke painted may have moved them to these
+      // heights already, and settling puts them back to `ty0`, so it is the new build's, as a fresh batch's is)
       old.userData.objects = Int32Array.from(b.objects);
-      if (b.follows.some((k) => k >= 0)) old.userData.follows = Int32Array.from(b.follows);
-      else delete old.userData.follows;
+      if (b.follows.some((k) => k >= 0)) {
+        old.userData.follows = Int32Array.from(b.follows);
+        old.userData.ty0 = Float32Array.from({ length: n }, (_, i) => b.matrices[i * 16 + 13]);
+      } else {
+        delete old.userData.follows;
+        delete old.userData.ty0;
+      }
       group.add(old);
       continue;
     }

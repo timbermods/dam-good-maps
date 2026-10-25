@@ -76,6 +76,28 @@ describe("a rebuild keeps the batches it would build as they are drawn", () => {
     models.dispose();
     material.dispose();
   });
+  it("a batch kept after ground a stroke painted settles to the new land, as a fresh build does", () => {
+    const material = new ShaderMaterial();
+    const trees = [at("p1", "Pine", 3, 3), at("p2", "Pine", 5, 3)];
+    const v1 = entityView(trees);
+    const g1 = buildEntities(v1, material, null, 32).group;
+    const pines = g1.children.find((c) => c.name === "Pine") as InstancedMesh;
+    // a stroke raises the first pine's tile by one: the page moves it there (renderer `followGround`)
+    const ty0 = pines.userData.ty0 as Float32Array;
+    pines.instanceMatrix.array[13] = ty0[0] + 1;
+    // the worker's objects on that land come while the stroke's land is held: the batch is kept, as it stands
+    const v2 = entityView([{ ...trees[0], z: 3 }, trees[1]]);
+    const g2 = buildEntities(v2, material, null, 32, false, undefined, { group: g1, entities: v1 }).group;
+    const kept = g2.children.find((c) => c.name === "Pine") as InstancedMesh;
+    expect(kept).toBe(pines);
+    // a later stroke, then settling (renderer `settleObjects`): each stands at its batch's own height
+    const a = kept.instanceMatrix.array;
+    (kept.userData.ty0 as Float32Array).forEach((y, i) => (a[i * 16 + 13] = y));
+    const fresh = buildEntities(v2, material, null, 32).group.children.find((c) => c.name === "Pine") as InstancedMesh;
+    expect(Array.from(kept.userData.ty0 as Float32Array)).toEqual(Array.from(fresh.userData.ty0 as Float32Array));
+    expect(Array.from(a)).toEqual(Array.from(fresh.instanceMatrix.array));
+    material.dispose();
+  });
   it("builds again a batch drawn otherwise than it would be built (a highlight)", () => {
     const material = new ShaderMaterial();
     const v1 = entityView(before);

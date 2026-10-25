@@ -326,9 +326,14 @@ export function buildLandmarks(group: Group, e: EntityView, material: ShaderMate
     const same = keep.get(old);
     if (same) {
       const follows = old.userData.follows as Int32Array | undefined;
+      const ty0 = old.userData.ty0 as Float32Array | undefined;
       for (const r of same) {
         r.fresh.userData.objects = Int32Array.from(r.slots, (i) => objects[i]);
-        if (follows && r.fresh.userData.follows) r.fresh.userData.follows = Int32Array.from(r.slots, (i) => follows[i]);
+        // (the heights the batch now settles to, as its own: `buildEntities` renewed them)
+        if (follows && ty0 && r.fresh.userData.follows) {
+          r.fresh.userData.follows = Int32Array.from(r.slots, (i) => follows[i]);
+          r.fresh.userData.ty0 = Float32Array.from(r.slots, (i) => ty0[i]);
+        }
         out.push(r);
       }
       keep.delete(old);
