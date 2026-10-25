@@ -40,7 +40,7 @@ import { thumbnailPixels } from "../core/render/thumb";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { useShowcase } from "./useShowcase";
 
@@ -1139,6 +1139,7 @@ export function App() {
         <p id="making-words" role="status">
           {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : (makingWords ?? stageText(progress))}
         </p>
+        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords ? progress : null} />}
         {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
@@ -1254,6 +1255,7 @@ export function App() {
               <p id="making-words" role="status">
                 {stuck ? error : words}
               </p>
+              {stuck ? null : <MakingCount progress={opening ? null : progress} />}
               {stuck ? null : <MakingWater />}
               {stuck ? (
                 <footer>
