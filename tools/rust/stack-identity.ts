@@ -90,7 +90,35 @@ if (threads) {
         while (!s) s = run.advance(16);
         return s;
     };
-    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: cut }];
+    // and a basin filling over a one-voxel shelf: columns with two edges the same way that carry flow, whose
+    // outflows must be summed and rounded alike on one thread and on several (#517's review)
+    const shelf = (lip: number) => (): StackSettle => {
+        const W = 48, H = 48;
+        const mask = new Uint32Array(W * H);
+        for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+                const wall = x === 0 || y === 0 || x === W - 1 || y === H - 1;
+                const g = wall ? 14 : x < 16 ? 4 : 3;
+                mask[y * W + x] = (1 << g) - 1;
+                if (!wall && x >= 20 && x < 28) mask[y * W + x] |= 1 << lip;
+            }
+        const objects: number[] = [];
+        for (let y = 4; y < H - 4; y += 4) objects.push(7, 2, y, 4, 0, 0, 0, 3);
+        // water kept to level 8 west of the shelf only, so at its edge it still runs into the columns under and over it
+        const tiles: number[] = [], floor: number[] = [], depth: number[] = [];
+        for (let y = 1; y < H - 1; y++)
+            for (let x = 1; x < 20; x++) {
+                const g = x < 16 ? 4 : 3;
+                tiles.push(y * W + x);
+                floor.push(g);
+                depth.push(8 - g);
+            }
+        const run = canonicalStackRun(W, H, { mask, objects: Float64Array.from(objects) }, [{ tiles, floor, depth, contamination: tiles.map(() => 0) }]);
+        let s = run.advance(1e6);
+        while (!s) s = run.advance(1e6);
+        return s;
+    };
+    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: cut }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }];
     let ran = 0;
     for (const c of cases) {
         const one = withoutParallelWater(c.settle);

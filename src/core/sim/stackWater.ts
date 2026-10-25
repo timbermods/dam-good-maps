@@ -237,9 +237,10 @@ export function columnFlows(m: StackWater, stacked: boolean): Float32Array {
   const dir = m.view(STACK_FIELD.graphDirection) as Uint8Array;
   const out = m.view(STACK_FIELD.momentum) as Float64Array;
   const size = start.length - 1;
-  const flows = new Float32Array(size * 4);
+  // (summed in doubles and rounded once, as the threaded settle gathers them: the same bytes on any number of threads)
+  const flows = new Float64Array(size * 4);
   for (let c = 0; c < size; c++) for (let e = start[c]; e < start[c + 1]; e++) flows[c * 4 + dir[e]] += out[e];
-  return flows;
+  return Float32Array.from(flows);
 }
 
 /** A pre-fill, sparse: the columns where depth, pressure or contamination is not 0. */
