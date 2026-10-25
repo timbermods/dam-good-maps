@@ -538,7 +538,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `where.path`, kept by Try another; a carve drawn uphill is shown the way it was drawn, D344 A5). **Power** (creek to
   catastrophe), **Size** (width; depth follows Power and the width). Wander and walls come from the land and the seed,
   with natural variation (bends wider and deeper on the outside); a cut-off bend becomes an oxbow lake sealed by
-  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "at most N", since the Floor and the land's height stop the cut
+  sediment. Behind More: **Canyon depth** (a cap, not a target: the row reads "max N", since the Floor and the land's height stop the cut
   sooner), **River depth** (D321, item 17: how deep its water may be, 1 up to the
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river

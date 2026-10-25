@@ -1,6 +1,6 @@
 // Three fixes both usability judges agreed on (a 256² map at 2560×1440): the map-making dialog counts itself (the attempt
 // and the time so far), a force that removed sources says how many with Undo, and Carve's Canyon depth reads as the cap it
-// is ("at most N", D226).
+// is ("max N", D226).
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor } from "./open";
@@ -99,15 +99,15 @@ test("a force that removed sources says how many, with Undo; with Ride it says n
   await expect(page.locator(".editor-message")).toHaveCount(0);
 });
 
-test("Carve's Canyon depth reads as a cap: its row says \"at most N\", its tooltip says the most it may cut", async ({ page }) => {
+test("Carve's Canyon depth reads as a cap: its row says \"max N\", its tooltip says the deepest it may cut", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
   await page.getByRole("button", { name: "Top-down" }).click();
   await page.getByRole("button", { name: "Carve (Shift+1)" }).click();
   const row = page.getByRole("group", { name: "Carve options" });
   const depth = row.locator(".set:has(input[aria-label='Canyon depth'])");
-  await expect(depth.locator(".set-value")).toHaveText(/^at most \d+$/);
-  await expect(depth).toHaveAttribute("title", "The most the canyon may cut, less where the land or Floor stops it");
+  await expect(depth.locator(".set-value")).toHaveText(/^max \d+$/);
+  await expect(depth).toHaveAttribute("title", "The deepest the canyon may cut");
   // (set by hand, the number follows)
   await depth.getByRole("slider").fill("12");
-  await expect(depth.locator(".set-value")).toHaveText("at most 12");
+  await expect(depth.locator(".set-value")).toHaveText("max 12");
 });
