@@ -148,17 +148,14 @@ export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
 
 /** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'
  *  moist ground, so `start.food` (a playability check, a warning in the export profile) now finds
- *  too few living ones. Real places 2 plants them by the settled water and empties the list. */
+ *  too few living ones. A start short of berries gets the bushes the check's own fix plants
+ *  (tools/real-places.ts); these starts have no free moist soil within their walk for it (a dry
+ *  start, or a spring's thin sheet over the land round it). Real places 2 plants them by the
+ *  settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "near-alaknanda-and-bhagirathi", "near-aso-caldera", "near-atacama-fan", "near-blyde-river-canyon",
-  "near-bungle-bungle", "near-cliffs-of-moher", "near-colorado-plateau", "near-danube-delta",
-  "near-dinaric-karst-plitvice", "near-drumheller", "near-iguazu-falls", "near-katherine-gorge",
-  "near-lake-toba", "near-lena-delta", "near-li-river-yangshuo", "near-lofoten", "near-mamore-river",
-  "near-mount-mayon", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
-  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-rhine-and-moselle",
-  "near-skeidara-outwash", "near-taklimakan-kunlun-fan", "near-tiger-leaping-gorge",
-  "near-torres-del-paine", "near-tsingy-bemaraha", "near-uvac-river", "near-victoria-falls",
-  "near-waimakariri-river", "near-yosemite-valley",
+  "near-alaknanda-and-bhagirathi", "near-bungle-bungle", "near-colorado-plateau",
+  "near-dinaric-karst-plitvice", "near-lake-toba", "near-mount-taranaki", "near-phong-nha",
+  "near-rhine-and-moselle",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in

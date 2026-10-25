@@ -315,7 +315,9 @@ for (const item of items) {
   let moved: [number, number] | null = null;
   const dry = strictFails.includes("start.dry");
   const free = new Set(["start.wood", "start.food", "start.water", "start.farmland", "start.level_land"]);
-  const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.wood") ? 1 : 0) + (fails.includes("start.food") ? 1 : 0);
+  // (water first, then the starting-logs floor, then the berries, then the wood: a spot or spring
+  // that costs the start its berries ranks below one that keeps them)
+  const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
   for (const walk of [undefined, LONG_SHORE_WALK]) {
     if (!strictFails.includes("start.dry") && !strictFails.includes("start.water")) break;
     const had = new Set(strictFails);
@@ -340,8 +342,8 @@ for (const item of items) {
   }
   // A place whose start had water a pump reaches on the survey's sealed land and has none now gets a
   // spring by its start where no spot gives it water (D245's water floor, src/core/places/spring.ts):
-  // opening the edges never leaves a place without the water it had. The first spring the checks
-  // pass wins, one that costs no berries first.
+  // opening the edges never leaves a place without the water it had. The best spring the checks
+  // pass wins: one that costs nothing ends the search; otherwise the wider tier is tried too.
   let spring: [number, number, number][] | null = null;
   if (strictFails.includes("start.water") && !buildChecked({ ...opened, heights: encodeHeights(fx.heights) }).strictFails.includes("start.water")) {
     const had = new Set(strictFails);
@@ -355,12 +357,50 @@ for (const item of items) {
         best = { add, r, score: sc };
         if (!r.strictFails.some((id) => !had.has(id))) break;
       }
-      if (best) break;
+      if (best && !best.r.strictFails.some((id) => !had.has(id))) break;
     }
     if (best) {
       spring = best.add;
       place = { ...place, sources: [...place.sources, ...best.add] };
       ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+  }
+  // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
+  // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
+  // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
+  // tiles, the bushes `plants.survive` marks as dying (a spring's water over them, or the sealed
+  // pools' moist ground drained) make room first: bushes only, so the wood stays. The result stays
+  // only if the start has more living berries and nothing fails that did not.
+  let planted = 0;
+  const foodOf = (r: { strict: typeof strict }) => r.strict.report.checks.find((c) => c.id === "start.food");
+  const fixTiles = (c: CheckResult | undefined, W: number) => (c?.fix ?? []).flatMap((f) => (f.op === "placeEntity" && f.params.template === "BlueberryBush" ? [f.params.y * W + f.params.x] : []));
+  const food = foodOf({ strict });
+  if (food && counts(food)) {
+    const short = Number(food.limit ?? 0) - Number(food.value ?? 0);
+    let base = place;
+    let baseFix = fixTiles(food, place.W);
+    if (baseFix.length < short) {
+      const dying = new Set((strict.report.checks.find((c) => c.id === "plants.survive")?.where?.entities ?? []) as string[]);
+      const dead = placeEntities(place, built.heights).filter((e) => e.template === "BlueberryBush" && dying.has(e.id)).map((e) => e.y * place.W + e.x);
+      if (dead.length) {
+        const gone = new Set(dead);
+        const cleared = { ...place, bushes: encodeTiles(decodeTiles(place.bushes).filter((i) => !gone.has(i))) };
+        const fix = fixTiles(foodOf(buildChecked(cleared)), place.W);
+        if (fix.length > baseFix.length) {
+          base = cleared;
+          baseFix = fix;
+        }
+      }
+    }
+    if (baseFix.length) {
+      const withBushes = { ...base, bushes: encodeTiles([...new Set([...decodeTiles(base.bushes), ...baseFix])].sort((a, b) => a - b)) };
+      const r = buildChecked(withBushes);
+      const after = foodOf(r);
+      if (after && Number(after.value ?? 0) > Number(food.value ?? 0) && !r.strictFails.some((id) => !strictFails.includes(id))) {
+        planted = baseFix.length;
+        place = withBushes;
+        ({ built, v, strict, blocking, strictFails } = r);
+      }
     }
   }
   const bytes = writeTimber(built.file);
@@ -379,7 +419,8 @@ for (const item of items) {
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}` : "") +
-      (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : ""),
+      (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
+      (planted ? `  ${planted} berry bushes planted by the start` : ""),
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);

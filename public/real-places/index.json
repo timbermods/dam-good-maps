@@ -203,13 +203,12 @@
    "metres": 60,
    "data": "data/near-mount-mayon.json.gz",
    "image": "cards/near-mount-mayon.jpg",
-   "bytes": 237046,
-   "sha256": "9360452f0f4d4208b09e7372d00ae191a97768dbe94a52c6b374fef518397833",
+   "bytes": 237181,
+   "sha256": "9969d075a42cf58ed2f99d0193db2a8727ba969f3ed4eb0de2f5dec80516ba86",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -241,13 +240,12 @@
    "metres": 60,
    "data": "data/near-lena-delta.json.gz",
    "image": "cards/near-lena-delta.jpg",
-   "bytes": 225339,
-   "sha256": "075f4e6d92504cf7fbec827ea4991d06672ec4d64748c291f9892b9204f27a7a",
+   "bytes": 226275,
+   "sha256": "0d664a116f3f3ddd3b52f9258f720334453cf0ba12690532ae423727249841d9",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -334,11 +332,10 @@
    "metres": 60,
    "data": "data/near-torres-del-paine.json.gz",
    "image": "cards/near-torres-del-paine.jpg",
-   "bytes": 192358,
-   "sha256": "85156148397249a3cbe1e72e8c016564776331bc2504a170736e86a44c1c9994",
+   "bytes": 193026,
+   "sha256": "79c5364297e74e25a03d2067b7851116d5b6043aa8d90e0816e8eb0430b4cfcc",
    "faults": [
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -352,12 +349,11 @@
    "metres": 30,
    "data": "data/near-tiger-leaping-gorge.json.gz",
    "image": "cards/near-tiger-leaping-gorge.jpg",
-   "bytes": 221156,
-   "sha256": "2176aac4aa895d2c610f684a417e01a2820d59964dcd9a03c45f95bd99ceb6e4",
+   "bytes": 221911,
+   "sha256": "79744e5c1f113f7510213e588f5ff0e5697f53a7cd58852a56e3b806e4376e28",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -409,11 +405,10 @@
    "metres": 60,
    "data": "data/near-uvac-river.json.gz",
    "image": "cards/near-uvac-river.jpg",
-   "bytes": 189280,
-   "sha256": "e9e52dafaec71ab3587bd26d28388bd003e128fbf663fe5f2c62a2e2cd277c99",
+   "bytes": 189986,
+   "sha256": "76db4d21dfec5d18d4fc949fe25b6c7c0f80b89f4573c16a6076e91ab1a3a9b3",
    "faults": [
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -462,12 +457,11 @@
    "metres": 60,
    "data": "data/near-lofoten.json.gz",
    "image": "cards/near-lofoten.jpg",
-   "bytes": 256302,
-   "sha256": "bf630cff28e8c68c38c68f55c52e044751cca47e9c2942851c997b2ef28b764a",
+   "bytes": 257019,
+   "sha256": "7c95f25357def4545b7dc1003ae17be350c279d68db7b9e3ede4bd106237620e",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -481,11 +475,10 @@
    "metres": 30,
    "data": "data/near-drumheller.json.gz",
    "image": "cards/near-drumheller.jpg",
-   "bytes": 125671,
-   "sha256": "e7e135cc9bd8b283538206d20322c6858272e85674ff6d9f82c845644d709987",
+   "bytes": 126334,
+   "sha256": "32ea69330e9ae5088b9e1361cbc868f7dcfbe5bf3c0b42a383a1dd3bdc667d20",
    "faults": [
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -516,10 +509,9 @@
    "metres": 30,
    "data": "data/near-aso-caldera.json.gz",
    "image": "cards/near-aso-caldera.jpg",
-   "bytes": 166594,
-   "sha256": "355648ec66e904a164f44516f6b642730004ad665efbc9c9059a58609180163b",
+   "bytes": 167012,
+   "sha256": "1776c3daae98341b1af27a4afd29101fb0306de4f15a44fe1fd7b3402d9962fe",
    "faults": [
-    "start.food",
     "plants.survive"
    ]
   },
@@ -533,13 +525,12 @@
    "metres": 30,
    "data": "data/near-blyde-river-canyon.json.gz",
    "image": "cards/near-blyde-river-canyon.jpg",
-   "bytes": 178974,
-   "sha256": "707d582c0baaf596842953189be3e07dfbc90340300c44cd312448c95c18f845",
+   "bytes": 179723,
+   "sha256": "b4cce71e0b985d3c18d45f45d3772691e90b0c74d3b84d84c150b69e2ec411b8",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -553,12 +544,11 @@
    "metres": 60,
    "data": "data/near-cliffs-of-moher.json.gz",
    "image": "cards/near-cliffs-of-moher.jpg",
-   "bytes": 192335,
-   "sha256": "f733a5fa8c84d0ab6291bbe2f87c24eece482d731eecd6b4d8135ee6cecab7eb",
+   "bytes": 192834,
+   "sha256": "3ba95a7944281c51d7190c968f2526599c698d8212890cf6746c6a318f82c40a",
    "faults": [
     "start.wood",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -572,12 +562,11 @@
    "metres": 60,
    "data": "data/near-paricutin.json.gz",
    "image": "cards/near-paricutin.jpg",
-   "bytes": 174910,
-   "sha256": "51c785927056812f4cc84464e466b5c4cdef33d66ea023ea19a587e104e5968b",
+   "bytes": 175214,
+   "sha256": "b9c4949601ba2c4177695248e9f175d45dded884a512e6a5a63032d808ec8c95",
    "faults": [
     "start.wood",
     "start.wood_floor",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -611,11 +600,10 @@
    "metres": 120,
    "data": "data/near-danube-delta.json.gz",
    "image": "cards/near-danube-delta.jpg",
-   "bytes": 153162,
-   "sha256": "da7b1bc97b438ebca262d117c6527fa307993482956fc6a9a26d369810190642",
+   "bytes": 153932,
+   "sha256": "9af3be4b2402db2db1981562107af22809f1acedaa093ec0a656446bd9532ce4",
    "faults": [
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -646,12 +634,11 @@
    "metres": 60,
    "data": "data/near-niagara-falls.json.gz",
    "image": "cards/near-niagara-falls.jpg",
-   "bytes": 207850,
-   "sha256": "07a9f7f512732c7cb7ca795489c5a7fe04a94b99b3d947e1fb0ffe0f287a4a70",
+   "bytes": 208664,
+   "sha256": "b403951067557dcc676e74dfc3d43d11cfe7586d48dec945004ca042dfd0da9f",
    "faults": [
     "water.source_in_flow",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -843,13 +830,12 @@
    "metres": 30,
    "data": "data/near-waimakariri-river.json.gz",
    "image": "cards/near-waimakariri-river.jpg",
-   "bytes": 631164,
-   "sha256": "0e44c0727887d48bfa59853bb12b5096794268a529f4453e2e26a5d62c89e61b",
+   "bytes": 632157,
+   "sha256": "aae55a1214512fa4bd2d4a04a594b4a8d0d5ee9df8a2088723d805f607e3d696",
    "faults": [
     "water.outflow",
     "start.wood",
     "start.wood_floor",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -899,11 +885,10 @@
    "metres": 60,
    "data": "data/near-na-pali-coast.json.gz",
    "image": "cards/near-na-pali-coast.jpg",
-   "bytes": 231563,
-   "sha256": "484ce53df945ee04d0b24c5fe1c8d23304143def801b032df8c7f8aa4f376a20",
+   "bytes": 232429,
+   "sha256": "9e2ed01f26a6f1a4f542d7ae17e7f20ac8e246f93a7187f4bed7126d365c1b74",
    "faults": [
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -986,12 +971,11 @@
    "metres": 60,
    "data": "data/near-taklimakan-kunlun-fan.json.gz",
    "image": "cards/near-taklimakan-kunlun-fan.jpg",
-   "bytes": 623964,
-   "sha256": "14a50333278da41e31d4fdfd33da3a2697454514dc924bf71ba564f4f46a9d8b",
+   "bytes": 624844,
+   "sha256": "745a370f9c43074af439db6ddcda5d268f65974945b069a5a78d6ca681a5d7e0",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1041,11 +1025,10 @@
    "metres": 120,
    "data": "data/near-katherine-gorge.json.gz",
    "image": "cards/near-katherine-gorge.jpg",
-   "bytes": 564239,
-   "sha256": "559a8fb9ee2ac8a3f05ecfec5e8dde747fd2eaccf19a7131819c088626eb4021",
+   "bytes": 557910,
+   "sha256": "d9e5f5d06d293a3e8e1cd1a316c3a4ba68fdf7a52b552a546e9e972995684169",
    "faults": [
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1151,13 +1134,12 @@
    "metres": 120,
    "data": "data/near-skeidara-outwash.json.gz",
    "image": "cards/near-skeidara-outwash.jpg",
-   "bytes": 244976,
-   "sha256": "14d6cf979ade2f00f73f04e3b825acc49eea353724c6b211400a21411bc6ef23",
+   "bytes": 245374,
+   "sha256": "567fbad0a1318501612213113de7fc68e66a369d8a791b51c47cf4685f9e5bf3",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1171,11 +1153,10 @@
    "metres": 30,
    "data": "data/near-ngorongoro.json.gz",
    "image": "cards/near-ngorongoro.jpg",
-   "bytes": 416540,
-   "sha256": "bf85115d0133aca8b82ef7f290549ec13b4f4abed929bdc65b169c69f7795814",
+   "bytes": 416717,
+   "sha256": "1d8d20e6206df4fea2b23643ddd331fea6a9cf53ddd84bea3ae700ceb8a98867",
    "faults": [
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1241,10 +1222,9 @@
    "metres": 60,
    "data": "data/near-victoria-falls.json.gz",
    "image": "cards/near-victoria-falls.jpg",
-   "bytes": 231946,
-   "sha256": "4e001a0361849a466f4797c35700923afe55ae0ef22c2f75a955aa3f4eac3bbc",
+   "bytes": 232660,
+   "sha256": "03313aa47bcba8aac850e274178605c7f9d2906ccd6d9bd353b735aa29ad3d6c",
    "faults": [
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1258,12 +1238,11 @@
    "metres": 30,
    "data": "data/near-atacama-fan.json.gz",
    "image": "cards/near-atacama-fan.jpg",
-   "bytes": 246339,
-   "sha256": "98183ace17be894f3fbf575ed93ac180c0cdd665a84e812f85b0e08930516a0e",
+   "bytes": 246946,
+   "sha256": "3b8ef804fc144bdfd5601b629bc6ac30fe5d9095caa85e43fa3973731c3dd197",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1332,11 +1311,10 @@
    "metres": 60,
    "data": "data/near-li-river-yangshuo.json.gz",
    "image": "cards/near-li-river-yangshuo.jpg",
-   "bytes": 265132,
-   "sha256": "dd425ce3cf6ef44df57fab0dcde642b8ac73c148c6a9d08a58740960005bcfc4",
+   "bytes": 264607,
+   "sha256": "9856964fa439a3e9d60ff90769b9a46e0f07f7882d608e02bdcbda8c97aefe53",
    "faults": [
     "start.wood",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1498,12 +1476,11 @@
    "metres": 60,
    "data": "data/near-iguazu-falls.json.gz",
    "image": "cards/near-iguazu-falls.jpg",
-   "bytes": 258808,
-   "sha256": "b1b5e95489fa60612b535883b4c694c97b95d3f3a64a895e3acaffda49f42a7d",
+   "bytes": 259383,
+   "sha256": "e0f42666dcfe0455243c2256fdd8af2ca08d2c8d359c890d81019a5aed3f0683",
    "faults": [
     "water.source_in_flow",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1535,12 +1512,11 @@
    "metres": 60,
    "data": "data/near-yosemite-valley.json.gz",
    "image": "cards/near-yosemite-valley.jpg",
-   "bytes": 162261,
-   "sha256": "bbc1c987f195f03953bc916911c98ec669ab28e23a346c323787baced36d0d6d",
+   "bytes": 162626,
+   "sha256": "949ac4b3308b77bbf0010c567b0e33a689479c8dd87d9b27548ea670c29d6f6b",
    "faults": [
     "start.wood",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1572,13 +1548,12 @@
    "metres": 30,
    "data": "data/near-tsingy-bemaraha.json.gz",
    "image": "cards/near-tsingy-bemaraha.jpg",
-   "bytes": 142876,
-   "sha256": "c1ec4363c198b266b49c00e1654e61e335d0cd9ca25c9825acc82abe7ecf6ba6",
+   "bytes": 143853,
+   "sha256": "8124adbffeb12b29dad20bdb7d0c639571d46820894b69f986a311737b0a13e2",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1592,11 +1567,10 @@
    "metres": 30,
    "data": "data/near-mamore-river.json.gz",
    "image": "cards/near-mamore-river.jpg",
-   "bytes": 171800,
-   "sha256": "c97e902e022bc15162dfd080072f5d6f7e798760478670e3fd67c02bdfc4115b",
+   "bytes": 172516,
+   "sha256": "af9b91b525bb94176e493ff67b3ff7509598a1863ba13c52726d97b199d9e7a3",
    "faults": [
     "water.source_in_flow",
-    "start.food",
     "plants.survive"
    ]
   },
