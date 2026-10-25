@@ -34,6 +34,9 @@ export interface FirstDays {
 export class DryDays implements FirstDays {
   readonly first: Int16Array;
   through = 0;
+  /** The tiles holding water on Day 0 (as this run reads it, never changed): a 0 in `first` over one of them is water that
+   *  lasts, over any other no water at all (`dryWords`). */
+  readonly wet0: Uint8Array;
   /** The tiles holding water on Day 0 and on every day seen since. */
   private readonly wet: Uint8Array;
 
@@ -41,8 +44,9 @@ export class DryDays implements FirstDays {
   constructor(day0: DayWater) {
     const N = day0.depth.length;
     this.first = new Int16Array(N);
-    this.wet = new Uint8Array(N);
-    for (let i = 0; i < N; i++) if (day0.depth[i] > WATER_BODY) this.wet[i] = 1;
+    this.wet0 = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (day0.depth[i] > WATER_BODY) this.wet0[i] = 1;
+    this.wet = this.wet0.slice();
   }
 
   see(w: DayWater): void {
@@ -60,13 +64,16 @@ export class DryDays implements FirstDays {
  * The Drought view's hover words for one tile (D133): "Dry on day 6" for water that goes on day 6, "Lasts the drought"
  * for water that holds through every day of the drought, else null (a tile with no water on Day 0 says nothing, and
  * neither does water whose fate is not worked out yet). `first` and `through` are `DryDays`' (the days worked out so
- * far), `days` the drought's length, `wetOnDay0` whether the tile holds water on Day 0. A 0 in `first` only means
- * "lasts" once the days are worked out to the drought's end; before that it says nothing.
+ * far), `days` the drought's length, `wet0` the run's own Day 0 water (`DryDays.wet0`, as the run reads it: never the
+ * page's). Water that goes after the drought's last day lasts the drought. A 0 in `first` only means "lasts" once the days
+ * are worked out to the drought's end; before that it says nothing.
  */
-export function dryWords(first: ArrayLike<number>, through: number, days: number, i: number, wetOnDay0: boolean): string | null {
+export function dryWords(first: ArrayLike<number>, through: number, days: number, i: number, wet0: ArrayLike<number>): string | null {
+  if (!wet0[i]) return null;
   const day = first[i];
+  if (day > days) return "Lasts the drought";
   if (day > 0) return `Dry on day ${day}`;
-  return wetOnDay0 && through >= days ? "Lasts the drought" : null;
+  return through >= days ? "Lasts the drought" : null;
 }
 
 /**

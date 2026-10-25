@@ -146,3 +146,42 @@ test("hovering a lake in the Badtide view says the day it turns bad (D133)", asy
   }
   expect(errors).toEqual([]);
 });
+
+test("an edit while the Drought view is held: the old map's days say nothing on the edited map until its own days come (D133)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await expectReady(page);
+  await topDown(page);
+  const lake = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
+        if (all) return [x, y] as [number, number];
+      }
+    return null;
+  });
+  expect(lake).not.toBeNull();
+  const [x, y] = lake!;
+  const readout = page.locator(".readout");
+  const hover = async () => {
+    const p = await page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y]);
+    await page.mouse.move(p.x + 4, p.y);
+    await page.mouse.move(p.x, p.y, { steps: 2 });
+  };
+  await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await hover();
+  await expect(readout).toContainText(/Dry on day [1-9]\d*|Lasts the drought/, { timeout: 60_000 });
+  // the lake tile is raised to land while the view is held: it holds no water now, whatever the old map's days said
+  const v0 = await page.evaluate(() => window.dgmEditor!.info().version);
+  await page.evaluate(([a, b]) => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[b, a - 1, a + 1]], level: 15 } } as never, "Raise a tile"), [x, y]);
+  expect(await page.evaluate(() => window.dgmEditor!.info().version)).toBeGreaterThan(v0);
+  await hover();
+  await expect(readout).toContainText("Height");
+  await expect(readout).not.toContainText(/Dry on day|Lasts the drought/);
+  expect(errors).toEqual([]);
+});
