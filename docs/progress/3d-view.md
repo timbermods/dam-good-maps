@@ -299,7 +299,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   up the cliff and round the roof's top are gone, the outline lies on the floor. Until step 3, Up 1,
   Down 1, Flatten, Cut down, Fill up and Delete → Ground are refused on a cave column with one line
   (`src/core/doc/ops.ts`: "has a cave or overhang: shape its top with a brush"), so nothing acts on the roof while
-  the floor is drawn selected; Up 1's hover preview still paints the floor (the page's follow-up). Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
+  the floor is drawn selected; hovering those actions tints nothing and says the core's reason, and the roof over a floor selected by level is outside the brushes' working area (`renderer.overlayBelowTop`), as it is drawn. Other overlay layers on a level-named tile (a drawing preview, a problem mark) show only on its run.
 - **What is drawn where the pointer aims (D484):** the hovered tile lights only the top of the run seen (`hover.w` in
   the terrain shader), and the Select tool's ring lies on the top of the run nearest the hit's level in a column with
   terrain above terrain (`groundNear`, `aimedHeights`). The editing tools (brushes and forces) aim at the tile's top,
@@ -557,6 +557,42 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   4,000 rays aimed into the block from above: 28.3 µs reading the voxels, 3.8 µs looked up (2.9 µs on the plain map).
 - **Falls short:** the other readers of the 23-byte columns (the water layers, Standard's shadow rock, the run soil)
   still follow a roof's top only when the worker's columns come, as before.
+
+## The hollow under the cursor (D488, D487; `feature/hollow-under-pointer`)
+
+- **Why:** at an editing pitch a cave or a tunnel under a plateau is invisible unless the Caves layer or a cut is on,
+  and the layer marks whole roof tops, not where the air is or how much roof is left. Since D487 the brushes shape a
+  roof's top run, so a map maker painting on a plateau needs to see the hollow under the brush.
+- **What:** `src/render3d/hollow.ts`. While an editing cursor is over ground with air right under its top run, the
+  air's footprint is laid on the roof's top inside the cursor's reach: a fill in the Caves layer's violet (170 90
+  220), stronger the thinner the roof (`roofTone`: alpha 0.5 at one block, as low as a stroke can take it, then 0.37,
+  0.27, 0.19 and a quiet 0.13 from five blocks), a little fainter toward the reach's edge, and a thin light-violet
+  outline over a dark edge (the brush ring's) where the hollow ends. Air only between lower runs does not count: the
+  top run is what the pointer is over and what a brush shapes. The reach (`renderer.ts` `layHollow`): the brush's disc
+  (Select's ring too, counting a roof only where the ring lies on it, `aim`), else a force's or the shelf's ring (a
+  force's marker: 1.5 tiles), else the square a tile round the Block tool's blocks, aimed at their lowest layer (blocks
+  added on a cave's floor do not mark the roof over them). Under a layer cut it reads the cut masks, so a roof cut
+  thinner reads thinner and a cave cut open shows nothing. Drawn over the brush's disc so the violet reads the same
+  under every brush's tint, under a target's plane.
+- **Cost:** a map with no column that is not plain never builds the marks; the setters raise one flag and the frame
+  returns at its first test. On a cave map the footprint is worked out once a frame the cursor moved (a mask lookup a
+  tile): measured once in Node (information), a 256² map all roofs, radius 6 0.011 ms, radius 24 0.067 ms.
+- **Tried:** A, the footprint on the roof's top (built); B, an x-ray of the footprint at the cave's ceiling, drawn
+  through the rock. B gives depth by parallax, but at an editing pitch it lands off the tiles a stroke would change
+  (toward the camera by the roof's thickness), so it reads as "somewhere under here"; A says which tiles and, by its
+  tone, how thin.
+- **Tests:** `tests/unit/hollow.test.ts` (the roof of a column, the footprint in a disc and a square, the aim, a cut,
+  the tone, the Block tool's reach); `tests/e2e/cutaway.spec.ts` draws it under a brush on the hand-made cave in both
+  looks with no shader error (9 tiles, 12 outline pieces), never makes it on a plain map, and draws it for a hollow dug
+  after opening until it is filled.
+- **Captures:** `docs/sheets/hollow-under-pointer.jpg` (`tools/capture-hollow.ts`, real Chrome on the RTX 2070 SUPER):
+  Hollows and Pressure with the Raise brush over a roof's edge, Craterize's ring and the Block tool there; a tunnel dug
+  with the Block tool into a cliff of Canyon 128 seed 7, the Lower brush over it; the same map with no caves, nothing
+  drawn; Standard and High, 1920×1080 dark and 1280×800 light. "Before" is the same frame with the marks hidden (they
+  are all this change draws).
+- **Falls short:** the tone says thin or thick, not a number of blocks; a big force's ring over a cave map marks a lot
+  of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
+  seen through the water as the brush's own disc is.
 
 ## The rest of the step (next parts)
 

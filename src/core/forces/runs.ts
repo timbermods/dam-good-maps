@@ -50,7 +50,7 @@ export interface ForceCue {
   /** An eruption: its vents, its radius, a fissure's line. */
   erupt?: { vents: Point[]; radius: number; fissure: boolean; line: Point[] };
   /** A quake: its crack as it runs, and whether it slides. */
-  quake?: { path: Point[]; slide: boolean; side: 1 | -1 };
+  quake?: { path: Point[]; slide: boolean; side: 1 | -1; travel: number };
   rift?: { path: Point[]; width: number };
   deposit?: { mouth: Point; direction: Point; reach: number; branches: Point[][] };
   /** An erosion (D281): the voxels that went in the stage just shown (z·N + tile: where its dust and
@@ -611,7 +611,7 @@ export class QuakeRun extends Staged implements StagedRun {
       z: this.map.heights[clamp(Math.round(head.y), 0, this.map.H - 1) * this.map.W + clamp(Math.round(head.x), 0, this.map.W - 1)],
       size: p.fault.length,
       power: this.settings.power,
-      quake: { path: pts.map((q) => ({ ...q })), slide, side: this.intent.side },
+      quake: { path: pts.map((q) => ({ ...q })), slide, side: this.intent.side, travel: p.fault.slide },
     };
   }
 }

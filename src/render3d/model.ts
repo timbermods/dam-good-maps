@@ -3,7 +3,7 @@
 // TypeScript with no three.js: the worker builds views, the renderer and the editor read them.
 //
 // Coordinates: tile (x, y) with x east and y north, as in the game. The renderer's world space is
-// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up.
+// X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up until it is turned.
 
 import { contaminationByte, moistureByte } from "./palette";
 

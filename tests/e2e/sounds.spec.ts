@@ -5,7 +5,7 @@
 
 import { readdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setWaterSpeed } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -29,7 +29,7 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await expect(page.locator('input[aria-label="Sound volume"]')).toHaveValue("0.54");
 
   // the first gestures (the view from above, Raise, a click on the land): the edit is there at once
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const at: [number, number] = [start[0] < i.W / 2 ? Math.round(i.W * 0.75) : Math.round(i.W * 0.25), Math.round(i.H / 2)];
@@ -51,17 +51,22 @@ test("the sounds: the recorded bank loads on the first gesture, never with the p
   await page.mouse.move(q.x + 3, q.y);
   await page.mouse.click(q.x, q.y);
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 2_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
+  // (the placement is an edit like the others: it is in the history once the queue has it, and what is counted below counts it)
+  await idle(page);
+  expect((await info(page)).history.filter((h) => h.applied).at(-1)!.label).toMatch(/pine/i);
   await page.keyboard.press("Escape");
 
   // an impact: its sounds as it strikes; Ctrl+Z takes it back and every sound of it stops at once
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 5_000 }).toBe(0);
-  // (at the slowest pace, so Esc comes while it is still at work)
-  await setWaterSpeed(page, "slower");
+  // (Slow forces, about four times as long, so it is still at work when Ctrl+Z comes)
+  await page.getByRole("button", { name: "Slow forces", exact: true }).click();
   const kept = (await info(page)).history.filter((h) => h.applied).length;
   await page.keyboard.press("Shift+Digit2");
   const c = await client(page, at[0], at[1] + 8);
   await page.mouse.move(c.x + 3, c.y);
   await page.mouse.click(c.x, c.y);
+  // (the force is at work first: the sounds counted are its own, not a click's or a placement's tail)
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 10_000 }).not.toBeNull();
   await expect.poll(async () => (await sound(page))!.playing, { timeout: 3_000, intervals: [20, 40, 80] }).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.dgmEditor!.force())).not.toBeNull();
   await page.keyboard.press("Control+z");

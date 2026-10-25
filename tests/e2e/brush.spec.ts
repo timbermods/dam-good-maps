@@ -6,7 +6,7 @@
 // D322); the stroke is still there after a reload (Your maps keeps it).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, settingValue } from "./open";
+import { openEditor, settingValue, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -37,7 +37,7 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const W = (await info(page)).W;
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
   // a place away from the start

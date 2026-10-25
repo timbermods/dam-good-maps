@@ -165,7 +165,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
             <NameField name={m.name} next={m.nextName} onNext={m.onNextName} />
             {f.seed}
           </div>
-          <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a new map from the changed settings" : "Make a new map", "Enter")}>
+          <button type="submit" class="primary sheet-act" disabled={m.busy} {...tip(m.changed ? "Make a map from the settings as changed" : "Make a map from the settings shown", "Enter")}>
             Generate
           </button>
           <div>{f.theme}</div>
@@ -174,7 +174,7 @@ export function GeneratorPanel({ model: m, counts: held, icon }: GeneratorPanelP
           </button>
           <div>{f.size}</div>
           {/* Another like this in Reset settings' place (Kyler, 2026-10-06): generated maps only, greyed on an opened one */}
-          <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "A new map like this one, on different land" : "Only for a generated map")} onClick={m.onAnother}>
+          <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "The open map's own settings, on new land" : "Only for a generated map")} onClick={m.onAnother}>
             Another like this
           </button>
         </div>

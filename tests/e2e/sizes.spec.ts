@@ -5,14 +5,14 @@
 // Start, Pine, then the rest.
 
 import { expect, test, type Page } from "@playwright/test";
-import { choose, openEditor, setLevel, settingValue } from "./open";
+import { choose, openEditor, setLevel, settingValue, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
 async function openTopDown(page: Page) {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 test("the objects menu's order; every brush's size in its row, up to half the map (D322); each force's size follows Power until it is set by hand (D226)", async ({ page }) => {

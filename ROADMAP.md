@@ -503,10 +503,14 @@ byte check nightly and in the release check; clean titles; 3D thumbnails rendere
 rebuilt without perimeter walls, water free to drain, at 256² where the data allows with its signature as the focal point; and
 the gallery grown to about 150 places. Kyler sees a contact sheet of the whole gallery and says if any should go.
 
-**Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 33 whose start reaches no fed water (the recorded
-`start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2 fixes them.
-`tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and berry shortfalls wait for round 2.
-The nightly runs `npm run places -- --check` and fails when `public/real-places` differs from a fresh build (2026-10-15: it matched): run `npm run places` and commit.
+**Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 24 whose start reaches no fed water (the recorded
+`start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2's water floor fixes them.
+Plants on dry soil wait for round 2 (#523); a start short of berries gets the bushes the `start.food` check's own fix plants (24 places; 8 still fall short, as on dev). **Open edges (D151, done):** every place is built from the survey's
+unsealed land, so none has an edge wall: the edge runs on past the map as the generator's does, with a short lip beside a source
+the survey put by the edge; a start the opened rivers flood, or that reaches no fed water, moves to the best spot its land offers
+(20 moved, D245), and a start that had water on the sealed land and has none on the open land gets a spring by it (11 places,
+D245's water floor), so no place lost its water. The nightly runs `npm run places -- --check` and fails when `public/real-places` is stale: run `npm run places`
+and commit.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
@@ -760,6 +764,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
    water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
    away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing.
+   **Built (the hover's data):** each held drought day's `weather` event carries `firstDry` (an `Int16Array` per tile: 0
+   for water that lasts every day worked out so far, or no water on Day 0; else the first day it holds none) and
+   `firstDryThrough` (the last day it covers, at least the day sent), for "Dry on day 6" and "Lasts the drought" (D133).
+   `core/sim/droughtLine.ts` `DryDays` reads it from the days the run keeps, one pass per day, "dry" as the view and the
+   line read it (no depth over `WATER_BODY`, seen from above on caves); `tests/contract/droughtFirstDry.test.ts`. The
+   page's hover line is the page session's.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
