@@ -110,4 +110,34 @@ describe("Programs' queue", () => {
     expect(sent.length).toBe(6 + 1);
     expect(resolved).toBe(true);
   });
+
+  it("a switch of the look during the warm-up waits for its own programs only, the queue held behind them", async () => {
+    const { host, sent, finish } = fakeHost();
+    const programs = new Programs(host);
+    // the warm-up: High's programs in every state, queued
+    const queued = Array.from({ length: 10 }, (_, k) => material(`q${k}`, { LITE: 0 }));
+    void programs.warm(queued.map((m) => [m, { LITE: 0 }]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent.length).toBe(WARM_IN_FLIGHT);
+    // the switch to High: its own two programs (one of them queued for the warm-up too), sent at once
+    const own = [queued[7], material("sky", { LITE: 0 })];
+    let switched = false;
+    void programs.now(own.map((m) => [m, { LITE: 0 }])).then(() => (switched = true));
+    // (the warm-up asked for the same again: waited for where it is, not queued behind the rest)
+    void programs.warm(own.map((m) => [m, { LITE: 0 }]));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent.slice(WARM_IN_FLIGHT)).toEqual(['q7:{"LITE":0}', 'sky:{"LITE":0}']);
+    // the warm-up's first two finish: nothing more sent while the switch waits
+    finish(sent[0]);
+    finish(sent[1]);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(sent.length).toBe(WARM_IN_FLIGHT + 2);
+    expect(switched).toBe(false);
+    // its own ready: the switch made, with the rest of the warm-up still queued
+    finish('q7:{"LITE":0}');
+    finish('sky:{"LITE":0}');
+    await vi.advanceTimersByTimeAsync(20);
+    expect(switched).toBe(true);
+    expect(programs.queued).toBeGreaterThan(0);
+  });
 });

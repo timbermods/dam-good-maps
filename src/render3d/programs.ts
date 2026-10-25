@@ -85,7 +85,8 @@ export class Programs {
   /** The programs to compile ahead not sent yet, those sent and still compiling, and who waits for which. */
   private queue: Job[] = [];
   private inFlight = new Set<Entry>();
-  private waiters: { jobs: Job[]; done: () => void }[] = [];
+  /** Who waits for which programs; `now`: one the page waits on (a switch of the look), ahead of the queue. */
+  private waiters: { jobs: Job[]; done: () => void; now: boolean }[] = [];
   private watched = new WeakSet<ShaderMaterial>();
   private timer = 0;
   private disposed = false;
@@ -128,11 +129,28 @@ export class Programs {
     if (!this.background || this.disposed || !list.length) return Promise.resolve();
     const jobs: Job[] = list.map(([mat, defines]) => {
       this.watch(mat);
-      return { mat, defines: ordered(defines), entry: null };
+      const d = ordered(defines);
+      // (one sent already, or compiled: waited for where it is, never queued again)
+      return { mat, defines: d, entry: this.known(mat).get(signature(d)) ?? null };
     });
-    this.queue.push(...jobs);
+    this.queue.push(...jobs.filter((j) => !j.entry));
+    return this.wait(jobs, false);
+  }
+
+  /** Compile these materials' programs now, ahead of the queue, which waits until they are ready (a switch of the
+   *  look the page waits on): resolved when they are. */
+  now(list: [ShaderMaterial, Defines][]): Promise<void> {
+    if (!this.background || this.disposed || !list.length) return Promise.resolve();
+    const jobs: Job[] = list.map(([mat, defines]) => {
+      this.watch(mat);
+      return { mat, defines: ordered(defines), entry: this.compile(mat, ordered(defines)) };
+    });
+    return this.wait(jobs, true);
+  }
+
+  private wait(jobs: Job[], now: boolean): Promise<void> {
     return new Promise((done) => {
-      this.waiters.push({ jobs, done });
+      this.waiters.push({ jobs, done, now });
       this.soon();
     });
   }
@@ -265,12 +283,13 @@ export class Programs {
     }
     for (const e of [...this.inFlight]) if (this.isReady(e)) this.inFlight.delete(e);
     // (a switch waiting for its program has the browser to itself: nothing more is sent ahead of it)
-    while (!this.wanted.size && this.inFlight.size < WARM_IN_FLIGHT && this.queue.length) {
+    const ready = (w: { jobs: Job[] }) => w.jobs.every((j) => j.entry && this.isReady(j.entry));
+    const urgent = this.waiters.some((w) => w.now && !ready(w));
+    while (!this.wanted.size && !urgent && this.inFlight.size < WARM_IN_FLIGHT && this.queue.length) {
       const job = this.queue.shift()!;
       job.entry = this.compile(job.mat, job.defines);
       if (!this.isReady(job.entry)) this.inFlight.add(job.entry);
     }
-    const ready = (w: { jobs: Job[] }) => w.jobs.every((j) => j.entry && this.isReady(j.entry));
     const done = this.waiters.filter(ready);
     this.waiters = this.waiters.filter((w) => !ready(w));
     if (made) this.host.changed();

@@ -481,8 +481,9 @@ Standard's shadow before a cave (item 8).
     materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
     state, so a switch back and a dig right after are drawn at once.
   - **A switch's program first:** the browser compiles what it is sent in turn, so the programs compiled ahead are
-    sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own, whose compile is sent at once: a
-    dig's program never waits behind the warm-up's queue (`tests/unit/programs.test.ts`). The map's picture waits for
+    sent two at a time (`WARM_IN_FLIGHT`), and none while a switch waits for its own (a dig's branches, or the switch
+    to High's programs), whose compile is sent at once and waited for alone: it never waits behind the warm-up's queue,
+    and a program sent already is never queued again (`tests/unit/programs.test.ts`). The map's picture waits for
     the branches its map asks for (up to 20 s, the page's thread free, then drawn with a warning), never drawn without
     its caves' look unsaid.
   - **The program the frame asks for:** each is compiled with every kind of object that draws its material (a fall's
