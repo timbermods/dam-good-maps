@@ -298,8 +298,22 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   branch, Standard and High, 1920×1080 dark, and Hollows at 8 at 1280×800 light): dev's hatched lid over the
   river's cave and over Pressure's tunnels, here the caves open with their water, walls and floors in their own
   light.
+- **Ground at the cut, and the cap that reads (`fix/cut-level-ground`):** a top lying exactly at the cut under water
+  (a pond's shelf, Canyon 128 seed 7's at 7) was drawn near-black: the cut takes away the water standing above it, and
+  the shelf kept the bed's colour meant to be seen through water, in its gorge's shade. The terrain now counts a top as
+  under water only where the water's surface is drawn (`soilOf`: the surface the tile data's water byte gives at or
+  below the cut's 0.05, as the water's shader cuts it), so ground whose water the cut took away is a top like any other,
+  with or without caves on the map; without a cut nothing changes. The cap (where solid rock crosses the cut) was a
+  grey-brown close to the stone tops, its hatch blurring flat at editing distance: it is now a cool slate darker than
+  the tops round it (`palette.ts` `CUT_CAP`), drawn over the ground's own colour (no veins through it) and lit by the
+  unsliced top's light, softened, with diagonal stripes three a tile close up; farther out every other stripe fades
+  as they close in, so they stay about seven pixels apart and never blur to flat. The overlays go on it as on any top.
+  `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level draws as the same shelf dry (it fails on dev by 38
+  levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
+  Standard and High, 1920×1080 dark and 1280×800 light).
 - **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
-  (each water column stands at its own level since part 4).
+  (each water column stands at its own level since part 4). Water whose surface stands above the cut is not drawn even
+  where its floor lies below the cut, so that floor shows as ground, not as a bed under water.
   `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
 
 ## Items 7 and 8: caves that read (built, `feature/3d-view-caves-read`)

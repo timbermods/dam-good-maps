@@ -66,10 +66,10 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
 import { WATER_GLSL } from "./waterPalette";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, type TileSpan } from "./light";
+import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 
@@ -895,11 +895,14 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float f = vnoise(g * 5.3 + 3.0);
         return mix(${glColor(JUICE.ashDark)}, ${glColor(JUICE.ashPale)}, smoothstep(0.22, 0.78, b)) * (0.9 + 0.2 * f);
       }
-      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1) */
+      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
+       *  surface is drawn: a layer cut takes away the water standing above it (the water's shader), and the ground that
+       *  water covered is then a top like any other, not a bed seen through water. */
       vec4 soilOf(vec4 d) {
         float g = floor(d.g * 255.0 + 0.5);
         float m = floor(g / 16.0);
-        return vec4(m, g - m * 16.0, d.a > 0.002 ? 1.0 : 0.0, d.b);
+        float surface = heightOf(d) + (d.a * 255.0 - 1.0) / ${f(WATER_BYTE_STEPS)};
+        return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
       }
       #ifdef RUN_SOIL
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
@@ -1037,6 +1040,9 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           bool cutGone = slice < 90.0 && abs(n.y) > 0.5 && abs(vWorld.y - slice) < 0.001 && slice >= 1.0 && roofedAir(vec3(tile, slice - 1.0));
         #endif
         float detail = 1.0 - smoothstep(0.04, 0.16, fwidth(g.x));
+        // (the cut's hatch: its lines' coordinate and how far it moves a pixel, taken outside any branch)
+        float capU = (g.x + g.y) * 3.0;
+        float capPx = max(fwidth(capU), 0.0001);
         float glow = 0.0;
         vec3 c;
         vec3 light;
@@ -1232,6 +1238,27 @@ ${hook(h, "wall")}          float py = fwidth(y);
         c *= light;
         // the glowing cracks of contaminated ground shine in shadow too
         c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
+        // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
+        // where solid rock crosses the cut, not a cave's floor below it) are a section through rock, not ground: a cool
+        // slate, darker than the tops round it, with a diagonal hatch. Close up three lines a tile; farther out every
+        // other line fades away as the lines close in, so they stay some seven pixels apart and the cut never blurs
+        // into a flat colour like the ground's. Its light is the unsliced top's, softened. (The overlays go on it as on
+        // any top.)
+        bool capped = n.y > 0.5 && slice < 90.0 && h0 > slice + 0.5
+        #if CUTAWAY
+          && abs(vWorld.y - slice) < 0.001 && !roofedAir(vec3(tile, slice))
+        #endif
+        ;
+        if (capped) {
+          float lv = max(0.0, log2(capPx * 7.0));
+          float p0 = exp2(floor(lv));
+          float l0 = 1.0 - smoothstep(0.25 - 0.75 * capPx / p0, 0.25 + 0.75 * capPx / p0, abs(fract(capU / p0 + 0.5) - 0.5));
+          float p1 = p0 * 2.0;
+          float l1 = 1.0 - smoothstep(0.25 - 0.75 * capPx / p1, 0.25 + 0.75 * capPx / p1, abs(fract(capU / p1 + 0.5) - 0.5));
+          float line = mix(l0, l1, smoothstep(0.15, 0.85, fract(lv)));
+          float lum = clamp(dot(light, vec3(0.299, 0.587, 0.114)), 0.0, 1.3);
+          c = mix(${glColor(CUT_CAP.base)}, ${glColor(CUT_CAP.line)}, line) * (0.72 + 0.28 * lum);
+        }
         vec4 o = texture2D(overlay, (tile + 0.5) / mapSize);
         #if CUTAWAY
           // (a selection taken on a run is drawn on that run, the rest of the column as the land outside it)
@@ -1282,18 +1309,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
           }
         }
         if (n.y > 0.5) {
-          // the slice's cut: the tops of columns taller than the layer, darker, with a fine hatch (with terrain
-          // above terrain, only the cap where solid rock crosses the cut, not a cave's floor below it)
-          if (slice < 90.0 && h0 > slice + 0.5
-          #if CUTAWAY
-            && abs(vWorld.y - slice) < 0.001 && !roofedAir(vec3(tile, slice))
-          #endif
-          ) {
-            float hs = step(0.5, fract((g.x + g.y) * 3.0));
-            c = mix(c, vec3(0.5, 0.47, 0.43), 0.6) * (0.86 + 0.14 * hs);
-          }
-          // level lines: a thin dark line on each tile edge where the ground steps down
-          else if (levelLines > 0.5) {
+          // level lines: a thin dark line on each tile edge where the ground steps down (not on the cut)
+          if (!capped && levelLines > 0.5) {
             vec2 fo = fract(g);
             float e = 9.0;
             if (heightOf(tileAt(tile + vec2(1.0, 0.0))) < h0) e = min(e, 1.0 - fo.x);
