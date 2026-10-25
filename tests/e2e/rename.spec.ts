@@ -162,9 +162,28 @@ test("a description the core refuses is kept in its card with the reason when fo
     await expect(page.getByRole("alert").filter({ hasText: "A description holds up to 600 characters; this one has 601" })).toBeVisible();
     await expect(desc).toHaveValue("x".repeat(601));
     expect((await info()).descriptionWritten).toBe(false);
+    // (a click on the card's own padding keeps it open, and a click on the map after it still saves or, refused, keeps it)
+    await page.locator(".editor-title .title-desc").click({ position: { x: 2, y: 2 } });
+    await page.mouse.click(w / 2, h / 2);
+    await expect(page.getByRole("alert").filter({ hasText: "this one has 601" })).toBeVisible();
+    await expect(desc).toHaveValue("x".repeat(601));
     // (Esc from inside it puts everything back)
     await desc.focus();
     await desc.press("Escape");
     await expect(desc).toHaveCount(0);
   }
+});
+
+test("a click on the card's padding then on the map saves the description and closes the card", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const desc = page.getByLabel("Map description");
+  await page.locator(".editor-title h1 button.title-button").click();
+  await desc.fill("A quiet valley.");
+  await page.locator(".editor-title .title-desc").click({ position: { x: 2, y: 2 } });
+  await expect(desc).toHaveCount(1);
+  await page.mouse.click(700, 450);
+  await expect(desc).toHaveCount(0);
+  await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.info())).description).toBe("A quiet valley.");
 });

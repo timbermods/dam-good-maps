@@ -273,7 +273,7 @@ function TitleName(p: {
       </span>
     </h1>
     {/* the map's own description, a second line under the name (short, plain placeholder): the text the game shows with the map */}
-    <div class="title-desc" ref={card} tabIndex={-1}>
+    <div class="title-desc" ref={card} tabIndex={-1} onBlur={(e) => !inside(e) && void save(true)}>
       <textarea
         rows={2}
         value={desc}
