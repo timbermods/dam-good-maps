@@ -168,11 +168,14 @@ function berriesTogether(items: CheckItem[]): CheckItem[] {
 export function checkRows(s: MapSession, c: CheckResult, region: TileRect | null = null): CheckItem[] {
   const item = checkItem(s, c);
   const at = new Map<string, [number, number]>();
-  const whole = new Map<string, [number, number][]>();
-  for (const e of s.built.entities) {
-    at.set(e.id, [e.x, e.y]);
-    whole.set(e.id, entityShown(e));
-  }
+  for (const e of s.built.entities) at.set(e.id, [e.x, e.y]);
+  // (footprints only for the objects a check's own rows name, worked out when a row asks: a painted forest has tens of thousands)
+  let byId: Map<string, (typeof s.built.entities)[number]> | null = null;
+  const whole = (id: string): [number, number][] | undefined => {
+    byId ??= new Map(s.built.entities.map((e) => [e.id, e]));
+    const e = byId.get(id);
+    return e ? entityShown(e) : undefined;
+  };
   const lines = item.message.split("\n");
   let rows: CheckItem[];
   if (lines.length < 2) rows = [item];
@@ -185,7 +188,7 @@ export function checkRows(s: MapSession, c: CheckResult, region: TileRect | null
       const pt = tiles?.length ? tiles[k] : ids?.[k] ? at.get(ids[k]) : undefined;
       const text = k === lines.length - 1 ? message + more : message;
       // (an object's row marks its whole footprint, its Coordinates tile first)
-      const shown = pt && !tiles?.length && ids?.[k] ? whole.get(ids[k]) : undefined;
+      const shown = pt && !tiles?.length && ids?.[k] ? whole(ids[k]) : undefined;
       return { id: item.id, class: item.class, message: text, ...(pt ? { where: { tiles: shown ?? [pt], ...(!tiles?.length && ids?.[k] ? { entities: [ids[k]] } : {}) } } : {}) };
     });
     if (item.fix) rows[0].fix = item.fix;

@@ -9,8 +9,10 @@ import { baseTerrain, fileFromBase } from "../../src/core/doc/base";
 import { decodeProject, encodeProject, ProjectError, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { toBase64 } from "../../src/core/format/base64";
+import { writeTimber } from "../../src/core/format/timber";
 import { encodeWorld } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { runsToTiles, tilesToRuns } from "../../src/core/math/grid";
 import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
 
@@ -153,11 +155,12 @@ describe("project files (PLAN §19.6)", () => {
 
   it("format-1 project files (the M1 and M2 downloads) open and rebuild their map", () => {
     // a format-1 file stored its spec, features and heights; its land is rebuilt from those heights.
-    // A map with natural ramps needs the field's slope targets, which format 1 never held (M1 and
-    // M2 maps had none), so the stand-in is a map without them
+    // A map with natural ramps needs the field's slope targets, and one with 3D forms the field's runs
+    // (D488), which format 1 never held (M1 and M2 maps had neither), so the stand-in is a map without them
     let m = r;
-    for (let seed = 34; m.field?.ramps && seed < 60; seed++) m = generate(makeSpec({ seed, size: { x: 96, y: 96 } }));
+    for (let seed = 34; (m.field?.ramps || m.field?.runs.length) && seed < 60; seed++) m = generate(makeSpec({ seed, size: { x: 96, y: 96 } }));
     expect(m.field?.ramps).toBeUndefined();
+    expect(m.field?.runs).toEqual([]);
     const v1 = {
       formatVersion: 1,
       app: "dam-good-maps",
@@ -174,7 +177,8 @@ describe("project files (PLAN §19.6)", () => {
     const s = MapSession.open(doc);
     expect(s.mode).toBe("live");
     expect(s.notices).toEqual([]);
-    expect(sha(s.exportTimber().bytes)).toBe(sha(m.bytes));
+    // (the same map; a format-1 file never recorded what the map shows, so its description lacks those lines)
+    expect(sha(s.exportTimber().bytes)).toBe(sha(writeTimber(toTimberFile(m.spec, m.built))));
     const old = MapSession.open(decodeProject(gzipSync(strToU8(JSON.stringify({ ...v1, generatorVersion: "0.1.0", spec: { ...m.spec, generatorVersion: "0.1.0" } })))));
     expect(old.notices[0]).toMatch(/made with generator 0\.1\.0 and stores no map/);
   });

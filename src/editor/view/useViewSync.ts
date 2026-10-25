@@ -72,7 +72,7 @@ export function useViewSync(ed: Ed): ViewSyncSlice {
     for (const [x, y] of tiles) if (x >= 0 && y >= 0 && x < info.W && y < info.H) cells.push(y * info.W + x);
     r.setHighlight(cells);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && unmark();
-    const onPress = (e: PointerEvent) => e.button === 0 && (e.target as Element | null)?.tagName === "CANVAS" && unmark();
+    const onPress = (e: PointerEvent) => e.button === 0 && e.target === renderer.current?.canvas && unmark();
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPress, true);
     shown.current = {

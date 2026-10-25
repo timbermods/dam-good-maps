@@ -16,6 +16,7 @@ import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
 import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
+import { numberedName } from "./versionName";
 import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
@@ -542,6 +543,7 @@ export function App() {
   /** History's Keep this version and Branch from here (src/core/library/keptVersions.ts): the open map as it stood at History
    *  step `k`, kept in Your maps as a map of its own, named for the map and the step and remembering where it came from.
    *  A branch is opened too, with its History through that step; a kept version leaves the open map where it is. */
+  const keepStore = useRef<Promise<void>>(Promise.resolve());
   async function keepStep(k: number, branch: boolean) {
     const open = entry.current;
     if (!open) return;
@@ -553,8 +555,8 @@ export function App() {
       let bytes = v.bytes;
       let picture = v.picture;
       if (!v.stored || !picture) {
-        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits)
-        setNote(`Keeping ${v.name}…`);
+        // (the open map has no settled build of that step: it is built in a worker of its own, the editor never waits; its name is chosen once it is built, as it is stored, so the note names none)
+        setNote(`Keeping that version…`);
         const bg = createBackground();
         try {
           await bg.api.openVersion(bytes);
@@ -567,8 +569,17 @@ export function App() {
         }
       }
       const now = new Date().toISOString();
-      const e: YourMapEntry = { id: newId(), name: v.name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
-      const r = await yourMaps.put(e, bytes, null);
+      // (a version's name is given, never asked: chosen as the map is stored, when Your maps already holds it it is numbered, as
+      // saved files are; the build above takes a while, and one kept or branched meanwhile must be seen. One at a time here, so two
+      // finishing together don't both see the name free)
+      const stored = keepStore.current.then(async () => {
+        const name = numberedName(v.name, (await yourMaps.list().catch(() => maps)).map((m) => m.name));
+        const e: YourMapEntry = { id: newId(), name, kind: open.kind, createdAt: now, editedAt: now, thumbnail: picture ? thumbnailUrl(picture) : null, revision: 1, savedToTimberborn: null, bytes: bytes.length, size: v.size, parent: v.parent };
+        return { e, r: await yourMaps.put(e, bytes, null) };
+      });
+      keepStore.current = stored.then(() => undefined, () => undefined);
+      const { e, r } = await stored;
+      const name = e.name;
       const problem = storeProblem(r);
       if (problem) return setError(problem);
       const list = await yourMaps.list().catch(() => [e, ...maps]);
@@ -576,7 +587,7 @@ export function App() {
       if (branch) {
         branchedId.current = e.id;
         guard(() => void openMap(e.id, list), "Branching");
-      } else setNote(`Kept as ${v.name}`);
+      } else setNote(`Kept as ${name}`);
     } catch (err) {
       setError(`That version was not kept: ${words(err)}`);
     }
@@ -1228,8 +1239,8 @@ export function App() {
     </p>
   ) : version ? (
     <p class="error floating quiet" role="status">
-      {version.note}
-      {" "}
+      {/* (the note has no full stop of its own; the space keeps the words and the button apart where the dock lays them out as text) */}
+      {version.note}.{" "}
       <button type="button" class="linkish" title="Open the version that was found" onClick={() => void openVersion(version.response)}>
         Open it
       </button>
@@ -1304,6 +1315,7 @@ export function App() {
       </>
     );
   }
+
 
   return (
     <>

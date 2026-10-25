@@ -191,7 +191,10 @@ export async function responseOfResult(r: GenerateResult, ms: number): Promise<G
  *  attempt's stage, and its first look, the land and the water the hydrology planned (channels 1,
  *  lakes 2, floors 3), before the water is settled. */
 export type GenProgress =
-  | { kind: "stage"; attempt: number; stage: string }
+  /** Each stage of each attempt as it starts (`attempt` counts from 0 in each rescue round): `tried`,
+   *  the attempts that failed before it, every round's; `failed`, why the last of them failed, a short
+   *  plain phrase ("the start's water moved", gen/failWords.ts), absent before any failed. */
+  | { kind: "stage"; attempt: number; stage: string; tried?: number; failed?: string }
   | { kind: "land"; attempt: number; W: number; H: number; heights: Uint8Array; water: Uint8Array }
   /** The map, once it passed its checks (D329: the first that passes is the map, shown at once):
    *  its land and its settled water (1 where wet). */
@@ -203,7 +206,7 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     spec,
     onProgress
       ? {
-          onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage }),
+          onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage, ...(p.tried !== undefined ? { tried: p.tried } : {}), ...(p.failed ? { failed: p.failed } : {}) }),
           onLand: (l) => onProgress({ kind: "land", attempt: l.attempt, W: spec.size.x, H: spec.size.y, heights: l.heights, water: l.water }),
           onCandidate: (c) => {
             const b = c.result.built;

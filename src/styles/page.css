@@ -1134,9 +1134,16 @@
   pointer-events: none;
 }
 
+/* (the map area is the container the bar's width is read from, not the window: a scrollbar or a side panel can't make the bar overflow) */
+@supports (width: 1cqi) {
+  .editor-map-area {
+    container-type: inline-size;
+  }
+}
+
 @supports (width: round(down, 10px, 1px)) {
   .editor-view {
-    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100vw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
+    --dock-w: calc(var(--cell-count) * clamp(var(--cell-min), round(down, calc((100cqw - 390px - var(--bar-chrome)) / var(--cell-count)), 1px), var(--cell-max)) + var(--bar-chrome));
   }
 
   .tool-dock {
@@ -1800,14 +1807,16 @@
 
   .first-look-empty .contours path {
     stroke-dashoffset: 1.01;
-    animation: 6s linear infinite;
   }
 
-  .first-look-empty .contours path:nth-child(1) { animation-name: contour-draw-1; }
-  .first-look-empty .contours path:nth-child(2) { animation-name: contour-draw-2; }
-  .first-look-empty .contours path:nth-child(3) { animation-name: contour-draw-3; }
-  .first-look-empty .contours path:nth-child(4) { animation-name: contour-draw-4; }
-  .first-look-empty .contours path:nth-child(5) { animation-name: contour-draw-5; }
+  /* (each ring's shorthand names its keyframes: a nameless shorthand, "animation: 6s linear infinite", was minified to
+     "animation: none" in the built page, so the rings never drew there) */
+
+  .first-look-empty .contours path:nth-child(1) { animation: contour-draw-1 6s linear infinite; }
+  .first-look-empty .contours path:nth-child(2) { animation: contour-draw-2 6s linear infinite; }
+  .first-look-empty .contours path:nth-child(3) { animation: contour-draw-3 6s linear infinite; }
+  .first-look-empty .contours path:nth-child(4) { animation: contour-draw-4 6s linear infinite; }
+  .first-look-empty .contours path:nth-child(5) { animation: contour-draw-5 6s linear infinite; }
 }
 
 @keyframes making-flow-near {
@@ -2116,6 +2125,18 @@
    wider than Segoe UI's, taking the room from the name box) */
 .sheet-top .set.plate.line.seed {
   grid-template-columns: minmax(30px, max-content) 92px 54px;
+}
+
+.sheet-top .set.plate.line.seed.with-variation {
+  grid-template-columns: 30px 92px max-content 54px;
+}
+
+.seed-variation {
+  padding: 0 2px 0 1px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
 }
 
 .sheet-top .seed .set-toggle {
@@ -2446,6 +2467,13 @@
   box-shadow: 0 0 0 2px var(--panel);
   cursor: ew-resize;
   touch-action: none;
+}
+
+/* (the handle is 4px to look at and 16px wide to take: a press a few pixels off still has it) */
+.mix-edge::before {
+  content: "";
+  position: absolute;
+  inset: -3px -6px;
 }
 
 .mix-words {
@@ -3215,7 +3243,7 @@
 }
 
 .shortcut-groups > section {
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
 
 .shortcut-groups h3 {

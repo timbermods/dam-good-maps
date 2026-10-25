@@ -121,6 +121,10 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
   await page.waitForTimeout(1500);
   expect(await page.evaluate(() => window.dgm3d!.renderer.getView())).not.toEqual(view);
   expect((await marked(page)).length).toBe(count);
+  // and so does a press on the minimap, which moves the camera too
+  await page.locator(".minimap canvas").first().click({ position: { x: 20, y: 20 } });
+  await page.waitForTimeout(500);
+  expect((await marked(page)).length).toBe(count);
 
   // Esc, with the focus on the map, takes them off
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
