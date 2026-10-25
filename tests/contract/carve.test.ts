@@ -659,8 +659,12 @@ describe("a carve at work in the editor's worker", () => {
       if (f!.heights) shown = f!.heights;
       return f!;
     };
-    show(st.frame);
-    for (let k = 0; k < 200 && !show(ed.forceAdvance(1)).planned; k++) expect(Array.from(shown)).toEqual(Array.from(ground));
+    // (a carve worked out within its first slice is planned at its start: no step is asked for before it)
+    let planning = show(st.frame);
+    for (let k = 0; k < 200 && !planning.planned; k++) {
+      planning = show(ed.forceAdvance(1));
+      expect(Array.from(shown)).toEqual(Array.from(ground));
+    }
     const worked = ed.forceAdvance(0)!;
     expect(worked.planned).toBe(true);
     expect(worked.total).toBeGreaterThan(3 * STEPS_PER_SECOND);
