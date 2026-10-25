@@ -94,8 +94,10 @@ test("hovering a lake in the Drought view says the day it dries, or that it last
   await expect(readout).not.toContainText(words);
 
   // back to the map's own water: the words go
-  await hover(spots.lake[0]);
   await page.getByRole("button", { name: "Drought", exact: true }).click();
+  await expect(page.locator(".day-words")).toHaveText("Day –");
+  await hover(spots.lake[0]);
+  await expect(readout).toContainText("Water");
   await expect(readout).not.toContainText(words);
   expect(errors).toEqual([]);
 });
