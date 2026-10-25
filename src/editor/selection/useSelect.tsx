@@ -396,14 +396,27 @@ export function useSelect(ed: Ed): SelectSlice {
   const cropWhy = (): string | null => (!selection.current.count ? "Select an area to crop" : cropPlan ? cropPlan.reason : "Checking the selection");
   /** The core's reason shown on the message line while Crop is hovered (the row's words are too short for it). */
   const cropShown = useRef<string | null>(null);
+  /** Crop is hovered or focused. The core's answer comes a moment after each selection, so it can arrive after the
+   *  pointer did: it then says its reason (or what the crop makes) the moment it comes. */
+  const cropHot = useRef(false);
+  useEffect(() => {
+    if (cropHot.current) previewCrop();
+  }, [cropPlan]);
   function endCropHint() {
+    cropHot.current = false;
     const t = cropShown.current;
     cropShown.current = null;
     if (t) setMessage((m) => (m && m.text === t ? null : m));
     endWaterHint();
   }
+  /** Crop's button leaves the row (a brush, a force or the shelf takes the bar): no pointer is on it any more, and no mouseleave
+   *  comes. (One function for the page's life, so Preact doesn't call it on every render.) */
+  const cropGone = useRef((el: HTMLButtonElement | null) => {
+    if (!el) endCropHint();
+  });
   /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
   function previewCrop() {
+    cropHot.current = true;
     hintJob.current++;
     const b = selection.current.bounds();
     const why = cropWhy();
@@ -580,7 +593,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
+            <button type="button" class="set-button" ref={cropGone.current} aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
               Crop
             </button>
           </div>
