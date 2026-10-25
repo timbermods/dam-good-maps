@@ -1827,6 +1827,8 @@ export class MapRenderer {
       },
       (keys) => {
         for (const k of keys) this.waterQueue.add(k);
+        // (a failed batch of water put in place goes again exactly, none left out for being within a hair of it)
+        if (this.exactSent) this.waterExact = true;
         this.requestRender();
       },
     );
