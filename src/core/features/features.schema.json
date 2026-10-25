@@ -227,6 +227,18 @@
           "additionalProperties": false,
           "required": ["tallness"],
           "properties": { "tallness": { "type": "number", "minimum": -1, "maximum": 1 } }
+        },
+        "storeys": {
+          "description": "Each column's storeys in the area's tile order, where a story shapes them.",
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 8 }
+        },
+        "story": {
+          "description": "The story the field tells (a ruined dam across a narrows, a drowned village), with its line in a player's words; such a field may stand in water.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "say"],
+          "properties": { "kind": { "enum": ["dam", "village"] }, "say": { "type": "string" } }
         }
       }
     },
