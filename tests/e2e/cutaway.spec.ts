@@ -5,7 +5,8 @@
 // with no shader error and with the terrain on screen, the ruin overgrown by its floor's soil (High's slope reads it
 // too); the falls' program is compiled with the branch too. (Software drawing on CI is treated as a GPU, as rendererWarmup.spec
 // does, so the High look's programs are checked there too.)
-// A pond on a shelf cut at the shelf's level: the shelf is drawn as the same shelf dry.
+// A pond on a shelf cut at the shelf's level, and a reservoir deeper than the water byte's fine range cut below its
+// surface: the ground is drawn as the same ground dry.
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
@@ -206,7 +207,8 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
 
 test("ground at the cut whose water the cut takes away is drawn as a top like any other, not as a dark bed", async ({ page }) => {
   // (a pond on a shelf at level 6, cut at 6: the water stands above the cut and is not drawn, and the shelf is a top at the
-  // cut; it was drawn in the bed's colour meant to be seen through water, a near-black slab in a shaded gorge)
+  // cut; it was drawn in the bed's colour meant to be seen through water, a near-black slab in a shaded gorge. And a
+  // reservoir six levels deep on ground at 2, cut at 7: deeper than the water byte's fine range, its surface above the cut)
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
@@ -225,19 +227,18 @@ test("ground at the cut whose water the cut takes away is drawn as a top like an
     const r = new Make(c);
     r.setLookChoice("standard", false);
     const W = 12;
-    const heights = new Uint8Array(W * W).fill(6);
-    const pond: number[] = [];
-    for (let y = 2; y < 10; y++) for (let x = 2; x < 10; x++) pond.push(y * W + x);
+    const shelf: number[] = [];
+    for (let y = 2; y < 10; y++) for (let x = 2; x < 10; x++) shelf.push(y * W + x);
+    const everywhere = Array.from({ length: W * W }, (_, i) => i);
     const entities = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
     const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W) };
     const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
-    /** The mean colour of the middle of the view (the pond's middle), the map drawn with or without its water, cut at 6. */
-    const middle = (wet: boolean): number[] => {
-      const water = wet
-        ? { count: pond.length, tile: Int32Array.from(pond), floor: new Float32Array(pond.length).fill(6), depth: new Float32Array(pond.length).fill(0.6), contamination: new Float32Array(pond.length) }
-        : { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
-      r.setMap({ W, H: W, heights: heights.slice(), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
-      r.setSlice(6);
+    /** The mean colour of the middle of the view (the pond's middle): ground at `level`, with `depth` of water on `pond`
+     *  (none: dry), cut at `cut`. */
+    const middle = (level: number, pond: number[], depth: number, cut: number): number[] => {
+      const water = { count: pond.length, tile: Int32Array.from(pond), floor: new Float32Array(pond.length).fill(level), depth: new Float32Array(pond.length).fill(depth), contamination: new Float32Array(pond.length) };
+      r.setMap({ W, H: W, heights: new Uint8Array(W * W).fill(level), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
+      r.setSlice(cut);
       r.setClock(12.5);
       r.resetView();
       r.renderNow();
@@ -251,13 +252,17 @@ test("ground at the cut whose water the cut takes away is drawn as a top like an
       for (let k = 0; k < bw * bh; k++) for (let ch = 0; ch < 3; ch++) sum[ch] += px[k * 4 + ch];
       return sum.map((v) => v / (bw * bh));
     };
-    const dry = middle(false);
-    const cut = middle(true);
+    const cases = {
+      "the shelf under its cut-away pond": { dry: middle(6, [], 0, 6), cut: middle(6, shelf, 0.6, 6) },
+      "the ground under a cut-away reservoir six levels deep": { dry: middle(2, [], 0, 7), cut: middle(2, everywhere, 6, 7) },
+    };
     r.dispose();
     host.remove();
-    return { dry, cut };
+    return cases;
   });
-  const diff = Math.max(...out.cut.map((v, ch) => Math.abs(v - out.dry[ch])));
-  expect(diff, `the shelf under its cut-away pond ${out.cut.map(Math.round)} against the same shelf dry ${out.dry.map(Math.round)}`).toBeLessThan(3);
+  for (const [name, { dry, cut }] of Object.entries(out)) {
+    const diff = Math.max(...cut.map((v, ch) => Math.abs(v - dry[ch])));
+    expect(diff, `${name} ${cut.map(Math.round)} against the same ground dry ${dry.map(Math.round)}`).toBeLessThan(3);
+  }
   expect(errors).toEqual([]);
 });

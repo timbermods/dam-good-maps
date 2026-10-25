@@ -18,7 +18,9 @@
 //
 // The flow at the lip: the simulation's own outflow over that side, which every water view carries
 // (current.ts, D353; tests/contract/fallOutflow.test.ts pins every lip to the settle, the map's edge
-// included). Water with no outflows (a force's own water while it plays) is estimated instead: at a
+// included), each column its own, a cave's under a wet roof too (the file's per column, the stacked
+// settle's, stackWater.ts `columnFlows`). Water with no outflows (a force's own water while it plays, a
+// weather day under caves) is estimated instead: at a
 // drop the simulation empties the lip tile every substep, so the water pouring over a side per second
 // is the lip's depth over the substep (sim/water.ts DT), shared among the sides it flows out of by
 // their head (within a few per cent of the simulation's own outflow at most falls; it gives the map's
