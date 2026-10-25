@@ -32,17 +32,15 @@ export const OBSTRUCTIONS = [
 const FROM_POINTER = 16;
 const FROM_CONTROL = 4;
 const FROM_EDGE = 4;
-/** The offsets tried, nearest first, when the pointer's own corners are covered. */
-const FARTHER = [40, 70, 110, 160];
 /** The step of the search over the whole free view, when no corner or side is clear. */
 const SCAN = 8;
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
 /** Where a note of `note`'s size goes: its first wish when that is clear of every control and inside `bounds`, else the
- *  pointer's other corners in turn (below left, above right, above left), else beside and above or below it, then the
- *  same sides farther off, else the one that is covered least, pushed back inside `bounds`. Returns the note's top
- *  left. */
+ *  pointer's other corners in turn (below left, above right, above left), else beside and above or below it, else the
+ *  clear spot of the whole free view nearest the pointer (FROM_POINTER clear of it), else the one that is covered
+ *  least, pushed back inside `bounds`. Returns the note's top left. */
 export function placeNote(want: { x: number; y: number } | null, pointer: { x: number; y: number }, note: { w: number; h: number }, bounds: Box, avoid: readonly Box[]): { x: number; y: number } {
   const { w, h } = note;
   const wishes = [
@@ -51,19 +49,11 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
     { x: pointer.x - FROM_POINTER - w, y: pointer.y + FROM_POINTER },
     { x: pointer.x + FROM_POINTER, y: pointer.y - FROM_POINTER - h },
     { x: pointer.x - FROM_POINTER - w, y: pointer.y - FROM_POINTER - h },
-    // (no corner is clear: centred on the pointer's sides, then every corner and side farther off)
+    // (no corner is clear: centred on the pointer's sides)
     { x: pointer.x + FROM_POINTER, y: pointer.y - h / 2 },
     { x: pointer.x - FROM_POINTER - w, y: pointer.y - h / 2 },
     { x: pointer.x - w / 2, y: pointer.y + FROM_POINTER },
     { x: pointer.x - w / 2, y: pointer.y - FROM_POINTER - h },
-    ...FARTHER.flatMap((d) => [
-      { x: pointer.x + d, y: pointer.y + d },
-      { x: pointer.x - d - w, y: pointer.y + d },
-      { x: pointer.x + d, y: pointer.y - d - h },
-      { x: pointer.x - d - w, y: pointer.y - d - h },
-      { x: pointer.x - w / 2, y: pointer.y + d },
-      { x: pointer.x - w / 2, y: pointer.y - d - h },
-    ]),
   ];
   const inflated = avoid.map((b) => ({ x0: b.x0 - FROM_CONTROL, y0: b.y0 - FROM_CONTROL, x1: b.x1 + FROM_CONTROL, y1: b.y1 + FROM_CONTROL }));
   const inner = { x0: bounds.x0 + FROM_EDGE, y0: bounds.y0 + FROM_EDGE, x1: bounds.x1 - FROM_EDGE, y1: bounds.y1 - FROM_EDGE };
@@ -79,12 +69,14 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
     if (cost === 0) return p;
     if (cost < least) [best, least] = [p, cost];
   }
-  // (no wish is clear: every spot of the free view, the clear one nearest the pointer, so a note near the foot of a
-  // narrow gap goes wherever there is room, however far)
+  // (no wish is clear: every spot of the free view that keeps FROM_POINTER clear of the pointer, the clear one nearest
+  // it, so a note near the foot of a narrow gap goes wherever there is room, however far; no fixed offsets are tried
+  // first, which made it jump away and back as the pointer moved)
   let nearest = Infinity;
   let clear: { x: number; y: number } | null = null;
   for (let y = inner.y0; y + h <= inner.y1; y += SCAN) {
     for (let x = inner.x0; x + w <= inner.x1; x += SCAN) {
+      if (x < pointer.x + FROM_POINTER && x + w > pointer.x - FROM_POINTER && y < pointer.y + FROM_POINTER && y + h > pointer.y - FROM_POINTER) continue;
       const d = Math.hypot(x + w / 2 - pointer.x, y + h / 2 - pointer.y);
       if (d >= nearest) continue;
       const p = { x, y };

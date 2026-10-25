@@ -198,3 +198,49 @@ test("with the Legend open, a note beside the pointer keeps off its panel", asyn
     await expectFree(page, ".shape-note");
   }
 });
+
+for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]) {
+  test(`${size.width}: a note does not jump away and back as the pointer moves down the gap beside the shelf`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+    await putHintsAway(page);
+    const spot = await dryTile(page);
+    // (the ground fills the view, so every pointer position is over the map and has its note; a tile is a few dozen
+    // pixels wide, as in use: the words follow the tile under the pointer)
+    await page.evaluate(([x, y, h]) => window.dgm3d!.renderer.setView({ target: [x + 0.5, h, -(y + 0.5)], distance: 16, yaw: 0.5, pitch: 0.9 }), [spot.x, spot.y, spot.h] as const);
+    await page.getByRole("button", { name: /^Pine/ }).click();
+    await toolInHand(page);
+    const shelf = await rect(page, ".objects-dock");
+    const toolbar = await rect(page, ".tool-bar");
+    const x = Math.min((toolbar.right + shelf.left) / 2, shelf.left - 4);
+    const frames = () => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+    let last: { x: number; y: number } | null = null;
+    let seen = 0;
+    let jumps = 0;
+    let total = 0;
+    for (let y = 200; y <= size.height - 10; y += 8) {
+      total++;
+      await page.mouse.move(x, y);
+      await frames();
+      const note = await page.evaluate(() => {
+        const e = document.querySelector(".shape-note");
+        if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+      });
+      if (!note) {
+        last = null;
+        continue;
+      }
+      seen++;
+      // (always in the free view, and never far from the pointer)
+      expect(Math.hypot(note.x + note.w / 2 - x, note.y + note.h / 2 - y), `pointer at ${y}`).toBeLessThan(900);
+      if (last && Math.hypot(note.x - last.x, note.y - last.y) > 100) jumps++;
+      last = note;
+    }
+    expect(seen, `the note was up along the sweep (${seen} of ${total})`).toBeGreaterThan(30);
+    // (a flip from one side of the pointer to the other is a jump; away and back again is not allowed)
+    expect(jumps).toBeLessThanOrEqual(2);
+  });
+}
+

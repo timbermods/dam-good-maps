@@ -57,6 +57,26 @@ describe("a note beside the pointer", () => {
     expect(at.x).toBeLessThan(1520);
     expect(at.x + note.w <= wide.x1 && at.y >= 0 && at.y + note.h <= wide.y1).toBe(true);
   });
+  it("does not jump away and back as the pointer moves down the gap beside the shelf", () => {
+    // (1920 × 1080: the bar's settings row and tool row end at x 1716, the shelf starts at 1730; a message stands over the foot)
+    const big: Box = { x0: 0, y0: 0, x1: 1920, y1: 1080 };
+    const gapShelf: Box = { x0: 1730, y0: 165, x1: 1910, y1: 1070 };
+    const bars: Box = { x0: 204, y0: 892, x1: 1716, y1: 1070 };
+    const message: Box = { x0: 560, y0: 830, x1: 1380, y1: 880 };
+    for (const x of [1723, 1700, 1500]) {
+      let last: { x: number; y: number } | null = null;
+      let jumps = 0;
+      for (let y = 180; y <= 1060; y += 6) {
+        const at = placeNote(null, { x, y }, note, big, [gapShelf, bars, message, panel]);
+        // (never far from the pointer, never under a control)
+        expect(Math.hypot(at.x + note.w / 2 - x, at.y + note.h / 2 - y), `x ${x} y ${y}`).toBeLessThan(700);
+        if (last && Math.hypot(at.x - last.x, at.y - last.y) > 100) jumps++;
+        last = at;
+      }
+      // (a flip from one side of the pointer to the other is one jump; away and back three times is not allowed)
+      expect(jumps, `pointer down x ${x}`).toBeLessThanOrEqual(2);
+    }
+  });
   it("covers a control as little as it can when every side is covered", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
     const at = placeNote(null, { x: 800, y: 450 }, note, view, [wall]);
