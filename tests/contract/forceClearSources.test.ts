@@ -9,6 +9,7 @@ import { describe, expect, test } from "vitest";
 import { fluidObject, waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { plainEntities, type FullForceMap } from "../../src/core/forces/force";
 import { footprint } from "../../src/core/forces/objects";
+import { CLEARABLE } from "../../src/core/forces/clear";
 import { CarvePlay } from "../../src/core/forces/carve/play";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
@@ -18,7 +19,7 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
-import { keptForceParams } from "../../src/core/forces/keep";
+import { keptForceParams, sourcesRemovedBy } from "../../src/core/forces/keep";
 import { forceProblems, type ForceResultParams } from "../../src/core/forces/op";
 import { MapSession } from "../../src/core/doc/session";
 import { decodeProject } from "../../src/core/doc/document";
@@ -127,7 +128,11 @@ describe("forces clear sources (D474)", () => {
       expect(reached.length).toBeGreaterThan(0);
       const gone = new Set([...clear.params.removed, ...(clear.params.cleared ?? []).map((q) => q.id)]);
       expect(reached.filter((id) => !gone.has(id))).toEqual([]);
+      // the count the editor says after the force is exactly the sources gone from its last frame (the study's own and
+      // a fixture's river sources the force took too), and none under Ride
       const lastIds = new Set(clear.entities.map((e) => e.id));
+      expect(sourcesRemovedBy(clear.params, m)).toBe(m.entities.filter((e) => CLEARABLE.has(e.template) && !lastIds.has(e.id)).length);
+      expect(sourcesRemovedBy(ride.params, m)).toBe(0);
       expect(reached.filter((id) => lastIds.has(id))).toEqual([]);
       // with Ride, every one it reached stays, standing on the ground it rode
       const kept = reachedBy(ride);

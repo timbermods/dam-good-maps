@@ -18,7 +18,7 @@ export interface Touches {
   writes: Mask;
   /** Tiles touched: what was written plus what was read (halos, rims, neighbours), or the whole map. */
   touch: Mask;
-  /** Identity keys: "entity:<id>" for each object created, moved, changed or removed; "lakes"; "feature-order". */
+  /** Identity keys: "entity:<id>" for each object created, moved, changed or removed; "lakes"; "feature-order"; "description". */
   keys: Set<string>;
   patch: Patch;
 }
@@ -119,6 +119,10 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         break;
       case "crop":
         whole();
+        break;
+      // (the map's description is one text for everyone: two writers of it meet on this key, and nothing on the ground)
+      case "setDescription":
+        keys.add("description");
         break;
       case "removeUnfedWater":
       case "fillHollow":

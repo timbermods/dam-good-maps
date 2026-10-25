@@ -82,12 +82,12 @@ export interface PlaceIndexEntry {
 }
 
 /** The checks tools/real-places.ts records per place in `faults`, as the generate profile gives them
- *  on the place's own build. The conversion-wide ones every place has (the edge wall, the missing
- *  mine site and badwater source, D151, D200) are not recorded. */
-export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
+ *  on the place's own build: information for a real place, its own land (D245). The conversion-wide
+ *  ones every place has (the missing mine site and badwater source, D200) are not recorded. */
+export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "water.outflow", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
 
 /** What every place as converted has, and what Real places 2 removes: not a reason to leave one out. */
-export const CONVERSION_FAULT_CHECKS = ["terrain.edge_wall", "resources.mine_site", "resources.badwater_source"] as const;
+export const CONVERSION_FAULT_CHECKS = ["resources.mine_site", "resources.badwater_source"] as const;
 
 /** The fault whose card note reads `NO_WATER_NOTE` (D445): the place's start reaches no water a source
  *  feeds. The place still shows in the gallery; Real places 2 fixes it, and the next run of the tool
@@ -238,7 +238,7 @@ export function validatePlace(b: BuiltPlace): Validation {
 
 /** The place's .timber: built, validated and written. Throws when a load check fails (the file
  *  would not load), which the contract test rules out for every place. A principle the place breaks
- *  (the edge walls of the conversions before Real places 2, D151) is in `validation`: the rebuild
+ *  (none today: the edge walls of the first conversion, D151, are gone) is in `validation`: the rebuild
  *  must meet it, and the gallery keeps serving the maps it has until then. */
 export function placeTimber(p: PlaceData): { bytes: Uint8Array; fileName: string; validation: Validation } {
   const built = buildPlace(p);

@@ -12,6 +12,9 @@ import type { EditorProps } from "../Editor";
 /** The key that holds the other version on show. */
 export const COMPARE_KEY = "B";
 
+/** What the key says when no version is chosen to compare with. */
+export const COMPARE_NONE = "To compare, select a version in Your maps and press Compare.";
+
 export interface CompareSlice {
   /** The other version is on show now. */
   compareFlipped: boolean;
@@ -31,8 +34,26 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
     if (!compare) {
       show.current = () => undefined;
       flipEnd.current = null;
-      return;
+      // (the key with no version chosen: a short note on how to choose one, gone by itself)
+      let timer = 0;
+      const hint = (ev: KeyboardEvent) => {
+        if (ev.code !== "KeyB" || ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey || ev.repeat) return;
+        if (document.querySelector<HTMLElement>(".editor")?.inert) return;
+        const t = ev.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+        ev.preventDefault();
+        ed.setMessage({ kind: "info", text: COMPARE_NONE });
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => ed.setMessage((m) => (m && m.text === COMPARE_NONE ? null : m)), 6000);
+      };
+      window.addEventListener("keydown", hint);
+      return () => {
+        window.removeEventListener("keydown", hint);
+        window.clearTimeout(timer);
+      };
     }
+    // (a version chosen: the note on how to choose one has done its work)
+    ed.setMessage((m) => (m && m.text === COMPARE_NONE ? null : m));
     flipEnd.current = () => show.current(false);
     show.current = (on) => {
       if (comparing.current === on) return;

@@ -22,7 +22,7 @@ export interface SelectSlice {
   openSelect: () => void;
   closeSelect: () => void;
   selectAll: () => void;
-  workingArea: () => [number, number, number][] | null;
+  workingArea: (top?: boolean) => [number, number, number][] | null;
   inArea: (tiles: readonly number[]) => boolean;
   selectCalls: { current: { action: (what: "raise" | "lower" | "flatten" | "cut" | "fill" | "depth", level?: number) => void } };
   checkDepthRef: { current: () => void };
@@ -178,11 +178,15 @@ export function useSelect(ed: Ed): SelectSlice {
     setSelectionTick((n) => n + 1);
   }
   /** The working area (D254, D259): the open selection as runs, or null. */
-  function workingArea(): [number, number, number][] | null {
-    return selection.current.count ? tilesToRuns(selection.current.tiles(), infoRef.current.W) : null;
+  function workingArea(top = false): [number, number, number][] | null {
+    if (!selection.current.count) return null;
+    const tiles = selection.current.tiles();
+    // (the brushes work a column's top: a selection taken on a run below it, such as a cave's floor, is drawn with
+    // that roof as locked land, so the roof is outside their area too; the Block tool works any run, so keeps it)
+    return tilesToRuns(top ? tiles.filter((i) => !renderer.current?.overlayBelowTop(i)) : tiles, infoRef.current.W);
   }
-  /** Whether every tile of these lies in the working area (or there is none). */
-  const inArea = (tiles: readonly number[]) => !selection.current.count || tiles.every((i) => selection.current.mask[i]);
+  /** Whether every tile of these lies in the working area the brushes see (or there is none). */
+  const inArea = (tiles: readonly number[]) => !selection.current.count || tiles.every((i) => selection.current.mask[i] && !renderer.current?.overlayBelowTop(i));
   /** A water depth Max water depth's check waits for once the water settles (D264). */
   const depthCheck = useRef<{ tiles: number[]; depth: number } | null>(null);
   /** What the Select tool does to the selection: exact, one undo step each; the start is carried
@@ -279,6 +283,28 @@ export function useSelect(ed: Ed): SelectSlice {
     if (w) for (const i of selection.current.tiles()) if (w.depth[i] > d) d = w.depth[i];
     return Math.floor(d);
   }
+  /** The core refuses a sculpt over a column with a cave or overhang (`lockedColumns`, ops.ts): the first such tile
+   *  among these. */
+  function caveAmong(tiles: readonly number[]): number {
+    const c = ed.columnsRef.current.tiles;
+    if (!c.length) return -1;
+    const locked = new Set<number>(c);
+    return tiles.find((i) => locked.has(i)) ?? -1;
+  }
+  /** Whether the action over these tiles would be refused for a cave or overhang; if so, the preview is cleared, the
+   *  row says so in a few words and the message line gives the core's reason, until the pointer leaves. */
+  function refusedOnCave(tiles: readonly number[]): boolean {
+    const at = caveAmong(tiles);
+    if (at < 0) return false;
+    const W = infoRef.current.W;
+    const why = `(${at % W}, ${Math.floor(at / W)}) has a cave or overhang: shape its top with a brush`;
+    hintJob.current++;
+    cropShown.current = why;
+    setMessage({ kind: "info", text: why });
+    setWaterHint("A cave is in the way");
+    setSelectPreview(null);
+    return true;
+  }
   /** What hovering a Select action shows on the land inside the selection: the tiles it would change
    *  (D323 item 6), the same ones the action then changes. */
   function selectPreviewOf(what: "raise" | "lower" | "flatten" | "cut" | "fill", level: number): void {
@@ -294,6 +320,8 @@ export function useSelect(ed: Ed): SelectSlice {
     if (what === "cut") tiles = tiles.filter((i) => h[i] > level);
     if (what === "fill") tiles = tiles.filter((i) => h[i] < level);
     if (what === "flatten") tiles = tiles.filter((i) => h[i] !== level);
+    // (a cave or overhang under the selection: the core refuses the whole sculpt, so nothing is marked and the reason shows)
+    if (refusedOnCave(tiles)) return;
     setSelectPreview({ tiles, color: what === "raise" || what === "fill" ? RAISES : what === "flatten" ? MOVING : LOWERS });
   }
   // ------------------------------------------------------------------------------ Fill and Remove unfed water (D387, D394)
@@ -331,6 +359,8 @@ export function useSelect(ed: Ed): SelectSlice {
     });
   }
   function previewUnfed() {
+    // (greyed with nothing selected: the row's own words say what to do)
+    if (!selection.current.count) return;
     const job = ++hintJob.current;
     void api.unfedWaterIn(selection.current.tiles()).then((r) => {
       if (job !== hintJob.current) return;
@@ -343,6 +373,11 @@ export function useSelect(ed: Ed): SelectSlice {
     setWaterHint(null);
     setSelectPreview(null);
   }
+  // (a button that greys while the pointer is on it never sees the pointer leave: the selection closing or changing
+  // takes its words with it, so the size shows again)
+  useEffect(() => {
+    if (waterHint !== null) endWaterHint();
+  }, [selectionTick]);
   // ------------------------------------------------------------------------------ Crop (D340)
 
   /** What the core says about cropping the map to the selection's bounding rectangle: its one-line reason it cannot, or
@@ -361,14 +396,27 @@ export function useSelect(ed: Ed): SelectSlice {
   const cropWhy = (): string | null => (!selection.current.count ? "Select an area to crop" : cropPlan ? cropPlan.reason : "Checking the selection");
   /** The core's reason shown on the message line while Crop is hovered (the row's words are too short for it). */
   const cropShown = useRef<string | null>(null);
+  /** Crop is hovered or focused. The core's answer comes a moment after each selection, so it can arrive after the
+   *  pointer did: it then says its reason (or what the crop makes) the moment it comes. */
+  const cropHot = useRef(false);
+  useEffect(() => {
+    if (cropHot.current) previewCrop();
+  }, [cropPlan]);
   function endCropHint() {
+    cropHot.current = false;
     const t = cropShown.current;
     cropShown.current = null;
     if (t) setMessage((m) => (m && m.text === t ? null : m));
     endWaterHint();
   }
+  /** Crop's button leaves the row (a brush, a force or the shelf takes the bar): no pointer is on it any more, and no mouseleave
+   *  comes. (One function for the page's life, so Preact doesn't call it on every render.) */
+  const cropGone = useRef((el: HTMLButtonElement | null) => {
+    if (!el) endCropHint();
+  });
   /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
   function previewCrop() {
+    cropHot.current = true;
     hintJob.current++;
     const b = selection.current.bounds();
     const why = cropWhy();
@@ -379,14 +427,17 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     if (why || !b || !cropPlan) return setWaterHint(why);
     const n = cropPlan.removed;
-    setWaterHint(`${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
+    // (a selection that isn't a rectangle crops to the box around it: the hover says so)
+    setWaterHint(`${selection.current.count < b.w * b.h ? "Its box: " : ""}${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
   }
   /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
    *  that is pressed says its reason on the message line, in full. */
   function cropMap() {
     const b = selection.current.bounds();
     const why = cropWhy();
-    if (why || !b) return setMessage({ kind: "error", text: why ?? "Select an area to crop" });
+    // (nothing selected: the row beside Crop already says so, so no second note says it again)
+    if (!b) return setWaterHint(why ?? "Select an area to crop");
+    if (why) return setMessage({ kind: "error", text: why });
     endCropHint();
     // (a crop of a big map takes about a second: past 300 ms the message line says so, until the new map opens)
     const slow = window.setTimeout(() => setMessage({ kind: "info", text: "Cropping…" }), 300);
@@ -408,6 +459,7 @@ export function useSelect(ed: Ed): SelectSlice {
   /** Remove unfed water within the selection (D387): the pools no source feeds; fed water stays. */
   function removeUnfed() {
     endWaterHint();
+    if (!selection.current.count) return;
     void run(() => api.removeUnfedWater(selection.current.tiles()));
   }
 
@@ -454,7 +506,10 @@ export function useSelect(ed: Ed): SelectSlice {
     const h = mirror.current.heights;
     const cut = renderer.current?.slice ?? null;
     const tiles = selection.current.tiles().filter((i) => cut === null || h[i] <= cut);
-    if (group === "ground") return setSelectPreview({ tiles: tiles.filter((i) => h[i] > 0), color: LOWERS });
+    if (group === "ground") {
+      if (refusedOnCave(tiles)) return;
+      return setSelectPreview({ tiles: tiles.filter((i) => h[i] > 0), color: LOWERS });
+    }
     const e = mirror.current.entities;
     const at = coverAt();
     const out = new Set<number>();
@@ -491,8 +546,8 @@ export function useSelect(ed: Ed): SelectSlice {
     const way = (what: "raise" | "lower" | "flatten" | "cut" | "fill") => ({
       onMouseEnter: () => selectPreviewOf(what, level),
       onFocus: () => selectPreviewOf(what, level),
-      onMouseLeave: () => setSelectPreview(null),
-      onBlur: () => setSelectPreview(null),
+      onMouseLeave: endCropHint,
+      onBlur: endCropHint,
     });
     const choices = deleteMenu && z ? deleteChoices() : [];
     // Kyler's option B (2026-10-03): How to select's six shapes on the tools' six cells, icon above its name; keys only
@@ -539,7 +594,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
+            <button type="button" class="set-button" ref={cropGone.current} aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
               Crop
             </button>
           </div>
@@ -557,7 +612,7 @@ export function useSelect(ed: Ed): SelectSlice {
             <button
               type="button"
               class="set-button"
-              disabled={!z}
+              aria-disabled={z ? undefined : "true"}
               {...tip("Fill the hollow with water up to the Level")}
               onMouseEnter={() => previewFill(level)}
               onFocus={() => previewFill(level)}
@@ -577,7 +632,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button tight" disabled={!z} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
+            <button type="button" class="set-button tight" aria-disabled={z ? undefined : "true"} {...tip("Remove the water no source feeds")} onMouseEnter={previewUnfed} onFocus={previewUnfed} onMouseLeave={endWaterHint} onBlur={endWaterHint} onClick={removeUnfed}>
               Remove unfed water
             </button>
           </div>
@@ -591,7 +646,7 @@ export function useSelect(ed: Ed): SelectSlice {
         row: 2,
         at: 1,
         span: 2,
-        node: <NumberSetting label="Level" title="The level" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
+        node: <NumberSetting label="Level" title="The level Flatten, Cut down and Fill up work to" keys={["Ctrl+click", "Shift+scroll"]} value={level} min={0} max={BRUSH_MAX_LEVEL} step={1} disabled={!z} onChange={(v) => setFlattenTo(v)} />,
       },
       act("up", 3, "Up 1", tip("Raise the selection one level", "\u2191"), "raise", () => selectAction("raise")),
       act("down", 4, "Down 1", tip("Lower the selection one level", "\u2193"), "lower", () => selectAction("lower")),
@@ -634,8 +689,8 @@ export function useSelect(ed: Ed): SelectSlice {
                           onClick={() => deleteChoice(c.group)}
                           onMouseEnter={() => deletePreview(c.group)}
                           onFocus={() => deletePreview(c.group)}
-                          onMouseLeave={() => setSelectPreview(null)}
-                          onBlur={() => setSelectPreview(null)}
+                          onMouseLeave={endCropHint}
+                          onBlur={endCropHint}
                         >
                           {c.group === "ground" ? c.name : `${c.name} (${c.count.toLocaleString("en-GB")})`}
                         </button>
