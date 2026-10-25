@@ -1628,16 +1628,19 @@
   z-index: 21;
 }
 
-/* the land's square: half the window's height, and no taller than leaves the card under it clear of the bar */
+/* the land's square: half the window's height. Centred, it and the card under it (16px, then 85px) may reach the bar; where
+   they would come within 60px of it (a window about 800px tall or less), both lift together by the difference, so they
+   sit centred between the header and the bar (the bar and shelf take the last 72px) */
 :root {
-  --land: min(512px, 50vh, calc(100vh - 430px));
+  --land: min(512px, 50vh);
+  --land-lift: max(0px, calc(50vh + 33px + var(--land) / 2 + 101px - (100vh - 72px - 60px)));
 }
 
 /* before any map: the frame is still, so nothing is dimmed, and the dialog sits under the land's first look, not across it */
 .loading-frame + .making-backdrop {
   background: none;
   place-items: start center;
-  padding-top: calc(50vh + 33px + calc(var(--land) / 2) + 16px);
+  padding-top: calc(50vh + 33px + var(--land) / 2 + 16px - var(--land-lift));
 }
 
 .making-dialog {
@@ -1734,13 +1737,13 @@
   stroke: currentColor;
   stroke-width: 0.45;
   stroke-linejoin: round;
-  stroke-dasharray: 1;
+  /* (a gap longer than the ring and an offset just past it: a ring not yet started leaves no speck at its start) */
+  stroke-dasharray: 1 2;
 }
 
 .first-look-empty .contours path:first-child {
   stroke: var(--water-ui);
   stroke-width: 0.6;
-  opacity: 0.55;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1758,7 +1761,7 @@
   }
 
   .first-look-empty .contours path {
-    stroke-dashoffset: 1;
+    stroke-dashoffset: 1.01;
     animation: 6s linear infinite;
   }
 
@@ -1796,27 +1799,27 @@
 
 /* ring n starts 0.5 s (8.33%) after the one below it and takes 1.8 s (30%) */
 @keyframes contour-draw-1 {
-  0% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   30%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-2 {
-  0%, 8.33% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 8.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   38.33%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-3 {
-  0%, 16.67% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 16.67% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   46.67%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-4 {
-  0%, 25% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 25% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   55%, 100% { stroke-dashoffset: 0; }
 }
 
 @keyframes contour-draw-5 {
-  0%, 33.33% { stroke-dashoffset: 1; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  0%, 33.33% { stroke-dashoffset: 1.01; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   63.33%, 100% { stroke-dashoffset: 0; }
 }
 
@@ -3053,6 +3056,11 @@ body:has(.checks-list) .show-key {
 
 .loading-frame .first-look {
   min-height: 0;
+}
+
+/* (the card under it is lifted by the same, in its padding above) */
+.loading-frame:has(+ .making-backdrop:not(.stuck)) .first-look {
+  translate: 0 calc(-1 * var(--land-lift));
 }
 
 /* the land's square before its picture arrives (and for a place, which never sends one): quiet, so the dialog under it is
