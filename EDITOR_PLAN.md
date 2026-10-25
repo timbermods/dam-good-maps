@@ -635,9 +635,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
   at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
   result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
-  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1,
-  the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
-  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
+  forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1
+  with "The land decides the form" across the rest of it, the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it
+  keeps the default; the Floor runs on over Sources' place, and Try another stays where every force has it; every edge on the bar's cells); a click acts where it lands, a drawn sweep as a band Size wide, the ring at the cursor (D258).
   Playback feeds each frame's `columns` (the tiles whose voxels changed) into the renderer with the others the map
   holds (`editor/forces/columns.ts`); Esc, Ctrl+Z or Try another mid-run puts the map's own back. Sounds
   (`public/sounds/juice-2`, three CC0 Freesound recordings from `investigation/erode`): a grinding wear held under the
