@@ -10,7 +10,7 @@
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { toolPutAway } from "./helpers";
-import { centreOn, openEditor, setWaterSpeed } from "./open";
+import { centreOn, openEditor, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -21,7 +21,7 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await setWaterSpeed(page, "instant");
 }
 

@@ -2,7 +2,7 @@
 // the tool keys still reach the page, as they do after a button or the map was clicked.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as const);
@@ -31,7 +31,7 @@ async function dragSize(page: Page, tool: string) {
 test("after a slider is dragged, Ctrl+Z undoes the last edit and Esc puts the tool away", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   const W = (await info(page)).W;
   const start = (await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] };
   const at: [number, number] = start.position[0] < W / 2 ? [70, 30] : [20, 30];

@@ -331,11 +331,11 @@ place of its bottom rule.
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a three-column grid
-  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **Every camera view frames the
-  whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
+  310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
+  whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
-  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
+  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
   by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
   (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
