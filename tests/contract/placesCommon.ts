@@ -75,7 +75,7 @@ export const PLACES_SHORT_OF_WOOD = new Set([
   "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison", "near-blyde-river-canyon",
   "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
   "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-crater-lake", "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
   "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
   "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
   "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
@@ -108,16 +108,12 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "near-alaknanda-and-bhagirathi", "near-bungle-bungle", "near-capitol-reef", "near-chilean-aysen-fjord",
-  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-crater-lake",
+  "near-bungle-bungle", "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
   "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice", "near-drumheller",
-  "near-english-lake-district", "near-finnish-saimaa", "near-fish-river-canyon", "near-glencoe",
-  "near-iguazu-falls", "near-kaieteur-falls", "near-katherine-gorge", "near-kinabatangan-river",
-  "near-lake-toba", "near-lena-delta", "near-li-river-yangshuo", "near-monument-valley",
-  "near-mount-etna", "near-mount-mayon", "near-mount-taranaki", "near-ngorongoro", "near-niagara-falls",
-  "near-phong-nha", "near-rhine-and-moselle", "near-sete-cidades", "near-tibetan-plateau",
-  "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river", "near-verdon-gorge",
-  "near-yosemite-valley",
+  "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
+  "near-kinabatangan-river", "near-lake-toba", "near-mount-mayon", "near-mount-taranaki",
+  "near-ngorongoro", "near-niagara-falls", "near-phong-nha", "near-tibetan-plateau",
+  "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river", "near-yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
@@ -154,14 +150,15 @@ export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
  *  moist ground, so `start.food` (a playability check, a warning in the export profile) now finds
  *  too few living ones. Real places 2 plants them by the settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "near-aso-caldera", "near-atacama-fan", "near-blyde-river-canyon", "near-bungle-bungle",
-  "near-cliffs-of-moher", "near-danube-delta", "near-dinaric-karst-plitvice", "near-drumheller",
-  "near-iguazu-falls", "near-lake-toba", "near-lena-delta", "near-lofoten", "near-mamore-river",
-  "near-mount-etna", "near-mount-mayon", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
-  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-skeidara-outwash",
-  "near-taklimakan-kunlun-fan", "near-tiger-leaping-gorge", "near-torres-del-paine",
-  "near-tsingy-bemaraha", "near-uvac-river", "near-victoria-falls", "near-waimakariri-river",
-  "near-yosemite-valley",
+  "near-alaknanda-and-bhagirathi", "near-aso-caldera", "near-atacama-fan", "near-blyde-river-canyon",
+  "near-bungle-bungle", "near-cliffs-of-moher", "near-colorado-plateau", "near-danube-delta",
+  "near-dinaric-karst-plitvice", "near-drumheller", "near-iguazu-falls", "near-katherine-gorge",
+  "near-lake-toba", "near-lena-delta", "near-li-river-yangshuo", "near-lofoten", "near-mamore-river",
+  "near-mount-mayon", "near-mount-taranaki", "near-na-pali-coast", "near-ngorongoro",
+  "near-niagara-falls", "near-paricutin", "near-phong-nha", "near-rhine-and-moselle",
+  "near-skeidara-outwash", "near-taklimakan-kunlun-fan", "near-tiger-leaping-gorge",
+  "near-torres-del-paine", "near-tsingy-bemaraha", "near-uvac-river", "near-victoria-falls",
+  "near-waimakariri-river", "near-yosemite-valley",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in

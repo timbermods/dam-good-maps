@@ -150,10 +150,10 @@
    "metres": 30,
    "data": "data/near-crater-lake.json.gz",
    "image": "cards/near-crater-lake.jpg",
-   "bytes": 250623,
-   "sha256": "05894c12fa4825649967c37db5e345ebf893dfab1f8423fccdb806e17e14a506",
+   "bytes": 250524,
+   "sha256": "ae70b172197d2fcc65589489773e683ad80417b96e6ffa3b87fdd1c825b0c792",
    "faults": [
-    "start.water",
+    "start.wood",
     "plants.survive"
    ]
   },
@@ -223,11 +223,11 @@
    "metres": 60,
    "data": "data/near-rhine-and-moselle.json.gz",
    "image": "cards/near-rhine-and-moselle.jpg",
-   "bytes": 225125,
-   "sha256": "d92aac077a6ffb6f61c9d367cd6699e77c81e6d6db7e6e98f7cfcc8bb843cdd6",
+   "bytes": 253516,
+   "sha256": "51c0d7b3215a86760cc640e6a78b8140ba141fa0add6de49c1276180bee19a44",
    "faults": [
     "water.source_in_flow",
-    "start.water",
+    "start.food",
     "plants.survive"
    ]
   },
@@ -241,13 +241,12 @@
    "metres": 60,
    "data": "data/near-lena-delta.json.gz",
    "image": "cards/near-lena-delta.jpg",
-   "bytes": 209849,
-   "sha256": "bab0027e7e119399c092fe0f961a8cdc95e513da998f27811ea7d8f138595907",
+   "bytes": 225339,
+   "sha256": "075f4e6d92504cf7fbec827ea4991d06672ec4d64748c291f9892b9204f27a7a",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.water",
     "start.food",
     "plants.survive"
    ]
@@ -592,13 +591,13 @@
    "metres": 60,
    "data": "data/near-alaknanda-and-bhagirathi.json.gz",
    "image": "cards/near-alaknanda-and-bhagirathi.jpg",
-   "bytes": 172160,
-   "sha256": "72aeb5568e8be372494fb615f43b5db01a367d6a48c33f79316cbc650e3ebd24",
+   "bytes": 172040,
+   "sha256": "e1151d22732e627615f449ead386a8013200e2cc365cc24dff59c01814009e1d",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.water",
+    "start.food",
     "plants.survive"
    ]
   },
@@ -684,12 +683,11 @@
    "metres": 60,
    "data": "data/near-chilean-aysen-fjord.json.gz",
    "image": "cards/near-chilean-aysen-fjord.jpg",
-   "bytes": 165000,
-   "sha256": "97a1d59831315c374f2445a0f4626cbc67b68d89f6dc23a3d6e460ba5f5e548a",
+   "bytes": 164924,
+   "sha256": "2ecc9c1720460ebe9d71e12cd6ccf70991ccf277339dc61644d42da3d3545fbc",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.water",
     "plants.survive"
    ]
   },
@@ -703,13 +701,12 @@
    "metres": 30,
    "data": "data/near-glencoe.json.gz",
    "image": "cards/near-glencoe.jpg",
-   "bytes": 152122,
-   "sha256": "b4eee07fe8cdc43bce53e9978d4b663a1ddbcb168af9000dc40c8d4ea6c428d0",
+   "bytes": 152048,
+   "sha256": "b71a82198c115848ab14abd028c5e857721c05128566531d21c2d1775fe2e2c3",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.water",
     "plants.survive"
    ]
   },
@@ -723,11 +720,10 @@
    "metres": 60,
    "data": "data/near-verdon-gorge.json.gz",
    "image": "cards/near-verdon-gorge.jpg",
-   "bytes": 150007,
-   "sha256": "5300f09fb328b17afcde09285022821a8ba6bd5f5f4c53be272a76a264c0411d",
+   "bytes": 153179,
+   "sha256": "23ecc4c8fcf5f20054d948fd306f7d759a7f9bdbff7a59e80636efe98cb09e4c",
    "faults": [
     "start.wood",
-    "start.water",
     "plants.survive"
    ]
   },
@@ -759,12 +755,11 @@
    "metres": 30,
    "data": "data/near-finnish-saimaa.json.gz",
    "image": "cards/near-finnish-saimaa.jpg",
-   "bytes": 182100,
-   "sha256": "729fea3e1e2494e2a9fb979e5b2aff16e57e8c8ca7dbf4cbe6ba64e870359266",
+   "bytes": 189919,
+   "sha256": "50cfb8a81badb47e507c0ecb09042fd8cab479082da5e620944364c99911064d",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.water",
     "plants.survive"
    ]
   },
@@ -922,12 +917,10 @@
    "metres": 30,
    "data": "data/near-mount-etna.json.gz",
    "image": "cards/near-mount-etna.jpg",
-   "bytes": 585630,
-   "sha256": "4a3fe9f137ca4399966dce360f82ed51402c9b1684e7fc16b79d5e66ff576254",
+   "bytes": 593725,
+   "sha256": "325eb23da97438ecd8b0fbf52063815771f6fa1179199f55d6c0c5706a0c4d9d",
    "faults": [
     "start.wood",
-    "start.water",
-    "start.food",
     "plants.survive"
    ]
   },
@@ -1048,11 +1041,11 @@
    "metres": 120,
    "data": "data/near-katherine-gorge.json.gz",
    "image": "cards/near-katherine-gorge.jpg",
-   "bytes": 535766,
-   "sha256": "61b3c287ce39516d501ae3656935789c5156aa9b58dbbad1cbe0c1527dfb1d80",
+   "bytes": 564239,
+   "sha256": "559a8fb9ee2ac8a3f05ecfec5e8dde747fd2eaccf19a7131819c088626eb4021",
    "faults": [
     "start.wood",
-    "start.water",
+    "start.food",
     "plants.survive"
    ]
   },
@@ -1339,11 +1332,11 @@
    "metres": 60,
    "data": "data/near-li-river-yangshuo.json.gz",
    "image": "cards/near-li-river-yangshuo.jpg",
-   "bytes": 261005,
-   "sha256": "45b5971ba0b9bbd18febf09c43790c0fe487eaf2fb2fa1cc6b050a095f637593",
+   "bytes": 265132,
+   "sha256": "dd425ce3cf6ef44df57fab0dcde642b8ac73c148c6a9d08a58740960005bcfc4",
    "faults": [
     "start.wood",
-    "start.water",
+    "start.food",
     "plants.survive"
    ]
   },
@@ -1375,12 +1368,11 @@
    "metres": 120,
    "data": "data/near-monument-valley.json.gz",
    "image": "cards/near-monument-valley.jpg",
-   "bytes": 258645,
-   "sha256": "65778b4c3b24e43d9ea77ef776bb110cca9e46c018da3efaf6fda172c1121c1a",
+   "bytes": 263309,
+   "sha256": "9e80dd6ed95ddc13751262345fc9076430f60c1d13057088a6729817baf4ebf5",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.water",
     "plants.survive"
    ]
   },
@@ -1394,12 +1386,12 @@
    "metres": 30,
    "data": "data/near-colorado-plateau.json.gz",
    "image": "cards/near-colorado-plateau.jpg",
-   "bytes": 183716,
-   "sha256": "9fad0cb5d661842bc64b2d0a2af5d5d1660587da54edd507f1333d6d61837c47",
+   "bytes": 183712,
+   "sha256": "f7365ab1c995ffb1e9a5e8a1501e80f2e8167b2e73c46dd9512e508748ca2cad",
    "faults": [
     "start.wood",
     "start.wood_floor",
-    "start.water",
+    "start.food",
     "plants.survive"
    ]
   },
@@ -1432,13 +1424,12 @@
    "metres": 60,
    "data": "data/near-sete-cidades.json.gz",
    "image": "cards/near-sete-cidades.jpg",
-   "bytes": 177859,
-   "sha256": "4b9623a53bfba969220e1fbc6da9fb65717990c0f6aa9bd1bcdd31216a0ab0b3",
+   "bytes": 177855,
+   "sha256": "0c82a8d34e94265a9731e3cf4af2aab145c6fd4dc8e1232f2c444ea389ff12cc",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.wood_floor",
-    "start.water",
     "plants.survive"
    ]
   },
