@@ -76,6 +76,7 @@
         "levels": { "type": "array", "maxItems": 40000, "items": { "type": "integer", "minimum": 1, "maximum": 22 } },
         "stop": { "type": "integer", "minimum": 0, "maximum": 22 },
         "keep": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } },
         "area": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "rigid": { "type": "array", "maxItems": 4096, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } } },
         "steps": { "type": "integer", "minimum": 2, "maximum": 8 },
@@ -129,7 +130,8 @@
         "amount": { "type": "integer", "minimum": 1, "maximum": 22 },
         "level": { "type": "integer", "minimum": 0, "maximum": 22 },
         "step": { "type": "integer", "minimum": 2, "maximum": 8 },
-        "exact": { "type": "boolean" }
+        "exact": { "type": "boolean" },
+        "hold": { "description": "The ground holding objects set under a roof (D491): [tile, low, high], the lowest and highest each tile's surface may go; the session adds it.", "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } } }
       }
     },
     "forceResult": {
@@ -268,6 +270,7 @@
         "y": { "$ref": "#/$defs/coordinate" },
         "orientation": { "$ref": "#/$defs/orientation" },
         "flipped": { "type": "boolean" },
+        "z": { "description": "The level it stands on under a roof (a cave floor, the ground under a ledge); omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
         "components": { "$ref": "#/$defs/objectComponents" }
       }
     },
@@ -279,6 +282,7 @@
         "id": { "$ref": "#/$defs/guid" },
         "x": { "$ref": "#/$defs/coordinate" },
         "y": { "$ref": "#/$defs/coordinate" },
+        "z": { "description": "The level it lands on under a roof; omitted, the ground's top (D491).", "type": "integer", "minimum": 0, "maximum": 22 },
         "orientation": { "$ref": "#/$defs/orientation" }
       }
     },

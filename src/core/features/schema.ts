@@ -205,7 +205,9 @@ export type MapObjectKind = "mineSite" | "relicSmall" | "relicMedium" | "relicLa
  *  (thorn belts, NaturalDam weirs, Blockage plugs) put one object on every tile of their area. */
 export interface MapObjectParams {
   kind: MapObjectKind;
-  placement: { x: number; y: number; orientation: Orientation } | { area: Runs };
+  /** `z`: the level it stands on under a roof (a cave's floor, the ground under a ledge), where the game
+   *  keeps it (D491, objects.ts `standProblem`); omitted, the ground's top. */
+  placement: ({ x: number; y: number; orientation: Orientation } | { area: Runs }) & { z?: number };
   /** An unstable core: its explosion radius (0–5) and the cycle its countdown starts (1–99). */
   core?: { radius: number; cycles: number };
 }
