@@ -39,6 +39,10 @@ function cases(): ed.ForceRequest[] {
         const path = [{ x: at[0] - 15, y: at[1] }, { x: at[0] + 15, y: at[1] + 3 }];
         out.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power }, path, side, cut: null });
         out.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power }, path, side, cut: null });
+        // (a short line: 8 tiles, whose claim band is its margin and a slide's travel)
+        const short = [{ x: at[0] - 4, y: at[1] }, { x: at[0] + 4, y: at[1] + 1 }];
+        out.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power }, path: short, side, cut: null });
+        out.push({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power }, path: short, side, cut: null });
       }
       out.push({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power }, origin: at, cut: null });
       out.push({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "aim", power }, origin: at, end: [at[0] + 20, at[1] + 5], via: [[at[0] + 10, at[1] + 8]], cut: null });
