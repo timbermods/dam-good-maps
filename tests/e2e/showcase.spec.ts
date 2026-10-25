@@ -22,11 +22,21 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   await pick(sheet, "Search for", "2 min");
 
   // a worker that never loads (its file gone after a deploy) stops the search in one line, and the next search starts
-  // a fresh one (here the file is back)
-  await page.route(/showcase\.worker/, (r) => r.abort());
+  // a fresh one (here the file is back). The page is handed a showcase worker whose file is missing, through the page's own Worker, so its
+  // real error event fires in every build and browser (a route on the worker's file isn't heard by every browser's
+  // worker loading: CI's Chromium loaded it anyway).
+  await page.evaluate(() => {
+    const Real = window.Worker;
+    (window as unknown as { __realWorker: typeof Worker }).__realWorker = Real;
+    window.Worker = class extends Real {
+      constructor(url: string | URL, opts?: WorkerOptions) {
+        super(String(url).includes("showcase") ? new URL("missing-showcase-worker.js", document.baseURI) : url, opts);
+      }
+    };
+  });
   await sheet.getByRole("button", { name: "Start search" }).click();
   await expect(sheet.getByRole("status")).toHaveText("The search stopped: its worker could not run. Reload the page to search again.", { timeout: 30_000 });
-  await page.unroute(/showcase\.worker/);
+  await page.evaluate(() => (window.Worker = (window as unknown as { __realWorker: typeof Worker }).__realWorker));
 
   await sheet.getByRole("button", { name: "Start search" }).click();
   const cards = sheet.locator(".sc-card:not(.empty)");
