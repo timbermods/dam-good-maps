@@ -3,7 +3,7 @@
 // shown, and one Ctrl+Z takes all of it back.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -45,7 +45,7 @@ async function high(page: Page): Promise<[number, number]> {
 
 test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another ready once one is kept", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await expect(page.getByRole("group", { name: "Forces" }).getByRole("button", { name: "Erode (Shift+8)" })).toBeVisible();
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
@@ -57,6 +57,18 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
   await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   const again = row.getByRole("button", { name: "Try another" });
   await expect(again).toBeDisabled();
+  // Try another is always in its place (EDITOR_PLAN §3): the second row's end, level with the Floor and under the bar's last cell
+  {
+    const [floor, try1, last, power] = await Promise.all([
+      row.getByRole("slider", { name: "Floor" }).boundingBox(),
+      again.boundingBox(),
+      page.getByRole("group", { name: "Forces" }).getByRole("button", { name: /^Erode/ }).boundingBox(),
+      row.getByRole("slider", { name: "Power" }).boundingBox(),
+    ]);
+    expect(try1!.y).toBeGreaterThan(power!.y + power!.height);
+    expect(Math.abs(try1!.y + try1!.height / 2 - (floor!.y + floor!.height / 2))).toBeLessThan(20);
+    expect(Math.abs(try1!.x + try1!.width - (last!.x + last!.width))).toBeLessThanOrEqual(1);
+  }
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
   await page.mouse.click(p.x, p.y);
@@ -66,7 +78,7 @@ test("Erode's row is Power, Size (Auto), the Floor and Try another, Try another 
 
 test("a click wears the land there, kept as one step; one Ctrl+Z restores the map exactly", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
   // a strong one, so there is something to see wherever the click lands
@@ -76,20 +88,17 @@ test("a click wears the land there, kept as one step; one Ctrl+Z restores the ma
   const n0 = (await labels(page)).length;
   const at = await high(page);
   const p = await client(page, at[0], at[1]);
-  // (the showing's steps, as the page sees them: it plays out over many, never all at once)
-  await page.evaluate(() => {
-    const seen = new Set<number>();
-    (window as unknown as { dgmSteps: Set<number> }).dgmSteps = seen;
-    const id = setInterval(() => {
-      const f = window.dgmEditor!.force();
-      if (f) seen.add(f.steps);
-      else if (seen.size) clearInterval(id);
-    }, 20);
-  });
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => status(page)).not.toBeNull();
   await settled(page);
-  expect(await page.evaluate(() => (window as unknown as { dgmSteps: Set<number> }).dgmSteps.size), "more than one step shown during the run").toBeGreaterThan(3);
+  // (D356: it plays out over many steps, never all at once. How many of them a machine draws is its own luck: the player
+  // skips steps when its frames run late, by design, and forceDriver.test holds every frame in order on a fake clock. So
+  // what is checked is the player's own record of the showing: many steps planned, and the land final only after the
+  // time the showing was planned to take)
+  const t = (await page.evaluate(() => window.dgmEditor!.forceTiming()))!;
+  expect(t.total, "the showing has many steps").toBeGreaterThan(3);
+  expect(t.show, "and takes time").toBeGreaterThanOrEqual(450);
+  expect(t.final - t.worked, "its land is final only after the showing").toBeGreaterThanOrEqual(t.show - 50);
   const worn = await land(page);
   expect(worn.hollow.length > 0 || worn.heights.some((h, i) => h !== before.heights[i]), "the map changed").toBe(true);
   expect((await labels(page)).length).toBe(n0 + 1);
@@ -103,7 +112,7 @@ test("a click wears the land there, kept as one step; one Ctrl+Z restores the ma
 
 test("Try another and Tab between rolls: the view holds exactly the shown roll's hollows, none of another's", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });
   await row.getByRole("slider", { name: "Power" }).focus();

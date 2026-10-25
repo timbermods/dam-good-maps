@@ -962,7 +962,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         if (gorge && sizes[k] >= 1.5 * Math.max(200, own) && (best < 0 || sizes[k] > sizes[best])) best = k;
       }
-      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland lies past the gorge, more than ${sizes[best] >= 2 * own ? "twice " : ""}what the start has.` } : {}) };
+      return { ok: best >= 0, note: best >= 0 ? `${sizes[best]} tiles of farmland past a gorge, against ${own} by the start` : `no larger farmland past a gorge (${own} by the start)`, ...(best >= 0 ? { say: `The best farmland lies past the gorge, ${sizes[best] >= 2 * own ? "more than twice what the start has" : "more than the start has"}.` } : {}) };
     }
     case "falls-shield": {
       const near = c.falls.filter((f) => eu(f.i) <= 20 && f.drop >= 1.5);

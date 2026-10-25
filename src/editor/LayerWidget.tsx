@@ -47,7 +47,7 @@ export function LayerWidget(p: LayerWidgetProps) {
       </button>
       <output
         aria-label="Visible layer"
-        title="Show the whole world"
+        {...tip("Show every layer")}
         onPointerDown={(e) => {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
           drag.current = { y: e.clientY, acc: 0, stepped: false };

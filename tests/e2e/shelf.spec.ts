@@ -7,7 +7,8 @@
 // the start stays. There is no Remove tool. (ROADMAP M7's object checks, through the shelf.)
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { startFitExtras, startFitWarnings } from "../../src/core/doc/startFit";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -15,7 +16,7 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 
 async function openTopDown(page: Page, hash: string) {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 async function client(page: Page, x: number, y: number) {
@@ -349,7 +350,10 @@ test("one label beside the pointer for what is picked, none when nothing is; Esc
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const note = page.locator(".shape-note");
+  // (where the checks would flag the spot for a generated object out of its band, the label is that warning in amber, not "Move the start here")
+  const info0 = await info(page);
   const [x, y] = (await openGround(page, 3))[0];
+  const startWord = startFitWarnings(startFitExtras(info0.features, W, info0.H), W, info0.H, x, y)[0] ?? "Move the start here";
   const startButton = shelf.getByRole("button", { name: "Start", exact: true });
 
   // nothing picked: hovering the map shows no placement hint
@@ -364,7 +368,7 @@ test("one label beside the pointer for what is picked, none when nothing is; Esc
   await startButton.click();
   expect((await fitAt(page, x, y, W)).problem).toBeNull();
   await expect(note).toHaveCount(1);
-  await expect(note).toHaveText("Move the start here");
+  await expect(note).toHaveText(startWord);
   // an object where it can't stand: one plain reason, and a click there adds no second label
   await shelf.getByRole("button", { name: "Relic", exact: true }).click();
   await fitAt(page, start[0], start[1], W);
@@ -639,8 +643,8 @@ test("Select's row: Fill water pours into the hollow under the selection up to t
   await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
   const row = page.getByRole("group", { name: "Selection" });
   // nothing selected: both greyed
-  await expect(row.getByRole("button", { name: "Fill water" })).toBeDisabled();
-  await expect(row.getByRole("button", { name: "Remove unfed water" })).toBeDisabled();
+  await expect(row.getByRole("button", { name: "Fill water" })).toHaveAttribute("aria-disabled", "true");
+  await expect(row.getByRole("button", { name: "Remove unfed water" })).toHaveAttribute("aria-disabled", "true");
   // a hollow: a 3 × 3 pit dug one level into flat, dry ground with Down 1, the selection kept; Fill pours into it up to the ground's level
   const [x, y] = (await openGround(page, 2))[0];
   // (hovering Fill water before the Level is set: a few words, no coordinates, and nothing spilling over the cells beside it)

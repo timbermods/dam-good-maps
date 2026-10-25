@@ -8,6 +8,7 @@ import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
+import type { EntitySpec } from "../format/entities";
 import { placeComponents } from "./objectOps";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
@@ -124,25 +125,32 @@ function roofProblem(s: MapSession, p: { template: string; x: number; y: number;
   const skip = resourceOwners(s);
   const moved = ignore ? b.entities.find((e) => e.id === ignore) : undefined;
   if (moved && skip.has(moved.owner)) skip.clear();
+  // (an aquifer under a drill is what the drill needs, not what is in its way)
+  const taken = objectCells(b.entities, W, H, (e) => e.id === ignore || skip.has(e.owner) || !!understructure?.includes(e.template));
+  return standProblem(p.template, { x: p.x, y: p.y, z, orientation: p.orientation, flipped: p.flipped }, s.standGround(), taken);
+}
+
+/** The cells the objects on the map hold, level by level, for the game's rule under a roof (D491,
+ *  objects.ts `standProblem`'s `taken`): every block of each object, and the start's tiles whole (its
+ *  ground is its own), but the objects `skip` names. The same for a placement by hand and a map object
+ *  feature at a level (ops.ts `levelProblems`). */
+export function objectCells(entities: readonly EntitySpec[], W: number, H: number, skip: (e: EntitySpec) => boolean): (x: number, y: number, z: number) => string | null {
   const N = W * H;
   const cells = new Map<number, string>();
   const starts = new Set<number>();
-  for (const e of b.entities) {
-    if (e.id === ignore || skip.has(e.owner)) continue;
+  for (const e of entities) {
+    if (skip(e)) continue;
     const efp = FOOTPRINTS[e.template];
     if (!efp) continue;
     if (e.template === "StartingLocation") {
       for (const [tx, ty] of entityTiles(e)) if (tx >= 0 && ty >= 0 && tx < W && ty < H) starts.add(ty * W + tx);
       continue;
     }
-    // (an aquifer under a drill is what the drill needs, not what is in its way)
-    if (understructure?.includes(e.template)) continue;
     for (const c of worldBlocks(efp, { template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: !!e.flipped })) {
       if (c.x >= 0 && c.y >= 0 && c.x < W && c.y < H && c.z >= 0) cells.set(c.z * N + c.y * W + c.x, e.template);
     }
   }
-  const taken = (x: number, y: number, zz: number) => (starts.has(y * W + x) ? "StartingLocation" : (cells.get(zz * N + y * W + x) ?? null));
-  return standProblem(p.template, { x: p.x, y: p.y, z, orientation: p.orientation, flipped: p.flipped }, s.standGround(), taken);
+  return (x, y, z) => (starts.has(y * W + x) ? "StartingLocation" : (cells.get(z * N + y * W + x) ?? null));
 }
 
 /** Why a shelf object can't be levelled where it is: its ground isn't level and part of it stands

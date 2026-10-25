@@ -6,18 +6,22 @@
 //   fast water, seams where two currents join, in each look's own foam colours, stronger in fast
 //   water and gone where it is still;
 // - the Flow view (off by default): a few glowing streaks travelling down the lanes, fast water's
-//   longer and brighter, badwater's dim embers.
+//   longer and brighter, badwater's dim embers;
+// - on a map with water below a tile's surface water (a cave's under a wet roof), that water's own current
+//   and rough water, a volume by level (caveCurrent.ts; `caveFlowTex`), which the water shader reads there.
 // All of it is made in the bake worker a moment after the water changes (at least once a second while
 // it keeps changing), never on the page's thread: the page only hands the arrays to the GPU. Only
 // drawn; nothing here reaches the water, a map or an operation.
 
-import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, LinearFilter, Mesh, NearestFilter, Points, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
-import type { SceneUniforms } from "./materials";
+import { BufferAttribute, BufferGeometry, Data3DTexture, DataTexture, DoubleSide, FloatType, LinearFilter, Mesh, NearestFilter, Points, RGBAFormat, ShaderMaterial, UnsignedByteType, Vector2, type Scene } from "three";
+import { caveCurrentTexture, noCaveCurrent, type SceneUniforms } from "./materials";
 import type { SurfaceWater } from "./model";
+import type { CaveCurrent } from "./caveCurrent";
 import { DT, STEPS, type MotionShapes } from "./motionShapes";
 import { outflowGrid } from "./current";
 import { sharedCopies } from "./shared";
 import type { Baker } from "./high/fields";
+import type { LayeredWater } from "./high/bake";
 import { surfaceContamination, type RoughCounts } from "./high/flow";
 import { HIGH_WATER, WATER } from "./waterPalette";
 
@@ -195,15 +199,22 @@ export class WaterMotion {
   private timer = 0;
   private pending: { heights: Uint8Array; surface: SurfaceWater } | null = null;
   private disposed = false;
+  /** The current of the water below each tile's surface water (caveCurrent.ts), when the map has some. */
+  private cave: Data3DTexture | null = null;
 
   constructor(
     readonly W: number,
     readonly H: number,
     private readonly baker: Baker,
     private readonly scene: Scene,
-    uniforms: SceneUniforms,
+    private readonly uniforms: SceneUniforms,
     private readonly changed: () => void,
+    /** The water per column at the moment of a bake (the view and the map's columns), null where the map's water is
+     *  a heightfield's (waterLayers.ts `needsLayers`). */
+    private readonly layered: () => LayeredWater | null = () => null,
   ) {
+    uniforms.caveFlowTex.value = noCaveCurrent();
+    uniforms.caveFlowLevels.value.set(0, 0);
     this.flow = texture(W, H, [128, 128, 0, 255]);
     this.rough = texture(W, H, [0, 0, 0, 255]);
     this.cues = new Mesh(new BufferGeometry(), cueMaterial(uniforms, this.high, this.viewport, this.dpr));
@@ -263,27 +274,30 @@ export class WaterMotion {
     const sw = p.surface;
     // (the outflows four a tile: the worker works out the current from them)
     let out = outflowGrid(this.W, this.H, sw);
+    // (with water per column, its view and columns too, and the surface's columns: the worker deals the layers)
+    const layered = this.layered();
     // (copies for the worker, the view keeps its own: on shared memory where the page can share it, so posting them
     // copies nothing more, shared.ts)
-    const shared = sharedCopies([sw.surface, sw.floor, sw.depth, sw.contamination, p.heights, out ?? new Float32Array(0)] as const);
+    const shared = sharedCopies([sw.surface, sw.floor, sw.depth, sw.contamination, p.heights, out ?? new Float32Array(0), layered ? sw.top : new Int32Array(0)] as const);
     let copy: SurfaceWater;
     let heights: Uint8Array;
     if (shared) {
-      const [surface, floor, depth, contamination, h, o] = shared;
-      copy = { surface, floor, depth, contamination, top: new Int32Array(0), outflow: null, lower: [] };
+      const [surface, floor, depth, contamination, h, o, top] = shared;
+      copy = { surface, floor, depth, contamination, top, outflow: null, lower: [] };
       heights = h;
       if (out) out = o;
     } else {
-      copy = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: new Int32Array(0), outflow: null, lower: [] };
+      copy = { surface: sw.surface.slice(), floor: sw.floor.slice(), depth: sw.depth.slice(), contamination: sw.contamination.slice(), top: layered ? sw.top.slice() : new Int32Array(0), outflow: null, lower: [] };
       heights = p.heights.slice();
     }
-    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out }).then((r) => {
+    void this.baker.run({ kind: "flow", W: this.W, H: this.H, heights, sw: copy, out, ...(layered ? { layered } : {}) }).then((r) => {
       if (id !== this.latest || r.kind !== "flow" || this.disposed) return;
       this.done = id;
       (this.flow.image.data as Uint8Array).set(r.flow);
       (this.rough.image.data as Uint8Array).set(r.rough);
       this.flow.needsUpdate = true;
       this.rough.needsUpdate = true;
+      this.setCave(r.cave);
       this.counts = r.counts;
       this.ms = r.ms;
       this.baked = true;
@@ -293,6 +307,29 @@ export class WaterMotion {
       // (the bake failed: the water keeps its last flow, or none)
       if (id === this.latest) this.done = id;
     });
+  }
+
+  /** The volume of the water below each tile's surface water into its texture (rewritten in place while its levels
+   *  hold), or none. */
+  private setCave(c: CaveCurrent | null): void {
+    const u = this.uniforms;
+    if (!c) {
+      this.cave?.dispose();
+      this.cave = null;
+      u.caveFlowTex.value = noCaveCurrent();
+      u.caveFlowLevels.value.set(0, 0);
+      return;
+    }
+    const t = this.cave;
+    if (t && t.image.depth === c.levels) {
+      (t.image.data as Uint8Array).set(c.data);
+      t.needsUpdate = true;
+    } else {
+      t?.dispose();
+      this.cave = caveCurrentTexture(c.data, this.W, this.H, c.levels);
+    }
+    u.caveFlowTex.value = this.cave!;
+    u.caveFlowLevels.value.set(c.z0, c.levels);
   }
 
   private setShapes(s: MotionShapes): void {
@@ -337,6 +374,10 @@ export class WaterMotion {
     this.latest = -1;
     clearTimeout(this.timer);
     this.scene.remove(this.cues, this.streaks);
+    if (this.cave && this.uniforms.caveFlowTex.value === this.cave) {
+      this.uniforms.caveFlowTex.value = noCaveCurrent();
+      this.uniforms.caveFlowLevels.value.set(0, 0);
+    }
   }
 
   dispose(): void {
@@ -349,5 +390,7 @@ export class WaterMotion {
     m.dispose();
     this.flow.dispose();
     this.rough.dispose();
+    this.cave?.dispose();
+    this.cave = null;
   }
 }

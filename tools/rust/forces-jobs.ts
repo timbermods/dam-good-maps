@@ -218,6 +218,11 @@ export function forceJobs(): { name: string; job: RustJob }[] {
       for (const [name, j] of [[`${verb} 64 ride 1`, job(verb, 64, 1)], [`${verb} 64 ride 3`, job(verb, 64, 3)], [`${verb} 64 ride odd 0`, oddJob(verb, 64, 0)]] as const)
         out.push({ name, job: { ...sprinkled(j), settings: { ...j.settings, sources: "ride" } } });
   }
+  // Quake on a short line (D344 A6: the quake's line is its length): ground and slide stay near the line
+  const quakeBase = job("quake", 64, 1);
+  for (const mode of ["lift", "slide"] as const)
+    for (const power of [0, 60, 100])
+      out.push({ name: `quake 64 short ${mode} ${power}`, job: { ...quakeBase, settings: { ...quakeBase.settings, mode, power, scarp: "sheer", seed: 3 }, intent: { side: 1, path: [{ x: 28, y: 32 }, { x: 36, y: 32 }] } } });
   return out;
 }
 

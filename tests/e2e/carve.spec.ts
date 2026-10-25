@@ -8,7 +8,7 @@
 // the line's higher end to its lower, whichever way it was drawn.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -18,7 +18,7 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.carve());
 
 async function openTopDown(page: Page, hash: string) {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 async function clickTile(page: Page, x: number, y: number) {

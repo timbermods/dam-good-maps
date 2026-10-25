@@ -17,7 +17,7 @@ import { generatedThemeOf } from "../../src/core/gen/pack";
 import { THEMES, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { NO_BADWATER_NOTE } from "../../src/core/resources/badwater";
 import { NO_SOURCES_NOTE } from "../../src/core/gen/pack";
-import { TALL_NOTE } from "../../src/core/format/world";
+import { generatedTallSentence } from "../../src/core/format/world";
 import { act, expectIdentical, GUEST, HOST, mapProject, sit } from "./collabFixtures";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -155,12 +155,18 @@ ${NO_BADWATER_NOTE}`);
   it("a tall map's note is shown as kept too", () => {
     const s = MapSession.fromGenerated(generate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } })));
     s.apply({ op: "sculpt", params: { mode: "flatten", cells: [[10, 10, 14]], level: 20 } });
-    expect(s.description().kept).toBe(TALL_NOTE);
+    const top = Math.max(...s.built.heights);
+    expect(s.description().kept).toBe(generatedTallSentence(top));
+    // (the field and the kept note are the file's own generated words, split in two)
+    const generated = described(s.exportTimber().bytes);
+    const { text, kept } = s.description();
+    expect(generated).toContain(kept!);
+    expect(generated.replace(kept!, "").replace(/ {2,}/g, " ").trim()).toBe(text);
     expect(s.description().text).not.toMatch(/map editor/);
     s.apply(set("Tall."));
     expect(described(s.exportTimber().bytes)).toBe(`Tall.
 
-${TALL_NOTE}`);
+${generatedTallSentence(top)}`);
   });
 });
 

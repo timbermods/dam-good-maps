@@ -7,7 +7,7 @@
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
 // 2560×1440); the objects' dock likewise, its list scrolling so the picked object's window is never cut off. Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 
-import { useEffect } from "preact/hooks";
+import { useEffect, useLayoutEffect } from "preact/hooks";
 
 /** One clear gap between neighbours in the band, and the gap between the Show row's toggles. */
 const GAP = 16;
@@ -19,6 +19,31 @@ const UNDER = 8;
 /** The panels' width and the open legend's. */
 const PANEL_W = 640;
 const LEGEND_W = 190;
+
+/** The objects' dock's tallest height: the room under the corner's buttons (`cornerBottom`, from the view's top). */
+function dockMax(viewHeight: number, cornerBottom: number): string {
+  return `${Math.max(0, Math.floor(viewHeight - cornerBottom - 8 - TOP))}px`;
+}
+
+/** The corner's buttons' bottom edge from the view's top: the loading frame has no corner, so it holds this (the two
+ *  rows of the editor's corner, top-down and sound under it). */
+const FRAME_CORNER_BOTTOM = 90;
+
+/** The loading frame's shelf keeps the editor's room limit and scrolls inside, as the editor's does (the frame has no
+ *  band to lay out, only the dock). */
+export function useFrameDockRoom(): void {
+  // (before the first paint: the shelf never shows taller than its room, not even for a frame)
+  useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>(".editor-main");
+    const view = document.querySelector<HTMLElement>(".editor-view .view3d");
+    if (!main || !view || typeof ResizeObserver === "undefined") return;
+    const lay = () => main.style.setProperty("--dock-max", dockMax(view.getBoundingClientRect().height, FRAME_CORNER_BOTTOM));
+    const watch = new ResizeObserver(lay);
+    watch.observe(view);
+    lay();
+    return () => watch.disconnect();
+  }, []);
+}
 
 export function useBandLayout(ready: boolean): void {
   useEffect(() => {
@@ -76,10 +101,11 @@ export function useBandLayout(ready: boolean): void {
       // (over the minimap, room for the coordinates and the readout, one gap apart: the readout a line, or two where
       // it is narrow, kept left of the bar's settings)
       // (the dock's pieces each by its own box: the first run's hints sit centred above the settings, not across them)
+      // (a note by its own box too: its container spans the dock, the note only its middle)
       const dock = box(".tool-dock");
       const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
       const under = [
-        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .first-run", ".tool-dock > .working-note", ".tool-dock > .dock-notes"].map((s) => ({ b: box(s), over: 0 })),
+        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .first-run", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *"].map((s) => ({ b: box(s), over: 0 })),
         { b: box(".objects-dock"), over: 0 },
         { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32) },
       ].filter((u): u is { b: DOMRect; over: number } => !!u.b);
@@ -107,7 +133,7 @@ export function useBandLayout(ready: boolean): void {
         "--panel-max": `${roomAbove(TOP, TOP + PANEL_W, panelTop)}px`,
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
-        "--dock-max": `${Math.max(0, Math.floor(v.height - (corner.bottom - v.top) - 8 - TOP))}px`,
+        "--dock-max": dockMax(v.height, corner.bottom - v.top),
       };
       for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
     };
