@@ -62,7 +62,7 @@ import type { ForceHead, FullForceMap, Lane } from "../core/forces/force";
 import type { ForceResultParams, Verb } from "../core/forces/op";
 import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
-import { againRequest, autoPicked, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
+import { againRequest, autoPicked, fallsBeforePlay, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams } from "../core/forces/keep";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
@@ -364,18 +364,23 @@ function roofIn(s: MapSession, a: Uint8Array, b: Uint8Array): boolean {
   return false;
 }
 
+/** The columns that are not one plain run, as they stand: each one's voxels and its mask (`ColumnTerrain`'s, the
+ *  renderer's lookup); empty on a heightfield. */
 function columnsOf(s: MapSession): MapView["columns"] {
   const cols = s.columns;
   if (!cols.size) return emptyColumns();
+  const mask = s.terrain.mask;
   const tiles = new Int32Array(cols.size);
   const voxels = new Uint8Array(cols.size * LAYERS);
+  const masks = new Uint32Array(cols.size);
   let k = 0;
   for (const [i, c] of [...cols.entries()].sort((a, b) => a[0] - b[0])) {
     tiles[k] = i;
     voxels.set(c.subarray(0, LAYERS), k * LAYERS);
+    masks[k] = mask[i];
     k++;
   }
-  return { tiles, voxels };
+  return { tiles, voxels, masks };
 }
 
 /** The objects the page has (to send only what changed). */
@@ -2262,6 +2267,14 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
   if (!plan.ok) return refuse(plan.error);
   req = plan.request;
   const carve = plan.carve;
+  // (a river drawn uphill is shown from its end, the way it was drawn: D344, A5; its land the same)
+  const play = carve ? new CarvePlay(carve, req.verb === "carve" && req.shownFrom === "end") : null;
+  // on a map with caves or overhangs, worked out before it plays: a force that would still leave
+  // ground falling is refused now, naming the place, never shown and then taken back (D487)
+  if (caves.length) {
+    const why = fallsBeforePlay(plan, play, base.W, base.H, (h, m, e) => s.forceFalls(h, m, e));
+    if (why) return refuse(why);
+  }
   // the map's own water waits: the force's water takes over from it, as it flows (a weather run stops; the page asks
   // for its held day again once the force's water has settled)
   const flowing = waterInFlight(s);
@@ -2276,8 +2289,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
     gesture,
     verb: req.verb,
     carve,
-    // (a river drawn uphill is shown from its end, the way it was drawn: D344, A5; its land the same)
-    play: carve ? new CarvePlay(carve, req.verb === "carve" && req.shownFrom === "end") : null,
+    play,
     staged: plan.staged,
     before: plan.before,
     state,
@@ -2406,7 +2418,7 @@ function forceFrame(f: NonNullable<typeof force>, patches = false): ForceFrame {
         for (let z = 0; z < LAYERS; z++) if ((m >>> z) & 1) voxels[k * LAYERS + z] = 1;
         f.shownMasks![i] = m;
       });
-      out.columns = { tiles: Int32Array.from(tiles), voxels };
+      out.columns = { tiles: Int32Array.from(tiles), voxels, masks: Uint32Array.from(tiles, (i) => masks[i]) };
     }
   }
   const rect = changedRect(W, H, f.shown, map.heights);
