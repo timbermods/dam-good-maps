@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { armReach, CAMERA_ROOMS, clearAt, nearFor, orbitEye, roofed } from "../../src/render3d/cameraClamp";
-import { zoomLimits, zoomStopShort, zoomTargetToward, ZOOM_NEAREST } from "../../src/render3d/framing";
+import { zoomLimits, zoomStep, zoomStopShort, ZOOM_NEAREST } from "../../src/render3d/framing";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { columnMask, type TerrainSource } from "../../src/render3d/mesh";
@@ -85,19 +85,41 @@ const LEAST = CAMERA_ROOMS[CAMERA_ROOMS.length - 1] * 0.999;
 const eyeOf = (v: View): V => orbitEye(v.target, v.yaw, v.pitch, reach(v));
 const voxelAt = (p: V) => solid(Math.floor(p[0]), Math.floor(-p[2]), Math.floor(p[1]));
 
-/** One turn of the wheel by `factor` about what the pointer at (u, v) sees, as the renderer's `zoom` does it. */
-function zoom(v: View, factor: number, u: number, w: number): View {
-  const { min, max } = zoomLimits(W, H);
-  const held = reach(v);
-  const from = held < v.distance ? Math.max(min, held) : v.distance;
-  let distance = Math.min(Math.max(max, from), Math.max(min, from * factor));
-  if (distance === from) return { ...v, distance: from };
-  const eye = orbitEye(v.target, v.yaw, v.pitch, from);
-  const hit = pickTerrain(rayAt(eye, v.target, u, w), W, H, maskAt);
-  if (!hit) return { ...v, distance };
-  distance = zoomStopShort(from, distance, Math.hypot(...eye.map((c, k) => c - hit.point[k])));
-  if (distance === from) return { ...v, distance: from };
-  return { ...v, distance, target: zoomTargetToward(v.target, hit.point, from, distance, { W, H, maxY: 16 }) };
+interface World {
+  W: number;
+  H: number;
+  maskAt: (i: number) => number;
+  maxY: number;
+}
+
+/** One turn of the wheel by `factor` about what the pointer at (u, v) sees from the camera as drawn: the renderer's
+ *  `zoom` (`zoomStep`). `held` false: as on dev, the rock never holding the camera. */
+function wheel(v: View, factor: number, u: number, w: number, at: World = { W, H, maskAt, maxY: 16 }, held = true): View {
+  const hold = held ? armReach(v.target, v.yaw, v.pitch, v.distance, at.W, at.H, at.maskAt).reach : v.distance;
+  const eye = orbitEye(v.target, v.yaw, v.pitch, hold);
+  const step = zoomStep(
+    { mode: "orbit", ...v },
+    factor,
+    hold,
+    () => {
+      const hit = pickTerrain(rayAt(eye, v.target, u, w), at.W, at.H, at.maskAt);
+      return hit ? { point: hit.point, maxY: at.maxY } : null;
+    },
+    zoomLimits(at.W, at.H),
+    at,
+  );
+  return step ? { ...v, ...step } : v;
+}
+const zoom = (v: View, factor: number, u: number, w: number) => wheel(v, factor, u, w);
+
+/** The generated canyon the plain-map cases are played on (made once). */
+let canyonMade: (World & { heights: Uint8Array }) | null = null;
+function canyon(): World & { heights: Uint8Array } {
+  if (canyonMade) return canyonMade;
+  const { W: CW, H: CH, heights } = generate(makeSpec({ seed: 7, theme: "canyon", size: { x: 96, y: 96 } })).built;
+  const src: TerrainSource = { W: CW, H: CH, heights, columns: new Map() };
+  canyonMade = { W: CW, H: CH, heights, maskAt: (i) => columnMask(src, i), maxY: 23 };
+  return canyonMade;
 }
 
 describe("the camera keeps out of the rock", () => {
@@ -203,9 +225,9 @@ describe("the camera keeps out of the rock", () => {
 
   it("on a generated canyon, at a flat angle among steep walls, the eye stays above the ground under it, orbited, panned and zoomed", () => {
     // (a plain map: setView clamps only the tilt, so a low camera beside a wall came down into the ground or under it)
-    const { W: CW, H: CH, heights } = generate(makeSpec({ seed: 7, theme: "canyon", size: { x: 96, y: 96 } })).built;
-    const src: TerrainSource = { W: CW, H: CH, heights, columns: new Map() };
-    const mask = (i: number) => columnMask(src, i);
+    const world = canyon();
+    const { W: CW, H: CH, heights } = world;
+    const mask = world.maskAt;
     const at = (x: number, y: number) => heights[Math.min(CH - 1, Math.max(0, y)) * CW + Math.min(CW - 1, Math.max(0, x))];
     // ground at the foot of steep walls: a tile with one 4 or more levels higher within 3 tiles
     const feet: number[] = [];
@@ -228,16 +250,7 @@ describe("the camera keeps out of the rock", () => {
         if (what < 0.4) v = { ...v, yaw: v.yaw + (r() - 0.5) * 1.2, pitch: Math.min(0.35, Math.max(0.18, v.pitch + (r() - 0.5) * 0.1)) };
         else if (what < 0.6) v = { ...v, target: [Math.min(CW, Math.max(0, v.target[0] + (r() - 0.5) * 6)), v.target[1], Math.min(0, Math.max(-CH, v.target[2] + (r() - 0.5) * 6))] };
         else {
-          // a turn of the wheel about what the pointer sees, as the renderer's zoom does it
-          const hold = armReach(v.target, v.yaw, v.pitch, v.distance, CW, CH, mask).reach;
-          const from = hold < v.distance ? Math.max(6, hold) : v.distance;
-          const eye = orbitEye(v.target, v.yaw, v.pitch, from);
-          const hit = pickTerrain(rayAt(eye, v.target, (r() - 0.5) * 1.6, (r() - 0.5) * 1.6), CW, CH, mask);
-          let distance = Math.max(6, from * (r() < 0.7 ? 0.787 : 1.27));
-          if (hit) {
-            distance = zoomStopShort(from, distance, Math.hypot(...eye.map((c, n) => c - hit.point[n])));
-            v = { ...v, distance, target: zoomTargetToward(v.target, hit.point, from, distance, { W: CW, H: CH, maxY: 23 }) };
-          } else v = { ...v, distance };
+          v = wheel(v, r() < 0.7 ? 0.787 : 1.27, (r() - 0.5) * 1.6, (r() - 0.5) * 1.6, world);
         }
         const held1 = armReach(v.target, v.yaw, v.pitch, v.distance, CW, CH, mask);
         const eye = orbitEye(v.target, v.yaw, v.pitch, held1.reach);
@@ -253,5 +266,39 @@ describe("the camera keeps out of the rock", () => {
     }
     // (most of these low views among walls have the ground or a wall in the camera's way: the clamp is what holds them)
     expect(held).toBeGreaterThan(views / 10);
+  });
+
+  it("zoomed out while the rock holds it, goes as far out as on dev and comes out of the rock (a cave; a canyon's cliff behind a low camera)", () => {
+    const cases: [string, World, View][] = [
+      // in the cave, the camera turned into the mountain behind it
+      ["cave", { W, H, maskAt, maxY: 16 }, { target: [24, 6, -38], yaw: Math.PI, pitch: 0.3, distance: 12 }],
+    ];
+    // the canyon: a low camera with a cliff behind it, held well in
+    const c = canyon();
+    const r = rng(5);
+    for (let k = 0; k < 20000 && cases.length < 4; k++) {
+      const i = Math.floor(r() * c.W * c.H);
+      const v: View = { target: [(i % c.W) + 0.5, c.heights[i] + 0.5, -(Math.floor(i / c.W) + 0.5)], yaw: r() * Math.PI * 2, pitch: 0.2, distance: 16 };
+      if (armReach(v.target, v.yaw, v.pitch, v.distance, c.W, c.H, c.maskAt).reach < 6) cases.push(["canyon", c, v]);
+    }
+    expect(cases.length).toBe(4);
+    for (const [name, world, start] of cases) {
+      let now = start;
+      let dev = start;
+      const drawn = (v: View) => orbitEye(v.target, v.yaw, v.pitch, armReach(v.target, v.yaw, v.pitch, v.distance, world.W, world.H, world.maskAt).reach);
+      const first = drawn(start);
+      // 15 turns of the wheel out at the middle of the view, then three presses of -
+      for (let k = 0; k < 18; k++) {
+        const f = k < 15 ? 1.27 : 1.15;
+        now = wheel(now, f, 0, 0, world);
+        dev = wheel(dev, f, 0, 0, world, false);
+        expect(clearAt(drawn(now), world.W, world.H, world.maskAt, CAMERA_ROOMS[CAMERA_ROOMS.length - 1] * 0.999)).toBe(true);
+      }
+      expect(now.distance, name).toBeCloseTo(dev.distance, 9);
+      const last = drawn(now);
+      // (out of the rock: drawn where its view puts it, and well away from where the rock held it)
+      expect(armReach(now.target, now.yaw, now.pitch, now.distance, world.W, world.H, world.maskAt).reach, name).toBe(now.distance);
+      expect(Math.hypot(...last.map((v, n) => v - first[n])), name).toBeGreaterThan(20);
+    }
   });
 });

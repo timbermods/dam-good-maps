@@ -303,26 +303,32 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   first meets rock, so turning round in a cave never puts the camera outside behind its wall. The eye keeps 0.8 of a
   tile from rock, more than the near plane's corners reach; where nothing on the arm has that room (a narrow tunnel),
   0.25 or 0.12, with the near plane brought in to match (`nearFor`). Only drawn: the view's distance is kept, so the
-  camera springs back out once the rock no longer holds it, and a zoom starts from where the camera is drawn. A zoom in
-  stops short of the ground under the pointer (`framing.ts` `zoomStopShort`, 1.6 tiles), so a zoom into a mouth ends
-  in its air. Under a layer cut, the rock left is what counts.
+  camera springs back out once the rock no longer holds it. A zoom in starts from where the camera is drawn and stops
+  short of the ground under the pointer (`framing.ts` `zoomStep`, `zoomStopShort`, 1.6 tiles), so a zoom into a mouth
+  ends in its air; a zoom out starts from the view's own distance, so it carries the camera out of the rock that held it
+  as far as on dev. Under a layer cut, the rock left is what counts.
 - **The same where nothing holds it:** where the eye is clear (and, under a roof, the arm too), the camera is exactly
   where its view puts it: a map without terrain above terrain is drawn as before wherever the camera stayed above the
-  ground. Cost: a ball test of up to 27 voxels a frame; a short walk along the arm only under a roof or while the rock
-  holds the camera.
+  ground. Cost: a ball test of up to 27 voxels; a short walk along the arm only under a roof or while the rock holds
+  the camera; worked out once per view and terrain (every change to the terrain is a new source), so a frame and its
+  picks share it.
 - **Tests:** `cameraClamp.test.ts` on hand-made terrain (a cave, an arch, a pillar, an overhang, a tunnel two tiles
   wide): the eye is never in a solid voxel nor nearer one than its least room after random orbits, pans and zooms
   (composed as `zoom` composes them); a zoom toward the cave's mouth ends in its air; orbited inside, the camera stays
   in the cave and the tunnel, its near plane inside its room; where the eye is clear and the target not under a roof,
-  the camera is where its view puts it (a rough heightfield and the cave world, 3,000 views each); on a generated
+  the camera is where its view puts it (a rough heightfield and the cave world, 3,000 views each); zoomed out while the
+  rock holds it (in the cave, and a low camera with a canyon's cliff behind it), it goes as far out as on dev and comes
+  out of the rock; on a generated
   canyon (96², seed 7), looking flat (tilt 0.18 to 0.35) at the foot of steep walls and orbited, panned and zoomed, the
   eye stays above the ground under it by the room it keeps (`setView` clamps only the tilt; the clamp holds the eye's
   height on every map, not only out of cave rock).
 - **Captures:** `docs/sheets/caves-brush-camera.jpg` (dev against this branch, real Chrome, High: Raise hovered in a
   Hollows mouth at 1280×800 light; turned inside a Pressure arch after a zoom, and a low orbit beside a Hollows cliff,
   at 1920×1080 dark: dev draws both from inside the rock).
-- **Falls short:** a camera held in by rock springs back out at once when its place leaves the rock on the far side
-  (tilted up through a thin roof, turned past a wall's end); passing through the rock in between is never drawn. Looking
+- **Falls short:** being drawn in and springing back out each happen in one frame: a camera held in by rock springs
+  back at once when its place leaves the rock on the far side (tilted up through a thin roof, turned past a wall's end;
+  a low orbit by a plain cliff can jump many tiles in one small turn). Easing it would draw the rock in between, so it
+  is not eased. Looking
   at a point on a tunnel's floor, turned low toward a wall two tiles off, the arm has no room at all, and the camera
   keeps its place outside, beyond the wall.
 
