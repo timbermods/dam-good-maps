@@ -117,13 +117,31 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
-  // (the view settles its size first: the legend beside it lays out after the map)
-  const size = () => page.evaluate(() => `${window.dgm3d!.renderer.canvas.width}x${window.dgm3d!.renderer.canvas.height}`);
-  await expect.poll(async () => {
-    const a = await size();
-    await page.waitForTimeout(500);
-    return a === (await size());
-  }).toBe(true);
+  // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
+  // the canvas's box nor its pixels have changed for half a second: on a busy page (CI's software GL) a round trip to
+  // the page can take a second or two, and a poll of two reads with a wait between them spent its 5 seconds on one try,
+  // the size long since held)
+  await page.evaluate(
+    () =>
+      new Promise<void>((held) => {
+        const c = window.dgm3d!.renderer.canvas;
+        let size = `${c.width}x${c.height}`;
+        let since = performance.now();
+        const moved = () => (since = performance.now());
+        const box = new ResizeObserver(moved);
+        box.observe(c);
+        const frame = () => {
+          if (`${c.width}x${c.height}` !== size) {
+            size = `${c.width}x${c.height}`;
+            moved();
+          }
+          if (performance.now() - since < 500) return void requestAnimationFrame(frame);
+          box.disconnect();
+          held();
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
   // (the drought line comes in by itself once the worker has worked it out, a change between frames: wait for it, then
   // put it away. It is the same in both looks, and where its flat and upright strips overlap over the water, the GPU
   // (software GL and the RTX 2070 SUPER alike) blends it there once or twice between two redraws of one still frame,

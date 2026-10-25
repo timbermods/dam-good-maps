@@ -49,7 +49,7 @@ function sendStarted(r: ed.ForceStarted): ed.ForceStarted {
 
 function eventBuffers(e: ed.EditorEvent): Transferable[] {
   if (e.kind === "instant" || e.kind === "withered") return [];
-  if (e.kind === "weather") return [...(e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : []), ...(e.firstDry ? [e.firstDry.buffer as ArrayBuffer] : [])];
+  if (e.kind === "weather") return [...(e.water ? (viewBuffers({ water: e.water }) as Transferable[]) : []), ...[e.firstDry, e.firstBad].flatMap((a) => (a ? [a.buffer as ArrayBuffer] : []))];
   return viewBuffers(e.kind === "water" ? { water: e.water } : e.view) as Transferable[];
 }
 
@@ -243,11 +243,11 @@ const api = {
   },
   stopWeatherPrep: () => ed.stopWeatherPrep(),
   stopWeather: () => ed.stopWeather(),
-  moveStartTo: (x: number, y: number, orientation?: Orientation) => sendUpdate(ed.moveStartTo(x, y, orientation)),
+  moveStartTo: (x: number, y: number, orientation?: Orientation, z?: number) => sendUpdate(ed.moveStartTo(x, y, orientation, z)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
   plantAt: (template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)),
-  paintAt: (params: PaintParams) => sendUpdate(ed.paintAt(params)),
+  paintAt: (params: PaintParams, z?: number) => sendUpdate(ed.paintAt(params, z)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: (tiles: number[], kinds: ed.RemoveKind[]) => sendUpdate(ed.removeAt(tiles, kinds)),

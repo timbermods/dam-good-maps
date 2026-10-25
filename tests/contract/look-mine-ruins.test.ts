@@ -19,9 +19,11 @@ import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
  *  0.10.2 makes it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
- *  landmark first; D148); `d0c32f0d…` before it, as generator 0.10.0 made it (3D in generation, part 1, D488: this map
- *  looks for a spring cave and its land offers none, so its land and water are unchanged, only the version, D148);
- *  `68451be7…` before it, as generator 0.8.9 made it (the story
+ *  landmark first; D148); `6b7d4326…` before it, as generator 0.10.1 made it (ruins placed with meaning, D488 (2): a
+ *  ruined dam across the natural narrows and a drowned village where the land offers them, their scrap out of the
+ *  map's budget, D148); `d0c32f0d…` before it, as
+ *  generator 0.10.0 made it (3D in generation, part 1, D488: this map looks for a spring cave and its land offers none, so its
+ *  land and water are unchanged, only the version, D148); `68451be7…` before it, as generator 0.8.9 made it (the story
  *  keeps a main water that is mostly badwater, D480's extension: no map's land or water changed, only the version,
  *  D148); `f50af4e8…` before it, as generator 0.8.8 made it (Canyon and Highlands height,
  *  #261: this River Valley map's land and water unchanged, only the version the file carries); `0c4fe442…` before it, as generator 0.8.7 made it (Islands round 6, #235: land and
