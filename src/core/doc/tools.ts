@@ -114,7 +114,7 @@ export function objectsOnNewGround(s: MapSession, ops: readonly EditOp[], edited
     // one at a level under a roof: the game's rule on the ground after the edit (D491)
     const pl = f.params.placement;
     if (!why && pl.z !== undefined) {
-      const left = fitProblems(kind, tiles, { W, H, heights: after.heights, masks: afterGround().mask, z: pl.z }, "area" in pl ? undefined : pl);
+      const left = fitProblems(kind, tiles, { W, H, heights: after.heights, masks: afterGround().mask }, pl);
       if (left.length) why = left[0];
     }
     if (why) {

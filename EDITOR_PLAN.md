@@ -229,9 +229,13 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
     a roof's top). A refusal is one plain line ("not enough room under the roof here: the ruin needs 5"). The
     placement names its level (`placeEntity` and `moveEntity` `z`, a run's top below the tile's surface); the
     object stands there, exports there and a source there feeds the cave's water. At a level it stands wholly under
-    the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach, and any edit
-    that would leave an object under a roof or on one inside the ground or floating is refused with one line; the
-    start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
+    the roof ("part of it would stand in the open" otherwise), out of every brush's and force's reach. An object
+    that reaches out of its roof (an imported badtide drain set in a cliff, its mouth over open ground) is held:
+    strokes, sculpts and forces keep the tiles that would bury it or leave it floating within a floor and ceiling
+    (`objects.ts` `objectHolds`; the stroke preview shows the same) and shape the rest as normal, never refused for
+    it (D270). Only a stroke with nothing left to shape, or, as a last guard, an edit that would still lose such an
+    object (Erode, which works under roofs), is refused with one line. A feature edit clears an object at a level
+    when the game's rule no longer holds it on the ground after the edit. The start stays on open ground. A move under a roof keeps its level unless it names another. Strokes paint a roof's
     top like any ground. A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.

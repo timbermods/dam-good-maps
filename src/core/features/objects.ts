@@ -159,12 +159,9 @@ export interface FitGround {
   start?: { x: number; y: number; radius: number } | null;
   /** The ground voxel by voxel, on a map with caves or overhangs (bit z of `masks[i]` set: voxel z of
    *  tile i is solid; terrain/runs.ts `ColumnTerrain`). A placement on a tile that is not one plain
-   *  run, or at a given `z`, is held to the game's own rule (`standProblem`) instead of the level
-   *  ground a heightfield needs. */
+   *  run, or at a placement's `z`, is held to the game's own rule (`standProblem`) instead of the
+   *  level ground a heightfield needs. */
   masks?: ArrayLike<number> | null;
-  /** The level it stands on under a roof (a cave's floor, the ground under a ledge): a run's top
-   *  below the tile's surface. Omitted, it stands on the top. Needs `masks`. */
-  z?: number;
   /** Tiles no object may take (locked regions). */
   locked?: Uint8Array | null;
 }
@@ -172,20 +169,27 @@ export interface FitGround {
 /** Water deeper than this counts as a water tile (validate/playability.ts WET). */
 const WET = 0.05;
 
+/** Where a placement stands, beyond its tiles (a map object feature's `placement` fits as it is): a
+ *  single object's south-west corner and facing, which the game's rule needs on a tile with caves or
+ *  overhangs; `z`, the level it stands on under a roof (a cave's floor, the ground under a ledge: a
+ *  run's top below the tile's surface), omitted for the top. A `z` needs the ground's `masks`. */
+export type FitAt = { x: number; y: number; orientation: Orientation; z?: number } | { z?: number };
+
 /** Why a placement does not fit, in plain words (empty when it fits). `tiles` are the tiles it
- *  covers: a single object's footprint, or a line's tiles. `at`: a single object's south-west corner
- *  and facing (its feature's placement), which the game's rule needs under a roof. */
-export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [number, number])[], g: FitGround, at?: { x: number; y: number; orientation: Orientation }): string[] {
+ *  covers: a single object's footprint, or a line's tiles; `at`, where it stands (`FitAt`). */
+export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [number, number])[], g: FitGround, at?: FitAt): string[] {
   const { W, H, heights } = g;
+  const z0 = at?.z;
+  const corner = at && "x" in at ? at : null;
   const out: string[] = [];
   if (!BUILT_OBJECTS.includes(kind)) return [`${OBJECT_NAMES[kind].toLowerCase()}s come in a later version`];
   if (!tiles.length) return ["it covers no tiles"];
   const single = !isLine(kind);
   const masks = g.masks ?? null;
-  if (g.z !== undefined && !masks) throw new Error("fitProblems: a placement at a given z needs the ground's masks");
+  if (z0 !== undefined && !masks) throw new Error("fitProblems: a placement at a given z needs the ground's masks");
   const inMap = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
   // under a roof: the game's rule, block by block, at the level it stands on (D491)
-  const roofed = !!masks && (g.z !== undefined || tiles.some(([x, y]) => inMap(x, y) && !isPlainColumn(masks[y * W + x])));
+  const roofed = !!masks && (z0 !== undefined || tiles.some(([x, y]) => inMap(x, y) && !isPlainColumn(masks[y * W + x])));
   const stand: StandGround | null = roofed ? { W, H, mask: masks! } : null;
   const template = OBJECT_TEMPLATE[kind];
   let level = -1;
@@ -194,17 +198,17 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
   };
   // (an object at a given level stands wholly under the roof: its ground is then out of every tool's reach
   // but the Block tool's, so no later edit buries it or leaves it floating)
-  if (g.z !== undefined) {
-    const open = openPart(tiles, g.z, g);
+  if (z0 !== undefined) {
+    const open = openPart(tiles, z0, g);
     if (open) add(open);
   }
   if (stand && single) {
-    if (!at) throw new Error("fitProblems: a single object under a roof needs its placement");
+    if (!corner) throw new Error("fitProblems: a single object under a roof needs its corner and facing");
     const s = FOOTPRINTS[template].size;
-    const [cx, cy] = coordinatesForMinCorner(s[0], s[1], at.x, at.y, at.orientation);
-    let z = g.z ?? -1;
+    const [cx, cy] = coordinatesForMinCorner(s[0], s[1], corner.x, corner.y, corner.orientation);
+    let z = z0 ?? -1;
     if (z < 0) for (const [x, y] of tiles) if (inMap(x, y)) z = Math.max(z, heights[y * W + x]);
-    const why = standProblem(template, { x: cx, y: cy, z, orientation: at.orientation }, stand);
+    const why = standProblem(template, { x: cx, y: cy, z, orientation: corner.orientation }, stand);
     if (why) add(why);
   }
   for (const [x, y] of tiles) {
@@ -215,14 +219,14 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
     const i = y * W + x;
     if (stand && !single) {
       // (a line's objects are one block each, each on its own tile's ground)
-      const why = standProblem(template, { x, y, z: g.z ?? heights[i], orientation: "Cw0" }, stand);
+      const why = standProblem(template, { x, y, z: z0 ?? heights[i], orientation: "Cw0" }, stand);
       if (why) add(why);
     } else if (single && !stand) {
       if (level < 0) level = heights[i];
       else if (heights[i] !== level) add("the ground under it is not level");
     }
     // (the settled water and the rivers are the top's: under a roof the game's rule alone decides)
-    const top = g.z === undefined || g.z >= heights[i];
+    const top = z0 === undefined || z0 >= heights[i];
     if (top && DRY_OBJECTS.includes(kind) && g.water && g.water[i] > WET) add("it would stand in water");
     if (top && g.channel?.[i] && kind !== "weir" && kind !== "plug") add("it would stand in a river");
     if (g.occupied?.[i]) add("another object stands there");

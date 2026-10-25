@@ -107,7 +107,7 @@ describe("objects in caves (D491): the editor's rule is the game's", () => {
           const onTop = Math.max(...inMap.map(([tx, ty]) => heights[ty * W + tx]));
           for (const z of levelsAt(mask[cy * W + cx])) {
             const top = z >= heights[cy * W + cx];
-            const fit = fitProblems(kind, tiles, { W, H, heights, masks: mask, ...(top ? {} : { z }) }, line ? undefined : { x, y, orientation });
+            const fit = fitProblems(kind, tiles, { W, H, heights, masks: mask }, line ? (top ? undefined : { z }) : { x, y, orientation, ...(top ? {} : { z }) });
             const roofed = !top || inMap.some(([tx, ty]) => (mask[ty * W + tx] & (mask[ty * W + tx] + 1)) !== 0);
             if (!roofed || (top && z !== heights[cy * W + cx])) continue;
             const open = !top && !!openPart(tiles, z, { W, H, heights });

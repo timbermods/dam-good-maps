@@ -601,7 +601,7 @@ function levelProblems(f: Feature, ctx: OpContext): string[] {
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
-  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, z: pl.z }, "area" in pl ? undefined : pl);
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
   return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
 }
 
