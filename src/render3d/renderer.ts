@@ -60,10 +60,10 @@ import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blo
 import { DroughtLineLayer } from "./droughtLine";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { buildEntities, disposeGroup, mineCutout, mineOutline } from "./entities3d";
-import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataRect, type ShadowRock } from "./light";
+import { objectCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, SKY_REACH, skyVisibility, skyVisibilityRect, tileData, tileDataChanges, tileDataRect, type ShadowRock, type TileSpan } from "./light";
 import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
-import { caveTexture, contaminationEdges, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
@@ -71,7 +71,8 @@ import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { SKY, type GroundMode } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
-import { changedWaterChunks, drawnWater, drewChunk, lowerByTile, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { changedWaterChunks, drawnWater, drewChunk, meshWaterChunk, MOVED_WATER, rideLand, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
+import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
 import { WaterMesher } from "./waterMesher";
 import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighEffects, allEffects } from "./high/effects";
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
@@ -408,7 +409,7 @@ export class MapRenderer {
   private cursor: BrushCursor | null = null;
   private ring: ForceRing | null = null;
   /** A force's ring as last shown (tests). */
-  forceRingState: { x: number; y: number; r: number; marker?: boolean } | null = null;
+  forceRingState: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null = null;
   /** The sun's shadows wait while a brush paints when they cannot be redone round it. */
   private shadowsStale = false;
   private shadowChanged = false;
@@ -443,6 +444,7 @@ export class MapRenderer {
     this.uniforms = sceneUniforms(1, 1, one(), lightTexture(1, 1, new Uint8Array(16)), one(), one());
     this.patterns = drawPatterns(this.gl);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
+    this.edgeRows = new RowUploads(this.gl, () => this.edges);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
     this.caveRows = new BoxUploads(this.gl, () => this.caveTex);
     this.runRows = new BoxUploads(this.gl, () => this.runTex);
@@ -568,13 +570,13 @@ export class MapRenderer {
     }
   }
 
-  /** Whether objects and falls read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
+  /** Whether objects, falls and water read the light volume (materials.ts `CAVE_POINT`): only on a map with air under a
    *  roof, so every other map draws them with the same program as before (the define is not there at all). */
   private caveBranch = false;
 
   private setCaveBranch(on: boolean): void {
     this.caveBranch = on;
-    for (const mat of [this.std.object, this.std.fall, ...(this.high?.roofedMaterials() ?? [])]) {
+    for (const mat of [this.std.object, this.std.fall, this.std.water, ...(this.high?.roofedMaterials() ?? [])]) {
       if (("CAVES" in mat.defines) === on) continue;
       if (on) mat.defines.CAVES = 1;
       else delete mat.defines.CAVES;
@@ -1111,6 +1113,7 @@ export class MapRenderer {
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
     const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), cutout: mineCutout(v.entities, W, H) };
+    this.columnsSent = { ...v.columns, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const sky = skyVisibility(W, H, heights);
     const soil = v.soil ?? null;
@@ -1272,6 +1275,7 @@ export class MapRenderer {
     this.overlay = this.marks = this.edges = this.sites = this.tileTex = this.lightTex = null;
     this.map = null;
     this.tileRows.clear();
+    this.edgeRows.clear();
     this.lightRows.clear();
     // (its programs kept until the next map's first frame has compiled its own to them)
     this.retiredMotion?.dispose();
@@ -1310,9 +1314,82 @@ export class MapRenderer {
     return d.quads;
   }
 
-  private meshWater(cx: number, cy: number, lower: Map<number, number[]> | null): number {
+  private meshWater(cx: number, cy: number): number {
     const m = this.map!;
-    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, m.heights, m.surface, m.water, lower, cx, cy), this.waterVersion, m.surface);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface);
+  }
+
+  /** The water dealt into layers for the mesher (waterLayers.ts): every column on its own floor, seeing the water
+   *  and ground at its own level. Made again when the water or the columns change; a change of heights alone (a
+   *  stroke) keeps them, the open sky's layer on the heights drawn, until the water worked out on the new land
+   *  comes (what is under a roof does not change with a top's height). */
+  private layers: { of: object; columns: object; layers: WaterLayer[] } | null = null;
+
+  private waterLayers(): WaterLayer[] {
+    const m = this.map!;
+    const l = this.layers;
+    if (l && l.of === m.surface && l.columns === m.source.columns) {
+      l.layers[0].ground = m.heights;
+      return l.layers;
+    }
+    const layers = this.layered ? waterLayers(m.W, m.H, m.heights, m.source.columns, m.water, m.surface) : plainLayers(m.heights, m.surface);
+    this.layers = { of: m.surface, columns: m.source.columns, layers };
+    return layers;
+  }
+
+  /** The water rode the land over `rect` (`rideLand`): the layers made from it follow. */
+  private rodeLand(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const l = this.layers;
+    if (l && l.of === m.surface) rideLayers(m.W, l.layers, m.surface, rect);
+  }
+
+  /** The columns as the worker last sent them (the water mesh workers' copy), and their version. */
+  private columnsSent: MapView["columns"] & { key: number } = { tiles: new Int32Array(0), voxels: new Uint8Array(0), key: 0 };
+  private columnsKey = 0;
+
+  /** Whether the water is drawn per column (waterLayers.ts `needsLayers`: water under a roof, or beside one): then a
+   *  change remeshes the chunks within LAYER_REACH of the tiles whose columns changed (`changedColumnChunks`) and
+   *  moving water is dealt and meshed in the workers on the view itself. Elsewhere, a map with caves too, the water
+   *  is a heightfield's. */
+  private layeredFor: { water: object; columns: object; on: boolean } | null = null;
+
+  private get layered(): boolean {
+    const m = this.map;
+    if (!m || !m.source.columns.size) return false;
+    const c = this.layeredFor;
+    if (c && c.water === m.water && c.columns === m.source.columns) return c.on;
+    const on = needsLayers(m.W, m.H, m.heights, m.source.columns, m.water);
+    this.layeredFor = { water: m.water, columns: m.source.columns, on };
+    return on;
+  }
+
+  /** With water per column, the land changed over `rect`: the water chunks within LAYER_REACH of it, meshed now on
+   *  the layers dealt for the water on show (only the open sky's follows the land), else (the water changed since,
+   *  a journey's frame) sent to the workers with it, never dealt here. */
+  private layeredWaterNear(rect: { x0: number; y0: number; x1: number; y1: number }): void {
+    const m = this.map!;
+    const r = LAYER_REACH;
+    const keys = dirtyChunks(m.W, m.H, { x0: rect.x0 - r, y0: rect.y0 - r, x1: rect.x1 + r, y1: rect.y1 + r });
+    const l = this.layers;
+    if (l && l.columns === m.source.columns) followLand(m.W, l.layers, m.heights, m.source.columns, rect);
+    if (l?.of === m.surface && l.columns === m.source.columns) for (const [cx, cy] of keys) this.meshWater(cx, cy);
+    else {
+      // (a new version: the workers' last batch may have drawn these chunks on the same water and the old land, and
+      // a batch's chunks are drawn only over older ones)
+      this.waterVersion++;
+      for (const [cx, cy] of keys) this.waterQueue.add(`${cx},${cy}`);
+      this.requestRender();
+    }
+  }
+
+  /** Every water chunk of the map. */
+  private allWaterChunks(): Set<string> {
+    const m = this.map!;
+    const { nx, ny } = chunkCount(m.W, m.H);
+    const out = new Set<string>();
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) out.add(`${cx},${cy}`);
+    return out;
   }
 
   /** A water chunk's mesh on the scene, made on the water of `version` (`sw`). */
@@ -1401,10 +1478,9 @@ export class MapRenderer {
 
   private meshAllWater(): number {
     const m = this.map!;
-    const lower = lowerByTile(m.surface, m.water);
     const { nx, ny } = chunkCount(m.W, m.H);
     let quads = 0;
-    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy, lower);
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy);
     return quads;
   }
 
@@ -1476,16 +1552,21 @@ export class MapRenderer {
     this.uniforms.caveTop.value = this.cave.highest;
   }
 
-  /** The terrain shader's tile data again (heights, soil, sky, water). */
+  /** The terrain shader's tile data up to the water and soil the map has now (heights, soil, sky, water): only the tiles whose
+   *  bytes differ are rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    tileData(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
-    this.tileTex.needsUpdate = true;
-    if (this.edges) {
-      contaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array);
-      this.edges.needsUpdate = true;
-    }
+    const c = tileDataChanges(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles);
+    for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
+    this.redoEdges(c.edgeRows);
+  }
+
+  /** The contamination outline round the runs of tiles whose wet or contaminated state changed, to the GPU with the next frame. */
+  private redoEdges(spans: readonly TileSpan[]): void {
+    const m = this.map;
+    if (!m || !this.edges) return;
+    for (const r of redoContaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, spans)) this.edgeRows.touch(r.x0, r.y, r.x1, r.y);
   }
 
   private readonly entityModels = new EntityGeometryCache();
@@ -1543,13 +1624,14 @@ export class MapRenderer {
     if (rect && this.drawnLand) {
       this.landBefore ??= this.drawnLand.slice();
       for (let i = 0; i < heights.length; i++) if (heights[i] !== this.drawnLand[i]) this.landBefore[i] = this.drawnLand[i];
-      rideLand(m.W, m.surface, this.drawnLand, heights, rect);
+      if (rideLand(m.W, m.surface, this.drawnLand, heights, rect)) this.rodeLand(rect);
     }
     m.heights = heights;
     this.heightStats = null;
     m.source = { ...m.source, heights };
     if (columns) {
       m.source = { ...m.source, columns: columnMap(columns) };
+      this.columnsSent = { ...columns, key: ++this.columnsKey };
       this.syncCaves();
     }
     // the map's own heights: its objects stand where it has them (new ones follow in updateEntities)
@@ -1568,10 +1650,10 @@ export class MapRenderer {
     if (this.tileTex) {
       tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
-      // (the contamination outline reads the tile data)
+      // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
-        contaminationEdges(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array);
-        this.edges.needsUpdate = true;
+        contaminationEdgesRect(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, rect.x0 - r - 1, rect.y0 - r - 1, rect.x1 + r + 1, rect.y1 + r + 1);
+        this.edgeRows.touch(rect.x0 - r - 1, rect.y0 - r - 1, rect.x1 + r + 1, rect.y1 + r + 1);
       }
     }
     if (this.tops && this.lightTex && this.casters !== undefined) {
@@ -1580,9 +1662,10 @@ export class MapRenderer {
     } else this.bakeShadows();
     this.relightCaves(rect);
     if (m.water.count) {
-      // (a fall reads the ground two tiles round its lip: the chunks a tile further)
-      const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy, lower);
+      // (a fall reads the ground two tiles round its lip: the chunks a tile further; with terrain above terrain a
+      // column reads what it sees within LAYER_REACH)
+      if (this.layered) this.layeredWaterNear(rect);
+      else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
       this.waterMotion?.waterChanged(heights, m.surface);
     }
@@ -1602,29 +1685,37 @@ export class MapRenderer {
     return surface;
   }
 
-  /** New water: remesh the chunks whose water changed. */
+  /** New water: remesh the chunks whose water changed (with water per column, in the workers, a frame or two on). */
   updateWater(water: WaterView): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    const changed = changedWaterChunks(m.W, m.H, m.surface, surface, m.surface.lower.length, surface.lower.length);
+    const before = { water: m.water, surface: m.surface, layered: this.layered };
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
-    const lower = lowerByTile(surface, water);
+    const layered = this.layered;
+    // (with water per column, the chunks within reach of a column that changed, or all of them where the water
+    // turns to or from it)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : changedWaterChunks(m.W, m.H, before.surface, surface, 0, 0);
     // (every chunk drawn on water that differs from this at all: moving water drawn within a hair of
     // itself is drawn exactly now; and a stroke's chunks still waiting, or with the worker)
-    for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
-    for (const key of this.waterQueue) changed.add(key);
-    for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
-    for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
-    this.waterQueue.clear();
-    this.waterReady = null;
-    this.mesherOwn?.clear();
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshWater(cx, cy, lower);
+    if (!layered) for (const key of waterMovedChunks(m.W, m.H, this.waterShown, surface, { level: 0, share: 0 })) changed.add(key);
+    // (water per column is dealt and meshed in the workers where they run, as a journey's frame is: dealing it here
+    // would cost the page a frame for each)
+    if (layered && this.mesher) for (const key of changed) this.waterQueue.add(key);
+    else {
+      for (const key of this.waterQueue) changed.add(key);
+      for (const key of this.waterReady?.chunks.keys() ?? []) changed.add(key);
+      for (const key of this.mesherOwn?.asked ?? []) changed.add(key);
+      this.waterQueue.clear();
+      this.waterReady = null;
+      this.mesherOwn?.clear();
+      for (const key of changed) {
+        const [cx, cy] = key.split(",").map(Number);
+        this.meshWater(cx, cy);
+      }
     }
     // (the water round the brush may have come or gone)
     this.updateClearAround();
@@ -1640,6 +1731,8 @@ export class MapRenderer {
 
   /** The tile data's and the shadow map's changed rows, to the GPU with the next frame (R1). */
   private readonly tileRows: RowUploads;
+  /** The contamination outline's changed rows. */
+  private readonly edgeRows: RowUploads;
   private readonly lightRows: RowUploads;
   private readonly caveRows: BoxUploads;
   private readonly runRows: BoxUploads;
@@ -1662,25 +1755,28 @@ export class MapRenderer {
   /** The worker a stroke's water is meshed in (waterMesher.ts), made with the first stroke's water. */
   private mesherOwn: WaterMesher | null = null;
 
-  /** A stroke's water (live editing, D197): the map's water now (the hover, picking and the brush's
-   *  clear water read it at once), and its changed chunks meshed a few milliseconds' worth a frame,
-   *  nearest the view's middle first, with the ground's tile data under them. While a stroke is
-   *  painted the water can move all over the map (a lake still filling after a force): meshing every
-   *  changed chunk in the frame it came cost the page a frame each time (D244's measurements). An
-   *  `updateWater` meshes whatever still waits. With caves, the whole path at once. */
+  /** A stroke's water or a frame of the water's journey (live editing, D197): the map's water now (the hover,
+   *  picking and the brush's clear water read it at once), and its changed chunks meshed a few milliseconds' worth
+   *  a frame, nearest the view's middle first, with the ground's tile data under them, in the water mesh workers
+   *  where they run. While a stroke is painted the water can move all over the map (a lake still filling after a
+   *  force): meshing every changed chunk in the frame it came cost the page a frame each time (D244's
+   *  measurements). An `updateWater` meshes whatever still waits. With water per column, the chunks within reach of
+   *  the columns that changed, dealt and meshed in the workers on the view itself. */
   updateWaterSoon(water: WaterView): number {
     const m = this.map;
     if (!m) return 0;
     const surface = this.seated(water);
-    if (m.surface.lower.length || surface.lower.length) return this.updateWater(water);
+    const before = { water: m.water, layered: this.layered };
     m.water = water;
     m.surface = surface;
     this.waterVersion++;
     // (land not drawn yet is drawn now with this water on it: the chunks it changed, in this same frame;
     // a force's water comes with its land)
     this.flushTerrain();
-    // (what moved since it was drawn: moving water is drawn again where it moved visibly)
-    const changed = waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
+    const layered = this.layered;
+    // (what moved since it was drawn: moving water is drawn again where it moved visibly; with water per column,
+    // the chunks within reach of a column that changed)
+    const changed = layered || before.layered ? (layered && before.layered ? changedColumnChunks(m.W, m.H, before.water, water) : this.allWaterChunks()) : waterMovedChunks(m.W, m.H, this.waterShown, surface, MOVED_WATER);
     for (const key of changed) this.waterQueue.add(key);
     this.waterMotion?.waterChanged(m.heights, surface);
     this.updateClearAround();
@@ -1736,8 +1832,11 @@ export class MapRenderer {
     if (!this.waterQueue.size) return;
     if (this.mesherOwn?.busy) return;
     // (the chunks still away from the water now, against what is drawn: those just drawn may need nothing)
-    const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
-    for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
+    const layered = this.layered;
+    if (!layered) {
+      const moved = waterMovedChunks(m.W, m.H, this.waterShown, m.surface, MOVED_WATER);
+      for (const k of this.waterQueue) if (!moved.has(k)) this.waterQueue.delete(k);
+    }
     if (!this.waterQueue.size) return;
     const tx = this.view.target[0] / CHUNK;
     const ty = -this.view.target[2] / CHUNK;
@@ -1751,7 +1850,7 @@ export class MapRenderer {
     if (mesher) {
       if (mesher.busy) return;
       this.waterSent = m.surface;
-      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k));
+      mesher.mesh(this.waterVersion, m.W, m.H, m.heights, m.surface, nearest.map((c) => c.k), layered ? { view: m.water, columns: this.columnsSent } : undefined);
       this.waterQueue.clear();
       return;
     }
@@ -1760,7 +1859,7 @@ export class MapRenderer {
     for (const { k, cx, cy } of nearest) {
       if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
-      this.meshWater(cx, cy, null);
+      this.meshWater(cx, cy);
       this.waterTiles(m, cx, cy);
       done = true;
     }
@@ -1771,6 +1870,17 @@ export class MapRenderer {
     if (!this.tileTex) return;
     tileDataRect(m.W, m.H, m.heights, m.sky, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+  }
+
+  /** The contamination outline round a box whose tile data was just rewritten in place: `bakeTiles` compares the tile
+   *  bytes, so it would find these already current and leave the outline as it was. The outline reads a tile's
+   *  neighbours: one more all round. */
+  private edgesAround(x0: number, y0: number, x1: number, y1: number): void {
+    const m = this.map;
+    if (!m || !this.edges) return;
+    contaminationEdgesRect(m.W, m.H, m.tiles, this.edges.image.data as Uint8Array, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    this.edgeRows.touch(x0 - 1, y0 - 1, x1 + 1, y1 + 1);
   }
 
   /** New soil (moisture and contamination follow the water): the ground's colours. */
@@ -1857,6 +1967,25 @@ export class MapRenderer {
     this.onMapChange?.();
   }
 
+  /** The Heights colours span the map's lowest and highest level as it stands now (the legend's Low and High say the
+   *  same). Set when a map opens, and again a moment after the land changes. Returns the lowest and highest level. */
+  fitHeightRange(): readonly [number, number] | null {
+    const m = this.map;
+    if (!m) return null;
+    let lo = 255;
+    let hi = 0;
+    for (const h of m.heights) {
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+    const v = this.terrainMat.uniforms.heightRange.value as Vector2;
+    if (v.x !== lo || v.y !== hi) {
+      v.set(lo, hi);
+      this.requestRender();
+    }
+    return [lo, hi];
+  }
+
   /** Heights changed inside `rect` only (a brush painting): remesh the chunks there, and the sky
    *  and tile data round it; the sun's shadows wait for `refreshShadows` (they reach far). The
    *  cheap path, fit for every frame: about a millisecond for a large brush at 256². */
@@ -1870,6 +1999,8 @@ export class MapRenderer {
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
     this.requestRender();
+    // (the legend reads the land again once the strokes stop)
+    this.onMapChange?.();
     return dirtyChunks(m.W, m.H, rect).length;
   }
 
@@ -1892,16 +2023,20 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
-    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) this.waterMotion?.waterChanged(heights, m.surface);
+    if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
+      this.rodeLand(c.rect);
+      this.waterMotion?.waterChanged(heights, m.surface);
+    }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);
     if (this.tileTex) {
       for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.sky, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
     if (m.water.count) {
-      const lower = lowerByTile(m.surface, m.water);
-      for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy, lower);
+      if (this.layered) this.layeredWaterNear(c.rect);
+      else for (const [cx, cy] of c.waterChunks) this.meshWater(cx, cy);
     }
     // the sun's shadows round what changed (they reach south-east of it)
     if (this.tops && this.lightTex && this.casters !== undefined) {
@@ -2465,7 +2600,7 @@ export class MapRenderer {
   /** A force's size at the cursor (D312, D321 item 13): one calm ring on the water's surface over
    *  water, on the ground elsewhere; `marker`, only a small dot where the cursor is (D368 (2)); null
    *  hides it. */
-  setForceRing(s: { x: number; y: number; r: number; marker?: boolean } | null): void {
+  setForceRing(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null): void {
     const m = this.map;
     if (!m) return;
     this.forceRingState = s;
@@ -2820,6 +2955,7 @@ export class MapRenderer {
     this.high?.beforeRender(cam, this.canvas.clientHeight || 1, this.uniforms.time.value);
     this.waterMotion?.beforeRender(this.canvas.clientWidth || 1, this.canvas.clientHeight || 1, this.gl.getPixelRatio());
     this.tileRows.flush();
+    this.edgeRows.flush();
     this.lightRows.flush();
     this.caveRows.flush();
     this.runRows.flush();

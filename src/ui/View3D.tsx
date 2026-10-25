@@ -182,6 +182,8 @@ export function View3D(props: View3DProps) {
   /** The legend's line pointed to on the map, and the map's changes (the legend reads them). */
   const [pointed, setPointed] = useState<string | null>(null);
   const [mapTick, setMapTick] = useState(0);
+  /** Bumped when the map's lowest or highest level changed: Heights' Low and High follow the land at once. */
+  const [rangeTick, setRangeTick] = useState(0);
   /** The tile under the pointer, in the game's order (Layout 2's coordinates): written straight to its line, so a
    *  pointer moving over the map never re-renders the view. */
   const coordsEl = useRef<HTMLDivElement>(null);
@@ -244,7 +246,20 @@ export function View3D(props: View3DProps) {
     // the legend reads the map again a moment after it changes, when the page is idle (never
     // while a brush paints or the water flows)
     let t = 0;
+    // (the lowest and highest level are cheap to read: a moment after the land changes, not after the page is idle; the
+    // ground colours follow the same ends)
+    let rt = 0;
+    let ends = "";
+    const readEnds = () => {
+      rt = 0;
+      const e = r.fitHeightRange();
+      const key = e ? e.join() : "";
+      if (key === ends) return;
+      ends = key;
+      setRangeTick((n) => n + 1);
+    };
     r.onMapChange = () => {
+      if (!rt) rt = window.setTimeout(readEnds, 80);
       clearTimeout(t);
       t = window.setTimeout(() => {
         const idle = (window as unknown as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
@@ -260,6 +275,7 @@ export function View3D(props: View3DProps) {
       renderer.current = null;
       setMade(null);
       clearTimeout(t);
+      clearTimeout(rt);
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
       // the editor's view keeps its renderer for the next map's (a new map re-mounts the editor); any other view's goes
       if (props.legendInCorner) {
@@ -425,7 +441,7 @@ export function View3D(props: View3DProps) {
       if (h > hi) hi = h;
     }
     return [lo, hi] as const;
-  }, [mapTick, props.view, column]);
+  }, [mapTick, rangeTick, props.view, column]);
   const heightSwatch = legendEntries("height")[0].swatch;
   const toggleFlow = () => {
     const next = !flow;

@@ -445,7 +445,8 @@ export function waterHooks(): ShaderHooks {
           float hlT = time * mix(1.0, 0.55, cont);
           float hlFoam = 0.0;
           if (n.y > 0.5) {
-            float hlBad = texture2D(hlFlow, g / hlFlowSize).b;
+            // (water under a roof: its own badwater share, not the one of the water seen from above there)
+            float hlBad = waterRoofed > 0.5 ? cont : texture2D(hlFlow, g / hlFlowSize).b;
             float hlDepth = max(0.0, depth) * mix(0.10, 1.0, smoothstep(0.0, 0.55, shore));
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, hlRippleNormal(g, time), V, lit, time);
             // foam along the shore, and churning where a fall comes down into the water

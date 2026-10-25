@@ -137,8 +137,11 @@
   font-style: italic;
 }
 
+/* (the three buttons wrap to a second row when the card is too narrow for them, as with the wider fonts of Linux and macOS;
+   a card clips what lies past its edge, so a button left in one row would be cut off, out of reach) */
 .place-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -232,11 +235,6 @@ button.linkish {
 
   .place-plays {
     font-size: 0.9rem;
-  }
-
-  /* (the three buttons wrap to a second row instead of widening the card past the screen) */
-  .place-actions {
-    flex-wrap: wrap;
   }
 
   .filters {

@@ -64,6 +64,9 @@ interface StackJob {
    *  and the one strip j + 1 hands up (`up[2j + p]`). */
   down: Block[];
   up: Block[];
+  /** Where the columns the strips have wet start (L·W·H, 1 for wet; stack.rs `wet_ever`), each strip's own
+   *  rows written by that strip: the settle's reach (stackWater.ts `StackSettle.reach`). */
+  reachAt: number;
   /** The shared memory's length. It starts with the whole map's depth, pressure and contamination (slot by
    *  slot, L·W·H each): the pre-fill's, then each run's end. */
   length: number;
@@ -163,6 +166,12 @@ class StackStrip {
     const N = W * H;
     for (let q = 0; q < 3; q++)
       for (let s = 0; s < levels; s++) this.f.set(v.subarray(3 + (q * levels + s) * k, 3 + (q * levels + s + 1) * k), (q * L + s) * N + y0 * W);
+    // and where its own rows have been wet (exact there, as their water is)
+    const reach = this.m.view(STACK_FIELD.reach) as Uint8Array;
+    const n = (this.hi - this.lo) * W;
+    const at = this.job.reachAt + this.lo * W;
+    for (let s = 0; s < reach.length / n; s++)
+      for (let i = (y0 - this.lo) * W; i < (y1 - this.lo) * W; i++) if (reach[s * n + i]) this.f[at + s * N + i] = 1;
     return barrier(ctl, T, dead);
   }
 
@@ -285,8 +294,10 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
       down.push(block(strips[j].y1 - HALO, j));
       up.push(block(strips[j].y1, j + 1));
     }
+  const reachAt = at;
+  at += L * N;
   while (live.length >= MOST_LIVE) live[0].free();
-  const job: StackJob = { W, H, L, mask, objects, strips, down, up, length: at };
+  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, length: at };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
@@ -349,6 +360,13 @@ export class StackThreads {
     (whole.view(STACK_FIELD.depth) as Float64Array).set(this.f.subarray(0, n));
     (whole.view(STACK_FIELD.overflow) as Float64Array).set(this.f.subarray(n, 2 * n));
     (whole.view(STACK_FIELD.contamination) as Float64Array).set(this.f.subarray(2 * n, 3 * n));
+  }
+
+  /** Marks in `into` (the whole map's reach, L·W·H) every column a strip has wet. */
+  reach(into: Uint8Array): void {
+    const n = this.job.L * this.job.W * this.job.H;
+    const at = this.job.reachAt;
+    for (let k = 0; k < n && k < into.length; k++) if (this.f[at + k]) into[k] = 1;
   }
 
   free(): void {
