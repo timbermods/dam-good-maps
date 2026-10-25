@@ -88,6 +88,12 @@ export interface SessionInfo {
   notices: string[];
   importReport: ImportReport | null;
   timberName: string;
+  /** The map's description, the text the game shows with it (the `setDescription` operation writes it):
+   *  the player's, or the generated one (`descriptionWritten` says which). `descriptionKept`: what follows it in the file
+   *  whatever is written (the no-badwater or no-sources note, the tall note, a real place's credits), shown but not edited. */
+  description: string;
+  descriptionWritten: boolean;
+  descriptionKept: string | null;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -194,6 +200,11 @@ function featuresKeyOf(features: readonly Feature[]): string {
   return featuresMemo.key;
 }
 
+function descriptionInfo(s: MapSession) {
+  const d = s.description();
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+}
+
 export function sessionInfo(s: MapSession = need()): SessionInfo {
   const { x: W, y: H } = s.size;
   const history = s.history();
@@ -213,6 +224,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     notices: [...s.notices],
     importReport: s.meta.source?.report ?? null,
     timberName: s.exportTimberName(),
+    ...descriptionInfo(s),
     featuresKey: featuresKeyOf(s.features),
     views: s.views,
     forceAgain: againVerb(s),
@@ -656,7 +668,7 @@ export type EditorEvent =
   /** The water as it flows after an edit (D133's live water): the whole view, a frame every few
    *  ticks of the game (close together at first, where the water moves most), for the page to play
    *  at a pace the eye can follow. `done` is how far the settle has come (0–1). */
-  | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean }
+  | { kind: "water"; version: number; water: WaterView; done: number; ticks: number; draft?: boolean; at?: number }
   /** A weather run (a drought, then the water coming back): its frames, the day, and the end (the
    *  map's own water, exactly). */
   | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array }
@@ -788,13 +800,15 @@ async function runDraft(token: number): Promise<void> {
     if (listener && (fresh || performance.now() - last >= (d.touched ? DRAFT_FRAME_MS : WATER_FRAME_MS))) {
       fresh = false;
       last = performance.now();
+      // (a stroke's frame carries `at`, the throttle's own clock for it: the pacing is tested on this, not on
+      // when the frame arrives, which also holds the frame's own building time and a loaded machine's jitter)
       // only when the water has moved (a stroke far from water sends nothing)
       const D = d.job.sim.D;
       let moved = !d.sent || d.sent.length !== D.length;
       for (let i = 0; !moved && i < D.length; i++) if (Math.abs(D[i] - d.sent![i]) > 0.01) moved = true;
       if (moved) {
         d.sent = D.slice();
-        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true });
+        listener({ kind: "water", version, water: waterOf(d.session, { depth: D, contamination: d.job.sim.C, out: d.job.sim.out }, d.ground), done: 0, ticks: d.job.ticks, draft: true, at: last });
       }
     }
     await breathe();

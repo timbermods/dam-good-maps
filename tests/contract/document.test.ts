@@ -9,8 +9,10 @@ import { baseTerrain, fileFromBase } from "../../src/core/doc/base";
 import { decodeProject, encodeProject, ProjectError, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { toBase64 } from "../../src/core/format/base64";
+import { writeTimber } from "../../src/core/format/timber";
 import { encodeWorld } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
+import { toTimberFile } from "../../src/core/gen/pack";
 import { runsToTiles, tilesToRuns } from "../../src/core/math/grid";
 import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
 
@@ -175,7 +177,8 @@ describe("project files (PLAN §19.6)", () => {
     const s = MapSession.open(doc);
     expect(s.mode).toBe("live");
     expect(s.notices).toEqual([]);
-    expect(sha(s.exportTimber().bytes)).toBe(sha(m.bytes));
+    // (the same map; a format-1 file never recorded what the map shows, so its description lacks those lines)
+    expect(sha(s.exportTimber().bytes)).toBe(sha(writeTimber(toTimberFile(m.spec, m.built))));
     const old = MapSession.open(decodeProject(gzipSync(strToU8(JSON.stringify({ ...v1, generatorVersion: "0.1.0", spec: { ...m.spec, generatorVersion: "0.1.0" } })))));
     expect(old.notices[0]).toMatch(/made with generator 0\.1\.0 and stores no map/);
   });

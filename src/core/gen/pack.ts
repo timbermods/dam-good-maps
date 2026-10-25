@@ -53,13 +53,13 @@ export function namedFile(name: string): string {
 /** A map made with Sources: None (D330): its description says where its water went. */
 export const NO_SOURCES_NOTE = "No water sources: its valleys and basins are dry, for you to place the sources.";
 
-/** The map's description in the game (map_metadata.json): what it is, its badwater choice (D200),
- *  and, on a map whose land rises above 16, that the game's map editor edits only up to 16 (D172).
- *  Without the built map it says what the settings say. */
-export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" | "entities">): string {
+/** The map's description in the game (map_metadata.json), when its player has not written one: what the
+ *  map is, what it shows (`says`: the lines of its standout intentions, gen/names.ts `mapSays`), its
+ *  badwater choice (D200) and, on a map whose land rises above 16, that the game's map editor edits only
+ *  up to 16 (D172). Without the built map it says what the settings say. */
+export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" | "entities">, says: readonly string[] = []): string {
   const size = `${spec.size.x}×${spec.size.y}`;
-  const kind = spec.theme === "any" ? "A map" : `${THEME_NAMES[spec.theme]}`;
-  const out = [`${kind}, ${size}, designed for ${spec.designedFor}. Its land and rivers were shaped by uplift, erosion and flowing water.`];
+  const out = [`A ${size}${spec.theme === "any" ? "" : ` ${THEME_NAMES[spec.theme]}`} map.`, ...says];
   // the player's No badwater is recorded, so the map says so wherever it goes (D200); a map made
   // with Sources: None says its water is the player's to place (D330)
   if (spec.settings.water.sources === "none") out.push(NO_SOURCES_NOTE);
@@ -76,15 +76,18 @@ export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" |
 }
 
 /** The theme a map made with Dam Good Maps says it has: its description, as `description` writes it,
- *  opens with the theme's name ("A map" for Any) and closes on "Made with Dam Good Maps <version>,
- *  seed <n>." Null for any other map (an official one, a real place, a description edited away). An
- *  opened file's checks use its theme's thresholds with it (Islands' water cap, D369). */
+ *  opens "A <size> <theme> map." ("A <size> map." for Any) and closes on "Made with Dam Good Maps
+ *  <version>, seed <n>." The opening of a file made before D449 ("<theme>, <size>, <difficulty line>.")
+ *  counts too. Null for any other map (an official one, a real place, a description
+ *  its player wrote). An opened file's checks use its theme's thresholds with it (Islands' water
+ *  cap, D369). */
 export function generatedThemeOf(text: string): ThemeId | null {
   if (!/Made with Dam Good Maps \d[^,\s]*, seed \d+\./.test(text)) return null;
-  const head = /^(.+?), \d+×\d+, designed for (easy|normal|hard)\./.exec(text.trimStart());
+  const t = text.trimStart();
+  const head = /^A \d+×\d+ (?:(.+?) )?map\./.exec(t) ?? /^(.+?), \d+×\d+, designed for [a-z]+\./.exec(t);
   if (!head) return null;
-  if (head[1] === "A map") return "any";
-  return THEMES.find((t) => t !== "any" && THEME_NAMES[t] === head[1]) ?? null;
+  if (!head[1] || head[1] === "A map") return "any";
+  return THEMES.find((x) => x !== "any" && THEME_NAMES[x] === head[1]) ?? null;
 }
 
 export interface PackOptions {
@@ -92,6 +95,8 @@ export interface PackOptions {
   emptyWater?: boolean;
   /** Use this thumbnail instead of drawing one (checks that only read its size). */
   thumbnail?: Uint8Array;
+  /** What the map shows, for its description (`description`). */
+  says?: readonly string[];
 }
 
 /** The settled water and soil a file stores, all from one settle: its depth, badwater share and
@@ -196,7 +201,7 @@ export function stackedWorld(world: WorldModel, built: BuildResult, empty: boole
 }
 
 export function toTimberFile(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): TimberFile {
-  return timberFileOf(toWorld(spec, built, opts), built.heights, description(spec, built) + (opts.emptyWater ? " This copy starts without water." : ""), built.water, opts.thumbnail);
+  return timberFileOf(toWorld(spec, built, opts), built.heights, description(spec, built, opts.says) + (opts.emptyWater ? " This copy starts without water." : ""), built.water, opts.thumbnail);
 }
 
 export function pack(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): Uint8Array {

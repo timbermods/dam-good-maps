@@ -29,7 +29,7 @@ test("the height slice: first down from ∞ is the map's highest ground less one
   // the whole world: ∞, nothing above it to raise
   await expect(output).toHaveText("∞");
   await expect(raise).toBeDisabled();
-  await expect(output).toHaveAttribute("title", "Show the whole world");
+  await expect(output).toHaveAttribute("title", "Show every layer");
   const wide = await width();
 
   // the first step down is the map's highest ground less one, as the game steps (22 at most)

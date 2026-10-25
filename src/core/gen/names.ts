@@ -10,7 +10,7 @@
 import FORBIDDEN from "../data/forbiddenNames.json" with { type: "json" };
 import type { Signature } from "../analysis/signature";
 import type { IntentionId } from "../land/intentions";
-import { INTENTION_TEXT } from "../land/intentions";
+import { INTENTION_TEXT, KYLERS } from "../land/intentions";
 import { FORM_TEXT, type FormId } from "../land/forms3d";
 import type { SeaLayout } from "../land/genome";
 import { hash32 } from "../math/hash";
@@ -153,6 +153,20 @@ export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionI
   // (never a seed or an invented word: the land alone)
   if (!name) name = `The ${land}`;
   // (the standout in the map's own numbers where its check gave them, else in general words)
-  const sentence = o.standout ? (o.say ?? (o.standout in FORM_TEXT ? FORM_TEXT[o.standout as FormId] : INTENTION_TEXT[o.standout as IntentionId])) : "";
+  const sentence = o.standout ? (o.say ?? textOf(o.standout)) : "";
   return { name, description: [sentence, playHint(o.facts)].filter(Boolean).join(" ") };
+}
+
+/** What the map shows, for its description: the lines of the intentions that emerged on it, the standout's
+ *  first (in the map's own numbers where its check gave them, else in general words), at most two. */
+export function mapSays(intentions: readonly { id: IntentionId | FormId; ok: boolean; say?: string }[]): string[] {
+  const emerged = intentions.filter((x) => x.ok);
+  const first = emerged.find((x) => KYLERS.has(x.id as IntentionId)) ?? emerged[0];
+  if (!first) return [];
+  return [first, ...emerged.filter((x) => x !== first)].slice(0, 2).map((x) => x.say ?? textOf(x.id));
+}
+
+/** An intention's or a 3D form's outcome in general words (D138 (1)). */
+function textOf(id: string): string {
+  return id in FORM_TEXT ? FORM_TEXT[id as FormId] : INTENTION_TEXT[id as IntentionId];
 }

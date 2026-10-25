@@ -236,7 +236,7 @@ place of its bottom rule.
     has three colours: **green** it fits and meets every start requirement, **amber** it fits but misses some,
     which the panel lists, **red** it cannot be placed there; a placed start changes colour only when something
     about it changed, D361), with **one label** beside the pointer (D323, item 32): the reason where it doesn't
-    fit, "Move the start here" for the start where it does, "Place here" for the rest. Click to place, R to
+    fit, "Move the start here" for the start where it does (amber with the first warning instead where it fits but the checks would flag it, core `startFitWarnings`), "Place here" for the rest. Click to place, R to
     rotate; **Esc or a right-click puts a picked object away** (a right-drag is still the camera).
   - **Drag an object out of the shelf** (D323, item 11): the ghost follows the pointer, letting go over the map
     places it there (the start moves the map's one start); a drag that doesn't place always ends placement. The
@@ -801,7 +801,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
-  (a cave's floor), the roof over it dimmed as the land outside; the actions still take the tiles.
+  (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
+  the tiles, and over a cave column the core refuses them, so hovering one tints nothing and shows the core's reason.
   The brushes' and forces' cursors, rings and bands stay on the tile's top, where their stroke changes the ground,
   until they work on runs (step 3); hover and Select show the run seen. Over a roof (air under a tile's top run: a
   cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
@@ -836,6 +837,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
   Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
   Collaborative editing leaves a crop to the host (D362 (9)).
+- **The map's description** (the text the game shows with the map; built in the core, `src/core/doc/description.ts`):
+  `{op: "setDescription", params: {text}}` writes it, and empty text takes the player's away so the generated one is
+  written again. It is one undo step like any operation (History: "Write the description" or "Clear the description"),
+  it is saved in the project and reopens byte for byte, and collaborating players get it from the host like any edit
+  (two writers meet on the key `description`). It changes nothing on the map, so nothing is built. One-line refusals,
+  never cut short: over 600 characters (the game takes any length; the limit is ours, so it reads well in the game's
+  panel and the page's field), only spaces, a control character other than a line break, or what it already is. The
+  exported .timber holds the player's text whole, then what must follow it whatever is written, one paragraph each: the
+  No badwater note (D200, D213) or the No water sources note (D330), the tall note (D172) and a real place's credits; a map whose player wrote none has the generated one: "A 128×128 River Valley map." then the lines of the
+  standout intentions that emerged on it (at most two, the generator's `say` lines), then its badwater line, then
+  "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, kept}`
+  (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
+  off the history.
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
@@ -1007,7 +1021,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   selection, else the ground's top level (D288, D323); Ctrl+A selects the whole map. In Select, **Ctrl+click** on
   the land only takes its level (D361) and **Shift+scroll** dials the Level number (D345, B8), whether or not a
   selection is open.
-- While a force runs, Space pauses it, Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
+- While a force runs, Space pauses it (a pause that comes as its last steps arrive holds it on its final land, still
+  at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
   still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
   **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
