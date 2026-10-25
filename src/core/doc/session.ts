@@ -49,7 +49,8 @@ import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import type { Orientation, Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { builtWater, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { builtWater, description as generatedText, fileName as timberFileName, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { placeCredits } from "./description";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
 import { thumbnailJpeg } from "../render/shade";
@@ -166,6 +167,13 @@ export interface HistoryItem {
   /** False for entries that were undone (redo would apply them again). */
   applied: boolean;
   orphaned?: string;
+}
+
+/** A map's description for the page (`MapSession.description`). */
+export interface MapDescription {
+  text: string;
+  written: boolean;
+  credits: string | null;
 }
 
 export interface ApplyResult {
@@ -495,13 +503,17 @@ export class MapSession {
     const before = this.undoStack;
     let keep = 0;
     while (keep < log.length && keep < this.log.length && sameOp(this.log[keep], log[keep])) keep++;
+    // (a log that differs only by the description's operations leaves the map as it stands: nothing to build)
+    let builds = false;
     for (let k = this.log.length - 1; k >= keep; k--) {
+      builds ||= this.log[k].op !== "setDescription";
       invertOp(this.st, this.log[k]);
       if (isCrop(this.log[k])) this.leaveCrop();
     }
     this.log.length = keep;
     for (let k = keep; k < log.length; k++) {
       const copy = clone(log[k]) as AppliedOp;
+      builds ||= copy.op !== "setDescription";
       applyOp(this.st, copy);
       this.log.push(copy);
       // (the map as it stands before the crop, then the crop)
@@ -518,7 +530,7 @@ export class MapSession {
     while (shared < before.length && shared < this.undoStack.length && sameItems(before[shared].ops, this.undoStack[shared].ops)) shared++;
     this.redoStack = [];
     for (const k of [...this.snaps.keys()]) if (k > shared) this.snaps.delete(k);
-    this.cur = this.rebuilt();
+    if (builds) this.cur = this.rebuilt();
   }
 
   /** Take one step out of the log, or put it back where it stood (collaborative editing's undo and
@@ -624,6 +636,7 @@ export class MapSession {
     // (M9b, D278 (1b): the map's own name and how it plays)
     if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
     if (r.description) doc.meta.premise = r.description;
+    if (r.says?.length) doc.meta.says = [...r.says];
     return new MapSession(doc, r.built);
   }
 
@@ -1232,6 +1245,7 @@ export class MapSession {
       if (f.falls.length) return { ok: false, errors: [fallsReason(f.falls.length)], applied: [], dirty: null };
     }
     if (op.op === "crop") return this.applyCrop(op, origin, label);
+    if (op.op === "setDescription") return this.applyDescription(op, origin, label);
     const before = this.cur;
     const mark = this.mark();
     const seq = this.seqNext;
@@ -1310,13 +1324,13 @@ export class MapSession {
           invertOp(this.st, a);
           this.log.pop();
         }
-        if (done.length) this.cur = this.rebuilt();
+        if (done.some((a) => a.op !== "setDescription")) this.cur = this.rebuilt();
         this.seqNext = seq;
         return { ok: false, errors, applied: [], dirty: null };
       }
       done.push(this.applyChecked(op, origin, label, ops.length > 1 ? seq : undefined));
-      // later operations of the group may refer to what earlier ones made
-      this.cur = this.rebuilt();
+      // later operations of the group may refer to what earlier ones made (a description makes nothing)
+      if (op.op !== "setDescription") this.cur = this.rebuilt();
     }
     this.pushHistory({ kind: "ops", ops: done, ...(label ? { label } : {}) });
     this.snapshot();
@@ -1345,6 +1359,15 @@ export class MapSession {
     this.cur = this.freshBuild();
     this.snapshot();
     return { ok: true, errors: [], applied: [applied], dirty: null, removedObjects: objects.crossing.length };
+  }
+
+  /** A description written or taken away: a step on the history like any other, but it changes nothing on the
+   *  map, so nothing is built and the map's picture, water and checks stay as they are. */
+  private applyDescription(op: EditOp & { op: "setDescription" }, origin: OpOrigin, label?: string): ApplyResult {
+    const applied = this.applyChecked(op, origin, label);
+    this.pushHistory({ kind: "ops", ops: [applied] });
+    this.snapshot();
+    return { ok: true, errors: [], applied: [applied], dirty: { terrain: null, region: null, water: false, entities: false, objects: null } };
   }
 
   /** The generation a crop makes of the map as it stands: its settled water (a file always gets the canonical
@@ -1833,13 +1856,50 @@ export class MapSession {
    *  imported one is its normalized file with the edits: unedited, it is the same file, byte for
    *  byte (PLAN §19.6). */
   exportFile(built: BuildResult = this.cur, opts: { thumbnail?: boolean } = {}): TimberFile {
+    const file = this.exportFileBase(built, opts);
+    const written = this.st.description;
+    if (written === null || !file.metadata) return file;
+    // the description its player wrote, whole, with a real place's credits after it (they travel with the map)
+    const credits = this.mode === "live" ? null : placeCredits(this.baseText());
+    return tallNoted({ ...file, metadata: { ...file.metadata, MapDescription: credits ? `${written}\n\n${credits}` : written } }, built.heights);
+  }
+
+  /** The description the map was opened with: its file's. */
+  private baseText(): string {
+    const text = this.baseStuff().file.metadata?.MapDescription;
+    return typeof text === "string" ? text : "";
+  }
+
+  /** The map's description, for the page (the operation `setDescription` writes it). `text` is what its player
+   *  wrote, or else the generated one (a generated map's, from its theme, size and what it shows; an opened
+   *  file's own); `written` says which. `credits` is what a real place's description must keep after it,
+   *  shown but not edited (null for any other map). */
+  description(built: BuildResult = this.cur): MapDescription {
+    const credits = this.mode === "live" ? null : placeCredits(this.baseText());
+    const written = this.st.description;
+    if (written !== null) return { text: written, written: true, credits };
+    if (this.mode === "live") return { text: generatedText(this.effectiveSpec(built)!, built, this.gen.meta.says), written: false, credits };
+    const base = this.baseText();
+    return { text: this.notedText(credits ? base.slice(0, base.length - credits.length).trimEnd() : base, built), written: false, credits };
+  }
+
+  /** An opened file's description with the notes the map earns: that it has no badwater (D213), and that its land
+   *  rises above 16 (D172). */
+  private notedText(text: string, built: BuildResult): string {
+    if (this.badwaterRemoved(built)) text = text ? `${text}\n\n${NO_BADWATER_NOTE}` : NO_BADWATER_NOTE;
+    let top = 0;
+    for (let i = 0; i < built.heights.length; i++) if (built.heights[i] > top) top = built.heights[i];
+    return withTallNote(text, isTall(built.heights), top);
+  }
+
+  private exportFileBase(built: BuildResult, opts: { thumbnail?: boolean }): TimberFile {
     // without a thumbnail (checks read only its size): a blank one, not drawn
     const blank = opts.thumbnail === false ? blankThumbnail() : undefined;
     // (a generated map's description follows its land already: pack.ts notes land above 16, D244)
     if (this.mode === "live") {
       // (ground the Block tool or Erode hollowed is written as it stands, with its water on every column
       // and its soil on every run: gen/pack.ts `stackedWorld`, #435)
-      return toTimberFile(this.effectiveSpec(built)!, built, blank ? { thumbnail: blank } : {});
+      return toTimberFile(this.effectiveSpec(built)!, built, { ...(blank ? { thumbnail: blank } : {}), ...(this.gen.meta.says?.length ? { says: this.gen.meta.says } : {}) });
     }
     const b = this.baseStuff();
     const { x: W, y: H } = this.size;
@@ -2127,6 +2187,8 @@ export function labelOf(op: AppliedOp): string {
       return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
+    case "setDescription":
+      return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":
       return `Crop to ${op.params.w}×${op.params.h}`;
     case "blocks":

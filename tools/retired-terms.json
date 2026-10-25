@@ -122,6 +122,7 @@
     { "pattern": "\\broofed: \"(?:water )?under roofs\"", "retired": "D280 (Kyler, 2026-10-07)", "instead": "the Caves and overhangs layer: its violet tiles are the caves and overhangs the tools leave as they are", "example": "roofed: \"Under roofs\"" },
     { "pattern": "\\btheir water approximate\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"Caves or overhangs, which the tools leave as they are\" (beside the violet swatch): water in caves is simulated", "example": "Violet tiles: under caves or overhangs, their water approximate" },
     { "pattern": "\\bthe preview is approximate there\\b", "retired": "D280 (Kyler, 2026-10-07)", "instead": "\"This map has caves or overhangs. The tools leave them as they are.\"", "example": "Water under them keeps the map's own: the preview is approximate there." },
+    { "pattern": "\\b\\d+×\\d+,? designed for (?:easy|normal|hard)\\b", "retired": "D449", "instead": "the description says what the map is and shows, in a player's words: \"A 96×96 River Valley map.\"; the player shapes their own difficulty", "example": "A map, 96×96, designed for normal." },
     { "pattern": "\\b(?:drought and badtide aren.t|the drought line isn.t) worked out for maps with caves\\b", "retired": "#391", "instead": "Drought, Badtide and the drought line run on maps with caves, on the stacked-column engine", "example": "Drought and Badtide aren't worked out for maps with caves yet" }
   ],
   "docs": ["EDITOR_PLAN.md", "PLAN.md", "ROADMAP.md", "CLAUDE.md", "docs/RULES.md", "docs/STATUS.md", "docs/README.md", "README.md"],
