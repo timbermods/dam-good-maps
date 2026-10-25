@@ -282,8 +282,9 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
   (`src/render3d/framing.ts`).
 - **Visible layers, as in Timberborn** (D207): the level control shows the visible level (∞ when everything
-  shows) with up and down arrows; its value runs up to 22 (the game's highest terrain), then ∞, on every map; the
-  first step down from ∞ goes to the map's highest ground less one (as the game steps), up runs through every level to 22, then ∞, and a click on
+  shows) with up and down arrows; its value steps only through levels that hide something, then ∞ (never through
+  levels above all the ground, so a map with a top of 16 stops at 15 before ∞); the first step down from ∞ goes to
+  the map's highest ground less one (as the game steps), up runs through every level to that one, then ∞, and a click on
   the value shows the whole world (Kyler, 2026-10-03). Everything above the chosen level is hidden (terrain, water,
   objects) and the cut surfaces show as the tops of what remains: a hatched cap only where solid rock crosses the
   cut, so on a map with caves or overhangs the cut opens into them (their floors, walls and the undersides below

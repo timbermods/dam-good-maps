@@ -1,13 +1,13 @@
 // The visible layers (PLAN §20 D207; Kyler, 2026-10-03): one control, ▾ [value] ▴, at one fixed width so nothing
-// in the right column ever moves. The value runs up to 22 (the game's highest terrain), then ∞, on every map: the
-// first step down from ∞ goes to the map's highest ground less one (the first layer that hides anything, as the
-// game steps), and stepping up runs through every level to 22, then ∞. A click on the value shows the whole world again; held and dragged up or down, it steps with the pointer.
+// in the right column ever moves. The value steps only through levels that hide something: from the map's highest
+// ground less one (the first layer that hides anything, as the game steps; where the first step down from ∞ goes)
+// down to 0, and up from there to ∞, never through levels above all the ground. A click on the value shows the whole world again; held and dragged up or down, it steps with the pointer.
 // Alt+scroll and Alt+middle-click do the game's own stepping on the map.
 
 import { useRef } from "preact/hooks";
 import { tip } from "../ui/Tooltip";
 
-/** The game's highest terrain: the control's last level before ∞. */
+/** The game's highest terrain: no level of the control is above it. */
 export const TOP_LEVEL = 22;
 
 export interface LayerWidgetProps {
@@ -22,11 +22,13 @@ export interface LayerWidgetProps {
 /** Pixels of drag for a layer, as the game's level button takes the mouse. */
 const DRAG_PX = 14;
 
-/** The next value of the control, one step up or down. */
+/** The next value of the control, one step up or down: `highest` (the map's highest ground less one) is the last
+ *  level before ∞, since a layer above it hides nothing. */
 export function stepLevel(level: number | null, dir: 1 | -1, highest: number): number | null {
-  if (level === null) return dir < 0 ? Math.min(TOP_LEVEL, highest) : null;
+  const last = Math.min(TOP_LEVEL, highest);
+  if (level === null) return dir < 0 ? last : null;
   if (dir < 0) return Math.max(0, level - 1);
-  return level + 1 > TOP_LEVEL ? null : level + 1;
+  return level + 1 > last ? null : level + 1;
 }
 
 export function LayerWidget(p: LayerWidgetProps) {

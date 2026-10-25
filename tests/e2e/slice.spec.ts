@@ -1,13 +1,14 @@
 // The height slice, "Visible layers" (PLAN §20 D207; Kyler, 2026-10-03): one control, ▾ [value] ▴, and nothing else.
-// The value runs up to 22 (the game's highest terrain) then ∞ on every map; the first step down from ∞ goes straight
-// to the map's highest ground less one (the first layer that hides anything, as the game steps); stepping up runs level by level to 22, then ∞; a click on the value shows the whole
+// The value steps only through levels that hide something, then ∞: the first step down from ∞ goes straight
+// to the map's highest ground less one (the first layer that hides anything, as the game steps), and stepping up
+// runs level by level to that one, then ∞, never through levels above all the ground; a click on the value shows the whole
 // world; the control keeps one width whatever the value, so nothing beside it ever moves. (Alt+scroll and
 // Alt+middle-click on the map step the renderer's own way: waterView.spec.ts.)
 
 import { expect, test } from "@playwright/test";
 import { openEditor } from "./open";
 
-test("the height slice: first down from ∞ is the map's highest ground less one, up runs to 22 then ∞, a click on the value is ∞, one width throughout", async ({ page }) => {
+test("the height slice: first down from ∞ is the map's highest ground less one, up runs to the highest ground less one then ∞, a click on the value is ∞, one width throughout", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -49,19 +50,17 @@ test("the height slice: first down from ∞ is the map's highest ground less one
   expect(await slice()).toBe(9);
   same(await width(), wide, "the width at 9 against ∞");
 
-  // up, level by level, past the map's top to 22, then ∞
+  // up, level by level, to the first level (the highest ground less one), then ∞: no level above all the ground
   const seen: string[] = [];
   let at = "9";
   for (let guard = 0; guard < 30 && at !== "∞"; guard++) {
-    const next = at === "22" ? "∞" : String(Number(at) + 1);
+    const next = at === String(first) ? "∞" : String(Number(at) + 1);
     await raise.click();
     await expect(output).toHaveText(next);
     seen.push(next);
-    if (next === "22") same(await width(), wide, "the width at 22 against ∞");
     at = next;
   }
-  expect(seen.slice(-2)).toEqual(["22", "∞"]);
-  expect(seen).toEqual([...Array.from({ length: 13 }, (_, k) => String(10 + k)), "∞"]);
+  expect(seen).toEqual([...Array.from({ length: first - 9 }, (_, k) => String(10 + k)), "∞"]);
   expect(await slice()).toBeNull();
   same(await width(), wide, "the width back at ∞");
   await expect(raise).toBeDisabled();
