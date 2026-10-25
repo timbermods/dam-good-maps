@@ -60,8 +60,12 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
 - **Merging (D484, D489, D490):** a PR merges once a fresh reviewer agent that didn't write it has approved
   it, its owner's verdict and captures are on the PR, and its quick checks (typecheck, quick suite, build) are green. Code
   gets a fresh sub-agent's review; a look or interaction change gets a fresh Opus reviewer in a real browser, judging its
-  captures against the page rules. The owning session may then merge it itself, never one labelled `hold`, and posts
-  on #236 what merged. A review
+  captures against the page rules. The reviewer ends with one PR comment whose first line is exactly
+  `Review (fresh agent): APPROVED at <head sha, 8 chars>` or `Review (fresh agent): CHANGES NEEDED at <sha>`. The
+  planning session's merge loop merges any PR into dev whose latest such line says APPROVED at its current head, once its
+  quick checks are green and nothing is failing or running, unless it is labelled `hold` or conflicts; a push after the
+  approval needs a new line. A stacked PR or one that must wait is labelled `hold`. The owning session may also merge
+  it itself, never one labelled `hold`; whoever merges posts on #236 what merged. A review
   blocks only for real bugs and anything that breaks what players get; polish goes in a follow-up. The browser specs and
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
@@ -70,8 +74,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   account can do (listed with their exact clicks in one issue, a workaround meanwhile). `approved` is no longer needed.
 - **Releases:** at the end of each step in the order, from dev to main once the full run, the nightly and a D483 probe batch
   are green; the planning session cuts them and posts on #236.
-- **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back: all 12
-  threads, Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
+- **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back, within the
+  worker caps under "Going faster", Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
   the work needs; say on #236 when a probe batch holds the game.
 - **Never idle (D484):** nobody types to you. Never end your turn while work is left in the order: while waiting on CI, a
   probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
@@ -89,7 +93,11 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   (`DGM_TEST_WORKERS`, `DGM_E2E_WORKERS` override). Each checkout serves its e2e build on its own port and builds it
   afresh for each run, so no worktree tests another's build. `DGM_E2E_REUSE=1` reuses the server already up, and only
   your own checkout's. If a run says its port is taken, stop the stale `vite preview` or set `DGM_E2E_PORT`. One dev
-  server per builder, stopped when done.
+  server per builder, stopped when done. **Worktrees share more than they seem to:** never use `git stash` (the stash
+  list is shared by every worktree, so a pop can apply another branch's work; commit work in progress to your own
+  branch instead); never run `npm ci` or `npm install` in a worktree whose `node_modules` is a junction, and never
+  `git worktree remove --force` one (both follow the link and delete the target; remove the junction first with
+  `cmd /c rmdir <wt>\node_modules`); and keep scripts and captures in a folder of your own, not a shared scratch root.
 - **Resuming:** after every merge, the merging session's #236 post says what merged and what's next; each session posts
   where it is when it finishes a piece of work, so "Resume from #236" restarts any of them. When usage is nearly gone: docs true, everything pushed, processes stopped, a #236 post with resume
   steps, one line to Kyler.

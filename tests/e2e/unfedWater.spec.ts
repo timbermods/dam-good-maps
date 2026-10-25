@@ -4,7 +4,7 @@
 // waiting for the background check.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
@@ -22,7 +22,7 @@ const waterNear = (page: Page, x: number, y: number, r = 3) =>
 
 test("a removed source's marker goes at once, and its water drains away in the edit's own journey (D260)", async ({ page }) => {
   await openEditor(page, "s=4242&z=96&d=n&t=highlands");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   // a dry hollow-free spot far from the water, where the map takes the pointer
   const spot = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;

@@ -4,7 +4,7 @@
 // outline of the view (Kyler, 2026-10-04: with the whole map on screen only one edge of it crossed the picture).
 
 import { useEffect, useRef } from "preact/hooks";
-import { shadeTiles } from "../core/render/shade";
+import { groundShade, shadeRgba } from "../core/render/shade";
 import type { MapRenderer } from "../render3d";
 import { minimapSize } from "./minimapSize";
 
@@ -24,7 +24,10 @@ export function Minimap(p: MinimapProps) {
   const drag = useRef(false);
   const { w, h } = minimapSize(p.W, p.H);
 
-  // the picture: one pixel a tile, north up, drawn when the page is idle
+  // the picture: one pixel a tile, north up, drawn when the page is idle. The land's colours are kept while the land is
+  // the same (most draws, as the water flows, only put the water on them again)
+  const ground = useRef<{ heights: Uint8Array; shade: Float64Array } | null>(null);
+  const image = useRef<ImageData | null>(null);
   useEffect(() => {
     let live = true;
     const draw = () => {
@@ -32,17 +35,12 @@ export function Minimap(p: MinimapProps) {
       const c = canvas.current;
       const ctx = c?.getContext("2d");
       if (!c || !ctx) return;
-      const rgb = shadeTiles(p.heights(), p.W, p.H, p.depth());
-      const img = ctx.createImageData(p.W, p.H);
-      for (let y = 0; y < p.H; y++)
-        for (let x = 0; x < p.W; x++) {
-          const i = y * p.W + x;
-          const o = ((p.H - 1 - y) * p.W + x) * 4;
-          img.data[o] = rgb[i * 3];
-          img.data[o + 1] = rgb[i * 3 + 1];
-          img.data[o + 2] = rgb[i * 3 + 2];
-          img.data[o + 3] = 255;
-        }
+      const heights = p.heights();
+      let g = ground.current;
+      if (!g || !sameLand(g.heights, heights)) ground.current = g = { heights: heights.slice(), shade: groundShade(heights, p.W, p.H) };
+      let img = image.current;
+      if (!img || img.width !== p.W || img.height !== p.H) image.current = img = ctx.createImageData(p.W, p.H);
+      shadeRgba(g.shade, p.W, p.H, p.depth(), img.data);
       ctx.putImageData(img, 0, 0);
     };
     const idle = typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(draw, { timeout: 1500 }) : window.setTimeout(draw, 200);
@@ -90,4 +88,11 @@ export function Minimap(p: MinimapProps) {
       <canvas ref={canvas} width={p.W} height={p.H} />
     </div>
   );
+}
+
+/** Whether two maps' heights are the same, tile for tile. */
+function sameLand(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
