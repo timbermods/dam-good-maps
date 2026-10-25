@@ -80,7 +80,7 @@ export const OPENING_FRAME = { behind: 14, ahead: 30, half: 20, spread: 0.35 } a
 export function openingLook(orientation: Orientation): { fx: number; fy: number; degrees: number } {
   const degrees = ({ Cw0: 0, Cw90: 90, Cw180: 180, Cw270: 270 } as const)[orientation] + OPENING_TURN;
   const a = (degrees * Math.PI) / 180;
-  return { fx: Math.sin(a), fy: Math.cos(a), degrees };
+  return { fx: portable.sin(a), fy: portable.cos(a), degrees };
 }
 
 /** 1 on the tiles the opening camera frames (`OPENING_FRAME`) round `start`. */
@@ -142,7 +142,7 @@ export function startWaters(c: FinalCtx, kept: ArrayLike<number>): StartWater[] 
   for (const f of near) {
     const fx = f.tile % W;
     const fy = (f.tile - fx) / W;
-    if (out.some((o) => Math.hypot((o.tile % W) - fx, Math.floor(o.tile / W) - fy) < WATERS_APART)) continue;
+    if (out.some((o) => portable.hypot((o.tile % W) - fx, Math.floor(o.tile / W) - fy) < WATERS_APART)) continue;
     out.push(f);
   }
   return out;
