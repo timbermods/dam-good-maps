@@ -5,8 +5,8 @@
 /** A generator stage's reason, or a check's id, as a short plain phrase. */
 const PHRASES: Record<string, string> = {
   // the land stage, before the land is shown
-  "promise (planned)": "the land missed its theme's promise",
-  "water story (planned)": "the planned water told no story",
+  "promise (planned)": "the land didn't fit its theme",
+  "water story (planned)": "the rivers and lakes were too plain",
   "a drained sea (planned)": "the sea drained away",
   "an island to expand to (planned)": "no island to expand to",
   "a river's water leaves its course": "a river left its course",
