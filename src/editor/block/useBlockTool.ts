@@ -25,7 +25,7 @@ export interface BlockSlice {
   /** Why the click under the pointer is refused, or the plants it would take or lift, beside the blocks it would
    *  change (kept apart from the size flash, so neither clears the other); x and y as the shape note's; `ok` when
    *  the click would be taken (the plants' words). */
-  blockNote: { text: string; x: number; y: number; pointer: { x: number; y: number }; ok?: boolean } | null;
+  blockNote: { text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null;
   setBlockSettings: (s: BlockSettings, save?: boolean) => void;
   /** Pick the tool up or put it away (every other tool goes back when it is picked). */
   pickBlock: (on: boolean) => void;
@@ -48,7 +48,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
   blockRef.current = block;
   const [blockSettings, setSettingsState] = useState<BlockSettings>(loadBlock);
   const [blockFlip, setFlip] = useState(false);
-  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; pointer: { x: number; y: number }; ok?: boolean } | null>(null);
+  const [blockNote, setBlockNote] = useState<{ text: string; x: number; y: number; pointer: { x: number; y: number }; own: boolean; ok?: boolean } | null>(null);
   const settingsRef = useRef(blockSettings);
   settingsRef.current = blockSettings;
   const setBlockSettings = (s: BlockSettings, save = true) => {
@@ -114,7 +114,8 @@ export function useBlockTool(ed: Ed): BlockSlice {
     const at = { x: pointer.x, y: pointer.y + 32 };
     const free = c?.parentElement ? freeView(c.parentElement) : null;
     const spot = c ? noteSpot(box, at, { w: c.clientWidth, h: c.clientHeight }, { w: 300, h: 52 }, 10, free?.avoid) : { x: at.x + 16, y: at.y + 16 };
-    setBlockNote({ text: plain(reason), x: spot.x, y: spot.y, pointer, ok });
+    // (with blocks drawn, the spot is the tool's own, clear of them; the page does not move it to another side it had)
+    setBlockNote({ text: plain(reason), x: spot.x, y: spot.y, pointer, own: !!box, ok });
   }
 
   /** Show an answer: the blocks on the map and, when the click would be refused, why. */

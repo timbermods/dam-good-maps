@@ -93,7 +93,7 @@ export function editorView(ed: Ed, props: EditorProps) {
                 </PointerNote>
               ) : null}
               {blockNote ? (
-                <PointerNote class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} x={blockNote.x} y={blockNote.y} pointer={blockNote.pointer}>
+                <PointerNote class={`map-note shape-note${blockNote.ok ? " warn" : " error"}`} x={blockNote.x} y={blockNote.y} pointer={blockNote.pointer} own={blockNote.own}>
                   {blockNote.text}
                 </PointerNote>
               ) : null}

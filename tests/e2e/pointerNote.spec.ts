@@ -244,3 +244,71 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
   });
 }
 
+/** The flips of a note along a sweep that undo the flip just before them within `near` steps of the pointer: a move of 40 px or
+ *  more (the note leaving one side or strip for another, not following the pointer tile by tile) against the last such move,
+ *  soon after it. A control standing in the pointer's path makes one flip over it and one back past it; two clear strips
+ *  of nearly the same distance made it flip down, up and down again within a few pixels of the pointer's way. */
+function reversals(path: { x: number; y: number }[], near: number) {
+  let count = 0;
+  let before: { x: number; y: number; at: number } | null = null;
+  for (let k = 1; k < path.length; k++) {
+    const m = { x: path[k].x - path[k - 1].x, y: path[k].y - path[k - 1].y };
+    if (Math.hypot(m.x, m.y) < 40) continue;
+    if (before && k - before.at <= near && m.x * before.x + m.y * before.y < 0) count++;
+    before = { ...m, at: k };
+  }
+  return count;
+}
+
+test("1280: the Block refusal, with its message up, does not trade places between two clear strips as the pointer moves down the gap", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await putHintsAway(page);
+  const spot = await dryTile(page);
+  // a 3 × 3 working area, the Block tool, and one refused click for the page's message over the foot of the map
+  const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
+  const a = await corner(spot.x, spot.y);
+  const b = await corner(spot.x + 2, spot.y + 2);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(9);
+  await page.keyboard.press("7");
+  await toolInHand(page);
+  // (the working area at the middle of the view and ground under the whole sweep, a tile a few dozen pixels wide)
+  await page.evaluate(([tx, ty, h]) => window.dgm3d!.renderer.setView({ target: [tx + 1.5, h, -(ty + 1.5)], distance: 30, yaw: 0.5, pitch: 0.9 }), [spot.x, spot.y, spot.h] as const);
+  // one refused click, for the page's message over the foot of the map
+  await page.mouse.move(700, 250);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.locator(".editor-message.error")).toBeVisible();
+  // the gap between what stands over the map's foot and the shelf, where the sweep goes
+  const shelf = await rect(page, ".objects-dock");
+  const foot = await page.evaluate(() => Math.max(...[".tool-bar", ".tool-settings", ".dock-notes > *"].flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect().right))));
+  const x = (foot + shelf.left) / 2;
+  const frames = () => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+  const path: { x: number; y: number }[] = [];
+  for (let y = 330; y <= 560; y += 4) {
+    await page.mouse.move(x, y);
+    await frames();
+    const note = await page.evaluate(() => {
+      const e = document.querySelector(".shape-note.error");
+      if (!e) return null;
+      const r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top };
+    });
+    if (note) path.push(note);
+    if (process.env.DGM_TRACE) {
+      const pv = await page.evaluate(() => {
+        const q = window.dgmEditor!.block().preview;
+        return q ? `${q.added.length}/${q.removed.length}/${q.falls.length} ${String(q.reason).slice(0, 14)}` : "none";
+      });
+      console.log("TRACE", y, note && Math.round(note.x), note && Math.round(note.y), pv);
+    }
+  }
+  expect(path.length, "the refusal was up along the sweep").toBeGreaterThan(30);
+  // (the pointer moves 4 px a step: no flip is undone within 12 steps, 48 px of its way)
+  expect(reversals(path, 12), "flips that undo the flip before them").toBe(0);
+});
+

@@ -37,11 +37,20 @@ const SCAN = 8;
 
 const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
-/** Where a note of `note`'s size goes: its first wish when that is clear of every control and inside `bounds`, else the
- *  pointer's other corners in turn (below left, above right, above left), else beside and above or below it, else the
- *  clear spot of the whole free view nearest the pointer (FROM_POINTER clear of it), else the one that is covered
- *  least, pushed back inside `bounds`. Returns the note's top left. */
-export function placeNote(want: { x: number; y: number } | null, pointer: { x: number; y: number }, note: { w: number; h: number }, bounds: Box, avoid: readonly Box[]): { x: number; y: number } {
+/** Where a note of `note`'s size goes: the place it had relative to the pointer (`previous`, as the offset of its top
+ *  left from the pointer) while that is still clear, so a note that had to move off one side stays where it went and
+ *  does not trade places with another clear strip as the pointer moves; else its first wish when that is clear of
+ *  every control and inside `bounds`, else the pointer's other corners in turn (below left, above right, above left),
+ *  else beside and above or below it, else the clear spot of the whole free view nearest the pointer (FROM_POINTER
+ *  clear of it), else the one that is covered least, pushed back inside `bounds`. Returns the note's top left. */
+export function placeNote(
+  want: { x: number; y: number } | null,
+  pointer: { x: number; y: number },
+  note: { w: number; h: number },
+  bounds: Box,
+  avoid: readonly Box[],
+  previous: { dx: number; dy: number } | null = null,
+): { x: number; y: number } {
   const { w, h } = note;
   const wishes = [
     ...(want ? [want] : []),
@@ -64,6 +73,12 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
     const at = { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h };
     return w * h - area(at, inner) + inflated.reduce((sum, b) => sum + area(at, b), 0);
   };
+  const touchesPointer = (p: { x: number; y: number }) => p.x < pointer.x + FROM_POINTER && p.x + w > pointer.x - FROM_POINTER && p.y < pointer.y + FROM_POINTER && p.y + h > pointer.y - FROM_POINTER;
+  const distance = (p: { x: number; y: number }) => Math.hypot(p.x + w / 2 - pointer.x, p.y + h / 2 - pointer.y);
+  if (previous) {
+    const kept = { x: pointer.x + previous.dx, y: pointer.y + previous.dy };
+    if (!touchesPointer(kept) && costAt(kept) === 0) return kept;
+  }
   for (const p of wishes) {
     const cost = costAt(p);
     if (cost === 0) return p;
@@ -76,10 +91,10 @@ export function placeNote(want: { x: number; y: number } | null, pointer: { x: n
   let clear: { x: number; y: number } | null = null;
   for (let y = inner.y0; y + h <= inner.y1; y += SCAN) {
     for (let x = inner.x0; x + w <= inner.x1; x += SCAN) {
-      if (x < pointer.x + FROM_POINTER && x + w > pointer.x - FROM_POINTER && y < pointer.y + FROM_POINTER && y + h > pointer.y - FROM_POINTER) continue;
-      const d = Math.hypot(x + w / 2 - pointer.x, y + h / 2 - pointer.y);
-      if (d >= nearest) continue;
       const p = { x, y };
+      if (touchesPointer(p)) continue;
+      const d = distance(p);
+      if (d >= nearest) continue;
       if (costAt(p) === 0) [clear, nearest] = [p, d];
     }
   }
@@ -101,9 +116,12 @@ export function freeView(parent: HTMLElement): { bounds: Box; avoid: Box[] } {
 }
 
 /** A note beside the pointer. `x`, `y` are its first wish (its top left, in the view's pixels), `pointer` the pointer's place:
- *  the note is moved into the free view before it is drawn, never seen where it would be cut off. */
-export function PointerNote(p: { class: string; x: number; y: number; pointer: { x: number; y: number }; children: ComponentChildren }) {
+ *  the note is moved into the free view before it is drawn, never seen where it would be cut off. `own`: the first wish
+ *  is the tool's own choice (clear of what it describes), so the note does not keep the side it had instead. */
+export function PointerNote(p: { class: string; x: number; y: number; pointer: { x: number; y: number }; own?: boolean; children: ComponentChildren }) {
   const el = useRef<HTMLDivElement>(null);
+  // (where it stands from the pointer now, so that it keeps its side while that is clear)
+  const had = useRef<{ dx: number; dy: number } | null>(null);
   useLayoutEffect(() => {
     const n = el.current;
     const parent = n?.offsetParent;
@@ -112,7 +130,8 @@ export function PointerNote(p: { class: string; x: number; y: number; pointer: {
     n.style.left = "0px";
     n.style.top = "0px";
     const { bounds, avoid } = freeView(parent);
-    const at = placeNote({ x: p.x, y: p.y }, p.pointer, { w: n.offsetWidth, h: n.offsetHeight }, bounds, avoid);
+    const at = placeNote({ x: p.x, y: p.y }, p.pointer, { w: n.offsetWidth, h: n.offsetHeight }, bounds, avoid, p.own ? null : had.current);
+    had.current = { dx: at.x - p.pointer.x, dy: at.y - p.pointer.y };
     n.style.left = `${at.x}px`;
     n.style.top = `${at.y}px`;
   });

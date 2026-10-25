@@ -65,9 +65,20 @@ describe("a note beside the pointer", () => {
     const message: Box = { x0: 560, y0: 830, x1: 1380, y1: 880 };
     for (const x of [1723, 1700, 1500]) {
       let last: { x: number; y: number } | null = null;
+      let lastPointer = x;
       let jumps = 0;
+      let reversals = 0;
+      let before: { x: number; y: number } | null = null;
       for (let y = 180; y <= 1060; y += 6) {
-        const at = placeNote(null, { x, y }, note, big, [gapShelf, bars, message, panel]);
+        // (the note keeps the side it had, as the page's component does)
+        const at = placeNote(null, { x, y }, note, big, [gapShelf, bars, message, panel], last && { dx: last.x - lastPointer, dy: last.y - (y - 6) });
+        if (last) {
+          const m = { x: at.x - last.x, y: at.y - last.y };
+          if (Math.hypot(m.x, m.y) >= 20) {
+            if (before && m.x * before.x + m.y * before.y < 0) reversals++;
+            before = m;
+          }
+        }
         // (never far from the pointer, never under a control)
         expect(Math.hypot(at.x + note.w / 2 - x, at.y + note.h / 2 - y), `x ${x} y ${y}`).toBeLessThan(700);
         if (last && Math.hypot(at.x - last.x, at.y - last.y) > 100) jumps++;
@@ -75,7 +86,23 @@ describe("a note beside the pointer", () => {
       }
       // (a flip from one side of the pointer to the other is one jump; away and back three times is not allowed)
       expect(jumps, `pointer down x ${x}`).toBeLessThanOrEqual(2);
+      expect(reversals, `pointer down x ${x}: moves that undo the one before`).toBe(0);
     }
+  });
+  it("keeps the side it has while that is clear, so two clear strips do not trade it back and forth", () => {
+    // (a wall with a clear strip above it and one below, the pointer in a gap in the middle of it)
+    const wide: Box = { x0: 0, y0: 0, x1: 1000, y1: 700 };
+    const wall: Box = { x0: 0, y0: 100, x1: 1000, y1: 600 };
+    const first = placeNote(null, { x: 500, y: 350 }, note, wide, [wall], null);
+    const rel = { dx: first.x - 500, dy: first.y - 350 };
+    // the pointer moves about, the clear strips on either side swapping places in distance: the note keeps its side
+    for (const [px, py] of [[510, 350], [530, 352], [560, 355], [600, 351]] as const) {
+      const at = placeNote(null, { x: px, y: py }, note, wide, [wall], rel);
+      expect(at, `pointer ${px},${py}`).toEqual({ x: px + rel.dx, y: py + rel.dy });
+    }
+    // a side that has been covered is given up
+    const moved = placeNote(null, { x: 500, y: 350 }, note, wide, [wall, { x0: first.x - 10, y0: first.y - 10, x1: first.x + note.w + 10, y1: first.y + note.h + 10 }], rel);
+    expect(moved).not.toEqual(first);
   });
   it("covers a control as little as it can when every side is covered", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };
