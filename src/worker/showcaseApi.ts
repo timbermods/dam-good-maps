@@ -14,8 +14,9 @@ import type { GenerateResponse } from "./api";
 export type { Arc, BeatId };
 
 export type ShowcaseRequest =
-  /** Search from `spec` (its siblings in order, the map itself first) for `budgetMs`; `tries` caps the
-   *  maps made (an earlier search's `tried` reproduces its picks). */
+  /** Search from `spec` (its siblings in order, the map itself first) for `budgetMs`. With `tries`, it
+   *  makes exactly that many maps and the budget is ignored (an earlier search's `tried` reproduces its
+   *  picks, however long they take). */
   | { kind: "start"; spec: MapSpec; budgetMs: number; tries?: number }
   | { kind: "stop" };
 
