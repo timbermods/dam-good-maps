@@ -2,7 +2,7 @@
 use crate::{
     columns::OPEN,
     settle::SettleResult,
-    sim::TICKS_PER_DAY,
+    sim::{SPILL, TICKS_PER_DAY},
     stack::{Retained, Stack, State, PRESSURE},
     stack_level,
 };
@@ -318,6 +318,9 @@ pub fn steady_apart_from_sealed(s: &Stack, prev_d: &[f64], prev_o: &[f64], seale
     // water than the rivers would otherwise let them still fill while the check passes)
     (rest - prev).abs() / max(rest, 1e-9) < 0.002 && moved as f64 <= share * s.cols.n as f64
 }
+/// How far apart a water surface and the ground beside it, or two water surfaces side by side, may be and the
+/// water still count as standing (prefill.ts `REST`).
+const REST: f64 = 0.01;
 pub struct SettleRun {
     pub every: u64,
     pub checks: u64,
@@ -397,15 +400,17 @@ impl SettleRun {
     /// the map's edge, with the water the run carried from them to ground beside them (a stretch of wet columns
     /// within the basin's reach, `stack_level::arena`, that holds no other water, none from a source, the edge or
     /// another basin).
-    /// - When none of them gained water since the settle began (none flowed in, none moved to ground the lake did
-    ///   not hold), it only evaporated: its columns go back to the water they began with, so a Fill is written at
-    ///   exactly its level.
-    /// - When its water moved (an edit dug its rim or widened its hollow), the water it began with is stored where
+    /// - When the water it began with stands where it is and none of its columns gained water since the settle
+    ///   began (none flowed in, none moved to ground the lake did not hold), it only evaporated: its columns go
+    ///   back to the water they began with, so a Fill is written at exactly its level.
+    /// - When its water moved, or would (an edit dug its rim or widened its hollow; the water that ran off may have
+    ///   dried before the stop), the water it began with is stored where
     ///   it comes to rest by the game's rules for stacked water, through air gaps, roofs and pressure
     ///   (`stack_level::level_basin`), not as the run left it, perhaps still draining. Where that rest would reach
     ///   water or ground it can't settle on alone (the edge, a source, other water, an obstacle), or what another
     ///   basin's rest already took, the basin stays as the run left it.
-    /// The basins are told apart on the water as the run left it, before any is written.
+    /// The basins are told apart on the water as the run left it, before any is written. Every basin's reach is
+    /// marked in `wet_ever`: what it is stored as depends on all of it.
     fn keep_sealed(&self, s: &mut Stack) {
         let Some(start) = &self.start else { return };
         let size = s.d.len();
@@ -438,9 +443,9 @@ impl SettleRun {
         let mut seen = vec![0u32; size];
         // what each is stored as: (column, depth, pressure, badwater share), later entries over earlier
         let mut writes: Vec<(usize, f64, f64, f64)> = Vec::new();
-        let mut levelled: Vec<usize> = Vec::new();
         let mut claimed = vec![false; size];
         let mut queue = Vec::new();
+        let mut reach: Vec<usize> = Vec::new();
         let mut k = 0u32;
         for &seed in &self.sealed {
             if member[seed] != 0 || !wet(seed) {
@@ -473,8 +478,39 @@ impl SettleRun {
             if open {
                 continue;
             }
-            // the run's water within its reach that is its own
+            // whether the water it began with stands where it is (the heightfield's `keepSealed` test): none of it
+            // runs onto ground the start left dry (lower ground, or dry ground of the same floor past the spill
+            // threshold, as `substep`), and no two of its columns side by side stand at heads apart
+            let stands = basin.iter().all(|&c| {
+                let dc = start.depth[c];
+                if !(dc > 0.0) {
+                    return true;
+                }
+                let fc = s.cols.floor[c] as f64;
+                let hc = fc + dc;
+                let head = hc + start.overflow[c] * PRESSURE;
+                (s.start[c] as usize..s.start[c + 1] as usize).all(|e| {
+                    let t = s.target[e];
+                    if t < 0 || !s.edge_allowed(e) {
+                        return true;
+                    }
+                    let t = t as usize;
+                    let ft = s.cols.floor[t] as f64;
+                    if start.depth[t] > 0.0 {
+                        let other = ft + start.depth[t] + start.overflow[t] * PRESSURE;
+                        return !(head > other + REST && ft < hc);
+                    }
+                    if ft == fc {
+                        !(dc > SPILL)
+                    } else {
+                        !(hc > ft + REST)
+                    }
+                })
+            });
+            // the run's water within its reach that is its own (its rest depends on all of that reach, so the
+            // settle's reach takes it in: an edit there settles again in full, stackWater.ts `settledAgain`)
             let dom = stack_level::arena(s, start, &basin, &mut area, k);
+            reach.extend_from_slice(&dom);
             let mut ours: Vec<usize> = Vec::new();
             let mut mixed = false;
             for &c0 in &dom {
@@ -523,7 +559,7 @@ impl SettleRun {
             if mixed || basin.iter().chain(&ours).any(|&c| claimed[c]) {
                 continue;
             }
-            if !basin.iter().chain(&ours).any(|&c| gained(c)) {
+            if stands && !basin.iter().chain(&ours).any(|&c| gained(c)) {
                 for &c in &basin {
                     writes.push((c, start.depth[c], start.overflow[c], start.contamination[c]));
                     claimed[c] = true;
@@ -551,14 +587,15 @@ impl SettleRun {
             for &c in basin.iter().chain(&ours) {
                 writes.push((c, 0.0, 0.0, 0.0));
                 claimed[c] = true;
-                levelled.push(c);
             }
             for &(c, d, o) in &rest {
                 let q = if start.depth[c] > 0.0 { start.contamination[c] } else { share };
                 writes.push((c, d, o, if q > 1.0 { 1.0 } else { q }));
                 claimed[c] = true;
-                levelled.push(c);
             }
+        }
+        for c in reach {
+            s.wet_ever[c] = 1;
         }
         if writes.is_empty() {
             return;
@@ -568,12 +605,8 @@ impl SettleRun {
             s.o[c] = o;
             s.c[c] = q;
         }
-        // (water at rest has no flows)
-        for c in levelled {
-            for e in s.start[c] as usize..s.start[c + 1] as usize {
-                s.out[e] = 0.0;
-            }
-        }
+        // (the flows' momentum stays as the run left it, as on a basin given back its start: the multi-core settle
+        // gathers it from the strips, which never see this, stackWater.ts `flows`)
         // (the water written is well formed; its wet lists follow it)
         let _ = s.sync_state();
     }

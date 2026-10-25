@@ -35,6 +35,11 @@ export class SharedBlock {
       return out;
     }) as unknown as { [K in keyof T]: T[K] };
   }
+
+  /** Let go of the block: the next copies go in a new one (a worker may still be reading the last). */
+  forget(): void {
+    this.buffer = null;
+  }
 }
 
 /** Copies of `arrays` on a block of shared memory of their own; null where the page can't share it. */

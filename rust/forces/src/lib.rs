@@ -467,6 +467,11 @@ fn emitter(t: &str) -> bool {
             | "BadtideDrain"
     )
 }
+/// Objects the game keeps only on ground that reaches the map's bottom (its `ContinuousTerrainConstraint`;
+/// features/objects.ts `ON_BOTTOM_RUN`, rust/checks `continuous`): the water objects and these two.
+fn on_bottom_run(t: &str) -> bool {
+    emitter(t) || matches!(t, "GeothermalField" | "UndergroundRuins")
+}
 fn plant(t: &str) -> bool {
     matches!(t, "Pine" | "Birch" | "Oak" | "Succulent" | "BlueberryBush")
 }

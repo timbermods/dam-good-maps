@@ -476,6 +476,10 @@ export interface OpContext {
   /** The ground voxel by voxel (bit z of `masks[i]`: voxel z of tile i is solid): a map object feature
    *  that names its level under a roof is checked against it (D491, objects.ts `fitProblems`). */
   masks?: ArrayLike<number> | null;
+  /** The cells the objects standing hold, level by level, but those of the feature `owner` builds and
+   *  the resources (which make room): a map object feature at a level does not overlap them (D491,
+   *  placing.ts `objectCells`). */
+  objectCells?: (owner: string) => (x: number, y: number, z: number) => string | null;
   /** The ground the Block tool works on and the cells of the objects standing on it (a block
    *  operation is checked against them; the session gives them for one). */
   blocks?: { terrain: ColumnTerrain; ground: BlockGround };
@@ -607,7 +611,7 @@ function levelProblems(f: Feature, ctx: OpContext): string[] {
   const pl = f.params.placement;
   const name = OBJECT_NAMES[f.params.kind].toLowerCase();
   if (!ctx.masks || !ctx.heights) return [`the ${name}'s level can't be checked without the map's ground`];
-  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks }, pl);
+  const why = fitProblems(f.params.kind, objectTiles(f, ctx.W, ctx.H), { W: ctx.W, H: ctx.H, heights: ctx.heights, masks: ctx.masks, taken: ctx.objectCells?.(f.id) ?? null }, pl);
   return why.length ? [`the ${name} can't stand at level ${pl.z} there: ${why[0]}`] : [];
 }
 

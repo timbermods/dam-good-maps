@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { arcOf, openingFrame, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
+import { arcOf, openingFrame, openingView, showcaseSearch, type ShowcaseCandidate } from "../../src/core/gen/showcase";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -20,12 +20,17 @@ describe("Showcase mode (D488 (2))", () => {
     const g = openingFrame(96, 96, { x: 48, y: 48 }, "Cw180");
     expect(g[(48 - 16) * 96 + 48 - 11]).toBe(1);
     expect(g[(48 + 16) * 96 + 48 + 11]).toBe(0);
+    // a 12-level spire standing just short of the near edge shows its top in the picture
+    const view = openingView({ x: 48, y: 48 }, "Cw0");
+    expect(view(48 - 9, 48 - 13)).toBe(false);
+    expect(view(48 - 9, 48 - 13, 12)).toBe(true);
   });
 
   it("measures each sibling's arc, keeps the best three in order, and a pick's link regenerates it", async () => {
     const spec = makeSpec({ seed: 2, theme: "lakeBasin", size: { x: 96, y: 96 } });
     const seen: ShowcaseCandidate[] = [];
-    const res = await showcaseSearch(spec, { tries: 3, onCandidate: (c) => seen.push(c) });
+    // (a replay makes all its maps: a budget spent at once does not cut it short)
+    const res = await showcaseSearch(spec, { tries: 3, budgetMs: 0, onCandidate: (c) => seen.push(c) });
     expect(res.tried).toBe(3);
     // siblings in order, the asked map first, each with its own share spec
     expect(seen.map((c) => c.spec.variation)).toEqual([undefined, 1, 2]);
@@ -35,15 +40,23 @@ describe("Showcase mode (D488 (2))", () => {
     expect(a.vista.met).toBe(true);
     expect(a.landmark.met).toBe(true);
     expect(a.landmark.say).toMatch(/^An 8-level butte stands 31 tiles east of the start/);
+    // and the first drought's choice: the river by the start runs low, the pool a little further holds
+    expect(a.drought.met).toBe(true);
+    expect(a.drought.say).toMatch(/^The nearest water, 5 tiles' walk from the start, runs low in the first drought; water 7 tiles' walk away holds.$/);
     // the first sibling: no landmark near the colony, no valley behind a gate
     expect(b.landmark.met).toBe(false);
     expect(b.valley.met).toBe(false);
     // the second: a district behind debris (a valley behind a gate) and an 11-level mesa in view
     expect(c.valley.met).toBe(true);
     expect(c.valley.say).toMatch(/^A second district site 39 tiles out/);
+    // the debris counts once: in the valley, which has nothing else, not again as a mystery
+    expect(c.mystery.met).toBe(false);
+    // its nearest water holds and a farther one runs dry: no choice to face, some of the beat only
+    expect(c.drought.met).toBe(false);
+    expect(c.drought.strength).toBe(0.4);
     expect(c.landmark.say).toMatch(/^An 11-level mesa stands 18 tiles south of the start/);
-    // the best three, best first: the second sibling, the asked map, the first sibling
-    expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
+    // the best three, best first: the asked map (its drought's choice), the second sibling, the first
+    expect(res.best.map((p) => p.index)).toEqual([0, 2, 1]);
     expect(res.best[0].note).toMatch(/^\d of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });

@@ -923,6 +923,18 @@ API, every pinned hash, and every role and accessible name the tests use.
   tooltip), never "Level lines", so it is not mistaken for **Lines** (a line at every level). The open Legend stays centred under its
   toggle (Kyler, 2026-10-04) and keeps Ground height's Low and High under its line; the minimap draws a held
   Drought or Badtide day's water.
+- **Showcase mode** (D488 (2); EDITOR_PLAN §3): **Showcase…** is a 20px ghost button, the stack's 150px and right edge, in
+  the empty place at the foot of "On this map" (the list holds five, so its last row's right half is free); the panel
+  stays 692px. Design choice: the title block's three rows have no room for a fourth button, and a row of its own would
+  make the panel scroll at 1920×1080, which Kyler ruled out for Reset settings (2026-10-06). Its sheet lies over the two
+  columns from the hairline down, the columns hidden but in place: a head line ("SHOWCASE" as a group heading, **Settings**
+  at the stack's width, back to the settings), one muted line, **Search for** and the search's button on one line, the progress
+  line and a 2px hairline that fills with the time gone (its movement only without reduced motion), then three cards
+  134px tall, 8px apart: the picture 112px, the name in 14px bold with "N of 6 beats" and a 72px **Open**, the six
+  beats in three columns at 12px (met: the ink and an accent tick; not: muted with a ring), then up to three lines of
+  the core's words. An empty place is a dashed card. A card fades in (no movement). It fits at 1920×1080 and
+  2560×1440 with nothing scrolling; at 1280×720 the panel scrolls inside itself as it already does, and opening the
+  sheet brings its head into view.
 - **Versions** (`docs/design/showcase-versions-*.jpg`, light and dark at 1280, 1920 and 2560): History's rows keep their
   look; on the row pointed at, focused or current, two ghost buttons sit at its right, **Keep this version** and **Branch from
   here**, the row leaving them room on every row so nothing moves. Your maps' tile of a kept version carries one quiet line

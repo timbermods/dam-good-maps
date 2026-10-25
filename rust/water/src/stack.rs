@@ -257,6 +257,10 @@ impl Stack {
         stack
     }
     /// Per edge, 1 when the flow rules let water take it (`dir_allowed`: the direction limiters), else 0.
+    /// Whether the flow rules let water take edge `e` (`dir_allowed`).
+    pub(crate) fn edge_allowed(&self, e: usize) -> bool {
+        self.edge_rule[e] & 1 != 0
+    }
     pub fn edges_allowed(&self) -> Vec<u8> {
         self.edge_rule.iter().map(|r| r & 1).collect()
     }

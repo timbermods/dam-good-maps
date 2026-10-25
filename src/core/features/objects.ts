@@ -164,6 +164,9 @@ export interface FitGround {
   masks?: ArrayLike<number> | null;
   /** Tiles no object may take (locked regions). */
   locked?: Uint8Array | null;
+  /** Under a roof, the cells other objects hold, level by level (the template there, or null): a
+   *  placement there does not overlap them (`standProblem`'s `taken`; doc/placing.ts `objectCells`). */
+  taken?: ((x: number, y: number, z: number) => string | null) | null;
 }
 
 /** Water deeper than this counts as a water tile (validate/playability.ts WET). */
@@ -208,7 +211,7 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
     const [cx, cy] = coordinatesForMinCorner(s[0], s[1], corner.x, corner.y, corner.orientation);
     let z = z0 ?? -1;
     if (z < 0) for (const [x, y] of tiles) if (inMap(x, y)) z = Math.max(z, heights[y * W + x]);
-    const why = standProblem(template, { x: cx, y: cy, z, orientation: corner.orientation }, stand);
+    const why = standProblem(template, { x: cx, y: cy, z, orientation: corner.orientation }, stand, g.taken ?? undefined);
     if (why) add(why);
   }
   for (const [x, y] of tiles) {
@@ -219,7 +222,7 @@ export function fitProblems(kind: MapObjectKind, tiles: readonly (readonly [numb
     const i = y * W + x;
     if (stand && !single) {
       // (a line's objects are one block each, each on its own tile's ground)
-      const why = standProblem(template, { x, y, z: z0 ?? heights[i], orientation: "Cw0" }, stand);
+      const why = standProblem(template, { x, y, z: z0 ?? heights[i], orientation: "Cw0" }, stand, g.taken ?? undefined);
       if (why) add(why);
     } else if (single && !stand) {
       if (level < 0) level = heights[i];

@@ -56,10 +56,15 @@ export function deleteGroupOf(template: string): Exclude<DeleteGroup, "everythin
   return kind === "water" || kind === "badwater" || kind === "start" || kind === "ruins" || kind === "trees" || kind === "bushes" ? kind : null;
 }
 
-/** The selected tiles, and their extent. */
+/** The selected tiles, and their extent. A selection taken on a run (the Wand on a cave's floor, a ledge under an
+ *  overhang) also names the ground it was taken at in each tile (`levels`), so the view draws it there and not on the
+ *  roof over it; the operations take the tiles (`mask`) as before. */
 export class Selection {
   readonly mask: Uint8Array;
   count = 0;
+  /** The level of the ground each tile was taken at, plus one (0: none, the tile's whole column, as a plain
+   *  selection); null while no tile names one. */
+  levels: Uint8Array | null = null;
   constructor(
     readonly W: number,
     readonly H: number,
@@ -70,16 +75,33 @@ export class Selection {
   clear(): void {
     this.mask.fill(0);
     this.count = 0;
+    this.levels = null;
   }
 
-  /** Take `tiles` in (set: the selection becomes them), add them, or take them out. */
-  apply(tiles: ArrayLike<number>, how: "set" | "add" | "subtract"): void {
-    if (how === "set") this.mask.fill(0);
+  /** Take `tiles` in (set: the selection becomes them), add them, or take them out; `level`: the level of the ground
+   *  they were taken at (a run's top), when taken on a run. */
+  apply(tiles: ArrayLike<number>, how: "set" | "add" | "subtract", level?: number): void {
+    if (how === "set") {
+      this.mask.fill(0);
+      this.levels = null;
+    }
     const v = how === "subtract" ? 0 : 1;
     for (let k = 0; k < tiles.length; k++) this.mask[tiles[k]] = v;
+    const named = how !== "subtract" && level !== undefined;
+    if (named || this.levels) {
+      const levels = (this.levels ??= new Uint8Array(this.mask.length));
+      const l = named ? level + 1 : 0;
+      for (let k = 0; k < tiles.length; k++) levels[tiles[k]] = l;
+    }
     let n = 0;
-    for (let i = 0; i < this.mask.length; i++) n += this.mask[i];
+    let any = 0;
+    const levels = this.levels;
+    for (let i = 0; i < this.mask.length; i++) {
+      n += this.mask[i];
+      if (levels) any |= levels[i];
+    }
     this.count = n;
+    if (!any) this.levels = null;
   }
 
   tiles(): number[] {
@@ -311,8 +333,11 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         const onWater = host.wet?.(hit.y * W + hit.x) ?? false;
         // (on land, the level of the run the click hit: a cave's floor takes the ground joined to it at its level)
         const level = hit.level;
-        const land = host.hasTop && level !== undefined ? levelTiles((j) => host.hasTop!(j, level), W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y);
-        sel.apply(onWater ? waterTiles(host.wet!, W, host.H, hit.x, hit.y) : land, how);
+        const onRun = !!host.hasTop && level !== undefined;
+        const land = onRun ? levelTiles((j) => host.hasTop!(j, level), W, host.H, hit.x, hit.y) : sameLevelTiles(host.heights(), W, host.H, hit.x, hit.y);
+        // (land taken on a run names its level in each tile, so it is drawn on that ground, not the roof over it)
+        if (onWater) sel.apply(waterTiles(host.wet!, W, host.H, hit.x, hit.y), how);
+        else sel.apply(land, how, onRun ? level : undefined);
         host.changed();
         start = null;
         return true;
