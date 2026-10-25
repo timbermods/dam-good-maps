@@ -4,7 +4,9 @@
 // racing along it with dust at its head; a volcano's plume of soft rolling puffs, bigger and darker
 // the more powerful the eruption (D216), the lava's glow on the ground, cooling to a crust; a glacier's
 // ice gathering where it was asked, its tongue advancing down the valley and melting back (D246, from
-// investigation/glaciate `effects.ts`: fixed cross sections, a travelling nose and streaks). Fixed
+// investigation/glaciate `effects.ts`: fixed cross sections, a travelling nose and streaks); rock
+// wearing away (D281, from investigation/erode `effects.ts`): fine dust drifting out of the opening
+// and small stones dropping, bouncing once and resting (`Wear`; where they start, `wear.ts`). Fixed
 // pools, no allocation in the frame loop; each plays on its own clock and leaves when it is done.
 // The camera never shakes or moves with them (D265: it moves only when the player moves it). None
 // of them plays with reduced motion or in software rendering (the renderer decides); the land's
@@ -14,6 +16,7 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  DodecahedronGeometry,
   Float32BufferAttribute,
   CylinderGeometry,
   DoubleSide,
@@ -33,7 +36,9 @@ import {
   Vector3,
   type Scene,
 } from "three";
-import { JUICE } from "./palette";
+import { JUICE, wallColor } from "./palette";
+import { SUN } from "./materials";
+import { STONE_REACH, WEAR_STRIDE, wearCount, wearSamples, type Voxels } from "./wear";
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
 export interface ForceMoment {
@@ -49,6 +54,9 @@ export interface ForceMoment {
   erupt?: { vents: { x: number; y: number }[]; radius: number; fissure: boolean; line: { x: number; y: number }[] };
   quake?: { path: { x: number; y: number }[]; slide: boolean; side: 1 | -1 };
   glaciate?: { seconds: number; path?: { x: number; y: number; s: number; r: number; floor: number }[] };
+  /** An erosion (D281): the voxels that went in the stage just shown (z·N + tile), how many it takes in
+   *  all, and whether it scoured open ground. */
+  erode?: { went: ArrayLike<number>; worn: number; scoured: boolean };
   /** Its own seconds a second of its showing (Fast, Slow forces: D344 A7); absent, 1. */
   pace?: number;
 }
@@ -612,6 +620,420 @@ class Glacier {
   }
 }
 
+/** Erode's pools, sized once: its dust puffs, its stones, and the voxels a stage's dust and stones
+ *  start from (at most). */
+const WEAR_DUST = 320;
+const WEAR_STONES = 48;
+const WEAR_SAMPLES = 14;
+/** A dust puff's floats: its origin (x, y, z, world), its velocity, when it is born (ms), its life (s; 0:
+ *  free), its size, its alpha, how dim it is in the rock's shade, its colour, how far it drifts before it
+ *  is out from under the roof (tiles along the opening; -1 in the open) and its speed along the opening. */
+const DUST_F = 16;
+/** Dust puffs a second at most (the pool's turnover: no stage takes them all, so the last stages get
+ *  their share), and a stage's when it has none before it. */
+const DUST_RATE = 190;
+/** How far (tiles) dust from under a roof is pushed out at most. */
+const DUST_PUSH = 5;
+const STAGE_MS = 100;
+/** A stone's floats: its origin (x, y, z), its speed across (x, z), up (y) as it breaks off, the height it
+ *  rests at, when it lands, how high it bounces, when it is born (ms), its radius, its spin (x, y, z),
+ *  its end (s; 0: free). */
+const STONE_F = 15;
+/** Levels a second a second, a little brisker than the game's tiles would fall: the stones read at a glance. */
+const GRAVITY = 16;
+/** A stone's rest on the ground before it fades, and its fade (s). */
+const STONE_REST = 0.45;
+const STONE_FADE = 0.35;
+/** The dust's drag (it drifts out of the opening and slows), a second. */
+const DUST_DRAG = 1.8;
+
+/** Each level's wall stone (palette.ts `wallColor`), r, g, b a level: a stone takes its wall's. */
+const WALLS = Float32Array.from({ length: 32 * 3 }, (_, k) => wallColor(Math.floor(k / 3))[k % 3]);
+
+/** A repeatable 0–1 from k. */
+const hash = (k: number) => {
+  const s = Math.sin(k * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+
+/** Erode's moment (D281, D240): fine rock dust drifting out of the opening as the rock goes, more where
+ *  more went, settling and fading; a few small stones a stage dropping from where the rock went, bouncing
+ *  once on the ground below and resting a moment, then fading; a faint dust at the face as the ground
+ *  rumbles. The stones are the walls' own stone, the dust that stone ground fine (never white smoke).
+ *  Visual only: the land kept is exactly the land shown (D368 (9)). Fixed pools: nothing is allocated
+ *  once it begins; a pool full takes no more until a puff or a stone is gone. */
+class Wear {
+  readonly group = new Group();
+  private dustGeometry = new PlaneGeometry(2, 2);
+  private dustAlpha = new Float32Array(WEAR_DUST);
+  private dustColor = new Float32Array(WEAR_DUST * 3);
+  private dustMaterial = new ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    vertexShader: /* glsl */ `
+      attribute float dustAlpha; attribute vec3 dustColor;
+      varying vec2 uvD; varying float alphaD; varying vec3 colorD;
+      void main() {
+        uvD = uv; alphaD = dustAlpha; colorD = dustColor;
+        vec4 p = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        p.xy += position.xy * instanceMatrix[0][0];
+        // (drawn a little toward the eye, so a puff by a wall is not cut square by it)
+        p.z += instanceMatrix[0][0] * 0.3;
+        gl_Position = projectionMatrix * p;
+      }`,
+    fragmentShader: /* glsl */ `
+      varying vec2 uvD; varying float alphaD; varying vec3 colorD;
+      void main() {
+        vec2 p = uvD * 2.0 - 1.0;
+        float r = dot(p, p);
+        if (r > 1.0) discard;
+        float a = alphaD * (1.0 - r) * (1.0 - r);
+        if (a < 0.004) discard;
+        gl_FragColor = vec4(colorD * (0.93 + 0.12 * p.y), a);
+      }`,
+  });
+  private dust = new InstancedMesh(this.dustGeometry, this.dustMaterial, WEAR_DUST);
+  private dustState = new Float32Array(WEAR_DUST * DUST_F);
+  private stoneGeometry = new DodecahedronGeometry(1, 0);
+  private stoneColor = new Float32Array(WEAR_STONES * 3);
+  private stoneMaterial = new ShaderMaterial({
+    uniforms: { sun: { value: SUN.clone() } },
+    vertexShader: /* glsl */ `
+      attribute vec3 stoneColor; varying vec3 colorS; varying vec3 worldS;
+      void main() {
+        colorS = stoneColor;
+        vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
+        worldS = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 sun; varying vec3 colorS; varying vec3 worldS;
+      void main() {
+        // (faceted: each face its own light, the soft wrapped sun the objects take)
+        vec3 n = normalize(cross(dFdx(worldS), dFdy(worldS)));
+        float ndl = clamp(dot(n, sun) * 0.75 + 0.25, 0.0, 1.0);
+        gl_FragColor = vec4(colorS * (0.55 + 0.6 * ndl), 1.0);
+      }`,
+  });
+  private stones = new InstancedMesh(this.stoneGeometry, this.stoneMaterial, WEAR_STONES);
+  private stoneState = new Float32Array(WEAR_STONES * STONE_F);
+  private samples = new Float32Array(WEAR_SAMPLES * WEAR_STRIDE);
+  private dummy = new Object3D();
+  private at = { x: 0, y: 0 };
+  private live = false;
+  private t0 = 0;
+  private ended: number | null = null;
+  /** When the last puff or stone given so far is gone (ms). */
+  private until = 0;
+  /** Its own count, so no two puffs or stones are the same. */
+  private seq = 0;
+  private dustNext = 0;
+  /** When the last stage's dust came (ms; 0: none yet). */
+  private lastStage = 0;
+  private stoneNext = 0;
+
+  constructor() {
+    this.dustGeometry.setAttribute("dustAlpha", new InstancedBufferAttribute(this.dustAlpha, 1));
+    this.dustGeometry.setAttribute("dustColor", new InstancedBufferAttribute(this.dustColor, 3));
+    this.stoneGeometry.setAttribute("stoneColor", new InstancedBufferAttribute(this.stoneColor, 3));
+    this.dust.frustumCulled = this.stones.frustumCulled = false;
+    this.dust.renderOrder = 6;
+    this.stones.renderOrder = 5;
+    this.group.add(this.stones, this.dust);
+    this.group.visible = false;
+    this.empty();
+  }
+
+  begin(m: ForceMoment, now: number): void {
+    this.empty();
+    this.live = true;
+    this.at = { x: m.x, y: m.y };
+    this.t0 = now;
+    this.ended = null;
+    this.until = now;
+    this.seq = (m.x * 7919 + m.y * 104729 + Math.round(now)) % 100000;
+    this.lastStage = 0;
+  }
+
+  /** A stage's moment: the faint dust of the rumble, then dust and stones from the voxels that went. */
+  cue(m: ForceMoment, now: number, voxels: Voxels | null): void {
+    if (!this.live) return;
+    if (m.phase === "rumble") {
+      // (a faint stir of dust at the face, before the rock begins to go)
+      const x = m.x + 0.5;
+      const y = m.z + 0.4;
+      const z = -m.y - 0.5;
+      for (let k = 0; k < 8; k++) {
+        const a = k * 2.399 + hash(this.seq + k) * 0.8;
+        this.puff(now, x + Math.cos(a) * 0.6, y + hash(this.seq + k + 3) * 0.6, z + Math.sin(a) * 0.6, Math.cos(a) * 0.45, 0.25, Math.sin(a) * 0.45, 1.3, 0.45, 0.16, 0);
+      }
+      this.seq += 8;
+      return;
+    }
+    const e = m.erode;
+    if (!e || !e.went.length || !voxels) return;
+    const n = wearSamples(e.went, voxels, this.at, wearCount(e.went.length, WEAR_SAMPLES), this.samples);
+    // the stage's dust: more where more went, within the stage's share of the pool's turnover
+    const dt = Math.max(40, Math.min(200, this.lastStage ? now - this.lastStage : STAGE_MS));
+    this.lastStage = now;
+    const puffs = Math.max(2, Math.min(Math.round(3 + Math.sqrt(e.went.length)), Math.floor((DUST_RATE * dt) / 1000), 2 * n));
+    // a few stones a stage, more where more went
+    const stones = Math.max(1, Math.min(4, Math.round(Math.sqrt(e.went.length) / 4)));
+    const every = Math.max(1, Math.floor(n / stones));
+    for (let j = 0; j < n; j++) {
+      const o = j * WEAR_STRIDE;
+      const s = this.samples;
+      const x = s[o];
+      const yRow = s[o + 1];
+      const level = s[o + 2];
+      const dx = s[o + 3];
+      const dy = s[o + 4];
+      const dz = s[o + 5];
+      // (under a roof, its dust starts a little further out, in the rock's shade and thinner, and
+      // brightens only as it drifts out past where the roof ends)
+      const roofed = s[o + 7] > 0;
+      const many = Math.floor(((j + 1) * puffs) / n) - Math.floor((j * puffs) / n);
+      for (let k = 0; k < many; k++) {
+        const q = this.seq++;
+        // (out of the opening: from a little way along it, quickly at first, slowing as it spreads)
+        const out = (roofed ? 0.8 : 0.4) + 0.6 * hash(q + 0.23);
+        const h = Math.hypot(dx, dy);
+        const exit = roofed && h > 0.05 ? Math.max(0, s[o + 8] - out * h) : 0;
+        // (pushed out: under a roof, fast enough to carry it a little past the roof's end, as far as
+        // DUST_PUSH tiles; dust from deeper stays in the cave's shade)
+        const speed = exit > 0 ? (Math.min(DUST_PUSH, exit + 0.6 + 0.9 * hash(q)) * DUST_DRAG) / h : 1.3 + 1.7 * hash(q);
+        const jx = (hash(q + 0.31) - 0.5) * 0.7;
+        const jy = (hash(q + 0.57) - 0.5) * 0.7;
+        this.puff(
+          now,
+          x + dx * out + jx * 0.6,
+          level - 0.2 + dz * out + hash(q + 0.83) * 0.5,
+          -(yRow + dy * out + jy * 0.6),
+          dx * speed + jx * 0.6,
+          exit > 0 ? 0.15 + 0.3 * hash(q + 0.37) : dz * speed * 0.6 + 0.15,
+          -(dy * speed + jy * 0.6),
+          1.2 + 0.7 * hash(q + 0.13),
+          0.5 + 0.4 * hash(q + 0.71),
+          (0.34 + 0.18 * hash(q + 0.93)) * (roofed ? 0.75 : 1),
+          hash(q + 0.41),
+          roofed ? 0.35 : 1,
+          0,
+          // (open air: out already; under a roof straight up: out as it rises)
+          !roofed ? -1 : exit,
+          h > 0.05 ? speed * h : 1.5,
+        );
+      }
+      if (j % every === 0) this.stone(now, x, yRow, level, dx, dy, dz, s[o + 6]);
+    }
+  }
+
+  /** A dust puff from (x, y, z) moving (vx, vy, vz), born `delay` ms on. */
+  private puff(now: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size: number, alpha: number, warm: number, dim = 1, delay = 0, exit = -1, along = 0): void {
+    const d = this.dustState;
+    let k = -1;
+    for (let t = 0; t < WEAR_DUST; t++) {
+      const c = (this.dustNext + t) % WEAR_DUST;
+      const o = c * DUST_F;
+      if (d[o + 7] === 0 || now > d[o + 6] + d[o + 7] * 1000) {
+        k = c;
+        break;
+      }
+    }
+    if (k < 0) return;
+    this.dustNext = (k + 1) % WEAR_DUST;
+    const o = k * DUST_F;
+    d[o] = x;
+    d[o + 1] = y;
+    d[o + 2] = z;
+    d[o + 3] = vx;
+    d[o + 4] = vy;
+    d[o + 5] = vz;
+    d[o + 6] = now + delay;
+    d[o + 7] = life;
+    d[o + 8] = size;
+    d[o + 9] = alpha;
+    d[o + 10] = dim;
+    d[o + 14] = exit;
+    d[o + 15] = along;
+    const shade = 0.88 + 0.2 * hash(this.seq + 0.17);
+    for (let c = 0; c < 3; c++) d[o + 11 + c] = (JUICE.wearDust[c] + (JUICE.wearDustWarm[c] - JUICE.wearDust[c]) * warm) * shade;
+    this.until = Math.max(this.until, now + delay + life * 1000);
+  }
+
+  /** A stone breaking off the voxel at (x, y, level) (map axes), out along (dx, dy, dz), landing on `floor`. */
+  private stone(now: number, x: number, y: number, level: number, dx: number, dy: number, dz: number, floor: number): void {
+    const st = this.stoneState;
+    let k = -1;
+    for (let t = 0; t < WEAR_STONES; t++) {
+      const c = (this.stoneNext + t) % WEAR_STONES;
+      const o = c * STONE_F;
+      if (st[o + 14] === 0 || now > st[o + 9] + st[o + 14] * 1000) {
+        k = c;
+        break;
+      }
+    }
+    if (k < 0) return;
+    this.stoneNext = (k + 1) % WEAR_STONES;
+    const q = this.seq++;
+    const r = 0.11 + 0.12 * hash(q + 0.2);
+    const rest = floor + r * 0.8;
+    const h = Math.hypot(dx, dy);
+    const hx = h > 0.05 ? dx / h : 0;
+    const hy = h > 0.05 ? dy / h : 0;
+    // (it breaks off the face, a little way out of the rock, and lands STONE_REACH out from the voxel,
+    // where `floor` is: so each lands on the ground below the opening)
+    const ox = x + hx * 0.3 + (hash(q + 0.4) - 0.5) * 0.3;
+    const oyRow = y + hy * 0.3 + (hash(q + 0.6) - 0.5) * 0.3;
+    const oy = Math.max(rest, level + (hash(q + 0.8) - 0.5) * 0.4);
+    // (up as it breaks off: a hop from a scoured hollow, a little lift from a wall)
+    const vy0 = 0.4 + 2.4 * Math.max(0, dz - 0.4) + 0.5 * hash(q + 0.9);
+    const t1 = (vy0 + Math.sqrt(vy0 * vy0 + 2 * GRAVITY * (oy - rest))) / GRAVITY;
+    const bounce = Math.max(1.1, 0.33 * Math.abs(vy0 - GRAVITY * t1));
+    const t2 = t1 + (2 * bounce) / GRAVITY;
+    const across = (STONE_REACH - 0.3) / Math.max(0.12, t1);
+    const o = k * STONE_F;
+    st[o] = ox;
+    st[o + 1] = oy;
+    st[o + 2] = -oyRow;
+    st[o + 3] = hx * across;
+    st[o + 4] = -hy * across;
+    st[o + 5] = vy0;
+    st[o + 6] = rest;
+    st[o + 7] = t1;
+    st[o + 8] = bounce;
+    st[o + 9] = now;
+    st[o + 10] = r;
+    st[o + 11] = (hash(q + 0.1) - 0.5) * 12;
+    st[o + 12] = (hash(q + 0.3) - 0.5) * 12;
+    st[o + 13] = (hash(q + 0.5) - 0.5) * 12;
+    st[o + 14] = t2 + STONE_REST + STONE_FADE;
+    // the stone of the wall it came from, some a shade browner
+    const w = Math.max(0, Math.min(31, Math.floor(level))) * 3;
+    const brown = hash(q + 0.7) * 0.45;
+    const shade = 0.85 + 0.3 * hash(q + 0.75);
+    for (let c = 0; c < 3; c++) this.stoneColor[k * 3 + c] = (WALLS[w + c] + (JUICE.rock[c] - WALLS[w + c]) * brown) * shade;
+    (this.stoneGeometry.attributes.stoneColor as InstancedBufferAttribute).needsUpdate = true;
+    this.until = Math.max(this.until, now + st[o + 14] * 1000);
+    // a little dust where it lands
+    const lx = ox + st[o + 3] * t1;
+    const lz = -oyRow + st[o + 4] * t1;
+    for (let p = 0; p < 2; p++) {
+      const a = hash(q + p * 0.37) * Math.PI * 2;
+      this.puff(now, lx, rest, lz, Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5, 0.9, 0.3, 0.26, 0.6, 1, t1 * 1000);
+    }
+  }
+
+  finish(now: number): void {
+    if (this.live) this.ended ??= now;
+  }
+
+  get active(): boolean {
+    return this.live && (this.ended === null || performance.now() < this.until);
+  }
+
+  /** Where it acts, its seconds since it began and how many puffs and stones are in the air, or null. */
+  showing(now: number): { x: number; y: number; age: number; dust: number; stones: number } | null {
+    if (!this.active) return null;
+    let dust = 0;
+    let stones = 0;
+    for (let k = 0; k < WEAR_DUST; k++) {
+      const t = (now - this.dustState[k * DUST_F + 6]) / 1000;
+      if (t >= 0 && t <= this.dustState[k * DUST_F + 7]) dust++;
+    }
+    for (let k = 0; k < WEAR_STONES; k++) {
+      const t = (now - this.stoneState[k * STONE_F + 9]) / 1000;
+      if (t >= 0 && t <= this.stoneState[k * STONE_F + 14]) stones++;
+    }
+    return { ...this.at, age: (now - this.t0) / 1000, dust, stones };
+  }
+
+  update(now: number): void {
+    this.group.visible = this.active;
+    if (!this.group.visible) return;
+    const d = this.dustState;
+    const dm = this.dust.instanceMatrix.array as Float32Array;
+    for (let k = 0; k < WEAR_DUST; k++) {
+      const o = k * DUST_F;
+      const t = (now - d[o + 6]) / 1000;
+      const life = d[o + 7];
+      const m = k * 16;
+      if (life === 0 || t < 0 || t > life) {
+        dm[m] = 0;
+        this.dustAlpha[k] = 0;
+        continue;
+      }
+      const u = t / life;
+      const e = (1 - Math.exp(-DUST_DRAG * t)) / DUST_DRAG;
+      // (drifting out of the opening, rising a little, then settling as it thins)
+      dm[m] = d[o + 8] * (0.7 + 1.7 * smooth(u));
+      dm[m + 12] = d[o] + d[o + 3] * e;
+      dm[m + 13] = d[o + 1] + d[o + 4] * e + 0.12 * t - 0.12 * t * t;
+      dm[m + 14] = d[o + 2] + d[o + 5] * e;
+      // (out from under the roof: as far along the opening as it has drifted, past where the roof ends)
+      const out = d[o + 14] < 0 ? 1 : smooth((d[o + 15] * e - d[o + 14] + 0.3) / 0.9);
+      this.dustAlpha[k] = d[o + 9] * smooth(t / 0.12) * (1 - smooth((u - 0.3) / 0.7)) * (0.45 + 0.55 * out);
+      const light = d[o + 10] + (1 - d[o + 10]) * out;
+      for (let c = 0; c < 3; c++) this.dustColor[k * 3 + c] = d[o + 11 + c] * light;
+    }
+    this.dust.instanceMatrix.needsUpdate = true;
+    (this.dustGeometry.attributes.dustColor as InstancedBufferAttribute).needsUpdate = true;
+    (this.dustGeometry.attributes.dustAlpha as InstancedBufferAttribute).needsUpdate = true;
+    const st = this.stoneState;
+    const g = this.dummy;
+    for (let k = 0; k < WEAR_STONES; k++) {
+      const o = k * STONE_F;
+      const t = (now - st[o + 9]) / 1000;
+      const end = st[o + 14];
+      if (end === 0 || t < 0 || t > end) {
+        g.scale.setScalar(0);
+        g.position.set(0, -1000, 0);
+      } else {
+        const t1 = st[o + 7];
+        const b = st[o + 8];
+        const t2 = t1 + (2 * b) / GRAVITY;
+        const fly = Math.min(t, t1) + 0.35 * Math.max(0, Math.min(t, t2) - t1);
+        let y: number;
+        if (t < t1) y = st[o + 1] + st[o + 5] * t - 0.5 * GRAVITY * t * t;
+        else if (t < t2) y = st[o + 6] + b * (t - t1) - 0.5 * GRAVITY * (t - t1) * (t - t1);
+        else y = st[o + 6];
+        g.position.set(st[o] + st[o + 3] * fly, y, st[o + 2] + st[o + 4] * fly);
+        const spin = Math.min(t, t2);
+        g.rotation.set(st[o + 11] * spin, st[o + 12] * spin, st[o + 13] * spin);
+        g.scale.setScalar(st[o + 10] * smooth(t / 0.08) * (1 - smooth((t - (end - STONE_FADE)) / STONE_FADE)));
+      }
+      g.updateMatrix();
+      this.stones.setMatrixAt(k, g.matrix);
+    }
+    this.stones.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Every puff and stone gone. */
+  private empty(): void {
+    this.dustState.fill(0);
+    this.stoneState.fill(0);
+    this.dustAlpha.fill(0);
+    const dm = this.dust.instanceMatrix.array as Float32Array;
+    for (let k = 0; k < WEAR_DUST; k++) dm[k * 16] = 0;
+    this.dust.instanceMatrix.needsUpdate = true;
+  }
+
+  clear(): void {
+    this.empty();
+    this.live = false;
+    this.ended = null;
+    this.group.visible = false;
+  }
+
+  dispose(): void {
+    this.dustGeometry.dispose();
+    this.dustMaterial.dispose();
+    this.dust.dispose();
+    this.stoneGeometry.dispose();
+    this.stoneMaterial.dispose();
+    this.stones.dispose();
+  }
+}
+
 /** The forces' moments together, on the renderer's scene. The renderer asks each frame for the
  *  eruption's heat (the terrain shader's). */
 export class ForceEffects {
@@ -619,6 +1041,7 @@ export class ForceEffects {
   private rupture = new Rupture();
   private plume = new Plume();
   private glacier = new Glacier();
+  private wear = new Wear();
   private frame = 0;
   private verb: ForceMoment["verb"] | null = null;
   /** The last force is over (kept or dropped): the next moment is a new force's (D378). */
@@ -628,8 +1051,10 @@ export class ForceEffects {
     private readonly scene: Scene,
     private readonly render: () => void,
     private readonly ground: Ground,
+    /** The map's voxels as shown (Erode's stones land on them), or null. */
+    private readonly voxels: () => Voxels | null = () => null,
   ) {
-    scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group);
+    scene.add(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
   }
 
   /** A force's latest moment (from its frame). The first moment after the last force was kept or
@@ -658,6 +1083,10 @@ export class ForceEffects {
       // (its last frame comes the moment its land is final, #275: the ice melts back from where it is)
       if (m.glaciate && m.phase !== "gather" && m.phase !== "done") this.glacier.clockTo(m.glaciate.seconds, m.pace ?? 1, now);
       if (m.phase === "done") this.glacier.finish(now);
+    } else if (m.verb === "erode") {
+      if (this.verb !== "erode" || !this.wear.active) this.wear.begin(m, now);
+      this.wear.cue(m, now, this.voxels());
+      if (m.phase === "done") this.wear.finish(now);
     }
     this.verb = m.verb;
     this.kick();
@@ -670,6 +1099,7 @@ export class ForceEffects {
     this.rupture.finish(now);
     this.plume.finish(now);
     this.glacier.finish(now);
+    this.wear.finish(now);
     this.impact.strike(now);
     this.over = true;
     this.kick();
@@ -688,12 +1118,13 @@ export class ForceEffects {
     this.rupture.clear();
     this.plume.clear();
     this.glacier.clear();
+    this.wear.clear();
     this.verb = null;
   }
 
   /** What plays now (tests): each moment's place and age, or null. */
   showing(now = performance.now()) {
-    return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now) };
+    return { craterize: this.impact.showing(now), quake: this.rupture.showing(now), erupt: this.plume.showing(now), glaciate: this.glacier.showing(now), erode: this.wear.showing(now) };
   }
 
   /** The eruption's heat on the ground now: its age and its cooling (seconds), or null (no eruption
@@ -703,7 +1134,7 @@ export class ForceEffects {
   }
 
   get active(): boolean {
-    return this.impact.active || this.rupture.active || this.plume.active || this.glacier.active;
+    return this.impact.active || this.rupture.active || this.plume.active || this.glacier.active || this.wear.active;
   }
 
   private kick(): void {
@@ -717,6 +1148,7 @@ export class ForceEffects {
     this.rupture.update(now);
     this.plume.update(now, this.ground);
     this.glacier.update(now);
+    this.wear.update(now);
     this.render();
     if (this.active) this.frame = requestAnimationFrame(this.tick);
   };
@@ -724,10 +1156,11 @@ export class ForceEffects {
   dispose(): void {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    this.scene.remove(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group);
+    this.scene.remove(this.impact.group, this.rupture.group, this.plume.group, this.glacier.group, this.wear.group);
     this.impact.dispose();
     this.rupture.dispose();
     this.plume.dispose();
     this.glacier.dispose();
+    this.wear.dispose();
   }
 }

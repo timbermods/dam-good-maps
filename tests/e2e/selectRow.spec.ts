@@ -156,8 +156,8 @@ test("one bar at the bottom: Select, the five brushes, Block, a hairline, the fo
   const tools = page.getByRole("toolbar", { name: "Tools" });
   const forces = page.getByRole("group", { name: "Forces" });
   const options = page.getByRole("group", { name: "Raise options" });
-  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Block", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
-  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate"]);
+  expect(await tools.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Select", "Raise", "Lower", "Flatten", "Smooth", "Naturalize", "Block", "Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate", "Erode"]);
+  expect(await forces.getByRole("button").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()))).toEqual(["Carve", "Craterize", "Erupt", "Rift", "Quake", "Deposit", "Glaciate", "Erode"]);
   // the hairline between the tools and the forces
   const naturalize = await box(tools.getByRole("button", { name: /^Block/ }));
   const carve = await box(tools.getByRole("button", { name: /^Carve/ }));

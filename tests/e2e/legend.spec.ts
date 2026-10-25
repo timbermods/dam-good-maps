@@ -141,3 +141,39 @@ test("the header names the open map: a generated map, then an opened file, the r
   await yours.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await expect(page.locator(".editor-title h1")).toHaveText(name, { timeout: 60_000 });
 });
+
+test("the open legend's Low and High follow the heights when the whole map is raised a level, and back on undo", async ({ page }) => {
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await page.getByRole("checkbox", { name: "Heights" }).click();
+  const legend = await openLegend(page);
+  const ends = legend.locator(".height-ends");
+  const range = () =>
+    page.evaluate(() => {
+      let lo = 255;
+      let hi = 0;
+      for (const h of window.dgm3d!.renderer.mapState()!.heights) {
+        lo = Math.min(lo, h);
+        hi = Math.max(hi, h);
+      }
+      return [lo, hi] as const;
+    });
+  const [lo, hi] = await range();
+  await expect(ends).toHaveText(`Low ${lo}High ${hi}`);
+
+  // the whole map up a level: the legend says the new ends (no tool needed, Select is in hand)
+  const row = page.getByRole("group", { name: "Selection" });
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await row.getByRole("button", { name: "Up 1" }).click();
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const [lo2, hi2] = await range();
+  expect(lo2).toBe(lo + 1);
+  expect(hi2).toBe(hi + 1);
+  // (a moment after the edit, not when the page next sits idle)
+  await expect(ends).toHaveText(`Low ${lo2}High ${hi2}`, { timeout: 1500 });
+
+  // and back with Z
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("z");
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await expect(ends).toHaveText(`Low ${lo}High ${hi}`);
+});

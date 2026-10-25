@@ -319,42 +319,6 @@ export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: St
   return s;
 }
 
-/** An edited import's simulation singletons (EDITOR_PLAN §6, the roofed-water rule): the settled
- *  water of the heightfield on every tile with one floor (slot 0, the other slots empty), and the
- *  file's own water, outflows, moisture, contamination and evaporation, every slot, on the tiles
- *  under roofs (`roofed`: caves, tunnels, overhangs), which the heightfield model cannot simulate.
- *  An array whose length does not fit its own size field is written as the settled one alone. */
-export function mixedSimulationSingletons(file: JsonObject, W: number, H: number, st: SettledState, roofed: ReadonlySet<number>): JsonObject {
-  const fresh = settledSimulationSingletons(W, H, st);
-  const plane = W * H;
-  const out: JsonObject = {};
-  const mix = (singleton: string, slotsKey: string, keys: string[], empty: string): void => {
-    const n = fresh[singleton] as JsonObject;
-    const f = file[singleton];
-    out[singleton] = n;
-    if (!isObject(f)) return;
-    const slots = slotsKey in f ? num(f[slotsKey]) : 1;
-    const arrays = keys.map((k) => (isObject(f[k]) ? String((f[k] as JsonObject).Array).split(" ") : null));
-    if (arrays.some((a) => !a || a.length !== slots * plane)) return;
-    const o: JsonObject = { ...f, [slotsKey]: slots };
-    keys.forEach((k, q) => {
-      const tokens = arrays[q]!;
-      const settled = String((n[k] as JsonObject).Array).split(" ");
-      const merged: string[] = new Array(slots * plane);
-      for (let s2 = 0; s2 < slots; s2++)
-        for (let i = 0; i < plane; i++) merged[s2 * plane + i] = roofed.has(i) ? tokens[s2 * plane + i] : s2 === 0 ? settled[i] : empty;
-      o[k] = { Array: merged.join(" ") };
-    });
-    out[singleton] = o;
-  };
-  mix("WaterMapNew", "Levels", ["WaterColumns", "ColumnOutflows"], "0");
-  mix("SoilMoistureSimulator", "Size", ["MoistureLevels"], "0");
-  mix("SoilContaminationSimulator", "Size", ["ContaminationCandidates", "ContaminationLevels"], "0");
-  mix("WaterEvaporationMap", "Levels", ["EvaporationModifiers"], "1");
-  out.WaterSimulationMigrator = fresh.WaterSimulationMigrator;
-  return out;
-}
-
 export function repeatToken(token: string, n: number): string {
   if (n <= 0) return "";
   return (token + " ").repeat(n - 1) + token;
@@ -457,10 +421,11 @@ export function storedSoilTops(runs: { moisture: SoilSlots; contamination: SoilS
 }
 
 /** The water a map stores (WaterMapNew, every level): one entry per wet column, with its floor
- *  (the token's fourth field; -1 when an old 3-field token has none), depth and badwater share.
+ *  (the token's fourth field; -1 when an old 3-field token has none), depth, badwater share and a full
+ *  cave's pressure (the third field of a token with a floor, `overflow`; else 0).
  *  Empty when the singleton is missing or its array does not fit the map. */
-export function storedWater(singletons: JsonObject, W: number, H: number): { tile: Int32Array; floor: Float32Array; depth: Float32Array; contamination: Float32Array } {
-  const empty = { tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+export function storedWater(singletons: JsonObject, W: number, H: number): { tile: Int32Array; floor: Float32Array; depth: Float32Array; contamination: Float32Array; overflow: Float32Array } {
+  const empty = { tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0), overflow: new Float32Array(0) };
   const wm = singletons.WaterMapNew;
   if (!isObject(wm) || !isObject(wm.WaterColumns)) return empty;
   const tokens = String(wm.WaterColumns.Array).split(" ");
@@ -471,6 +436,7 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
   const floor: number[] = [];
   const depth: number[] = [];
   const contamination: number[] = [];
+  const overflow: number[] = [];
   for (let k = 0; k < tokens.length; k++) {
     const t = tokens[k];
     if (t === "0") continue;
@@ -480,9 +446,10 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
     tile.push(k % plane);
     depth.push(d);
     contamination.push(Number(f[1] ?? 0) || 0);
+    overflow.push(f.length >= 4 ? Number(f[2]) || 0 : 0);
     floor.push(f.length >= 4 ? Number(f[3]) : -1);
   }
-  return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination) };
+  return { tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(contamination), overflow: Float32Array.from(overflow) };
 }
 
 /** The outflows a map stores (`ColumnOutflows`, FORMAT.md §4.3) of each tile's surface water (its

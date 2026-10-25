@@ -1,7 +1,8 @@
 // Check a folder of .timber files the way a probe batch's maps are checked before a launch: every
 // check of the TypeScript validator (the export profile, at the difficulty given) and the Python
 // validator's load checks (prototype/validate.py --load-only), with each map's logs within the
-// starting-logs floor's walk (D224, D227).
+// starting-logs floor's walk (D224, D227). A map made with Dam Good Maps is judged under its theme's
+// thresholds, which the validator reads from the file's description (Islands' water cap, D369).
 //
 //   npx tsx tools/check-maps.ts <folder> [--difficulty normal]
 //

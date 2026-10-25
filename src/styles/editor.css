@@ -13,7 +13,7 @@
 label.button {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   font: inherit;
   border-radius: 6px;
   padding: 8px 12px;
@@ -23,9 +23,9 @@ label.button {
   position: relative;
 }
 
-label.button:focus-within {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+label.button:has(:focus-visible) {
+  outline: max(2px, 0.08em) solid var(--accent);
+  outline-offset: 0.25em;
 }
 
 .settings label.button {
@@ -89,7 +89,7 @@ button[aria-pressed="true"] {
   display: flex;
   border: 1px solid var(--rule);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: clip;
   background: var(--map-bg);
 }
 
@@ -97,7 +97,7 @@ button[aria-pressed="true"] {
   position: relative;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .view3d > canvas {
@@ -110,6 +110,12 @@ button[aria-pressed="true"] {
 .view3d > canvas:focus-visible:not([data-mouse]) {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
+}
+
+/* (the pointer put the focus here: no ring, as the line above means; the browser's own would only be a 1px line at the
+   frame's edge once a key is pressed) */
+.view3d > canvas[data-mouse]:focus-visible {
+  outline: none;
 }
 
 .preview3d {
@@ -168,7 +174,7 @@ button[aria-pressed="true"] {
   width: 44px;
   height: 44px;
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .compass .needle span {
@@ -238,7 +244,7 @@ button[aria-pressed="true"] {
   margin: 0;
   font-size: 1.15rem;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: clip;
   text-overflow: ellipsis;
 }
 
@@ -259,6 +265,7 @@ button[aria-pressed="true"] {
 .editor-main > .shelf {
   border-right: 1px solid var(--rule);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* the map column: the view's area, with the notices as a strip under it when there are any */
@@ -353,7 +360,7 @@ button[aria-pressed="true"] {
   transform: translateX(-50%);
   max-width: min(640px, 90%);
   padding: 8px 14px;
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid var(--accent);
   border-radius: 8px;
   background: var(--overlay);
@@ -375,6 +382,7 @@ button[aria-pressed="true"] {
   border-left: 1px solid var(--rule);
   background: var(--panel);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .orphan {
@@ -467,7 +475,7 @@ button[aria-pressed="true"] {
   inset: 0;
   z-index: 10;
   display: grid;
-  place-items: center;
+  place-items: safe center;
   padding: 16px;
   background: rgba(20, 16, 10, 0.45);
 }
@@ -476,6 +484,7 @@ button[aria-pressed="true"] {
   width: min(560px, 100%);
   max-height: 88vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   border-radius: 10px;
   background: var(--panel);
@@ -591,18 +600,13 @@ button[aria-pressed="true"] {
 
 /* the start's reach while the pointer is on it: it fades when the pointer leaves (D184) */
 .start-reach {
-  transition: opacity 0.6s ease;
+  transition: opacity var(--dur-fade) var(--ease-out);
 }
 
 .start-reach.fading {
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .start-reach {
-    transition: none;
-  }
-}
 
 /* the minimap's corner: the map's lower left, above the hover readout */
 .editor-view .minimap {
@@ -626,7 +630,7 @@ button[aria-pressed="true"] {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* a label moved off its source keeps a thin line to it */
@@ -727,7 +731,8 @@ button[aria-pressed="true"] {
   border-radius: 8px;
   background: var(--overlay);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  min-width: 0;
+  overflow: clip;
 }
 
 .view3d-corner .layer-widget button {
@@ -744,7 +749,7 @@ button[aria-pressed="true"] {
   height: var(--corner-h);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   font-size: 1.25rem;
   padding: 0 8px;
 }
@@ -783,7 +788,7 @@ button[aria-pressed="true"] {
   width: var(--corner-h);
   padding: 0;
   display: inline-grid;
-  place-items: center;
+  place-items: safe center;
 }
 
 /* its volume opens beneath it, so nothing in the cluster moves */
@@ -824,7 +829,7 @@ button.linkish.ow-close,
   flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   box-sizing: border-box;
   width: 24px;
   height: 24px;
@@ -839,16 +844,22 @@ button.linkish.ow-close,
   cursor: pointer;
 }
 
-.icon-close:hover,
 .icon-close:focus-visible,
-button.linkish.ow-close:hover,
-.history-panel .ym-act.hist-close:hover,
 button.linkish.ow-close:focus-visible,
 .history-panel .ym-act.hist-close:focus-visible,
-.dock-notes > * > button[aria-label="Dismiss"]:hover,
 .dock-notes > * > button[aria-label="Dismiss"]:focus-visible {
   background: color-mix(in srgb, var(--ink) 14%, transparent);
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .icon-close:hover,
+  button.linkish.ow-close:hover,
+  .history-panel .ym-act.hist-close:hover,
+  .dock-notes > * > button[aria-label="Dismiss"]:hover {
+    background: color-mix(in srgb, var(--ink) 14%, transparent);
+    color: var(--ink);
+  }
 }
 
 /* in the hints' box the × lies 6px from the right edge, level with the first line */

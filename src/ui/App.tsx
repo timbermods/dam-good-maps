@@ -22,6 +22,7 @@ import {
   decodeSpecFragment,
   defaultSettings,
   encodeSpecFragment,
+  GENERATOR_MIN_SIDE,
   GENERATOR_VERSION,
   makeSpec,
   mineSitesForSize,
@@ -218,6 +219,11 @@ export function App() {
   const [panel, setPanel] = useState<"generator" | "places" | "maps" | null>(null);
   /** The open map's name and its row in Your maps. */
   const [name, setName] = useState("");
+  /** The name typed in the generator's Name box for the next map (null: none); the map Generate makes next takes it, and the
+   *  open map keeps its own name. */
+  const [nextName, setNextName] = useState<string | null>(null);
+  const nextNameRef = useRef<string | null>(null);
+  nextNameRef.current = nextName;
   const [maps, setMaps] = useState<YourMapEntry[]>([]);
   /** Said in the header's second line when Your maps can't keep the map. */
   const [saveState, setSaveState] = useState("");
@@ -318,7 +324,8 @@ export function App() {
   /** A file is the open map: the generator's settings start again from the Any theme's own, at the file's size (a
    *  Generate then makes a new map of that size), and the panel reads "–" for them until one is set. */
   function settingsOfFile(info: SessionInfo) {
-    const z = { x: Math.max(48, Math.min(256, info.W)), y: Math.max(48, Math.min(256, info.H)) };
+    const least = GENERATOR_MIN_SIDE.any;
+    const z = { x: Math.max(least, Math.min(256, info.W)), y: Math.max(least, Math.min(256, info.H)) };
     setBlank(true);
     setSeedText("");
     setSeedPinned(false);
@@ -406,6 +413,8 @@ export function App() {
     keeping.current = true;
     setSaveState("");
     nameRef.current = e.name;
+    // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
+    if (!keepView) setNextName(null);
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
@@ -842,7 +851,23 @@ export function App() {
       made++;
       performance.mark("dgm:generated");
       // the map is the editor's from the start: there is no step between making it and shaping it
-      enterEditor(await replacing(() => (shared ? generator.openProject(r.project) : generator.refine()), shared), { kind: "generated" });
+      let fresh = await replacing(() => (shared ? generator.openProject(r.project) : generator.refine()), shared);
+      // (the name typed in the generator's panel names this map, not the one it replaces)
+      const typed = nextNameRef.current?.trim();
+      let named = false;
+      if (typed) {
+        const { result, info } = await generator.setName(typed);
+        if (result.ok) {
+          fresh = { ...fresh, info };
+          named = true;
+        }
+      }
+      enterEditor(fresh, { kind: "generated" });
+      // (a name given keeps the map in Your maps, as a rename does)
+      if (named) {
+        kept.current = true;
+        saver.changed(entry.current!.id, snapshot);
+      }
       performance.mark("dgm:opened");
       searchVersion(r);
       setMaking(null);
@@ -1108,7 +1133,8 @@ export function App() {
     onCompareMap: (id) => void compareWith(id),
     openSize: session ? { w: session.W, h: session.H } : undefined,
     name,
-    onRename: rename,
+    nextName,
+    onNextName: setNextName,
   };
 
   // the confirm dialog: focus on Cancel, or on its yes when it says so (a delete: Enter confirms), or on Download project

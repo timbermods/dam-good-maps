@@ -462,5 +462,53 @@
     "gainDb": 3.5,
     "bytes": 73772,
     "sha256": "456d3f29fe8a9821da507d550d1e305087b583c26769ad8d65f7f3e5acfb1e4c"
+  },
+  {
+    "id": "grind-bed",
+    "file": "audio/grind-bed.mp3",
+    "provenance": "vrymaa",
+    "sources": [
+      {
+        "file": "scrape-vrymaa.mp3",
+        "sha256": "95e0a7b97fd6096565ea7486b53a6e07b4d9bd3eb5995ea155170b96a574146d"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), from 0.5s, 2.0s; mono 48 kHz; one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; 1/15 ms edge fades; MP3 256 kbps; used as the grinding wear (a held loop) (D281).",
+    "duration": 2.0,
+    "gainDb": -2.5,
+    "bytes": 66092,
+    "sha256": "9494ceb3b5a34fe800d35d513dc8634aabb82a2598f8c6626505169b5e61fc86"
+  },
+  {
+    "id": "rocks",
+    "file": "audio/rocks.mp3",
+    "provenance": "adamgryu",
+    "sources": [
+      {
+        "file": "rocks-adamgryu.mp3",
+        "sha256": "55857f7eca1d95fd4826e643c7ed9d95944145d945398b652e25f0d9d8c9e358"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), from 0.0s, 4.0s; mono 48 kHz; one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; 1/15 ms edge fades; MP3 256 kbps; used as falling stone (landings) (D281).",
+    "duration": 4.0,
+    "gainDb": -8.31,
+    "bytes": 129836,
+    "sha256": "2db689e7e3a6ce5d902b9e5564ca01891536f1621a25f5493450f3e0d81e2cf2"
+  },
+  {
+    "id": "rockfall",
+    "file": "audio/rockfall.mp3",
+    "provenance": "iwanplays",
+    "sources": [
+      {
+        "file": "rockfall-iwanplays.mp3",
+        "sha256": "6fdc4ecbc4c1140d9354a64575892f57a5d476cf8b8421fdd2daa90a401342e4"
+      }
+    ],
+    "edits": "Freesound's public HQ MP3 preview (investigation/erode), from 0.0s, 3.0s; mono 48 kHz; one linear gain to -19 dBFS in the strongest 100 ms, peak capped at -2 dBFS; 1/15 ms edge fades; MP3 256 kbps; used as falling stone (landings and the closing fall) (D281).",
+    "duration": 3.0,
+    "gainDb": -7.38,
+    "bytes": 97580,
+    "sha256": "3b54abf67942b7a20f171bc7f700f6063824e1311d5e123769b8babf6a7fbc21"
   }
 ]

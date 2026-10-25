@@ -25,7 +25,7 @@ export type LayerKind = "none" | "badwater" | "roofed";
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
   badwater: "Badwater",
-  roofed: "Water under roofs",
+  roofed: "Caves and overhangs",
 };
 
 /** The colours the water layers lay over the map (red, green, blue, alpha out of 255): the overlay and its caption's
@@ -60,7 +60,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
         </>
       ) : kind === "roofed" ? (
         layers.roofed.length ? (
-          <CaptionRow color={LAYER_COLORS.roofed}>Caves and overhangs, left as they are</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.roofed}>Caves or overhangs, which the tools leave as they are</CaptionRow>
         ) : (
           <p>No caves or overhangs on this map.</p>
         )

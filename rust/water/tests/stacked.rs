@@ -143,9 +143,16 @@ fn malformed_unknown_and_stale_handles_refuse() {
     assert!(s.op(100, 0.0, 0.0).is_err());
     assert!(s.op(1, -1.0, 1.0).is_err());
     assert!(s.op(1, 1.0, f64::NAN).is_err());
-    let e = s.engine.as_mut().unwrap();
+    let e = s.engine_mut().unwrap();
     let Flow::Flat(f) = &mut e.flow else { panic!() };
     f.d[0] = f64::NAN;
+    assert!(s.op(1, 1.0, 1.0).is_err());
+    // a run trusts the state it wrote, until a view of it is handed out
+    let mut s = Session::new(2, 2, 0, 0).unwrap();
+    s.op(0, 0.0, 0.0).unwrap();
+    s.op(1, 1.0, 1.0).unwrap();
+    let (p, _) = s.field(6).unwrap();
+    unsafe { *(p as *mut f64) = f64::NAN };
     assert!(s.op(1, 1.0, 1.0).is_err());
     let id = stack_memory::stack_create(2, 2, 0, 0);
     assert_ne!(id, 0);

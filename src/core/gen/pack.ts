@@ -9,11 +9,14 @@
 import { entityJson, type EntitySpec } from "../format/entities";
 import type { JsonObject } from "../format/json";
 import { mapMetadata, writeTimber, type TimberFile } from "../format/timber";
-import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, mixedSimulationSingletons, settledSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
+import { EDITOR_MAX_HEIGHT, emptySimulationSingletons, GAME_VERSION, generatedTallSentence, LAYERS, settledSimulationSingletons, stackedSimulationSingletons, voxelsFromHeights, type SettledState, type WorldModel } from "../format/world";
 import { thumbnailJpeg } from "../render/shade";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
-import type { BuildResult } from "../features/build";
-import { GENERATOR_VERSION, THEME_NAMES, type MapSpec } from "../spec/mapspec";
+import { toMapObject, type BuildResult } from "../features/build";
+import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
+import { stackedSoil } from "../sim/soil";
+import { ColumnTerrain } from "../terrain/runs";
+import { GENERATOR_VERSION, THEME_NAMES, THEMES, type MapSpec, type ThemeId } from "../spec/mapspec";
 
 /** Written into world.json; never read by the game (FORMAT.md §4.1). Fixed so files reproduce. */
 export const TIMESTAMP = "2026-01-01 00:00:00";
@@ -72,6 +75,18 @@ export function description(spec: MapSpec, built?: Pick<BuildResult, "heights" |
   return out.join(" ");
 }
 
+/** The theme a map made with Dam Good Maps says it has: its description, as `description` writes it,
+ *  opens with the theme's name ("A map" for Any) and closes on "Made with Dam Good Maps <version>,
+ *  seed <n>." Null for any other map (an official one, a real place, a description edited away). An
+ *  opened file's checks use its theme's thresholds with it (Islands' water cap, D369). */
+export function generatedThemeOf(text: string): ThemeId | null {
+  if (!/Made with Dam Good Maps \d[^,\s]*, seed \d+\./.test(text)) return null;
+  const head = /^(.+?), \d+×\d+, designed for (easy|normal|hard)\./.exec(text.trimStart());
+  if (!head) return null;
+  if (head[1] === "A map") return "any";
+  return THEMES.find((t) => t !== "any" && THEME_NAMES[t] === head[1]) ?? null;
+}
+
 export interface PackOptions {
   /** Write no water, moisture or contamination: the game fills the rivers in about a day. */
   emptyWater?: boolean;
@@ -98,18 +113,25 @@ export function builtWater(built: BuildResult): FileWater {
   };
 }
 
-/** An opened map's file, which an export rewrites (doc/session.ts): its world as opened, its voxels
- *  with the edited ground, and the tiles under roofs (caves, tunnels, overhangs), where the
- *  heightfield's water cannot go and the file's own stays. */
+/** An opened map's file, which an export rewrites (doc/session.ts): its world as opened and its
+ *  voxels with the edited ground. */
 export interface OpenedWorld {
   world: WorldModel;
   voxels: Uint8Array;
-  roofed?: ReadonlySet<number> | null;
 }
 
 /** The singletons an opened file's export rewrites with the settled water: every other singleton
  *  stays as the file has it. */
 const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "WaterMapNew", "SoilMoistureSimulator", "SoilContaminationSimulator"];
+
+/** An opened file's singletons with its water and soil from `water` (the singletons a settle
+ *  writes), every other singleton as the file has it. */
+export function withWaterSingletons(file: JsonObject, water: JsonObject): JsonObject {
+  const out: JsonObject = {};
+  for (const k in file) out[k] = WATER_SINGLETONS.includes(k) ? water[k] : file[k];
+  for (const k of WATER_SINGLETONS) if (!(k in out)) out[k] = water[k];
+  return out;
+}
 
 /** The one path to a file's world (PLAN §19.7): a heightfield map's ground, its objects, and its
  *  settled water and soil (`water`, from one settle: `FileWater`).
@@ -117,20 +139,12 @@ const WATER_SINGLETONS = ["WaterEvaporationMap", "WaterSimulationMigrator", "Wat
  *    voxels from the heights, the settled singletons (none written when `water` is null: the game
  *    fills the rivers itself) and the entities.
  *  - An opened map (`opened`) keeps everything it holds but its ground, its objects and, unless
- *    `water` is null, its water and soil: the heightfield's settled water everywhere, the file's own
- *    under roofs (world.ts `mixedSimulationSingletons`); with `water` null its own water stays. */
+ *    `water` is null, its water and soil (a map with caves or overhangs writes its own: doc/session.ts
+ *    `exportFile`); with `water` null its own water stays. */
 export function worldOf(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], water: FileWater | null, opened?: OpenedWorld): WorldModel {
   if (opened) {
     const w = opened.world;
-    let singletons = w.singletons;
-    if (water) {
-      const roofed = opened.roofed?.size ? opened.roofed : null;
-      const s = roofed ? mixedSimulationSingletons(w.singletons, W, H, water, roofed) : settledSimulationSingletons(W, H, water);
-      const out: JsonObject = {};
-      for (const k in w.singletons) out[k] = WATER_SINGLETONS.includes(k) ? s[k] : w.singletons[k];
-      for (const k of WATER_SINGLETONS) if (!(k in out)) out[k] = s[k];
-      singletons = out;
-    }
+    const singletons = water ? withWaterSingletons(w.singletons, settledSimulationSingletons(W, H, water)) : w.singletons;
     return { ...w, voxels: opened.voxels, singletons, entities: entities.map(entityJson) };
   }
   return {
@@ -159,7 +173,26 @@ export function timberFileOf(world: WorldModel, heights: Uint8Array, description
 }
 
 export function toWorld(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): WorldModel {
-  return worldOf(built.W, built.H, built.heights, built.entities, opts.emptyWater ? null : builtWater(built));
+  const world = worldOf(built.W, built.H, built.heights, built.entities, opts.emptyWater ? null : builtWater(built));
+  return built.waterModel.stacked ? stackedWorld(world, built, !!opts.emptyWater) : world;
+}
+
+/** A new map with terrain above terrain (a generated map's 3D forms, D488, or the Block tool's caves on
+ *  one): its voxels as the build's runs, and its water on every water column and its soil on every
+ *  run (D120), as the game saves such a map (world.ts `stackedSimulationSingletons`), from the build's
+ *  stacked settle; with `empty`, no water, as a heightfield's empty copy. */
+export function stackedWorld(world: WorldModel, built: BuildResult, empty: boolean): WorldModel {
+  const { W, H } = built;
+  const terrain = new ColumnTerrain(W, H, built.waterModel.stacked!.mask);
+  const voxels = terrain.voxels(LAYERS);
+  const stack = built.settle.stack;
+  if (empty || !stack) return { ...world, voxels };
+  const objects = built.entities.map(toMapObject);
+  const cols = waterColumns(terrain, objects);
+  if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
+  const soil = stackedSoil(terrain, cols, stack, objects);
+  const singletons = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });
+  return { ...world, voxels, singletons };
 }
 
 export function toTimberFile(spec: MapSpec, built: BuildResult, opts: PackOptions = {}): TimberFile {

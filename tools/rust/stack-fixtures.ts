@@ -2,9 +2,39 @@
 // the engine receives only Rust-owned typed arrays, one call per operation.
 import { gunzipSync } from 'fflate';
 import data from '../../tests/golden/stacked-water.json' with { type: 'json' };
-import { StackWater as StackMemory } from '../../src/core/sim/stackWater';
+import { canonicalStackRun, StackWater as StackMemory, type StackSettle } from '../../src/core/sim/stackWater';
+import type { RetainedWater } from '../../src/core/sim/water';
 export const stackFixtures = data.cases;
 export function inputBytes(f: typeof stackFixtures[number]) { return gunzipSync(Uint8Array.from(atob(f.inputGzip), c => c.charCodeAt(0))); }
+/** A fixture's map, for the app's canonical settle (stackWater.ts `canonicalStackRun`): its terrain's masks,
+ *  its objects' rows and its retained water. */
+export function fixtureMap(f: typeof stackFixtures[number]): { w: number; h: number; mask: Uint32Array; objects: Float64Array; retained: RetainedWater[] } {
+    const b = inputBytes(f);
+    const d = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const [w, h, o, r] = [0, 4, 8, 12].map(i => d.getUint32(i, true));
+    const mask = new Uint32Array(w * h);
+    let p = 20;
+    for (let i = 0; i < w * h; i++, p += 4) mask[i] = d.getUint32(p, true);
+    const objects = new Float64Array(8 * o);
+    for (let i = 0; i < objects.length; i++, p += 8) objects[i] = d.getFloat64(p, true);
+    const kept = { tiles: [] as number[], floor: [] as number[], depth: [] as number[], contamination: [] as number[] };
+    for (let i = 0; i < r; i++, p += 32) {
+        kept.tiles.push(d.getFloat64(p, true));
+        kept.floor.push(d.getFloat64(p + 8, true));
+        kept.depth.push(d.getFloat64(p + 16, true));
+        kept.contamination.push(d.getFloat64(p + 24, true));
+    }
+    return { w, h, mask, objects, retained: r ? [kept] : [] };
+}
+/** The app's canonical settle of a fixture's map, in the worker's slices of 16 ticks: on several threads
+ *  where this thread has a pool (src/core/sim/stackParallel.ts). */
+export function settleFixture(f: typeof stackFixtures[number]): StackSettle {
+    const { w, h, mask, objects, retained } = fixtureMap(f);
+    const run = canonicalStackRun(w, h, { mask, objects }, retained);
+    let s = run.advance(16);
+    while (!s) s = run.advance(16);
+    return s;
+}
 export function runStackFixture(f: typeof stackFixtures[number], slice = 10000000) {
     const bytes = inputBytes(f);
     const d = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

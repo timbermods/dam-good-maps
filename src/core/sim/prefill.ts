@@ -33,7 +33,7 @@
 import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
-import { canonicalStackRun, type StackSettle } from "./stackWater";
+import { CAVE_REFUSALS, canonicalStackRun, settledAgain, type StackSettle } from "./stackWater";
 import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
@@ -198,12 +198,39 @@ export interface CanonicalWater extends SettleResult {
   stack?: StackSettle;
 }
 
+/** A settle to start from: the canonical settle `water` of the water model `model`. */
+export interface SettledFrom {
+  model: WaterModel;
+  water: CanonicalWater;
+}
+
 /** The canonical settle of a model with terrain above terrain (`WaterModel.stacked`, D120), in
  *  slices: the stacked-column engine's (stackWater.ts), told as `canonicalRun` tells a heightfield's,
- *  so whoever shows progress shows it the same way. The water a removal drained has no stacked rule
- *  yet and is refused. */
-function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
-  if (m.drained?.length) throw new Error("Removing unfed water is not worked out for a map with caves or overhangs yet");
+ *  so whoever shows progress shows it the same way. When `from` is the canonical settle of the map
+ *  before an edit that left the water provably as it was (stackWater.ts `settledAgain`), that settle is
+ *  the answer at once, the same bytes. The water a removal drained has no stacked rule yet and is refused. */
+function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+  if (m.drained?.length) throw new Error(CAVE_REFUSALS.removeUnfed);
+  const top = (s: StackSettle): CanonicalWater => {
+    const N = m.W * m.H;
+    const depth = new Float64Array(N);
+    const contamination = new Float64Array(N);
+    const sat = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!s.count[i]) continue;
+      const c = (s.count[i] - 1) * N + i;
+      depth[i] = s.depth[c];
+      contamination[i] = s.contamination[c];
+      sat[i] = s.sat[c];
+    }
+    return { settled: s.settled, ticks: s.ticks, depth, contamination, sat, stack: s };
+  };
+  const prev = from && !from.water.preview && from.water.stack ? from.water.stack : null;
+  const again = prev ? settledAgain(prev, from!.model, m) : null;
+  if (again) {
+    const done = top(again);
+    return { advance: () => done, ticks: again.ticks, maxTicks: Math.max(1, again.ticks) };
+  }
   const run = canonicalStackRun(m.W, m.H, m.stacked!, m.retained);
   let done: CanonicalWater | null = null;
   return {
@@ -211,18 +238,7 @@ function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | n
       if (done) return done;
       const s = run.advance(ticks);
       if (!s) return null;
-      const N = m.W * m.H;
-      const depth = new Float64Array(N);
-      const contamination = new Float64Array(N);
-      const sat = new Uint8Array(N);
-      for (let i = 0; i < N; i++) {
-        if (!s.count[i]) continue;
-        const c = (s.count[i] - 1) * N + i;
-        depth[i] = s.depth[c];
-        contamination[i] = s.contamination[c];
-        sat[i] = s.sat[c];
-      }
-      done = { settled: s.settled, ticks: s.ticks, depth, contamination, sat, stack: s };
+      done = top(s);
       return done;
     },
     get ticks() {
@@ -240,10 +256,10 @@ function stackedRun(m: WaterModel): { advance(ticks: number): CanonicalWater | n
  *  `DRAIN_DAYS`). The same input always gives the same bytes. A sealed basin's
  *  evaporation is not the water changing: the settle stops at the first check where only that
  *  still changed (`steadyTicks`, D222, D413), and every sealed basin at its last check (water.ts
- *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). */
-export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}): CanonicalWater {
+ *  `sealedBasins`) is stored as the pre-fill started it (`keepSealed`). `from`: as `canonicalRun`'s. */
+export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): CanonicalWater {
   if (!m.stacked && canonicalBackend) return canonicalBackend(m, prefill(m), opts);
-  const run = canonicalRun(m, opts);
+  const run = canonicalRun(m, opts, from);
   let r = run.advance(Infinity);
   while (!r) r = run.advance(Infinity);
   return r;
@@ -261,10 +277,11 @@ export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState,
 
 /** The canonical settle in slices (`advance` runs at most the ticks it is given): the editor's
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
- *  equals `canonicalSettle`'s. */
-export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
+ *  equals `canonicalSettle`'s. `from`, the map's last canonical settle, may answer a stacked model at
+ *  once (`stackedRun`). */
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; readonly ticks: number; readonly maxTicks: number } {
   // terrain above terrain settles in the stacked engine; a heightfield (no `stacked`) below, as ever
-  if (m.stacked) return stackedRun(m);
+  if (m.stacked) return stackedRun(m, from);
   const start = prefill(m);
   let sim = new WaterSim(m, start, opts);
   const sealed = sealedTiles(m);

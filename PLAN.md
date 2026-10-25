@@ -74,8 +74,9 @@ fixed `mtime`, and the thumbnail comes from the `jpeg-js` encoder in the worker 
 3D picture as the thumbnail (D488), the one entry that depends on the GPU. Hosting is GitHub Pages from GitHub
 Actions (`timbermods.github.io/dam-good-maps/`); Pages cannot set response headers, so the site's one service worker
 (`public/sw.js`, D397) adds COOP/COEP and a first visit reloads once (`src/platform/isolation.ts`): the page is then
-cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up runs on several threads over
-`SharedArrayBuffer` (`src/core/sim/parallel.ts`, byte-identical to one thread); other parallel work runs as independent
+cross-origin isolated and, in Chromium and Firefox, the live water of maps 256² and up, and the background settle of
+maps with caves or overhangs from 128² up, run on several threads over `SharedArrayBuffer` (`src/core/sim/parallel.ts`,
+`src/core/sim/stackParallel.ts`, byte-identical to one thread); other parallel work runs as independent
 workers. The same worker keeps the build's content-hashed scripts, styles and Wasm (`assets/`, at most 64 files per
 scope) so a return visit opens without downloading them again (D367); pages, projects, maps, sounds, the roadmap and
 anything with a query or range always come from the network. On a host that sends the headers itself the page registers
@@ -232,7 +233,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Values | Default | Notes |
 |---|---|---|---|
 | Seed | 0 – 4,294,967,295 | random | Also accepted as text, hashed to a number ("beaver" is a valid seed). |
-| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed. Maps too small or thin for a start are refused with a one-line reason until the generator shapes for them (D357 part 2). |
+| Size | Small 96², Medium 128², Large 192², Max 256², Custom | Medium | Custom width and height are each 4–512 (D357; the game's own dialog allows 4–256, and beyond 256 a side the setting warns that Timberborn's map editor can't open the map; it never refuses). Non-square is allowed, and the generator uses the shape: a map 1.5 times as long as wide or more gets its water down its length and its start at an end or the middle by theme (D357 part 2). Generate refuses a side under the theme's least (48, Islands 64) at once with a one-line reason naming it; a smaller map is still made by hand. |
 | Theme | Any (Surprise me), River Valley, Canyon, Highlands, Lake Basin, Delta, Islands | Any | A theme only leans the generator (§6, §8). |
 | Designed for | Easy, Normal, Hard | Normal | The in-game difficulty the map is balanced for: it sets the start rules and drought sizing (§5.6). The map works on any difficulty; the card warns if you pick Hard for a map designed for Easy. |
 
@@ -816,9 +817,10 @@ has run for a day, and maps are written pre-filled with it, as official maps are
 stacked-column rules (sideways flow between overlapping gaps, pressure (overflow × 8), the overflow cap of (34 −
 ceiling)/8, and roofs); on heightfields it moves no wet tile; on the official cave maps wet columns agree at IoU ≥ 0.99
 on 17 of 19 (Oasis and Spillage hold aquifer and seep water no steady state shows); the pre-fill is a priority flood
-over the graph of gaps. Imported maps can still have water the port cannot show (Cliffside 24 wet cells under roofs,
-Canyon 180, Terraces 473): there the editor keeps the file's saved water and marks the preview approximate
-(EDITOR_PLAN.md, Checks and water). Only the steady state is used. The port was also checked against a game save
+over the graph of gaps. An imported map with caves or overhangs is settled by that engine once it is edited, on
+every water column (`sim/stackWater.ts`, the Rust engine; D448), in the background, and its file gets the settle
+slot by slot with the soil per run top; unedited, it keeps its file's own water (EDITOR_PLAN.md, Checks and
+water). Only the steady state is used. The port was also checked against a game save
 written with mods active (none known to touch water); in-game check B confirms the result on vanilla.
 
 **Drought.** Sources ramp to 0 for the whole drought. The drought check is analytic (`sim/drought.ts`, D29): water
@@ -882,7 +884,7 @@ its `start.dry` fails by its own design (decisions-pending #48).
 
 ### 11.1 File
 
-`file.size` (4 ≤ W, H ≤ 512; the generator 48 or more); `file.layers` (exactly 23 voxel layers); `file.version`
+`file.size` (4 ≤ W, H ≤ 512; the generator its theme's least side or more, 48, Islands 64, `GENERATOR_MIN_SIDE`); `file.layers` (exactly 23 voxel layers); `file.version`
 (`GameVersion` and `version.txt` equal `1.1.2.4-52e959e-sw`; any `1.1.x` for external files); `file.singletons`
 (MapSize, TerrainMap, WaterMapNew, SoilMoistureSimulator, SoilContaminationSimulator, WaterEvaporationMap and
 `WaterSimulationMigrator{IsMigrated:true}` present); `file.arrays` (every packed array holds exactly `W·H·Levels`
@@ -912,7 +914,7 @@ contamination under 0.05.
 | Id | Rule |
 |---|---|
 | `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222, D413): a sealed basin that is only evaporating (a carve's oxbow lake or a Fill: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, the volume change measured against the rest; the canonical settle stops there (§10). Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
-| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
+| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.source_in_flow` | Sources start rivers (D171): no WaterSource or BadwaterSource stands where water from another source comes down to it. Emitters whose tiles touch are one group (a sealed mouth, a cluster at a river's head). Water runs down the spill levels, across a flat toward its way out and never back, and all through a pool. A group is inside a flow when a running group's water reaches one of its sources and its own water does not reach that group back. Design class. |

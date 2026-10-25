@@ -43,7 +43,7 @@ The generator:
   **File → Download project** keeps the map for editing later.
 
 The editor:
-- Middle-drag turns the view, right-drag moves it, scroll zooms. WASD and the arrow keys move, Q and
+- Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer. WASD and the arrow keys move, Q and
   E turn, Shift is faster.
 - Paint the ground with the brushes in the bar at the bottom: **Raise**, **Lower**, **Flatten**, **Smooth** and
   **Naturalize** (keys 2–6). Drag on the map to paint.
@@ -64,7 +64,7 @@ The editor:
 - A **Lower** stroke that starts in or next to water carves a bed the water follows. Its ring turns
   blue.
 - The forces reshape the land in one gesture: **Carve** (Shift+1) a river, **Craterize** (Shift+2) an impact crater,
-  **Erupt** (Shift+3) a volcano, **Rift** (Shift+4) a crack that drops the land, **Quake** (Shift+5) a fault, **Deposit** (Shift+6) a fan of sediment and **Glaciate** (Shift+7) a glacial valley. Click the map, or draw a path, a fault or a loop.
+  **Erupt** (Shift+3) a volcano, **Rift** (Shift+4) a crack that drops the land, **Quake** (Shift+5) a fault, **Deposit** (Shift+6) a fan of sediment, **Glaciate** (Shift+7) a glacial valley and **Erode** (Shift+8) caves and arches. Click the map, or draw a path, a fault or a loop.
 - Each force has **Power**, and all but Quake a **Size**: hold F and move the mouse for Size, hold F and scroll or press [ and ] for
   Power. Every setting shows; **Auto** lets the land decide one. **Try another** gives a different result.
 - **Slow forces** plays a force out slowly. Esc skips it to its end, and Ctrl+Z takes it back.

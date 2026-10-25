@@ -506,6 +506,7 @@ the gallery grown to about 150 places. Kyler sees a contact sheet of the whole g
 **Meanwhile (D421, amended by D445, done):** the gallery shows every place; the 33 whose start reaches no fed water (the recorded
 `start.water` fault, `src/core/places/place.ts`) carry the card note "No reachable water" until round 2 fixes them.
 `tools/real-places.ts` runs again and the cards are re-rendered. Plants on dry soil and berry shortfalls wait for round 2.
+The nightly runs `npm run places -- --check` and fails when `public/real-places` differs from a fresh build (2026-10-15: it matched): run `npm run places` and commit.
 
 **Blocking:** every map passes the validators and exports, the page works on desktop and phone, D151 (no edge walls), and the
 starting-logs floor (D224, D227: at least 178 logs within 40 tiles' walk of the start). Only those, and the file playing
@@ -610,7 +611,13 @@ layer cut the clipped columns are drawn, a cap only where rock crosses the cut, 
 overhangs, lit as without the cut; maps without caves draw with the same program as before (`cutaway.test.ts`). Part
 3, soil per run top (`render3d/runSoil.ts`): a cave's floor takes its own run's moisture, contamination and water from
 a run texture the worker's per-run soil fills, soil3d's value for every run top; maps without caves build no texture
-and draw with the same program (`runSoil.test.ts`). Next: the masks from the worker, water per column.
+and draw with the same program (`runSoil.test.ts`). Items 7 and 8, caves that read: stone on ceilings, cave interiors
+murky but never near-black, objects and falls under roofs in the cave's light, and Standard's baked shadow cast from
+the voxels on maps with terrain above terrain (`light.ts` `shadowRock`); maps without caves draw exactly as before.
+Part 4, water per column (`render3d/waterLayers.ts`): every water column is drawn on its own floor under its ceiling,
+seeing the water and ground at its own level (a cave's pool its cave, the lake on the roof its roof), so no water or
+fall is drawn through rock, and water under a roof takes the cave's light; maps without caves draw their water byte
+for byte as before (`waterLayers.test.ts`). Next: the masks from the worker.
 
 **Delivers**
 1. One mesher for runs with undersides, in both looks, sky light and sun visibility in 3D, water
@@ -745,15 +752,14 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    left with their dry sides and the level it stands at, the beds it uncovers (and whether each whole body dries out),
    and the start's water (the bodies its pumps draw from within its water rule's walk). `core/doc/droughtLine.ts`
    `mapDroughtLine` asks it of the open map; the worker sends it on its own channel (`watchDroughtLine`) when the
-   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves gets one line
-   instead ("The drought line isn't worked out for maps with caves yet").
+   drought's last day is kept, in the background after each edit (`prepareWeather`). A map with caves or overhangs has
+   its line too, both days read on each tile's column standing on its ground (item 3).
    **Built (the drawing):** `render3d/droughtLine.ts` (geometry in `droughtLineGeometry.ts`, set by the page through
    `renderer.setDroughtLine`): a faint amber line along each shore side at the last day's water level (a thin strip flat
    at that height and one upright on the bank, so it reads from above and from the side, through today's water where
    that stands higher), a faint amber tint over the beds that dry out completely, both a little stronger on the start's
    water. One mesh built once per line, drawn in both looks, not drawn while a Drought or Badtide day is held, and put
-   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing. **Next:** the
-   refusal's words on the page, and the line on maps with caves.
+   away at the next edit (or terrain change) until the new map's line comes; a refused line draws nothing.
 2. **The High look's contamination veins** in the Badtide view (which tiles are contaminated), **the Unstable Core's moment**
    in its timeline (D339), and the High look's **visible seasons** with D250's badtide withering, built on the day-by-day
    display (D286 (4)).
@@ -768,7 +774,7 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    (pine 13, birch 11, oak 15, blueberry 9; the run resets when moisture returns; succulents exempt) or on contaminated
    soil for two days running (any plant, the game's 0.2 to 0.3 days, reset if it leaves), and dead for good once dead. So a normal
    drought's 9 days kill no pine, birch or oak; a badtide kills on every tile its poison stays on. The worker adds the held day's dead tiles to its held-day event
-   (each day's soil is worked out on demand, once, from the last one cached; none on a map with caves until the stacked engine gives day soil, #404); the renderer moves those plants to the dead batches in place
+   (each day's soil is worked out on demand, once, from the last one cached; none yet on a map with caves, whose day soil, per run top, is worked out on the session worker, #404); the renderer moves those plants to the dead batches in place
    (`Forest.setDead`), with one shadow bake once stepping settles. Day 0 and Standard show the map as it is. **The rest of #67's stage 4** (High only, each its own
    effect in the Look menu's Finishing touches, `high/seasons.ts`): on a held drought day, pale dusty dry ground with straw
    where grass stood, read from the day's soil and water and the map's own soil (a tile mask, nearest-sampled), and a heat
@@ -782,6 +788,12 @@ strip, Speed, the start's-water marker and hover notes, on their own branch (`fe
    "2 to 7 days before cycle 5's drought or badtide" on Normal), lit while the day shown is one it may go off on. `core/sim/coreMoment.ts`
    (pure; `tests/unit/coreMoment.test.ts`). **Open:** the held day is drawn as the map is now, never after the explosion;
    a core placed by hand with other days is read at the game's default days until the page's core options exist.
+3. **On every import** (#391): Drought, Badtide and the drought line run on a map with caves or overhangs too, on the
+   stacked-column engine (`sim/stackWater.ts` `StackRun`, the same sources-stop, badwater and evaporation rules on every
+   water column), from the water the map shows (an unedited import's own); each day's soil per run top. On a map with no caves the stacked weather is
+   the heightfield's, bit for bit. Only Fill and Remove unfed water are still refused on such maps (`cavesOf`).
+   Probe, when one is next worth asking for (D483): an edited cave import as the app exports it, played through a drought
+   (the PR, #391's, says what it plays and checks).
 
 The map card says nothing about droughts or badtides (D472). Every claim traces to the model and a verified rule, and never
 promises colony survival (the catalogue's limit: economic timing is unverified).
@@ -947,7 +959,8 @@ At the end of step 1, after the Weather view. Any width and height from the game
 side: the standard sizes, a few named shapes ("Long river" 128×512, "Strip" 64×512, "Wide valley" 512×256) and custom
 boxes; share links carry the exact size. The generator uses the shape (a long river along a long map, a chain of islands
 down a strip, a canyon running its length, the start placed to suit the shape per theme), and item 47's must-haves scale
-with the map while the absolutes never relax. Curves are checked at 512² too (rivers, coasts, Delta's arms): M9b's 256² check found river meanders in absolute tiles, so they don't straighten, but 512² couldn't be checked while MapSpec capped sizes at 256. What grows with area may take longer beyond the standard sizes; what the
+with the map while the absolutes never relax. Generating beyond 256 a side waits (D488): its shapes, curves at 512²
+(rivers, coasts, Delta's arms) and its speed are later work; unusual shapes up to 256 come first. What grows with area may take longer beyond the standard sizes; what the
 player feels stays at the standard. The camera and minimap fit any shape. Beyond
 256 on a side the setting warns that Timberborn's own editor can't open the map and the game may run slower; it never
 refuses. **First, a probe batch** (on Kyler's YES, from the probe folder): 512×512, 128×512, 64×512 and 512×256 maps
@@ -986,11 +999,24 @@ reported. PLAN §20 D357 has the whole decision.
   walks the whole map on the page's thread (`surfaceWater`, `waterMovedChunks`, and the arrays copied to the water workers),
   about 6 ms at 512x512 while painting; making it proportional to the change needs the worker's water updates to name the
   tiles that changed. There is no cave light volume (`caveLight.ts`) in the tree yet; it needs its own check at 512x512 when it lands.
-- **Part 2 (next, Opus):** the shape-aware generator (long rivers, island chains, the start per shape, must-haves scaled)
-  and the named shapes ("Long river", "Strip", "Wide valley") in the size setting. Generating: part 1 refuses under 48 a
-  side as an interim. Part 2 lowers the floor to the smallest shape where the absolutes still hold (the starting-logs
-  floor, a start with its water), refused below that with its one-line reason; the size stays choosable from 4 for a map
-  shaped by hand (D357). 512² may take minutes to generate (D357), but the page never freezes and shows progress (D453).
+- **Part 2 (`feature/custom-sizes-2`):** the generator uses the shape, from its floor to 256 a side (D488: sizes above 256
+  wait, since the game's editor can't open them; they open, edit and export as part 1 made them). A map 1.5 times as long
+  as wide or more is a long map (`src/core/land/shape.ts`): its land falls along its length as steeply per tile as a
+  square map's across it, and at least half as far as its broad highs and noise rise; it is worn toward its far end; its
+  river enters at its near end and its water's way keeps off the long sides to the far end; so River Valley, Canyon,
+  Highlands, Delta and Any get a river down the length (Delta's fan in its last stretch, about as long as the map is
+  wide); Lake Basin's lake runs down it; Islands is a chain of islands down it from a mainland at one end that runs on
+  as a shore half as deep along one side (a long Islands land whose sea drains is drawn again); the start leans to the middle (River Valley, Lake
+  Basin, Highlands, Any) or an end (Canyon, Delta, Islands), a lean the land's own places for a start can outweigh. Square
+  and near-square maps are drawn as before: the standard sizes are byte-identical. The floor is 48 a side for every
+  theme but Islands, 64 (`GENERATOR_MIN_SIDE`, `src/core/spec/mapspec.ts`: at 40² the default settings make maps but the
+  panel's extremes don't, D471, and at 48² the every-setting sweep passes; under 64 wide Islands' sea gets no river and
+  drains), refused below it at once with "Canyon needs at least 48 tiles a side to generate"; the size stays choosable from 4 for a map shaped by hand. A map that is not square no longer loses half its
+  land when its orientation turns it half round (`land/orient.ts`). The field's parts visit only the tiles they reach,
+  byte-identical and quicker on large maps. Smoke: `tools/size-smoke.ts --thumbs`, laid out by `tools/size-sheet.py`
+  (`docs/sheets/custom-sizes-2.png`). Out of scope: Islands' slowness on some odd sizes (its spring retries settle the
+  whole map again) and the start's lean, a preference the land can outweigh. Next: the named shapes in the size
+  setting, a layout question for the page.
 
 ## The dam sketch tool (D383)
 

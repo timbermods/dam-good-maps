@@ -40,7 +40,7 @@ export default function Preview3D({ result }: { result: GenerateResponse }) {
     <View3D
       view={view}
       class="preview3d"
-      label="3D view of the map. Drag to turn, right-drag to move, wheel to zoom."
+      label="3D view of the map. Drag to turn, right-drag to move, wheel to zoom toward the pointer."
       hoverText={hover}
       onHover={(hit) => setHover(hit ? describeTile(context(), hit.x, hit.y) : null)}
     />

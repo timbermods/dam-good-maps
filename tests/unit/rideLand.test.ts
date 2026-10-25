@@ -1,6 +1,7 @@
 // Water rides the ground it stands on (waterMesh.ts `rideLand`): where the land drawn under a wet tile changes, its
 // water stands on the new ground with its depth kept, in the same frame, whichever of the land and the water comes
-// first; water standing on something else keeps its floor, and caves' water is left alone.
+// first; water standing on something else keeps its floor, and so does water under a roof (its floor is not the tile's
+// top), while the lake on the roof rides the roof (3D view, part 4).
 
 import { describe, expect, it } from "vitest";
 import { surfaceWater, waterFromDepth, type WaterView } from "../../src/render3d/model";
@@ -30,7 +31,7 @@ describe("water rides its land", () => {
     expect(rideLand(W, sw, now, now)).toBe(false);
   });
 
-  it("water standing on something other than the old land keeps its floor; caves' water is left alone", () => {
+  it("water standing on something other than the old land keeps its floor; a cave's water is left alone, the lake on its roof rides", () => {
     const { was, view } = lake();
     view.floor[5] = 6;
     const sw = surfaceWater(W, H, view);
@@ -38,10 +39,14 @@ describe("water rides its land", () => {
     now[5] = 2;
     expect(rideLand(W, sw, was, now)).toBe(false);
     expect(sw.floor[5]).toBe(6);
-    const caves: WaterView = { count: 2, tile: Int32Array.from([0, 0]), floor: Float32Array.from([4, 1]), depth: Float32Array.from([1, 1]), contamination: new Float32Array(2) };
+    // tile 0: a lake on the roof at 4 over a cave's pool at 1; tile 1: a cave's pool at 1 under a dry roof at 4
+    const caves: WaterView = { count: 3, tile: Int32Array.from([0, 0, 1]), floor: Float32Array.from([4, 1, 1]), depth: Float32Array.from([1, 1, 1]), contamination: new Float32Array(3) };
     const under = surfaceWater(W, H, caves);
     const dropped = was.slice();
-    dropped[0] = 2;
-    expect(rideLand(W, under, was, dropped)).toBe(false);
+    dropped[0] = 3;
+    dropped[1] = 3;
+    expect(rideLand(W, under, was, dropped)).toBe(true);
+    expect([under.floor[0], under.surface[0]]).toEqual([3, 4]);
+    expect([under.floor[1], under.surface[1]]).toEqual([1, 2]);
   });
 });

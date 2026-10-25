@@ -15,8 +15,16 @@ pub struct Session {
     pub objects: Vec<f64>,
     pub retained: Vec<f64>,
     pub drained: Vec<u8>,
-    pub engine: Option<Engine>,
+    engine: Option<Engine>,
     pub sat: Vec<u8>,
+    /// The engine's state is known to be well formed: it wrote or checked it, and no writable view of it
+    /// was handed out since (a run then skips checking it again; every result is checked before it is read,
+    /// by `saturation`).
+    trusted: bool,
+    /// A block of rows handed out (field 21, a copy) and one taken in (field 22): the multi-core settle's
+    /// strips (stackParallel.ts).
+    rows_out: Vec<f64>,
+    rows_in: Vec<f64>,
     // Geometry/graph snapshots are never read by a simulation. Writing one cannot corrupt indices.
     count: Vec<u8>,
     floor: Vec<i16>,
@@ -50,6 +58,9 @@ impl Session {
             drained: vec![0; n],
             engine: None,
             sat: Vec::new(),
+            trusted: false,
+            rows_out: Vec::new(),
+            rows_in: Vec::new(),
             count: Vec::new(),
             floor: Vec::new(),
             ceil: Vec::new(),
@@ -62,7 +73,16 @@ impl Session {
             terrain_ceil: Vec::new(),
         })
     }
-    pub fn build(&mut self, game: bool) -> Result<(), Refusal> {
+    /// The engine, once built.
+    pub fn engine(&self) -> Option<&Engine> {
+        self.engine.as_ref()
+    }
+    /// The engine to change from outside: the next run checks its whole state again.
+    pub fn engine_mut(&mut self) -> Option<&mut Engine> {
+        self.trusted = false;
+        self.engine.as_mut()
+    }
+    pub fn build(&mut self, game: bool, stacked: bool) -> Result<(), Refusal> {
         if self.objects.len() % 8 != 0 || self.retained.len() % 4 != 0 {
             return Err("Water input rows are malformed.");
         }
@@ -114,7 +134,7 @@ impl Session {
             .filter(|&i| self.drained[i] != 0)
             .map(|i| i as u32)
             .collect();
-        let engine = Engine::new(m, game)?;
+        let engine = Engine::with_rules(m, game, stacked)?;
         let wc = &engine.model.cols;
         let terrain = columns::terrain_columns(self.w, self.h, &self.masks)?;
         self.count = wc.count.clone();
@@ -136,19 +156,23 @@ impl Session {
             self.rev.clear();
         }
         self.engine = Some(engine);
+        self.trusted = true;
         Ok(())
     }
-    /// 0 build (a 0 game, 1 port); 1 run (a ticks, b scale); 2 prefill;
-    /// 3 canonical begin (a maxDays; flat must be 6); 4 advance (a tick budget);
-    /// 5 accept edited state; 6 saturation. Unknown codes refuse with one line.
+    /// 0 build (a 0 game, 1 port; b 1 the stacked rules even on an open field: a strip of a map with caves);
+    /// 1 run (a ticks, b scale); 2 prefill; 3 canonical begin (a maxDays; flat must be 6); 4 advance (a tick
+    /// budget); 5 accept edited state; 6 saturation; 7 rows a..b as a block (field 21, stacked); 8 the
+    /// settle's water after `a` ticks run elsewhere (the strips of the multi-core settle), written whole: the
+    /// settle's checks as if it had run them here (stacked); 9 make room for a block of `a` numbers (field
+    /// 22); 10 take the block in field 22 as rows a..b (stacked). Unknown codes refuse with one line.
     pub fn op(&mut self, op: u32, a: f64, b: f64) -> Result<(), Refusal> {
         if op == 0 {
-            if !integer(a, 0.0, 1.0) || b != 0.0 {
+            if !integer(a, 0.0, 1.0) || !integer(b, 0.0, 1.0) {
                 return Err("Water build arguments are invalid.");
             }
-            return self.build(a == 0.0);
+            return self.build(a == 0.0, b == 1.0);
         }
-        if op > 6 {
+        if op > 10 {
             return Err("Water operation is unknown.");
         }
         let e = self.engine.as_mut().ok_or("Water map has not been built.")?;
@@ -157,7 +181,10 @@ impl Session {
                 if !integer(a, 0.0, 10_000_000.0) {
                     return Err("Water run arguments are invalid.");
                 }
-                e.run(a as u64, b)?;
+                if !self.trusted {
+                    e.validate()?;
+                }
+                e.run_valid(a as u64, b)?;
             }
             2 => {
                 if a != 0.0 || b != 0.0 {
@@ -175,7 +202,10 @@ impl Session {
                 if !integer(a, 0.0, 10_000_000.0) || b != 0.0 {
                     return Err("Water run arguments are invalid.");
                 }
-                e.advance(a as u64)?;
+                if !self.trusted {
+                    e.validate()?;
+                }
+                e.advance_valid(a as u64)?;
             }
             5 => {
                 if a != 0.0 || b != 0.0 {
@@ -190,7 +220,36 @@ impl Session {
                 e.validate()?;
                 self.sat = e.saturation();
             }
+            7 => {
+                if !integer(a, 0.0, self.h as f64) || !integer(b, a, self.h as f64) {
+                    return Err("Water rows are invalid.");
+                }
+                e.export_rows(a as usize, b as usize, &mut self.rows_out)?;
+            }
+            9 => {
+                if !integer(a, 0.0, 268_435_456.0) || b != 0.0 {
+                    return Err("Water block size is invalid.");
+                }
+                self.rows_in.resize(a as usize, 0.0);
+            }
+            10 => {
+                if !integer(a, 0.0, self.h as f64) || !integer(b, a, self.h as f64) {
+                    return Err("Water rows are invalid.");
+                }
+                e.import_rows(a as usize, b as usize, &self.rows_in)?;
+            }
+            8 => {
+                if !integer(a, 1.0, 10_000_000.0) || b != 0.0 {
+                    return Err("Water run arguments are invalid.");
+                }
+                e.advanced_elsewhere(a as u64)?;
+            }
             _ => unreachable!(),
+        }
+        // (each of these either refused before changing the state, or checked it or wrote it well formed;
+        // handing rows out or in leaves it as known as it was)
+        if !matches!(op, 7 | 9 | 10) {
+            self.trusted = true;
         }
         Ok(())
     }
@@ -201,6 +260,9 @@ impl Session {
     /// 15 mutable emitter parameters f64[4], 16 saturation u8;
     /// 17 terrain count u8, 18 terrain floor i16, 19 terrain top i16 (read-only).
     /// 20 drained mask u8, writable before build (flat maps, D387).
+    /// 21 the block of rows op 7 handed out f64 (a copy); 22 the block op 10 takes f64 (sized by op 9).
+    /// 23 the columns wet at any substep's start or end since the state was last set u8 (stacked; read only).
+    /// A view of the state (6..10, 15) makes the next run check the whole state again.
     /// Lengths are element counts, never byte counts. Flat momentum remains four per tile.
     pub fn field(&mut self, which: u32) -> Option<(*mut u8, usize)> {
         macro_rules! view {
@@ -212,6 +274,8 @@ impl Session {
         match which {
             0 => view!(self.masks),
             20 => view!(self.drained),
+            21 => view!(self.rows_out),
+            22 => view!(self.rows_in),
             1 => view!(self.objects),
             2 => view!(self.retained),
             3 => view!(self.count),
@@ -225,7 +289,12 @@ impl Session {
             17 => view!(self.terrain_count),
             18 => view!(self.terrain_floor),
             19 => view!(self.terrain_ceil),
+            23 => match &mut self.engine.as_mut()?.flow {
+                Flow::Stacked(s) => view!(s.wet_ever),
+                Flow::Flat(_) => None,
+            },
             6..=10 | 15 => {
+                self.trusted = false;
                 let e = self.engine.as_mut()?;
                 match &mut e.flow {
                     Flow::Flat(s) => match which {

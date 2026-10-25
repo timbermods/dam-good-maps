@@ -268,6 +268,20 @@ export class Juice {
         once("advance", () => this.engine.play("deposit", p, { id, phase: "advance" }));
         if (cue.phase !== "done") hold("deposit", "flow", { ...p, activity: 0.4 + 0.6 * (1 - cue.progress) });
         break;
+      case "erode": {
+        // the grinding wear under the whole moment, swelling with how much rock is going; stone landing as it goes
+        // (one a tenth of a second at most); a heavier fall as the opening clears (investigation/erode)
+        const e = cue.erode;
+        const level = e && e.worn > 0 ? Math.min(1, e.went.length / (e.worn / 10)) : 0;
+        if (cue.phase !== "done") hold("erode", "wear", { ...p, activity: 0.3 + 0.7 * level });
+        const now = performance.now();
+        if (e && e.went.length && now - f.puffAt > 110) {
+          f.puffAt = now;
+          this.engine.play("erode", { ...p, strength: Math.min(1, 0.25 + 0.75 * level) }, { id, phase: "land" });
+        }
+        if (cue.phase === "done") once("fall", () => this.engine.play("erode", p, { id, phase: "fall" }));
+        break;
+      }
       case "erupt":
         // pressure as the ground stirs; the plume as it rises, its roar held while the volcano
         // swells, released for the cooling hiss when it is kept

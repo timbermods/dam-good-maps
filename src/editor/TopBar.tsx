@@ -1,6 +1,6 @@
 // The bar (PLAN §20 D184, D212; Layout 2): Select, the shaping tools, Raise, Lower, Flatten, Smooth, Naturalize, Block (D335,
-// key 7: add or carve blocks; its Size, Shape and Action), a hairline, then the forces (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate,
-// Kyler 2026-10-06; keys 1 Select, 2–6 the brushes, 7 Block, Shift+1–7 the forces), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
+// key 7: add or carve blocks; its Size, Shape and Action), a hairline, then the forces (D194, D202, D203, D206, D246, D438: Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode,
+// Kyler 2026-10-06; keys 1 Select, 2–6 the brushes, 7 Block, Shift+1–8 the forces), and directly above it the held tool's settings (settings.tsx, Kyler's option B, 2026-10-03): one panel at
 // the bar's width and one height for every tool, every setting always shown (More is gone). The brushes: Size, Level
 // (Raise, Lower and Flatten's target, D322 item 37: Auto follows the ground, Free sculpts softly) or Strength
 // (Smooth, Naturalize), Mode (item 2), Sources (item 31), Brush (round, square or straight lines, one at a time) and
@@ -100,6 +100,12 @@ function Icon({ tool }: { tool: BrushTool | "select" | "block" | Verb }) {
           <path d="M10 3v5M10 8c-3 2-6 5-8 9M10 8c3 2 6 5 8 9M10 8c-1 3-2 6-2 9M10 8c1 3 2 6 2 9" />
         </svg>
       );
+    case "erode":
+      return (
+        <svg {...ICON}>
+          <path d="M2 17V9c0-4 3-6 8-6s8 2 8 6v8M6 17v-4c0-2 1.8-3 4-3s4 1 4 3v4M10 6v1M7 7v1M13 7v1" />
+        </svg>
+      );
     case "block":
       return (
         <svg {...ICON}>
@@ -146,13 +152,14 @@ export const FORCE_GROUPS: readonly (readonly string[])[] = [
 
 const FORCE_LIST: readonly Force[] = [
   // (the keys, Kyler 2026-10-06: Shift and the number of its place in the bar, matched on the key's code)
-  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river" },
+  { id: "carve", name: "Carve", ready: true, key: "Shift+1", hint: "Carve a river or canyon" },
   { id: "craterize", name: "Craterize", ready: true, key: "Shift+2", hint: "Strike a crater" },
   { id: "erupt", name: "Erupt", ready: true, key: "Shift+3", hint: "Build a volcano" },
   { id: "quake", name: "Quake", ready: true, modes: ["Lift", "Slide"], key: "Shift+5", hint: "Lift or slide the land along a fault" },
   { id: "glaciate", name: "Glaciate", ready: true, key: "Shift+7", hint: "Cut a valley with a glacier" },
   { id: "rift", name: "Rift", ready: true, key: "Shift+4", hint: "Crack the land open" },
   { id: "deposit", name: "Deposit", ready: true, key: "Shift+6", hint: "Lay a fan of sediment" },
+  { id: "erode", name: "Erode", ready: true, key: "Shift+8", hint: "Wear caves and arches" },
 ];
 
 /** The forces in the row's order (`FORCE_GROUPS`; one not listed there goes last). */
@@ -194,7 +201,7 @@ export const brushTip = (b: { hint: string; key: string }) => tip(capital(b.hint
 export const forceTip = (f: Force) => tip(capital(f.hint ?? f.name), f.key);
 export const SELECT_TIP = tip("Mark an area to change", "1");
 /** The Block tool, on the tools row after the brushes (D335; key 7). */
-export const BLOCK_TIP = tip("Add or remove blocks", "7");
+export const BLOCK_TIP = tip("Add or remove blocks on any face", "7");
 
 export interface TopBarProps {
   /** The brush out, or null. */
@@ -393,7 +400,7 @@ function blockGroups(s: BlockSettings, set: (patch: Partial<BlockSettings>) => v
       key: "shape",
       row: 1,
       at: 8,
-      span: 7,
+      span: 8,
       node: (
         <ChoiceSetting<"square" | "round">
           label="Shape"
@@ -410,7 +417,7 @@ function blockGroups(s: BlockSettings, set: (patch: Partial<BlockSettings>) => v
       key: "action",
       row: 2,
       at: 1,
-      span: 14,
+      span: 15,
       node: (
         <ChoiceSetting<"add" | "remove">
           label="Action"

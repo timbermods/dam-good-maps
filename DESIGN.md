@@ -14,6 +14,56 @@ mockup and capture named below is in the Release
 2. **Meaning** (below): what each colour, mark, word and state tells the player.
 3. The look. When a look rule and a meaning conflict, the meaning stays and the look changes.
 
+## CSS principles
+
+The rules new CSS follows, taken from [good-css.com](https://good-css.com) (2026-10-15). They sit in `src/styles/app.css`
+(tokens, motion, focus, press, text-wrap) and change no layout.
+
+- **Colour tokens:** one set on `:root`, each `light-dark(light, dark)`, with `color-scheme: light dark`; never a second block
+  per scheme. A page that offers its own switch sets `color-scheme: light` or `dark` on the root from a stylesheet (a class or an
+  attribute rule), never an inline style from script: the build compiles `light-dark()` into a variable fallback that inline
+  styles don't flip. A value that isn't a
+  colour (a shadow's blur) can't use `light-dark()`; keep it in the one small `prefers-color-scheme` block beside the tokens.
+- **Motion:** take `--ease-out` and the `--dur-*` tokens (add `--ease-in-out` and a longer duration when something first needs them); never `ease-in` on the interface, never
+  `transition: all` (name the properties). Movement (transform, size) goes inside
+  `@media (prefers-reduced-motion: no-preference)`; fades of opacity and colour stay outside it.
+- **Hover only where hover exists:** hover styles sit in `@media (hover: hover) and (pointer: fine)`. A reveal also shows on
+  `:focus-within`, so a touch screen reaches it.
+- **`overflow: clip`, not `hidden`,** wherever the box isn't meant to scroll: it makes no scroll container and keeps
+  `position: sticky` working. Keep `hidden` for `-webkit-line-clamp` and `auto` where something scrolls. A flex or grid item
+  that clips text takes `min-width: 0` (clip, unlike hidden, leaves the item's minimum size alone).
+- **Scrolling:** every inner scroller has `overscroll-behavior: contain`; `html` has `overscroll-behavior-y: none`, restored for
+  coarse pointers. `scrollbar-gutter: stable` only where a scrollbar's arrival would move content and the resting layout
+  stays the same.
+- **Safe alignment:** a centred flex or grid container whose content can overflow uses `safe center`, so the overflow runs off
+  the end instead of both sides.
+- **Tabular numbers:** `font-variant-numeric: tabular-nums` on numeric readouts only (sizes, values, counts, percentages,
+  coordinates), never globally.
+- **One focus ring:** `:focus-visible` draws `max(2px, 0.08em)` in the text colour, a quarter em off the edge; a filled control
+  takes the accent; a control inside something that clips draws it inside its own edge. Never `outline: none` without a
+  replacement.
+- **Press feedback:** a button scales to 0.97 while pressed (100 to 160 ms, `--ease-out`, inside the reduced-motion guard);
+  never the map's canvas, sliders, text fields, connected cells or list rows.
+- **Line breaks:** `text-wrap: balance` on headings and short titles, `text-wrap: pretty` on paragraphs, notes and tooltips.
+- **Tap:** `-webkit-tap-highlight-color: transparent` and `touch-action: manipulation` on interactive elements (a control that
+  takes the gesture itself sets `touch-action: none`); `font-synthesis: none`.
+- **The bar is a container (2026-10-15):** `.tool-dock` is `container-type: inline-size`; its width is the room the minimap and the
+  shelf leave, in whole cells, and each cell is its share of that width (`cqi`, no `@property`). A tool added to the bar
+  changes `--tools` or `--forces` and the cells follow. Use `cqi` against a container where a size follows the room it is in.
+- **Hit areas:** a control under 32px gets an invisible `::after` (`inset: min(0px, calc((100% - 32px) / 2))`) on a desktop
+  pointer; a control that touches its neighbours reaches only up and down. None may reach another control or sit in a clip
+  (tests/e2e/layout.spec.ts). Dense lists (the sheet's lines, the legend's) are left alone.
+- **Optical centring:** a button's words are a span (`.label`, `.icon-word`, `.cb-word`, `.shelf-word`) with
+  `text-box: trim-both cap alphabetic`, single line only, the control's height held by flex or `min-height`.
+- **Big screens:** from 2200px wide (and 1200px tall) the bar's cells reach 88px, the header's controls 44px and the shelf's rows
+  34px, their words 1px larger; nothing else grows.
+- **Menus** grow from their button: `@starting-style` in, `data-closing` out (`useMenuPresence`), from 0.95 and transparent,
+  `display` following with `allow-discrete`; the scaling inside the reduced-motion guard, the fade outside it.
+- **The clipping net:** tests/e2e/layout.spec.ts fails on any visible text wider than its box (scrollWidth over clientWidth by
+  more than 1px) at 1280, 1366, 1600, 1920 and 2560, light and dark, across the main states.
+- **Not used here:** logical properties throughout, a fluid type and space scale, a content grid, `text-box` trim on the bar's
+  cells, 44px hit areas. Anchor-positioned popovers (the menus and tooltips) are a later step.
+
 ## Three zones
 
 - **Map:** the 3D view, its sky, overlays, markers, ghosts, rings and the compass. Its colours are the map's own
@@ -138,7 +188,7 @@ One height (38px) and one gap (6px) for every plate outside the panel; everythin
   and above the bottom bars, for the layout as it is when a map opens or Reset view is pressed. Collapsing or opening
   the panel never moves the camera by itself (D265).
 
-At 1366×768 the rows end 19px short of Save's plate. A map with roofed water adds an Under roofs toggle, which
+At 1366×768 the rows end 19px short of Save's plate. A map with caves or overhangs adds a Caves and overhangs toggle, which
 doesn't fit on the line there: the plate stops 12px short of Save and the view bar takes a second line. Checked at
 checkpoint 1 with the ninth toggle put in by hand; no map with roofed water was on the machine.
 
@@ -308,7 +358,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
   core's top-down thumbnail at 256px (`thumbnailPixels(…, 256)`), scaled to the box; the core never enlarges, so a
   128² map's picture is 128px.
 - **Top left of the map:** the Show toggles as one column of rows, one width, left edges aligned: Heights, Lines,
-  Markers, Flow, See-through, Badwater (Under roofs added when a map has roofs), then **Legend**, last. Each row has a
+  Markers, Flow, See-through, Badwater (Caves and overhangs added when a map has them), then **Legend**, last. Each row has a
   14px square checkbox
   at the left of its name (a 1.5px quiet border, 3px corners; ticked: the mint fill with a dark tick), as in
   Timberborn's settings; the row itself is never lit, and a click anywhere on it toggles it; several can be on. An
@@ -335,7 +385,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
 - **Bottom left:** the minimap, under it the coordinates ("X 60 · Y 66 · Z 10", the game's order), then the readout.
 - **Bottom middle:** one bar, centred in the map area: Select, Raise, Lower, Flatten, Smooth, Naturalize, Block (the Block tool,
   D335, key 7), a hairline,
-  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate (Glaciate last, Kyler 2026-10-06); fourteen cells of one width (76px where there is room,
+  Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate, Erode (Glaciate and Erode last, Kyler 2026-10-06); fifteen cells of one width (76px where there is room,
   narrower in whole pixels where there isn't, clear of the minimap and the objects menu), icon above name, keys only
   in tooltips. The held
   tool's settings sit directly above it at its exact width, on a grid whose columns are the bar's cells: each group
@@ -353,7 +403,7 @@ rearranged (River Valley 4242 at 128², three states at both sizes): [docs/desig
 
 Where it doesn't fit, and what the mockups do:
 - **The Legend at 1920×1080** has 16px to spare on River Valley 4242 (21 lines). A map with more lines (Mixed
-  water, Blockage, Other objects, Under roofs' row in the column) passes the room and scrolls inside the panel; each
+  water, Blockage, Other objects, Caves and overhangs' row in the column) passes the room and scrolls inside the panel; each
   line more takes 20px.
 - **The objects menu** clears everything at both sizes, panel open or closed, with Raise's settings too: it starts
   168px right of the bar and its settings at 1920×1080 with the panel open (344px closed; 488px and 664px at
@@ -376,7 +426,7 @@ Where it doesn't fit, and what the mockups do:
 refinements and what the mockups left open:
 - **The legend** shows each object with the objects menu's own picture (Trees and bushes with the pine's); the ground
   colours, the water and the markers keep their swatches. Its rows are one height on every map, 17px: the fullest
-  legend (20 lines, "Markers on:" and its 4 lines, with Under roofs added to the Show column) needs 437px at
+  legend (20 lines, "Markers on:" and its 4 lines, with Caves and overhangs added to the Show column) needs 437px at
   1920×1080, exactly the room above the minimap (its tallest, 168px, less 8px). It is one width (190px, its longest
   line's), never scrolls, never changes shape, never overlaps the minimap; on a map with fewer lines it is shorter.
 - **The settings, option B** (Kyler's pick, 2026-10-03, with his five fixes): one panel at the bar's width, 120px
@@ -431,17 +481,18 @@ refinements and what the mockups left open:
   Slow forces, the sound) is 36px too.
 - **The Show toggles in a row** (Kyler, 2026-10-04): Heights, Lines, Markers, Flow, See-through and Badwater in one
   row on the map's top and left margins, the toggle look made narrower (7px and 8px padding, 5px before the name,
-  names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Under roofs** (only on a map
-  with roofed water) sits beside Legend instead: in the row it would reach the water row at 1920×1080.
+  names in full); at 1920×1080 it ends at 540px, 34px clear of the water row (574px). **Caves and overhangs** (only on a map
+  that has them) follows Badwater in the row at every width; where the row then leaves the water row no room, the
+  water row takes the second line, as in a narrow window.
 - **Legend on its own at the top right** (Kyler, 2026-10-04), centred in the gap between the water row's right edge
   and Top-down's left at both sizes, its top level with the band, the same toggle look; it never moves, open or
   closed. Ticked, the legend (190px) hangs one gap under it, centred under it so "Legend" reads as its title, clear of
   the camera controls, the water row, the objects list and its window, and the bar at both sizes. The fullest
   legend fits. Where the room is short (1300 and 1280 wide) Legend and its legend move left together, the legend 8px
   clear of the corner's second row (`docs/design/legend-open-1300x900`, `legend-open-1280x800`).
-- **The overlays' keys** (what Heights, Badwater and Under roofs show; Lines, Markers, Flow and See-through need
+- **The overlays' keys** (what Heights, Badwater and Caves and overhangs show; Lines, Markers, Flow and See-through need
   none) sit in the legend's place under Legend: with Legend off, a small key (190px) holds Heights' "Ground height"
-  with the ramp and the map's lowest and highest level, and Badwater's or Under roofs' caption; with Legend ticked, the
+  with the ramp and the map's lowest and highest level, and Badwater's or Caves and overhangs' caption; with Legend ticked, the
   overlay's caption heads the legend (which holds Heights' own line).
 - **The minimap is always shown** (the mockups have no Minimap toggle); its toggle is gone.
 - **The bottom-left group** (Kyler, 2026-10-04): the minimap at the foot, on the page's 10px margin, its bottom level
@@ -827,7 +878,7 @@ API, every pinned hash, and every role and accessible name the tests use.
 
 - **The keys go by the bar's places**, on the key's code (any keyboard layout): 1 Select, 2 Raise, 3 Lower, 4 Flatten,
   5 Smooth, 6 Naturalize; Shift+1 Carve, Shift+2 Craterize, Shift+3 Erupt, Shift+4 Rift, Shift+5 Quake, Shift+6
-  Deposit, Shift+7 Glaciate; M Markers. The shelf's items, water sources included, have none. Never while typing in a
+  Deposit, Shift+7 Glaciate, Shift+8 Erode; M Markers. The shelf's items, water sources included, have none. Never while typing in a
   field; each tooltip's key cap shows the new key. The camera bookmarks keep Ctrl+Shift+1–9 to save and glide back
   with Alt+1–9 (Kyler's pick: Shift and a number now pick a force).
 - **The forces' order:** Carve, Craterize, Erupt, Rift, Quake, Deposit, Glaciate.

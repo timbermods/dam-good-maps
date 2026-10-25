@@ -47,6 +47,9 @@ export interface SessionSlice {
   info: SessionInfo;
   setInfo: Dispatch<StateUpdater<SessionInfo>>;
   view: MapView;
+  /** The map's voxel columns as the renderer holds them (a map with caves, Erode's hollows): a force's frames add the
+   *  tiles they changed to these (D281). */
+  columnsRef: { current: MapView["columns"] };
   mirror: { current: Mirror };
   renderer: { current: MapRenderer | null };
   ready: MapRenderer | null;
@@ -222,6 +225,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // editor for another map)
   const view = props.opened.view;
   const mirror = useRef<Mirror>(mirrorOf(view));
+  const columnsRef = useRef<MapView["columns"]>(view.columns);
   const renderer = useRef<MapRenderer | null>(null);
   const [ready, setReady] = useState<MapRenderer | null>(null);
   /** The force picked in the top bar (the brushes have their own state; the sources are on the
@@ -569,9 +573,15 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   useEffect(() => () => clearTimeout(soilTimer.current), []);
   function growSoil(r: MapRenderer, from: SoilView, to: SoilView) {
     clearTimeout(soilTimer.current);
-    const t0 = performance.now();
     const n = to.moisture.length;
+    // (no tile's moisture moves, as after most edits away from the water: the new soil goes in at once, one frame, not
+    // two seconds of frames that each draw the same colours)
+    let moves = false;
+    for (let i = 0; i < n && !moves; i++) moves = from.moisture[i] !== to.moisture[i];
+    if (!moves) return r.updateSoil(to);
+    const t0 = performance.now();
     const moisture = new Uint8Array(n);
+    let first = true;
     const step = () => {
       // (the other version on show: the soil stops here, and the open map's own comes back with it when the key lets go)
       if (comparing.current) return;
@@ -580,18 +590,20 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         r.updateSoil(to);
         return;
       }
+      let changed = first;
+      first = false;
       for (let i = 0; i < n; i++) {
         const a = from.moisture[i];
         const b = to.moisture[i];
-        if (a === b) {
-          moisture[i] = b;
-          continue;
-        }
         // wetter tiles start sooner: moisture spreads out from the water
-        const k = Math.max(0, Math.min(1, t * 1.6 - (1 - Math.max(a, b) / 255) * 0.6));
-        moisture[i] = Math.round(a + (b - a) * k);
+        const v = a === b ? b : Math.round(a + (b - a) * Math.max(0, Math.min(1, t * 1.6 - (1 - Math.max(a, b) / 255) * 0.6)));
+        if (moisture[i] !== v) {
+          moisture[i] = v;
+          changed = true;
+        }
       }
-      r.updateSoil({ moisture, contamination: to.contamination });
+      // (a step that moves no tile draws nothing new: no frame for it)
+      if (changed) r.updateSoil({ moisture, contamination: to.contamination });
       soilTimer.current = window.setTimeout(step, 100);
     };
     step();
@@ -614,23 +626,33 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       setWeatherCounting(0);
       // (the day box reads the day at once, the hazard's length for the map's difficulty, Kyler, 2026-10-04)
       setWeatherTarget(hazardDays(infoRef.current.spec?.designedFor ?? "normal", hazard));
-      void api.showWeatherDay(hazard, null);
-    } else {
-      setWeather(null);
-      heldDay.current = null;
-      setWeatherDay(null);
-      setWeatherCounting(null);
-      setWeatherTarget(null);
-      mirror.current.daySoil = null;
-      renderer.current?.setWithered(null);
-      renderer.current?.setSeason(null, null);
-      void api.stopWeather().then((v) => {
-        player.current?.clear();
-        applyView(v);
-        if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
-        ed.rehover();
-      });
-    }
+      askWeatherDay(hazard, null);
+    } else weatherOff();
+  }
+  /** The map's own water back: no hazard shown, the button unpressed, the day box gone. */
+  function weatherOff() {
+    setWeather(null);
+    heldDay.current = null;
+    setWeatherDay(null);
+    setWeatherCounting(null);
+    setWeatherTarget(null);
+    mirror.current.daySoil = null;
+    renderer.current?.setWithered(null);
+    renderer.current?.setSeason(null, null);
+    void api.stopWeather().then((v) => {
+      player.current?.clear();
+      applyView(v);
+      if (mirror.current.soil) renderer.current?.updateSoil(mirror.current.soil);
+      ed.rehover();
+    });
+  }
+  /** Ask the worker for a day of `hazard`; a failure shows its one line, as an edit's refusal does, and the map's own
+   *  water comes back. */
+  function askWeatherDay(hazard: Hazard, day: number | null) {
+    api.showWeatherDay(hazard, day).catch((e: unknown) => {
+      if (weatherRef.current === hazard) weatherOff();
+      setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+    });
   }
   /** Step the held day back (to Day 0, the map's own water) or on (past the default length, simulated as asked). */
   function stepWeather(delta: -1 | 1) {
@@ -648,11 +670,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     heldDay.current = day;
     setWeatherTarget(day);
     setWeatherCounting(0);
-    void api.showWeatherDay(h, day);
+    askWeatherDay(h, day);
   }
   function requestHeldDay() {
     const h = weatherRef.current;
-    if (h) void api.showWeatherDay(h, heldDay.current);
+    if (h) askWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
   function showWithered(tiles: Int32Array) {
@@ -720,7 +742,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  byte for byte. */
   function takeLand(): void {
     const held = heldLand.current;
-    if (!held.heights && !held.terrain) return;
+    if (!held.heights && !held.terrain && !held.columns) return;
     if (held.heights) endFlip();
     if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
     heldLand.current = {};
@@ -735,7 +757,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       }
       m.heights = held.heights;
       renderer.current?.updateTerrain(held.heights, held.columns);
-    }
+    } else if (held.columns) renderer.current?.updateTerrain(m.heights, held.columns);
     if (held.terrain) ed.terrain.current = held.terrain;
   }
 
@@ -753,7 +775,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
     if (v.heights) heldLand.current.heights = v.heights;
     // (a roof's top an edit reshaped: its columns go in with the land, D487)
-    if (v.columns) heldLand.current.columns = v.columns;
+    if (v.columns) {
+      heldLand.current.columns = v.columns;
+      columnsRef.current = v.columns;
+    }
     if (v.terrain) heldLand.current.terrain = v.terrain;
     takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
@@ -789,7 +814,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   }
 
   return {
-    api, info, setInfo, view, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
+    api, info, setInfo, view, columnsRef, mirror, renderer, ready, setReady, setTool, tool, anchorRef, flipRef, repaintRef,
     forceEscRef, forceStroke, setForceStroke, forceCursor, setForceCursor, forceRing, setForceRing, gestureRef,
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,

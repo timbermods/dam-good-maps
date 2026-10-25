@@ -40,20 +40,20 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   column's top, not rock) walks it in from its openings: beside an open cell, that cell's sky (an open cell beside
   roofed air holds the sky the baked light would give ground at its height, 0.55 + 0.45 × the sky visibility: on
   the ground the tile's own, over a drop the sky seen from that height, `light.ts` `skyAt`); beside the map's edge
-  229; then 26 less per step, never below 64; 0 in rock. G the sun: a ray marched toward the sun from
+  235; then 16 less per step, never below the cave's least (`CAVE_SKY_FLOOR`, items 7 and 8 below); 0 in rock. G the sun: a ray marched toward the sun from
   every roofed cell and every open cell beside one, 255 or 0. The terrain shader (`materials.ts` `caveAt`, both
   looks) reads the cell half a cell along the face's normal: where that cell is roofed air, the face takes
   `caveLightOf`; anywhere else (open air, rock under the slice's cut, outside the map) the baked light of
   `light.ts` stands. `caveLightOf` carries the light on from the open ground at the roof line the air opens by
   (`caveMouth`, walked toward the brightest neighbour, the open side nearest the face; over a drop, at the cave's
-  own level): the sky never below 0.30, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's
+  own level): the sky, deeper in never below the cave's least, with the look's occlusion as at that line (`ShaderHooks.caveSky`: High's
   ambient field, never more than at the point); the sun the open ground's at the line, fading over 0.6 of a tile
   to the cave's own and never above the line's (`caveSun`: Standard marches the ray through the voxels, under
   overhangs too, until rock or the map's highest ground, then the baked shadow; High uses its soft shadow of the
   real meshes; `caveSunOpen`: each look's sun at the line). Open ground casts no contact shadow toward a mouth (the
   roof above is not a wall at its level), and a cave floor takes the open ground's contact shadow from the rock
-  beside it at its own level (`wallAt`), so the line holds beside a mouth's side walls too. Water and objects under
-  roofs are not lit by it yet (part 4, and item 7).
+  beside it at its own level (`wallAt`), so the line holds beside a mouth's side walls too. Objects and falls under
+  roofs take it too (items 7 and 8 below), and water under roofs (part 4).
 - **Equivalence:** a map with no column that is not plain builds no volume (`caveSize` 0: the shader returns before
   reading it). `tests/unit/caveLight.test.ts` builds the volume anyway on seven generated maps (all six themes and
   Any, 96², 128², 256²), meshes every chunk and samples every quad's middle and four inner points through
@@ -62,7 +62,7 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   Canyon 128 seed 7, Standard and High, the whole map and a cliff, 1920×1080: 22–109 pixels differ by at most 2
   levels, all on the moving water's surface (located by a diff mask); the terrain is pixel-identical.
 - **On cave maps** (official imports): cave floors, walls and ceilings take their own air's light: bright at the
-  mouth, dimmer inward to the 0.30 floor, sun where a ray reaches them; floors no longer take the fixed light of
+  mouth, dimmer inward to the cave's least, sun where a ray reaches them; floors no longer take the fixed light of
   the overhang's shade, nor walls their top's sky. The light never steps at the roof line and does not rise
   going in from it: measured once on the 28 mouths of the #400 review (builtin_14 and builtin_18), a flat grey on
   every face, sunlit and shaded: the step across ±0.05 tile is at most 4 levels in 54 of the 56 look-mouths (both
@@ -133,6 +133,73 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 - **Falls short:** objects in caves still read their tile's top soil (a ruin's ivy, plants' looks; item 7). CI's
   browser test checks the branch compiles and draws (`cutaway.spec.ts`, the light look's program too), not its
   colours.
+
+## Part 4: water per column (built, `feature/3d-view-water-columns`)
+
+- **What:** `src/render3d/waterLayers.ts`. The water view already carries every wet column of a tile, each on its own
+  floor (the stacked settle's slots, `waterFromStack`, or the file's own); its depth never passes its ceiling (checked
+  on the official maps: Pressure holds 4,610 columns full to their ceiling, none above it). Before, the mesher drew each
+  tile's highest wet column as the tile's water and every other column as a bare top: a cave's pool under a dry roof
+  (970 of Hollows' 984 cave columns, 4,687 of Pressure's 5,278) took its shores, curtains and falls from the tiles' tops,
+  so the lake on a roof poured a fall down through the rock into the cave under the next tile. Now every column is
+  drawn the same way, seeing at each tile round it one air gap of that tile's column: the gap holding its surface (a
+  hair under it, never above its ceiling); where rock stands there, the lowest gap above it still under its ceiling;
+  else a wall (`WALL`, a shore). On a plain tile that is its top, so a map without terrain above terrain sees exactly what
+  the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
+  the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
+  water under a roof), then each other column into the first layer whose gaps agree with what it sees within
+  `LAYER_REACH` (4 tiles: a fall's lips, their pools and the badwater blend round them; checked against a reach of 12,
+  the same quads and falls on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `plainLayers(heights, sw)` is the one layer of a map without caves. A cave column's outflows are not in the view
+  (its outflows are each tile's open column's), so its falls estimate their flow from its depth, as a fall without
+  outflows always has (`falls.ts`), once a column on what it sees beside it.
+- **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
+  beside a roof that sees under it). A map with an arch or an overhang and no such water draws its water as a
+  heightfield's, its moving water meshed in the workers as on dev. With layers, a new water view (a journey's frame, a
+  stroke's water, the settled water) remeshes only the chunks within `LAYER_REACH` of the tiles whose columns changed
+  (`changedColumnChunks`: a column's mesh reads nothing further), and those are dealt and meshed in the water mesh
+  workers on the view itself (`waterMesh.worker.ts`; the columns go with a version, their gaps kept with them), never on
+  the page's thread; the page deals them only without workers. A stroke's land meshes the chunks round it on the layers
+  dealt for the water on show (their view of the land's plain tiles following the new tops, `followLand`), or sends them
+  to the workers, under a new version so the workers' last batch never stands for them, when the water has changed since. The open sky's columns
+  ride the land as a heightfield's water does (`rideLand`, now on maps with water under a roof too: a cave's water,
+  whose floor is not the tile's top, stays), and the layers follow (`rideLayers`). No column is drawn above its ceiling,
+  even when a view holds more (`surfaceOn`); the journey's easing pairs each column with the earlier one on its own
+  floor (`src/editor/waterPlayer.ts` `blendWater`), so a cave's pool never eases from the lake on its roof, and an earlier
+  column nothing eases from fades out, its tile still wet or not.
+- **Light:** the water shader reads the light volume at the air just inside the water, as objects and falls under a
+  roof do (`materials.ts`, `CAVES` on the water's materials of both looks): all the sky at a mouth, the cave's least deep
+  in, the sun the open air's at a mouth fading to the volume's going in. High's water under a roof takes its own
+  column's badwater share, not the share of the water seen from above there.
+- **No contract change:** the worker's water view (`src/worker/session.ts`) is as it was; the renderer works out each
+  column's ceiling from the columns it already has.
+- **Equivalence:** `tests/unit/waterLayers.test.ts` keeps the mesher as it was (`tests/fixtures/heightfieldWaterMesher.ts`)
+  and meshes seven generated maps (all six themes and Any, 96², 128² and 256², falls included) both ways, and through
+  the per-column path forced (every tile given as a column of one plain run): positions, depth and badwater, foam
+  flags, normals, indices and falls byte for byte, chunk by chunk. Frames before (dev) and after, real Chrome on the RTX
+  2070 SUPER, Canyon 128 seed 7, Standard and High, the whole map and a cliff, 1920×1080, the water held: 26–105 pixels
+  differ, as many as two runs of the same build differ by (18–94), all on the water; the terrain is pixel-identical.
+- **On cave maps:** the same test on a hand-made map (a cave with a pool running out through its mouth to a pool
+  outside, a ledge whose water falls into it, a chamber full to its ceiling, a lake on the roof, water under an arch at
+  the map's floor) and on Hollows, Pressure, Pillars and Nomads (local only): every column's top drawn once, at its own
+  floor plus depth, under its ceiling; no quad and no fall through rock (points just off every face, a fall's arc).
+  Dev drew 30 of Hollows' 118 falls through rock (its badwater on a roof pouring into the river's cave), 369 of
+  Pressure's 430 (between full caves of different ceilings) and 2 of its curtains; now none of 88 and 61. Layers:
+  Hollows 7, Pressure 9, Pillars 8, Nomads 4.
+- **Speed (measured once, information):** the page's thread's water work in each frame of the water after an edit,
+  real Chrome (the water updates and the frame's drawing of meshes): Hollows, a lowered riverbed, dev 32 ms median,
+  81 ms the most (every chunk meshed on the page) → 1.2–1.5 ms median, 11–12 ms at the 90th percentile, 31–36 ms the
+  most (the first update after the edit); Pressure, its one update after the settle, 90 → 13–32 ms. The workers are
+  sent the map's columns only when their version changed. Dealing the layers in a worker: Hollows about 11 ms,
+  Pressure 24 ms. A generated map draws as on dev (the same path). Memory: about 22 bytes a tile for each layer past
+  the first, on maps with water under a roof (5 MB on Hollows, 12 MB on Pressure), in each worker that deals them.
+- **Captures:** `docs/sheets/3d-view-water-columns.jpg` (Hollows: its river's cave through a mouth, and cut at 6 over the
+  river where dev's falls from the roof came through; Pressure: a badwater tunnel's mouth, and cut at 2 over its
+  tunnels; before and after, Standard and High, 1920×1080 dark, and the cuts at 1280×800 light).
+- **Falls short:** moving water's current and High's rough water read a texture per tile (the water seen from above),
+  so a cave's water under a wet roof flows as the roof's does; a cave column's falls estimate their flow. The cut still
+  drops what stands above it, water included. `tests/e2e/cutaway.spec.ts` compiles and draws the water's branch on a
+  hand-made cave with a pool and a puddle on its roof in CI.
 
 ## Part 5: 3D picking and selections (built, `feature/3d-view-picking`)
 
@@ -216,8 +283,69 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   branch, Standard and High, 1920×1080 dark, and Hollows at 8 at 1280×800 light): dev's hatched lid over the
   river's cave and over Pressure's tunnels, here the caves open with their water, walls and floors in their own
   light.
-- **Falls short:** water, objects, falls and the drought line are cut as before (water per column is item 4).
+- **Falls short:** water, objects, falls and the drought line are cut as before: what stands above the cut is not drawn
+  (each water column stands at its own level since part 4).
   `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
+
+## Items 7 and 8: caves that read (built, `feature/3d-view-caves-read`)
+
+Kyler's notes at the approval of `investigation/3d-view` (item 7, the terrain side; moving water waits for item 4) and
+Standard's shadow before a cave (item 8).
+- **The stone on ceilings:** a run's underside (a cave's ceiling, an overhang's roof seen from below) was a flat mortar
+  colour. It is now the walls' cobbled stone laid on the level plane, its stones along x and its courses along y, at
+  the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps its scale and orientation on ceilings,
+  walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
+  between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
+- **Interiors that read:** a cave's least sky rises from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
+  least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
+  before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
+  share (`caveLightOf`: from the open ground's 0.7 + 0.3 n.y at the mouth to 0.85 + 0.15 n.y deep). The least holds
+  deep in only, never at the mouth, where the open ground's light (High's occlusion with it) carries on. Murky, never
+  near-black: deep floors at 0.55 of the sky (0.30 before), about 0.6 of the open ground's shade.
+- **Objects and falls under a roof** (trees, bushes, ruins, sources, slopes, the ghosts; falls): the light of the air
+  they stand in, from the same volume (`materials.ts` `CAVE_POINT`: `caveAirAt`, `roofedSky`): the whole sky at a
+  mouth, as in open air, the cave's least deep in; the sun the open air's at a mouth, fading going in to the volume's
+  (High: its soft shadow of the real meshes, `ShaderHooks.roofedSun`), as the ground's does at the roof line. The branch is compiled only on a map with air under a roof (`CAVES`, the renderer's
+  `setCaveBranch`, on the objects' and falls' materials of both looks); every other map draws them with the same
+  program as before. Objects still take their tile's top soil (a ruin's ivy, plants' looks).
+- **Standard's baked shadow from the voxels (item 8):** on a map with terrain above terrain the sweep (`light.ts`
+  `shadowTopsInto`) carries each tile's rock from the map's floor as it carries a plain tile's height, and the runs
+  above air are added along each sample's ray, lowered as the sweep lowers a height (`shadowRock`, `voxelTops`): of
+  the shadow's pieces, the one the sample's ground lies in gives its top, and ground lit through a gap takes the top
+  of the highest piece below it. So the sun reaches ground under an overhang, through an arch and under a floating run
+  as in High and as a ray through the voxels finds it. An object casts from the run it stands on (`objectCasters`
+  keeps each tile's caster level): a tree on a cave's floor casts from the floor, not the roof. A tile with terrain above terrain is judged at its lowest floor
+  (the level its cave opens onto the ground beside it, where the filtered shadow map blends the two). A map without
+  terrain above terrain has no rock: its shadows are the heightfield's, byte for byte (the code is not entered).
+- **Tests:** `caveLight.test.ts`: on a terrain with an overhang, an arch and a floating run (and trees on two roofs),
+  every open-ground sample is in shadow exactly where the sweep's ray through the voxels meets rock (both suns, over
+  4,000 samples, more than 40 of them lit under rock the heightfield would shade); redoing the samples round 30 edits
+  gives the bytes of baking the whole map again; the cave least's constants. `tests/e2e/cutaway.spec.ts` draws a tree
+  under the cave's roof and the falls' programs with the branch, both looks, no shader error (it fails when the branch
+  is broken).
+- **Equivalence:** frames before (`feature/3d-view-soil-runs`) and after, real Chrome on the RTX 2070 SUPER, Canyon
+  128 seed 7, Standard and High, the whole map and a cliff, 1920×1080, the water held: 5–89 pixels differ, as many as
+  two runs of the same build differ by (11–147), on the moving water; the terrain is pixel-identical.
+- **Mouths** (flat grey, ground only, measured once): 24 mouths each on Hollows and Pressure found by the rule (a
+  cave floor beside open ground at its level), both looks: the step across ±0.05 tile is at most 4 levels in all 96
+  look-mouths, before and after.
+- **Relight after a dab** (radius 6 on cave tiles, the whole draw of a dab, real Chrome, median of 80, measured once):
+  Hollows 2.1–2.5 → 2.6–2.7 ms, Pressure 2.2–2.4 → 2.8–3.1 ms; a generated 256² map 1.4–2.2 → 1.6–1.7 ms (no change).
+  The shadows' share is kept small by redoing only the samples whose sweep tops moved (`shadowPairRect`'s
+  `heightsOnly`) and one look at the sums of cave tiles along a ray before walking it.
+- **Captures:** `docs/sheets/3d-view-caves-read.jpg` (Hollows cut at 5, a forest in a cave, a tunnel, the overhang at
+  (47,59); Pressure's tunnel and the mouth at (238,161); before and after, Standard and High, 1920×1080 dark, and the
+  tunnels at 1280×800 light).
+- **Falls short:** deep interiors are murky by choice, and stone
+  in shade is dark in both looks (an open cliff in shade is as dark); objects' looks by soil under roofs are their
+  tile top's.
+- **Known limits:** the shadow map keeps one top a sample, so a cliff face inside an overhang's shadow can show lit
+  above a lit gap below it (the ground itself is right).
+- **A cave made after the map opened** (a Block dig or an Erode cave on a plain map; the usability pass's finding):
+  the renderer follows the columns of every terrain update (`renderer.ts` `syncCaves`), so the first column with air
+  under a roof switches on the cutaway's branch, builds the light volume whole (once, about as long as a map with
+  caves takes to open) and the roofed objects' branch, and the last one filled switches them off again. The cut opens
+  into a hollow dug under it as it does on an imported cave map (`tests/e2e/cutaway.spec.ts`, its second test).
 
 ## Block tool's rendering (D488; `feature/block-tool-render`)
 
@@ -252,20 +380,17 @@ Each reads the same column masks the mesher reads. The seams:
 2. **Light in 3D:** done (part 2, above). The volume reads `columnMask` too, so item 1 makes its build a lookup.
 3. **Soil and the Map look per run top (built, part 3 above):** a run texture (3.0 MB at 256²) gives each run top
    below its tile's top its own soil, moisture, contamination and water.
-4. **Water per column:** `waterMesh.ts` already draws lower water columns (`lowerByTile`); seat each slot on its own
-   floor and cap it at its ceiling, from the stacked engine's slots, with cave attenuation on its light (the water shader reads
-   `caveTex` as the terrain's does; today water under a roof keeps the open sky's light).
+4. **Water per column (built, part 4 above):** every water column drawn on its own floor under its ceiling, seeing the
+   water and ground at its own level, and lit by the air it stands in.
 5. **3D picking and selections (built, part 5 above):** `pick.ts` picks against the masks (a ray through the
    voxels, the face hit and its run) and the Select tool reads the run hit.
 6. **The level-slice cutaway (built, part 6 above):** the clipped columns drawn, caps only where solid rock crosses
    the cut, lit from the unsliced terrain (D207).
-7. **Kyler's notes at approval:** the stone pattern stretching on ceilings and at corners; cave interiors and deep
-   water under roofs tuned on real maps; objects, slopes, falls and moving water inside caves.
-8. **Standard's open ground before a cave:** its baked shadow (`light.ts`) treats every column as solid to its top,
-   so ground the sun reaches under an overhang (High and a ray through the voxels have it lit) is shaded, and a
-   cave floor beside it carries that shade in about half a tile before its own march lights it (Hollows (47,59,7)
-   south, Pressure (238,161,6)). Marching the open ground through the volume only near caves would move the step
-   to that ring's edge; the fix is a baked shadow from the voxels themselves on maps with caves.
+7. **Kyler's notes at approval (built, items 7 and 8 and part 4 above):** the stone on ceilings and at corners,
+   cave interiors tuned on real maps, objects, slopes and falls inside caves, water under roofs in the cave's light and
+   falls between a cave's own levels. Moving water's current under a roof is still the tile's (part 4, "Falls short").
+8. **Standard's open ground before a cave (built, items 7 and 8 above):** the baked shadow is cast from the voxels on
+   maps with terrain above terrain.
 
 ## Design note
 

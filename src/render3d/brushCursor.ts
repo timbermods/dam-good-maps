@@ -203,6 +203,9 @@ export class BrushCursor {
   }
 }
 
+/** The ring's amber while the plants painted inside it would die (D235): the drought line's amber, brighter. */
+const WARN_RING: readonly number[] = [1.0, 0.72, 0.15];
+
 /** Most dashes a force's ring takes (a crater's, 90 tiles round at most). */
 const RING_DASHES = 720;
 
@@ -236,8 +239,8 @@ export class ForceRing {
 
   /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's
    *  surface where there is water, else the ground), or, with `marker`, only the small dot at (x, y);
-   *  null hides it. */
-  set(s: { x: number; y: number; r: number; marker?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
+   *  `warn` draws the ring amber (the plants painted inside it would die, D235); null hides it. */
+  set(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
     if (!s) {
       this.mesh.visible = false;
       return;
@@ -280,7 +283,7 @@ export class ForceRing {
         if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
         const h = level(tx, ty) + 0.06;
         if (pass === 0) quad(px, py, h - 0.005, o, 0.7, edge);
-        else quad(px, py, h, w, 0.82, [1, 1, 1]);
+        else quad(px, py, h, w, 0.82, s.warn ? WARN_RING : [1, 1, 1]);
       }
     this.geo.setDrawRange(0, q * 6);
     (this.geo.getAttribute("position") as BufferAttribute).needsUpdate = true;
