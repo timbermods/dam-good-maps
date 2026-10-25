@@ -584,10 +584,11 @@ export class MapRenderer {
     }
   }
 
-  /** Whether the terrain's shaders read the run tops' own soil (runSoil.ts): only on a map with run tops below a
-   *  tile's top, so every other map draws with the same program as before (the define is not there at all). */
+  /** Whether the terrain's shaders (and High's slopes standing on a floor) read the run tops' own soil (runSoil.ts):
+   *  only on a map with run tops below a tile's top, so every other map draws with the same program as before (the
+   *  define is not there at all). */
   private setRunSoilBranch(on: boolean): void {
-    for (const mat of [this.std.terrain, this.high?.materials.terrain]) {
+    for (const mat of [this.std.terrain, ...(this.high?.runSoilMaterials() ?? [])]) {
       if (!mat || ("RUN_SOIL" in mat.defines) === on) continue;
       if (on) mat.defines.RUN_SOIL = 1;
       else delete mat.defines.RUN_SOIL;
@@ -1577,7 +1578,9 @@ export class MapRenderer {
       this.scene.remove(this.objects);
       disposeGroup(this.objects);
     }
-    const { group, instances } = buildEntities(e, this.objectMat, this.map?.soil ?? null, this.map?.W ?? 0, this.software, this.entityModels);
+    // (a ruin under a roof reads its run top's soil: a soil without runs keeps the last drawn, as the terrain does)
+    const soil = this.map?.soil && !this.map.soil.runs && this.runsShown ? { ...this.map.soil, runs: this.runsShown } : (this.map?.soil ?? null);
+    const { group, instances } = buildEntities(e, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels);
     this.objectsMoved = false;
     // (a highlight belonged to the objects as they were)
     this.lit = [];
