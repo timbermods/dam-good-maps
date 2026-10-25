@@ -146,13 +146,15 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
 
 test("a cave dug after a plain map opened is opened by the cut and lit as a cave, and a map that loses its last goes back to the plain program", async ({ page }) => {
   // (a Block dig or an Erode cave on a generated map: the renderer learns of its first column with air under a roof from a
-  // terrain update, not from opening the map, and the cut must open into it all the same, what you see is what you get)
+  // terrain update, not from opening the map, and the cut must open into it all the same, what you see is what you get.
+  // Where the browser compiles in the background the branch's programs are compiled first and the switch is made when
+  // they are ready (programs.ts, D453): no frame after the dig compiles one)
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
-  const out = await page.evaluate(() => {
+  const out = await page.evaluate(async () => {
     type R = import("../../src/render3d").MapRenderer;
     const shown = window.dgm3d!.renderer;
     const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
@@ -165,8 +167,19 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
     const r = new Make(c);
     r.setLookChoice("standard", false);
     type Mat = { defines: Record<string, number> };
-    const internals = r as unknown as { std: { terrain: Mat; object: Mat }; uniforms: { caveSize: { value: { x: number } } } };
+    const internals = r as unknown as { std: { terrain: Mat; object: Mat }; uniforms: { caveSize: { value: { x: number } } }; programs: { background: boolean }; gl: { info: { programs: unknown[] } } };
     const state = () => ({ cutaway: internals.std.terrain.defines.CUTAWAY ?? 0, caves: "CAVES" in internals.std.object.defines, volume: internals.uniforms.caveSize.value.x > 0 });
+    /** Frames until the branches asked for are drawn: the programs any of them compiled. */
+    let compiledInFrames = 0;
+    const settle = async () => {
+      for (let k = 0; k < 600; k++) {
+        const before = internals.gl.info.programs.length;
+        r.renderNow();
+        compiledInFrames += internals.gl.info.programs.length - before;
+        if (r.programsSettled) return;
+        await new Promise((done) => setTimeout(done, 20));
+      }
+    };
     // a plain 12² map at level 8, opened with no columns, cut at 3
     const W = 12;
     const heights = new Uint8Array(W * W).fill(8);
@@ -185,18 +198,20 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
       for (const z of [0, 1, 5, 6, 7]) voxels[k * 23 + z] = 1;
     });
     r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
-    r.renderNow();
+    await settle();
     const dug = state();
     // filled in again: no column left
     r.updateTerrain(heights.slice(), { tiles: new Int32Array(0), voxels: new Uint8Array(0) } as unknown as Parameters<R["updateTerrain"]>[1]);
-    r.renderNow();
+    await settle();
     const filled = state();
+    const background = internals.programs.background;
     r.dispose();
     host.remove();
-    return { opened, dug, filled };
+    return { opened, dug, filled, background, compiledInFrames };
   });
   expect(out.opened, "a plain map: the plain program").toEqual({ cutaway: 0, caves: false, volume: false });
   expect(out.dug, "its first hollow: the cutaway, the light volume and the roofed objects' branch").toEqual({ cutaway: 1, caves: true, volume: true });
   expect(out.filled, "its last hollow filled: the plain program again").toEqual({ cutaway: 0, caves: false, volume: false });
+  if (out.background) expect(out.compiledInFrames, "programs compiled by the frames after the dig and the fill").toBe(0);
   expect(errors).toEqual([]);
 });

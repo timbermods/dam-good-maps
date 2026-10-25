@@ -67,6 +67,12 @@ const tintMaterial = (): ShaderMaterial =>
       void main() { gl_FragColor = vec4(rgb, vA); }`,
   });
 
+/** The line's and the tint's materials (meshes without a normal): the renderer compiles a copy of them ahead of the
+ *  first line drawn (programs.ts). */
+export function droughtLineMaterials(): ShaderMaterial[] {
+  return [lineMaterial(), tintMaterial()];
+}
+
 function geometry(b: QuadBuffers, extra?: { centers: Float32Array; widths: Float32Array }): BufferGeometry {
   const geo = new BufferGeometry();
   geo.setAttribute("position", new BufferAttribute(b.positions, 3));

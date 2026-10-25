@@ -77,6 +77,8 @@ export async function heroPicture(view: MapView, quality = 0.9): Promise<Uint8Ar
     r.setClock(CLOCK);
     r.setMap(view, false, true);
     frameHero(r, view);
+    // (its programs compiled first, off the page's thread where the browser can: the save never freezes on them, D453)
+    await r.compileAhead();
     const t0 = performance.now();
     while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {
       r.renderNow();
