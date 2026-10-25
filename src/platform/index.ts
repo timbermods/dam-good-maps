@@ -5,6 +5,8 @@
 import "./isolation";
 import { transfer, wrap, type Remote } from "comlink";
 import type { GeneratorApi } from "../worker/generator.worker";
+import type { ShowcaseMessage, ShowcaseRequest } from "../worker/showcaseApi";
+import type { MapSpec } from "../core/spec/mapspec";
 import { parallelWaterSupported, threadsFor } from "../core/sim/parallelPolicy";
 
 /** workers: module URLs on the website (the artifact build will inline them as blobs). The
@@ -72,6 +74,22 @@ export function createBackground(): { api: Remote<GeneratorApi>; stop(): void } 
   // ("background": its water stays on one thread, generator.worker.ts)
   const worker = new Worker(new URL("../worker/generator.worker.ts", import.meta.url), { type: "module", name: "background" });
   return { api: wrap<GeneratorApi>(worker), stop: () => worker.terminate() };
+}
+
+/** Showcase mode (D488 (2)): its search in a worker of its own (worker/showcase.worker.ts, the messages in
+ *  worker/showcaseApi.ts), so the editor never slows. `start` begins a search and `onMessage` hears each map
+ *  made and the end; `stop` ends it after the map being made (a `done` with what it found); `terminate` ends
+ *  it at once. */
+export function createShowcase(onMessage: (m: ShowcaseMessage) => void): { start(spec: MapSpec, budgetMs: number, tries?: number): void; stop(): void; terminate(): void } {
+  const worker = new Worker(new URL("../worker/showcase.worker.ts", import.meta.url), { type: "module", name: "showcase" });
+  worker.onmessage = (e: MessageEvent<ShowcaseMessage>) => onMessage(e.data);
+  worker.onerror = (e) => onMessage({ kind: "error", message: e.message || "the showcase search stopped" });
+  const send = (m: ShowcaseRequest) => worker.postMessage(m);
+  return {
+    start: (spec, budgetMs, tries) => send({ kind: "start", spec, budgetMs, ...(tries !== undefined ? { tries } : {}) }),
+    stop: () => send({ kind: "stop" }),
+    terminate: () => worker.terminate(),
+  };
 }
 
 /** files: save bytes under a file name. The artifact edition wraps .timber in a .zip (D10). */
