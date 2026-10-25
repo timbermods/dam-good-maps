@@ -6,7 +6,7 @@
 import { entityTiles } from "../features/edits";
 import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
-import { FOOTPRINTS, worldBlocks, type Orientation } from "../format/footprints";
+import { FOOTPRINTS, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
 import type { EntitySpec } from "../format/entities";
 import { placeComponents } from "./objectOps";
@@ -14,6 +14,7 @@ import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import type { EditOp } from "./ops";
 import { itemName, placeLabel, plantLabel, withArticle } from "./labels";
 import type { MapSession } from "./session";
+import { makesRoomForStart, START_OPEN_GROUND, startRoofProblem } from "./startFit";
 
 const fail = (...errors: string[]): { ok: false; errors: string[] } => ({ ok: false, errors });
 
@@ -109,10 +110,17 @@ export function underRoof(s: MapSession, p: { template?: string; x: number; y: n
 function roofProblem(s: MapSession, p: { template: string; x: number; y: number; z?: number; orientation: Orientation; flipped?: boolean }, ignore: string | null): string | null {
   const { x: W, y: H } = s.size;
   const b = s.built;
+  // the start: on open ground (its door and bench are levelled there), or at a level wholly under a roof, where the
+  // game's rule decides (startFit.ts `startRoofProblem`); the generation's plants and ruin columns make room for it
+  if (p.template === "StartingLocation") {
+    if (p.z === undefined) return START_OPEN_GROUND;
+    const [mx, my] = startMiddleTile({ x: p.x, y: p.y, orientation: p.orientation });
+    // (its own object by its id or its template, never its owner: an import's objects are all owned by "import")
+    const cells = objectCells(b.entities, W, H, (e) => e.id === ignore || makesRoomForStart(e.template, !!e.raw));
+    return startRoofProblem({ ...s.standGround(), heights: b.heights }, mx, my, p.orientation, p.z, cells);
+  }
   const top = b.heights[p.y * W + p.x];
   if (p.z !== undefined && p.z >= top) return `level ${p.z} is not under a roof here: the ground's top is ${top}, where it stands without a level`;
-  // the start stands on open ground, as it always has (its door and bench are levelled there)
-  if (p.template === "StartingLocation") return "the start needs open ground: there is a cave or overhang there";
   const fp = FOOTPRINTS[p.template];
   if (p.z !== undefined) {
     const tiles = worldBlocks(fp, { template: p.template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped }).map((c) => [c.x, c.y] as const);
