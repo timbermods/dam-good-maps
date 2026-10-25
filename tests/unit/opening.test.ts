@@ -1,6 +1,7 @@
 // The opening shot (D493): the game's first camera as a core question.
 import { describe, expect, it } from "vitest";
-import { bestTurn, frameAt, landmarkInView, levelDoorTurns, openingCamera, openingFrame, openingShotScore, prepareOpening, standingForms } from "../../src/core/analysis/opening";
+import { bestTurn, frameAt, landmarkInView, levelDoorTurns, openingCamera, openingFrame, openingShotScore, prepareOpening } from "../../src/core/analysis/opening";
+import { standingForms } from "../../src/core/analysis/vertical";
 
 const W = 128;
 const H = 128;
@@ -45,7 +46,7 @@ describe("the opening shot", () => {
   it("finds the standing form", () => {
     const forms = standingForms(spireLand(90, 64), W, H);
     expect(forms.length).toBe(1);
-    expect(forms[0].stand).toBe(11);
+    expect(forms[0].prominence).toBe(11);
     const px = forms[0].peak % W;
     const py = (forms[0].peak - px) / W;
     expect(Math.abs(px - 90) + Math.abs(py - 64)).toBeLessThanOrEqual(2);

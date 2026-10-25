@@ -46,7 +46,7 @@ async function main(): Promise<void> {
       await waitForEditor(page, 300_000);
       await page.evaluate(() => window.dgmEditor!.idle());
       const st = (await page.evaluate(() => {
-        const e = window.dgm3d!.renderer.map!.entities;
+        const e = (window.dgm3d!.renderer as unknown as { map: { entities: { count: number; templates: string[]; template: Uint16Array; x: Int16Array; y: Int16Array; z: Int16Array; orientation: Uint8Array } } }).map.entities;
         for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "StartingLocation") return { x: e.x[k], y: e.y[k], z: e.z[k], o: e.orientation[k] & 3 };
         return null;
       })) as { x: number; y: number; z: number; o: number } | null;

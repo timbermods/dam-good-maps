@@ -20,8 +20,8 @@
 // `math/portable.ts` `pow`, everything else + − × ÷.
 
 import { coordinatesForMinCorner, ORIENTATIONS, startEntranceTile, type Orientation } from "../format/footprints";
-import { N4 } from "../math/grid";
 import { pow, sqrt } from "../math/portable";
+import { standingForms, type StandingForm } from "./vertical";
 
 /** The game's opening camera (Timberborn.GameStartup.cs; CameraService.blueprint.json). */
 export const OPENING = {
@@ -150,64 +150,6 @@ export function levelDoorTurns(h: ArrayLike<number>, W: number, H: number, x: nu
   return out;
 }
 
-// ------------------------------------------------------------------------------- standing forms
-
-/** Sixteen points 7 tiles round a tile: the ground a standing form is measured over. */
-const RING: [number, number][] = (() => {
-  const a = [1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38, 0, 0.38, 0.71, 0.92];
-  const b = [0, 0.38, 0.71, 0.92, 1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38];
-  return a.map((v, k) => [Math.round(7 * v), Math.round(7 * b[k])] as [number, number]);
-})();
-
-/** A stack, butte, mesa or peak: its highest-standing tile and how far it stands over its ring. */
-export interface StandingForm {
-  /** The tile standing highest over the ground 7 tiles round it. */
-  peak: number;
-  /** Levels over that ground. */
-  stand: number;
-  /** The form's tiles (those standing 5+ levels over their ring, joined side by side). */
-  size: number;
-}
-
-/** The standing forms (the landmark intention's, D138): tiles standing 5+ levels over the ground 7
- *  tiles round them, joined side by side, on at most 300 tiles. */
-export function standingForms(h: ArrayLike<number>, W: number, H: number): StandingForm[] {
-  const N = W * H;
-  const lift = new Int16Array(N);
-  const top = new Uint8Array(N);
-  for (let y = 7; y < H - 7; y++)
-    for (let x = 7; x < W - 7; x++) {
-      const i = y * W + x;
-      let lo = 99;
-      for (const [dx, dy] of RING) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-      lift[i] = h[i] - lo;
-      if (lift[i] >= 5) top[i] = 1;
-    }
-  const out: StandingForm[] = [];
-  const seen = new Uint8Array(N);
-  for (let s = 0; s < N; s++) {
-    if (!top[s] || seen[s]) continue;
-    const q = [s];
-    seen[s] = 1;
-    for (let k = 0; k < q.length; k++) {
-      const i = q[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const j = (y + dy) * W + x + dx;
-        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || seen[j] || !top[j]) continue;
-        seen[j] = 1;
-        q.push(j);
-      }
-    }
-    if (q.length > 300) continue;
-    let peak = q[0];
-    for (const i of q) if (lift[i] > lift[peak] || (lift[i] === lift[peak] && (h[i] > h[peak] || (h[i] === h[peak] && i < peak)))) peak = i;
-    out.push({ peak, stand: lift[peak], size: q.length });
-  }
-  return out;
-}
-
 // ------------------------------------------------------------------------------- the shot's score
 
 /** What the opening frame holds and how good a shot it makes. */
@@ -265,7 +207,7 @@ export function landmarkInView(land: Pick<OpeningLand, "W" | "h" | "forms">, sta
   const { W, h } = land;
   let best: (OpeningShot["landmark"] & { weight: number }) | null = null;
   for (const f of land.forms) {
-    if (f.stand < LANDMARK_LEAST) continue;
+    if (f.prominence < LANDMARK_LEAST) continue;
     const x = f.peak % W;
     const y = (f.peak - x) / W;
     const dx = x - start.x;
@@ -277,9 +219,9 @@ export function landmarkInView(land: Pick<OpeningLand, "W" | "h" | "forms">, sta
     // nearest the middle line, 30–50 tiles out before the band's ends; a form taller than 15 levels
     // counts as 15 (the landmark's band, D488)
     const mid = d2 >= 900 && d2 <= 2500 ? 1 : 0.85;
-    const weight = (1 - 0.5 * Math.abs(p.u)) * mid * (0.7 + (0.3 * (Math.min(f.stand, LANDMARK_MOST) - LANDMARK_LEAST)) / (LANDMARK_MOST - LANDMARK_LEAST));
+    const weight = (1 - 0.5 * Math.abs(p.u)) * mid * (0.7 + (0.3 * (Math.min(f.prominence, LANDMARK_MOST) - LANDMARK_LEAST)) / (LANDMARK_MOST - LANDMARK_LEAST));
     if (!best || weight > best.weight || (weight === best.weight && f.peak < best.tile)) {
-      best = { tile: f.peak, stand: f.stand, dist: Math.round(sqrt(d2)), u: p.u, v: p.v, weight };
+      best = { tile: f.peak, stand: f.prominence, dist: Math.round(sqrt(d2)), u: p.u, v: p.v, weight };
     }
   }
   return best;

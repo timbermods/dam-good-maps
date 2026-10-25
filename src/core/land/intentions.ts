@@ -22,7 +22,8 @@
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
 
-import { fallInView, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, standingForms, type OpeningLand } from "../analysis/opening";
+import { fallInView, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { standingForms } from "../analysis/vertical";
 import type { Orientation } from "../format/footprints";
 import * as portable from "../math/portable";
 import type { Rng } from "../math/rng";
@@ -874,11 +875,11 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       const st = { x: sx, y: sy, z, orientation: start.orientation ?? "Cw0" };
       const lm = landmarkInView(land, st);
       const fall = lm ? null : fallInView(land, st, 6);
-      const standout = forms.reduce((m, f) => Math.max(m, f.stand), 0);
+      const standout = forms.reduce((m, f) => Math.max(m, f.prominence), 0);
       const tallest = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
       const ok = !!lm || !!fall;
       const seen = lm ? `in view, ${lm.stand} levels over its ring ${lm.dist} tiles out` : fall ? `a fall of ${Math.round(fall.drop * 10) / 10} in view` : "none in view";
-      return { ok, note: `${forms.length} standing form${forms.length === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring, ${forms.filter((f) => f.stand >= LANDMARK_LEAST).length} of ${LANDMARK_LEAST}+), tallest fall ${Math.round(tallest * 10) / 10}; ${seen}`, ...(ok ? { say: lm ? `A lone height stands ${levels(lm.stand)} over the land round it, in view of the start.` : `A waterfall drops ${levels(fall!.drop)} in view of the start.` } : {}) };
+      return { ok, note: `${forms.length} standing form${forms.length === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring, ${forms.filter((f) => f.prominence >= LANDMARK_LEAST).length} of ${LANDMARK_LEAST}+), tallest fall ${Math.round(tallest * 10) / 10}; ${seen}`, ...(ok ? { say: lm ? `A lone height stands ${levels(lm.stand)} over the land round it, in view of the start.` : `A waterfall drops ${levels(fall!.drop)} in view of the start.` } : {}) };
     }
     case "farmland-past-gorge": {
       // farmland: moist, dry, level land; the start's own within 20 tiles' walk, and the largest
