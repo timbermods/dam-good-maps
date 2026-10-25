@@ -411,13 +411,21 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
   const lengthTilt = form.long ? form.ratio : 1;
   // (and falls at least half as far as its broad highs and its noise rise, so they never wall a river in)
   const tilt = form.long ? Math.max(g.tilt, 0.5 * (g.regional.amp + nz.amp)) : g.tilt;
+  // (D488: on a long Delta its contours bent along the length, as far as a seventh of the map's width: the
+  // slope that steep, straight down a strip 48 wide over a delta's low, gently stepped land, snapped to
+  // levels whose edges ran ruler-straight across it, Delta 48×256 seeds 6 and 7. A long map's slope runs
+  // straight down its axis, so the bend is a shift along it. Not on the other themes: on Canyon's strip
+  // it cost lands and once left a creek, and their taller land breaks its contours already)
+  const S = Math.min(W, H);
+  const bendAlong = form.long && g.tiltKind === "linear" && g.theme === "delta" ? (0.15 * S * 2) / (Math.max(W, H) - 1) : 0;
+  const lw = hash32(ls, "length-bend");
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const u = (x / (W - 1)) * 2 - 1;
       const v = (y / (H - 1)) * 2 - 1;
       const proj = (u * fx + v * fy) / (Math.abs(fx) + Math.abs(fy));
       let h = 0;
-      if (g.tiltKind === "linear") h += tilt * -0.5 * proj * lengthTilt;
+      if (g.tiltKind === "linear") h += tilt * -0.5 * (bendAlong ? proj + bendAlong * fbm(lw, x, y, 0.8 * S, 2) : proj) * lengthTilt;
       else {
         const du = x / (W - 1) - g.focus[0];
         const dv = y / (H - 1) - g.focus[1];
