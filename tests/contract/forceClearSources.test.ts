@@ -18,7 +18,7 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
-import { keptForceParams } from "../../src/core/forces/keep";
+import { keptForceParams, sourcesRemovedBy } from "../../src/core/forces/keep";
 import { forceProblems, type ForceResultParams } from "../../src/core/forces/op";
 import { MapSession } from "../../src/core/doc/session";
 import { decodeProject } from "../../src/core/doc/document";
@@ -127,6 +127,9 @@ describe("forces clear sources (D474)", () => {
       expect(reached.length).toBeGreaterThan(0);
       const gone = new Set([...clear.params.removed, ...(clear.params.cleared ?? []).map((q) => q.id)]);
       expect(reached.filter((id) => !gone.has(id))).toEqual([]);
+      // the count the editor says after the force: every source it reached (and any a slide buried), and none under Ride
+      expect(sourcesRemovedBy(clear.params, m)).toBeGreaterThanOrEqual(reached.length);
+      expect(sourcesRemovedBy(ride.params, m)).toBe(0);
       const lastIds = new Set(clear.entities.map((e) => e.id));
       expect(reached.filter((id) => lastIds.has(id))).toEqual([]);
       // with Ride, every one it reached stays, standing on the ground it rode

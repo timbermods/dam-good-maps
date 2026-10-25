@@ -38,6 +38,8 @@ export interface EditorNote {
   kind: "error" | "info";
   text: string;
   keep?: boolean;
+  /** One thing the note offers to do (an info note: Undo, after a force cleared sources). */
+  action?: { label: string; tip: string; run: () => void };
 }
 
 export interface SessionSlice {
