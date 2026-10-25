@@ -34,8 +34,8 @@ export function fallsOf(h: ArrayLike<number>, D: ArrayLike<number>, W: number, H
 }
 
 /** A standing form: a stack, butte, mesa or peak standing 5 levels or more over the ground 7 tiles
- *  round it, on at most `most` tiles (the landmark intention's reading, land/intentions.ts; kept as
- *  its own copy so that check, and so every default map, stays as it is). */
+ *  round it, on at most `most` tiles: the landmark intention's reading (land/intentions.ts), the
+ *  opening shot's (analysis/opening.ts, D493) and Showcase mode's. */
 export interface StandingForm {
   /** Its tiles, in flood order. */
   tiles: number[];

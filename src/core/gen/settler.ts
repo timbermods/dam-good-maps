@@ -2,21 +2,25 @@
 // its water. It reads the land the way a player would. The start requirements are hard limits, never
 // traded: a shore of clean water a pump reaches within the water rule's walk over the map's own
 // slopes (D153; on the start's own level with 5 tiles to spare, on another level over the slopes the
-// build would derive with 2 to spare), the 3×3 and its ring dry, the door onto level ground facing
-// the water, the start's ground joined by one-level steps to a large share of the map (reach), and
+// build would derive with 2 to spare), the 3×3 and its ring dry, the door onto level ground, the start's ground joined by one-level steps to a large share of the map (reach), and
 // moist land within 20 tiles' walk for food and wood. Among the places that qualify, the genome's
 // preferences (a lake shore, a river bank, a confluence, below a fall, a high bench, a spring's
 // stream), the intentions' preferences, the drought-aware preference (#59: water that stays
 // pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and the
 // seed choose among the best few, kept 20 tiles apart, so starts differ as much as the land does.
+// The chosen place is turned for the game's opening camera (D493, analysis/opening.ts): among the
+// orientations whose door is on level ground, the one whose opening frame best holds a landmark (else
+// falls, open water, relief), the door nearest the water breaking ties.
 // If no place qualifies, a 5×5 within a level is levelled; as a last resort a pad and a path to the
 // water (D97).
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
+import { bestTurn, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { fallsOf } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
-import { coordinatesForMinCorner, ORIENTATIONS, rotate, type Orientation } from "../format/footprints";
+import type { Orientation } from "../format/footprints";
 import type { Hydro } from "../land/hydro";
 import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
@@ -336,7 +340,10 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) storeSum[(y + 1) * (W + 1) + x + 1] = k[y * W + x] + storeSum[y * (W + 1) + x + 1] + storeSum[(y + 1) * (W + 1) + x] - storeSum[y * (W + 1) + x];
   }
-  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum };
+  // what the opening camera would show from each place (D493), read once; for the chosen place's turn
+  let opening: OpeningLand | null = null;
+  const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
+  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, openingLand };
 }
 
 export type StartPreparation = ReturnType<typeof prepareStart>;
@@ -355,7 +362,7 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
@@ -374,7 +381,7 @@ export function pickStart(
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
   const reach = opts.levelReach ?? 1;
-  const cands: { i: number; score: number; kind: string; o: Orientation; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
+  const cands: { i: number; score: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
   for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !cands.length; pass++)
@@ -419,20 +426,8 @@ export function pickStart(
           droughtOk = wk <= waterRule;
           if (opts.drought === "require" && !droughtOk) continue;
         }
-        // a door on the side nearest the water, onto level ground
-        let o: Orientation | null = null;
-        let best = Infinity;
-        for (const oo of ORIENTATIONS) {
-          const [X, Y] = coordinatesForMinCorner(3, 3, x - 1, y - 1, oo);
-          const [ex, ey] = rotate(oo, 1, -1);
-          const e = (Y + ey) * W + X + ex;
-          if (h[e] !== L) continue;
-          if (dWet[e] < best) {
-            best = dWet[e];
-            o = oo;
-          }
-        }
-        if (!o) continue;
+        // a door onto level ground (the place is turned for the opening shot once chosen, D493)
+        if (!levelDoorTurns(h, W, H, x, y, L).length) continue;
         const moistNear = boxSum(L, x - 14, y - 14, x + 14, y + 14);
         if (moistNear < (pass === 0 ? 160 : 110)) continue;
         const room = Math.min(1, regions.size[regions.labels[i]] / roomWant);
@@ -474,7 +469,7 @@ export function pickStart(
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
         const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry + 0.8 * intent) * settingsFit + 0.25 * rng.float();
-        cands.push({ i, score, kind, o, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
+        cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
   if (!cands.length) return opts.level === false ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
@@ -517,7 +512,9 @@ export function pickStart(
   }
   const x = c.i % W;
   const y = (c.i - x) / W;
-  return { x, y, level: h[c.i], orientation: c.o, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };
+  // turned for the game's opening camera (D493)
+  const orientation = bestTurn(openingLand(), x, y, h[c.i], levelDoorTurns(h, W, H, x, y, h[c.i]), dWet)!;
+  return { x, y, level: h[c.i], orientation, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };
 }
 
 /** Whether water beside a start's pad would run onto it (D348): water within three tiles of the
@@ -569,19 +566,7 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
             }
           }
         if (!ok) continue;
-        let o: Orientation | null = null;
-        let door = Infinity;
-        for (const oo of ORIENTATIONS) {
-          const [X, Y] = coordinatesForMinCorner(3, 3, x - 1, y - 1, oo);
-          const [ex, ey] = rotate(oo, 1, -1);
-          const e = (Y + ey) * W + X + ex;
-          if (h[e] !== L) continue;
-          if (dWet[e] < door) {
-            door = dWet[e];
-            o = oo;
-          }
-        }
-        if (!o) continue;
+        if (!levelDoorTurns(h, W, H, x, y, L).length) continue;
         let bench = 0;
         for (let dy = -8; dy <= 8; dy++)
           for (let dx = -8; dx <= 8; dx++) {
@@ -593,9 +578,11 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
         const score = Math.min(1, bench / 150) + Math.min(1, foot / (0.2 * N)) - 0.02 * Math.min(40, dWet[i]) - 0.002 * near;
         if (score > bestScore) {
           bestScore = score;
-          best = { x, y, level: L, orientation: o, kind: "dry", shoreWalk: Infinity, levelled: uneven };
+          best = { x, y, level: L, orientation: "Cw0", kind: "dry", shoreWalk: Infinity, levelled: uneven };
         }
       }
+  // turned for the game's opening camera (D493)
+  if (best) best.orientation = bestTurn(prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)), best.x, best.y, best.level, levelDoorTurns(h, W, H, best.x, best.y, best.level), dWet)!;
   return best;
 }
 

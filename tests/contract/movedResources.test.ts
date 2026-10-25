@@ -28,7 +28,7 @@ describe("a generated resource feature the player changes", () => {
   });
 
   it("a forest's density changed after another edit shows at once, as with no earlier edit and in the reopened project", () => {
-    const FOREST = "f-mq4ujbm6d2uvs"; // a generated oak grove on seed 11, 96², 33 oaks (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning)
+    const FOREST = "f-olxbafz5vpgny"; // a generated oak grove on seed 11, 96², 196 oaks (re-picked for each generator whose map lacks the earlier one, D148: 0.8.1, #265, and 0.8.3, D476, twice; 0.10.1, ruins placed with meaning; 0.10.2, D493)
     const first: EditOp = { op: "sculpt", params: { mode: "raise", cells: [[1, 86, 89], [2, 86, 89]], amount: 1 } };
     const density: EditOp = { op: "updateFeature", params: { id: FOREST, patch: { params: { density: 0.36 } } } };
     const alone = session(11, W);

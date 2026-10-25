@@ -115,6 +115,8 @@ describe("Glaciate's planner (round 4, #69, its floor's water finished, D292)", 
 
 describe("Glaciate in the editor's worker", () => {
   it("a click Flows and a drag Aims; Esc drops all of it at once; its end is one step exactly as shown; Try another varies it and undo brings the first back", async () => {
+    // (the glacier's own operation is read by kind: where it breaks the start's ground, its step also
+    // carries the start's repair, as on this map since the opening shot turned its start, D493, D148)
     const W = 96;
     await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
@@ -136,7 +138,7 @@ describe("Glaciate in the editor's worker", () => {
     const first = ed.terrainNow().heights.slice();
     expect(Array.from(first)).toEqual(Array.from(shown));
     expect(Array.from(first)).not.toEqual(Array.from(before));
-    const op1 = MapSession.open(decodeProject(ed.project().bytes)).logOps.at(-1)!.params as ForceResultParams;
+    const op1 = MapSession.open(decodeProject(ed.project().bytes)).logOps.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
     expect(op1.verb).toBe("glaciate");
     expect(op1.settings.mode).toBe("flow");
     expect(op1.where.end).toBeUndefined();
@@ -161,7 +163,7 @@ describe("Glaciate in the editor's worker", () => {
     // a drag: it Aims, grinding through to where it was dragged
     const end: [number, number] = [Math.min(W - 12, Math.max(12, W - at[0])), Math.min(W - 12, Math.max(12, W - at[1]))];
     run({ verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: at, end, cut: null });
-    const op2 = MapSession.open(decodeProject(ed.project().bytes)).logOps.at(-1)!.params as ForceResultParams;
+    const op2 = MapSession.open(decodeProject(ed.project().bytes)).logOps.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
     expect(op2.settings.mode).toBe("aim");
     expect(op2.where.end).toEqual(end);
     ed.undo();
@@ -204,7 +206,7 @@ describe("Glaciate in the editor's worker", () => {
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const again = MapSession.open(decodeProject(s.project()));
     expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
-    const p = s.logOps.at(-1)!.params as ForceResultParams;
+    const p = s.logOps.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
     for (const q of p.sources ?? []) expect(s.built.entities.some((e) => e.id === q.id && e.template === "WaterSource"), q.id).toBe(true);
     s.settleCanonical();
     again.settleCanonical();
