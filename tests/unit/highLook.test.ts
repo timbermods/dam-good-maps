@@ -320,6 +320,36 @@ describe("the new trees and bushes (#66)", () => {
   });
 });
 
+describe("the forest kept when the plants are the same (a source placed among them)", () => {
+  const material = new ShaderMaterial();
+  const plants = [
+    { template: "Pine", x: 3, y: 4, z: 2, orientation: "Cw0", owner: "t" },
+    { template: "Oak", x: 5, y: 4, z: 2, orientation: "Cw0", owner: "t" },
+    { template: "Birch", x: 7, y: 4, z: 2, orientation: "Cw0", owner: "t", young: true },
+  ];
+  const source = { template: "WaterSource", x: 9, y: 4, z: 2, orientation: "Cw0", owner: "t", strength: 2 };
+  it("numbers its plants as the new objects do, as a forest made from them would", () => {
+    const f = new Forest(entityView(plants), material);
+    f.layout();
+    const moved = entityView([source, ...plants]);
+    expect(f.reindex(moved)).toBe(true);
+    const fresh = new Forest(moved, material);
+    fresh.layout();
+    for (let k = 0; k < f.meshes.length; k++) {
+      expect(Array.from(f.meshes[k].userData.objects as Int32Array)).toEqual(Array.from(fresh.meshes[k].userData.objects as Int32Array));
+      expect(Array.from(f.meshes[k].instanceMatrix.array)).toEqual(Array.from(fresh.meshes[k].instanceMatrix.array));
+    }
+  });
+  it("is made again when a plant moved, grew up or went", () => {
+    const f = new Forest(entityView(plants), material);
+    expect(f.reindex(entityView([{ ...plants[0], x: 4 }, plants[1], plants[2]]))).toBe(false);
+    expect(f.reindex(entityView([plants[0], plants[1], { ...plants[2], young: false }]))).toBe(false);
+    expect(f.reindex(entityView([plants[0], plants[1]]))).toBe(false);
+    // (a plant that died is the same plant: `setDead` moves it)
+    expect(f.reindex(entityView([{ ...plants[0], dead: true }, plants[1], plants[2]]))).toBe(true);
+  });
+});
+
 describe("the landmarks (#67 stage 3)", () => {
   it("replace the landmark objects' batches with their own, keeping each instance's object and ground", () => {
     const view = entityView([

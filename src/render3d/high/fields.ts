@@ -115,6 +115,27 @@ function canopies(e: EntityView): Canopies {
   return { kind, x: e.x.slice(), y: e.y.slice(), z: e.z.slice() };
 }
 
+/** The canopies that cover anything (kind, x, y, z, four a canopy, in order): what the cover is worked out from. */
+function canopyKey(c: Canopies): Int16Array {
+  let n = 0;
+  for (let k = 0; k < c.kind.length; k++) if (c.kind[k]) n++;
+  const out = new Int16Array(n * 4);
+  for (let k = 0, j = 0; k < c.kind.length; k++) {
+    if (!c.kind[k]) continue;
+    out[j++] = c.kind[k];
+    out[j++] = c.x[k];
+    out[j++] = c.y[k];
+    out[j++] = c.z[k];
+  }
+  return out;
+}
+
+function sameNumbers(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 const union = (a: Rect | null, b: Rect): Rect => (a ? { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) } : { ...b });
 
@@ -125,6 +146,8 @@ export class AmbientField {
   /** What changed since the bake in flight was asked for (redone when it arrives). */
   private since: Rect | null = null;
   private objectsSince: EntityView | null = null;
+  /** The land and the canopies (`canopyKey`) the cover was last worked out from here (`objects`). */
+  private coverOf: { heights: Uint8Array; key: Int16Array } | null = null;
   private heights: Uint8Array;
   ms = 0;
 
@@ -154,6 +177,7 @@ export class AmbientField {
       if (id !== this.latest || r.kind !== "ambient") return;
       this.done = id;
       this.cover = r.cover;
+      this.coverOf = null;
       (this.texture.image.data as Uint8Array).set(r.data);
       this.ms = r.ms;
       if (this.objectsSince) this.objects(this.heights, this.objectsSince);
@@ -174,7 +198,12 @@ export class AmbientField {
       this.objectsSince = e;
       return;
     }
-    this.cover = canopyCover(this.W, this.H, heights, canopies(e));
+    const c = canopies(e);
+    // (the same canopies on the same land cover the same: placing a source among a forest redoes none of it)
+    const key = canopyKey(c);
+    if (this.coverOf && this.coverOf.heights === heights && sameNumbers(this.coverOf.key, key)) return;
+    this.coverOf = { heights, key };
+    this.cover = canopyCover(this.W, this.H, heights, c);
     canopyInto(this.cover, this.texture.image.data as Uint8Array);
     this.texture.needsUpdate = true;
   }

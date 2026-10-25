@@ -1376,7 +1376,7 @@ const TREES = new Set(["Pine", "Birch", "Oak"]);
 /** Build the objects of a map view as a group of instanced meshes; with the soil (and the map's
  *  width), ruins on moist ground are overgrown (a ruin under a roof by its own run top's soil). `lite`: the light look's models (software
  *  rendering). */
-export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache): { group: Group; instances: number } {
+export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache, reuse?: { group: Group; entities: EntityView }): { group: Group; instances: number } {
   const batches = new Map<string, Batch>();
   const batch = (key: string, model: () => Model): Batch => {
     let b = batches.get(key);
@@ -1468,9 +1468,25 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (template === "Slope") put(batch("Slope.mark", MODELS["Slope.mark"]), x + 0.5, z + SLOPE_ARROW_HEIGHT, -(y + 0.5), turn, 1, 1, 1, GROW_SLOPE_MARK);
   }
   const group = new Group();
+  // (the batches drawn already, by name: one that would be built exactly as it stands moves into the new group as it is,
+  // nothing made or sent to the GPU again; placing a source rebuilds the sources' batch, not the forest's)
+  const drawn = new Map<string, InstancedMesh>();
+  if (reuse && !lite)
+    for (const c of reuse.group.children) {
+      const mesh = c as InstancedMesh;
+      if (mesh.isInstancedMesh && mesh.userData.objects && !mesh.name.startsWith("high.")) drawn.set(mesh.name, mesh);
+    }
   for (const [key, b] of batches) {
     const n = b.tints.length / 3;
     if (!n) continue;
+    const old = drawn.get(key);
+    if (old && old.material === material && sameBatch(old, b, v, reuse!.entities)) {
+      old.userData.objects = Int32Array.from(b.objects);
+      if (b.follows.some((k) => k >= 0)) old.userData.follows = Int32Array.from(b.follows);
+      else delete old.userData.follows;
+      group.add(old);
+      continue;
+    }
     // the light look bakes every instance into one mesh drawn once: software rendering pays for
     // each instance it draws, not for each triangle
     const mesh = lite ? new InstancedMesh(baked(b.model(), b.matrices, b.tints), material, 1) : new InstancedMesh(models ? models.geometry(key, () => b.model().geometry()) : b.model().geometry(), material, n);
@@ -1496,6 +1512,27 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     group.add(mesh);
   }
   return { group, instances };
+}
+
+/** Whether a batch drawn (`mesh`, of the objects `was`) is exactly what `b` (of the objects `v`) would build: as many
+ *  instances, each of the same object's kind, with the same matrix, tint and growth as drawn now (a highlight, a
+ *  wiggle or ground followed shows as a difference, and the batch is built anew). */
+function sameBatch(mesh: InstancedMesh, b: Batch, v: EntityView, was: EntityView): boolean {
+  const n = b.tints.length / 3;
+  const own = mesh.userData.objects as Int32Array;
+  if (mesh.count !== n || own.length !== n || !mesh.instanceColor) return false;
+  for (let i = 0; i < n; i++) {
+    const k = own[i];
+    const j = b.objects[i];
+    if (k < 0 || j < 0 || k >= was.count || was.templates[was.template[k]] !== v.templates[v.template[j]]) return false;
+  }
+  const same = (a: ArrayLike<number>, f: readonly number[]) => {
+    if (a.length !== f.length) return false;
+    for (let i = 0; i < f.length; i++) if (a[i] !== Math.fround(f[i])) return false;
+    return true;
+  };
+  const grow = mesh.geometry.getAttribute("grow");
+  return !!grow && same(mesh.instanceMatrix.array, b.matrices) && same(mesh.instanceColor.array, b.tints) && same(grow.array, b.grows);
 }
 
 /** Every instance of a model in one geometry: positions and normals through each instance's
@@ -1542,11 +1579,37 @@ function baked(full: Model, matrices: number[], tints: number[]): BufferGeometry
   return g;
 }
 
-export function disposeGroup(g: Group): void {
-  for (const c of g.children) {
-    const mesh = c as InstancedMesh;
-    mesh.geometry.dispose();
-    mesh.dispose();
+/** The models the map's objects may yet be drawn with as the water and soil change, not made yet: a ruin's storeys
+ *  with and without their ivy (moist ground grows it), a plant's dead model (water drowns it). Each as its batch's key
+ *  and how to make it (`EntityGeometryCache.model`), for the page to make ahead when idle: made in the frame that
+ *  first drew them, they cost an edit's answer tens of milliseconds. */
+export function modelsAhead(v: EntityView, models: EntityGeometryCache): { key: string; build: () => BufferGeometry }[] {
+  const out = new Map<string, () => BufferGeometry>();
+  const want = (key: string, model: () => Model) => {
+    if (!models.has(key) && !out.has(key)) out.set(key, () => model().geometry());
+  };
+  for (let k = 0; k < v.count; k++) {
+    const template = v.templates[v.template[k]];
+    const key = modelKeyOf(template, v.flags[k]);
+    if (key === "ruin") {
+      const x = v.x[k];
+      const y = v.y[k];
+      const n = Number(template.slice(-1));
+      ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
+        for (const green of [IVY_NONE, ruinIvy(x, y, n, lv)]) want(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}${["", ".ivy.light", ".ivy.medium", ".ivy"][green]}`, () => storey(variant, kind, green));
+      });
+    } else if (PLANTS.has(template) && `${template}.dead` in MODELS) want(`${template}.dead`, MODELS[`${template}.dead`]);
   }
+  return [...out].map(([key, build]) => ({ key, build }));
+}
+
+export function disposeGroup(g: Group): void {
+  for (const c of g.children) disposeBatch(c as InstancedMesh);
   g.clear();
+}
+
+/** Let go of a batch's GPU buffers (its model's arrays are shared, `EntityGeometryCache`). */
+export function disposeBatch(mesh: InstancedMesh): void {
+  mesh.geometry.dispose();
+  mesh.dispose();
 }
