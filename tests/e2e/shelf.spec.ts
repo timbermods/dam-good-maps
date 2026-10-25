@@ -8,7 +8,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { startFitExtras, startFitWarnings } from "../../src/core/doc/startFit";
-import { openEditor } from "./open";
+import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -16,7 +16,7 @@ const labels = async (page: Page) => (await info(page)).history.filter((h) => h.
 
 async function openTopDown(page: Page, hash: string) {
   await openEditor(page, hash);
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
 }
 
 async function client(page: Page, x: number, y: number) {

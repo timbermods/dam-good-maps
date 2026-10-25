@@ -270,7 +270,7 @@ export function View3D(props: View3DProps) {
     };
     r.onView = (v) => {
       const el = compass.current;
-      if (el) el.style.transform = `rotate(${v.mode === "top" ? 0 : (v.yaw * 180) / Math.PI}deg)`;
+      if (el) el.style.transform = `rotate(${(v.yaw * 180) / Math.PI}deg)`;
     };
     return () => {
       renderer.current = null;
@@ -315,9 +315,10 @@ export function View3D(props: View3DProps) {
 
   /** The maps this view has shown (a kept view applies to its first only). */
   const mapsShown = useRef(0);
+  // the Top-down toggle changes only the tilt: the spot looked at and the zoom stay (D492)
   const pick = (m: ViewMode) => {
     setMode(m);
-    renderer.current?.setMode(m);
+    renderer.current?.switchMode(m);
   };
 
   // a tool or layer that needs the markers turns them on; when it is done, the viewer's own choice
@@ -498,8 +499,8 @@ export function View3D(props: View3DProps) {
       ) : null}
     </>
   );
-  // the compass turns the view to face north, as Timberborn's does: a glide round to yaw 0 by the shorter way (the
-  // top-down view always has north up already)
+  // the compass turns the view to face north, as Timberborn's does: a glide round to yaw 0 by the shorter way, in the
+  // top-down view too (it keeps the turn the angled view had, D492)
   const compassDial = (
     <button type="button" class="compass" {...tip("Face north")} aria-label="Face north" onClick={() => renderer.current?.glideTo({ ...renderer.current.getView(), yaw: 0 })}>
       <span ref={compass} class="needle" aria-hidden="true">
@@ -508,7 +509,7 @@ export function View3D(props: View3DProps) {
     </button>
   );
   const topDown = (
-    <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Looking straight down: click to turn the view" : "Look straight down, north up"}>
+    <button type="button" aria-pressed={mode === "top"} onClick={() => pick(mode === "top" ? "orbit" : "top")} title={mode === "top" ? "Back to the angled view" : "Look straight down"}>
       <span class="label">Top-down</span>
     </button>
   );
