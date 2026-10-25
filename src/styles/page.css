@@ -372,9 +372,11 @@
    the map, so the title itself never changes size or place */
 .editor-title .title-desc {
   position: absolute;
-  top: calc(100% + 6px);
+  /* (its top is set under the bar's bottom edge by the title, in px) */
+  top: calc(100% + 40px);
   left: 50%;
   z-index: 5;
+  outline: none;
   display: grid;
   gap: 4px;
   width: min(420px, 92vw);

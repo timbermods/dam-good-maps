@@ -163,6 +163,14 @@ function TitleName(p: {
   const [desc, setDesc] = useState("");
   const [descProblem, setDescProblem] = useState<string | null>(null);
   const was = useRef("");
+  const card = useRef<HTMLDivElement>(null);
+  // (the card hangs 6px under the header bar's bottom edge, whatever height the title is: it never lies over the bar's buttons)
+  useLayoutEffect(() => {
+    const el = card.current;
+    const title = el?.parentElement;
+    const bar = title?.closest(".editor-bar");
+    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - title.getBoundingClientRect().top + 6}px`;
+  });
   const input = useRef<HTMLInputElement>(null);
   const open = (name: string) => {
     was.current = p.described;
@@ -208,7 +216,10 @@ function TitleName(p: {
       if (!said) was.current = desc;
     }
     setDescProblem(said);
-    const problem = nameProblem ?? said;
+    // a description the core refused is never thrown away: the card stays open with its text and the core's reason, even
+    // when focus has left the title (D342: refused with a one-line reason, never silently)
+    if (said) return say(nameProblem, false);
+    const problem = nameProblem;
     if (!problem) {
       setText(null);
       return say(null);
@@ -262,7 +273,7 @@ function TitleName(p: {
       </span>
     </h1>
     {/* the map's own description, a second line under the name (short, plain placeholder): the text the game shows with the map */}
-    <div class="title-desc">
+    <div class="title-desc" ref={card} tabIndex={-1}>
       <textarea
         rows={2}
         value={desc}

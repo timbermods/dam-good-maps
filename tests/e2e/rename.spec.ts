@@ -143,3 +143,28 @@ test("the description is written under the name where it is renamed: saved throu
   await expect(desc).toHaveCount(0);
   expect((await info()).descriptionWritten).toBe(false);
 });
+
+test("a description the core refuses is kept in its card with the reason when focus leaves the title; the card hangs under the header bar and covers no button", async ({ page }) => {
+  test.setTimeout(300_000);
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const info = () => page.evaluate(() => window.dgmEditor!.info());
+  const desc = page.getByLabel("Map description");
+  for (const [w, h] of [[1280, 800], [1366, 768], [1920, 1080]] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.locator(".editor-title h1 button.title-button").click();
+    // (the card clear of the bar: it starts below its bottom edge, so no header button is under it)
+    const bar = (await page.locator("header.editor-bar").boundingBox())!;
+    const card = (await page.locator(".editor-title .title-desc").boundingBox())!;
+    expect(card.y, `${w}×${h}: the card starts under the bar`).toBeGreaterThanOrEqual(bar.y + bar.height);
+    // (a refused description is never lost: leaving the title keeps the card, its text and the core's reason)
+    await desc.fill("x".repeat(601));
+    await page.mouse.click(w / 2, h / 2);
+    await expect(page.getByRole("alert").filter({ hasText: "A description holds up to 600 characters; this one has 601" })).toBeVisible();
+    await expect(desc).toHaveValue("x".repeat(601));
+    expect((await info()).descriptionWritten).toBe(false);
+    // (Esc from inside it puts everything back)
+    await desc.focus();
+    await desc.press("Escape");
+    await expect(desc).toHaveCount(0);
+  }
+});
