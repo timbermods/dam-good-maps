@@ -145,7 +145,7 @@ export function useReady(ed: Ed): ReadySlice {
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
       // the working area (D254, D259): the open selection
-      area: () => ed.workingArea(),
+      area: () => ed.workingArea(true),
       ring: (at, stroke) => clearGlow(at, stroke),
       select: (hit, ev) => {
         // Ctrl+drag: a rectangle (the Select tool opens with it)

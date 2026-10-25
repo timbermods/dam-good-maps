@@ -22,7 +22,7 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   await pick(sheet, "Search for", "2 min");
 
   // a worker that never loads (its file gone after a deploy) stops the search in one line, and the next search starts
-  // a fresh one. The page is handed a showcase worker whose file is missing, through the page's own Worker, so its
+  // a fresh one (here the file is back). The page is handed a showcase worker whose file is missing, through the page's own Worker, so its
   // real error event fires in every build and browser (a route on the worker's file isn't heard by every browser's
   // worker loading: CI's Chromium loaded it anyway).
   await page.evaluate(() => {
@@ -35,7 +35,7 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
     };
   });
   await sheet.getByRole("button", { name: "Start search" }).click();
-  await expect(sheet.getByRole("status")).toHaveText("The search stopped: its worker ended. Start search tries again.", { timeout: 30_000 });
+  await expect(sheet.getByRole("status")).toHaveText("The search stopped: its worker could not run. Reload the page to search again.", { timeout: 30_000 });
   await page.evaluate(() => (window.Worker = (window as unknown as { __realWorker: typeof Worker }).__realWorker));
 
   await sheet.getByRole("button", { name: "Start search" }).click();

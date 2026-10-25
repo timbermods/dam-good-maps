@@ -17,7 +17,8 @@ export const SHOWCASE_DEFAULT_MINUTES = 5;
 /** The cards: the best three. */
 export const SHOWCASE_CARDS = 3;
 
-/** What platform/index.ts `createShowcase` says when the worker itself fails (it never loaded, or it crashed). */
+/** What platform/index.ts `createShowcase` says when the worker itself fails with no words of its own (it never
+ *  loaded: after a deploy, its file is gone). */
 export const WORKER_ENDED = "the showcase search stopped";
 
 export type ShowcaseStatus = "idle" | "searching" | "stopping" | "done" | "error";
@@ -167,6 +168,12 @@ const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 /** "1 map", "12 maps". */
 export const maps = (n: number) => `${n.toLocaleString("en-GB")} ${n === 1 ? "map" : "maps"}`;
 
+/** Why a search stopped on an error, said by `who` ("The search" in the sheet, "The showcase search" in the note).
+ *  A worker that never ran is most likely one a deploy took away (its file is gone until the page is loaded again). */
+export function stoppedWords(st: ShowcaseState, who: string): string {
+  return st.error === WORKER_ENDED ? `${who} stopped: its worker could not run. Reload the page to search again.` : `${who} stopped: ${st.error}`;
+}
+
 /** The progress line under the time choice. */
 export function showcaseWords(st: ShowcaseState, now: number): string {
   const made = st.triedBefore + st.tried;
@@ -183,7 +190,7 @@ export function showcaseWords(st: ShowcaseState, now: number): string {
       if (!st.picks?.length) return `No map of ${maps(made)} passed every check.`;
       return st.stopped ? `Stopped after ${maps(made)}.` : `${capital(maps(made))} made in ${clock(st.elapsedMs)}.`;
     case "error":
-      return st.error === WORKER_ENDED ? "The search stopped: its worker ended. Start search tries again." : `The search stopped: ${st.error}`;
+      return stoppedWords(st, "The search");
   }
 }
 
