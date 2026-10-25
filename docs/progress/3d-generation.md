@@ -25,7 +25,9 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   and where it would not hold the wear the gallery is cut plain. The surface does not change.
 - **An overhang sheltering the start** (`start-overhang`). Where the start's level ground meets a cliff 3 or more above it
   within 8–12 tiles, a stretch of 3–14 tiles of the face is worn back 1–3 tiles, as soft rock under a harder cap, 2–3 high,
-  its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Level ground at the
+  its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Worn, not boxed (a
+  flat face read as a doorway): its ends taper into the face (a tile deep, two beside them), its height wanders 2–3 along
+  the face, its roof comes down a level at the back, and here and there its lip hangs a level under the hollow behind. Level ground at the
   start's floor runs on under the rock. The surface does not change. The start itself is never roofed (cave starts are
   for Verticality 70+, later).
 - **An arch over a gorge** (`gorge-arch`). Where a river runs between rims at one height 3 to 6 + Verticality/6 tiles apart
@@ -39,9 +41,8 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   there; and its feet flare, a buttress a row out on either face by each rim, now and then, 1–2 under the rims. The
   surface rises on the arch's tiles only.
 
-**How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no Fill
-or Remove unfed water in the editor yet (they are refused with one line, as on an imported cave map; Drought and Badtide
-run on caves since #404), so the ordinary map stays exactly as it was until those have their rules for caves; above it,
+**How often, and where.** At every Verticality but 0, the theme's default included (`formsFor`; the gate that kept them
+above the default until Fill and Remove unfed water had their rules for caves came off once #498 gave them those):
 `formsWanted` draws from the map's own stream (`stream(seed, "forms3d")`, the same on every attempt, nothing else drawn
 differently): Verticality 0 none; a spring cave on 25% + Verticality% of maps (up to 90%), two
 from 50, three from 75; an overhang on 20% + Verticality% (up to 85%); an arch from 35, more in Canyon and Highlands, fewer
@@ -86,7 +87,13 @@ field's terrain.
 
 **The first look (D348).** An arch is the one form that changes the land seen from above, so a map that looks for an arch
 holds its first look until the map is done: the land shown is the land at the end (`generate`; only at 128² and under,
-where the first look waits for the settled start anyway; above 128² no arch is grown).
+where the first look waits for the settled start anyway; above 128² no arch is grown). The land held is the last a round
+showed, so after a rescue round the first look pairs the map's own land with its own planned water.
+
+**A source the game would not keep.** On a map with caves, a spring's source whose cells an object takes, or that the
+game's rule refuses for any other reason, is left out of its row (its strength shared again over the rest) and recorded
+with the game's reason (`BuildResult.springsLeft`): the generator notes it as a fix (`info.fixes`, and a cave's check
+note), and an edit that newly leaves one out is refused with that line (`session.ts` `lostSince`, D342).
 
 **Names.** A map whose standout is a form takes a title from its own list ("Hidden Spring Gorge", "Rock Shelter Valley",
 "Stone Arch Heights", `gen/names.ts`) and says it in its own numbers ("A spring rises in a cave 6 tiles into the cliff and

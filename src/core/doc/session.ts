@@ -825,10 +825,15 @@ export class MapSession {
    *  (D491): an object on a tile with a cave or an overhang that the game's rule held on `before`'s ground
    *  and no longer holds (inside the ground or floating: the game removes it on load). Nothing on open
    *  ground (its objects ride it), and nothing on a heightfield. A last guard: the strokes and sculpts hold
-   *  that ground, the forces run round it, and Erode keeps the ground under every object (D270). */
+   *  that ground, the forces run round it, and Erode keeps the ground under every object (D270). And a
+   *  spring's source the build now leaves out of its row where the game would not keep it (D342: an
+   *  edit is refused with the reason, never takes a source away silently; build.ts `springsLeft`). */
   private lostSince(before: BuildResult): string | null {
     const now = this.cur;
     if (!this.layered(before) && !this.layered(now)) return null;
+    const left = new Set((before.springsLeft ?? []).map((s) => s.id));
+    const out = (now.springsLeft ?? []).find((s) => !left.has(s.id));
+    if (out) return `it would leave out a spring's water source at (${out.x}, ${out.y}): ${out.why}`;
     const { x: W, y: H } = this.size;
     const t0 = this.terrainOf(before);
     const g0 = { W, H, mask: t0.mask };

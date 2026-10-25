@@ -114,7 +114,10 @@ export function checkForm(form: FormPlan, built: BuildResult, owner: string | nu
       const dry = course.filter((i) => !(seen[i] > 0.01)).length;
       const ok = under === sources.length && dry === 0 && seen[course[course.length - 1]] >= 0.05;
       const len = course.filter((i) => !isPlainMask(mask[i])).length;
-      return { ok, note: `${under} of ${sources.length} sources under a roof, ${dry} of ${course.length} tiles of its course dry`, ...(ok ? { say: `A spring rises in a cave ${len} tiles into the cliff and feeds the river.` } : {}) };
+      // (a source of its row the game would not keep is left out by the build, said here with why)
+      const left = (built.springsLeft ?? []).filter((s) => s.feature === owner);
+      const leftNote = left.length ? `, ${left.length} left out (${left[0].why})` : "";
+      return { ok, note: `${under} of ${sources.length} sources under a roof${leftNote}, ${dry} of ${course.length} tiles of its course dry`, ...(ok ? { say: `A spring rises in a cave ${len} tiles into the cliff and feeds the river.` } : {}) };
     }
     case "start-overhang": {
       const st = built.start;

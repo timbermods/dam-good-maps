@@ -3055,6 +3055,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       intentions = [...intentions, ...records];
     }
   }
+  // (a spring's source the game would not keep, left out of its row on a map with caves, is noted as a
+  // fix with the game's reason, never silently: D491, D342; the build shares the row's strength again)
+  for (const s of built.springsLeft ?? []) fixes.push(`spring source left out at (${s.x}, ${s.y}): ${s.why}`);
   info.stage = !v.report.passed ? "checks" : straight ? "ruler-straight channel" : !tallOk ? "above 16" : "built";
   // the build keeps the field as the processes made it (a changed tile would mean the land was
   // not what was planned: never plan again on it)
