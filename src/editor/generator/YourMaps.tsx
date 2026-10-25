@@ -183,6 +183,23 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
             );
           })}
         </ul>
+        {/* nothing kept yet (a map is kept once it is edited, D234): one dashed tile where the first map will land */}
+        {m.maps.length === 0 ? (
+          <div class="ym-empty">
+            <span class="ym-ghost" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+                <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
+                <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
+                <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
+              </svg>
+            </span>
+            <p>
+              <strong>No maps kept yet</strong>
+              <span>Change a map and it's kept here, in this browser.</span>
+            </p>
+          </div>
+        ) : null}
       </section>
       {menu ? <MapMenu at={menu} onClose={() => setMenu(null)} items={menuItems(menu.id)} /> : null}
     </aside>
