@@ -1,7 +1,8 @@
 // The map's picture at a size of its own (D488, `render3d/hero.ts`): `heroPicture(view, { width, height })` gives a JPEG
 // of that size for the page's own pictures (Showcase mode's cards); without a size it is the .timber thumbnail's 960×540.
 // Pictures drawn in a row leave nothing behind (no host left on the page, no context warning) and the player's view is
-// never touched. CI draws in software, where the page would not draw the picture: the test treats it as a GPU (window.dgmLookTest).
+// never touched. Sized pictures share one renderer (its programs compiled once) that is freed after a short idle; a picture
+// with no size is drawn on a renderer of its own and leaves nothing behind. CI draws in software, where the page would not draw the picture: the test treats it as a GPU (window.dgmLookTest).
 // The numbers of the last test are information: the time per picture at the card size.
 
 import { readdirSync } from "node:fs";
@@ -62,6 +63,8 @@ test("heroPicture gives a JPEG of the size asked, the thumbnail's by default, an
       return b;
     };
     const dflt = await bytes("default");
+    // (a picture with no size is drawn on a renderer of its own and leaves nothing behind)
+    const afterDefault = { canvases: document.querySelectorAll("canvas").length, bodyKids: document.body.children.length };
     const small = await bytes("card", { width: 400, height: 225 });
     const q = await bytes("lowQuality", { width: 400, height: 225, quality: 0.5 });
     // three in a row, asked together: drawn one after the other
@@ -78,8 +81,9 @@ test("heroPicture gives a JPEG of the size asked, the thumbnail's by default, an
     await img.decode();
     URL.revokeObjectURL(url);
     const refused = await hero.heroPicture(view, { width: 0, height: 10 }).then(() => "drew", (e: Error) => e.message);
-    const after = { view: JSON.stringify(window.dgm3d!.renderer.getView()), canvases: document.querySelectorAll("canvas").length, bodyKids: document.body.children.length };
-    return { sizes, lens: [dflt?.length, small?.length, q?.length, ...three.map((t) => t?.length)], row, single, img: [img.naturalWidth, img.naturalHeight], refused, before, after };
+    // (the sized pictures' renderer is kept a moment: one canvas in one host)
+    const during = { view: JSON.stringify(window.dgm3d!.renderer.getView()), canvases: document.querySelectorAll("canvas").length, bodyKids: document.body.children.length };
+    return { afterDefault, during, sizes, lens: [dflt?.length, small?.length, q?.length, ...three.map((t) => t?.length)], row, single, img: [img.naturalWidth, img.naturalHeight], refused, before };
   }, chunk());
   expect(out.sizes.default, "it can be drawn here").not.toBeNull();
   expect(jpegSize(out.sizes.default!)).toEqual({ w: 960, h: 540 });
@@ -90,7 +94,11 @@ test("heroPicture gives a JPEG of the size asked, the thumbnail's by default, an
   expect(out.img).toEqual([320, 180]);
   expect(out.refused).toMatch(/width must be/);
   // nothing left on the page, the player's view untouched
-  expect(out.after).toEqual(out.before);
+  expect(out.afterDefault).toEqual({ canvases: out.before.canvases, bodyKids: out.before.bodyKids });
+  expect(out.during).toEqual({ view: out.before.view, canvases: out.before.canvases + 1, bodyKids: out.before.bodyKids + 1 });
+  // the kept renderer is freed after its idle (10 s)
+  await page.waitForTimeout(11_000);
+  expect(await page.evaluate(() => ({ canvases: document.querySelectorAll("canvas").length, bodyKids: document.body.children.length }))).toEqual({ canvases: out.before.canvases, bodyKids: out.before.bodyKids });
   expect(errors).toEqual([]);
   const info = `400×225 pictures: one ${Math.round(out.single)} ms; three in a row ${Math.round(out.row)} ms (${Math.round(out.row / 3)} ms each)`;
   test.info().annotations.push({ type: "information", description: info });

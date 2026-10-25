@@ -60,6 +60,8 @@ export interface HeroOptions {
   height?: number;
   /** JPEG quality, 0–1 (default 0.9). */
   quality?: number;
+  /** Draw on the renderer kept for sized pictures (default: when a width or height is given), else on one of its own. */
+  reuse?: boolean;
 }
 
 /** The smallest and largest side of a picture (pixels). */
@@ -72,8 +74,7 @@ function side(v: number | undefined, dflt: number, what: string): number {
   return Math.round(v);
 }
 
-/** Pictures are drawn one at a time (a page asking for three draws them in turn): each uses a WebGL context
- *  of its own for a moment, and browsers keep only a few at once. */
+/** Pictures are drawn one at a time (a page asking for three draws them in turn). */
 let queue: Promise<unknown> = Promise.resolve();
 
 /** The map's picture as a JPEG (960×540 unless `opts` gives a size), or null where it can't be drawn (no
@@ -81,7 +82,9 @@ let queue: Promise<unknown> = Promise.resolve();
 export async function heroPicture(view: MapView, opts: HeroOptions = {}): Promise<Uint8Array | null> {
   const w = side(opts.width, HERO_W, "width");
   const h = side(opts.height, HERO_H, "height");
-  const run = queue.then(() => draw(view, w, h, opts.quality ?? 0.9));
+  // (the saved file's picture, with no size, is always drawn on a renderer of its own: its bytes stay what they were)
+  const reuse = opts.reuse ?? (opts.width !== undefined || opts.height !== undefined);
+  const run = queue.then(() => draw(view, w, h, opts.quality ?? 0.9, reuse));
   queue = run.catch(() => undefined);
   return await run;
 }
@@ -93,8 +96,31 @@ export async function heroPictureUrl(view: MapView, opts: HeroOptions = {}): Pro
   return jpeg ? URL.createObjectURL(new Blob([jpeg as BlobPart], { type: "image/jpeg" })) : null;
 }
 
-async function draw(view: MapView, pw: number, ph: number, quality: number): Promise<Uint8Array | null> {
-  if (!canDrawHero()) return null;
+/** A renderer kept for the sized pictures: the first compiles the High look's programs (off the page's thread
+ *  where the browser can: `prepareFirstFrame`), the ones after it, and any asked within `IDLE_MS`, compile
+ *  nothing. One WebGL context, freed after the last picture's wait. */
+interface Kept {
+  r: MapRenderer;
+  host: HTMLElement;
+  ready: Promise<void>;
+}
+const IDLE_MS = 10_000;
+let kept: Kept | null = null;
+let idle: ReturnType<typeof setTimeout> | undefined;
+
+function release(k: { r: MapRenderer; host: HTMLElement } | null): void {
+  k?.r.dispose();
+  k?.host.remove();
+}
+function releaseKept(): void {
+  clearTimeout(idle);
+  const k = kept;
+  kept = null;
+  release(k);
+}
+
+/** A renderer on an off-screen host, in the High look with every effect. */
+function make(pw: number, ph: number): { r: MapRenderer; host: HTMLElement } {
   const host = document.createElement("div");
   // off screen at the picture's size (CSS pixels; the renderer draws at up to twice them, scaled down below)
   host.style.cssText = `position:fixed;left:-${pw * 4}px;top:0;width:${pw}px;height:${ph}px;pointer-events:none;opacity:0`;
@@ -103,40 +129,70 @@ async function draw(view: MapView, pw: number, ph: number, quality: number): Pro
   canvas.style.cssText = "display:block;width:100%;height:100%";
   host.append(canvas);
   document.body.append(host);
-  let r: MapRenderer | null = null;
   try {
-    try {
-      r = new MapRenderer(canvas, { still: true });
-    } catch (e) {
-      // (a context the renderer made before it failed is freed at once: browsers keep only a few)
-      canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
-      throw e;
-    }
+    const r = new MapRenderer(canvas, { still: true });
     r.holdShowcase();
-    r.setClock(CLOCK);
-    r.setMap(view, false, true);
-    frameHero(r, view, pw, ph);
-    const t0 = performance.now();
-    while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {
-      r.renderNow();
-      await new Promise((done) => setTimeout(done, 30));
-    }
-    r.renderNow();
-    // (in the same task as the frame: the canvas keeps no copy of it after)
-    const out = document.createElement("canvas");
-    out.width = pw;
-    out.height = ph;
-    const g = out.getContext("2d");
-    if (!g) throw new Error("no 2D canvas to encode the picture");
-    g.imageSmoothingQuality = "high";
-    g.drawImage(r.canvas, 0, 0, pw, ph);
-    const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/jpeg", quality));
-    if (!blob) throw new Error("the browser could not encode the picture");
-    return new Uint8Array(await blob.arrayBuffer());
-  } finally {
-    r?.dispose();
+    return { r, host };
+  } catch (e) {
+    // (a context the renderer made before it failed is freed at once: browsers keep only a few)
+    canvas.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
     host.remove();
+    throw e;
   }
+}
+
+async function draw(view: MapView, pw: number, ph: number, quality: number, reuse: boolean): Promise<Uint8Array | null> {
+  if (!canDrawHero()) return null;
+  clearTimeout(idle);
+  let own: { r: MapRenderer; host: HTMLElement } | null = null;
+  try {
+    let r: MapRenderer;
+    if (reuse) {
+      if (!kept) {
+        const m = make(pw, ph);
+        kept = { ...m, ready: m.r.prepareFirstFrame().catch(() => undefined) };
+      }
+      await kept.ready;
+      r = kept.r;
+      kept.host.style.width = `${pw}px`;
+      kept.host.style.height = `${ph}px`;
+      r.adopted();
+    } else {
+      own = make(pw, ph);
+      r = own.r;
+    }
+    return await paint(r, view, pw, ph, quality);
+  } catch (e) {
+    // (what state a renderer is left in after a failure is not known: the next picture starts a new one)
+    if (reuse) releaseKept();
+    throw e;
+  } finally {
+    release(own);
+    if (kept) idle = setTimeout(releaseKept, IDLE_MS);
+  }
+}
+
+async function paint(r: MapRenderer, view: MapView, pw: number, ph: number, quality: number): Promise<Uint8Array> {
+  r.setClock(CLOCK);
+  r.setMap(view, false, true);
+  frameHero(r, view, pw, ph);
+  const t0 = performance.now();
+  while (!r.highSettled && performance.now() - t0 < SETTLE_MS) {
+    r.renderNow();
+    await new Promise((done) => setTimeout(done, 30));
+  }
+  r.renderNow();
+  // (in the same task as the frame: the canvas keeps no copy of it after)
+  const out = document.createElement("canvas");
+  out.width = pw;
+  out.height = ph;
+  const g = out.getContext("2d");
+  if (!g) throw new Error("no 2D canvas to encode the picture");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(r.canvas, 0, 0, pw, ph);
+  const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/jpeg", quality));
+  if (!blob) throw new Error("the browser could not encode the picture");
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 /** Point the camera as the game's thumbnails do: turned as the new game opens, looking down at
