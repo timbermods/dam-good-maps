@@ -106,8 +106,7 @@ export class Programs {
     this.wanted.set(mat, want);
     const e = this.known(mat).get(signature(want));
     if (e && this.isReady(e)) this.apply(mat, want);
-    // (sent from the poll, so a switch made of several defines set one after another compiles only where it ends)
-    else this.poll();
+    else this.soon();
   }
 
   /** Compile these materials' programs with these defines in the background, without drawing with them: resolved
@@ -213,26 +212,42 @@ export class Programs {
     return e;
   }
 
-  /** Send the switches' compiles, then ask after them and the warmed ones a frame's length apart, and make each
-   *  switch whose program is ready. */
+  /** Send the switches' compiles and make each whose program is ready before the next frame (a microtask, so a switch
+   *  made of several defines set one after another compiles only where it ends), then ask after the rest. */
+  private soon(): void {
+    if (this.queued || this.disposed) return;
+    this.queued = true;
+    queueMicrotask(() => {
+      this.queued = false;
+      if (!this.disposed) this.tick();
+    });
+  }
+
+  private queued = false;
+
+  /** Ask after the compiles still running a frame's length apart. */
   private poll(): void {
     if (this.timer || this.disposed) return;
     this.timer = window.setTimeout(() => {
       this.timer = 0;
-      if (this.disposed) return;
-      let made = false;
-      for (const [mat, want] of [...this.wanted]) {
-        if (this.isReady(this.compile(mat, want))) {
-          this.apply(mat, want);
-          made = true;
-        }
-      }
-      for (const w of this.waiters) w.entries = w.entries.filter((e) => !this.isReady(e));
-      const done = this.waiters.filter((w) => !w.entries.length);
-      this.waiters = this.waiters.filter((w) => w.entries.length);
-      if (made) this.host.changed();
-      for (const w of done) w.done();
-      if (this.wanted.size || this.waiters.length) this.poll();
+      if (!this.disposed) this.tick();
     }, POLL_MS);
+  }
+
+  /** Make each switch whose program is ready (its compile sent if it was not) and tell those waiting for warmed ones. */
+  private tick(): void {
+    let made = false;
+    for (const [mat, want] of [...this.wanted]) {
+      if (this.isReady(this.compile(mat, want))) {
+        this.apply(mat, want);
+        made = true;
+      }
+    }
+    for (const w of this.waiters) w.entries = w.entries.filter((e) => !this.isReady(e));
+    const done = this.waiters.filter((w) => !w.entries.length);
+    this.waiters = this.waiters.filter((w) => w.entries.length);
+    if (made) this.host.changed();
+    for (const w of done) w.done();
+    if (this.wanted.size || this.waiters.length) this.poll();
   }
 }

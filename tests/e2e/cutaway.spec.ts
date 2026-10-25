@@ -215,3 +215,75 @@ test("a cave dug after a plain map opened is opened by the cut and lit as a cave
   if (out.background) expect(out.compiledInFrames, "programs compiled by the frames after the dig and the fill").toBe(0);
   expect(errors).toEqual([]);
 });
+
+test("where programs compile ahead, a switch to High and a hollow dug right after it are drawn at once: no frame with the old program (D453)", async ({ page }) => {
+  // (Standard compiles High's programs in every state a dig can bring, programs.ts: the switch is made at once, and the
+  // dig's branches are switched on before the next frame, so no frame draws a lid over the new hollow. Where
+  // the browser draws in software nothing is compiled ahead: nothing to check there)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  const out = await page.evaluate(async () => {
+    type R = import("../../src/render3d").MapRenderer;
+    const shown = window.dgm3d!.renderer;
+    const Make = shown.constructor as new (c: HTMLCanvasElement) => R;
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:0;top:0;width:640px;height:480px;opacity:0;pointer-events:none";
+    const c = document.createElement("canvas");
+    c.style.cssText = "width:100%;height:100%;display:block";
+    host.append(c);
+    document.body.append(host);
+    const r = new Make(c);
+    type Mat = { defines: Record<string, number> };
+    const internals = r as unknown as { drawsInSoftware: boolean; programs: { background: boolean }; terrainMat: Mat; objectMat: Mat; gl: { info: { programs: unknown[] } } };
+    try {
+      if (internals.drawsInSoftware || !internals.programs.background || !r.canHigh) return null;
+      r.setLookChoice("standard", false);
+      const W = 12;
+      const heights = new Uint8Array(W * W).fill(8);
+      const none = { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0) };
+      const entities = { count: 1, templates: ["Pine"], owners: [], template: Uint16Array.from([0]), x: Int16Array.from([2]), y: Int16Array.from([2]), z: Int16Array.from([8]), orientation: new Uint8Array(1), flags: new Uint8Array(1), owner: new Uint16Array(1), variant: new Uint8Array(1), strength: new Float32Array(1), ids: ["pine"] };
+      const soil = { moisture: new Uint8Array(W * W), contamination: new Uint8Array(W * W) };
+      r.setMap({ W, H: W, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water: none, entities, soil } as unknown as Parameters<R["setMap"]>[0]);
+      r.renderNow();
+      // (the programs compiled ahead, waited for)
+      for (let k = 0; k < 3000 && !r.programsWarm; k++) await new Promise((done) => setTimeout(done, 20));
+      const warm = r.programsWarm;
+      r.setLookChoice("high", false);
+      const lookAtOnce = r.look;
+      r.setSlice(3);
+      r.renderNow();
+      // a 3 × 3 hollow dug under the cut
+      const tiles: number[] = [];
+      for (let y = 4; y < 7; y++) for (let x = 4; x < 7; x++) tiles.push(y * W + x);
+      const voxels = new Uint8Array(tiles.length * 23);
+      tiles.forEach((_, k) => {
+        for (const z of [0, 1, 5, 6, 7]) voxels[k * 23 + z] = 1;
+      });
+      r.updateTerrain(heights.slice(), { tiles: Int32Array.from(tiles), voxels } as unknown as Parameters<R["updateTerrain"]>[1]);
+      // (before the next frame: the switch is made once the update's defines are all set)
+      await new Promise<void>((done) => queueMicrotask(done));
+      const atOnce = { cutaway: internals.terrainMat.defines.CUTAWAY ?? 0, caves: "CAVES" in internals.objectMat.defines };
+      let compiled = 0;
+      for (let k = 0; k < 10; k++) {
+        const before = internals.gl.info.programs.length;
+        r.renderNow();
+        compiled += internals.gl.info.programs.length - before;
+        await new Promise((done) => setTimeout(done, 20));
+      }
+      return { warm, lookAtOnce, atOnce, compiled, settled: r.programsSettled };
+    } finally {
+      r.dispose();
+      host.remove();
+    }
+  });
+  test.skip(out === null, "the browser draws in software or can't compile in the background: nothing is compiled ahead");
+  expect(out!.warm, "the programs compiled ahead got ready").toBe(true);
+  expect(out!.lookAtOnce, "the switch to High made at once").toBe("high");
+  expect(out!.atOnce, "the dig's branches switched on before the next frame").toEqual({ cutaway: 1, caves: true });
+  expect(out!.compiled, "programs compiled by the frames after the dig").toBe(0);
+  expect(out!.settled).toBe(true);
+  expect(errors).toEqual([]);
+});

@@ -363,19 +363,31 @@ Standard's shadow before a cave (item 8).
 - **No frame waits on a shader compile** (D453; a fresh reviewer's finding on the RTX 2070 SUPER: the first hollow froze
   the page 3.6 s in `getProgramInfoLog`): a branch switched on (or off) is compiled first, in the background
   (`programs.ts`, `KHR_parallel_shader_compile`: compile and link sent, completion asked without waiting), and the
-  material takes its new defines only once the program is ready; the frames until then draw with the program it has.
-  A moment after a map is drawn, while the page is idle, the programs an edit could need are compiled the same way
-  (the look's cutaway, roofed and run-soil states, the falls' and water's while none are drawn, the drought line's,
-  and in Standard the High look's, its mist and the sun's depth map included), and at once when a layer cut is set
-  (how a hollow is dug), so the switch finds them ready and is made in the same call: no frame without the branch.
-  Each is compiled with every kind of object that draws its material (a fall's template has no position or normal, the
-  objects are instanced), or a stand-in of that kind, and the branches always come in one order (`withDefine`), so a
-  program compiled ahead is the one the frame asks for. Real Chrome, RTX 2070 SUPER (a loaded machine), 256² map: the
-  first hollow dug 4.1 s (Standard) and 11.8 s (High) of compile on the page's thread before, 7 and 11 ms after; the
-  switch to High 9.2 s before, 24 ms after; opening Hollows ~12 s of compile before, 11 ms after. The first switch to High on a map already drawn waits for its programs (a copy of its
-  materials) with Standard drawn meanwhile; leaving High keeps them, so switching back is at once. Where the browser
-  draws in software nothing is compiled ahead; without the extension a define is set at once, as before. The map's
-  picture compiles its programs before its first frame (`compileAhead`).
+  material takes its new defines only once the program is ready, before the next frame when it is compiled already;
+  the frames until then draw with the program it has.
+  - **Compiled ahead:** half a second after a map is drawn, while the page is idle, and at once when a layer cut is set
+    (how a hollow is dug), the programs an edit could need: the look's in every state a map can reach (cut and caves,
+    their floors' soil, an overhang alone, plain; the likeliest first), the falls' and water's while none are drawn, the
+    drought line's; then the other look's in every state too (in Standard the High look's, from a copy of its
+    materials, its mist and the sun's depth map included; in High Standard's). Leaving High keeps its programs in every
+    state, so a switch back and a dig right after are drawn at once.
+  - **The program the frame asks for:** each is compiled with every kind of object that draws its material (a fall's
+    template has no position or normal, the objects are instanced), or a stand-in of that kind, and the branches always
+    come in one order (`withDefine`). `tests/e2e/cutaway.spec.ts` checks that a switch to High and a dig right after
+    it compile nothing in the frames that follow.
+  - **Numbers** (real Chrome, RTX 2070 SUPER on a loaded machine, 256² map; compile on the page's thread): the first
+    hollow dug 4.1 s (Standard) and 11.8 s (High) before, 7 and 11 ms after; the switch to High 9.2 s before, 24 ms
+    after; opening Hollows ~12 s before, 11 ms after.
+    A Block dig in High right after the switch from Standard, and on a map just opened in High (the cut set a second
+    after it was up, the dig a second later): the branches switched in the dig's own update, no frame with the old
+    program, nothing compiled by a frame.
+  - **Falls short:** a hollow dug before the programs compiled ahead are ready draws the old program, a lid over it
+    under the cut, until they are (the background compile of High's programs takes seconds on a loaded machine: before
+    this order and the warm-up's earlier start, a dig 1–3 s after the cut on a map just opened in High showed it for
+    5–6 s); a first switch to High before Standard has compiled High's draws Standard until they are ready (no freeze). The forces' and effects' small
+    materials are not compiled ahead. Where the browser draws in software nothing is compiled ahead; without the
+    extension a define is set at once, as before. The map's picture compiles its own programs before its first frame
+    (`compileAhead`) and compiles nothing ahead.
 
 ## Objects on their run top's soil (built, `feature/3d-view-objects-run-soil`)
 

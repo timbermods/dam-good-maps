@@ -99,7 +99,18 @@ import { focusLost } from "./focusLost";
 ColorManagement.enabled = false;
 
 /** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
-const WARM_AFTER_MS = 1500;
+const WARM_AFTER_MS = 500;
+
+type BranchState = { cut: boolean; caves: boolean; soil: boolean };
+
+/** The states of a map an edit can bring, each with its own programs (the cutaway's, the roofed ones', the run soil's),
+ *  the likeliest first: the first hollow dug (cut and caves), its floor's soil, an overhang alone, all filled again. */
+const STATES: BranchState[] = [
+  { cut: true, caves: true, soil: false },
+  { cut: true, caves: true, soil: true },
+  { cut: true, caves: false, soil: false },
+  { cut: false, caves: false, soil: false },
+];
 
 /** Run this when the page is idle (at once where the browser can't say). */
 function whenIdle(fn: (deadline?: IdleDeadline) => void): void {
@@ -637,7 +648,7 @@ export class MapRenderer {
 
   /** The branches' defines on a look's materials (the cutaway's, the roofed ones', the run soil's) in a state of the
    *  map, from the defines each has or is about to take. */
-  private branchDefines(cut: ShaderMaterial[], roofed: ShaderMaterial[], soil: ShaderMaterial[], state: { cut: boolean; caves: boolean; soil: boolean }): [ShaderMaterial, Defines][] {
+  private branchDefines(cut: ShaderMaterial[], roofed: ShaderMaterial[], soil: ShaderMaterial[], state: BranchState): [ShaderMaterial, Defines][] {
     const out = new Map<ShaderMaterial, Defines>();
     const edit = (m: ShaderMaterial, name: string, v: number | null) => out.set(m, withDefine(out.get(m) ?? this.programs.defines(m), name, v));
     for (const m of cut) edit(m, "CUTAWAY", state.cut ? 1 : 0);
@@ -646,40 +657,55 @@ export class MapRenderer {
     return [...out];
   }
 
-  /** The programs an edit could switch the look drawn to next (the first hollow dug or the last filled, the run soil
-   *  that follows, and the falls' and water's while none are drawn), compiled in the background a moment after a map
-   *  is drawn, a few at a time while the page is idle, so a switch finds them ready (programs.ts). Not where the
-   *  browser draws in software or can't compile in the background. */
+  /** The programs an edit could switch the look drawn to next (every state of the map an edit can bring, the falls'
+   *  and water's while none are drawn, the drought line's), compiled in the background a moment after a map is drawn,
+   *  a few at a time while the page is idle, so a switch finds them ready (programs.ts); then the other look's, in every
+   *  state too (in Standard where High can be drawn: High's, so a switch to it and a dig right after are drawn at
+   *  once; in High: Standard's). Not where the browser draws in software or can't compile in the background, nor for
+   *  the map's picture (it compiles its own, `compileAhead`). */
   private scheduleWarm(after = WARM_AFTER_MS): void {
-    if (this.drawsInSoftware || !this.programs.background) return;
+    if (this.drawsInSoftware || !this.programs.background || this.still) return;
     clearTimeout(this.warmTimer);
+    const run = ++this.warmRun;
+    this.warmPending = true;
     this.warmTimer = window.setTimeout(() => {
       this.warmTimer = 0;
       const h = this.high;
-      const [cut, roofed, soil] = h
-        ? [[h.materials.terrain], h.roofedMaterials(), h.runSoilMaterials()]
-        : [[this.std.terrain], [this.std.object, this.std.fall, this.std.water], [this.std.terrain]];
-      const states = [
-        { cut: false, caves: false, soil: false },
-        { cut: true, caves: false, soil: false },
-        { cut: true, caves: true, soil: false },
-        { cut: true, caves: true, soil: true },
-      ];
-      const list = states.flatMap((st) => this.branchDefines(cut, roofed, soil, st));
+      const std = this.branchStates([this.std.terrain], [this.std.object, this.std.fall, this.std.water], [this.std.terrain]);
+      const list = h ? this.branchStates([h.materials.terrain], h.roofedMaterials(), h.runSoilMaterials()) : std;
       // (the drought line's, drawn in both looks once its days are worked out)
       this.lineCopy ??= droughtLineMaterials();
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
-      // (and the High look's, in Standard where High can be drawn: a switch to it is then made at once)
-      if (!h && this.canHigh) list.push(...this.highCopyList());
+      if (h) list.push(...std);
+      else if (this.canHigh) list.push(...this.highCopyList(STATES));
+      const sent: Promise<void>[] = [];
       const step = (deadline?: IdleDeadline) => {
-        if (this.disposed || this.high !== h) return;
+        if (this.disposed || this.high !== h || run !== this.warmRun) return;
         // (a few at a time: each sends its compile and returns)
-        do void this.programs.warm([list.shift()!]);
+        do sent.push(this.programs.warm([list.shift()!]));
         while (list.length && deadline && deadline.timeRemaining() > 8);
         if (list.length) whenIdle(step);
+        else
+          void Promise.all(sent).then(() => {
+            if (run === this.warmRun) this.warmPending = false;
+          });
       };
       whenIdle(step);
     }, after);
+  }
+
+  private warmRun = 0;
+  private warmPending = false;
+
+  /** Whether the programs compiled ahead (`scheduleWarm`) are all ready: nothing is compiling ahead. */
+  get programsWarm(): boolean {
+    return !this.warmPending;
+  }
+
+  /** A look's materials' branches in every state of the map an edit can bring (`STATES`), the map's own first. */
+  private branchStates(cut: ShaderMaterial[], roofed: ShaderMaterial[], soil: ShaderMaterial[]): [ShaderMaterial, Defines][] {
+    const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
+    return [now, ...STATES].flatMap((st) => this.branchDefines(cut, roofed, soil, st));
   }
 
   /** The objects drawn with this material now, one of each kind its program can tell apart (for a copy of the High
@@ -725,8 +751,8 @@ export class MapRenderer {
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
 
-  /** The High look's materials (a copy of them) with the branches of the map drawn. */
-  private highCopyList(): [ShaderMaterial, Defines][] {
+  /** The High look's materials (a copy of them) with the branches of the map drawn, and of these other states of it. */
+  private highCopyList(states: BranchState[] = []): [ShaderMaterial, Defines][] {
     if (!this.highCopy) {
       const c = (this.highCopy = highLookMaterials(this.uniforms));
       for (const name of Object.keys(c) as (keyof HighLookMaterials)[]) this.copyOf.set(c[name], name);
@@ -737,7 +763,9 @@ export class MapRenderer {
     this.depthCopy ??= [0, 1].map(() => new MeshDepthMaterial({ side: DoubleSide }) as unknown as ShaderMaterial) as [ShaderMaterial, ShaderMaterial];
     const own = (m: ShaderMaterial): [ShaderMaterial, Defines] => [m, { ...(m.defines as Defines) }];
     const mist = this.mistCopy.materials();
-    return [...this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch }), own(c.sky), own(mist.mist), own(mist.rings), ...this.depthCopy.map(own)];
+    const now = { cut: this.cutaway, caves: this.caveBranch, soil: this.runSoilBranch };
+    const branches = [now, ...states].flatMap((st) => this.branchDefines([c.terrain], roofedOf(c), runSoilOf(c), st));
+    return [...branches, own(c.sky), own(mist.mist), own(mist.rings), ...this.depthCopy.map(own)];
   }
 
   /** Whether a switch to this tier can be drawn at once. On a map already drawn the High look's programs are compiled
@@ -1074,8 +1102,9 @@ export class MapRenderer {
     this.droughtLayer?.setHigh(tier !== "standard");
     if (tier === "standard") {
       if (this.high) {
-        // (its programs kept by the look's copy, compiled at once with them, so a switch back finds them: programs.ts)
-        this.programs.ready(this.highCopyList());
+        // (its programs kept by the look's copy, in every state of the map: those it has compiled at once with them, the
+        // rest in the background, so a switch back and a dig right after find them: programs.ts)
+        this.programs.ready(this.highCopyList(STATES));
         this.useMaterials(this.std);
         this.high.dispose();
         this.high = null;
