@@ -22,6 +22,7 @@ import { decodeProject, encodeProject, generatedDocument } from "../src/core/doc
 import { MapSession } from "../src/core/doc/session";
 import { toMapObject } from "../src/core/features/build";
 import { generate, MAX_ATTEMPTS } from "../src/core/gen/generate";
+import { FORMS, type FormId } from "../src/core/land/forms3d";
 import { officialRange } from "../src/core/gen/calibrated";
 import { STRAIGHT_LIMITS } from "../src/core/analysis/straight";
 import { atan2, hypot } from "../src/core/math/portable";
@@ -78,6 +79,12 @@ const straight: { run: number; canal: number }[] = [];
 // information: accepted maps with a second district's site (D77: only where one fits) and ruins on a rise
 let districts = 0;
 let rises = 0;
+// the 3D forms (D488, information): per form the maps where it emerged and the times it was dropped;
+// the forms per map; blocks of ground the rule pass dropped and the relief, on the accepted maps
+const forms = new Map<string, { emerged: number; dropped: number }>();
+const formsPerMap: number[] = [];
+let droppedGround = 0;
+let relief = 0;
 // the wood added to meet the starting-logs floor (D224, D227, D229): the maps that needed it, and
 // each grove's kind, distance and direction from the start
 let floorMaps = 0;
@@ -105,6 +112,19 @@ for (const seed of seeds) {
     if (r.info.straight) straight.push(r.info.straight);
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "secondDistrict")) districts++;
     if (r.features.some((f) => f.kind === "setPiece" && f.params.kind === "obstaclePayoff")) rises++;
+    let got = 0;
+    for (const x of r.intentions) {
+      if (!FORMS.includes(x.id as FormId)) continue;
+      const k = forms.get(x.id) ?? { emerged: 0, dropped: 0 };
+      if (x.ok) {
+        k.emerged++;
+        got++;
+      } else k.dropped++;
+      forms.set(x.id, k);
+    }
+    formsPerMap.push(got);
+    droppedGround = Math.max(droppedGround, r.built.dropped ?? 0);
+    for (const v of r.built.heights) relief = Math.max(relief, v);
     const floor = r.features.filter((f) => f.kind === "forest" && !!f.role?.startsWith("forest/floor/"));
     const st = r.features.find((f) => f.kind === "start");
     if (floor.length) floorMaps++;
@@ -187,6 +207,11 @@ const spread = (v: number[]) => {
 };
 log(`- straight channels on the accepted maps (information; D209: past the limits a map is planned again): the longest straight bank ${spread(straight.map((x) => x.run))} tiles (limit ${STRAIGHT_LIMITS.run}), the longest canal ${spread(straight.map((x) => x.canal))} (limit ${STRAIGHT_LIMITS.canal})`);
 log(`- set pieces the land held (information): a second district's site on ${districts}/${final} accepted maps, ruins on a rise on ${rises}/${final}`);
+{
+  const s = formsPerMap.slice().sort((a, b) => a - b);
+  const each = FORMS.map((id) => `${id} ${forms.get(id)?.emerged ?? 0} kept, ${forms.get(id)?.dropped ?? 0} dropped`).join("; ");
+  log(`- 3D forms (D488, information): ${each}; forms per map median ${s.length ? s[s.length >> 1] : 0}, max ${s.length ? s[s.length - 1] : 0}; ground the rule pass dropped at most ${droppedGround} blocks; relief up to ${relief}`);
+}
 {
   const q = (v: number[], p: number) => (v.length ? [...v].sort((a, b) => a - b)[Math.min(v.length - 1, Math.floor(p * (v.length - 1)))] : NaN);
   const list = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ");
