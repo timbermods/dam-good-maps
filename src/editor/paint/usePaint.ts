@@ -236,7 +236,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
         cacheAfterEditable();
         t = setTimeout(() => {
           void api
-            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress(p)))
+            // (only the stage shows, in the dot: a new stage draws the editor again, not every step of one)
+            .backgroundCheck(proxy((p: CheckProgress) => live && setProgress((was) => (was?.stage === p.stage ? was : p))))
             .then((r) => {
               if (!r || !mounted.current) return;
               // (a force at work shows its own water: the map's comes after it)

@@ -350,10 +350,12 @@ export function View3D(props: View3DProps) {
     renderer.current?.setGroundMode(next);
   };
 
-  // only what is on this map: the renderer's map, read again when it changes
+  // only what is on this map: the renderer's map, read again when it changes, and only while the legend shows (a
+  // folded legend, the editor's way, reads nothing: on a 256² map the reading is a whole pass over its tiles)
+  const legendShows = legendOpen && (!!props.legendInCorner || (props.showLegend ?? true));
   const present = useMemo(
-    () => presentEntries([...legendEntries(ground), ...objectLegend(), ...(props.legendExtra ?? [])], renderer.current?.mapState() ?? null),
-    [mapTick, ground, props.legendExtra, props.view],
+    () => (legendShows ? presentEntries([...legendEntries(ground), ...objectLegend(), ...(props.legendExtra ?? [])], renderer.current?.mapState() ?? null) : []),
+    [mapTick, ground, props.legendExtra, props.view, legendShows],
   );
   const clean = present.filter((e) => !e.markers);
   const marked = present.filter((e) => e.markers);
