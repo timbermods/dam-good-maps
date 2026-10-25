@@ -283,10 +283,15 @@ place of its bottom rule.
     pick: a cave's floor through its mouth or under the layer cut, the ground under a ledge) and name that run's level
     in the placement (`editor/shelf/aim.ts`; a cut's cap names its run's real top; the tile's top names none); the
     ghost stands there and its words are the core's answer ("the start needs open ground", "not on a roof or a
-    ledge"). A drag out of a cave lands on the tile's top. Strokes paint a roof's
-    top like any ground, or under a roof the level each tile names (`paintObjects` `levels`; `paint.ts` `paintLevels`
-    gives them from the pick's level), each object held to the game's rule there and a tile that can't hold one left
-    empty. A generated
+    ledge"). The start is the same: its shelf click and its drag name the level aimed at (`moveStartTo`'s `z`), its
+    ghost and words are `footprintCheck` at that level ("not enough room under the roof here: the start needs 5",
+    "its door would open onto rock"; the page's own open-ground check is left out there), and a drop on a tile's top
+    names that top, which brings a start out from under a roof. A drag out of a cave lands on the tile's top. Strokes
+    paint a roof's top like any ground; a stroke begun on a cave's floor or under an overhang paints at that floor
+    (`paintAt(params, z)` with the level of the tile it began on; the core fills `paintObjects` `levels` by
+    `paint.ts` `paintLevels`), each object held to the game's rule there, and the ring's word and the stroke's refusal
+    line say when nothing fits ("nothing can stand at level 4 there: not enough room under the roof here: the pine
+    needs 3"). A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
   - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one

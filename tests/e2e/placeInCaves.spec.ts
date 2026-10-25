@@ -25,6 +25,21 @@ function caveMap(): Uint8Array {
   return build({ id: "place-in-caves", title: "Place in caves", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
 }
 
+/** The chambers of the second test: the start and pines under a roof. */
+function startMap(): Uint8Array {
+  const s = new Scene(W, W, 11);
+  s.columns(0, 0, 9, W - 1, FLOOR);
+  // a tunnel into the plateau; chamber A with 6 levels of air (the start fits), B with 2 (not even a pine), C with 4
+  s.box(10, 21, 17, 24, FLOOR, 9, false);
+  s.box(18, 14, 29, 29, FLOOR, 9, false);
+  s.box(32, 4, 43, 12, FLOOR, 5, false);
+  s.box(32, 16, 43, 28, FLOOR, 7, false);
+  s.start(37, 37, 11);
+  return build({ id: "start-paint-levels", title: "Start and paint levels", tests: "", scene: s, days: 1, snapshots: [], checks: [], focus: [], samples: [], water: "none" }).bytes;
+}
+const of = (page: Page, template: string) => objects(page).then((o) => o.filter((g) => g.startsWith(`${template} `)));
+const levels = (list: string[]) => list.map((g) => Number(g.split(",")[2]));
+
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const objects = (page: Page) =>
   page.evaluate(() => {
@@ -157,5 +172,74 @@ test("objects go where the pointer aims: on a cave's floor through its mouth and
   }
   expect(cave).toBeGreaterThan(50);
   expect(valley).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test("the start and painted pines go where you aim under a roof: the start lands on a big chamber's floor, is refused in a low one with the core's line; pines stand on a floor and are refused on one with 2 levels of air", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 860 });
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: "Start and paint levels.timber", mimeType: "application/zip", buffer: Buffer.from(startMap()) });
+  await page.waitForFunction(() => window.dgmEditor?.info().kind === "import", null, { timeout: 120_000 });
+  await waitForEditor(page);
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  // the layer cut at 5 takes the roofs off, looking down on the three chambers' floors
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    r.setSlice(5);
+    r.setView({ mode: "orbit", yaw: 0.2, pitch: 1.2, distance: 62, target: [30, 3, -18] });
+  });
+  const start = () => of(page, "StartingLocation");
+  expect(levels(await start())).toEqual([11]);
+
+  // into the chamber with room: it lands at the floor's level
+  await shelf.getByRole("button", { name: "Start", exact: true }).click();
+  const big = await seen(page, 23, 21, FLOOR);
+  await hover(page, big, "Move the start here");
+  await page.mouse.click(big.x, big.y);
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([FLOOR]);
+  // (and out again onto the plateau's top by undo)
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(async () => levels(await start())).toEqual([11]);
+
+  // into the chamber with 4 levels of air: refused with the core's line, and the start stays
+  await shelf.getByRole("button", { name: "Start", exact: true }).click();
+  const low = await seen(page, 37, 22, FLOOR);
+  await hover(page, low, "not enough room under the roof here: the start needs 5");
+  const before = await applied(page);
+  await page.mouse.click(low.x, low.y);
+  await idle(page);
+  expect(await applied(page)).toBe(before);
+  expect(levels(await start())).toEqual([11]);
+  await page.keyboard.press("Escape");
+
+  // a drag of pines on the big chamber's floor: they stand at the floor, none on the roof's top
+  await shelf.getByRole("button", { name: "Pine", exact: true }).click();
+  const a = await seen(page, 22, 21, FLOOR);
+  const b = await seen(page, 25, 24, FLOOR);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await page.mouse.up();
+  await idle(page);
+  await expect.poll(async () => (await of(page, "Pine")).length).toBeGreaterThan(0);
+  expect(new Set(levels(await of(page, "Pine")))).toEqual(new Set([FLOOR]));
+  await page.keyboard.press("Escape");
+  const planted = (await of(page, "Pine")).length;
+
+  // a drag on the floor with 2 levels of air: refused with the core's line, nothing planted
+  await shelf.getByRole("button", { name: "Pine", exact: true }).click();
+  const c = await seen(page, 36, 7, FLOOR);
+  const d = await seen(page, 39, 9, FLOOR);
+  await hover(page, c, "not enough room under the roof here: the pine needs 3");
+  await page.mouse.down();
+  await page.mouse.move(d.x, d.y, { steps: 8 });
+  await page.mouse.up();
+  await idle(page);
+  await expect(page.getByRole("alert")).toContainText("the pine needs 3");
+  expect((await of(page, "Pine")).length).toBe(planted);
   expect(errors).toEqual([]);
 });

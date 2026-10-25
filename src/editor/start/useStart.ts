@@ -32,7 +32,7 @@ export function useStart(ed: Ed): StartSlice {
   /** The start's footprint check at a move of (dx, dy) tiles. */
   /** The objects that keep a distance from the start, made once per map version (core/doc/startFit.ts). */
   const fitExtras = useRef<{ version: number; extras: StartFitExtra[] } | null>(null);
-  function startPreview(dx: number, dy: number): StartDrag | null {
+  function startPreview(dx: number, dy: number, level?: number): StartDrag | null {
     const s = startHere;
     if (!s) return null;
     const x = s.x + dx;
@@ -42,7 +42,8 @@ export function useStart(ed: Ed): StartSlice {
     const f = s.feature ? info.features.find((g) => g.id === s.feature) : undefined;
     let bench: { level: number; radius: number; bank?: Point } | null = null;
     const moved = dx !== 0 || dy !== 0;
-    if (f && f.kind === "start") {
+    // (aimed at a level under a roof it has no bench: the core's check answers there, D342, D491)
+    if (f && f.kind === "start" && level === undefined) {
       // a generated start's bench takes the ground's level there; where it stands, it keeps the
       // bench it has (a project saved before the water rule changed may run it to a bank)
       const level = moved ? Math.max(1, mirror.current.heights[y * info.W + x]) : f.params.benchLevel;
@@ -50,6 +51,8 @@ export function useStart(ed: Ed): StartSlice {
       bench = { level, radius: f.params.benchRadius, ...(bank ? { bank } : {}) };
     }
     const check = checkStartAt(ctx(), x, y, door, bench, s.owner, needs);
+    // (the page's own check reads the roof's top, not the floor aimed at: the core's line follows, below)
+    if (level !== undefined) check.problem = null;
     // (it fits but the checks would flag the spot: amber with the first warning, as the shelf's preview shows it)
     let warning: string | null = null;
     if (!check.problem) {
@@ -142,7 +145,7 @@ export function useStart(ed: Ed): StartSlice {
         if (dx === d[0] && dy === d[1] && aimed === level) return;
         d = [dx, dy];
         level = aimed;
-        const p = startPreview(dx, dy);
+        const p = startPreview(dx, dy, level);
         setStartDrag(p);
         if (p) {
           const [cx, cy] = cornerFor(p.x, p.y, s.orientation);
@@ -165,7 +168,8 @@ export function useStart(ed: Ed): StartSlice {
         const [x, y] = [s.x + d[0], s.y + d[1]];
         const move = () =>
           void run(
-            () => api.moveStartTo(x, y),
+            // (the level aimed at under a roof; else the tile's top, which also brings a start out from under one: D491)
+            () => api.moveStartTo(x, y, undefined, level ?? mirror.current.heights[y * info.W + x]),
             (u) => {
               if (!u.ok) return;
               const [cx, cy] = cornerFor(x, y, s.orientation);

@@ -20,8 +20,8 @@ export interface ShelfHost {
   paintAround(x: number, y: number): number[] | null;
   /** The tiles a drag has painted so far (null: none, the drag is over). */
   painting(tiles: number[] | null): void;
-  /** The drag let go: plant on these tiles. */
-  plant(tiles: number[]): void;
+  /** The drag let go: plant on these tiles, at the ground the stroke began on (`hit`: a cave's floor, D491). */
+  plant(tiles: number[], hit: TileHit | null): void;
 }
 
 /** The shelf's pointer tool: hover shows the ghost, a click places, a drag paints (trees, bushes). It aims at the
@@ -68,7 +68,7 @@ export function shelfTool(host: ShelfHost): PointerTool {
       last = null;
       host.painting(null);
       if (!d) return;
-      if (p && p.size) return host.plant([...p]);
+      if (p && p.size) return host.plant([...p], at0);
       if (hit) host.place(hit.x, hit.y, hit);
       else host.place(d[0], d[1], at0);
     },
