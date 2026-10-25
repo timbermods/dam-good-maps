@@ -8,7 +8,9 @@ import { ORIENTATION_NAMES } from "../../render3d/model";
 import type { PointerTool, TileHit } from "../../render3d";
 import { checkStartAt, sameStartCheck, startStatus, type StartCheck } from "../features";
 import { GHOST_OK } from "../tools";
+import { quietWord } from "../shelfItems";
 import type { Ed } from "../ed";
+import { aimOf, columnMaskAt } from "../shelf/aim";
 
 export interface StartSlice {
   startReach: { check: StartCheck; fading: boolean } | null;
@@ -80,8 +82,23 @@ export function useStart(ed: Ed): StartSlice {
     });
   }
 
+  /** Why the core keeps the start off a cave or an overhang at (x, y) (D491: the start stays on open ground; `level`, a
+   *  cave's floor aimed at), or null where its 3 × 3 tiles are open ground and the page's own check answers. */
+  function roofProblem(x: number, y: number, level: number | undefined): Promise<string | null> | null {
+    const s = startHere;
+    if (!s) return null;
+    const W = info.W;
+    let roofed = level !== undefined;
+    for (let dy = -1; dy <= 1 && !roofed; dy++)
+      for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < info.H && columnMaskAt(ed.columnsRef.current, (y + dy) * W + x + dx) !== undefined) roofed = true;
+    if (!roofed) return null;
+    const [cx, cy] = cornerFor(x, y, s.orientation);
+    return api.footprintCheck({ tool: "entity", template: "StartingLocation", x: cx, y: cy, orientation: s.orientation, ...(level !== undefined ? { z: level } : {}) }).then((f) => f.problem);
+  }
+
   /** The start dragged on the map (no tool out): its footprint and the start's requirements follow
-   *  the pointer, the drop moves it (one step); Esc puts it back. */
+   *  the pointer, the drop moves it (one step); Esc puts it back. It aims at the ground seen (a cave's
+   *  floor too), where the core's rule answers. */
   const startGrab = useRef<{ cancel(): void } | null>(null);
   function grabStart(hit: TileHit | null): PointerTool | null {
     const s = startHere;
@@ -90,6 +107,8 @@ export function useStart(ed: Ed): StartSlice {
     if (Math.max(Math.abs(hit.x - s.x), Math.abs(hit.y - s.y)) > 1) return null;
     const from: [number, number] = [hit.x, hit.y];
     let d: [number, number] = [0, 0];
+    /** The level aimed at where it goes (a cave's floor; undefined, the tile's top). */
+    let level: number | undefined;
     let done = false;
     const W = info.W;
     const H = info.H;
@@ -113,13 +132,24 @@ export function useStart(ed: Ed): StartSlice {
         if (!h || done) return;
         const dx = Math.max(2 - s.x, Math.min(W - 3 - s.x, h.x - from[0]));
         const dy = Math.max(2 - s.y, Math.min(H - 3 - s.y, h.y - from[1]));
-        if (dx === d[0] && dy === d[1]) return;
+        const aimed = h.x - from[0] === dx && h.y - from[1] === dy ? aimOf(h, W, mirror.current.heights, ed.columnsRef.current) : undefined;
+        if (dx === d[0] && dy === d[1] && aimed === level) return;
         d = [dx, dy];
+        level = aimed;
         const p = startPreview(dx, dy);
         setStartDrag(p);
         if (p) {
           const [cx, cy] = cornerFor(p.x, p.y, s.orientation);
-          renderer.current?.setGhost({ template: "StartingLocation", x: cx, y: cy, z: mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation), ok: GHOST_OK[startStatus(p.check)] });
+          const ghost = { template: "StartingLocation", x: cx, y: cy, z: level ?? mirror.current.heights[p.y * W + p.x], orientation: ORIENTATION_NAMES.indexOf(s.orientation) };
+          renderer.current?.setGhost({ ...ghost, ok: GHOST_OK[startStatus(p.check)] });
+          // (on a cave or an overhang, the core's one line: the start stays on open ground, D491)
+          const at: [number, number] = [...d];
+          const aimedAt = level;
+          void roofProblem(p.x, p.y, level)?.then((problem) => {
+            if (done || !problem || at[0] !== d[0] || at[1] !== d[1] || aimedAt !== level) return;
+            setStartDrag({ ...p, check: { ...p.check, problem } });
+            renderer.current?.setGhost({ ...ghost, ok: false });
+          });
         }
       },
       up() {
@@ -127,16 +157,21 @@ export function useStart(ed: Ed): StartSlice {
         end();
         if (!d[0] && !d[1]) return;
         const [x, y] = [s.x + d[0], s.y + d[1]];
-        void run(
-          () => api.moveStartTo(x, y),
-          (u) => {
-            if (!u.ok) return;
-            const [cx, cy] = cornerFor(x, y, s.orientation);
-            feel("place", cx, cy);
-          },
-        );
+        const move = () =>
+          void run(
+            () => api.moveStartTo(x, y),
+            (u) => {
+              if (!u.ok) return;
+              const [cx, cy] = cornerFor(x, y, s.orientation);
+              feel("place", cx, cy);
+            },
+          );
+        const roofed = roofProblem(x, y, level);
+        if (!roofed) return move();
+        void roofed.then((problem) => (problem ? ed.flashNote(quietWord(problem)) : move()));
       },
       cancel: end,
+      voxel: true,
     };
   }
   const grabObjectRef = useRef(grabObject);

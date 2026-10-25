@@ -1963,13 +1963,14 @@ export function strokeClearing(op: EditOp, label: string, tiles: readonly number
 }
 
 /** Move a placed object (a mine site, a relic, a geothermal field, a natural dam, a blockage) by (dx, dy)
- *  tiles, its ground levelled as a placement's is: one step (D345, B7). */
-export function moveObjectBy(id: string, dx: number, dy: number): SessionUpdate {
+ *  tiles, its ground levelled as a placement's is: one step (D345, B7). `z`: the level it lands on under
+ *  a roof (D491, `planMoveEntity`). */
+export function moveObjectBy(id: string, dx: number, dy: number, z?: number): SessionUpdate {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
-  const p = planMoveEntity(s, id, dx, dy);
+  const p = planMoveEntity(s, id, dx, dy, z);
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
