@@ -89,20 +89,69 @@ describe("a note beside the pointer", () => {
       expect(reversals, `pointer down x ${x}: moves that undo the one before`).toBe(0);
     }
   });
-  it("keeps the side it has while that is clear, so two clear strips do not trade it back and forth", () => {
-    // (a wall with a clear strip above it and one below, the pointer in a gap in the middle of it)
+  it("keeps the strip it has when another is hardly nearer, crossing the midpoint between the two", () => {
+    // (a wall with a clear strip above it and one below, the pointer in a gap in the middle of it: the strips' midpoint is y 348)
     const wide: Box = { x0: 0, y0: 0, x1: 1000, y1: 700 };
     const wall: Box = { x0: 0, y0: 100, x1: 1000, y1: 600 };
-    const first = placeNote(null, { x: 500, y: 350 }, note, wide, [wall], null);
-    const rel = { dx: first.x - 500, dy: first.y - 350 };
-    // the pointer moves about, the clear strips on either side swapping places in distance: the note keeps its side
-    for (const [px, py] of [[510, 350], [530, 352], [560, 355], [600, 351]] as const) {
-      const at = placeNote(null, { x: px, y: py }, note, wide, [wall], rel);
-      expect(at, `pointer ${px},${py}`).toEqual({ x: px + rel.dx, y: py + rel.dy });
+    let last: { x: number; y: number } | null = null;
+    let lastPointer = { x: 500, y: 350 };
+    const strips = new Set<string>();
+    for (const [px, py] of [[500, 350], [500, 340], [500, 352], [500, 338], [500, 356], [500, 346], [500, 351]] as const) {
+      const at = placeNote(null, { x: px, y: py }, note, wide, [wall], last && { dx: last.x - lastPointer.x, dy: last.y - lastPointer.y });
+      strips.add(at.y < 300 ? "above" : "below");
+      last = at;
+      lastPointer = { x: px, y: py };
     }
-    // a side that has been covered is given up
-    const moved = placeNote(null, { x: 500, y: 350 }, note, wide, [wall, { x0: first.x - 10, y0: first.y - 10, x1: first.x + note.w + 10, y1: first.y + note.h + 10 }], rel);
-    expect(moved).not.toEqual(first);
+    expect(strips.size, "the strip it started on, every step").toBe(1);
+  });
+  it("comes back beside the pointer as soon as there is room, whatever far spot it was at", () => {
+    // (the foot of a narrow gap: the nearest clear spot is far; then the pointer leaves it for open ground)
+    const big: Box = { x0: 0, y0: 0, x1: 1920, y1: 1080 };
+    const walls: Box[] = [{ x0: 1730, y0: 165, x1: 1910, y1: 1070 }, { x0: 204, y0: 892, x1: 1556, y1: 1070 }, { x0: 560, y0: 830, x1: 1380, y1: 880 }];
+    const foot = { x: 1643, y: 1050 };
+    const far = placeNote(null, foot, note, big, walls, null);
+    expect(Math.hypot(far.x + note.w / 2 - foot.x, far.y + note.h / 2 - foot.y)).toBeGreaterThan(100);
+    const rel = { dx: far.x - foot.x, dy: far.y - foot.y };
+    for (const open of [{ x: 1303, y: 600 }, { x: 1143, y: 600 }]) {
+      const at = placeNote({ x: open.x + 16, y: open.y + 16 }, open, note, big, walls, rel);
+      expect(at, `pointer ${open.x},${open.y}`).toEqual({ x: open.x + 16, y: open.y + 16 });
+    }
+  });
+  it("makes no flip that undoes the one before within 48 px of the pointer's way down the gap in the 1280 scene, whatever the step", () => {
+    // (1280 × 720, Block settings 194–1086 × 522–642, the page's message 381–898 × 437–478 over them, the shelf from x 1090; a note 211 × 30)
+    const view: Box = { x0: 0, y0: 0, x1: 1280, y1: 720 };
+    const scene: Box[] = [
+      { x0: 0, y0: 0, x1: 1280, y1: 130 },
+      { x0: 1090, y0: 165, x1: 1270, y1: 710 },
+      { x0: 194, y0: 522, x1: 1086, y1: 642 },
+      { x0: 194, y0: 648, x1: 1086, y1: 710 },
+      { x0: 381, y0: 437, x1: 898, y1: 478 },
+    ];
+    const small = { w: 211, h: 30 };
+    for (const step of [1, 2, 3, 4, 6]) {
+      for (let phase = 0; phase < step; phase++) {
+        let last: { x: number; y: number } | null = null;
+        let lastPointer = { x: 1086, y: 0 };
+        let before: { x: number; y: number; at: number } | null = null;
+        let undone = 0;
+        for (let y = 330 + phase; y <= 560; y += step) {
+          const pointer = { x: 1086, y };
+          const at = placeNote({ x: pointer.x + 16, y: pointer.y + 16 }, pointer, small, view, scene, last && { dx: last.x - lastPointer.x, dy: last.y - lastPointer.y });
+          if (last) {
+            const m = { x: at.x - last.x, y: at.y - last.y };
+            if (Math.hypot(m.x, m.y) >= 40) {
+              // (a control in the pointer's way makes one flip over it and one back past it; two strips of nearly the same
+              // distance made it flip down, up and down within a few pixels of the pointer's way)
+              if (before && y - before.at <= 48 && m.x * before.x + m.y * before.y < 0) undone++;
+              before = { ...m, at: y };
+            }
+          }
+          last = at;
+          lastPointer = pointer;
+        }
+        expect(undone, `step ${step}, phase ${phase}: flips that undo the one before`).toBe(0);
+      }
+    }
   });
   it("covers a control as little as it can when every side is covered", () => {
     const wall: Box = { x0: 0, y0: 0, x1: 1600, y1: 900 };

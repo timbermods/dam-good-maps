@@ -214,9 +214,7 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
     const toolbar = await rect(page, ".tool-bar");
     const x = Math.min((toolbar.right + shelf.left) / 2, shelf.left - 4);
     const frames = () => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
-    let last: { x: number; y: number } | null = null;
-    let seen = 0;
-    let jumps = 0;
+    const path: { x: number; y: number }[] = [];
     let total = 0;
     for (let y = 200; y <= size.height - 10; y += 8) {
       total++;
@@ -228,19 +226,14 @@ for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]
         const r = e.getBoundingClientRect();
         return { x: r.left, y: r.top, w: r.width, h: r.height };
       });
-      if (!note) {
-        last = null;
-        continue;
-      }
-      seen++;
+      if (!note) continue;
       // (always in the free view, and never far from the pointer)
       expect(Math.hypot(note.x + note.w / 2 - x, note.y + note.h / 2 - y), `pointer at ${y}`).toBeLessThan(900);
-      if (last && Math.hypot(note.x - last.x, note.y - last.y) > 100) jumps++;
-      last = note;
+      path.push(note);
     }
-    expect(seen, `the note was up along the sweep (${seen} of ${total})`).toBeGreaterThan(30);
-    // (a flip from one side of the pointer to the other is a jump; away and back again is not allowed)
-    expect(jumps).toBeLessThanOrEqual(2);
+    expect(path.length, `the note was up along the sweep (${path.length} of ${total})`).toBeGreaterThan(30);
+    // (the pointer moves 8 px a step: no flip is undone within 6 steps, 48 px of its way)
+    expect(reversals(path, 6), "flips that undo the flip before them").toBe(0);
   });
 }
 
@@ -260,12 +253,13 @@ function reversals(path: { x: number; y: number }[], near: number) {
   return count;
 }
 
-test("1280: the Block refusal, with its message up, does not trade places between two clear strips as the pointer moves down the gap", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+/** The Block tool with a working area and one refused click, so the page's message stands over the foot of the map: the scene of
+ *  the refusal's note. The note itself is then set by the test hook at exact pointer places, as hovering would set it. */
+async function blockScene(page: Page, size: { width: number; height: number }) {
+  await page.setViewportSize(size);
   await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
-  // a 3 × 3 working area, the Block tool, and one refused click for the page's message over the foot of the map
   const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);
   const a = await corner(spot.x, spot.y);
   const b = await corner(spot.x + 2, spot.y + 2);
@@ -276,39 +270,52 @@ test("1280: the Block refusal, with its message up, does not trade places betwee
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBe(9);
   await page.keyboard.press("7");
   await toolInHand(page);
-  // (the working area at the middle of the view and ground under the whole sweep, a tile a few dozen pixels wide)
-  await page.evaluate(([tx, ty, h]) => window.dgm3d!.renderer.setView({ target: [tx + 1.5, h, -(ty + 1.5)], distance: 30, yaw: 0.5, pitch: 0.9 }), [spot.x, spot.y, spot.h] as const);
-  // one refused click, for the page's message over the foot of the map
-  await page.mouse.move(700, 250);
+  await page.mouse.move(size.width / 2, 250);
   await page.mouse.down();
   await page.mouse.up();
   await expect(page.locator(".editor-message.error")).toBeVisible();
-  // the gap between what stands over the map's foot and the shelf, where the sweep goes
+  // (the ground away from the pointer, so no hover answers over the note the test sets)
+  await page.mouse.move(size.width / 2, 8);
+  const view = await rect(page, ".editor-view .view3d");
   const shelf = await rect(page, ".objects-dock");
-  const foot = await page.evaluate(() => Math.max(...[".tool-bar", ".tool-settings", ".dock-notes > *"].flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect().right))));
-  const x = (foot + shelf.left) / 2;
-  const frames = () => page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
-  const path: { x: number; y: number }[] = [];
-  for (let y = 330; y <= 560; y += 4) {
-    await page.mouse.move(x, y);
-    await frames();
-    const note = await page.evaluate(() => {
-      const e = document.querySelector(".shape-note.error");
-      if (!e) return null;
-      const r = e.getBoundingClientRect();
-      return { x: r.left, y: r.top };
-    });
-    if (note) path.push(note);
-    if (process.env.DGM_TRACE) {
-      const pv = await page.evaluate(() => {
-        const q = window.dgmEditor!.block().preview;
-        return q ? `${q.added.length}/${q.removed.length}/${q.falls.length} ${String(q.reason).slice(0, 14)}` : "none";
-      });
-      console.log("TRACE", y, note && Math.round(note.x), note && Math.round(note.y), pv);
-    }
+  /** The note with the pointer at (x, y) of the page, and where it stands: its box in the page. */
+  const noteWith = async (x: number, y: number) => {
+    await page.evaluate(([px, py]) => window.dgmEditor!.pointerNote("(46, 35) is outside the selection", px, py), [x - view.left, y - view.top] as const);
+    return page.evaluate(() => new Promise<{ x: number; y: number; w: number; h: number }>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const r = document.querySelector(".shape-note.error")!.getBoundingClientRect();
+      resolve({ x: r.left, y: r.top, w: r.width, h: r.height });
+    }))));
+  };
+  return { view, shelf, noteWith };
+}
+
+const edgeFrom = (note: { x: number; y: number; w: number; h: number }, x: number, y: number) =>
+  Math.hypot(Math.max(note.x - x, 0, x - (note.x + note.w)), Math.max(note.y - y, 0, y - (note.y + note.h)));
+
+test("1280: the Block refusal, with its message up, makes no flip that undoes the one before as the pointer moves down the gap", async ({ page }) => {
+  test.setTimeout(300_000);
+  const { shelf, noteWith } = await blockScene(page, { width: 1280, height: 720 });
+  // the pointer just left of the shelf, going down past the message and the settings row, a pixel or two at a time
+  const x = shelf.left - 2;
+  for (const step of [1, 3]) {
+    const path: { x: number; y: number }[] = [];
+    for (let y = 380; y <= 540; y += step) path.push(await noteWith(x, y));
+    // (no flip is undone within 48 px of the pointer's way: a control in its path makes one flip over it and one back past it)
+    expect(reversals(path, Math.ceil(48 / step)), `step ${step}: flips that undo the flip before them`).toBe(0);
   }
-  expect(path.length, "the refusal was up along the sweep").toBeGreaterThan(30);
-  // (the pointer moves 4 px a step: no flip is undone within 12 steps, 48 px of its way)
-  expect(reversals(path, 12), "flips that undo the flip before them").toBe(0);
 });
 
+test("1920: the Block refusal keeps beside the pointer once it has room, wherever it was at the foot of the gap", async ({ page }) => {
+  test.setTimeout(300_000);
+  const { view, shelf, noteWith } = await blockScene(page, { width: 1920, height: 1080 });
+  // the foot of the gap beside the shelf, where the nearest clear spot is far, then up the gap and left across the open map
+  const x = shelf.left - 2;
+  let far = 0;
+  for (let y = view.bottom - 20; y >= 700; y -= 8) far = Math.max(far, edgeFrom(await noteWith(x, y), x, y));
+  expect(far, "the foot of the gap leaves no room beside the pointer").toBeGreaterThan(100);
+  for (let px = x; px >= 1100; px -= 10) {
+    const y = 600;
+    const note = await noteWith(px, y);
+    expect(edgeFrom(note, px, y), `the note beside the pointer at ${px},${y}, not left where it was`).toBeLessThan(40);
+  }
+});
