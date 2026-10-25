@@ -38,7 +38,8 @@ import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
-import { runGround, runSlotAt, stackSoilOf, type RunGround, type stackedSoil } from "../sim/soil";
+import { runGround, stackedSoil, stackSoilOf, type RunGround } from "../sim/soil";
+import type { Soil3d } from "../sim/soil3d";
 import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
@@ -1109,29 +1110,33 @@ export class MapSession {
   }
 
   /** The soil and the water on each run top as the map stands (D235, D491): what a plant standing at level z of tile i
-   *  lives or dies on, under a roof as on top (`RunGround`; null where no run's top is z). The settled soil per run, or,
-   *  while the file's own water stands, the soil and the water the file stores. Null where the map has no water on
-   *  stacked columns (a heightfield's ground is one run a tile: the build's `moisture`). */
+   *  lives or dies on, under a roof as on top (`RunGround`; null where no run's top is z). The game's soil rule on the
+   *  map's water on stacked columns (sim/soil.ts `stackedSoil`, as the checks read it, validate/rust.ts): the settle's,
+   *  or, while the file's own water stands, that water's. Null on a map without caves or overhangs (one run a tile:
+   *  the build's `moisture`) or water on its stacked columns. */
   runGrounds(built: BuildResult = this.cur): ((i: number, z: number) => RunGround | null) | null {
-    if (built.waterFromFile) {
-      const { x: W, y: H } = this.size;
-      const N = W * H;
-      const runs = runColumns(this.terrainOf(built));
-      const stored = this.storedSoilRuns();
-      if (!stored.moisture.slots || !stored.contamination.slots) return null;
-      const w = storedWater(this.openedFile().world.singletons, W, H);
-      const wet = new Map<number, number>();
-      for (let k = 0; k < w.tile.length; k++) if (w.floor[k] >= 0) wet.set(w.floor[k] * N + w.tile[k], w.depth[k]);
-      return (i, z) => {
-        const s = runSlotAt(runs, i, z);
-        if (s < 0 || s >= stored.moisture.slots || s >= stored.contamination.slots) return null;
-        return { moisture: stored.moisture.values[s * N + i], contamination: stored.contamination.values[s * N + i], depth: wet.get(z * N + i) ?? 0 };
-      };
+    let r = this.runSoils.get(built);
+    if (r === undefined) {
+      r = null;
+      if (this.layered(built)) {
+        if (built.waterFromFile) {
+          const terrain = this.terrainOf(built);
+          const objects = built.entities.map(toMapObject);
+          const cols = waterColumns(terrain, objects);
+          const stack = storedStack(cols, storedWater(this.openedFile().world.singletons, this.size.x, this.size.y));
+          r = { soil: stackedSoil(terrain, cols, stack, objects), stack };
+        } else {
+          const cs = this.caveSoilOf(built);
+          if (cs && built.settle.stack) r = { soil: cs.soil, stack: built.settle.stack };
+        }
+      }
+      this.runSoils.set(built, r);
     }
-    const cs = this.caveSoilOf(built);
-    const stack = built.settle.stack;
-    return cs && stack ? (i, z) => runGround(cs.soil, stack, i, z) : null;
+    const got = r;
+    return got ? (i, z) => runGround(got.soil, got.stack, i, z) : null;
   }
+
+  private readonly runSoils = new WeakMap<BuildResult, { soil: Soil3d; stack: StackSettle } | null>();
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {

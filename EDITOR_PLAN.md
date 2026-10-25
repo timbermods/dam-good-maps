@@ -298,9 +298,10 @@ place of its bottom rule.
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
     allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
     density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
-    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; under a roof the run top each tile
-    paints at, its own moisture, contamination and water, never its roof's: `paint.ts` `paintDying`, `worker
-    paintDryAt`, and the check reads each plant on a map with caves by its run top too); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
+    (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; on a map with caves or overhangs the
+    run top each tile paints at, under a roof or on top, its own moisture, contamination and water, never a cave's
+    seen through its roof: `paint.ts` `paintDying`, `worker paintDryAt`; the checks read each plant there by its run
+    top too, `plants.survive` and the start's food and wood alike); trees have an **Age** option, Grown (default) or Mixed; a quick click or the smallest size
     places exactly one; each stroke is one undo step, and Select and Delete clear them (D288). Unique landmarks
     stay single-placement: the start, the mine site, relics and geothermal fields.
   - **The game's map-editor objects** (D337–D339): Water Seep and Badwater Seep, Aquifer and Ancient Aquifer Drill

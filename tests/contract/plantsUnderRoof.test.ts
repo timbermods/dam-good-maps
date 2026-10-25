@@ -17,6 +17,8 @@ import { tilesToRuns } from "../../src/core/math/grid";
 import { waterColumns } from "../../src/core/sim/columns";
 import { columnSaturation, soil3d } from "../../src/core/sim/soil3d";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { validateMap } from "../../src/core/validate/checks";
+import { checksCases } from "../../tools/rust/checks-jobs";
 import { CAVE, CAVE_H as H, CAVE_W as W, caveFile, caveVoxels, dig, hillsides } from "./caveMap";
 
 /** The cave's east half, a step two levels up: its floor at level 5 under the roof. */
@@ -136,4 +138,16 @@ describe("plants under a roof: their run top's soil, for the warning and the che
     expect(inHollows.some((e) => !bad.has(e.id)), "a bush in a moist hollow lives though the top over it is dry").toBe(true);
     expect(onTops.some((e) => bad.has(e.id)), "a bush on a dry top dies").toBe(true);
   }, 120_000);
+
+  it("the start's food counts the bushes plants.survive keeps: on a cave's step by the start, by their run top (the pinned fixture)", () => {
+    // (tools/rust/checks-jobs.ts: 12 bushes on a step beside a pool under a dry roof, 3 on the roof's top)
+    const c = checksCases().find((k) => k.name === "a cave by the start: plants on its run tops")!;
+    const checks = validateMap(c.file, c.opts).report.checks;
+    const ids = c.file.world.entities.map((e) => String(e.Id)).filter((id) => id.startsWith("00000000"));
+    const bad = new Set(checks.find((k) => k.id === "plants.survive")!.where?.entities ?? []);
+    expect(ids.filter((id) => !bad.has(id)).length, "the bushes on the moist step live").toBe(12);
+    expect(ids.filter((id) => bad.has(id)).length, "the bushes on the dry roof die").toBe(3);
+    // (the fixture's own bushes stand on dry ground: only the step's count)
+    expect(checks.find((k) => k.id === "start.food")!.value).toBe(12);
+  });
 });
