@@ -7,8 +7,9 @@
 // What counts (the renderer works it out from each terrain update, no operation says it): every cell whose solid
 // state differs between the columns drawn before and the update's, on tiles with terrain above terrain before or
 // after (a Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top, their undo);
-// on plain tiles only while the Block tool is in hand (its preview shown), since a brush paints its land live and a
-// force has its own moment (D197, D240), and those are not doubled. Only drawn; nothing per frame once it has faded.
+// on plain tiles only for the Block tool's edits (it says so as it sends one) and Erode's frames, since a brush paints
+// its land live and the other forces have their own moments (D197, D240), and those are not doubled. Compare's flip to
+// another version is not an edit and never glows. Only drawn; nothing per frame once it has faded.
 
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, ShaderMaterial, type Scene } from "three";
 import type { Cell } from "./blockGhost";
@@ -297,6 +298,8 @@ export class EditGlow {
     this.mesh.visible = false;
     this.cells.clear();
     this.faces = { added: 0, removed: 0 };
+    // (its buffers go from the GPU too; the next glow sets new ones)
+    this.geo.dispose();
   }
 
   /** What glows now (tests): the faces of each kind and the strength (0 when nothing does). */

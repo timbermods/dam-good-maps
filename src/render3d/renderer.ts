@@ -101,6 +101,9 @@ import { focusLost } from "./focusLost";
 
 ColorManagement.enabled = false;
 
+/** How long after the Block tool sends an edit its land may come and still glow as its own (a refused one sends none). */
+const BLOCK_EDIT_MS = 4000;
+
 /** How long after a map is drawn the programs an edit could need start compiling in the background (scheduleWarm). */
 const WARM_AFTER_MS = 500;
 
@@ -1838,8 +1841,9 @@ export class MapRenderer {
 
   /** New terrain heights: remesh the chunks the change touches. Returns how many were remeshed.
    *  `columns`: a map with caves or overhangs, its columns as they stand when an edit reshaped a
-   *  roof's top (D280 (3)); those tiles are drawn from them. */
-  updateTerrain(heights: Uint8Array, columns?: MapView["columns"]): number {
+   *  roof's top (D280 (3)); those tiles are drawn from them. `glow: false`: not an edit (Compare's flip to another
+   *  version and back), so nothing glows (editGlow.ts). */
+  updateTerrain(heights: Uint8Array, columns?: MapView["columns"], opts: { glow?: boolean } = {}): number {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
@@ -1848,7 +1852,7 @@ export class MapRenderer {
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     // (what the edit changed in 3D, from the columns drawn before and the update's: editGlow.ts)
     const masks = columns ? columnMasks(m.W * m.H, columns) : m.source.masks;
-    const edited = rect ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockInHand(), rect) : null;
+    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockEdit(), rect) : null;
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -2843,8 +2847,6 @@ export class MapRenderer {
    *  (amber), as `blockFalls` lists them; null puts it away. Blocks at or above the layer cut are not drawn. */
   showBlocks(preview: BlockPreview | null): void {
     const any = !!preview && (preview.added.length > 0 || preview.removed.length > 0 || preview.falls.length > 0);
-    // (shown, or put away as its click goes: the Block tool is at work, so its edits on plain ground glow too)
-    if (any || this.blockReach) this.blockShownAt = performance.now();
     this.blockReach = any ? blockReach([...preview.added, ...preview.removed]) : null;
     this.hollowStale = true;
     if (!any && !this.blockCells) return;
@@ -2855,14 +2857,20 @@ export class MapRenderer {
   /** Erode is at work (its moment's cues come with its frames). */
   private eroding = false;
 
-  /** When the Block tool's preview was last shown or put away. */
-  private blockShownAt = -Infinity;
+  /** When the Block tool last sent an edit (`blockEditSent`); -Infinity once its land came. */
+  private blockSentAt = -Infinity;
 
-  /** The Block tool is at work: a tool that aims at the seen surface is in hand and the Block preview was shown or put
-   *  away a moment ago (a click's edit lands just after its preview goes). Its edits glow on plain ground too; a brush
-   *  paints its land as it goes and a force has its own moment (D197, D240), so neither is doubled. */
-  private blockInHand(): boolean {
-    return !!this.tool?.voxel && performance.now() - this.blockShownAt < 10_000;
+  /** The Block tool sent a `blocks` operation: the land that comes next is its own, and glows on plain ground too (a
+   *  brush paints its land as it goes and a force has its own moment, D197, D240, so neither is doubled). */
+  blockEditSent(): void {
+    this.blockSentAt = performance.now();
+  }
+
+  /** The land coming now is the Block tool's edit (sent a moment ago, its land not come yet): taken once. */
+  private blockEdit(): boolean {
+    const yes = performance.now() - this.blockSentAt < BLOCK_EDIT_MS;
+    this.blockSentAt = -Infinity;
+    return yes;
   }
 
   private editGlow: EditGlow | null = null;

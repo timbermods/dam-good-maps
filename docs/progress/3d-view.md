@@ -637,11 +637,15 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **What counts** (worked out by the renderer from each terrain update, no operation change: `editedCells`): every
   cell whose solid state differs between the columns drawn before and the update's, on tiles with terrain above terrain
   before or after (stored masks, not reshaped to the heights, so a roof's top a stroke painted first still counts): a
-  Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top (D487), their undo and redo. On
-  plain tiles, only the Block tool's edits (a tool that aims at the seen surface in hand, the Block preview shown or put
-  away in the last 10 s) and Erode's (its frames' plain ground, painted through `flushTerrain`). Plain heightfield
-  edits otherwise get nothing: a brush paints its land as it goes (D197) and the other forces have their own moments
-  (D240), so neither is doubled.
+  Block dig or overhang, an Erode cave, a stroke or a Select action that reshapes a roof's top (D487), their undo and
+  redo, a History jump. On plain tiles, only the Block tool's edits and Erode's frames: the Block tool says so as it
+  sends its operation (`renderer.blockEditSent()`, one line in `useBlockTool.ts` `commit`), and the next land that
+  comes within 4 s takes it; Erode's frames' plain ground is painted through `flushTerrain` while its moment plays.
+  Plain heightfield edits otherwise get nothing, the Block tool in hand or not: a brush paints its land as it goes
+  (D197), a Select action is the selection's own, and the other forces have their own moments (D240), so nothing is
+  doubled. Compare's flip to another version and back is not an edit: `useCompare.tsx` asks for its land with
+  `updateTerrain(h, undefined, { glow: false })`, so it never glows, on cave maps too. (Branch from here opens the copy
+  as a new map, which glows nothing.)
 - **Tried by eye** (real Chrome, Highlands 128 seed 12, the same cliff): A, the opened faces (built); B, the changed cells
   as whole ghost blocks, the preview lingering. They read the same for an add. For a dig, B fills the hole it confirms
   with four red blocks, which reads as blocks added; A lights the hollow's floor, walls and ceiling, so the hole reads as
@@ -652,15 +656,19 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **Tests:** `tests/unit/editGlow.test.ts` (a dig into a wall, an overhang and its undo, a roof's top a stroke painted
   first, plain tiles only when asked, the faces of an added block, a dug block, the map's edge and floor and the cut, the
   fade); `tests/e2e/editGlow.spec.ts` (a plain edit draws nothing; a dig into a wall glows on the hollow's 5 faces and is
-  gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes).
+  gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes; the Block
+  tool's click on flat ground glows its block's 5 faces, while a plain edit with the Block tool in hand and a Compare
+  flip and back glow nothing).
 - **Captures:** `docs/sheets/3d-edits-show.jpg` (`tools/capture-edits-show.ts`, real Chrome on the RTX 2070 SUPER):
   before, just after (the glow held at full for the shot) and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
   the plain ground at its foot and an Erode click on its face (Highlands 128 seed 12); a dig into a cave's wall under a
   layer cut and a Lower dab on a roof (Hollows); Standard and High, 1920×1080 dark and 1280×800 light.
 - **Falls short:** a change seen only from inside (a hollow behind its mouth, the far side of a roof) glows where the
-  camera cannot see it, and the red reads weaker beside badwater (Hollows' cave lake). A Select action on plain ground with the Block tool put away a moment before glows too (the
-  same rule). The first hollow dug on a plain map holds the page for seconds in a cold browser (the cave light and
-  shaders, before this change); the glow waits for it.
+  camera cannot see it, and the red reads weaker beside badwater (Hollows' cave lake). The undo of a Block edit on plain
+  ground does not glow (the page's undo does not say which operation it takes back); on caves it does. Right after a
+  dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
+  map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
+  warm-up); the glow waits for it.
 
 ## The rest of the step (next parts)
 

@@ -66,7 +66,7 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
       const m = mirror.current;
       // (a held weather day's soil is what the open map shows then)
       const v = on ? { heights: compare.view.heights, water: compare.view.water, entities: compare.view.entities, soil: compare.view.soil } : { heights: m.heights, water: m.waterView, entities: m.entities, soil: m.daySoil ?? m.soil };
-      r.updateTerrain(v.heights);
+      r.updateTerrain(v.heights, undefined, { glow: false });
       // (the water with its land in the same frame: a flip compares the two at a glance)
       r.updateWater(v.water, true);
       r.updateEntities(v.entities);
