@@ -68,7 +68,7 @@ import {
 } from "three";
 import { CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, GROUND, HATCH, HEIGHT_RAMP, JUICE, LIGHT, MINE, SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { END, FALL_NEAR_PX, FALL_SHAPE, FALL_SPLASH } from "./falls";
-import { WATER_GLSL } from "./waterPalette";
+import { WATER_FILM_GLSL, WATER_GLSL } from "./waterPalette";
 import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { CAVE_SKY_FLOOR, LIGHT_LEVELS, type CaveLight } from "./caveLight";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
@@ -951,6 +951,16 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float surface = heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
         return vec4(m, g - m * 16.0, d.a > 0.002 && surface <= slice + 0.05 ? 1.0 : 0.0, d.b);
       }
+      ${WATER_FILM_GLSL}
+      /** The depth of the water over a tile's top (light.ts waterByte; three levels for any deeper). */
+      float waterDepthOf(vec4 d) {
+        float wb = floor(d.a * 255.0 + 0.5);
+        return wb < 0.5 ? 0.0 : min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
+      }
+      /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water of
+       *  a quarter level or more, less under a film, whose ground keeps its own soil, only wet
+       *  (waterPalette.ts WATER_FILM). Set round a top's groundColor; 1 everywhere else. */
+      float groundBed = 1.0;
       #ifdef RUN_SOIL
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
         uniform highp sampler3D runTex;
@@ -1017,7 +1027,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           glow = 0.0;
           vec3 lc = s.x > 0.5 ? mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) : ${glColor(GROUND.dry)};
           if (s.z > 0.5) lc = mix(lc, s.x > 0.5 ? ${glColor(GROUND.contaminatedWet)} : ${glColor(GROUND.contaminated)}, 0.25 + 0.3 * clev);
-          return s.w > 0.5 ? ${glColor(GROUND.underwater)} : lc;
+          float bed = step(0.5, s.w);
+          return mix(mix(lc, lc * WATER_FILM_WET_GROUND, bed * (1.0 - groundBed)), ${glColor(GROUND.underwater)}, bed * groundBed);
         #endif
 ${hook(h, "groundStart")}        // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
@@ -1037,6 +1048,8 @@ ${hook(h, "groundStart")}        // (the patterns are read through a broad warp,
         float moist = ${hook(h, "moist", "smoothstep(0.42, 0.58, s.x + edge)")};
         float bad = ${hook(h, "bad", "smoothstep(0.4, 0.6, s.z + edge * 0.6)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
+        // (under a film the ground keeps its own soil, wet: WATER_FILM)
+        float bed = wet * groundBed;
         // dry: cracked earth, warm brown, drifting in broad patches to a cooler mauve and a warmer
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
@@ -1071,7 +1084,8 @@ ${hook(h, "groundStart")}        // (the patterns are read through a broad warp,
         c = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
         // (the glow is added after the light: the veins' cores, narrower than their strokes)
         glow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);
-${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), wet);
+${hook(h, "groundEnd")}        c = mix(c, c * WATER_FILM_WET_GROUND, wet - bed);
+        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
       void main() {
         vec3 n = normalize(vNormal);
@@ -1143,7 +1157,13 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
           float sky = s0.w * w00 + s1.w * w10 + s2.w * w01 + s3.w * w11;
           float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
+          // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
+          // the point only (a pond's bed holds to its shore)
+          vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
+          float underSum = under.x + under.y + under.z + under.w;
+          groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
           vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
+          groundBed = 1.0;
           // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
           float fresh = freshRock(tile, h0);
           ground = mix(ground, ashOf(g), fresh);
@@ -1487,7 +1507,10 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
         float absorb = waterAbsorb(d);
         vec3 murky = badwaterBody(depth);
         vec3 body = cleanWaterBody(d, absorb);
-        float alpha = cleanWaterAlpha(absorb);
+        // a film (a tenth of a level deep or less) is a faint tint over its own ground, building to the
+        // body by a quarter of a level deep (waterPalette.ts WATER_FILM): its own depth, not the bank's
+        float film = waterFilm(depth);
+        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(absorb), film);
         float foam = 0.0;
         float glints = 0.0;
         float pale = 0.0;
@@ -1542,12 +1565,14 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
           if (bitOf(vFlags, 512.0) > 0.5) lip = min(lip, fr.x);
           if (bitOf(vFlags, 1024.0) > 0.5) lip = min(lip, 1.0 - fr.y);
           if (bitOf(vFlags, 2048.0) > 0.5) lip = min(lip, fr.y);
-          // a thin line along the shore, and (clean water only) broken foam just off it
-          foam += (1.0 - smoothstep(0.03, 0.08, shore)) * mix(${f(WS.shoreFoam)}, 0.45, bad);
+          // a thin line along the shore, and (clean water only) broken foam just off it; a film keeps a
+          // faint edge, not a pond's foam line
+          float filmFoam = mix(WATER_FILM_FOAM, 1.0, film);
+          foam += (1.0 - smoothstep(0.03, 0.08, shore)) * mix(${f(WS.shoreFoam)}, 0.45, bad) * filmFoam;
           #if LITE
             foam += (1.0 - smoothstep(0.02, 0.1, lip)) * 0.5 * (1.0 - bad * 0.35);
           #else
-            foam += (1.0 - smoothstep(0.06, 0.24 + 0.1 * fn, shore)) * smoothstep(0.4, 0.72, fn + 0.12) * ${f(WS.brokenFoam)} * (1.0 - bad);
+            foam += (1.0 - smoothstep(0.06, 0.24 + 0.1 * fn, shore)) * smoothstep(0.4, 0.72, fn + 0.12) * ${f(WS.brokenFoam)} * (1.0 - bad) * filmFoam;
             // the water breaks white over the brink, in a ragged line that runs with it
             float brink = vnoise(vec2((g.x + g.y) * 5.0, t * 1.6)) * 0.6 + vnoise(vec2((g.x - g.y) * 11.0, t * 2.3)) * 0.4;
             foam += (1.0 - smoothstep(0.02, 0.08 + 0.1 * brink, lip)) * (0.4 + 0.45 * brink) * (1.0 - bad * 0.35);
