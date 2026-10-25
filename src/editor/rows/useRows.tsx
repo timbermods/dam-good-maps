@@ -400,7 +400,7 @@ export function useRows(ed: Ed): RowsSlice {
     if (tool === "rift") return <RiftRow {...roll} force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
     if (tool === "deposit") return <DepositRow {...roll} force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
     if (tool === "erode") return <ErodeRow {...roll} force={force} ui={erodeUi} onUi={setErodeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erode as ErodeSettings | undefined) ?? null} />;
-    return <QuakeRow {...roll} lineLength={forcer.current?.lastQuakeLength ?? null} force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
+    return <QuakeRow {...roll} slide={forcer.current?.lastSlide ?? null} force={force} ui={quakeUi} onUi={setQuakeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.quake as ReturnType<typeof quakeSettingsOf> | undefined) ?? null} />;
   }
 
   return { pickTile, pickedRow, shelfRow, forceRow };

@@ -11,7 +11,7 @@
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
 import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
-import { QUAKE_DEFAULTS, slideTiles, slideTravel, type QuakeSettings } from "../core/forces/quake";
+import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
 import { ERODE_DEFAULTS, erodeSize, type ErodeSettings } from "../core/forces/erode";
@@ -397,10 +397,10 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   );
 }
 
-/** `lineLength`: the drawn line's length (tiles), once there is one; a short line caps a Slide's travel (`slideTravel`). */
-export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings> & { lineLength?: number | null }) {
+/** `slide`: how far the last Slide really carried its ground at that Power (a short line caps it), once there was one. */
+export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings> & { slide?: { power: number; travel: number } | null }) {
   const u = p.ui;
-  const travel = p.lineLength == null ? slideTiles(u.power) : slideTravel(u.power, p.lineLength);
+  const travel = p.slide && p.slide.power === u.power ? p.slide.travel : slideTiles(u.power);
   const set = (patch: Partial<QuakeUi>) => p.onUi({ ...u, ...patch });
   const scarp = u.scarp ?? p.drawn?.scarp ?? "sheer";
   return (
