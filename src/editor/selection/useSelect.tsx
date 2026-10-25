@@ -374,6 +374,11 @@ export function useSelect(ed: Ed): SelectSlice {
     if (t) setMessage((m) => (m && m.text === t ? null : m));
     endWaterHint();
   }
+  /** Crop's button leaves the row (a brush, a force or the shelf takes the bar): no pointer is on it any more, and no mouseleave
+   *  comes. (One function for the page's life, so Preact doesn't call it on every render.) */
+  const cropGone = useRef((el: HTMLButtonElement | null) => {
+    if (!el) endCropHint();
+  });
   /** What hovering Crop says: what to do, or the reason it is greyed (in full on the message line), or what it will make. */
   function previewCrop() {
     cropHot.current = true;
@@ -547,7 +552,7 @@ export function useSelect(ed: Ed): SelectSlice {
         span: 2,
         node: (
           <div class="set">
-            <button type="button" class="set-button" aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
+            <button type="button" class="set-button" ref={cropGone.current} aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
               Crop
             </button>
           </div>

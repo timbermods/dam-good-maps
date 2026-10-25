@@ -102,6 +102,25 @@ test("Crop's reason shows on the message line even when the core's answer comes 
   await expect(page.locator(".editor-message")).toHaveCount(0);
 });
 
+test("Crop's reason leaves with its button: a brush put in hand under the pointer, and later answers say nothing of Crop", async ({ page }) => {
+  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await page.getByRole("button", { name: "Top-down" }).click();
+  const row = page.getByRole("group", { name: "Selection" });
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await row.getByRole("button", { name: "Crop", exact: true }).hover();
+  await expect(page.locator(".editor-message")).toContainText("The selection is the whole map: nothing to crop");
+  // Raise comes by its key, the Selection row goes with the pointer still where Crop was
+  await page.keyboard.press("2");
+  await expect(row).toHaveCount(0);
+  await expect(page.locator(".editor-message")).toHaveCount(0);
+  // a later answer of the core's (a new selection) puts nothing of Crop on the message line
+  await page.keyboard.press("1");
+  await row.getByRole("button", { name: "Whole map" }).click();
+  await page.keyboard.press("2");
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await expect(page.locator(".editor-message")).toHaveCount(0);
+});
+
 /** A box round the start, 32 × 24, kept clear of the map's edge. */
 async function startBox(page: Page): Promise<[[number, number], [number, number]]> {
   const start = await page.evaluate(() => {
