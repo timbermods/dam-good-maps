@@ -97,22 +97,19 @@ it should be, the same draw the same terrain, none where the land offers none); 
 96² seed 3 at Verticality 80: spring caves and an arch, nothing dropped, the file's caves and stacked water, the project
 reopens to the same .timber; none at Verticality 0); the batches and the 84 maps below.
 
-**Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; this
-machine shared with other sessions' runs, so times are high; the batches ran before the worn mouths, the arch's curve
-and its 2–3 wide deck, with up to three builds, now two):
+**Numbers** (`tools/batch.ts`, 128², seeds 1–10 of every theme and Any at each Verticality, 70 maps a row; rerun
+2026-10-25 on the worn shapes, the cave springs through the game's rule and dev with #490 and #498; this machine shared
+with many other sessions' runs, three lanes at once, so times are high):
 
 | Verticality | final | spring caves | overhangs | arches | forms a map, median by theme | project round trip |
 |---|---|---|---|---|---|---|
 | 20 | 70 of 70 | 2 | 0 | 0 | 0 (max 1; only Lake Basin and Delta, whose default is 10, are above theirs) | 70 of 70 |
-| 50 | 70 of 70 | 56 | 12 | 16 | 0–2 (max 4) | 70 of 70 |
-| 80 | 70 of 70 | 74 | 22 | 44 | Canyon 5, Highlands 4, Any 3, Delta 2, River Valley 1, Lake Basin 1, Islands 0 (max 6) | 70 of 70 |
+| 50 | 70 of 70 | 52 | 11 | 16 | Canyon 2, Highlands 2, River Valley 1, Delta 1, Any 1, Lake Basin 0, Islands 0 (max 4) | 70 of 70 |
+| 80 | 70 of 70 | 73 | 21 | 37 | Canyon 4, Highlands 4, Any 3, Delta 2, River Valley 1, Lake Basin 1, Islands 0 (max 6) | 70 of 70 |
 
-- **Rerun after the shape changes (worn mouths, the arch's curve, 2–3 wide decks), PARTIAL** (stopped when usage ran
-  out; 10 of 21 batches, seeds 1–10 each): every batch 10/10 final, 0 blocks dropped, 10/10 projects reopen equal.
-  Kept (caves / overhangs / arches): Vt 20: Canyon, Highlands, River Valley 0 / 0 / 0 (at or below their default),
-  Lake Basin 1 / 0 / 0; Vt 50: Canyon 13 / 2 / 4, Highlands 13 / 2 / 5, River Valley 7 / 3 / 2; Vt 80: Canyon 24 / 3 / 9,
-  Highlands 18 / 4 / 8, River Valley 2 / 5 / 4. Median time at Vt 80: Canyon 14.3 s, Highlands 15.7 s, River Valley
-  18.3 s (loaded machine). Not rerun yet: Delta, Islands and Any at all three, Lake Basin at 50 and 80.
+- Against the run before the worn shapes (56 / 12 / 16 at 50, 74 / 22 / 44 at 80): about the same, a few fewer arches at
+  80 (the spine must close whole, and each form's draws now differ). Median time a map at 80: 26–93 s by theme on this
+  loaded machine (Islands slowest, its rescue rounds); not comparable with the earlier 14.7 s, taken on a quieter one.
 - The rule pass dropped 0 blocks on every map; relief stayed within 16 below 70 (up to 19 at 80, tall maps).
 - Where they grow: spring caves wherever a river runs by a cliff (Canyon and Highlands most, Islands none: its rivers
   run on low land); overhangs only where the start stands by a cliff; arches in gorges (Canyon, Highlands, Delta's
@@ -134,9 +131,9 @@ close,high,top] [--only …]`). The worn shapes against the boxes they replaced 
 big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg`.
 
 **Falls short, for the next parts:**
-- No forms at the default Verticality: on a map with a form, Fill and Remove unfed water are refused as on an imported
-  cave map. Once the stacked engine has their rules, the gate can go (the forms at the default were built and measured:
-  on the 84 maps they changed 31, every one where a form was placed).
+- No forms at the default Verticality yet. The gate was there because Fill and Remove unfed water were refused on maps
+  with caves; #498 (merged 2026-10-25) gives them their rules, so the gate can now go, in its own PR: it changes the
+  default maps (31 of the 84 when measured, every one where a form was placed) and needs their re-pin (D148).
 - Overhangs are rare: most starts stand on open ground with no cliff in reach. Steering the settler toward a cliff when
   the map looks for one would change maps that then find none, so it waits for a round where that is allowed.
 - No arch above 128² (its first look is not held there); a land-stage arch on the planned water would bring them back.
