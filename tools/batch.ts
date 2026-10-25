@@ -1,17 +1,20 @@
-// Batch pass rates (PLAN §15; ROADMAP M2 acceptance: 100 seeds at 128² Normal, final pass ≥ 98%,
-// first attempt ≥ 60%). Generates each seed with the retry loop and reports first-attempt and
-// final pass rates, which checks failed and how often, attempts used, and timings.
+// Batch pass rates (PLAN §15: 100 seeds at 128² Normal, final pass ≥ 98% blocks; the first-attempt
+// rate is information against its 60% target, D115, D145, as CI and the nightly run it). Generates
+// each seed with the retry loop and reports first-attempt and final pass rates, which checks failed
+// and how often, attempts used, and timings. Since the land stage (D333 (2), D278) a land drawn again
+// before it is shown counts as an attempt though it costs no settle, so Generate's time is the
+// measure for players: the time per map below, against D278's speed targets.
 //
 // Every accepted map's project file (PLAN §19.6, the page's download) is also reopened: it must pass
 // the checks on open and rebuild the same .timber byte for byte, or the batch fails.
 //
 //   npx tsx tools/batch.ts [--seeds 1-100] [--size 128] [--difficulty normal] [--theme riverValley]
-//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0.6] [--wasm]
+//                          [--set rl=80&wf=m] [--report file.md] [--min-final 0.98] [--min-first 0] [--wasm]
 //
 // --set takes settings in the share link's short keys (src/core/spec/codec.ts).
 //
-// Exits non-zero when a rate is below its gate, or when a project file does not reopen to the same
-// bytes.
+// Exits non-zero when the final rate is below its gate (or the first-attempt rate below one asked
+// with --min-first), or when a project file does not reopen to the same bytes.
 
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -48,7 +51,7 @@ const difficulty = arg("difficulty", "normal") as Difficulty;
 const theme = arg("theme", "riverValley") as ThemeId;
 const extra = arg("set", "");
 const minFinal = Number(arg("min-final", "0.98"));
-const minFirst = Number(arg("min-first", "0.6"));
+const minFirst = Number(arg("min-first", "0"));
 const report = arg("report", "");
 // the canonical settles run in the native Rust water (PLAN §20 D381; build it with `npx tsx
 // tools/rust/build.ts --native`); --wasm keeps them in WebAssembly, the same bytes
@@ -171,7 +174,7 @@ const sorted = times.slice().sort((a, b) => a - b);
 const pct = (k: number) => `${((100 * k) / n).toFixed(1)}%`;
 log("");
 log(`${n} seeds of ${theme} at ${size}×${size}, designed for ${difficulty}${extra ? ` with ${extra}` : ""}, at most ${MAX_ATTEMPTS} attempts:`);
-log(`- first attempt: ${first}/${n} = ${pct(first)} (gate ${Math.round(minFirst * 100)}%)`);
+log(`- first attempt: ${first}/${n} = ${pct(first)} (${minFirst > 0 ? `gate ${Math.round(minFirst * 100)}%` : "information, target 60%"})`);
 log(`- final: ${final}/${n} = ${pct(final)} (gate ${Math.round(minFinal * 100)}%)`);
 log(`- attempts: mean ${(attempts.reduce((a, b) => a + b, 0) / n).toFixed(2)}, max ${attempts.reduce((a, b) => Math.max(a, b), 0)}`);
 log(`- time per map: median ${Math.round(sorted[n >> 1])} ms, p90 ${Math.round(sorted[Math.floor(n * 0.9)])} ms, max ${Math.round(sorted[n - 1])} ms`);
