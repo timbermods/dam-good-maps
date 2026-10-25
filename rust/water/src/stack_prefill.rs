@@ -4,6 +4,7 @@ use crate::{
     settle::SettleResult,
     sim::TICKS_PER_DAY,
     stack::{Retained, Stack, State, PRESSURE},
+    stack_level,
 };
 use portable::max;
 use std::{cmp::Ordering, collections::BinaryHeap};
@@ -391,46 +392,70 @@ impl SettleRun {
         }
         self.result
     }
-    /// A sealed basin only evaporating is stored as it began (D413, as the heightfield's settle stores it,
-    /// src/core/sim/prefill.ts `keepSealed`): the wet columns joined to a stored lake that no running source
-    /// feeds and that do not reach the map's edge, when none of them gained water since the settle began
-    /// (none flowed in, none moved to ground the lake did not hold), go back to the water they began with, so
-    /// a Fill is written at exactly its level. A basin whose water moved stays as the settle left it, at rest.
+    /// A sealed basin is stored at rest (D413, as the heightfield's settle stores it, src/core/sim/prefill.ts
+    /// `keepSealed`): the wet columns joined to a stored lake that no running source feeds and that do not reach
+    /// the map's edge, with the water the run carried from them to ground beside them (a stretch of wet columns
+    /// within the basin's reach, `stack_level::arena`, that holds no other water, none from a source, the edge or
+    /// another basin).
+    /// - When none of them gained water since the settle began (none flowed in, none moved to ground the lake did
+    ///   not hold), it only evaporated: its columns go back to the water they began with, so a Fill is written at
+    ///   exactly its level.
+    /// - When its water moved (an edit dug its rim or widened its hollow), the water it began with is stored where
+    ///   it comes to rest by the game's rules for stacked water, through air gaps, roofs and pressure
+    ///   (`stack_level::level_basin`), not as the run left it, perhaps still draining. Where that rest would reach
+    ///   water or ground it can't settle on alone (the edge, a source, other water, an obstacle), or what another
+    ///   basin's rest already took, the basin stays as the run left it.
+    /// The basins are told apart on the water as the run left it, before any is written.
     fn keep_sealed(&self, s: &mut Stack) {
         let Some(start) = &self.start else { return };
         let size = s.d.len();
-        let mut feeds = vec![false; size];
+        let n = s.cols.n;
+        let (w, h) = (s.cols.w, s.cols.h);
+        // (1: a running source feeds the column; 2: a source or a sink works on it)
+        let mut feeds = vec![0u8; size];
         for em in &s.emitters {
-            if em.strength > 0.0 {
+            if em.strength != 0.0 {
                 for &c in &em.cols {
-                    feeds[c as usize] = true;
+                    feeds[c as usize] |= if em.strength > 0.0 { 3 } else { 2 };
                 }
             }
         }
+        let mut limited = vec![false; n];
+        for &k in s.cols.height_limit.keys().chain(s.cols.dir_limit.keys()) {
+            limited[k % n] = true;
+        }
+        let edge = |c: usize| {
+            let i = c % n;
+            let (x, y) = (i % w, i / w);
+            x == 0 || y == 0 || x == w - 1 || y == h - 1
+        };
         let wet = |c: usize| s.d[c] > 0.0 || start.depth[c] > 0.0;
-        let mut seen = vec![false; size];
-        let mut keep = Vec::new();
+        let gained = |c: usize| s.d[c] > start.depth[c] + 0.005 || s.o[c] > start.overflow[c] + 0.005 / PRESSURE;
+        // per column: its basin's number; the number of the basin whose reach it is in; 2k once basin k's look at
+        // the run's water came to it, 2k + 1 when that water is basin k's
+        let mut member = vec![0u32; size];
+        let mut area = vec![0u32; size];
+        let mut seen = vec![0u32; size];
+        // what each is stored as: (column, depth, pressure, badwater share), later entries over earlier
+        let mut writes: Vec<(usize, f64, f64, f64)> = Vec::new();
+        let mut levelled: Vec<usize> = Vec::new();
+        let mut claimed = vec![false; size];
         let mut queue = Vec::new();
+        let mut k = 0u32;
         for &seed in &self.sealed {
-            if seen[seed] || !wet(seed) {
+            if member[seed] != 0 || !wet(seed) {
                 continue;
             }
-            seen[seed] = true;
-            queue.clear();
-            queue.push(seed);
-            let mut rests = true;
+            k += 1;
+            member[seed] = k;
+            let mut basin = vec![seed];
+            let mut open = false;
             let mut head = 0;
-            while head < queue.len() {
-                let c = queue[head];
+            while head < basin.len() {
+                let c = basin[head];
                 head += 1;
-                let i = c % s.cols.n;
-                let x = i % s.cols.w;
-                let y = i / s.cols.w;
-                if feeds[c] || x == 0 || y == 0 || x == s.cols.w - 1 || y == s.cols.h - 1 {
-                    rests = false;
-                }
-                if s.d[c] > start.depth[c] + 0.005 || s.o[c] > start.overflow[c] + 0.005 / PRESSURE {
-                    rests = false;
+                if feeds[c] & 1 != 0 || edge(c) {
+                    open = true;
                 }
                 for e in s.start[c] as usize..s.start[c + 1] as usize {
                     let t = s.target[e];
@@ -438,26 +463,118 @@ impl SettleRun {
                         continue;
                     }
                     let t = t as usize;
-                    if seen[t] || !wet(t) {
+                    if member[t] != 0 || !wet(t) {
                         continue;
                     }
-                    seen[t] = true;
-                    queue.push(t);
+                    member[t] = k;
+                    basin.push(t);
                 }
             }
-            if rests {
-                keep.extend_from_slice(&queue);
+            if open {
+                continue;
+            }
+            // the run's water within its reach that is its own
+            let dom = stack_level::arena(s, start, &basin, &mut area, k);
+            let mut ours: Vec<usize> = Vec::new();
+            let mut mixed = false;
+            for &c0 in &dom {
+                if !(s.d[c0] > 0.0) || seen[c0] >> 1 == k {
+                    continue;
+                }
+                seen[c0] = 2 * k;
+                queue.clear();
+                queue.push(c0);
+                let mut clean = true;
+                let mut mine = false;
+                let mut head = 0;
+                while head < queue.len() {
+                    let c = queue[head];
+                    head += 1;
+                    if area[c] != k || feeds[c] != 0 || edge(c) || (member[c] != k && (member[c] != 0 || start.depth[c] > 0.0)) {
+                        clean = false;
+                    }
+                    if member[c] == k {
+                        mine = true;
+                    }
+                    for e in s.start[c] as usize..s.start[c + 1] as usize {
+                        let t = s.target[e];
+                        if t < 0 {
+                            continue;
+                        }
+                        let t = t as usize;
+                        if !(s.d[t] > 0.0) || seen[t] >> 1 == k {
+                            continue;
+                        }
+                        seen[t] = 2 * k;
+                        queue.push(t);
+                    }
+                }
+                if clean {
+                    for &c in &queue {
+                        seen[c] = 2 * k + 1;
+                        if member[c] != k {
+                            ours.push(c);
+                        }
+                    }
+                } else if mine {
+                    mixed = true;
+                }
+            }
+            if mixed || basin.iter().chain(&ours).any(|&c| claimed[c]) {
+                continue;
+            }
+            if !basin.iter().chain(&ours).any(|&c| gained(c)) {
+                for &c in &basin {
+                    writes.push((c, start.depth[c], start.overflow[c], start.contamination[c]));
+                    claimed[c] = true;
+                }
+                for &c in &ours {
+                    writes.push((c, 0.0, 0.0, 0.0));
+                    claimed[c] = true;
+                }
+                continue;
+            }
+            let risky = |c: usize| feeds[c] != 0 || edge(c) || limited[c % n] || (wet(c) && member[c] != k && seen[c] != 2 * k + 1);
+            let Some(rest) = stack_level::level_basin(s, start, &dom, basin.len(), &risky) else { continue };
+            if rest.iter().any(|&(c, _, _)| claimed[c]) {
+                continue;
+            }
+            // (a column keeps the badwater share it began with; one the water reaches anew takes the basin's)
+            let mut vol = 0.0;
+            let mut bad = 0.0;
+            for &c in &basin {
+                let v = start.depth[c] + start.overflow[c];
+                vol += v;
+                bad += v * start.contamination[c];
+            }
+            let share = if vol > 0.0 { bad / vol } else { 0.0 };
+            for &c in basin.iter().chain(&ours) {
+                writes.push((c, 0.0, 0.0, 0.0));
+                claimed[c] = true;
+                levelled.push(c);
+            }
+            for &(c, d, o) in &rest {
+                let q = if start.depth[c] > 0.0 { start.contamination[c] } else { share };
+                writes.push((c, d, o, if q > 1.0 { 1.0 } else { q }));
+                claimed[c] = true;
+                levelled.push(c);
             }
         }
-        if keep.is_empty() {
+        if writes.is_empty() {
             return;
         }
-        for &c in &keep {
-            s.d[c] = start.depth[c];
-            s.o[c] = start.overflow[c];
-            s.c[c] = start.contamination[c];
+        for (c, d, o, q) in writes {
+            s.d[c] = d;
+            s.o[c] = o;
+            s.c[c] = q;
         }
-        // (the water it began with was well formed; its wet lists follow it)
+        // (water at rest has no flows)
+        for c in levelled {
+            for e in s.start[c] as usize..s.start[c + 1] as usize {
+                s.out[e] = 0.0;
+            }
+        }
+        // (the water written is well formed; its wet lists follow it)
         let _ = s.sync_state();
     }
     fn check(&mut self, s: &Stack) {

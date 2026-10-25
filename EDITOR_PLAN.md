@@ -1312,7 +1312,12 @@ checks dot counts; every other row is information under Good to know, worded as 
     tile's column with that floor, else its top one), so it is kept in the cave. The stacked settle stores a
     sealed basin that only dried as it began (D413), so a Fill there too is written at exactly its level, and
     the water the game loads stays as it is: the lake only evaporates, nothing spills
-    (`tests/contract/caveWaterEdits.test.ts`). An imported map's own unfed water is kept on every column, a pool
+    (`tests/contract/caveWaterEdits.test.ts`). A sealed basin whose water moved (an edit dug its rim or widened
+    its hollow) is stored where the water it began with comes to rest, as the heightfield's settle levels it
+    (`keepSealed`), by the game's rules through air gaps, roofs and pressure: each hollow fills to its spill and
+    only the rest runs on, lowest first, so a lake behind a dug rim stays at the cut's floor when the hollow
+    beyond takes the rest, and stands as one level with it when that hollow fills (`rust/water/src/stack_level.rs`;
+    a rest that would reach a source, the edge, other water or an obstacle leaves the basin as the settle left it). An imported map's own unfed water is kept on every column, a pool
     in a cave included (D457; `stackFed.ts` `unfedOwnWater`). While the canonical settle runs, the carried-over
     water shows a Fill and takes a removal's water at once, on their columns (`keptOnStack`).
   - **Water changes only through its causes** (D260): after every edit that can change what water is fed (a source

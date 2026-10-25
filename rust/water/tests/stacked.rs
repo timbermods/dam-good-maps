@@ -381,3 +381,105 @@ fn a_big_sealed_lake_never_excuses_water_still_filling_beside_it() {
     // the pond's change is weighed against the pond's water (0.4%), not the lake's and the pond's (0.008%): not steady
     assert!(!water::stack_prefill::steady_apart_from_sealed(s, &prev_d, &prev_o, &sealed, 0.005, 0.005));
 }
+/// A 12 × 12 block of rock to 10 with air carved at z `z0..=z1` under x `x0..=x1`, y `y0..=y1` for each cut.
+fn carved(cuts: &[(usize, usize, usize, usize, u32, u32)]) -> Model {
+    let mut mask = vec![(1 << 10) - 1; 144];
+    for &(x0, x1, y0, y1, z0, z1) in cuts {
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                for z in z0..=z1 {
+                    mask[y * 12 + x] &= !(1 << z);
+                }
+            }
+        }
+    }
+    columns::model(12, 12, &mask, &[]).unwrap()
+}
+/// A stored lake on the cave columns of x 4–7, y 4–7, on `floor`.
+fn lake_on(m: &mut Model, floor: f64, depth: f64) {
+    for y in 4..=7 {
+        for x in 4..=7 {
+            m.retained.push(water::stack::Retained {
+                tile: (y * 12 + x) as u32,
+                floor,
+                depth,
+                contamination: 0.0,
+            });
+        }
+    }
+}
+/// The settle's stored water: each wet column's (tile, floor, depth, pressure), and the water in all.
+fn settled(m: Model) -> (Vec<(usize, i16, f64, f64)>, f64) {
+    let cols = m.cols.clone();
+    let mut e = Engine::new(m, true).unwrap();
+    e.start_settle(6.0).unwrap();
+    e.advance(10_000_000).unwrap().unwrap();
+    let s = e.state();
+    let wet = (0..s.depth.len())
+        .filter(|&c| s.depth[c] > 0.0)
+        .map(|c| (c % 144, cols.floor[c], s.depth[c], s.overflow[c]))
+        .collect();
+    (wet, s.depth.iter().zip(&s.overflow).map(|(d, o)| d + o).sum())
+}
+fn tiles(x0: usize, x1: usize, y0: usize, y1: usize) -> Vec<usize> {
+    (y0..=y1).flat_map(|y| (x0..=x1).map(move |x| y * 12 + x)).collect()
+}
+#[test]
+fn a_dug_rim_drains_a_sealed_cave_lake_into_the_hollow_below_and_it_ends_level_with_its_water_kept() {
+    // a cave lake (floor 2, roof 6) 3 deep, its rim at x 8 dug down to 3, a lower hollow (floor 1) beyond it:
+    // the hollow fills past the cut, so the lake, the cut and the hollow stand as one level, 48 of water over
+    // 16 columns on 2, 4 on 3 and 8 on 1: (48 + 32 + 12 + 8) / 28
+    let mut m = carved(&[(4, 7, 4, 7, 2, 5), (8, 8, 4, 7, 3, 5), (9, 10, 4, 7, 1, 5)]);
+    lake_on(&mut m, 2.0, 3.0);
+    let (wet, total) = settled(m);
+    let level = 100.0 / 28.0;
+    let mut want: Vec<usize> = tiles(4, 10, 4, 7);
+    want.sort_unstable();
+    assert_eq!(wet.iter().map(|w| w.0).collect::<Vec<_>>(), want);
+    for &(_, floor, d, o) in &wet {
+        assert!((floor as f64 + d - level).abs() < 1e-12, "{floor} {d}");
+        assert_eq!(o, 0.0);
+    }
+    // the water it began with, none evaporated by the settle's days and none lost
+    assert!((total - 48.0).abs() < 1e-9, "{total}");
+}
+#[test]
+fn a_dug_rim_into_a_hollow_too_big_to_fill_leaves_the_lake_at_its_cut_and_the_rest_below() {
+    // the same lake and cut, the hollow beyond 20 columns: the lake runs out only down to the cut's floor (3), its
+    // 32 above it filling the hollow to 1 + 32 / 20; water never runs back uphill to level the two
+    let mut m = carved(&[(4, 7, 4, 7, 2, 5), (8, 8, 4, 7, 3, 5), (9, 10, 1, 10, 1, 5)]);
+    lake_on(&mut m, 2.0, 3.0);
+    let (wet, total) = settled(m);
+    for &(tile, floor, d, o) in &wet {
+        let (x, y) = (tile % 12, tile / 12);
+        let level = if x <= 7 { 3.0 } else { 2.6 };
+        assert!(x != 8 && (4..=7).contains(&y) || x >= 9, "{x} {y}");
+        assert!((floor as f64 + d - level).abs() < 1e-12, "{x} {y} {floor} {d}");
+        assert_eq!(o, 0.0);
+    }
+    assert_eq!(wet.len(), 16 + 20);
+    assert!((total - 48.0).abs() < 1e-9, "{total}");
+}
+#[test]
+fn a_roofed_lake_under_pressure_drains_into_a_low_roofed_tunnel_and_rests_under_pressure_there() {
+    // a cave lake (floor 3, roof 6) standing to 7, a level over its roof (pressure 1/8): 50 of water. Its wall at
+    // x 8–9 opens into a tunnel on 1 roofed at 4. At rest the tunnel is full, under the pressure of the head over
+    // its roof, and the cave stands at the same head: 16 (L - 3) + 8 (3 + (L - 4) / 8) = 50
+    let mut m = carved(&[(4, 7, 4, 7, 3, 5), (8, 9, 4, 7, 1, 3)]);
+    lake_on(&mut m, 3.0, 4.0);
+    let (wet, total) = settled(m);
+    let level = 78.0 / 17.0;
+    assert_eq!(wet.len(), 24);
+    for &(tile, floor, d, o) in &wet {
+        let x = tile % 12;
+        if x <= 7 {
+            assert_eq!(floor, 3);
+            assert!((3.0 + d - level).abs() < 1e-12);
+            assert_eq!(o, 0.0);
+        } else {
+            assert_eq!((floor, d), (1, 3.0));
+            assert!((4.0 + o * 8.0 - level).abs() < 1e-12, "{o}");
+        }
+    }
+    assert!((total - 50.0).abs() < 1e-9, "{total}");
+}
