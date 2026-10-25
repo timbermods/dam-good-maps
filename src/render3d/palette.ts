@@ -174,6 +174,10 @@ export const LIVING_TREE: Rgb = [0.11, 0.27, 0.15];
  *  dark rim round the hatched tiles. */
 export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
 
+/** The layer cut's cap (D207: where solid rock crosses the cut): a section through rock, a cool slate darker than the
+ *  ground's tops round it, hatched with lighter diagonal stripes (materials.ts, `capped`). */
+export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
+
 /** The start: a timber lodge with pale walls, a dark roof and a yellow banner on a pale deck. */
 export const START = {
   walls: [0.86, 0.78, 0.62] as Rgb,
