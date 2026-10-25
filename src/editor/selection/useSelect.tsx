@@ -427,7 +427,8 @@ export function useSelect(ed: Ed): SelectSlice {
     }
     if (why || !b || !cropPlan) return setWaterHint(why);
     const n = cropPlan.removed;
-    setWaterHint(`${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
+    // (a selection that isn't a rectangle crops to the box around it: the hover says so)
+    setWaterHint(`${selection.current.count < b.w * b.h ? "Its box: " : ""}${b.w} × ${b.h}${n ? `; cuts ${n.toLocaleString("en-GB")} ${n === 1 ? "object" : "objects"}` : ""}`);
   }
   /** Crop the map to the selection (D340): the core's operation, one undo step; the page opens the new map. A greyed Crop
    *  that is pressed says its reason on the message line, in full. */

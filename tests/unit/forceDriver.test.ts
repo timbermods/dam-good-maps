@@ -206,6 +206,32 @@ describe("the force driver", () => {
     expect(h.log).toContain("ended:dropped");
   });
 
+  it("Pause while its last steps are on their way holds it on its final land, still at work: Space again keeps it, and so does a save", async () => {
+    for (const end of ["resume", "save"] as const) {
+      const clock = new StepClock();
+      const h = fakeHost(clock, { total: 11, verb: "craterize", speed: "watch" });
+      const d = new ForceDriver(h.host, clock);
+      // (Space lands while the worker answers with the final frame: a page held by a long frame)
+      const advance = h.host.advance;
+      h.host.advance = async (n) => {
+        const f = await advance(n);
+        if (f?.done) d.pause(true);
+        return f;
+      };
+      void d.start();
+      await clock.until(() => d.status?.paused === true);
+      await clock.run(5000);
+      expect(d.running, end).toBe(true);
+      expect(d.status!.steps).toBe(11);
+      expect(h.log.some((l) => l.startsWith("keep"))).toBe(false);
+      if (end === "resume") d.pause(false);
+      else void d.stop();
+      await clock.until(() => !d.running);
+      expect(h.log, end).toContain("keep@11");
+      expect(h.log, end).toContain("ended:kept");
+    }
+  });
+
   it("Esc at every moment until it is kept, its keep on its way included, takes all of it back, and nothing lands afterwards (D341)", async () => {
     // every clock moment of a whole run, the keep's round trip among them
     const whole = new StepClock();

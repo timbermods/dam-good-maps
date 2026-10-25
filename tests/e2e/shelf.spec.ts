@@ -7,6 +7,7 @@
 // the start stays. There is no Remove tool. (ROADMAP M7's object checks, through the shelf.)
 
 import { expect, test, type Page } from "@playwright/test";
+import { startFitExtras, startFitWarnings } from "../../src/core/doc/startFit";
 import { openEditor, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -349,7 +350,10 @@ test("one label beside the pointer for what is picked, none when nothing is; Esc
   const shelf = page.getByRole("navigation", { name: "Place" });
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const note = page.locator(".shape-note");
+  // (where the checks would flag the spot for a generated object out of its band, the label is that warning in amber, not "Move the start here")
+  const info0 = await info(page);
   const [x, y] = (await openGround(page, 3))[0];
+  const startWord = startFitWarnings(startFitExtras(info0.features, W, info0.H), W, info0.H, x, y)[0] ?? "Move the start here";
   const startButton = shelf.getByRole("button", { name: "Start", exact: true });
 
   // nothing picked: hovering the map shows no placement hint
@@ -364,7 +368,7 @@ test("one label beside the pointer for what is picked, none when nothing is; Esc
   await startButton.click();
   expect((await fitAt(page, x, y, W)).problem).toBeNull();
   await expect(note).toHaveCount(1);
-  await expect(note).toHaveText("Move the start here");
+  await expect(note).toHaveText(startWord);
   // an object where it can't stand: one plain reason, and a click there adds no second label
   await shelf.getByRole("button", { name: "Relic", exact: true }).click();
   await fitAt(page, start[0], start[1], W);
@@ -699,6 +703,8 @@ test("picking an object never moves the list under the pointer: its window opens
       await row.click();
       await expect.poll(async () => Math.abs((await row.boundingBox())!.y - before), { message: `${name} at ${size.width}` }).toBeLessThanOrEqual(1);
       await page.keyboard.press("Escape");
+      // the object put away, the list is back at its top, with Start in sight
+      await expect.poll(() => shelf.evaluate((el) => el.scrollTop), { message: `${name} put away at ${size.width}` }).toBe(0);
     }
   }
 });

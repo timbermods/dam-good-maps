@@ -36,15 +36,15 @@ test("a brush on a cliff's face lies on that cliff, under the pointer, and its s
   expect(aim).not.toBeNull();
   const { x, y, at } = aim!;
   await page.mouse.move(at.x, at.y);
-  // (the brush's middle within a tile of the tile's: on its wall)
-  await expect
-    .poll(() =>
-      page.evaluate(([tx, ty]) => {
-        const c = window.dgm3d!.renderer.brushCursorState;
-        return c ? Math.hypot(c.x - (tx + 0.5), c.y - (ty + 0.5)) : null;
-      }, [x, y] as const),
-    )
-    .toBeLessThan(1);
+  // the cursor is placed from the one pointer move, on the page's next frame (CI's software drawing takes a second or
+  // more a frame): wait for it to be placed at all, then where it lies, the brush's middle within a tile of the tile's,
+  // on its wall
+  await page.waitForFunction(() => window.dgm3d!.renderer.brushCursorState !== null, null, { timeout: 60_000 });
+  const off = await page.evaluate(([tx, ty]) => {
+    const c = window.dgm3d!.renderer.brushCursorState!;
+    return Math.hypot(c.x - (tx + 0.5), c.y - (ty + 0.5));
+  }, [x, y] as const);
+  expect(off).toBeLessThan(1);
 
   // a click there: what it changes lies round that tile, none of it a brush's width nearer the camera
   const before = await page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
