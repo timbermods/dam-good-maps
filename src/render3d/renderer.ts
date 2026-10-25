@@ -376,6 +376,8 @@ export class MapRenderer {
   private high: HighLook | null = null;
   /** The moving water (motion.ts, D353): its flow texture, foam and the Flow view's streaks. */
   private waterMotion: WaterMotion | null = null;
+  /** Where nothing moves (software, or held still): the flow texture made here, with the badwater share alone. */
+  private stillFlow: DataTexture | null = null;
   /** A still view (the constructor's `still`). */
   private readonly still: boolean;
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
@@ -1399,7 +1401,7 @@ export class MapRenderer {
       this.waterMotion.setFlow(this.flowOn);
       u.flowTex.value = this.waterMotion.flow;
       this.waterMotion.waterChanged(heights, surface, true);
-    } else if (this.still) u.flowTex.value = stillFlowTexture(W, H, surface);
+    } else this.flowChanged(heights, surface);
     this.high?.setMap(W, H, heights, surface, v.entities);
     this.governor?.hold(performance.now());
     const instances = this.setEntitiesInner(v.entities);
@@ -1421,6 +1423,20 @@ export class MapRenderer {
     this.pageOverlay = null;
     this.onMapChange?.();
     return this.lastBuild;
+  }
+
+  /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
+   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
+   *  WATER_FILM). */
+  private flowChanged(heights: Uint8Array, surface: SurfaceWater): void {
+    if (this.waterMotion) {
+      this.waterMotion.waterChanged(heights, surface);
+      return;
+    }
+    if (!this.map) return;
+    this.stillFlow?.dispose();
+    this.stillFlow = stillFlowTexture(this.map.W, this.map.H, surface);
+    this.uniforms.flowTex.value = this.stillFlow;
   }
 
   /** The map as drawn (read only): the legend reads what is on it. */
@@ -1904,7 +1920,7 @@ export class MapRenderer {
       if (this.layered) this.layeredWaterNear(rect);
       else for (const [cx, cy] of dirtyChunks(m.W, m.H, { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 })) this.meshWater(cx, cy);
       this.high?.waterChanged(m.surface);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     this.high?.terrainChanged(heights, rect);
     this.requestRender();
@@ -1970,7 +1986,7 @@ export class MapRenderer {
     // (the water standing on a cave's floor: its run top's cell)
     if (this.runSoil) this.syncRunSoil();
     this.high?.waterChanged(surface);
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.requestRender();
     this.onMapChange?.();
     return changed.size;
@@ -2036,7 +2052,7 @@ export class MapRenderer {
     for (const key of changed) this.waterQueue.add(key);
     // (moving again: what waits is drawn where it moved visibly)
     this.waterExact = false;
-    this.waterMotion?.waterChanged(m.heights, surface);
+    this.flowChanged(m.heights, surface);
     this.updateClearAround();
     this.requestRender();
     this.onMapChange?.();
@@ -2296,7 +2312,7 @@ export class MapRenderer {
     if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && rideLand(m.W, m.surface, drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
-      this.waterMotion?.waterChanged(heights, m.surface);
+      this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     for (const row of c.rows) skyVisibilityRect(m.W, m.H, heights, m.sky, row.x0, row.y, row.x1, row.y);

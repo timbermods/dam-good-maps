@@ -986,6 +986,15 @@ Two looks (Map look 2, D147, D242, D250, D284):
   dry ground with straw where grass stood and a faint heat shimmer over it; on a held badtide day, a slightly sickly sky
   (each its own effect, `high/seasons.ts`). Day 0 and Standard show the map as it is.
 
+In both looks (the light look too) thin water reads thin (D154's see-through shallows carried down to a film;
+`WATER_FILM` in `render3d/waterPalette.ts`): a sheet a tenth of a level deep or less (a seep's film, a flood's leading
+edge, the wet ground round a source) is mostly see-through, with its ripples' sheen, and its ground is seen as through
+a coloured filter: the ground's own detail in the water's hue (clean water's lighter teal, badwater's crimson, mixed
+water along D154's blend through the warm midpoint), so the hue stays the water's at any depth. One smooth curve on
+the water's own depth builds it to the body's opacity and the bed's colour by a quarter of a level deep, and water
+that deep or deeper is drawn as before. A badwater film stays murkier than clean water as thin; a film's shore keeps
+a faint edge, not a pond's foam line.
+
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
 where two currents join, all gone where the water is still. The **Flow** view (off by default) adds a few glowing
