@@ -392,7 +392,9 @@ export class MapRenderer {
   private recording = false;
   tool: PointerTool | null = null;
   onView: ((v: ViewState) => void) | null = null;
-  onHover: ((hit: TileHit | null) => void) | null = null;
+  /** The pointer moved: the editing pick, and on a tile with a cave or an overhang the ground seen (the voxel pick: a
+   *  cave's floor through its mouth), which the hover readout names. */
+  onHover: ((hit: TileHit | null, seen?: TileHit | null) => void) | null = null;
   /** A left click (a press and release without dragging) on the map. */
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
@@ -3328,10 +3330,11 @@ export class MapRenderer {
       // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
       const m = this.map;
       const seen = this.pickSeen(ev.clientX, ev.clientY);
-      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seen && m?.source.columns.has(seen.y * m.W + seen.x) ? (seen.level ?? -1) : -1);
+      const seenCave = seen && m?.source.columns.has(seen.y * m.W + seen.x) ? seen : null;
+      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seenCave ? (seen!.level ?? -1) : -1);
       const t = this.tool;
       t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
-      this.onHover?.(hit);
+      this.onHover?.(hit, seenCave);
     });
     const end = (e: Event) => {
       const ev = e as PointerEvent;

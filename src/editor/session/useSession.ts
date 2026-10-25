@@ -162,7 +162,7 @@ export interface SessionSlice {
   holdWeatherDay: (day: number) => void;
   /** Ask the worker for the held day again (after an edit's water has settled: it re-runs from it). */
   requestHeldDay: () => void;
-  lastHover: { current: { x: number; y: number } | null };
+  lastHover: { current: { x: number; y: number; level?: number } | null };
   rehover: () => void;
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
    *  the moment he acts). */
@@ -261,10 +261,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [hover, setHover] = useState<string | null>(null);
   /** The tile under the pointer, and the readout said again for it when the water shown changes under a still
    *  pointer (a weather day landing). */
-  const lastHover = useRef<{ x: number; y: number } | null>(null);
+  const lastHover = useRef<{ x: number; y: number; level?: number } | null>(null);
   const rehover = () => {
     const h = lastHover.current;
-    if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y)));
+    if (h && ed.pageTileFacts) setHover(tileWords(describeTileFacts(ed.pageTileFacts(), h.x, h.y, h.level)));
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
