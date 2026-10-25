@@ -15,9 +15,14 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   2–3 high, 3–10 long, wiggling, its floor half a level or more above the river's water and a pool a level lower at its
   back. A spring rises in the pool (a small row, 0.3–0.7 blocks a second, `river/caveSpring/<k>`, D171: a tributary at
   its own head) and its stream runs out of the mouth and over the bank into the river. Its walls hold everywhere but the
-  mouth, so its water leaves by the mouth alone. Its mouth is worn, not cut: the jambs eaten back a tile to varying
-  heights, the lintel a level higher here and there, the walls notched inside, never at the floor (cut plain where the
-  rock would not hold the wear). The surface does not change.
+  mouth, so its water leaves by the mouth alone. It is worn, not cut, so it reads as a cave, not a doorway: the mouth a
+  rough arch, wider and higher than the gallery behind it (its middle up a level, two where the rock is thick, a shoulder
+  up a level now and then, a corner left in), its jambs eaten back a tile to varying heights and now and then flared a
+  second tile out; inside, the gallery bulges a tile to one side here and there (its width wandering 2–4, each bulge
+  taken only where its own walls hold the water), its roof a level higher in places, mostly down its middle, a corner
+  left in, its walls notched at varying heights, and the back chamber domed and worn wider over the pool. Never at the
+  floor, and a notch never opens a window out of the cliff; where the rock would not hold the corners they are left out,
+  and where it would not hold the wear the gallery is cut plain. The surface does not change.
 - **An overhang sheltering the start** (`start-overhang`). Where the start's level ground meets a cliff 3 or more above it
   within 8–12 tiles, a stretch of 3–14 tiles of the face is worn back 1–3 tiles, as soft rock under a harder cap, 2–3 high,
   its depth wandering along the face; where the rock would not hold that, less deep, down to a tile. Level ground at the
@@ -27,8 +32,12 @@ each form on the finished map; `gen/generate.ts` grows them at the end of an att
   with 3 or more levels of air over its water, the span between the rims is filled to the rims' level, 2–3 wide along the
   river, over an arch's curve: its underside 2 or more above the water under every row at its feet, rising as
   1 − (2t − 1)² to a crown 2 layers thick (sometimes 3, 1 where the gorge leaves no room), worn a level here and there;
-  the support rule then takes away what nothing would hold up: the remnant of a roof the river wore through. Its deck joins the two
-  rims at their level. The surface rises on the deck's tiles only.
+  the support rule then takes away what nothing would hold up: the remnant of a roof the river wore through. It is worn,
+  not a plank: one row, its spine, joins the two rims whole at their level; the rows beside it each have their own curve
+  (the crown off the spine's by a tile, the underside up to a level higher, so the arch thins toward its faces), their
+  decks waisted toward the crown a level or two lower (through, where that leaves nothing) and a level off here and
+  there; and its feet flare, a buttress a row out on either face by each rim, now and then, 1–2 under the rims. The
+  surface rises on the arch's tiles only.
 
 **How often, and where.** None at or below the theme's default Verticality (`formsFor`): a map with caves has no Fill
 or Remove unfed water in the editor yet (they are refused with one line, as on an imported cave map; Drought and Badtide
@@ -118,7 +127,9 @@ and its 2–3 wide deck, with up to three builds, now two):
 
 **Captures:** the contact sheet (`docs/sheets/3d-generation-1.png`, D144) shows the default maps, unchanged; the forms
 themselves, in the editor's 3D view from where each is best seen, are `docs/sheets/3d-generation-1-forms.jpg` (Canyon 2
-at Verticality 50, Highlands 2 and Canyon 1 at 80; `tools/capture-forms3d.ts --maps theme:seed:vt,…`).
+at Verticality 50, Highlands 2 and Canyon 3 at 80; `tools/capture-forms3d.ts --maps theme:seed:vt,… [--views
+close,high,top] [--only …]`). The worn shapes against the boxes they replaced (Highlands 2 at 80: its cave's mouth, its
+big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg`.
 
 **Falls short, for the next parts:**
 - No forms at the default Verticality: on a map with a form, Fill and Remove unfed water are refused as on an imported

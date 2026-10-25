@@ -3,11 +3,13 @@
 // 3D view from where it is best seen (the river a cave opens on, the start, the gorge along its river).
 //
 //   npx tsx tools/capture-forms3d.ts --maps canyon:2:80,highlands:1:20 [--out docs/sheets/3d-generation-1-forms.jpg] [--port 4961]
+//     [--views close,high,top] [--only spring-cave,gorge-arch]
 //
 // Each map (theme:seed:Verticality, 128²) is generated here to find its forms (`IntentionResult.at`,
 // `from`), then opened in the page from its share link, which makes the same map, and drawn from a
-// camera placed for each form. The frames go side by side into one JPEG, each labelled, about 1280
-// wide. Our own generated maps only.
+// camera placed for each form: `close` from where it is best seen, `high` an oblique from further up,
+// `top` straight down. The frames go side by side into one JPEG (a row a form when more than one view
+// is asked for), each labelled. Our own generated maps only.
 
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -30,12 +32,14 @@ const maps = arg("maps", "canyon:2:80").split(",").map((m) => {
 });
 const out = arg("out", "docs/sheets/3d-generation-1-forms.jpg");
 const port = Number(arg("port", "4961"));
+const views = arg("views", "close").split(",") as ("close" | "high" | "top")[];
+const only = arg("only", FORMS.join(",")).split(",");
 const ROOT = resolve(import.meta.dirname, "..");
 
 interface Shot {
   label: string;
   fragment: string;
-  view: { yaw: number; pitch: number; distance: number; x: number; y: number; z: number };
+  view: { mode: "orbit" | "top"; yaw: number; pitch: number; distance: number; x: number; y: number; z: number };
 }
 
 const shots: Shot[] = [];
@@ -46,7 +50,7 @@ for (const m of maps) {
   const r = generate(spec);
   const t = ColumnTerrain.fromData(r.field!, 128, 128);
   for (const x of r.intentions) {
-    if (!x.ok || !FORMS.includes(x.id as FormId) || !x.at || !x.from) continue;
+    if (!x.ok || !FORMS.includes(x.id as FormId) || !only.includes(x.id) || !x.at || !x.from) continue;
     const [ax, ay] = x.at;
     const [fx, fy] = x.from;
     // (the camera stands toward `from` and looks at the form, low for an arch, at its floor or under
@@ -55,7 +59,13 @@ for (const m of maps) {
     const yaw = Math.atan2(fx - ax, -(fy - ay));
     const arch = x.id === "gorge-arch";
     const z = bottomRunTop(t.mask[ay * 128 + ax]) + (arch ? 4 : 1.5);
-    shots.push({ label: `${x.id} · ${m.theme} ${m.seed} · Verticality ${m.vt}`, fragment: `#${encodeSpecFragment(r.spec)}`, view: { yaw, pitch: arch ? 0.12 : 0.3, distance: arch ? 9 : 11, x: ax, y: ay, z } });
+    const label = `${x.id} · ${m.theme} ${m.seed} · Verticality ${m.vt}`;
+    const fragment = `#${encodeSpecFragment(r.spec)}`;
+    for (const v of views) {
+      if (v === "close") shots.push({ label, fragment, view: { mode: "orbit", yaw, pitch: arch ? 0.12 : 0.3, distance: arch ? 9 : 11, x: ax, y: ay, z } });
+      if (v === "high") shots.push({ label: `${label} · from above`, fragment, view: { mode: "orbit", yaw, pitch: 0.75, distance: 22, x: ax, y: ay, z } });
+      if (v === "top") shots.push({ label: `${label} · top-down`, fragment, view: { mode: "top", yaw: 0, pitch: 0.9, distance: 26, x: ax, y: ay, z } });
+    }
   }
 }
 console.log(`${shots.length} forms to capture`);
@@ -82,18 +92,18 @@ try {
       open = s.fragment;
     }
     const v = s.view;
-    await page.evaluate(`window.dgm3d.renderer.setView({ mode: "orbit", yaw: ${v.yaw}, pitch: ${v.pitch}, distance: ${v.distance}, target: [${v.x} + 0.5, ${v.z}, -(${v.y} + 0.5)] })`);
+    await page.evaluate(`window.dgm3d.renderer.setView({ mode: "${v.mode}", yaw: ${v.yaw}, pitch: ${v.pitch}, distance: ${v.distance}, target: [${v.x} + 0.5, ${v.z}, -(${v.y} + 0.5)] })`);
     await page.evaluate("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))))");
     await page.waitForTimeout(800);
     const png = await page.locator(".view3d > canvas").screenshot({ type: "png" });
     frames.push({ label: s.label, png: png.toString("base64") });
     console.log(`captured ${s.label}`);
   }
-  // side by side, two a row, each 640 wide with its label
+  // side by side, two a row (or a form's views a row), about 1280 wide in all, each with its label
   const jpeg = (await page.evaluate(
     `(async (frames) => {
       const imgs = await Promise.all(frames.map(async (f) => { const i = new Image(); i.src = "data:image/png;base64," + f.png; await i.decode(); return i; }));
-      const w = 640, hh = Math.round(imgs[0].height * w / imgs[0].width), band = 24, cols = 2, rows = Math.ceil(imgs.length / cols);
+      const cols = ${views.length > 1 ? views.length : 2}, w = Math.round(1280 / cols), hh = Math.round(imgs[0].height * w / imgs[0].width), band = 24, rows = Math.ceil(imgs.length / cols);
       const c = document.createElement("canvas"); c.width = cols * w; c.height = rows * (hh + band);
       const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
       imgs.forEach((im, k) => { const x = (k % cols) * w, y = Math.floor(k / cols) * (hh + band); g.drawImage(im, x, y + band, w, hh); g.fillStyle = "#222"; g.font = "15px sans-serif"; g.fillText(frames[k].label, x + 8, y + 17); });

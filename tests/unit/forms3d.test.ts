@@ -69,11 +69,18 @@ describe("3D forms on hand-made land (D488)", () => {
     expect(nothingFalls(g.mask)).toBe(true);
     const deck = g.forms[0].tiles;
     for (const i of deck) {
-      expect(surfaceOfMask(g.mask[i])).toBe(12);
+      // never above the rims; worn lower off its spine (its faces waisted, its feet flared lower)
+      expect(surfaceOfMask(g.mask[i])).toBeLessThanOrEqual(12);
       // over air: the gorge's floor stays where it was, and the arch's underside 2 or more over the water
       expect(bottomRunTop(g.mask[i])).toBe(3);
       expect(isPlainMask(g.mask[i])).toBe(false);
     }
+    // its spine: a row along the crossing, whole at the rims' level from one rim to the other
+    const rows = new Map<number, number>();
+    for (const i of deck) if (surfaceOfMask(g.mask[i]) === 12) rows.set(Math.floor(i / W), (rows.get(Math.floor(i / W)) ?? 0) + 1);
+    expect(Math.max(...rows.values())).toBe(7);
+    // and no plank: its tiles stand at more than one height
+    expect(new Set(deck.map((i) => surfaceOfMask(g.mask[i]))).size).toBeGreaterThan(1);
   });
 
   it("the same land and draw give the same terrain; land with no place for a form keeps none", () => {
