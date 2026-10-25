@@ -107,7 +107,7 @@ describe("a generated map's 3D forms (D488)", () => {
     const b = buildMap({ W: 96, H: 96, seed: 3, features: [...r.features, relic as never], field });
     const left = (b.springsLeft ?? []).filter((x) => x.feature === src.owner);
     expect(left.map((x) => [x.x, x.y])).toContainEqual([src.x, src.y]);
-    expect(left[0].why).toMatch(/small relic stands there/i);
+    expect(left[0].why).toMatch(/relic stands there/i);
     expect(b.entities.some((e) => e.template === "WaterSource" && e.x === src.x && e.y === src.y)).toBe(false);
   });
 

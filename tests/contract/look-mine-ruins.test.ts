@@ -18,8 +18,9 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.0 makes it (3D in generation, part 1, D488: this map looks for a spring cave and its land offers none, so its
- *  land and water are unchanged, only the version, D148); `68451be7…` before it, as generator 0.8.9 made it (the story
+ *  0.10.3 makes it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
+ *  land and water are unchanged, only the version, D148); `d0c32f0d…` before it, as generator 0.10.0 made it (3D in
+ *  generation, part 1, the same map, only the version); `68451be7…` before it, as generator 0.8.9 made it (the story
  *  keeps a main water that is mostly badwater, D480's extension: no map's land or water changed, only the version,
  *  D148); `f50af4e8…` before it, as generator 0.8.8 made it (Canyon and Highlands height,
  *  #261: this River Valley map's land and water unchanged, only the version the file carries); `0c4fe442…` before it, as generator 0.8.7 made it (Islands round 6, #235: land and
@@ -50,7 +51,7 @@ import * as ed from "../../src/worker/session";
  *  rules, #44, and `5118b6a6…` from M8 until then); `68451be7…` before the description was rewritten in a player's words
  *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
  *  map). */
-const LIVE_SHA = "d0c32f0df82f37ba3c603d7721d9f6bbf45b890f239d8c1f01bea35540f37bb2";
+const LIVE_SHA = "901d6b95c2dc241e3a39e5810d508e3b6db45bdb4be954e42f1020a719696903";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

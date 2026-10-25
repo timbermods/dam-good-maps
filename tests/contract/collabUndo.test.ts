@@ -390,9 +390,16 @@ describe("a place in words", () => {
     const start = one.features.find((f) => f.kind === "start")!;
     const [sx, sy] = (start.params as { position: [number, number] }).position;
     expect(placeOf(one, tilesAt([Math.round(sx), Math.round(sy)]))).toBe("by the start");
-    expect(one.features.filter((f) => f.kind === "river").length, "a single river needs no compass word").toBe(1);
-    const [ox, oy] = (one.features.find((f) => f.kind === "river")!.params as { path: number[][] }).path[1];
+    // (a spring cave's stream is "the cave", not one more river, D488)
+    const caves = one.features.filter((f) => f.kind === "river" && f.role?.startsWith("river/caveSpring/"));
+    const mains = one.features.filter((f) => f.kind === "river" && !caves.includes(f));
+    expect(mains.length, "a single river needs no compass word").toBe(1);
+    const [ox, oy] = (mains[0].params as { path: number[][] }).path[1];
     expect(placeOf(one, tilesAt([Math.floor(ox), Math.floor(oy)]))).toBe("at the river");
+    if (caves.length === 1) {
+      const [cx, cy] = (caves[0].params as { path: number[][] }).path[0];
+      expect(placeOf(one, tilesAt([Math.floor(cx), Math.floor(cy)]))).toBe("at the cave");
+    }
     const three = open(5, "highlands");
     const rivers = three.features.filter((f) => f.kind === "river");
     expect(rivers.length).toBeGreaterThan(1);

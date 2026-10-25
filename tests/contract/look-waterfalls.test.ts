@@ -51,7 +51,7 @@ function checkLips(theme: ThemeId, seed: number): void {
 describe("the flow over a fall's lip", () => {
   it.each([
     ["canyon", 3],
-    ["highlands", 4], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below)
+    ["highlands", 6], // (highlands 5 since D333, D148: highlands 2 kept 18 lips; seed 4 since M9b's small starts, generation speed and open groves: seed 5 is below; seed 6 since 3D forms at the default Verticality, D488: seed 4 has a cave and an arch, whose water is the stacked engine's, not this heightfield view's)
     ["lakeBasin", 5], // (seed 5 since M9b, D148: seed 3 is below)
   ] as [ThemeId, number][])("%s %i: is the simulation's own outflow over that side", (theme, seed) => checkLips(theme, seed));
   // The seeds that caught the view's estimate (Kyler, 2026-10-02), kept: with the settle's outflows

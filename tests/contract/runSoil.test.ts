@@ -21,6 +21,7 @@ import { waterColumns, type VoxelMasks } from "../../src/core/sim/columns";
 import { columnSaturation, soil3d, type Soil3d } from "../../src/core/sim/soil3d";
 import { stackedSoil } from "../../src/core/sim/soil";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { ColumnTerrain } from "../../src/core/terrain/runs";
 import { buildEntities } from "../../src/render3d/entities3d";
 import { soilNibbles } from "../../src/render3d/light";
 import { entityView, WET, type MapView } from "../../src/render3d/model";
@@ -206,13 +207,23 @@ describe("soil per run top (3D view, part 3)", () => {
     ["islands", 96, 2],
     ["delta", 96, 7],
   ];
-  it.each(maps)("%s %i² seed %i, generated: no soil per run top, so no texture and no shader branch", (theme, size, seed) => {
+  // (a generated map's columns are its 3D forms' caves, D488, at the default Verticality too: soil per run
+  // top on those columns alone; a map whose land offered no form has none, so no texture and no branch)
+  it.each(maps)("%s %i² seed %i, generated: soil per run top only on its 3D forms' columns, none without", (theme, size, seed) => {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
     const { view } = collabOpen(MapSession.fromGenerated(r));
-    expect(view.columns.tiles.length).toBe(0);
-    expect(view.soil?.runs).toBeUndefined();
-    expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(false);
-    expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).toBeNull();
+    const caves = r.field!.runs.length ? ColumnTerrain.fromData(r.field!, size, size) : null;
+    let columns = 0;
+    for (let i = 0; i < size * size; i++) if (caves && !caves.isPlain(i)) columns++;
+    expect(view.columns.tiles.length).toBe(columns);
+    if (!columns) {
+      expect(view.soil?.runs).toBeUndefined();
+      expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(false);
+      expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).toBeNull();
+    } else {
+      expect(runSoilOn(view.columns.tiles.length, view.soil?.runs)).toBe(true);
+      expect(RunSoil.build(view.W, view.H, view.soil?.runs ?? null, view.water)).not.toBeNull();
+    }
   });
 });
 
