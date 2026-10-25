@@ -46,8 +46,8 @@ export function notifies(m: Misses): boolean {
 
 export function versionNote(theme: ThemeId, m: Misses): string {
   const parts: string[] = [];
-  // (what a version that meets all three has that the map missed, in a few words: "A version with
-  // its sea is ready"; outcomes.ts `PROMISES`)
+  // (what the version adds that the map missed, in plain words that hold for every theme: "A version with a deeper
+  // canyon is ready"; outcomes.ts `PROMISES`)
   if (m.promise && theme !== "any") parts.push(PROMISES[theme].words);
   if (m.water) parts.push(parts.length ? "clearer water" : "water you can follow");
   return `A version with ${parts.join(" and ") || "all it promises"} is ready`;

@@ -706,10 +706,25 @@ export function App() {
   async function openVersion(r: GenerateResponse) {
     setVersion(null);
     stopBackground();
+    // (D234, D336: a map that is replaced and not kept is simply gone, but this one cannot be made again: its seed
+    // now makes the version. So Your maps keeps it as it stands, as it keeps an edited map a Generate replaces)
+    let keepsOld = false;
+    if (entry.current && !kept.current) {
+      const was = await snapshot();
+      saver.changed(was.entry.id, () => ({ entry: was.entry, project: was.project }));
+      kept.current = true;
+      keepsOld = true;
+    }
     setSibling(r.spec.variation ? { variation: r.spec.variation, intentions: r.spec.intentions ?? r.intentions } : null);
     shown = r;
     made++;
-    enterEditor(await replacing(() => generator.openProject(r.project)), { kind: "generated" });
+    try {
+      enterEditor(await replacing(() => generator.openProject(r.project)), { kind: "generated" });
+    } catch (e) {
+      // (it stays on screen, and stays kept: the save is done)
+      return void setError(words(e));
+    }
+    if (keepsOld) setNote("The map before it is in Your maps.");
   }
 
   /** The latest run: a result from an older one is never shown over it. */

@@ -25,8 +25,8 @@ describe("the first map that passes is the map (D329)", () => {
     expect(notifies({ promise: true, water: true, standout: false })).toBe(true);
     expect(notifies({ promise: false, water: true, standout: false })).toBe(false);
     expect(notifies({ promise: false, water: false, standout: true })).toBe(false);
-    expect(versionNote("islands", { promise: true, water: false, standout: false })).toBe("A version with its sea is ready");
-    expect(versionNote("riverValley", { promise: true, water: true, standout: false })).toBe("A version with its broad valley and clearer water is ready");
+    expect(versionNote("islands", { promise: true, water: false, standout: false })).toBe("A version with more islands is ready");
+    expect(versionNote("riverValley", { promise: true, water: true, standout: false })).toBe("A version with a broader valley and clearer water is ready");
     expect(versionNote("any", { promise: false, water: true, standout: false })).toBe("A version with water you can follow is ready");
   });
 
