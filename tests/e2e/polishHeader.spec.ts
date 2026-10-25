@@ -217,5 +217,5 @@ test("a name the room cannot hold in two lines is shown clamped to two with an e
   await button.click();
   await field.fill("Quiet Valley");
   await page.keyboard.press("Enter");
-  await expect.poll(() => tip(button)).toBe("Rename");
+  await expect.poll(() => tip(button)).toBe("Rename and describe the map");
 });

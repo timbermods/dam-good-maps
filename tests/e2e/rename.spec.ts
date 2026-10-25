@@ -25,12 +25,12 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
     for (const k of ["x", "y", "width", "height"] as const) expect(Math.abs(a[k] - b[k]), `${what}: ${k} ${a[k]} against ${b[k]}`).toBeLessThanOrEqual(1);
   };
 
-  // the title is a button that says "Rename"; the second line reads the seed and size
+  // the title is a button that says "Rename and describe the map" (D148: the description is written there too); the second line reads the seed and size
   const button = h1.locator("button.title-button");
   // (a generated map is named by its standout since M9b, D278: the name the core gave it)
   const name = (await info()).name;
   await expect(button).toHaveText(name);
-  await expect(button).toHaveAttribute("title", "Rename");
+  await expect(button).toHaveAttribute("title", "Rename and describe the map");
   await expect(facts).toHaveText("Seed 4242 · 96×96");
   await expectReady(page);
   const was = await info();

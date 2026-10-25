@@ -220,7 +220,7 @@ function TitleName(p: {
   if (text === null)
     return (
       <h1>
-        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename"} onClick={() => open(p.name)}>
+        <button type="button" class="title-button" title={p.clipped ? p.name : "Rename and describe the map"} onClick={() => open(p.name)}>
           {p.name}
         </button>
       </h1>
