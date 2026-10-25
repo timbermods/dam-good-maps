@@ -15,6 +15,8 @@ import { TopBar } from "./TopBar";
 import { shelfIcons } from "./shelf/iconCache";
 import { DEFAULT_BRUSH } from "./brushes";
 import { TogetherFace } from "./collab/Together";
+import { DEFAULT_BLOCK } from "./block/blockTool";
+import { useFrameDockRoom } from "./view/useBandLayout";
 
 const nothing = () => undefined;
 const NO_ACTIONS: ItemActions = { onFix: nothing, onShow: nothing, canShow: () => false };
@@ -30,6 +32,7 @@ export interface LoadingFrameProps {
 
 export function LoadingFrame(p: LoadingFrameProps) {
   // (the editor's Look button is there unless the browser draws in software, where the view has only the light look)
+  useFrameDockRoom();
   const [look] = useState(() => !(softwareRendering() && !window.dgmLookTest?.gpu));
   return (
     <div class="editor loading-frame" inert aria-busy="true">
@@ -42,7 +45,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         canRedo={false}
         onUndo={nothing}
         onRedo={nothing}
-        dot={<ChecksDot check={null} instant={[]} busy progress={null} flowing={null} open={false} onToggle={nothing} actions={NO_ACTIONS} />}
+        dot={<ChecksDot check={null} instant={[]} busy progress={null} flowing={false} open={false} onToggle={nothing} actions={NO_ACTIONS} />}
         canFolder={canSaveToTimberborn()}
         saving={null}
         onSave={nothing}
@@ -82,7 +85,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
           <div class="editor-map-area">
             <div class="view3d-frame legend-none editor-view">
               <div class="view3d loading-view">{p.children}</div>
-              <TopBar active={null} settings={DEFAULT_BRUSH} onPick={nothing} onSettings={nothing} onSelect={nothing} loading />
+              <TopBar active={null} settings={DEFAULT_BRUSH} onPick={nothing} onSettings={nothing} onSelect={nothing} blockSettings={DEFAULT_BLOCK} loading />
               <div class="objects-dock">
                 <Shelf picked={null} onPick={nothing} onDragStart={nothing} onDrop={nothing} icon={(t) => shelfIcons()[t] ?? null} loading />
               </div>

@@ -43,7 +43,7 @@ describe("Another like this on a Lake Basin map (D278 (1c))", () => {
       const r = generate(makeSpec({ seed, theme: "lakeBasin", size: { x: 128, y: 128 } }));
       expect(r.outcomes?.promise, `seed ${seed}`).toBe(true);
       expect(r.outcomes!.signature.bigLake, `seed ${seed}`).toBeGreaterThanOrEqual(0.08);
-      expect(PROMISES.lakeBasin.holds({ ...r.outcomes!.signature, bigLake: 0.048 }, 128), `seed ${seed} at 4.8%`).toBe(false);
+      expect(PROMISES.lakeBasin.holds({ ...r.outcomes!.signature, bigLake: 0.048 }, 128, 128), `seed ${seed} at 4.8%`).toBe(false);
     }
   }, 600_000);
 });

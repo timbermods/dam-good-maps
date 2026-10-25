@@ -289,7 +289,7 @@ export class BrushPainter {
           self.ctrl = { hit, x: ev.clientX, y: ev.clientY, down: ev, handed: null };
           return true;
         }
-        self.begin(hit.x + 0.5, hit.y + 0.5, ev);
+        self.begin(hit, ev);
         return true;
       },
       move(hit, ev) {
@@ -308,7 +308,7 @@ export class BrushPainter {
         if (self.waiting) {
           if (!hit) return;
           self.waiting = false;
-          self.begin(hit.x + 0.5, hit.y + 0.5, ev);
+          self.begin(hit, ev);
           return;
         }
         self.moveTo(ev);
@@ -351,8 +351,7 @@ export class BrushPainter {
         }
         self.hereLevel = self.levelAt(hit.x, hit.y);
         self.picking = ev.ctrlKey || ev.metaKey;
-        const p = host.renderer.pickAtLevel(ev.clientX, ev.clientY, host.renderer.heightAt(hit.x, hit.y));
-        self.cursorAt = p ? [p.point[0], -p.point[2]] : [hit.x + 0.5, hit.y + 0.5];
+        self.cursorAt = self.aimAt(hit, ev).at;
         self.showCursor();
         self.say(ev);
       },
@@ -582,9 +581,26 @@ export class BrushPainter {
     this.host.note?.(null, null);
   }
 
-  private begin(x: number, y: number, ev: PointerEvent): void {
+  /** Where the brush is under the pointer, and the level plane a stroke from there follows: on a tile's top, where the
+   *  ray meets that top's level; on a wall below a top (a cliff's face, a cave's mouth seen from low down: the editing
+   *  pick lands on the wall of the tile whose top the stroke changes), where the ray meets the wall, on its tile, and
+   *  the level of that point. The top's level would be crossed in front of the wall, toward the camera, so the brush
+   *  and its stroke would lie away from the pointer, tiles nearer the camera. */
+  private aimAt(hit: TileHit, ev: PointerEvent): { at: [number, number]; plane: number } {
+    if (hit.face === "side") {
+      const inside = (v: number, lo: number) => Math.min(lo + 0.999, Math.max(lo, v));
+      return { at: [inside(hit.point[0], hit.x), inside(-hit.point[2], hit.y)], plane: hit.point[1] };
+    }
+    const plane = this.host.renderer.heightAt(hit.x, hit.y);
+    const p = this.host.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
+    return { at: p ? [p.point[0], -p.point[2]] : [hit.x + 0.5, hit.y + 0.5], plane };
+  }
+
+  private begin(hit: TileHit, ev: PointerEvent): void {
     // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
     if (this.committing) return;
+    const x = hit.x + 0.5;
+    const y = hit.y + 0.5;
     const h = this.host;
     const s = h.settings();
     let tool = s.tool;
@@ -644,9 +660,14 @@ export class BrushPainter {
     const preview = remote ? this.remotePreview(settings) : new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     // the stroke follows the cursor on the level it started on (a target's, for Flatten), so the
     // brush stays under the pointer while the ground rises or sinks beneath it
-    const plane = tool === "flatten" && target !== null ? target : h.renderer.heightAt(Math.floor(x), Math.floor(y));
-    const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
-    const at: [number, number] = p ? [p.point[0], -p.point[2]] : [x, y];
+    const aim = this.aimAt(hit, ev);
+    let plane = aim.plane;
+    let at = aim.at;
+    if (tool === "flatten" && target !== null) {
+      plane = target;
+      const p = h.renderer.pickAtLevel(ev.clientX, ev.clientY, plane);
+      at = p ? [p.point[0], -p.point[2]] : [x, y];
+    }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
     this.stroke = {
       preview,

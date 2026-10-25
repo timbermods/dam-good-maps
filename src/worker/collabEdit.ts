@@ -92,8 +92,8 @@ export const collabEditApi = {
     return collabEditApi.removeAt(ed.planned.everything(), EVERY_KIND, "Clear everything");
   },
 
-  async moveObjectBy(id: string, dx: number, dy: number): Promise<Answer> {
-    return edit(ed.planned.move(id, dx, dy));
+  async moveObjectBy(id: string, dx: number, dy: number, z?: number): Promise<Answer> {
+    return edit(ed.planned.move(id, dx, dy, z));
   },
 
   async moveStartTo(x: number, y: number, orientation?: Parameters<typeof ed.planned.start>[2]): Promise<Answer> {
@@ -162,7 +162,7 @@ export const collabEditApi = {
     return finishedFrame(f.request);
   },
 
-  async forceStop(gesture?: number): Promise<Answer & { kept: boolean }> {
+  async forceStop(gesture?: number): Promise<Answer & { kept: boolean; sourcesRemoved?: number }> {
     const f = routedForce;
     if (!f || (gesture !== undefined && f.gesture !== gesture)) return { ...ed.collabAnswer(false, ["There is no force at work"]), kept: false };
     routedForce = null;

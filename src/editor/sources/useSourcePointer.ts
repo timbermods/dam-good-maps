@@ -14,12 +14,13 @@ import { OFFICIAL_FLOW } from "../../core/gen/calibrated";
 import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import type { EntityRequest } from "../../core/doc/placing";
 import type { Ed } from "../ed";
+import { aimOf } from "../shelf/aim";
 
 export interface SourcePointerSlice {
   pointerAt: { current: { x: number; y: number } };
   notePointer: (ev: { clientX: number; clientY: number }) => void;
   sourceAtTile: (bad: boolean, x: number, y: number) => { tool: "entity" } & EntityRequest;
-  placeSource: (bad: boolean, x: number, y: number) => void;
+  placeSource: (bad: boolean, x: number, y: number, level?: number) => void;
   sourceInfo: (x: number, y: number) => Promise<EntityInfo | null>;
   /** The objects on a tile (the page's own copy, else the worker's). */
   entitiesOn: (x: number, y: number) => Promise<EntityInfo[]>;
@@ -59,9 +60,10 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
    *  its options row sets. */
   const sourceAtTile = (bad: boolean, x: number, y: number) => sourceRequest({ ...optionsRef.current, sourceBad: bad }, x, y);
   /** A water or badwater source placed with a click from the shelf (D212): its water spreads at once
-   *  (live editing), one undo step. Sources go anywhere in the editor (D184). */
-  function placeSource(bad: boolean, x: number, y: number) {
-    const req = sourceAtTile(bad, x, y);
+   *  (live editing), one undo step. Sources go anywhere in the editor (D184); `level`: on a cave's
+   *  floor, where the game keeps it (D491). */
+  function placeSource(bad: boolean, x: number, y: number, level?: number) {
+    const req = { ...sourceAtTile(bad, x, y), ...(level !== undefined ? { z: level } : {}) };
     void run(
       () => api.applyTool(req, newId()),
       (u) => {
@@ -124,6 +126,8 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     if (!src) return null;
     const from: [number, number] = [hit.x, hit.y];
     let to = from;
+    /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
+    let level: number | undefined;
     let done = false;
     const record = sourceInfo(src.x, src.y);
     const canvas = renderer.current?.canvas;
@@ -140,6 +144,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       move(h) {
         if (!h || done) return;
         to = [h.x, h.y];
+        level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? src.tiles.map(([x, y]) => [x + dx, y + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x) : null);
@@ -157,13 +162,17 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         void record.then((e) => {
           if (!e) return;
           const name = e.template === "BadwaterSource" ? "badwater source" : "water source";
-          // (a badwater source cuts its own spring pool where it lands on uneven ground, D290)
-          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy } }], `Move a ${name}`));
+          // (a badwater source cuts its own spring pool where it lands on uneven ground, D290; it lands on the ground
+          // aimed at, a cave's floor too, or with no level on the tile's top, out of a cave as well: D491)
+          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy, ...(level !== undefined ? { z: level } : {}) } }], `Move a ${name}`));
         });
       },
       cancel: end,
+      voxel: true,
     };
   }
+  /** The level a drag aims at (D491): a cave's floor, the ground under a ledge; undefined on the tile's top. */
+  const aimAt = (h: TileHit) => aimOf(h, infoRef.current.W, mirror.current.heights, ed.columnsRef.current);
 
   /** An object pressed with the plain pointer (D345, B7): a click picks it (its name and Delete in the
    *  row), a drag moves it, the drop is one step with its ground levelled as a placement's is; Esc
@@ -207,6 +216,8 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         .map(([x, y]) => y * W + x);
     const from: [number, number] = [hit.x, hit.y];
     let to = from;
+    /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
+    let level: number | undefined;
     let done = false;
     const canvas = renderer.current?.canvas;
     if (canvas) canvas.style.cursor = "grabbing";
@@ -222,6 +233,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       move(h) {
         if (!h || done) return;
         to = [h.x, h.y];
+        level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? tilesAt(dx, dy) : null);
@@ -238,17 +250,22 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
             setPicked(null);
             return setPickedObject(rec);
           }
+          // (it lands on the ground aimed at, a cave's floor too, or on the tile's top, out of a cave as well: D491)
+          const x = rec.x + dx;
+          const y = rec.y + dy;
+          const z = level ?? (x >= 0 && y >= 0 && x < W && y < H && rec.z !== mirror.current.heights[rec.y * W + rec.x] ? mirror.current.heights[y * W + x] : undefined);
           void run(
-            () => api.moveObjectBy(rec.id, dx, dy),
+            () => api.moveObjectBy(rec.id, dx, dy, z),
             (u) => {
               if (!u.ok) return;
-              setPickedObject({ ...rec, x: rec.x + dx, y: rec.y + dy });
-              feel("place", rec.x + dx, rec.y + dy, 1, false, rec.template);
+              setPickedObject({ ...rec, x, y, ...(z !== undefined ? { z } : {}) });
+              feel("place", x, y, 1, false, rec.template);
             },
           );
         });
       },
       cancel: end,
+      voxel: true,
     };
   }
 

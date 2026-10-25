@@ -268,7 +268,7 @@ const api = {
   cropPlanAt: (r: { x: number; y: number; w: number; h: number }) => ed.cropPlanAt(r),
   cropTo: routed((r: { x: number; y: number; w: number; h: number }) => sendUpdate(ed.cropTo(r)), () => sendUpdate(collabEditApi.cropTo())),
   fillAt: routed((x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)), (...a) => collabEditApi.fillAt(...a).then(sendUpdate)),
-  moveObjectBy: routed((id: string, dx: number, dy: number) => sendUpdate(ed.moveObjectBy(id, dx, dy)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
+  moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
   applySelection: routed((ops: EditOp[], label: string, tiles: number[]) => sendUpdate(ed.applySelection(ops, label, tiles)), (...a) => collabEditApi.applySelection(...a).then(sendUpdate)),

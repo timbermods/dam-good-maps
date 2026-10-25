@@ -3,6 +3,7 @@
 import { FirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
 import type { EditorProps } from "../Editor";
 import { TopBar } from "../TopBar";
+import { tip } from "../../ui/Tooltip";
 import { sizeMax } from "../brushes";
 import type { Ed } from "../ed";
 
@@ -21,7 +22,11 @@ export function topBar(ed: Ed, props: EditorProps) {
           <div class={`editor-message ${message.kind}`} role={message.kind === "error" ? "alert" : "status"}>
             {message.text}
             {message.action ? (
-              <button type="button" class="linkish" title={message.action.title} onClick={message.action.run}>
+              <button type="button" class="linkish note-action" {...(message.action.step !== undefined ? tip(message.action.tip, "Ctrl+Z") : tip(message.action.tip))} onClick={() => {
+                const run = message.action!.run;
+                setMessage(null);
+                run();
+              }}>
                 {message.action.label}
               </button>
             ) : null}

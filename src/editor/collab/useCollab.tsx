@@ -83,7 +83,7 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
         e.setMessage({
           kind: n.kind,
           text: n.text,
-          ...(see ? { action: { label: "See it", title: "Show where the water changed", run: () => e.showTile(see.x, see.y) } } : {}),
+          ...(see ? { action: { label: "See it", tip: "Show where the water changed", run: () => e.showTile(see.x, see.y) } } : {}),
         });
       },
     });

@@ -23,7 +23,8 @@ export interface ChecksState {
   instant: CheckItem[];
   busy: boolean;
   progress: CheckProgress | null;
-  flowing: number | null;
+  /** The water is playing into place after an edit. */
+  flowing: boolean;
   /** An opened file's import flags, each with its fix: counted with the problems (Kyler, 2026-10-03). */
   flags?: readonly ImportFlag[];
   /** The player removed the map's last badwater spring (D213): "No badwater" under Good to know, not counted. */
@@ -38,7 +39,7 @@ export function dotOf(c: ChecksState): { tone: "wait" | "ok" | "warn"; words: st
   if (c.busy) return { tone: "wait", words: c.progress?.stage === "water" ? "Settling…" : "Checking the map", count };
   if (c.instant.length || flags) return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };
   // (the water playing into place after an edit, or settled for the checks: one status, Kyler, 2026-10-04)
-  if (c.flowing !== null || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
+  if (c.flowing || ((!c.check || c.busy) && c.progress?.stage === "water")) return { tone: "wait", words: "Settling…", count };
   if (!c.check || c.busy) return { tone: "wait", words: "Checking the map", count };
   if (!count) return { tone: "ok", words: "Ready to play", count };
   return { tone: "warn", words: count === 1 ? "1 thing to look at" : `${count} things to look at`, count };

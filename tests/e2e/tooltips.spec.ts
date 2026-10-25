@@ -12,7 +12,7 @@
 // control whose name gives a key its tooltip does not end with.
 
 import { expect, test, type Page } from "@playwright/test";
-import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps } from "./open";
+import { closeFileMenu, openDrawer, openEditor, openFileMenu, openSection, openYourMaps, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -91,7 +91,7 @@ async function open(page: Page) {
   // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
   // uneven ground the mine site needs levelled, and "the water is in the way")
   await openEditor(page, "s=6&z=96&d=n&t=riverValley");
-  await page.getByRole("button", { name: "Top-down" }).click();
+  await topDown(page);
   await page.waitForTimeout(500);
 }
 
