@@ -84,15 +84,17 @@ place of its bottom rule.
   (**Start search**; **Stop** while it runs, which ends it after the map in hand; **Search more** once it has ended on
   the same settings, which goes on from the next variation and keeps the best three of both), a line saying how many
   maps are made and the time left, a hairline filling with the time gone, and three cards in fixed places, best first:
-  each map's top-down picture (Your maps' thumbnail), its name, how many of the arc's six beats it has ("4 of 6
-  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its two strongest beats, and
+  each map's picture in a 16:9 place (200×112: the top-down thumbnail, Your maps', until the search has ended, then the
+  map's hero picture, `render3d/hero.ts` `heroPictureUrl` at 400×225, drawn one at a time, the thumbnail kept where it
+  can't be drawn), its name, how many of the arc's six beats it has ("4 of 6
+  beats"), each beat met (a tick) or not (a ring) by its label, the core's words for its strongest beat (two lines), and
   **Open**, which works once the search has ended and opens the pick through the normal open path (the camera moves
   only as any opened map's does, D265). The card of the map on show has the mint edge and its Open greyed. The search
   uses the settings and the seed in the box (an opened file rolls a seed, as Generate does) and runs in its own worker
   (`createShowcase`), so the editor never slows and the search goes on with the sheet or the panel closed; if it ends
   out of view, a note says so with **Show them**. A worker that fails (its file gone after a deploy, a crash) is
-  dropped: one line says "The search stopped: its worker ended. Start search tries again.", and the next search starts a
-  fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
+  dropped: one line says why (a worker that never ran, its file gone after a deploy: "The search stopped: its worker
+  could not run. Reload the page to search again."), and the next search starts a fresh one; after a search that stopped on an error only the cards that can still open stay. A map on land a card
   already shows never takes a second card. The focus stays in the sheet through Stop and Open (the greyed buttons are
   `aria-disabled`), so Esc still closes it. The code: `src/editor/generator/Showcase.tsx`, `showcaseModel.ts`,
   `src/ui/useShowcase.ts`.

@@ -2608,12 +2608,15 @@
   gap: 8px;
 }
 
+/* (the picture's place is 16:9, the hero picture's own shape: the top-down thumbnail stands in it, contained, until
+   the hero picture is drawn) */
 .sc-card {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: center;
   column-gap: 10px;
-  height: 134px;
-  padding: 10px;
+  height: 138px;
+  padding: 9px 10px;
   box-sizing: border-box;
   border: 1px solid var(--rule);
   border-radius: 8px;
@@ -2638,7 +2641,7 @@
 
 .sc-pic {
   display: block;
-  width: 112px;
+  width: 200px;
   height: 112px;
   object-fit: contain;
   border-radius: 4px;
@@ -2681,12 +2684,16 @@
   font-size: 13px;
 }
 
+.sc-pic.hero {
+  object-fit: cover;
+}
+
 .sc-beats {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px 8px;
 }
 
