@@ -664,7 +664,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   walls' stone ground pale, drifts out of the opening from the rock that went in each stage, more where more went,
   settling and fading; a few small stones a stage drop from where the rock went, bounce once on the ground below the
   opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
-  seconds after its land is final, the same in Standard and High, off with reduced motion and in software.
+  seconds after its land is final, the same in Standard and High, off with reduced motion and in software. What it
+  wore glows red on the faces it opened, fading a second after its last frame, as the Block tool's edits do.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -698,7 +699,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
   land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
-  renderer's, to come.
+  renderer's, to come. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
+  opened, outlined, white for blocks added, red for the hollow a removal left, fading in about a second (still, then
+  gone, with reduced motion).
 
 ### The brushes and precision tools
 
@@ -820,7 +823,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cave, a tunnel, an overhang) every editing cursor (a brush's disc, a force's or the shelf's ring, the Block tool's
   blocks, Select's ring on the roof) also shows the hollow under it, within its reach: the air's footprint laid on
   the roof's top in the Caves layer's violet, stronger the thinner the roof (one block: as low as a brush can take
-  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves.
+  it), outlined where the hollow ends (D488; `render3d/hollow.ts`). Nothing is drawn on a map without caves. Every
+  edit that changes terrain above terrain (a Block dig or overhang, an Erode cave, a stroke or a Select action on a
+  roof's top, their undo) glows a moment on the faces it opened, white where blocks were added, red in the hollow
+  left (`render3d/editGlow.ts`); on plain ground only the Block tool's and Erode's do, since a brush's land shows as
+  it is painted and the other forces have their moments.
   **Ctrl+click** on the land only takes that level as the Level number (D361, item 7).
   **The row** (D323, item 6): the marking modes are icons; **Whole map**; **Raise** and **Lower** move the
   selection one level per click (Up and Down arrow keys too); a **Level** number (to the map's ceiling) starts at
