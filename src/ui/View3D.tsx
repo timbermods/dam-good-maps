@@ -314,9 +314,10 @@ export function View3D(props: View3DProps) {
 
   /** The maps this view has shown (a kept view applies to its first only). */
   const mapsShown = useRef(0);
+  // the Top-down toggle changes only the tilt: the spot looked at and the zoom stay (D492)
   const pick = (m: ViewMode) => {
     setMode(m);
-    renderer.current?.setMode(m);
+    renderer.current?.switchMode(m);
   };
 
   // a tool or layer that needs the markers turns them on; when it is done, the viewer's own choice

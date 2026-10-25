@@ -65,7 +65,7 @@ import { FALL_STRIDE, fallTemplate } from "./falls";
 import { CaveLight } from "./caveLight";
 import { caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fallMaterial, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { RunSoil, runSoilOn } from "./runSoil";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, zoomLimits, zoomTargetToward } from "./framing";
+import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomTargetToward } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { columnMap, DEAD, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
@@ -290,7 +290,7 @@ export class MapRenderer {
   readonly canvas: HTMLCanvasElement;
   private gl: WebGLRenderer;
   private scene = new Scene();
-  private persp = new PerspectiveCamera(40, 1, 0.5, 4000);
+  private persp = new PerspectiveCamera(PERSP_FOV_DEG, 1, 0.5, 4000);
   private ortho = new OrthographicCamera(-1, 1, 1, -1, 0.1, 4000);
   private raycaster = new Raycaster();
   private view: ViewState = { mode: "orbit", yaw: 0, pitch: 0.9, distance: 200, target: [0, 0, 0] };
@@ -2739,9 +2739,20 @@ export class MapRenderer {
 
   setMode(mode: ViewMode): void {
     this.setView({ mode });
-    // (a view switched to frames the whole map, centred: D345, B1)
+    // (a map opened in a mode is framed whole, centred: D345, B1; the Top-down toggle keeps the view instead: switchMode, D492)
     this.frameMap();
     this.requestRender();
+  }
+
+  /** Switch between the angled and the top-down view keeping the point at the centre and the zoom (D492: the toggle is
+   *  the player's own move, so the map doesn't jump). Only the tilt changes; the turn is kept (the top-down view draws
+   *  north up and gives the turn back). At once, as a mode always switches. */
+  switchMode(mode: ViewMode): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    const m = this.map;
+    const next = viewAfterModeSwitch(this.view, mode, m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 });
+    if (next === this.view) return;
+    this.setView(next);
   }
 
   private glideFrameTo = 0;
@@ -2793,7 +2804,7 @@ export class MapRenderer {
   private insets: FrameInsets = { top: 0, left: 0, bottom: 0, right: 0 };
 
   /** The page's controls over the canvas's edges (CSS pixels, each 0 or more; the ones left out keep
-   *  theirs): the next framing (Reset view, a view switched, a new map) fits the map in what is left.
+   *  theirs): the next framing (Reset view, a new map, a map opened in a mode) fits the map in what is left.
    *  The camera never moves for it by itself (D265: a panel opening or closing leaves the view as it
    *  is). A reason when refused, nothing changed; else null. */
   setFrameInsets(i: Partial<FrameInsets>): string | null {
@@ -2887,7 +2898,7 @@ export class MapRenderer {
     const h = this.canvas.clientHeight || 1;
     const aspect = w / h;
     if (v.mode === "top") {
-      const half = v.distance * 0.42;
+      const half = v.distance * ORTHO_HALF_PER_DISTANCE;
       this.ortho.left = -half * aspect;
       this.ortho.right = half * aspect;
       this.ortho.top = half;

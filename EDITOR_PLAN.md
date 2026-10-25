@@ -276,7 +276,7 @@ build"); `tests/e2e/layout.spec.ts` holds them at 1920×1080 and 2560×1440, the
   whole map, centred in the map area** (D345, B1), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
   picked object's window reach into the view
-  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a view switched
+  (`setFrameInsets`, `src/editor/view/insets.ts`, kept up to date as they change), and Reset view, a map opened in a mode
   and a new map frame within what is left; setting them, or the panel opening or closing, never moves the camera
   by itself (D265). A map at least three times longer than wide opens turned along the view, so it fills the width
   (Reset view returns to that turn); a map under 64 a side is framed with its objects, the start building included
