@@ -3020,6 +3020,7 @@
   padding-left: 6px;
   border-left: 1px solid rgba(255, 255, 255, 0.55);
   font-weight: 600;
+}
 
 /* a reserve's good: a button that opens a menu in the page's own look, under it over the list, its height kept to the window */
 .good-picker {
