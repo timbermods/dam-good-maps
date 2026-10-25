@@ -97,6 +97,7 @@ import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
 import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPolicy, type StartPick } from "./settler";
+import { failurePhrase } from "./failWords";
 
 export type { IntentionResult };
 
@@ -145,6 +146,16 @@ export const FREE_DRAWS = 16;
 const REPLANS = 2;
 /** Settles one genome may cost before a new genome is drawn (the time budget, design §13). */
 const SETTLE_BUDGET = 5;
+/** The shown land's bounds above SHOW_PROVED_MOST (#236, the 256² audit: a Highlands 256² at badwater
+ *  distance 60 spent 24 attempts, about four minutes, on a land shown at the land stage whose start
+ *  never stood that far from its badwater, before the rescue round's fresh land made the map in 3).
+ *  There a land is shown before its start is proved, so three attempts in a row on it that fail for
+ *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next draws fresh
+ *  land, easing (D471's one exception to D348). At 128² and under the shown land was proved, and it
+ *  keeps its attempts (bounding it there replaced lands that passed two attempts later). A caller
+ *  that caps the attempts keeps the old way. */
+const SHOWN_SAME = 3;
+const LAND_SETTLES = 10;
 /** The first Normal drought's days for the drought-aware start (investigation/cycles: 2 in the
  *  game's schedule, after a day of ramp-down). */
 export const FIRST_DROUGHT_DAYS = 3;
@@ -240,10 +251,21 @@ export interface GenerateResult {
   timings: { firstLook: number; firstWater: number; final: number; failed?: number[] };
 }
 
+/** A generation's progress: the attempt (counted from 0 in each round) and its stage (land, water,
+ *  start, objects, resources, check); `tried`, the attempts that failed before it, every round's; and
+ *  `failed`, why the last of them failed, a short plain phrase ("the start's water moved",
+ *  `failWords.ts`), absent before any failed. */
+export interface GenProgressStage {
+  attempt: number;
+  stage: string;
+  tried?: number;
+  failed?: string;
+}
+
 export interface GenerateOptions {
   maxAttempts?: number;
-  /** Progress: the attempt and its stage (land, water, start, objects, resources, check). */
-  onProgress?: (p: { attempt: number; stage: string }) => void;
+  /** Progress: each stage of each attempt as it starts, with why the last attempt failed. */
+  onProgress?: (p: GenProgressStage) => void;
   /** The first look: prepared land and its planned water (channels 1, lakes 2, floors 3), once
    *  the actual settled start reaches its required mine pair. Fires once per map. */
   onLand?: (l: { attempt: number; heights: Uint8Array; water: Uint8Array }) => void;
@@ -256,8 +278,10 @@ export interface GenerateOptions {
   /** Variety (vy, 0–100; M9b makes it a setting): how far the genome strays from its theme's
    *  ranges. For the contact sheet only: a share link does not carry it. */
   variety?: number;
-  /** Each attempt as it ends, passed or failed (information, for the measures). */
-  onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult }) => void;
+  /** Each attempt as it ends, passed or failed (information, for the measures), and the land it was
+   *  on: one drawn that failed the land stage, one kept from the land stage but not yet shown, or
+   *  the shown land (D348). */
+  onAttempt?: (a: { attempt: number; passed: boolean; result: GenerateResult; land: "drawn" | "kept" | "shown"; failed: string[] }) => void;
   /** The land-stage screen on the planned water's outcomes (`landScreen`); false turns it off (for
    *  the measures). */
   screen?: boolean;
@@ -518,9 +542,14 @@ interface RoundRecord {
    *  round goes on with it, easing, before it draws fresh land (once). */
   carry?: { land: Land; committed: LandStage } | null;
   carried?: boolean;
+  /** Why the last failed attempt failed, in a player's words (`GenProgressStage.failed`). */
+  failed?: string;
 }
 
-function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round: number, record: RoundRecord): GenerateResult {
+function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, round: number, record: RoundRecord): GenerateResult {
+  // (each stage's progress says how many attempts failed before it, and why the last did)
+  const heard = optsIn.onProgress;
+  const opts: GenerateOptions = heard ? { ...optsIn, onProgress: (p) => heard({ ...p, tried: record.failures.length, ...(record.failed ? { failed: record.failed } : {}) }) } : optsIn;
   const W = specIn.size.x;
   const H = specIn.size.y;
   const seed = specIn.seed;
@@ -554,6 +583,12 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
   }
   // (shown-land attempts in a row whose start found no place: the same settled water each time)
   let noStart = 0;
+  // (attempts in a row on the shown land that failed for the same reason, and the land's settles
+  // when this round began on it: the shown land's bounds, above SHOW_PROVED_MOST)
+  let same = 0;
+  let sameAs = "";
+  let keptAt = land?.settles ?? 0;
+  const bounded = opts.maxAttempts === undefined && round < rescueRounds(W, H) && W * H > SHOW_PROVED_MOST;
   // (lands drawn again before one is shown because their planned water misses an outcome)
   const screened: { count: number; dry?: number } = { count: 0 };
   for (let attempt = 0; attempt < max; attempt++) {
@@ -569,15 +604,22 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
         record.carry = { land, committed };
         break;
       }
+      const why = failedIds(a.result)[0] ?? "";
+      same = why === sameAs ? same + 1 : 1;
+      sameAs = why;
       // Until the actual start reaches its mine pair, this land is still hidden.
       // Its exhausted starts or an unrepairable water plan may therefore draw another land.
-      // Once onLand fired, the original D348 retry rules apply unchanged.
+      // Once onLand fired, the original D348 retry rules apply, bounded above SHOW_PROVED_MOST.
       if (!committed.shown && (a.stuck || a.result.info.stage === "no start")) {
         committed = null;
         land = null;
         if (opts.maxAttempts === undefined && free < FREE_DRAWS) { free++; max++; }
         continue;
       }
+      // (a land shown before its start was proved failing the same way three times in a row, or its
+      // settles spent, ends the round as one whose attempts are spent does: the next draws fresh land,
+      // easing, D471's one exception to D348)
+      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) break;
       if (a.stuck) break;
       continue;
     }
@@ -615,8 +657,11 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
     const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
     if (a.stage) {
       committed = a.stage;
+      keptAt = land.settles;
     }
     noStart = committed?.shown && a.result.info.stage === "no start" ? 1 : 0;
+    same = 1;
+    sameAs = failedIds(a.result)[0] ?? "";
     const r = attemptDone(a, attempt);
     if (r) return r;
     if (a.stuck) break;
@@ -639,7 +684,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
     a.result.timings.failed = failedAt;
     a.result.info.lands = lands;
     last = a;
-    opts.onAttempt?.({ attempt, passed: a.passed, result: a.result });
+    const failed = a.passed ? [] : failedIds(a.result);
+    opts.onAttempt?.({ attempt, passed: a.passed, result: a.result, land: !committed ? "drawn" : committed.shown ? "shown" : "kept", failed });
     if (a.passed) {
       const o = outcomesOf(a.result);
       a.result.outcomes = o;
@@ -661,7 +707,8 @@ function attemptRound(specIn: MapSpec, opts: GenerateOptions, t0: number, round:
       opts.onCandidate?.({ attempt, candidate: 1, of: 1, result: a.result, outcomes: o });
       return a.result;
     }
-    failures.push({ attempt: record.before + attempt, failed: failedIds(a.result) });
+    failures.push({ attempt: record.before + attempt, failed });
+    record.failed = failurePhrase(failed);
     failedAt.push(Math.round(performance.now() - t0));
     // (the next attempt on a shown land keeps off the start that failed, TRIED_RADIUS round it)
     // (only on a shown land: a land drawn again before it was shown builds nothing for its record)
