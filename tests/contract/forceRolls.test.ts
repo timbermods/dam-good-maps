@@ -6,7 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
+import { clearedLabel } from "../../src/core/doc/labels";
 import { MapSession } from "../../src/core/doc/session";
+import type { ForceResultParams } from "../../src/core/forces/op";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { MAX_ROLLS } from "../../src/core/forces/rolls";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -31,6 +33,12 @@ function shot() {
 }
 /** Its ground and objects (undo leaves the next operation's number moved on, as after any step). */
 const land = (s = shot()) => ({ heights: s.heights, objects: s.objects });
+/** The History's label for the roll shown: the force's words, the sources its Sources: Clear took
+ *  (the saved step's own list, D474), and which roll. */
+function rollLabel(k: number): string {
+  const op = [...MapSession.open(decodeProject(ed.project().bytes)).logOps].reverse().find((o) => o.op === "forceResult") as unknown as { params: ForceResultParams };
+  return `${clearedLabel("Rift", op.params.cleared?.length ?? 0)}, roll ${k}`;
+}
 
 describe("a force's rolls (D488)", () => {
   it("Rift, three rolls: each shown is byte-identical to its own result; one history step; undo, redo and save-and-reopen keep exactly the roll shown; at most eight are kept", async () => {
@@ -54,7 +62,7 @@ describe("a force's rolls (D488)", () => {
     expect(rolls[0].heights).not.toEqual(before.heights);
     // (one step of the history, the roll shown)
     expect(applied().length).toBe(n0 + 1);
-    expect(applied().at(-1)!.label).toBe("Rift, roll 3");
+    expect(applied().at(-1)!.label).toBe(rollLabel(3));
     expect(ed.sessionInfo().forceRolls).toEqual({ shown: 3, count: 3 });
 
     // switching: each roll shown exactly as it was kept, the next, the one before and round
@@ -66,7 +74,7 @@ describe("a force's rolls (D488)", () => {
       expect(shot()).toEqual(rolls[k]);
       expect(ed.sessionInfo().forceRolls).toEqual({ shown: k + 1, count: 3 });
       expect(applied().length).toBe(n0 + 1);
-      expect(applied().at(-1)!.label).toBe(`Rift, roll ${k + 1}`);
+      expect(applied().at(-1)!.label).toBe(rollLabel(k + 1));
     }
 
     // undo takes the force's step back whole; redo brings back the roll shown (roll 2)

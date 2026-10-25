@@ -98,6 +98,12 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   // it ends at the map's water: what the worker has, what the export gets
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await endsAtMapWater(page);
+  // (and the canonical settle in place of the preview's: the journey ends on the preview's water, which the background
+  // check's canonical settle replaces a moment later, its soil a few tiles different here (854 contaminated tiles
+  // against 851). The hazards' Day 0 is the canonical map, so what is counted below is read from it, once its water
+  // and soil are on screen: the worker's word that the canonical water is in place eases into it like any settled water.)
+  await expect.poll(() => page.evaluate(() => !window.dgmEditor!.info().waterPending && window.dgmEditor!.waterSettled()), { timeout: 120_000 }).toBe(true);
+  await endsAtMapWater(page);
 
   const settled = await wet(page);
 

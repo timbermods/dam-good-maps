@@ -4,6 +4,7 @@
 
 import { entityTiles } from "../features/edits";
 import { placementOf } from "../format/entities";
+import { clearedLabel } from "./labels";
 import type { EditOp } from "./ops";
 import type { MapSession } from "./session";
 
@@ -32,5 +33,5 @@ export function planStrokeClearing(s: MapSession, op: EditOp, label: string, til
   if (refused) return { ok: false, errors: [refused] };
   const ops: EditOp[] = [op];
   if (ids.length) ops.push({ op: "deleteEntities", params: { entities: ids } });
-  return { ok: true, ops, label: ids.length ? `${label}, ${ids.length === 1 ? "a source" : `${ids.length} sources`} cleared` : label, cleared: ids.length };
+  return { ok: true, ops, label: clearedLabel(label, ids.length), cleared: ids.length };
 }
