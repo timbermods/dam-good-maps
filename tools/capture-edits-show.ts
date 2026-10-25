@@ -48,7 +48,7 @@ async function shoot(page: Page, name: string, label: string, shots: Shot[]): Pr
   const file = join(SHOTS, `${name}.png`);
   // (the middle of the view, where the edit is: the sheet stays small)
   const v = page.viewportSize()!;
-  await page.screenshot({ path: file, clip: { x: Math.round(v.width * 0.25), y: Math.round(v.height * 0.2), width: Math.round(v.width * 0.5), height: Math.round(v.height * 0.56) } });
+  await page.screenshot({ path: file, clip: { x: Math.round(v.width * 0.25), y: Math.round(v.height * 0.2), width: Math.round(v.width * 0.5), height: Math.round(v.height * 0.5) } });
   shots.push({ file, label });
 }
 
@@ -58,12 +58,40 @@ async function sequence(page: Page, name: string, label: string, shots: Shot[], 
   await page.waitForTimeout(300);
   await shoot(page, `${name}-0`, `${label}: before`, shots);
   await edit();
-  await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as { editGlowDrawn: Glow }).editGlowDrawn.fade > 0, null, { timeout: 120_000, polling: 40 });
+  // (the glow held at its full strength as soon as it shows, for the shot, which can take longer than the glow on a
+  // slow frame; then let go)
+  type Held = { editGlowDrawn: Glow; editGlow: { frame: number; last: number; tick: FrameRequestCallback; mat: { uniforms: { fade: { value: number } } } } | null };
+  await page.evaluate(
+    () =>
+      new Promise<void>((done, fail) => {
+        const r = window.dgm3d!.renderer as unknown as Held;
+        const t0 = performance.now();
+        const id = setInterval(() => {
+          const g = r.editGlow;
+          if (g && r.editGlowDrawn.fade > 0) {
+            clearInterval(id);
+            cancelAnimationFrame(g.frame);
+            g.mat.uniforms.fade.value = 1;
+            window.dgm3d!.renderer.requestRender();
+            done();
+          } else if (performance.now() - t0 > 120_000) {
+            clearInterval(id);
+            fail(new Error("no glow"));
+          }
+        }, 4);
+      }),
+  );
+  await page.waitForTimeout(150);
   const g = await glow(page);
-  await shoot(page, `${name}-1`, `${label}: just after (${g.added} faces added, ${g.removed} opened, at ${g.fade.toFixed(2)})`, shots);
+  await shoot(page, `${name}-1`, `just after: ${g.added} white, ${g.removed} red faces`, shots);
+  await page.evaluate(() => {
+    const g = (window.dgm3d!.renderer as unknown as Held).editGlow!;
+    g.last = -1;
+    g.frame = requestAnimationFrame(g.tick);
+  });
   await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as { editGlowDrawn: Glow }).editGlowDrawn.fade === 0, null, { timeout: 10_000, polling: 40 });
   await page.waitForTimeout(200);
-  await shoot(page, `${name}-2`, `${label}: a second later`, shots);
+  await shoot(page, `${name}-2`, `a second later`, shots);
 }
 
 const edit = (page: Page, params: unknown, label: string) =>
@@ -76,14 +104,12 @@ const edit = (page: Page, params: unknown, label: string) =>
   );
 
 async function openGenerated(page: Page, fragment: string): Promise<void> {
-  await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#${fragment}`);
   await waitForEditor(page, 180_000);
   await page.waitForTimeout(2500);
 }
 
 async function openImport(page: Page, path: string): Promise<void> {
-  await page.goto("about:blank");
   await page.goto(`http://localhost:${PORT}/#s=1&z=96&d=n&t=riverValley`);
   await waitForEditor(page, 180_000);
   await page.getByLabel("Open a map or a project").setInputFiles(path);
@@ -226,13 +252,13 @@ async function caveWall(page: Page): Promise<{ x: number; y: number; z: number; 
     if (!ms) return null;
     const mk = (i: number) => (ms[i] ? ms[i] : (1 << m.heights[i]) - 1);
     let best: { x: number; y: number; z: number; top: number; score: number } | null = null;
-    for (let y = 8; y < m.H - 8; y++)
-      for (let x = 8; x < m.W - 8; x++) {
+    for (let y = 16; y < m.H - 16; y++)
+      for (let x = 16; x < m.W - 16; x++) {
         const i = y * m.W + x;
         if (!ms[i]) continue;
         const a = mk(i);
         const e = mk(i + 1);
-        for (let z = 1; z < 18; z++) {
+        for (let z = 2; z < 18; z++) {
           // air here and above, a floor under it, rock east of it at this level and the next
           if ((a >> z) & 1 || (a >> (z + 1)) & 1 || !((a >> (z - 1)) & 1) || !((e >> z) & 1) || !((e >> (z + 1)) & 1)) continue;
           let room = 0;
@@ -295,18 +321,18 @@ async function hollows(page: Page, look: string, size: string, shots: Shot[]): P
 async function sheet(page: Page, shots: Shot[]): Promise<void> {
   const cells = shots.map((s) => `<figure><img src="file:///${resolve(s.file).replace(/\\/g, "/")}"><figcaption>${s.label}</figcaption></figure>`).join("");
   const html = `<!doctype html><meta charset="utf-8"><style>
-    body { margin: 0; padding: 12px; background: #1b1d22; color: #e8e6e1; font: 13px system-ui, sans-serif; width: 1776px; }
-    h1 { font-size: 16px; margin: 0 0 10px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    body { margin: 0; padding: 10px; background: #1b1d22; color: #e8e6e1; font: 11px system-ui, sans-serif; width: 1780px; }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
     figure { margin: 0; } img { width: 100%; display: block; border-radius: 4px; }
     figcaption { padding: 4px 2px 0; color: #c9c6bf; }
-  </style><h1>What an edit just changed in 3D (D488): before, just after, a second later; real Chrome</h1><div class="grid">${cells}</div>`;
+  </style><h1>What an edit just changed in 3D (D488): before, just after (held at full for the shot), a second later; real Chrome</h1><div class="grid">${cells}</div>`;
   const htmlFile = resolve(SHOTS, "sheet.html");
   writeFileSync(htmlFile, html);
   await page.setViewportSize({ width: 1800, height: 1000 });
   await page.goto(`file:///${htmlFile.replace(/\\/g, "/")}`);
   await page.waitForTimeout(500);
-  await page.screenshot({ path: OUT, type: "jpeg", quality: 62, fullPage: true });
+  await page.screenshot({ path: OUT, type: "jpeg", quality: 58, fullPage: true });
   console.log(`wrote ${OUT}`);
 }
 

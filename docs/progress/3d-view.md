@@ -654,11 +654,11 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   fade); `tests/e2e/editGlow.spec.ts` (a plain edit draws nothing; a dig into a wall glows on the hollow's 5 faces and is
   gone after it fades; its undo glows the block put back; with reduced motion it holds still, then goes).
 - **Captures:** `docs/sheets/3d-edits-show.jpg` (`tools/capture-edits-show.ts`, real Chrome on the RTX 2070 SUPER):
-  before, just after and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
+  before, just after (the glow held at full for the shot) and a second later; a Block dig into a cliff, an overhang built out of it, a Block tool click on
   the plain ground at its foot and an Erode click on its face (Highlands 128 seed 12); a dig into a cave's wall under a
   layer cut and a Lower dab on a roof (Hollows); Standard and High, 1920×1080 dark and 1280×800 light.
 - **Falls short:** a change seen only from inside (a hollow behind its mouth, the far side of a roof) glows where the
-  camera cannot see it. A Select action on plain ground with the Block tool put away a moment before glows too (the
+  camera cannot see it, and the red reads weaker beside badwater (Hollows' cave lake). A Select action on plain ground with the Block tool put away a moment before glows too (the
   same rule). The first hollow dug on a plain map holds the page for seconds in a cold browser (the cave light and
   shaders, before this change); the glow waits for it.
 
