@@ -8,12 +8,17 @@
 //
 // --badwater (D200) also shows badwater: water carrying it in rust red, and each BadwaterSource as a
 // yellow square 7 tiles wide with a dark rim.
+// --opening (D493) also shows the game's opening shot: the frame's upper half within 60 tiles of the
+// start tinted (where a landmark stands in view, analysis/opening.ts), the camera's look a yellow line
+// from the start, and the landmark in view a cyan square.
 //   python tools/contact-sheet.py .scratch/sheet docs/sheets/<step>.png "<title>"
 //
 // M9a's `npm run sheet` replaces both (ROADMAP M9a).
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { frameAt, landmarkInView, openingCamera, prepareOpening, VISTA_ZOOM } from "../src/core/analysis/opening";
+import { fallsOf } from "../src/core/analysis/vertical";
 import { generate } from "../src/core/gen/generate";
 import { shadeTiles } from "../src/core/render/shade";
 import { AVAILABLE_THEMES, GENERATOR_VERSION, makeSpec } from "../src/core/spec/mapspec";
@@ -28,9 +33,10 @@ const [a, b] = arg("seeds", "1-30").split("-").map(Number);
 const size = Number(arg("size", "128"));
 const out = arg("out", ".scratch/sheet");
 const showBadwater = process.argv.includes("--badwater");
+const showOpening = process.argv.includes("--opening");
 const only = arg("themes", "").split(",").filter(Boolean);
 mkdirSync(out, { recursive: true });
-const index: { theme: string; seed: number; file: string; attempts: number; passed: boolean }[] = [];
+const index: { theme: string; seed: number; file: string; attempts: number; passed: boolean; landmarkInView?: boolean }[] = [];
 for (const theme of AVAILABLE_THEMES.filter((t) => only.length === 0 || only.includes(t))) {
   for (let seed = a; seed <= (b ?? a); seed++) {
     const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
@@ -63,6 +69,33 @@ for (const theme of AVAILABLE_THEMES.filter((t) => only.length === 0 || only.inc
       }
       for (const e of r.built.entities) if (e.template === "BadwaterSource") square(e.x + 1, e.y + 1, 3, [255, 214, 0], [40, 30, 20]);
     }
+    let inView: boolean | undefined;
+    const s0 = r.built.start;
+    const se = r.built.entities.find((e) => e.template === "StartingLocation");
+    if (showOpening && s0 && se) {
+      const st = { x: s0.x, y: s0.y, z: s0.z, orientation: se.orientation };
+      const cam = openingCamera(st, VISTA_ZOOM);
+      const h = r.built.heights;
+      for (let i = 0; i < W * H; i++) {
+        const x = i % W;
+        const y = (i - x) / W;
+        if ((x - st.x) * (x - st.x) + (y - st.y) * (y - st.y) > 3600) continue;
+        const p = frameAt(cam, x + 0.5, y + 0.5, h[i]);
+        if (!p || p.v < 0 || p.v > 1 || p.u < -1 || p.u > 1) continue;
+        const k = ((H - 1 - y) * W + x) * 3;
+        img[k] = Math.round(0.7 * img[k] + 0.3 * 255);
+        img[k + 1] = Math.round(0.7 * img[k + 1] + 0.3 * 235);
+        img[k + 2] = Math.round(0.7 * img[k + 2] + 0.3 * 150);
+      }
+      for (let t = 5; t <= 24; t++) {
+        const x = Math.round(st.x + 0.5 + cam.look[0] * t);
+        const y = Math.round(st.y + 0.5 + cam.look[1] * t);
+        if (x >= 0 && y >= 0 && x < W && y < H) img.set([255, 220, 0], ((H - 1 - y) * W + x) * 3);
+      }
+      const lm = landmarkInView(prepareOpening(h, W, H, r.built.water, fallsOf(h, r.built.water, W, H, 1.5)), st, cam);
+      inView = !!lm;
+      if (lm) square(lm.tile % W, Math.floor(lm.tile / W), 3, [0, 200, 230], [10, 30, 60]);
+    }
     // the start: a red square 7 tiles wide with a white rim, so it shows at the sheet's scale
     const s = r.built.start;
     if (s)
@@ -79,7 +112,7 @@ for (const theme of AVAILABLE_THEMES.filter((t) => only.length === 0 || only.inc
         }
     const file = `${theme}-${seed}.png`;
     writeFileSync(join(out, file), encodePng(img, W, H));
-    index.push({ theme, seed, file, attempts: r.attempts, passed: r.report.passed });
+    index.push({ theme, seed, file, attempts: r.attempts, passed: r.report.passed, ...(inView === undefined ? {} : { landmarkInView: inView }) });
   }
   console.log(`${theme}: ${index.filter((m) => m.theme === theme).length} maps`);
 }

@@ -3,8 +3,8 @@
 // settled water, each validated as the product validates a map (a generation, the editor's export, an import,
 // load only) and with the edits that reach the checks' rarer branches (an edge wall and its fix, no start, two
 // starts, Sources: None, No badwater, Easy and Hard, water a steady state cannot show, objects the game would
-// delete, planned lakes, a badwater basin and the extras' bands). tools/rust/check.ts runs them natively
-// (checks-batch), in Node's WebAssembly and in each engine, and checks every result against
+// delete, planned lakes, a badwater basin and the extras' bands, plants on a cave's run tops). tools/rust/check.ts
+// runs them natively (checks-batch), in Node's WebAssembly and in each engine, and checks every result against
 // tools/rust/checks-pins.json: the sha256s pinned when the TypeScript checks (tag `ts-checks-final`) gave the
 // same reports and analysis, so a change to a check shows here.
 //
@@ -13,11 +13,14 @@
 
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { blockObject, entityJson, fluidObject, slope, waterSource, type EntitySpec } from "../../src/core/format/entities";
+import { blockObject, bush, entityJson, fluidObject, slope, waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { mapMetadata, type TimberFile } from "../../src/core/format/timber";
 import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
 import type { Feature } from "../../src/core/features/schema";
 import { mapObjects, waterModel } from "../../src/core/sim/model";
+import { waterColumns } from "../../src/core/sim/columns";
+import { seenThroughRoofs, storedStack, worldWaterModel } from "../../src/core/sim/stackWater";
+import { ColumnTerrain } from "../../src/core/terrain/runs";
 import type { CanonicalWater } from "../../src/core/sim/prefill";
 import type { MapSpec } from "../../src/core/spec/mapspec";
 import type { ValidateOptions } from "../../src/core/validate/checks";
@@ -201,6 +204,33 @@ export function checksCases(): ChecksCase[] {
     ];
     add("lakes, a basin and the extras", g, (f) => ({ profile: "generate", spec: spec("normal"), features, water: waterOf(g, f) }));
     add("lakes, a basin and the extras: the editor's export", g, (f) => ({ profile: "export", external: false, editing: true, mineCutAtOpen: new Set([46 * 48 + 46]), spec: spec("normal"), features, water: waterOf(g, f) }));
+  }
+  // a cave by the start, its floor a pool and a step two levels up under a roof two thick, the water on its stacked
+  // columns: the bushes on the step and on the roof's top are judged by the run top each stands on (D491), for
+  // plants.survive and the start's food alike
+  {
+    const g = ground("plain", 48);
+    const N = 48 * 48;
+    const pool = { x0: 16, x1: 18 };
+    const step = { x0: 19, x1: 21 };
+    const [y0, y1] = [9, 14];
+    const at = (x: number, y: number, z: number) => ({ owner: "fixture", x, y, z });
+    let k = 20;
+    for (let y = y0 + 1; y < y1; y++) for (let x = step.x0; x <= step.x1; x++) g.entities.push(bush({ id: id(k++), ...at(x, y, 5), ripe: true }));
+    for (let x = pool.x0; x <= step.x1; x += 2) g.entities.push(bush({ id: id(k++), ...at(x, y0, 9), ripe: true }));
+    const file = fileOf(g);
+    const v = file.world.voxels;
+    for (let y = y0; y <= y1; y++)
+      for (let x = pool.x0; x <= step.x1; x++) for (let z = x >= step.x0 ? 5 : 3; z < 7; z++) v[z * N + y * 48 + x] = 0;
+    const model = worldWaterModel(file.world);
+    const terrain = ColumnTerrain.fromVoxels(v, 48, 48, LAYERS);
+    const cols = waterColumns(terrain, mapObjects(file.world));
+    const tile: number[] = [];
+    for (let y = y0; y <= y1; y++) for (let x = pool.x0; x <= pool.x1; x++) tile.push(y * 48 + x);
+    const stack = storedStack(cols, { tile, floor: tile.map(() => 3), depth: tile.map(() => 1.2), contamination: tile.map(() => 0) });
+    const seen = seenThroughRoofs(stack);
+    const settled = { settled: true, ticks: 3072, depth: seen.depth, contamination: seen.contamination, sat: new Uint8Array(N), stack } as CanonicalWater;
+    jobs.push({ name: "a cave by the start: plants on its run tops", file, opts: { profile: "generate", spec: spec("normal"), features: [], water: { model, settled } } });
   }
   return jobs;
 }

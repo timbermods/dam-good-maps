@@ -22,6 +22,9 @@
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
 
+import { fallInView, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { standingForms } from "../analysis/vertical";
+import type { Orientation } from "../format/footprints";
 import * as portable from "../math/portable";
 import type { Rng } from "../math/rng";
 import { SMALL_MAP, type ThemeId } from "../spec/mapspec";
@@ -59,12 +62,12 @@ export const ACTIVE: readonly IntentionId[] = INTENTIONS;
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
-export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich"]);
+export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich", "landmark"]);
 
 /** The outcome in a player's words. */
 export const INTENTION_TEXT: Record<IntentionId, string> = {
   "under-cliff": "The start sits under a cliff, with water below.",
-  landmark: "A signature landmark stands out: a spire, a mesa, a peak or a tall waterfall.",
+  landmark: "A signature landmark stands in the colony's view: a spire, a mesa, a peak or a tall waterfall.",
   "farmland-past-gorge": "The best farmland lies past the gorge.",
   "falls-shield": "A waterfall shields the start: its cliff stands between the start and the nearest threat.",
   "hidden-valley": "A hidden valley up the cliffs, reached only by stairs, holds riches.",
@@ -186,7 +189,10 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       };
     case "landmark":
       return (g, rng, W, H) => {
-        if (rng.float() < 0.75) part(g, rng, (["cone", "mesa", "caldera", "escarpment"] as const)[rng.int(0, 4)], 1.3);
+        // (D488, D493: a form to stand 8–15 levels over its ring, on every landmark map; the draw
+        // keeps its number, so the rest of the genome keeps its draws)
+        void rng.float();
+        part(g, rng, (["cone", "mesa", "caldera", "escarpment"] as const)[rng.int(0, 4)], 1.5);
         g.cap.share = Math.min(0.75, g.cap.share + 0.1);
         // (a field of mesas now and then: the mesa-field recipe, folded in, D275)
         if (rng.float() < 0.2) {
@@ -371,6 +377,8 @@ export interface SettlerView {
   /** The land in blocks of `B`×`B` tiles (dry tiles, their farmland and summed height), for two
    *  ways to grow. */
   blocks: { B: number; bw: number; bh: number; n: Float32Array; farm: Float32Array; hs: Float32Array; lowBad: Float32Array };
+  /** The standing forms and falls the opening camera may show (D493), for the landmark in view. */
+  opening?: OpeningLand;
 }
 
 /** A straight line from (x, y) to (px, py) crosses a gorge tile. */
@@ -470,6 +478,18 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       }
       return 0;
     }
+    case "landmark": {
+      // a landmark the game's opening camera frames (D493): a standing form 8+ levels over its ring
+      // 25–60 tiles out, or a fall of 6+ levels within 60, for a turn whose door is level
+      if (!s.opening) return 0;
+      let best = 0;
+      for (const t of levelDoorTurns(h, W, H, x, y, L)) {
+        const st = { x, y, z: L, orientation: t.o };
+        const lm = landmarkInView(s.opening, st);
+        best = Math.max(best, lm ? lm.weight : fallInView(s.opening, st, 6) ? 0.7 : 0);
+      }
+      return best;
+    }
     case "farmland-past-gorge":
       return s.farms.some((f) => {
         const d = portable.sqrt((f.cx - x) * (f.cx - x) + (f.cy - y) * (f.cy - y));
@@ -492,7 +512,8 @@ export interface FinalCtx {
   D: ArrayLike<number>;
   C: ArrayLike<number>;
   moist: ArrayLike<number>;
-  start: { x: number; y: number; z: number };
+  /** The start's middle tile and level, and its orientation (the opening camera's turn, D493). */
+  start: { x: number; y: number; z: number; orientation?: Orientation };
   /** Walking distance from the start with the map's slopes (Infinity: not on foot). */
   walk: Float64Array;
   /** The same walk with every Blockage (debris) cleared, as a player would early. */
@@ -838,60 +859,20 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       return { ok, note: `${high} tiles 2+ levels above within 7, cliff ${cliff ? "yes" : "no"}, water ${Number.isFinite(water) ? Math.round(water) : "none"} tiles' walk`, ...(ok ? { say: `The start sits under a cliff, its water ${Math.round(water)} tiles' walk below.` } : {}) };
     }
     case "landmark": {
-      // a stack, butte, mesa or peak standing 5+ levels above the ground 6–8 tiles round it, on
-      // at most 600 tiles; or a waterfall of 5+ levels
-      let best = 0;
-      const ring: [number, number][] = [];
-      for (let k = 0; k < 16; k++) {
-        const a = [1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38, 0, 0.38, 0.71, 0.92][k];
-        const b = [0, 0.38, 0.71, 0.92, 1, 0.92, 0.71, 0.38, 0, -0.38, -0.71, -0.92, -1, -0.92, -0.71, -0.38][k];
-        ring.push([Math.round(7 * a), Math.round(7 * b)]);
-      }
-      const top = new Uint8Array(N);
-      for (let y = 7; y < H - 7; y++)
-        for (let x = 7; x < W - 7; x++) {
-          const i = y * W + x;
-          let lo = 99;
-          for (const [dx, dy] of ring) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-          const p = h[i] - lo;
-          if (p >= 5) top[i] = 1;
-          if (p > best) best = p;
-        }
-      // the standing forms: connected high tiles on at most 300 tiles; the landmark is the most
-      // prominent one, and it must stand 8+ levels over its ring (or a fall of 6+ levels)
-      let forms = 0;
-      let standout = 0;
-      const seen = new Uint8Array(N);
-      for (let s = 0; s < N; s++) {
-        if (!top[s] || seen[s]) continue;
-        const q = [s];
-        seen[s] = 1;
-        for (let k = 0; k < q.length; k++) {
-          const i = q[k];
-          const x = i % W;
-          const y = (i - x) / W;
-          for (const [dx, dy] of N4) {
-            const j = (y + dy) * W + x + dx;
-            if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || seen[j] || !top[j]) continue;
-            seen[j] = 1;
-            q.push(j);
-          }
-        }
-        if (q.length <= 300) {
-          forms++;
-          for (const i of q) {
-            const x = i % W;
-            const y = (i - x) / W;
-            let lo = 99;
-            for (const [dx, dy] of ring) lo = Math.min(lo, h[(y + dy) * W + x + dx]);
-            standout = Math.max(standout, h[i] - lo);
-          }
-        }
-      }
-      const fall = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
-      const ok = standout >= 8 || fall >= 6;
-      void best;
-      return { ok, note: `${forms} standing form${forms === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring), tallest fall ${Math.round(fall * 10) / 10}`, ...(ok ? { say: standout >= fall ? `A lone height stands ${levels(standout)} over the land round it.` : `A waterfall drops ${levels(fall)}.` } : {}) };
+      // in the colony's view (D488, D493): a stack, butte, mesa or peak standing 8+ levels over the
+      // ground 7 tiles round it (a standing form: 5+ levels over its ring, joined, on at most 300
+      // tiles), 25–60 tiles from the start, or a waterfall of 6+ levels within 60, inside the game's
+      // opening frame (analysis/opening.ts)
+      const forms = standingForms(h, W, H);
+      const land = prepareOpening(h, W, H, D, c.falls, forms);
+      const st = { x: sx, y: sy, z, orientation: start.orientation ?? "Cw0" };
+      const lm = landmarkInView(land, st);
+      const fall = lm ? null : fallInView(land, st, 6);
+      const standout = forms.reduce((m, f) => Math.max(m, f.prominence), 0);
+      const tallest = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
+      const ok = !!lm || !!fall;
+      const seen = lm ? `in view, ${lm.stand} levels over its ring ${lm.dist} tiles out` : fall ? `a fall of ${Math.round(fall.drop * 10) / 10} in view` : "none in view";
+      return { ok, note: `${forms.length} standing form${forms.length === 1 ? "" : "s"} of 300 tiles or fewer (the most prominent ${standout} levels over its ring, ${forms.filter((f) => f.prominence >= LANDMARK_LEAST).length} of ${LANDMARK_LEAST}+), tallest fall ${Math.round(tallest * 10) / 10}; ${seen}`, ...(ok ? { say: lm ? `A lone height stands ${levels(lm.stand)} over the land round it, in view of the start.` : `A waterfall drops ${levels(fall!.drop)} in view of the start.` } : {}) };
     }
     case "farmland-past-gorge": {
       // farmland: moist, dry, level land; the start's own within 20 tiles' walk, and the largest

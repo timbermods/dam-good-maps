@@ -18,10 +18,11 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.3 makes it (3D forms at the default Verticality, D488: this map looks for a spring cave and drops it, so its
- *  land and water are as 0.10.1 made them, only the version, D148); `6b7d4326…` before it, as generator
- *  0.10.1 made it (ruins placed with meaning, D488 (2): a ruined dam across the natural narrows and a drowned
- *  village where the land offers them, their scrap out of the map's budget, D148); `d0c32f0d…` before it, as
+ *  0.10.3 makes it (3D forms at the default Verticality, D488; D148); `efb789ad…` before it, as generator
+ *  0.10.2 made it (the opening shot, D493: the start turned so the game's first camera frames the best view, a
+ *  landmark first; D148); `6b7d4326…` before it, as generator 0.10.1 made it (ruins placed with meaning, D488 (2): a
+ *  ruined dam across the natural narrows and a drowned village where the land offers them, their scrap out of the
+ *  map's budget, D148); `d0c32f0d…` before it, as
  *  generator 0.10.0 made it (3D in generation, part 1, D488: this map looks for a spring cave and its land offers none, so its
  *  land and water are unchanged, only the version, D148); `68451be7…` before it, as generator 0.8.9 made it (the story
  *  keeps a main water that is mostly badwater, D480's extension: no map's land or water changed, only the version,
@@ -54,7 +55,7 @@ import * as ed from "../../src/worker/session";
  *  rules, #44, and `5118b6a6…` from M8 until then); `68451be7…` before the description was rewritten in a player's words
  *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
  *  map). */
-const LIVE_SHA = "6b7d432610572834d9ce223bdf0e93feb469ac6633cba398a3224620b32222c8";
+const LIVE_SHA = "efb789adc0b31a38a191e0b888d73e776044bcd7f7e33bd5b08c7c35250962be";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
